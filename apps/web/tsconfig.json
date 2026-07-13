@@ -1,0 +1,21 @@
+{
+  "extends": "@stinventory/config-tsconfig/next.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "components/**/*",
+    "lib/**/*",
+    "next-env.d.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

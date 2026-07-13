@@ -1,0 +1,36 @@
+{
+  "name": "@stinventory/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint",
+    "clean": "rm -rf .next .turbo"
+  },
+  "dependencies": {
+    "@stinventory/api-contracts": "workspace:*",
+    "@stinventory/types": "workspace:*",
+    "@tanstack/react-query": "^5.62.0",
+    "@trpc/client": "^11.0.0-rc.660",
+    "@trpc/react-query": "^11.0.0-rc.660",
+    "lucide-react": "^1.24.0",
+    "next": "^15.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "superjson": "^2.2.1"
+  },
+  "devDependencies": {
+    "@stinventory/config-eslint": "workspace:*",
+    "@stinventory/config-tsconfig": "workspace:*",
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "eslint": "^9.15.0",
+    "eslint-config-next": "^15.0.3",
+    "typescript": "^5.6.3"
+  }
+}

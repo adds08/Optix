@@ -1,0 +1,39 @@
+{
+  "name": "@stinventory/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@hono/trpc-server": "^0.3.4",
+    "@stinventory/api-contracts": "workspace:*",
+    "@stinventory/auth": "workspace:*",
+    "@stinventory/db": "workspace:*",
+    "@stinventory/env": "workspace:*",
+    "@stinventory/logger": "workspace:*",
+    "@stinventory/types": "workspace:*",
+    "@trpc/server": "^11.0.0-rc.660",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.36.4",
+    "hono": "^4.6.12",
+    "superjson": "^2.2.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@stinventory/config-eslint": "workspace:*",
+    "@stinventory/config-tsconfig": "workspace:*",
+    "@types/node": "^22.9.0",
+    "eslint": "^9.15.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

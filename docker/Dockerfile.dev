@@ -1,0 +1,22 @@
+# STInventory dev image — Node 22 + pnpm. Used by api + web services.
+FROM node:22-alpine
+
+RUN apk add --no-cache postgresql-client
+RUN corepack enable && corepack prepare pnpm@9.11.0 --activate
+
+WORKDIR /workspace
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json turbo.json .npmrc ./
+COPY packages/db/package.json packages/db/
+COPY packages/domain/package.json packages/domain/
+COPY packages/api-contracts/package.json packages/api-contracts/
+COPY packages/auth/package.json packages/auth/
+COPY packages/env/package.json packages/env/
+COPY packages/logger/package.json packages/logger/
+COPY packages/types/package.json packages/types/
+COPY packages/config-eslint/package.json packages/config-eslint/
+COPY packages/config-tsconfig/package.json packages/config-tsconfig/
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+
+RUN pnpm install --frozen-lockfile

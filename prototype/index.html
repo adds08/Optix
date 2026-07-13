@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>STInventory — Urban Infraconstruction</title>
+<style>
+  :root {
+    --blue: #0033a0;        /* United Rentals-ish deep blue */
+    --blue-600: #0b46c2;
+    --accent: #ffb500;      /* UR yellow accent */
+    --ink: #1a1d21;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --bg: #f5f6f8;
+    --ok: #1a7f37;
+    --warn: #b45309;
+    --bad: #b42318;
+    --chip: #eef1f6;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink); background: var(--bg);
+  }
+  .app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  /* Sidebar */
+  .side { background: var(--blue); color: #fff; padding: 0; position: sticky; top: 0; height: 100vh; }
+  .brand { padding: 16px 18px; font-weight: 700; font-size: 15px; letter-spacing: .3px; border-bottom: 1px solid rgba(255,255,255,.15); }
+  .brand span { color: var(--accent); }
+  .brand small { display: block; font-weight: 400; font-size: 11px; opacity: .7; letter-spacing: 0; margin-top: 2px; }
+  .nav { padding: 8px 0; }
+  .nav a { display: flex; gap: 10px; align-items: center; padding: 9px 18px; color: #dfe6f5; text-decoration: none; font-size: 13px; cursor: pointer; border-left: 3px solid transparent; }
+  .nav a:hover { background: rgba(255,255,255,.08); }
+  .nav a.active { background: rgba(255,255,255,.14); border-left-color: var(--accent); color: #fff; font-weight: 600; }
+  .nav .ico { width: 16px; text-align: center; opacity: .9; }
+  /* Main */
+  .main { padding: 0; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 22px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .topbar h1 { font-size: 16px; margin: 0; }
+  .topbar .who { font-size: 12px; color: var(--muted); }
+  .wrap { padding: 20px 22px; }
+  /* KPI tiles */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: #fff; border: 1px solid var(--line); padding: 14px 16px; }
+  .kpi .n { font-size: 26px; font-weight: 700; line-height: 1; }
+  .kpi .l { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-top: 6px; }
+  .kpi.alert .n { color: var(--bad); }
+  .kpi.warnk .n { color: var(--warn); }
+  .kpi.okk .n { color: var(--ok); }
+  /* Cards / tables */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } .app { grid-template-columns: 1fr; } .side { position: static; height: auto; } }
+  .card { background: #fff; border: 1px solid var(--line); margin-bottom: 16px; }
+  .card h2 { font-size: 13px; margin: 0; padding: 11px 14px; border-bottom: 1px solid var(--line); text-transform: uppercase; letter-spacing: .4px; color: #374151; }
+  .card .body { padding: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); font-weight: 600; background: #fafbfc; position: sticky; top: 0; }
+  tbody tr:hover { background: #f8fafc; }
+  .scroll { overflow-x: auto; }
+  /* chips */
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: var(--chip); color: #374151; }
+  .chip.available { background: #e7f6ec; color: var(--ok); }
+  .chip.assigned { background: #e7eefb; color: var(--blue-600); }
+  .chip.in_maintenance, .chip.reserved { background: #fdf2e1; color: var(--warn); }
+  .chip.lost { background: #fdeaea; color: var(--bad); }
+  .chip.overdue { background: #fdeaea; color: var(--bad); }
+  .toolbar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .toolbar input, .toolbar select { font: inherit; padding: 5px 8px; border: 1px solid var(--line); background: #fff; }
+  .toolbar input[type=search] { min-width: 200px; }
+  .muted { color: var(--muted); }
+  .right { text-align: right; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .banner { background: #fdf2e1; border: 1px solid #f0d9a8; color: #7a4d05; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; }
+  .banner b { color: var(--bad); }
+  .feed li { padding: 8px 14px; border-bottom: 1px solid var(--line); list-style: none; font-size: 12.5px; }
+  .feed { margin: 0; padding: 0; }
+  .feed .t { color: var(--muted); font-size: 11px; }
+  .foot { padding: 16px 22px; color: var(--muted); font-size: 11px; }
+  /* Job header meta */
+  .jobhead { padding: 12px 14px; border-bottom: 1px solid var(--line); background: #fafbfc; }
+  .metagrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .meta { }
+  .meta .k { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+  .meta .v { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .meta .v small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+  .meta .v.warn { color: var(--warn); }
+  .card h2 .ext { float: right; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">ST<span>Inventory</span><small>Urban Infraconstruction</small></div>
+    <nav class="nav" id="nav">
+      <a data-view="dashboard" class="active"><span class="ico">▤</span> Dashboard</a>
+      <a data-view="jobs"><span class="ico">◲</span> Jobs</a>
+      <a data-view="assets"><span class="ico">▣</span> Asset Register</a>
+      <a data-view="assignments"><span class="ico">◧</span> Assignments</a>
+      <a data-view="foremen"><span class="ico">☰</span> Foremen</a>
+      <a data-view="procurement"><span class="ico">⛁</span> Procurement</a>
+      <a data-view="maintenance"><span class="ico">✷</span> Maintenance</a>
+      <a data-view="audit"><span class="ico">≣</span> Audit Trail</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1 id="title">Dashboard</h1>
+      <div class="who">Karen Osei · Equipment Admin · Dallas</div>
+    </div>
+    <div class="wrap">
+      <div id="dashboard" class="view active"></div>
+      <div id="jobs" class="view"></div>
+      <div id="assets" class="view"></div>
+      <div id="assignments" class="view"></div>
+      <div id="foremen" class="view"></div>
+      <div id="procurement" class="view"></div>
+      <div id="maintenance" class="view"></div>
+      <div id="audit" class="view"></div>
+    </div>
+    <div class="foot">STInventory prototype · sample data · derived state from transaction log · see ../DATA_MODEL.md</div>
+  </main>
+</div>
+
+<script src="data.js"></script>
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+const el = (h) => { const d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstChild; };
+const money = (n) => '$' + n.toLocaleString();
+const today = new Date('2026-07-09');
+
+const D = STI;
+const L = D.lookups;
+
+function statusChip(s){ return `<span class="chip ${s}">${s.replace('_',' ')}</span>`; }
+
+function isOverdue(as){ return as.type==='temporary' && as.expectedEnd && new Date(as.expectedEnd) < today && as.status==='active'; }
+
+// ---------- Dashboard ----------
+function renderDashboard(){
+  const a = D.assets;
+  const counts = {
+    available: a.filter(x=>x.status==='available').length,
+    assigned: a.filter(x=>x.status==='assigned').length,
+    maint: a.filter(x=>x.status==='in_maintenance').length,
+    lost: a.filter(x=>x.status==='lost').length,
+    reserved: a.filter(x=>x.status==='reserved').length,
+  };
+  const overdue = D.assignments.filter(isOverdue);
+  const dueMaint = D.maintenance.filter(m=>m.status==='scheduled').length;
+  const terminated = D.employees.filter(e=>e.status==='terminated');
+  const clearance = a.filter(x=> terminated.some(t=>t.id===x.custodian) && x.status!=='available');
+  const totalValue = a.reduce((s,x)=>s+x.cost,0);
+
+  const overdueRows = overdue.map(o=>{
+    const as=L.asset(o.asset); const days=Math.round((today-new Date(o.expectedEnd))/86400000);
+    return `<tr><td>${as.tag}</td><td>${as.model}</td><td>${L.employee(o.custodian).name}</td><td>${o.expectedEnd}</td><td>${statusChip('overdue')} ${days}d</td></tr>`;
+  }).join('');
+
+  const clearanceRows = clearance.map(c=>`<tr><td>${c.tag}</td><td>${c.model}</td><td>${L.employee(c.custodian).name}</td><td>${statusChip(c.status)}</td><td>${money(c.cost)}</td></tr>`).join('');
+
+  const feed = D.transactions.slice().reverse().map(t=>{
+    const as=L.asset(t.asset);
+    return `<li><b>${t.event.replace('_',' ')}</b> · ${as.tag} ${as.model}<br><span class="muted">${t.note}</span> <span class="t">— ${t.at} · ${L.employee(t.actor).name}</span></li>`;
+  }).join('');
+
+  $('#dashboard').innerHTML = `
+    ${overdue.length||clearance.length ? `<div class="banner">
+      ${overdue.length?`<b>${overdue.length} overdue temporary loan(s)</b> need follow-up. `:''}
+      ${clearance.length?`<b>${clearance.length} asset(s)</b> pending HR clearance for terminated foreman James Whitaker.`:''}
+    </div>`:''}
+    <div class="kpis">
+      <div class="kpi okk"><div class="n">${counts.available}</div><div class="l">Available</div></div>
+      <div class="kpi"><div class="n">${counts.assigned}</div><div class="l">Assigned</div></div>
+      <div class="kpi warnk"><div class="n">${counts.reserved}</div><div class="l">Reserved</div></div>
+      <div class="kpi warnk"><div class="n">${counts.maint}</div><div class="l">In Repair</div></div>
+      <div class="kpi alert"><div class="n">${counts.lost}</div><div class="l">Lost</div></div>
+      <div class="kpi warnk"><div class="n">${dueMaint}</div><div class="l">Maint. Due</div></div>
+      <div class="kpi"><div class="n">${money(totalValue)}</div><div class="l">Fleet Value</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>Overdue Temporary Loans</h2><div class="body scroll">
+        <table><thead><tr><th>Tag</th><th>Model</th><th>Custodian</th><th>Due</th><th>Status</th></tr></thead>
+        <tbody>${overdueRows||'<tr><td colspan=5 class="muted" style="padding:14px">None</td></tr>'}</tbody></table></div></div>
+      <div class="card"><h2>HR Clearance Queue — Terminated Foreman</h2><div class="body scroll">
+        <table><thead><tr><th>Tag</th><th>Model</th><th>Held by</th><th>Status</th><th class="right">Value</th></tr></thead>
+        <tbody>${clearanceRows||'<tr><td colspan=5 class="muted" style="padding:14px">Clear</td></tr>'}</tbody></table></div></div>
+    </div>
+    <div class="card"><h2>Recent Activity (transaction log)</h2><div class="body"><ul class="feed">${feed}</ul></div></div>
+  `;
+}
+
+// ---------- Jobs ----------
+function renderJobs(){
+  const jobs = D.projects.filter(p=> p.id!=='p-warehouse');
+  const cards = jobs.map(p=>{
+    const foreman = L.foremanOf(p.id);
+    const vehicles = L.vehiclesOf(p.id);
+    const truck = vehicles.find(v=>v.type==='truck');
+    const trailer = vehicles.find(v=>v.type==='trailer');
+    // Tools physically on this job (custody-based current project).
+    const tools = D.assets.filter(a=> a.currentProject===p.id);
+    const val = tools.reduce((s,x)=>s+x.cost,0);
+    const flags = tools.filter(t=> t.status==='lost' || t.status==='in_maintenance').length;
+    const inspSoon = (v)=> v && v.inspDue && (new Date(v.inspDue)-today)/86400000 <= 30;
+
+    const toolRows = tools.map(a=>{
+      const owned = a.owningProject===p.id;
+      return `<tr>
+        <td><b>${a.tag}</b></td><td>${a.model}</td><td>${a.category}</td>
+        <td>${statusChip(a.status)}</td>
+        <td>${a.custodian?L.employee(a.custodian).name:'<span class="muted">—</span>'}</td>
+        <td>${L.location(a.location).name}</td>
+        <td>${owned?'<span class="muted">this job</span>':'<span class="chip">charged: '+L.project(a.owningProject).name+'</span>'}</td>
+        <td class="right">${money(a.cost)}</td></tr>`;
+    }).join('') || '<tr><td colspan=8 class="muted" style="padding:12px">No tools on this job</td></tr>';
+
+    const vehLine = (v)=> v
+      ? `<div class="v${inspSoon(v)?' warn':''}">${v.unit}<small>${v.make} · ${v.plate}${v.inspDue?` · insp ${v.inspDue}`:''}</small></div>`
+      : `<div class="v"><span class="muted">— none —</span></div>`;
+
+    return `<div class="card">
+      <h2>${p.name} <span class="ext">${p.extId} · ${p.costCenter}</span></h2>
+      <div class="jobhead"><div class="metagrid">
+        <div class="meta"><div class="k">Status</div><div class="v">${statusChip(p.status==='active'?'available':'reserved')} ${p.status}</div></div>
+        <div class="meta"><div class="k">Foreman on job</div><div class="v">${foreman?foreman.name:'<span class="muted">unassigned</span>'}${foreman&&foreman.status==='terminated'?' <span class="chip lost">terminated</span>':''}</div></div>
+        <div class="meta"><div class="k">Truck</div>${vehLine(truck)}</div>
+        <div class="meta"><div class="k">Trailer</div>${vehLine(trailer)}</div>
+        <div class="meta"><div class="k">Tools on job</div><div class="v">${tools.length}${flags?` <span class="chip lost">${flags} flag</span>`:''}</div></div>
+        <div class="meta"><div class="k">On-job value</div><div class="v">${money(val)}</div></div>
+      </div></div>
+      <div class="body scroll"><table>
+        <thead><tr><th>Tag</th><th>Model</th><th>Category</th><th>Status</th><th>Custodian</th><th>Location</th><th>Ownership</th><th class="right">Cost</th></tr></thead>
+        <tbody>${toolRows}</tbody></table></div>
+    </div>`;
+  }).join('');
+  $('#jobs').innerHTML = `
+    <div class="banner">Job-centric view — each job shows its assigned <b>foreman</b>, <b>truck</b> &amp; <b>trailer</b>, and every tool currently in custody on that job. Tools charged to another job are flagged (custody ≠ ownership).</div>
+    ${cards}`;
+}
+
+// ---------- Asset Register ----------
+function renderAssets(){
+  const opts = ['all','available','assigned','in_maintenance','reserved','lost'];
+  $('#assets').innerHTML = `
+    <div class="card">
+      <h2>Asset Register (${D.assets.length})</h2>
+      <div class="toolbar">
+        <input type="search" id="assetSearch" placeholder="Search tag, model, serial…" />
+        <select id="assetStatus">${opts.map(o=>`<option value="${o}">${o==='all'?'All statuses':o.replace('_',' ')}</option>`).join('')}</select>
+        <select id="assetProject"><option value="all">All projects</option>${D.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
+        <span class="muted" id="assetCount"></span>
+      </div>
+      <div class="body scroll"><table id="assetTable">
+        <thead><tr><th>Tag</th><th>Model</th><th>Category</th><th>Status</th><th>Custodian</th><th>Current Project</th><th>Location</th><th>Owning (charged)</th><th>Cond.</th><th class="right">Cost</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>`;
+  const draw = () => {
+    const q = $('#assetSearch').value.toLowerCase();
+    const st = $('#assetStatus').value, pj = $('#assetProject').value;
+    const rows = D.assets.filter(a=>{
+      if(st!=='all' && a.status!==st) return false;
+      if(pj!=='all' && a.currentProject!==pj) return false;
+      if(q && !(`${a.tag} ${a.model} ${a.serial}`.toLowerCase().includes(q))) return false;
+      return true;
+    });
+    $('#assetCount').textContent = `${rows.length} shown`;
+    $('#assetTable tbody').innerHTML = rows.map(a=>`<tr>
+      <td><b>${a.tag}</b></td><td>${a.model}</td><td>${a.category}</td><td>${statusChip(a.status)}</td>
+      <td>${a.custodian?L.employee(a.custodian).name:'<span class="muted">—</span>'}</td>
+      <td>${L.project(a.currentProject).name}</td><td>${L.location(a.location).name}</td>
+      <td class="muted">${L.project(a.owningProject).name}</td><td>${a.condition}</td><td class="right">${money(a.cost)}</td></tr>`).join('')
+      || '<tr><td colspan=10 class="muted" style="padding:14px">No matches</td></tr>';
+  };
+  $('#assetSearch').oninput = draw; $('#assetStatus').onchange = draw; $('#assetProject').onchange = draw;
+  draw();
+}
+
+// ---------- Assignments ----------
+function renderAssignments(){
+  const rows = D.assignments.map(as=>{
+    const a=L.asset(as.asset); const od=isOverdue(as);
+    return `<tr><td><b>${a.tag}</b></td><td>${a.model}</td><td>${L.employee(as.custodian).name}</td>
+      <td>${L.project(as.project).name}</td><td>${as.type}</td><td>${as.start}</td>
+      <td>${as.expectedEnd||'<span class="muted">—</span>'}</td>
+      <td>${od?statusChip('overdue'):statusChip('assigned')}</td></tr>`;
+  }).join('');
+  $('#assignments').innerHTML = `<div class="card"><h2>Active Assignments</h2><div class="body scroll">
+    <table><thead><tr><th>Tag</th><th>Model</th><th>Custodian</th><th>Project</th><th>Type</th><th>Start</th><th>Due</th><th>Status</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>
+    <div class="card"><h2>Notes</h2><div class="body"><ul class="feed">
+      <li>Temporary loans past their due date surface as <span class="chip overdue">overdue</span> and on the dashboard.</li>
+      <li>UIC-1012 is owned/charged to Trinity but temporarily loaned to Legacy West — custody ≠ ownership.</li>
+    </ul></div></div>`;
+}
+
+// ---------- Foremen ----------
+function renderForemen(){
+  const foremen = D.employees.filter(e=>e.role==='foreman');
+  const cards = foremen.map(f=>{
+    const held = D.assets.filter(a=>a.custodian===f.id && a.status!=='available');
+    const val = held.reduce((s,x)=>s+x.cost,0);
+    const projs = [...new Set(held.map(h=>L.project(h.currentProject).name))];
+    const rows = held.map(h=>`<tr><td>${h.tag}</td><td>${h.model}</td><td>${L.project(h.currentProject).name}</td><td>${statusChip(h.status)}</td></tr>`).join('')
+      || '<tr><td colspan=4 class="muted" style="padding:12px">No tools held</td></tr>';
+    return `<div class="card"><h2>${f.name} ${f.status==='terminated'?'<span class="chip lost">terminated</span>':''}</h2>
+      <div class="toolbar">
+        <span class="chip">Primary: ${L.project(f.primaryProject).name}</span>
+        <span class="chip">${held.length} tools</span>
+        <span class="chip">${money(val)}</span>
+        <span class="chip">${projs.length} project(s)</span>
+      </div>
+      <div class="body scroll"><table><thead><tr><th>Tag</th><th>Model</th><th>On project</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  }).join('');
+  $('#foremen').innerHTML = cards;
+}
+
+// ---------- Procurement ----------
+function renderProcurement(){
+  const rows = D.purchaseRequests.map(p=>`<tr><td><b>${p.id.toUpperCase()}</b></td><td>${p.item}</td>
+    <td>${L.project(p.project).name}</td><td>${L.employee(p.requestedBy).name}</td><td>${p.neededBy}</td>
+    <td>${statusChip(p.status==='ordered'?'assigned':p.status==='approved'?'available':'reserved')}${' '}${p.status}</td>
+    <td class="right">${money(p.estCost)}</td></tr>`).join('');
+  $('#procurement').innerHTML = `<div class="card"><h2>Purchase Requests</h2><div class="body scroll">
+    <table><thead><tr><th>PR#</th><th>Item</th><th>Charge to</th><th>Requested by</th><th>Needed by</th><th>Status</th><th class="right">Est. Cost</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>
+    <div class="card"><h2>Workflow</h2><div class="body"><ul class="feed">
+      <li>Project Awarded → Estimate Demand → Check Inventory → Reserve or Purchase Request → Approve → PO → Receive → Inspect → Tag → Assign.</li>
+      <li>Charge-to-project is set at receive; it does not change when custody later moves.</li>
+    </ul></div></div>`;
+}
+
+// ---------- Maintenance ----------
+function renderMaintenance(){
+  const rows = D.maintenance.map(m=>{const a=L.asset(m.asset);
+    return `<tr><td><b>${a.tag}</b></td><td>${a.model}</td><td>${m.type}</td><td>${statusChip(m.status==='in_progress'?'in_maintenance':'reserved')} ${m.status}</td>
+    <td>${m.vendor}</td><td>${m.scheduled}</td><td class="right">${money(m.cost)}</td></tr>`;}).join('');
+  $('#maintenance').innerHTML = `<div class="card"><h2>Maintenance &amp; Inspections</h2><div class="body scroll">
+    <table><thead><tr><th>Tag</th><th>Model</th><th>Type</th><th>Status</th><th>Vendor</th><th>Scheduled</th><th class="right">Cost</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>`;
+}
+
+// ---------- Audit ----------
+function renderAudit(){
+  const rows = D.transactions.slice().reverse().map(t=>{const a=L.asset(t.asset);
+    return `<tr><td>${t.at}</td><td><span class="chip">${t.event.replace('_',' ')}</span></td><td>${a.tag}</td><td>${a.model}</td><td>${L.employee(t.actor).name}</td><td>${t.note}</td></tr>`;}).join('');
+  $('#audit').innerHTML = `<div class="card"><h2>Transaction Log — append-only system of record</h2><div class="body scroll">
+    <table><thead><tr><th>When</th><th>Event</th><th>Tag</th><th>Model</th><th>Actor</th><th>Note</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>`;
+}
+
+const views = { dashboard: renderDashboard, jobs: renderJobs, assets: renderAssets, assignments: renderAssignments, foremen: renderForemen, procurement: renderProcurement, maintenance: renderMaintenance, audit: renderAudit };
+const titles = { dashboard:'Dashboard', jobs:'Jobs', assets:'Asset Register', assignments:'Assignments', foremen:'Foremen', procurement:'Procurement', maintenance:'Maintenance', audit:'Audit Trail' };
+
+function show(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active', a.dataset.view===name));
+  $('#'+name).classList.add('active');
+  $('#title').textContent = titles[name];
+  views[name]();
+}
+$('#nav').addEventListener('click', e=>{ const a=e.target.closest('a'); if(a) show(a.dataset.view); });
+show('dashboard');
+</script>
+</body>
+</html>

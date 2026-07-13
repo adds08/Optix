@@ -1,0 +1,111 @@
+# STInventory — local dev compose. Brings up Postgres + API + Web.
+# `make ENV=local up` then `make seed`.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: stinventory-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stinventory}
+      POSTGRES_DB: ${POSTGRES_DB:-stinventory}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d stinventory"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    image: stinventory-dev:latest
+    container_name: stinventory-api
+    working_dir: /workspace/apps/api
+    command: >
+      sh -c "
+        echo '[api] waiting for postgres' &&
+        until pg_isready -h postgres -U postgres -d stinventory -t 1 >/dev/null 2>&1; do sleep 1; done &&
+        echo '[api] pushing schema (drizzle-kit push)' &&
+        cd /workspace/packages/db && pnpm push --force &&
+        cd /workspace/apps/api && pnpm dev
+      "
+    environment:
+      NODE_ENV: development
+      PORT: 4100
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-stinventory}@postgres:5432/${POSTGRES_DB:-stinventory}
+      SESSION_SECRET: ${SESSION_SECRET:-stinventory-dev-secret-please-change-to-32-chars-minimum}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3100}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+    ports:
+      - "${API_PORT:-4100}:4100"
+    volumes:
+      - ./apps:/workspace/apps
+      - ./packages:/workspace/packages
+      - ./package.json:/workspace/package.json
+      - ./pnpm-workspace.yaml:/workspace/pnpm-workspace.yaml
+      - ./.npmrc:/workspace/.npmrc
+      - ./tsconfig.base.json:/workspace/tsconfig.base.json
+      - ./turbo.json:/workspace/turbo.json
+      - /workspace/node_modules
+      - /workspace/apps/api/node_modules
+      - /workspace/apps/web/node_modules
+      - /workspace/packages/db/node_modules
+      - /workspace/packages/api-contracts/node_modules
+      - /workspace/packages/auth/node_modules
+      - /workspace/packages/env/node_modules
+      - /workspace/packages/logger/node_modules
+      - /workspace/packages/types/node_modules
+      - /workspace/packages/config-eslint/node_modules
+      - /workspace/packages/config-tsconfig/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    image: stinventory-dev:latest
+    container_name: stinventory-web
+    working_dir: /workspace/apps/web
+    command: sh -c "pnpm dev"
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4100}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-STInventory}
+    ports:
+      - "${WEB_PORT:-3100}:3100"
+    volumes:
+      - ./apps:/workspace/apps
+      - ./packages:/workspace/packages
+      - ./package.json:/workspace/package.json
+      - ./pnpm-workspace.yaml:/workspace/pnpm-workspace.yaml
+      - ./.npmrc:/workspace/.npmrc
+      - ./tsconfig.base.json:/workspace/tsconfig.base.json
+      - ./turbo.json:/workspace/turbo.json
+      - /workspace/node_modules
+      - /workspace/apps/api/node_modules
+      - /workspace/apps/web/node_modules
+      - /workspace/packages/db/node_modules
+      - /workspace/packages/api-contracts/node_modules
+      - /workspace/packages/auth/node_modules
+      - /workspace/packages/env/node_modules
+      - /workspace/packages/logger/node_modules
+      - /workspace/packages/types/node_modules
+      - /workspace/packages/config-eslint/node_modules
+      - /workspace/packages/config-tsconfig/node_modules
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  postgres_data:

@@ -1,0 +1,24 @@
+{
+  "name": "@stinventory/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@stinventory/db": "workspace:*",
+    "@stinventory/types": "workspace:*",
+    "bcryptjs": "^2.4.3",
+    "drizzle-orm": "^0.36.4"
+  },
+  "devDependencies": {
+    "@stinventory/config-tsconfig": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
+    "typescript": "^5.6.3"
+  }
+}
