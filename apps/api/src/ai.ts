@@ -161,5 +161,19 @@ export async function handleAiChat(db: Database, session: ResolvedSession, messa
     return { ok: true, message: `📝 Noted on **${tool.tag}**: "${message}"` };
   }
 
+  if (intent === "transfer") {
+    const custodian = await resolveCustodian(db, tid, message);
+    if (!custodian) {
+      return {
+        ok: true,
+        message: `Please use the Transfer form to move ${tool.tag} (${tool.modelName}) to another foreman. Open the tool card → "Transfer".`,
+      };
+    }
+    return {
+      ok: true,
+      message: `Please use the Transfer form to give ${tool.tag} (${tool.modelName}) to **${custodian.name}**. Open the tool card → "Transfer".`,
+    };
+  }
+
   return { ok: false, message: "Couldn't process that. Try `help` to see what I can do." };
 }

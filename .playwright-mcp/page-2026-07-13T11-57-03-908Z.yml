@@ -1,0 +1,7 @@
+- generic [ref=f7e3]:
+  - generic [ref=f7e4]: STInventory
+  - generic [ref=f7e5]: Small Tool Inventory
+  - generic [ref=f7e6]:
+    - textbox "Email" [ref=f7e7]
+    - textbox "Password" [ref=f7e8]
+    - generic [ref=f7e9] [cursor=pointer]: Login

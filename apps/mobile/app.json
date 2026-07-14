@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "STInventory",
+    "slug": "stinventory",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1a1a2e"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.urban.stinventory"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "com.urban.stinventory"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

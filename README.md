@@ -11,12 +11,13 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 ## Contents
 
 | File | What it is |
-|---|---|
-| `STINVENTORY_PLAN.md` | Master planning & functional spec — vision, entities, lifecycle, custody model, scenarios, procurement, reports, modules, roadmap |
-| `DATA_MODEL.md` | Detailed schema; event-sourced core (transactions = source of truth, everything else a projection) |
-| `DIAGRAMS.md` | Mermaid: ERD, lifecycle state machine, custody + HR-offboarding + phase-change flows, procurement BPMN, deployment + SaaS multi-tenancy |
-| `SAAS_ARCHITECTURE.md` | Multi-tenant productization path and how it aligns with the Mark 85 customer-zero → SaaS arc |
-| `BODHI_LABS_STINVENTORY_PROPOSAL.md` | Bodhi Labs build proposal — scope, team, hours, per-hour + fixed pricing, scope options, payment schedule, handoff to production |
+|---|---|---|
+| `docs/00-executive-summary.md` | **Start here for leadership context** — one-page distilled pitch |
+| `docs/01-plan.md` | Master planning & functional spec — vision, entities, lifecycle, custody model, scenarios, procurement, reports, modules, roadmap |
+| `docs/03-data-model.md` | Detailed schema; event-sourced core (transactions = source of truth, everything else a projection) |
+| `docs/04-diagrams.md` | Mermaid: ERD, lifecycle state machine, custody + HR-offboarding + phase-change flows, procurement BPMN, deployment + SaaS multi-tenancy |
+| `docs/02-saas-architecture.md` | Multi-tenant productization path and how it aligns with the Mark 85 customer-zero → SaaS arc |
+| `docs/05-build-proposal.md` | Bodhi Labs build proposal — scope, team, hours, per-hour + fixed pricing, scope options, payment schedule, handoff to production |
 | `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
 | `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
 
@@ -56,25 +57,46 @@ make ENV=local seed      # load sample data (SEED_RESET=1 to wipe first)
 
 ### Quick start (local, no Docker)
 
+#### 1. Database
+
 ```bash
-# 1. Start Postgres on port 5433
 pg_ctl -D /tmp/sti-pgdata -l /tmp/sti-pg.log start -o "-p 5433"
 createdb -p 5433 stinventory -U postgres
+```
 
-# 2. Install + push schema + seed
-cd STInventory
+#### 2. Install, push schema, seed
+
+```bash
 pnpm install
 DATABASE_URL="postgres://postgres@localhost:5433/stinventory" pnpm --filter @stinventory/db push --force
 DATABASE_URL="postgres://postgres@localhost:5433/stinventory" SEED_RESET=1 pnpm --filter @stinventory/db seed
+```
 
-# 3. Start API + Web (two terminals)
+#### 3. Start services (one terminal each)
+
+**API** — http://localhost:4100
+```bash
 DATABASE_URL="postgres://postgres@localhost:5433/stinventory" \
 SESSION_SECRET="stinventory-dev-secret-please-change-to-32-chars-minimum" \
 WEB_ORIGIN="http://localhost:3100" PORT=4100 \
 pnpm --filter @stinventory/api dev
+```
 
+**Web** — http://localhost:3100
+```bash
 NEXT_PUBLIC_API_URL="http://localhost:4100" \
 pnpm --filter @stinventory/web dev
+```
+
+**Mobile** (Expo) — http://localhost:8081
+```bash
+cd apps/mobile && EXPO_PUBLIC_API_URL=http://localhost:4100 pnpm dev
+```
+Requires Expo CLI + iOS Simulator / Android emulator.
+
+**AI Engine** — http://localhost:4600 (Python, uvicorn)
+```bash
+cd engine && .venv/bin/uvicorn main:app --port 4600 --reload
 ```
 
 ### Login
@@ -105,7 +127,9 @@ Password: **`stinventory-demo`**
 STInventory/
 ├── apps/
 │   ├── api/          Hono + tRPC + auth + notification scheduler
-│   └── web/          Next.js 15 UR-style dashboard
+│   ├── web/          Next.js 15 UR-style dashboard
+│   └── mobile/       Expo (React Native) mobile app
+├── engine/           Python AI engine (port 4600)
 ├── packages/
 │   ├── api-contracts/   tRPC routers (identity, dashboard, asset, assignment, transfer, vehicle, report, …)
 │   ├── auth/            Lucia-style session + tenant-scoped RBAC
@@ -118,7 +142,7 @@ STInventory/
 │   └── config-tsconfig/ Shared tsconfig presets
 ├── prototype/           Single-file no-build UI prototype
 ├── docker-compose.yml   Postgres + API + Web
-└── Makefile             ENV-driven: up/seed/logs/psql/test
+└── Makefile             ENV-driven: up/down/seed/logs/psql/test/mobile/engine
 ```
 
 ## Status

@@ -20,7 +20,7 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up down restart build rebuild logs ps seed reset push migrate studio psql shell test typecheck lint
+.PHONY: help up down restart build rebuild logs ps seed reset push migrate studio psql shell test typecheck lint engine mobile
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -83,5 +83,9 @@ lint: ## Run lint inside the api container
 psql: ## Open psql against the DB
 	$(COMPOSE) exec postgres psql -U postgres -d stinventory
 
-shell: ## Open shell in a service (override SVC=api|web|postgres)
-	$(COMPOSE) exec $(SVC) sh
+engine: ## Start the Python AI engine (uvicorn, port 4600)
+	@echo "Starting AI engine at http://localhost:4600 ..."
+	@cd engine && .venv/bin/uvicorn main:app --port 4600 --reload
+
+mobile: ## Start the Expo mobile app (apps/mobile)
+	@cd apps/mobile && EXPO_PUBLIC_API_URL=$${MOBILE_API_URL:-http://localhost:4100} pnpm dev

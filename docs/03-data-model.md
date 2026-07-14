@@ -7,7 +7,7 @@ is what enforces the §2 principle "current state is derived from history."
 
 Conventions: `id` = uuid/bigint PK, `*_id` = FK, all tables carry `created_at`,
 `updated_at`, `created_by`. SaaS multi-tenancy adds `tenant_id` to every row (see
-`SAAS_ARCHITECTURE.md`); for the Urban-only prototype `tenant_id` is a constant.
+`02-saas-architecture.md`); for the Urban-only prototype `tenant_id` is a constant.
 
 ---
 

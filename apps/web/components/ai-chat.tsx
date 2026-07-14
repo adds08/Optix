@@ -7,7 +7,7 @@ type Msg = { role: "user" | "assistant"; text: string; ok?: boolean };
 export function AiChat() {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([
-    { role: "assistant", text: "Hi! I can help you track tools. Try:\n• \"give UIC-1001 to Miguel\"\n• \"return UIC-1002\"\n• \"UIC-1008 is broken\"" },
+    { role: "assistant", text: "Hi! I can help you track tools. Try:\n• \"give UIC-1001 to Miguel\"\n• \"return UIC-1002\"\n• \"UIC-1008 is broken\"\n\nFor transfers between foremen, use the Transfer button on the tool card." },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
