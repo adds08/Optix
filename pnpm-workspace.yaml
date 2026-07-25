@@ -1,3 +1,13 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# One React and one query-core across the workspace. Two copies of @types/react
+# break type identity between apps/web and apps/mobile; two query-cores break
+# QueryClient assignability.
+overrides:
+  "@types/react": "~19.2.2"
+  "@types/react-dom": "~19.2.2"
+  "@tanstack/query-core": "^5.101.4"
+  react: "19.2.3"
+  react-dom: "19.2.3"
