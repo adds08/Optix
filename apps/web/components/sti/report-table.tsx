@@ -1,0 +1,174 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Download, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { EmptyState, TableWrap } from "./page";
+
+export type Col<T> = {
+  key: keyof T & string;
+  header: string;
+  /* Right-align and tabular-number anything countable. */
+  numeric?: boolean;
+  /* Render override — status pills, tags, links. */
+  cell?: (row: T) => React.ReactNode;
+  /* Value used for sorting, searching and CSV when the cell is custom. */
+  value?: (row: T) => string | number | null | undefined;
+  width?: string;
+};
+
+function raw<T>(row: T, col: Col<T>): string | number | null | undefined {
+  if (col.value) return col.value(row);
+  const v = row[col.key] as unknown;
+  if (v === null || v === undefined) return v as null | undefined;
+  if (v instanceof Date) return v.toISOString();
+  return v as string | number;
+}
+
+function csvEscape(v: unknown): string {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+export function ReportTable<T extends Record<string, unknown>>({
+  rows,
+  cols,
+  filename,
+  searchable = true,
+  emptyTitle = "Nothing to show",
+  emptyDescription,
+}: {
+  rows: T[];
+  cols: Col<T>[];
+  filename: string;
+  searchable?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
+}) {
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
+
+  const filtered = useMemo(() => {
+    if (!q.trim()) return rows;
+    const needle = q.toLowerCase();
+    return rows.filter((r) =>
+      cols.some((c) => String(raw(r, c) ?? "").toLowerCase().includes(needle)),
+    );
+  }, [rows, cols, q]);
+
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const col = cols.find((c) => c.key === sort.key);
+    if (!col) return filtered;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = raw(a, col), bv = raw(b, col);
+      if (av === bv) return 0;
+      if (av === null || av === undefined) return 1;
+      if (bv === null || bv === undefined) return -1;
+      if (col.numeric) return (Number(av) - Number(bv)) * dir;
+      return String(av).localeCompare(String(bv), undefined, { numeric: true }) * dir;
+    });
+  }, [filtered, sort, cols]);
+
+  function toggleSort(key: string) {
+    setSort((s) =>
+      !s || s.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null,
+    );
+  }
+
+  function exportCsv() {
+    const header = cols.map((c) => csvEscape(c.header)).join(",");
+    const body = sorted.map((r) => cols.map((c) => csvEscape(raw(r, c))).join(",")).join("\n");
+    const blob = new Blob([`${header}\n${body}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {searchable ? (
+          <div className="relative min-w-[220px] flex-1 max-w-sm">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Filter rows…"
+              className="pl-8"
+              aria-label="Filter rows"
+            />
+          </div>
+        ) : null}
+        <span className="tnum text-sm text-muted-foreground">
+          {sorted.length}
+          {sorted.length !== rows.length ? ` of ${rows.length}` : ""} row{sorted.length === 1 ? "" : "s"}
+        </span>
+        <Button variant="outline" size="sm" onClick={exportCsv} disabled={!sorted.length} className="ml-auto">
+          <Download className="size-4" />
+          Export CSV
+        </Button>
+      </div>
+
+      {!sorted.length ? (
+        <EmptyState
+          title={q ? "No rows match that filter" : emptyTitle}
+          description={q ? "Clear the filter to see everything again." : emptyDescription}
+        />
+      ) : (
+        <TableWrap>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                {cols.map((c) => {
+                  const active = sort?.key === c.key;
+                  const Icon = !active ? ChevronsUpDown : sort!.dir === "asc" ? ArrowUp : ArrowDown;
+                  return (
+                    <th
+                      key={c.key}
+                      style={c.width ? { width: c.width } : undefined}
+                      className={cn("p-0", c.numeric && "text-right")}
+                      aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(c.key)}
+                        className={cn(
+                          "label-xs flex w-full items-center gap-1.5 px-4 py-2.5 hover:text-foreground",
+                          c.numeric && "justify-end",
+                        )}
+                      >
+                        {c.header}
+                        <Icon className={cn("size-3 shrink-0", active ? "opacity-100" : "opacity-35")} />
+                      </button>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r, i) => (
+                <tr key={i} className="border-b last:border-0 hover:bg-muted/40">
+                  {cols.map((c) => (
+                    <td
+                      key={c.key}
+                      className={cn("px-4 py-2.5 align-middle", c.numeric && "text-right tnum")}
+                    >
+                      {c.cell ? c.cell(r) : ((raw(r, c) ?? "—") as React.ReactNode)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableWrap>
+      )}
+    </div>
+  );
+}

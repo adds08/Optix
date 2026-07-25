@@ -84,25 +84,25 @@ lint: ## Run lint inside the api container
 psql: ## Open psql against the DB
 	$(COMPOSE) exec postgres psql -U postgres -d stinventory
 
-dev: up desktop-build ## Build Flutter + start everything
+dev: up ## Start web + api + db, then print next steps
 	@echo ""
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  All services are running!"
+	@echo "  All services are running."
 	@echo ""
-	@echo "  Web:     http://localhost:3100  (Next.js - shadcn new-york)"
+	@echo "  Web:     http://localhost:3100"
 	@echo "  API:     http://localhost:4100 (health: /health)"
 	@echo "  DB:      postgres://postgres:stinventory@localhost:5433/stinventory"
 	@echo ""
 	@echo "  Login:   admin@stinventory.local / stinventory-demo"
+	@echo "           foreman.miguel@stinventory.local  (field layout)"
 	@echo ""
-	@echo "  To set up LLM intent parsing, add LLM_API_KEY to .env.local"
+	@echo "  Mobile:  make mobile        (Expo — separate terminal)"
+	@echo "  Chat:    cd engine && .venv/bin/uvicorn main:app --port 4600"
+	@echo "           (the intent engine is NOT a compose service)"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-	@cd apps/desktop && flutter build web --dart-define=API_URL=http://localhost:4100
-
-	@cd apps/desktop && flutter run -d web-server --web-port 3200 --dart-define=API_URL=http://localhost:4100
-
-mobile: ## Start the Flutter app (apps/mobile)
-	@echo "Starting Flutter app — ensure 'make dev' is running first."
-	@echo "API URL: $${API_URL:-http://localhost:4100}"
-	@cd apps/mobile && flutter run --dart-define=API_URL=$${API_URL:-http://localhost:4100}
+mobile: ## Start the Expo app (apps/mobile) — run `make up` first
+	@echo "Starting Expo. Make sure the API is up (\`make ENV=$(ENV) up\`)."
+	@echo "A physical device needs to be on the same wifi as this machine;"
+	@echo "the app derives the API host from the Expo dev server automatically."
+	@cd apps/mobile && pnpm start

@@ -1,61 +1,148 @@
 "use client";
-import { useState } from "react";
-import { login, setSession } from "@/lib/auth";
+
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { login, getSession, setSession } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Package } from "lucide-react";
+
+const DEMO = [
+  { email: "owner@stinventory.local", who: "Owner — full access" },
+  { email: "admin@stinventory.local", who: "Karen Osei — Equipment Admin" },
+  { email: "warehouse@stinventory.local", who: "Yard Desk — Warehouse" },
+  { email: "foreman.miguel@stinventory.local", who: "Miguel Torres — Foreman (field layout)" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("admin@stinventory.local");
   const [password, setPassword] = useState("stinventory-demo");
-  const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const submit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (getSession()) router.replace("/home");
+  }, [router]);
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setErr("");
-    setLoading(true);
+    setBusy(true);
+    setError(null);
     try {
       const res = await login(email, password);
       setSession(res.sessionId);
-      router.push("/d02/dashboard");
+      router.replace("/home");
     } catch {
-      setErr("Invalid email or password.");
-    } finally {
-      setLoading(false);
+      setError("That email and password combination did not work. Check both and try again.");
+      setBusy(false);
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-3 pt-10">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            <Package className="h-6 w-6 text-primary" />
+    <main className="grid min-h-svh lg:grid-cols-2">
+      <div className="flex items-center justify-center px-6 py-12">
+        <div className="flex w-full max-w-[380px] flex-col gap-8">
+          <div className="flex items-center gap-2">
+            <span className="grid size-7 place-items-center rounded-sm bg-primary text-xs font-bold text-primary-foreground">
+              ST
+            </span>
+            <span className="font-semibold tracking-tight">STInventory</span>
           </div>
-          <CardTitle className="text-2xl">STInventory</CardTitle>
-          <CardDescription>Equipment & Tool Management</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={submit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" autoFocus />
+
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+            <p className="text-sm text-muted-foreground">
+              Small tools and equipment custody for Urban Infraconstruction.
+            </p>
+          </div>
+
+          <form onSubmit={submit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="email" className="text-sm font-medium">Email</label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="password" className="text-sm font-medium">Password</label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-            {err && <p className="text-sm text-destructive text-center">{err}</p>}
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? "Signing in…" : "Sign in"}
+
+            {error ? (
+              <p role="alert" className="rounded-md border border-crit/30 bg-crit-bg px-3 py-2 text-sm text-crit">
+                {error}
+              </p>
+            ) : null}
+
+            <Button type="submit" disabled={busy} className="mt-1">
+              {busy ? "Signing in…" : "Sign in"}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-    </div>
+
+          <div className="flex flex-col gap-2 rounded-md border bg-muted/40 p-3">
+            <span className="label-xs">Demo accounts · password stinventory-demo</span>
+            <div className="flex flex-col gap-1">
+              {DEMO.map((d) => (
+                <button
+                  key={d.email}
+                  type="button"
+                  onClick={() => { setEmail(d.email); setPassword("stinventory-demo"); }}
+                  className="rounded-sm px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <span className="font-mono">{d.email}</span>
+                  <span className="block text-[0.7rem] opacity-80">{d.who}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* The product thesis, not decoration. */}
+      <aside className="relative hidden overflow-hidden border-l bg-muted/30 lg:block">
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-50"
+          style={{
+            backgroundImage:
+              "linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)",
+            backgroundSize: "28px 28px",
+          }}
+        />
+        <div className="relative flex h-full flex-col justify-center gap-8 px-14">
+          <p className="max-w-[24ch] text-3xl font-semibold leading-[1.15] tracking-tight text-balance">
+            Every hand-off is a transaction, not a memory.
+          </p>
+          <div className="flex flex-col gap-3">
+            {[
+              ["03 MAR", "Received from Hilti, tagged UIC-1012"],
+              ["11 MAR", "Assigned to M. Torres — Legacy West"],
+              ["02 JUN", "Transferred to D. Ellis — Trinity Bridge"],
+            ].map(([when, what]) => (
+              <div key={when} className="flex items-baseline gap-3 rounded-md border bg-card px-3 py-2">
+                <span className="label-xs shrink-0">{when}</span>
+                <span className="text-sm">{what}</span>
+              </div>
+            ))}
+          </div>
+          <p className="max-w-[44ch] text-sm text-muted-foreground text-pretty">
+            Where a tool is, who holds it, and which project paid for it are derived from that
+            log — never typed into a field somebody can overwrite.
+          </p>
+        </div>
+      </aside>
+    </main>
   );
 }

@@ -1,28 +1,40 @@
+import "../global.css";
+
+import { useState } from "react";
 import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAuth } from "@stinventory/frontend-shared/auth";
-import { Redirect } from "expo-router";
-import { View, Text, ActivityIndicator } from "react-native";
-
-const queryClient = new QueryClient();
-
-function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading } = useAuth();
-  if (loading) return <View className="flex-1 items-center justify-center"><ActivityIndicator /></View>;
-  if (!isAuthenticated) return <Redirect href="/login" />;
-  return <>{children}</>;
-}
+import { AuthProvider } from "../lib/auth";
+import { createClient, trpc } from "../lib/trpc";
 
 export default function RootLayout() {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            /* Yards have bad signal. Don't hammer a flaky connection, and keep
+               showing the last good answer while refetching. */
+            retry: 2,
+            staleTime: 30_000,
+            refetchOnWindowFocus: false,
+          },
+        },
+      }),
+  );
+  const [client] = useState(() => createClient());
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="dashboard" />
-        <Stack.Screen name="assets" />
-        <Stack.Screen name="assignments" />
-      </Stack>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <trpc.Provider client={client} queryClient={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }} />
+          </QueryClientProvider>
+        </trpc.Provider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

@@ -1,52 +1,125 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
-import { useAuth } from "@stinventory/frontend-shared/auth";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../lib/auth";
+import { Button } from "../components/ui";
+
+const DEMO = [
+  { email: "foreman.miguel@stinventory.local", who: "Miguel Torres — Foreman" },
+  { email: "admin@stinventory.local", who: "Karen Osei — Equipment Admin" },
+];
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("admin@stinventory.local");
+  const [email, setEmail] = useState("foreman.miguel@stinventory.local");
   const [password, setPassword] = useState("stinventory-demo");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const { signIn } = useAuth();
   const router = useRouter();
 
-  const submit = async () => {
-    setError(""); setLoading(true);
+  async function submit() {
+    setError("");
+    setBusy(true);
     try {
-      await login(email.trim(), password.trim());
-      router.replace("/dashboard");
-    } catch { setError("Invalid email or password."); }
-    setLoading(false);
-  };
+      await signIn(email.trim(), password.trim());
+      router.replace("/(tabs)");
+    } catch {
+      setError("That email and password did not work. Check both and try again.");
+      setBusy(false);
+    }
+  }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1 bg-muted/50">
-      <View className="flex-1 items-center justify-center px-6">
-        <View className="w-full max-w-md bg-card rounded-xl p-8 shadow-sm border border-border">
-          <View className="items-center mb-8">
-            <View className="h-12 w-12 rounded-xl bg-primary/10 items-center justify-center mb-4">
-              <Text className="text-2xl">📦</Text>
+    <SafeAreaView className="flex-1 bg-background">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+      >
+        <ScrollView
+          contentContainerClassName="grow justify-center px-6 py-10 gap-8"
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="gap-2">
+            <View className="h-10 w-10 items-center justify-center rounded-md bg-primary">
+              <Text className="text-[13px] font-bold text-primary-foreground">ST</Text>
             </View>
-            <Text className="text-2xl font-bold text-foreground">STInventory</Text>
-            <Text className="text-sm text-muted-foreground mt-1">Equipment & Tool Management</Text>
+            <Text className="pt-3 text-[30px] font-bold tracking-tight text-foreground">
+              STInventory
+            </Text>
+            <Text className="text-[15px] leading-5 text-muted-foreground">
+              Sign in to see what you are holding and hand tools over.
+            </Text>
           </View>
+
           <View className="gap-4">
-            <View>
-              <Text className="text-sm font-medium text-foreground mb-2">Email</Text>
-              <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground" placeholder="you@company.com" />
+            <View className="gap-2">
+              <Text className="text-[14px] font-medium text-foreground">Email</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="username"
+                placeholder="you@urbaninfra.com"
+                placeholderTextColor="#98A0AA"
+                className="min-h-[52px] rounded-md border border-input bg-card px-4 text-[16px] text-foreground"
+              />
             </View>
-            <View>
-              <Text className="text-sm font-medium text-foreground mb-2">Password</Text>
-              <TextInput value={password} onChangeText={setPassword} secureTextEntry className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground" placeholder="••••••••" onSubmitEditing={submit} />
+
+            <View className="gap-2">
+              <Text className="text-[14px] font-medium text-foreground">Password</Text>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                textContentType="password"
+                onSubmitEditing={submit}
+                returnKeyType="go"
+                placeholder="••••••••"
+                placeholderTextColor="#98A0AA"
+                className="min-h-[52px] rounded-md border border-input bg-card px-4 text-[16px] text-foreground"
+              />
             </View>
-            {error ? <Text className="text-sm text-destructive text-center">{error}</Text> : null}
-            <TouchableOpacity onPress={submit} disabled={loading} className="h-10 rounded-lg bg-primary items-center justify-center">
-              <Text className="text-sm font-medium text-primary-foreground">{loading ? "Signing in…" : "Sign in"}</Text>
-            </TouchableOpacity>
+
+            {error ? (
+              <View className="rounded-md border border-crit bg-crit-bg px-4 py-3">
+                <Text className="text-[14px] leading-5 text-crit">{error}</Text>
+              </View>
+            ) : null}
+
+            <Button label={busy ? "Signing in…" : "Sign in"} onPress={submit} busy={busy} />
           </View>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+
+          <View className="gap-2 rounded-md border border-border bg-muted p-4">
+            <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Demo accounts · password stinventory-demo
+            </Text>
+            {DEMO.map((d) => (
+              <Pressable
+                key={d.email}
+                onPress={() => {
+                  setEmail(d.email);
+                  setPassword("stinventory-demo");
+                }}
+                className="min-h-[44px] justify-center rounded-sm py-1"
+              >
+                <Text className="font-mono text-[12px] text-foreground">{d.email}</Text>
+                <Text className="text-[12px] text-muted-foreground">{d.who}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

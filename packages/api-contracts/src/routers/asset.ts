@@ -68,12 +68,46 @@ export const assetRouter = router({
       return rows;
     }),
 
+  // Returns the same joined shape as `list` so the detail screen shows names,
+  // not raw uuids. Both projections read from asset.current_* — never from a
+  // hand-edited field.
   get: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      return ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)),
-      });
+      const currentProject = alias(schema.project, "current_project");
+      const owningProject = alias(schema.project, "owning_project");
+      const [row] = await ctx.db
+        .select({
+          id: schema.asset.id,
+          tag: schema.asset.tag,
+          modelName: schema.asset.modelName,
+          categoryName: schema.asset.categoryName,
+          serialNumber: schema.asset.serialNumber,
+          isSerialized: schema.asset.isSerialized,
+          quantity: schema.asset.quantity,
+          status: schema.asset.currentStatus,
+          acquisitionCost: schema.asset.acquisitionCost,
+          acquisitionDate: schema.asset.acquisitionDate,
+          warrantyExpiresOn: schema.asset.warrantyExpiresOn,
+          condition: schema.asset.condition,
+          custodianId: schema.asset.currentCustodianId,
+          custodianName: schema.employee.name,
+          custodianExternalId: schema.employee.externalId,
+          currentProjectId: schema.asset.currentProjectId,
+          currentProjectName: currentProject.name,
+          locationId: schema.asset.currentLocationId,
+          locationName: schema.location.name,
+          owningProjectId: schema.asset.owningProjectId,
+          owningProjectName: owningProject.name,
+          createdAt: schema.asset.createdAt,
+        })
+        .from(schema.asset)
+        .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
+        .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
+        .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
+        .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
+        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)));
+      return row ?? null;
     }),
 
   create: requirePermission("asset.manage")
