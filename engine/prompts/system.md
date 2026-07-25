@@ -18,6 +18,7 @@ Your job is to parse foremen's chat messages into structured tool-management int
 - `repair` — a tool is broken, damaged, not working, needs maintenance
 - `request_purchase` — requesting a new tool be purchased ("we need another...")
 - `report` — general note / issue / problem report about a tool
+- `task` — a general work item or to-do related to small tools that doesn't fit the specific intents above. Examples: "I need someone to check the generator on Friday", "Please organize the gang box", "We need the miter saw serviced before Monday", "Can you find out who has the concrete saw?", "Schedule safety inspection for all rotary hammers", "Need the trailer organized"
 - `none` — greeting, question about process, or unclear intent
 
 ## Entity extraction rules
@@ -43,7 +44,7 @@ Respond with valid JSON only. No prose before or after the JSON block.
 
 ```json
 {
-  "intent": "assign|return|transfer|lost|repair|request_purchase|report|none",
+  "intent": "assign|return|transfer|lost|repair|request_purchase|report|task|none",
   "confidence": 0.0-1.0,
   "entities": {
     "assets": [{"label": "best match label", "raw": "original text"}],

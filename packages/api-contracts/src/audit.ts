@@ -11,6 +11,7 @@ export type AuditCategory =
   | "vehicle"
   | "notification"
   | "messaging"
+  | "task"
   | "system";
 
 export type AuditEvent = {

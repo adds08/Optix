@@ -601,4 +601,32 @@ export const messagingRouter = router({
 
       return rows;
     }),
+
+  // Verification queue: messages needing admin verification, grouped by status.
+  pendingVerification: requirePermission("assignment.read")
+    .query(async ({ ctx }) => {
+      const tid = ctx.session.tenantId;
+      const rows = await ctx.db
+        .select({
+          id: schema.message.id,
+          body: schema.message.body,
+          processingStatus: schema.message.processingStatus,
+          intentType: schema.message.intentType,
+          intentPayload: schema.message.intentPayload,
+          proposedAction: schema.message.proposedAction,
+          errorNote: schema.message.errorNote,
+          createdAt: schema.message.createdAt,
+          authorUserId: schema.message.authorUserId,
+          authorEmployeeId: schema.message.authorEmployeeId,
+        })
+        .from(schema.message)
+        .where(
+          and(
+            eq(schema.message.tenantId, tid),
+            inArray(schema.message.processingStatus, ["action_proposed", "pending_manual"]),
+          ),
+        )
+        .orderBy(desc(schema.message.createdAt));
+      return rows;
+    }),
 });

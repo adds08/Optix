@@ -206,6 +206,7 @@ export const MESSAGE_INTENTS = [
   "repair",
   "request_purchase",
   "report",
+  "task",
   "none",
 ] as const;
 export type MessageIntent = (typeof MESSAGE_INTENTS)[number];

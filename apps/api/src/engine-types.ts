@@ -10,6 +10,7 @@ export type EngineIntent =
   | "repair"
   | "request_purchase"
   | "report"
+  | "task"
   | "none";
 
 export type EngineEntityAsset = { label: string; raw: string };

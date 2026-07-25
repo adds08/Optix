@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { Modal } from "./modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
 
@@ -22,31 +23,43 @@ export function ReportForm({ open, onClose, assetId, assetTag }: Props) {
       utils.dashboard.kpis.invalidate();
       utils.dashboard.recentActivity.invalidate();
       setTimeout(onClose, 1200);
-    } catch (e: any) {
-      setResult(e.message ?? "Error");
+    } catch {
+      setResult("Error");
     }
     setSubmitting(false);
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Report Issue">
-      <p style={{ fontSize: 13, margin: "0 0 8px" }}>Reporting: <b>{assetTag}</b></p>
-
-      <label>Issue type</label>
-      <select value={issueType} onChange={(e) => setIssueType(e.target.value as "lost" | "in_maintenance")}>
-        <option value="in_maintenance">Needs repair / maintenance</option>
-        <option value="lost">Lost / missing</option>
-      </select>
-
-      <label>Note</label>
-      <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Describe the issue..." />
-
-      {result && <div style={{ marginTop: 10, fontSize: 13, color: result === "Error" ? "var(--bad)" : "var(--ok)" }}>{result}</div>}
-
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
-        <button className="btn" onClick={submit} disabled={submitting}>{submitting ? "..." : "Report"}</button>
-      </div>
-    </Modal>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Report Issue</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">Reporting: <span className="font-medium text-foreground">{assetTag}</span></p>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Issue type</label>
+            <select value={issueType} onChange={(e) => setIssueType(e.target.value as "lost" | "in_maintenance")} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="in_maintenance">Needs repair / maintenance</option>
+              <option value="lost">Lost / missing</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Note</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Describe the issue..."
+              className="flex min-h-[80px] w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 placeholder:text-muted-foreground resize-y"
+            />
+          </div>
+          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={submit} disabled={submitting}>{submitting ? "..." : "Report"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

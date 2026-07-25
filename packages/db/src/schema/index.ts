@@ -9,3 +9,4 @@ export * from "./asset";
 export * from "./event";
 export * from "./audit";
 export * from "./messaging";
+export * from "./task";

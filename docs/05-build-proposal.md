@@ -188,3 +188,73 @@ alignment extends the same incentive here.
 2. Confirm the first-module priority and integration credentials availability.
 3. Bodhi issues the SOW with the finalized §3 plan and §5 schedule.
 4. Kickoff within 2 weeks of signature.
+
+---
+
+## Appendix A — Delivery status as of 2026-07-25
+
+Added when `docs/` was reconciled against the running codebase. **Scope, hours, team, and
+pricing in §1-§8 above are unchanged** — this appendix reports progress against them and
+flags two items needing Urban's sign-off.
+
+### A.1 Status against the §1 deliverables
+
+| # | Deliverable | Status | Notes |
+|---|---|---|---|
+| 1 | Asset Register | **Built** | catalog, serialized + bulk, tagging, warehouse/location hierarchy, current-state projection |
+| 2 | Procurement | **Not started** | no PR/PO/vendor tables exist |
+| 3 | Assignments & Transfers | **Built** | custody model, temporary loans with overdue alerts, transfers, approval gate on high-value and cross-person moves |
+| 4 | HR Offboarding / Clearance | **Partial** | the clearance queue derives and displays; the BambooHR trigger and the sign-off **gate** are not built |
+| 5 | Maintenance & Inspections | **Not started** | no tables exist |
+| 6 | Reporting pack | **Partial** | 6 of 11 report categories exist as API procedures; **none has a UI**; utilization, maintenance history, procurement status and transfers reports are outstanding |
+| 7 | Mobile QR | **Not started** | app shell only; no scan flows, no offline queue |
+| 8 | Integrations | **Not started** | `external_id` seams exist on `project` and `employee`; no connector code |
+
+Built beyond the priced scope (see A.2): vehicles/fleet tracking, and the conversational
+layer with its task extraction and verification queue.
+
+Phase 3 (assignments/transfers) was delivered ahead of Phase 2 (procurement), departing from
+the §3 sequence. Rationale: custody is where the spreadsheet fails hardest and procurement can
+continue on the existing process meanwhile. Net effect on the §3 calendar is neutral;
+the deferred procurement work is unchanged in size.
+
+### A.2 Two items requiring Urban's sign-off
+
+**1. Mobile platform: Flutter → Expo (React Native).**
+§1.7 and the §4 team table specify a Flutter mobile engineer at 0.5 FTE / 240 hours. The
+build has moved to Expo so the mobile client shares TypeScript types, the API client, and
+validation with the web app rather than maintaining a parallel Dart mirror of every API
+contract. Rationale and consequences: `06-decisions.md` ADR-3.
+
+*Commercial effect:* none proposed. The hours and the fixed fee are unchanged; the role is
+re-labelled from Flutter to React Native at the same rate. **Confirm or reject.**
+
+**2. Conversational layer — delivered scope that was never priced.**
+The chat → LLM intent → proposed-custody-action subsystem (plus chat-extracted tasks, the
+admin verification queue, and the Python intent engine) is built and working. It appears
+**nowhere** in the §1 list and was not in the §5 estimate.
+
+It is the direct answer to the "WhatsApp threads" problem in `00-executive-summary.md`, and
+it is what makes field capture cheap enough that foremen actually do it. But it is
+unbudgeted work, and it carries an ongoing cost the proposal does not cover: LLM hosting
+(self-hosted vs. hosted API is still undecided).
+
+*Commercial effect:* to be agreed. Options are (a) absorb it as delivered goodwill against
+the existing fixed fee, (b) formalize it as a change order with a compensating deferral, or
+(c) fold it into the Option C scope at renegotiated hours. **Urban's call.**
+
+### A.3 Known defects carried into this status
+
+Disclosed rather than deferred silently. None are scope changes; all are fix-forward items:
+
+1. Confirming a `repair` or `lost` action in chat writes no transaction yet reports success
+   (`07-conversational-layer.md` §7).
+2. The intent engine is not a `docker-compose` service, so chat degrades to manual entry in a
+   containerized run, without surfacing an error.
+3. `project_phase` lacks `tenant_id`, which blocks Postgres RLS and therefore the §6
+   assumption that additional tenants are a clean Phase 2 change order.
+4. Two API surfaces (tRPC and a hand-rolled REST layer) implement the same queries; ADR-2
+   retires the REST copy.
+5. `make dev` fails — it still builds Flutter from a directory that does not exist.
+
+Items 1-3 should close before any UAT (§3 Phase 5) that includes chat or a second tenant.

@@ -1,0 +1,7 @@
+{
+  "name": "@stinventory/design-system",
+  "version": "0.0.0",
+  "main": "index.ts",
+  "exports": { ".": "./index.ts", "./tokens/*": "./tokens/*.ts", "./tailwind/*": "./tailwind/*.ts" },
+  "files": ["index.ts", "tokens/", "tailwind/"]
+}

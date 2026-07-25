@@ -17,8 +17,10 @@ const serverSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_FROM: z.string().optional(),
 
-  ENGINE_BASE_URL: z.string().url().default("http://localhost:4600"),
-  ENGINE_TIMEOUT_MS: z.coerce.number().default(15000),
+  LLM_API_KEY: z.string().default(""),
+  LLM_BASE_URL: z.string().url().default("https://api.openai.com/v1"),
+  LLM_MODEL: z.string().default("gpt-4o-mini"),
+  LLM_TIMEOUT_MS: z.coerce.number().default(15000),
   MOBILE_ORIGIN: z.string().default("http://localhost:8081"),
 });
 

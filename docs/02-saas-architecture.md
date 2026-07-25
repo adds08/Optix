@@ -49,26 +49,41 @@ without changing application code (tenant resolver swaps the connection).
 
 ## 3. Layered architecture
 
+As built (2026-07-25). Items marked *planned* have no code behind them yet.
+
 ```
 ┌ Presentation ─────────────────────────────────────────────┐
-│  Web (UR-style dashboard, reports-first)                   │
-│  Mobile (QR scan, offline queue) — later phase             │
+│  Web — Next.js 15, shadcn (reports-first)                  │
+│  Mobile — Expo Router (shell only; scan flows planned)     │
 ├ Application / API ─────────────────────────────────────────┤
-│  Hono/Node REST+RPC · Auth (Lucia-style) · RBAC per role   │
+│  Hono + tRPC (single API surface — ADR-2)                  │
+│  Auth (Lucia-style sessions) · RBAC per permission          │
 │  Command handlers → append transactions (event-sourced)    │
-│  Projection rebuilders → assets.current_*, assignments     │
+│  Projection writers → asset.current_*, assignment          │
+│  Background: notification scheduler · messaging worker      │
+├ Intent engine (sidecar) ───────────────────────────────────┤
+│  Python FastAPI, POST /parse → self-hosted LLM             │
+│  Returns raw text spans only; never DB IDs                 │
 ├ Domain ────────────────────────────────────────────────────┤
-│  Asset · Assignment · Transfer · Procurement · Maintenance │
+│  Asset · Assignment · Transfer · (Procurement, Maintenance  │
+│  planned)                                                   │
 │  Invariants: one active custodian, financial≠operational   │
 ├ Data ──────────────────────────────────────────────────────┤
-│  Postgres (transactions = source of truth) + RLS           │
-│  Projections/materialized views for reports                │
-│  Object store for media                                    │
+│  Postgres 16 + Drizzle (transaction = source of truth)     │
+│  RLS planned — off while Urban is the only tenant           │
+│  Projections for reports; materialized views planned        │
+│  Object store for media — planned                           │
 ├ Integration ───────────────────────────────────────────────┤
 │  FoundationSoft (cost/charge-back) · BambooHR (employees,  │
 │  termination events) · HCSS (equipment/telemetry)          │
+│  All three planned; `external_id` seams exist on            │
+│  `project` and `employee`                                   │
 └────────────────────────────────────────────────────────────┘
 ```
+
+The intent engine is a **separate process**, not a library, so the LLM can be swapped or
+hosted independently without touching the API. It is stateless and holds no database
+credentials. See `07-conversational-layer.md`.
 
 ## 4. Reports as materialized projections
 
@@ -79,15 +94,24 @@ no per-tenant report code.
 
 ## 5. Multi-tenant readiness checklist
 
-Carry these from the first commit even while Urban is the only tenant:
+Carry these from the first commit even while Urban is the only tenant. Status as of
+2026-07-25:
 
-- [ ] `tenant_id` column on every table (constant in prototype)
-- [ ] Tenant resolver in the request pipeline (returns Urban always, for now)
-- [ ] All IDs are uuids (no sequential leakage across tenants)
-- [ ] External IDs (`external_id`) namespaced per tenant for FoundationSoft/BambooHR maps
-- [ ] Config (categories, tool templates, approval matrix) is tenant-scoped data, not code
-- [ ] Auth issues tenant-claimed tokens
-- [ ] No hardcoded "Urban" strings in domain logic
+- [x] All IDs are uuids (no sequential leakage across tenants) — the two append-only log
+      tables (`transaction`, `event_log`) use bigint identity by design, for ordering
+- [x] Tenant resolver in the request pipeline — `session.tenant_id`, threaded through every
+      tRPC procedure as `ctx.session.tenantId`
+- [x] Auth issues tenant-claimed sessions
+- [x] External IDs — `external_id` present on `project` and `employee`
+- [x] Config is tenant-scoped data, not code — `tenant_settings` (high-value threshold,
+      approver role, SLA cadences, delivery channels)
+- [x] No hardcoded "Urban" strings in domain logic — Urban appears only in seed data
+- [ ] **`tenant_id` column on every table — FAILING.** `project_phase` has no `tenant_id`
+      (`packages/db/src/schema/project.ts`). It is reachable only via `project_id`, so no RLS
+      policy can be written against it as it stands. **This blocks tenant two** and must be
+      fixed before Phase 2 onboarding.
+- [ ] Tool templates as tenant config — the table does not exist yet (still an open topic in
+      `01-plan.md` §20)
 
 ## 6. Configuration that must be tenant-data, not code
 
@@ -119,3 +143,8 @@ Create tenant → seed default categories + templates → import employees (Bamb
 Per the prototype-first cadence: no RLS, no ClickHouse, no event bus, no sync engine in
 Phase 1. Postgres + a transactions table + projection views is enough to run Urban and
 prove the model. Add tenancy machinery when the second tenant is real, not before.
+
+**Re-checked 2026-07-25 and still held.** None of the above has crept in: there is no RLS,
+no event bus, no analytics store, no sync engine. Tenant isolation is enforced in the
+application layer (`ctx.session.tenantId` on every query) with RLS deferred as the backstop.
+Stated explicitly so a reader knows this was verified, not overlooked.

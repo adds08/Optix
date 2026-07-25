@@ -1,0 +1,12 @@
+{
+  "name": "@stinventory/frontend-shared",
+  "version": "0.0.0",
+  "main": "src/index.ts",
+  "exports": { ".": "./src/index.ts", "./*": "./src/*.ts", "./*": "./src/*.tsx" },
+  "dependencies": {
+    "@stinventory/design-system": "workspace:*",
+    "@stinventory/db": "workspace:*",
+    "@stinventory/types": "workspace:*"
+  },
+  "peerDependencies": { "react": "*", "@tanstack/react-query": "*" }
+}

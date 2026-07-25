@@ -2,7 +2,11 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Can } from "@/components/can";
-import { Truck, Plus, MapPin, Wrench, User, Building2, DollarSign } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Truck, Plus } from "lucide-react";
 import { VehicleForm } from "@/components/vehicle-form";
 
 export default function D02VehiclesPage() {
@@ -10,38 +14,52 @@ export default function D02VehiclesPage() {
   const [showForm, setShowForm] = useState(false);
 
   return (
-    <>
-      <div className="d02-card">
-        <h2><Truck size={16} className="d02-card-header-icon" /> Vehicles (Trucks & Trailers)</h2>
-        <div className="d02-toolbar">
-          <Can perm="vehicle.manage">
-            <button className="d02-btn d02-sm" onClick={() => setShowForm(true)}><Plus size={14} /> New Vehicle</button>
-          </Can>
-          <div style={{ flex: 1 }} />
-          <span className="d02-chip">{vehicles.data?.length ?? 0} vehicles</span>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Vehicles</h1>
+          <p className="text-muted-foreground">Trucks, trailers, and fleet tracking.</p>
         </div>
-        <div className="d02-body d02-scroll">
-          <table className="d02-table"><thead><tr><th>Unit</th><th>Type</th><th>Make/Model</th><th>Plate</th><th>Ownership</th><th>Foreman</th><th>Project</th><th>GPS</th><th>Allowance</th></tr></thead>
-            <tbody>
-              {vehicles.data?.map((v) => (
-                <tr key={v.id}>
-                  <td><b style={{ display: "flex", alignItems: "center", gap: 6 }}><Truck size={14} />{v.unit}</b></td>
-                  <td><span className="d02-chip">{v.vehicleType}</span></td>
-                  <td>{v.makeModel ?? <span className="d02-muted">—</span>}</td>
-                  <td>{v.plate ?? <span className="d02-muted">—</span>}</td>
-                  <td><span className={`d02-chip ${v.ownershipType === "personal_allowance" ? "d02-chip-lost" : "d02-chip-ok"}`}>{v.ownershipType.replace("_", " ")}</span></td>
-                  <td>{v.foremanName ?? <span className="d02-muted">—</span>}</td>
-                  <td>{v.projectName ?? <span className="d02-muted">—</span>}</td>
-                  <td>{v.gpsLat ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><MapPin size={12} />{v.gpsLat},{v.gpsLng}</span> : <span className="d02-muted">—</span>}</td>
-                  <td>{v.ownershipType === "personal_allowance" ? `${v.allowanceRate ?? ""}/${v.allowanceFrequency ?? ""}` : <span className="d02-muted">—</span>}</td>
-                </tr>
-              ))}
-              {!vehicles.data?.length && <tr><td colSpan={9}><div className="d02-empty"><Truck size={36} /><div>No vehicles yet</div></div></td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <Can perm="vehicle.manage">
+          <Button size="sm" onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Vehicle</Button>
+        </Can>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Truck className="h-4 w-4" /> All Vehicles</CardTitle>
+          <CardDescription>{vehicles.data?.length ?? 0} vehicles</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Unit</TableHead><TableHead>Type</TableHead><TableHead>Make/Model</TableHead>
+                <TableHead>Plate</TableHead><TableHead>Ownership</TableHead><TableHead>Foreman</TableHead>
+                <TableHead>Project</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {vehicles.data?.map((v) => (
+                <TableRow key={v.id}>
+                  <TableCell className="font-medium">{v.unit}</TableCell>
+                  <TableCell><Badge variant="outline">{v.vehicleType}</Badge></TableCell>
+                  <TableCell>{v.makeModel ?? "\u2014"}</TableCell>
+                  <TableCell>{v.plate ?? "\u2014"}</TableCell>
+                  <TableCell><Badge variant={v.ownershipType === "personal_allowance" ? "destructive" : "default"}>{v.ownershipType.replace("_", " ")}</Badge></TableCell>
+                  <TableCell>{v.foremanName ?? "\u2014"}</TableCell>
+                  <TableCell>{v.projectName ?? "\u2014"}</TableCell>
+                </TableRow>
+              ))}
+              {!vehicles.data?.length && (
+                <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">No vehicles yet.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       <VehicleForm open={showForm} onClose={() => setShowForm(false)} />
-    </>
+    </div>
   );
 }

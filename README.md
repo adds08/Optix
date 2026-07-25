@@ -17,7 +17,9 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 | `docs/03-data-model.md` | Detailed schema; event-sourced core (transactions = source of truth, everything else a projection) |
 | `docs/04-diagrams.md` | Mermaid: ERD, lifecycle state machine, custody + HR-offboarding + phase-change flows, procurement BPMN, deployment + SaaS multi-tenancy |
 | `docs/02-saas-architecture.md` | Multi-tenant productization path and how it aligns with the Mark 85 customer-zero → SaaS arc |
-| `docs/05-build-proposal.md` | Bodhi Labs build proposal — scope, team, hours, per-hour + fixed pricing, scope options, payment schedule, handoff to production |
+| `docs/05-build-proposal.md` | Bodhi Labs build proposal — scope, team, hours, pricing, scope options, payment schedule, handoff, plus a delivery-status addendum |
+| `docs/06-decisions.md` | Architecture decision records (ADR-1..6) |
+| `docs/07-conversational-layer.md` | The chat → intent → custody-action subsystem |
 | `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
 | `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
 
@@ -110,42 +112,67 @@ Password: **`stinventory-demo`**
 | warehouse@stinventory.local | Yard Desk — Warehouse |
 | foreman.miguel@stinventory.local | Miguel Torres — Foreman |
 
-### What's built (Linkage MVP)
+### What's built
 
 - **Asset Register** — small tools (serialized + bulk), searchable/filterable
-- **Assignments** — custody links, temporary loans, overdue detection
+- **Assignments** — custody links, temporary loans, overdue detection, approval gate
 - **Transfers** — hand-off reporting, high-value + cross-person approval
 - **Vehicles** — trucks/trailers as tracking locations with GPS + company/personal-allowance ownership
-- **Dashboard** — KPIs, overdue loans, HR clearance queue, transaction feed
-- **Reports** — assets by project, by foreman, idle, lost, capital by project, audit trail
+- **Dashboard** — KPIs, overdue loans, HR clearance queue, pending approvals, activity feed
+- **Conversational layer** — foremen type a sentence; it becomes a proposed custody
+  transaction they confirm. Plus chat-extracted tasks and an admin verification queue
 - **Notification engine** — overdue detection, SLA timers, email/SMS provider interface
-- **Event-sourced core** — append-only `transactions` table; all state is a projection; rebuild guarantee
+- **Event-sourced core** — append-only `transaction` table; all state is a projection; rebuild guarantee
+- **Reports — API only.** Six procedures (register, by project, by foreman, idle, lost,
+  capital by project) exist with **no web pages yet**. The audit trail is browsable at `/d02/audit`.
+
+### Not built
+
+Procurement (PR → PO → Receive) and Maintenance/Inspections have no tables and no code.
+Mobile is an Expo shell with no scan flows. Integrations are seams (`external_id`) only.
+See `docs/01-plan.md` §18 for the full roadmap and `AGENTS.md` §12 for known defects.
 
 ### Monorepo layout
 
 ```
 STInventory/
 ├── apps/
-│   ├── api/          Hono + tRPC + auth + notification scheduler
-│   ├── web/          Next.js 15 UR-style dashboard
-│   └── mobile/       Expo (React Native) mobile app
-├── engine/           Python AI engine (port 4600)
+│   ├── api/          Hono + tRPC + auth + notification scheduler + messaging worker
+│   ├── web/          Next.js 15 dashboard (routes under /d02)
+│   └── mobile/       Expo Router app — shell only (login + index)
+├── engine/           Python FastAPI intent parser (POST /parse, port 4600)
 ├── packages/
-│   ├── api-contracts/   tRPC routers (identity, dashboard, asset, assignment, transfer, vehicle, report, …)
+│   ├── api-contracts/   tRPC routers (identity, dashboard, asset, assignment, transfer,
+│   │                    vehicle, report, messaging, entity, task, …)
 │   ├── auth/            Lucia-style session + tenant-scoped RBAC
 │   ├── db/              Drizzle schema + seed (Postgres)
+│   ├── design-system/   Shared tokens + tailwind preset
 │   ├── domain/          Event-sourcing fold + custody rules (pure)
 │   ├── env/             Zod-validated env loader
+│   ├── frontend-shared/ Cross-client auth + API helpers
 │   ├── logger/          pino logger
 │   ├── types/           Branded IDs, enums, permissions
-│   ├── config-eslint/  Shared ESLint flat config
+│   ├── config-eslint/   Shared ESLint flat config
 │   └── config-tsconfig/ Shared tsconfig presets
 ├── prototype/           Single-file no-build UI prototype
-├── docker-compose.yml   Postgres + API + Web
-└── Makefile             ENV-driven: up/down/seed/logs/psql/test/mobile/engine
+├── docker-compose.yml   Postgres + API + Web (the engine is NOT a service — run it on the host)
+└── Makefile             ENV-driven: up/down/seed/logs/psql/test
 ```
+
+### Make targets
+
+Working: `up`, `down`, `restart`, `build`, `rebuild`, `logs`, `ps`, `seed`, `push`,
+`migrate`, `studio`, `reset`, `test`, `typecheck`, `lint`, `psql`.
+
+> **Broken:** `make dev` and `make mobile` still invoke `flutter` against `apps/desktop`,
+> which does not exist — mobile moved to Expo (`docs/06-decisions.md` ADR-3). Use
+> `make ENV=local up` and start the Expo app separately.
 
 ## Status
 
-Planning docs + runnable prototype + production Linkage MVP (build verified, typecheck clean).
-See the Bodhi proposal for the full build plan and scope options.
+Running system, not feature-complete (as of 2026-07-25). Asset register, custody, vehicles,
+dashboard, notifications, and the conversational layer work. Procurement and maintenance are
+not started; reports have no UI. Docs were reconciled against the code on 2026-07-25 —
+`docs/03-data-model.md` Part A is the as-built schema, Part B is explicitly unbuilt.
+
+See `docs/05-build-proposal.md` for the build plan, scope options, and delivery status.

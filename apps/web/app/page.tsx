@@ -2,6 +2,10 @@
 import { useState } from "react";
 import { login, setSession } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Package } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,32 +21,41 @@ export default function LoginPage() {
     try {
       const res = await login(email, password);
       setSession(res.sessionId);
-      router.push("/dashboard");
+      router.push("/d02/dashboard");
     } catch {
-      setErr("Login failed. Check credentials.");
+      setErr("Invalid email or password.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-wrap">
-      <div className="login-box">
-        <h1>ST<span style={{ color: "var(--accent)" }}>Inventory</span></h1>
-        <form onSubmit={submit}>
-          <label>Email</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} />
-          <label>Password</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          {err && <div className="err">{err}</div>}
-          <button type="submit" disabled={loading}>{loading ? "…" : "Sign in"}</button>
-        </form>
-        <div className="hint">
-          Demo logins (password: <b>stinventory-demo</b>):<br />
-          admin@stinventory.local · owner@stinventory.local<br />
-          foreman.miguel@stinventory.local · warehouse@stinventory.local
-        </div>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center space-y-3 pt-10">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+            <Package className="h-6 w-6 text-primary" />
+          </div>
+          <CardTitle className="text-2xl">STInventory</CardTitle>
+          <CardDescription>Equipment & Tool Management</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" autoFocus />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Password</label>
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            </div>
+            {err && <p className="text-sm text-destructive text-center">{err}</p>}
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? "Signing in…" : "Sign in"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

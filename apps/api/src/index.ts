@@ -12,6 +12,7 @@ import { createLogger } from "@stinventory/logger";
 import { detectOverdueLoans, deliverPendingNotifications } from "./notifications.js";
 import { handleAiChat } from "./ai.js";
 import { processQueuedMessages } from "./messaging-worker.js";
+import { mountRestRoutes } from "./rest-routes.js";
 import * as schema from "@stinventory/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -31,7 +32,7 @@ app.use("*", honoLogger());
 app.use(
   "*",
   cors({
-    origin: [env.WEB_ORIGIN, env.MOBILE_ORIGIN],
+    origin: (origin) => origin ?? env.WEB_ORIGIN,
     credentials: true,
     allowHeaders: ["Authorization", "Content-Type"],
   }),
@@ -102,8 +103,35 @@ app.post("/ai/chat", async (c) => {
   const { message } = await c.req.json<{ message: string }>();
   if (!message || !message.trim()) return c.json({ result: "Say something!" });
   const result = await handleAiChat(db, session, message.trim());
+
+  // Bridge: create a message record so the Kanban sees it
+  if (result.intent) {
+    const channel = await db.query.channel.findFirst({
+      where: eq(schema.channel.tenantId, session.tenantId),
+    });
+    if (channel) {
+      const status = !result.ok ? "error"
+        : result.intent.status === "pending_verification" ? "action_proposed"
+        : "action_executed";
+      await db.insert(schema.message).values({
+        tenantId: session.tenantId,
+        channelId: channel.id,
+        authorUserId: session.userId,
+        body: message.trim(),
+        processingStatus: status,
+        intentType: result.intent.type,
+        proposedAction: {
+          type: result.intent.type,
+          department: result.intent.department,
+        },
+      });
+    }
+  }
+
   return c.json(result);
 });
+
+mountRestRoutes(app, db);
 
 app.use(
   "/trpc/*",

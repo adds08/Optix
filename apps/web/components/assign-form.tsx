@@ -1,7 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
-import { Modal } from "./modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { usePermissions } from "./use-permissions";
 
 type Props = { open: boolean; onClose: () => void; preselectedAssetId?: string };
@@ -18,13 +20,11 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const isSuper = role === "superintendent";
   const isWarehouseOrAdmin = has("employee.manage");
 
-  // Determine custodian options
   let custodianOptions = foremen.data?.filter((e) => e.role === "foreman" && e.employmentStatus === "active") ?? [];
   if (isSuper) {
     const myForemanIds = new Set(myForemen.data?.map((f) => f.id) ?? []);
     custodianOptions = custodianOptions.filter((e) => myForemanIds.has(e.id));
   } else if (!isWarehouseOrAdmin) {
-    // Foreman can only assign to themselves
     custodianOptions = custodianOptions.filter((e) => e.id === me.data?.employeeId);
   }
 
@@ -43,64 +43,74 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
     setSubmitting(true);
     setResult("");
     try {
-      const res = await utils.client.assignment.create.mutate({ assetId, custodianId, projectId: projectId || undefined, type, expectedEnd: expectedEnd || undefined });
+      const res = await utils.client.assignment.create.mutate({
+        assetId, custodianId, projectId: projectId || undefined,
+        type, expectedEnd: expectedEnd || undefined,
+      });
       setResult(res.needsApproval ? "Pending approval" : "Assigned!");
       utils.assignment.list.invalidate();
       utils.asset.list.invalidate();
       utils.dashboard.kpis.invalidate();
       utils.dashboard.recentActivity.invalidate();
       setTimeout(onClose, 1200);
-    } catch (e: any) {
-      setResult(e.message ?? "Error");
+    } catch {
+      setResult("Error");
     }
     setSubmitting(false);
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Assign Tool">
-      <label>Asset</label>
-      <select value={assetId} onChange={(e) => setAssetId(e.target.value)}>
-        <option value="">Select asset...</option>
-        {assets.data?.map((a) => (
-          <option key={a.id} value={a.id}>{a.tag} — {a.modelName}</option>
-        ))}
-      </select>
-
-      <label>Custodian</label>
-      <select value={custodianId} onChange={(e) => setCustodianId(e.target.value)}>
-        <option value="">Select custodian...</option>
-        {custodianOptions.map((e) => (
-          <option key={e.id} value={e.id}>{e.name} {e.externalId ? `#${e.externalId}` : ""}</option>
-        ))}
-      </select>
-
-      <label>Project</label>
-      <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-        <option value="">Default (custodian's primary)</option>
-        {projects.data?.map((p) => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
-      </select>
-
-      <label>Type</label>
-      <select value={type} onChange={(e) => setType(e.target.value as "permanent" | "temporary")}>
-        <option value="permanent">Permanent</option>
-        <option value="temporary">Temporary (loan)</option>
-      </select>
-
-      {type === "temporary" && (
-        <>
-          <label>Expected end date</label>
-          <input type="date" value={expectedEnd} onChange={(e) => setExpectedEnd(e.target.value)} />
-        </>
-      )}
-
-      {result && <div style={{ marginTop: 10, fontSize: 13, color: result === "Error" ? "var(--bad)" : "var(--ok)" }}>{result}</div>}
-
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
-        <button className="btn" onClick={submit} disabled={submitting || !assetId || !custodianId}>{submitting ? "..." : "Assign"}</button>
-      </div>
-    </Modal>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Assign Tool</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Asset</label>
+            <select value={assetId} onChange={(e) => setAssetId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="">Select asset...</option>
+              {assets.data?.map((a) => (
+                <option key={a.id} value={a.id}>{a.tag} — {a.modelName}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Custodian</label>
+            <select value={custodianId} onChange={(e) => setCustodianId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="">Select custodian...</option>
+              {custodianOptions.map((e) => (
+                <option key={e.id} value={e.id}>{e.name} {e.externalId ? `#${e.externalId}` : ""}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Project</label>
+            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="">Default (custodian's primary)</option>
+              {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Type</label>
+            <select value={type} onChange={(e) => setType(e.target.value as "permanent" | "temporary")} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="permanent">Permanent</option>
+              <option value="temporary">Temporary (loan)</option>
+            </select>
+          </div>
+          {type === "temporary" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Expected end date</label>
+              <Input type="date" value={expectedEnd} onChange={(e) => setExpectedEnd(e.target.value)} />
+            </div>
+          )}
+          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={submit} disabled={submitting || !assetId || !custodianId}>{submitting ? "..." : "Assign"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

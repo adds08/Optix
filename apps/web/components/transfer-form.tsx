@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { Modal } from "./modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { usePermissions } from "./use-permissions";
 
 type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
@@ -32,7 +33,10 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
     setSubmitting(true);
     setResult("");
     try {
-      const res = await utils.client.transfer.create.mutate({ assetId, toCustodianId, toProjectId: toProjectId || undefined, toLocationId: toLocationId || undefined, reason });
+      const res = await utils.client.transfer.create.mutate({
+        assetId, toCustodianId, toProjectId: toProjectId || undefined,
+        toLocationId: toLocationId || undefined, reason,
+      });
       setResult(res.needsApproval ? "Pending approval" : "Transferred!");
       utils.transfer.list.invalidate();
       utils.assignment.list.invalidate();
@@ -40,56 +44,61 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
       utils.dashboard.kpis.invalidate();
       utils.dashboard.recentActivity.invalidate();
       setTimeout(onClose, 1200);
-    } catch (e: any) {
-      setResult(e.message ?? "Error");
+    } catch {
+      setResult("Error");
     }
     setSubmitting(false);
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Transfer Tool">
-      <p style={{ fontSize: 13, margin: "0 0 8px" }}>Transferring: <b>{assetTag}</b></p>
-
-      <label>To custodian</label>
-      <select value={toCustodianId} onChange={(e) => setToCustodianId(e.target.value)}>
-        <option value="">Select custodian...</option>
-        {custodianOptions.map((e) => (
-          <option key={e.id} value={e.id}>{e.name}</option>
-        ))}
-      </select>
-
-      <label>To project</label>
-      <select value={toProjectId} onChange={(e) => setToProjectId(e.target.value)}>
-        <option value="">No change</option>
-        {projects.data?.map((p) => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
-      </select>
-
-      <label>To location</label>
-      <select value={toLocationId} onChange={(e) => setToLocationId(e.target.value)}>
-        <option value="">No change</option>
-        {locations.data?.map((l) => (
-          <option key={l.id} value={l.id}>{l.name}</option>
-        ))}
-      </select>
-
-      <label>Reason</label>
-      <select value={reason} onChange={(e) => setReason(e.target.value)}>
-        <option value="reallocation">Reallocation</option>
-        <option value="project_complete">Project complete</option>
-        <option value="phase_change">Phase change</option>
-        <option value="hr_offboarding">HR offboarding</option>
-        <option value="repair">Repair</option>
-        <option value="handoff">Handoff</option>
-      </select>
-
-      {result && <div style={{ marginTop: 10, fontSize: 13, color: result === "Error" ? "var(--bad)" : "var(--ok)" }}>{result}</div>}
-
-      <div className="modal-actions">
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
-        <button className="btn" onClick={submit} disabled={submitting || !toCustodianId}>{submitting ? "..." : "Transfer"}</button>
-      </div>
-    </Modal>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Transfer Tool</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">Transferring: <span className="font-medium text-foreground">{assetTag}</span></p>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">To custodian</label>
+            <select value={toCustodianId} onChange={(e) => setToCustodianId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="">Select custodian...</option>
+              {custodianOptions.map((e) => (
+                <option key={e.id} value={e.id}>{e.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">To project</label>
+            <select value={toProjectId} onChange={(e) => setToProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="">No change</option>
+              {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">To location</label>
+            <select value={toLocationId} onChange={(e) => setToLocationId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="">No change</option>
+              {locations.data?.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Reason</label>
+            <select value={reason} onChange={(e) => setReason(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="reallocation">Reallocation</option>
+              <option value="project_complete">Project complete</option>
+              <option value="phase_change">Phase change</option>
+              <option value="hr_offboarding">HR offboarding</option>
+              <option value="repair">Repair</option>
+              <option value="handoff">Handoff</option>
+            </select>
+          </div>
+          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={submit} disabled={submitting || !toCustodianId}>{submitting ? "..." : "Transfer"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

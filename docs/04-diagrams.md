@@ -6,56 +6,116 @@ architecture, and SaaS multi-tenancy.
 
 ---
 
-## 1. Entity relationship (core)
+## 1. Entity relationship — as built
+
+Tables that exist in `packages/db/src/schema/`. Physical names are singular and snake_case.
+The planned-but-unbuilt procurement and maintenance tables are in §1b.
 
 ```mermaid
 erDiagram
-    CATEGORIES ||--o{ MODELS : classifies
-    MANUFACTURERS ||--o{ MODELS : makes
-    MODELS ||--o{ ASSETS : "spec for"
-    ASSETS ||--o{ TRANSACTIONS : "logs"
-    ASSETS ||--o{ ASSIGNMENTS : "held via"
-    ASSETS ||--o{ MAINTENANCE_RECORDS : "serviced by"
-    ASSETS ||--o{ INSPECTIONS : "checked by"
-    EMPLOYEES ||--o{ ASSIGNMENTS : "custodian of"
-    PROJECTS ||--o{ ASSIGNMENTS : "site of"
-    PROJECTS ||--o{ PROJECT_PHASES : "has"
-    PROJECTS ||--o{ ASSETS : "owns (financial)"
-    LOCATIONS ||--o{ ASSIGNMENTS : "located at"
-    WAREHOUSES ||--o{ LOCATIONS : "contains"
-    VENDORS ||--o{ PURCHASE_ORDERS : "fulfills"
-    VENDORS ||--o{ MAINTENANCE_RECORDS : "repairs"
-    PURCHASE_REQUESTS ||--o{ PURCHASE_ORDERS : "becomes"
-    PURCHASE_REQUESTS ||--o{ PURCHASE_REQUEST_LINES : "has"
-    ASSETS ||--o{ TRANSFERS : "moved by"
+    CATEGORY ||--o{ ASSET_MODEL : classifies
+    MANUFACTURER ||--o{ ASSET_MODEL : makes
+    ASSET_MODEL ||--o{ ASSET : "spec for"
+    ASSET ||--o{ TRANSACTION : "logs"
+    ASSET ||--o{ ASSIGNMENT : "held via"
+    ASSET ||--o{ TRANSFER : "moved by"
+    ASSET ||--o{ TASK : "referenced by"
+    EMPLOYEE ||--o{ ASSIGNMENT : "custodian of"
+    EMPLOYEE ||--o{ EMPLOYEE : "reports to"
+    PROJECT ||--o{ ASSIGNMENT : "site of"
+    PROJECT ||--o{ PROJECT_PHASE : "has"
+    PROJECT ||--o{ ASSET : "owns (financial)"
+    LOCATION ||--o{ ASSIGNMENT : "located at"
+    LOCATION ||--|| VEHICLE : "is a moving"
+    LOCATION ||--o{ LOCATION : "nests"
+    WAREHOUSE ||--o{ LOCATION : "contains"
+    CHANNEL ||--o{ MESSAGE : "holds"
+    MESSAGE ||--o{ TRANSACTION : "produces on confirm"
+    EMPLOYEE ||--o{ NOTIFICATION : "receives"
 
-    ASSETS {
+    ASSET {
         uuid id PK
+        uuid tenant_id FK
         string tag
         uuid model_id FK
-        uuid owning_project_id FK
-        string current_status
-        uuid current_custodian_id FK
-        uuid current_project_id FK
-        uuid current_location_id FK
+        string model_name "denormalized"
+        uuid owning_project_id FK "who paid"
+        string current_status "projection"
+        uuid current_custodian_id FK "projection"
+        uuid current_project_id FK "who uses"
+        uuid current_location_id FK "projection"
     }
-    TRANSACTIONS {
+    TRANSACTION {
         bigint id PK
         uuid asset_id FK
         string event_type
         jsonb from_state
         jsonb to_state
+        string ref_type
         timestamp occurred_at
     }
-    ASSIGNMENTS {
+    ASSIGNMENT {
         uuid id PK
         uuid asset_id FK
         uuid custodian_id FK
         uuid project_id FK
-        string type
-        string status
+        string type "permanent|temporary"
+        string status "incl. pending_approval"
         date expected_end_date
     }
+    MESSAGE {
+        uuid id PK
+        uuid channel_id FK
+        string body
+        string processing_status
+        string intent_type
+        jsonb proposed_action
+        jsonb executed_transaction_ids
+    }
+    VEHICLE {
+        uuid id PK
+        uuid location_id FK
+        string vehicle_type "truck|trailer"
+        string unit
+        string ownership_type
+        numeric gps_lat
+        numeric gps_lng
+    }
+```
+
+Identity and RBAC sit alongside the domain, keyed by `tenant`:
+
+```mermaid
+erDiagram
+    TENANT ||--o{ USER : "has"
+    TENANT ||--o{ ROLE : "has (null = system role)"
+    TENANT ||--|| TENANT_SETTINGS : "configured by"
+    USER ||--o{ SESSION : "authenticates via"
+    USER ||--o{ USER_ROLE : "granted"
+    ROLE ||--o{ USER_ROLE : "granted to"
+    ROLE ||--o{ ROLE_PERMISSION : "allows"
+    PERMISSION ||--o{ ROLE_PERMISSION : "granted by"
+    TENANT ||--o{ EVENT_LOG : "audits"
+```
+
+> `user.employee_id` is a plain uuid with **no FK**, to keep the schema import graph acyclic;
+> the link is resolved in the API layer. `event_log` is generic access audit — the domain
+> system of record is `TRANSACTION`.
+
+## 1b. Entity relationship — planned, not built
+
+No migration exists for any of these. See `03-data-model.md` Part B.
+
+```mermaid
+erDiagram
+    VENDOR ||--o{ PURCHASE_ORDER : "fulfills"
+    VENDOR ||--o{ MAINTENANCE_RECORD : "repairs"
+    PURCHASE_REQUEST ||--o{ PURCHASE_ORDER : "becomes"
+    PURCHASE_REQUEST ||--o{ PURCHASE_REQUEST_LINE : "has"
+    PURCHASE_ORDER ||--o{ PURCHASE_ORDER_LINE : "has"
+    ASSET_MODEL ||--o{ PURCHASE_REQUEST_LINE : "ordered as"
+    ASSET ||--o{ MAINTENANCE_RECORD : "serviced by"
+    ASSET ||--o{ INSPECTION : "checked by"
 ```
 
 ## 2. Asset lifecycle (state machine)
@@ -175,36 +235,51 @@ flowchart LR
     AS --> E([In service])
 ```
 
-## 8. Deployment architecture (prototype → production)
+## 8. Deployment architecture (as built)
+
+Dashed edges are planned and have no code behind them.
 
 ```mermaid
 flowchart TB
     subgraph Client
-        WEB[Web app<br/>UR-style dashboard]
-        MOB[Mobile<br/>QR scan / offline]
+        WEB["Web — Next.js 15<br/>:3100"]
+        MOB["Mobile — Expo Router<br/>shell only; scan flows planned"]
     end
-    subgraph API[API layer]
-        HONO[REST/RPC API<br/>Hono/Node]
-        AUTH[Auth + RBAC]
+    subgraph API["API — Hono :4100"]
+        TRPC[tRPC routers]
+        AUTH[Auth + RBAC<br/>Lucia-style sessions]
+        NOTIF[Notification scheduler]
+        WORK[Messaging worker<br/>4s poll]
+    end
+    subgraph ENG["Intent engine — FastAPI :4600"]
+        PARSE["POST /parse"]
+        LLM[OpenAI-compatible<br/>LLM endpoint]
     end
     subgraph Data
-        PG[(Postgres<br/>transactions = source of truth)]
-        PROJ[Projections / views]
+        PG[("Postgres 16 :5433<br/>transaction = source of truth")]
+        PROJ["Projections: asset.current_*"]
     end
     subgraph Integrations
         FS[FoundationSoft<br/>cost/charge-back]
         HR[BambooHR<br/>employee + termination]
         HCSS[HCSS<br/>equipment/telemetry]
     end
-    WEB --> HONO
-    MOB --> HONO
-    HONO --> AUTH
-    HONO --> PG
+    WEB -->|tRPC| TRPC
+    MOB -->|"tRPC (ADR-2)"| TRPC
+    TRPC --> AUTH
+    TRPC --> PG
+    WORK --> PG
+    NOTIF --> PG
+    WORK -->|HTTP| PARSE
+    PARSE --> LLM
     PG --> PROJ
-    HONO <--> FS
-    HR --> HONO
-    HONO <--> HCSS
+    TRPC <-.-> FS
+    HR -.-> TRPC
+    TRPC <-.-> HCSS
 ```
+
+> The engine is **not** in `docker-compose.yml` (postgres, api, web only). In a containerized
+> run the worker cannot reach it and every message falls to `pending_manual`.
 
 ## 9. SaaS multi-tenancy
 
@@ -223,7 +298,51 @@ flowchart TB
     DB -.- Note
 ```
 
-## 10. How current-state is derived (event fold)
+## 10. Chat message → custody transaction
+
+The core loop of the conversational layer (`07-conversational-layer.md`). Note that the LLM
+returns **raw text spans only** — resolution to database IDs happens in the API, tenant-scoped,
+which is why a hallucinated identifier cannot address a real row.
+
+```mermaid
+sequenceDiagram
+    participant FM as Foreman
+    participant API as API (tRPC)
+    participant DB as Postgres
+    participant W as Messaging worker
+    participant E as Intent engine
+    participant ADM as Admin
+
+    FM->>API: messaging.send("gave UIC-1012 to Dwayne for Trinity Bridge")
+    API->>DB: insert message (processing_status = queued)
+    W->>DB: claim batch of 5 → processing
+    W->>DB: build context (employee, active assignments, recent messages)
+    W->>E: POST /parse { message, context }
+    E-->>W: { intent, confidence, entities (raw spans), needsConfirmation }
+
+    alt intent = task
+        W->>DB: insert task → action_executed
+    else confidence < 0.6 or no asset resolves
+        W->>DB: processing_status = pending_manual
+        ADM->>API: messaging.manualEntry(resolved entities)
+        API->>DB: write domain rows → action_executed
+    else resolved
+        W->>DB: resolve spans → IDs (tenant-scoped)
+        W->>DB: proposed_action + action_proposed
+        FM->>API: messaging.confirmAction(messageId)
+        API->>DB: insert assignment / transfer
+        API->>DB: append transaction (from_state → to_state)
+        API->>DB: update asset.current_* projection
+        API->>DB: event_log (category = messaging)
+        API-->>FM: confirmed + transactionIds
+    end
+```
+
+> Gap to be aware of when reading this diagram: `confirmAction` implements only `assign`,
+> `return`, and `transfer`. A confirmed `repair` or `lost` writes nothing yet still reports
+> success — see `07-conversational-layer.md` §7.
+
+## 11. How current-state is derived (event fold)
 
 ```mermaid
 flowchart LR

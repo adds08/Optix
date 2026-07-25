@@ -1,5 +1,6 @@
 # STInventory — top-level Makefile.
 # Usage:
+#   make dev                # run everything (docker + print mobile cmd)
 #   make ENV=local up        # build + start postgres + api + web
 #   make ENV=local seed      # populate sample data
 #   make ENV=local logs      # tail logs
@@ -20,18 +21,18 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up down restart build rebuild logs ps seed reset push migrate studio psql shell test typecheck lint engine mobile
+.PHONY: help dev up down restart build rebuild logs ps seed reset push migrate studio psql shell test typecheck lint mobile
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
-up: ## Build + start postgres, api, web (detached)
+up: ## Build + start postgres, api, web, desktop (detached)
 	$(COMPOSE) up -d --build
 	@echo ""
-	@echo "  api  → http://localhost:4100  (health: /health)"
-	@echo "  web  → http://localhost:3100"
-	@echo "  db   → postgres://postgres:stinventory@localhost:5433/stinventory"
+	@echo "  api      → http://localhost:4100  (health: /health)"
+	@echo "  web      → http://localhost:3100  (Next.js - shadcn new-york)"
+	@echo "  db       → postgres://postgres:stinventory@localhost:5433/stinventory"
 	@echo ""
 	@echo "  next: \`make seed\` to populate sample data."
 
@@ -83,9 +84,25 @@ lint: ## Run lint inside the api container
 psql: ## Open psql against the DB
 	$(COMPOSE) exec postgres psql -U postgres -d stinventory
 
-engine: ## Start the Python AI engine (uvicorn, port 4600)
-	@echo "Starting AI engine at http://localhost:4600 ..."
-	@cd engine && .venv/bin/uvicorn main:app --port 4600 --reload
+dev: up desktop-build ## Build Flutter + start everything
+	@echo ""
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "  All services are running!"
+	@echo ""
+	@echo "  Web:     http://localhost:3100  (Next.js - shadcn new-york)"
+	@echo "  API:     http://localhost:4100 (health: /health)"
+	@echo "  DB:      postgres://postgres:stinventory@localhost:5433/stinventory"
+	@echo ""
+	@echo "  Login:   admin@stinventory.local / stinventory-demo"
+	@echo ""
+	@echo "  To set up LLM intent parsing, add LLM_API_KEY to .env.local"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-mobile: ## Start the Expo mobile app (apps/mobile)
-	@cd apps/mobile && EXPO_PUBLIC_API_URL=$${MOBILE_API_URL:-http://localhost:4100} pnpm dev
+	@cd apps/desktop && flutter build web --dart-define=API_URL=http://localhost:4100
+
+	@cd apps/desktop && flutter run -d web-server --web-port 3200 --dart-define=API_URL=http://localhost:4100
+
+mobile: ## Start the Flutter app (apps/mobile)
+	@echo "Starting Flutter app — ensure 'make dev' is running first."
+	@echo "API URL: $${API_URL:-http://localhost:4100}"
+	@cd apps/mobile && flutter run --dart-define=API_URL=$${API_URL:-http://localhost:4100}

@@ -14,6 +14,20 @@ import {
 
 const log = createLogger("messaging-worker");
 
+function determineDepartment(intent: string, assets?: { label: string }[]): string {
+  if (intent === "repair") return "Maintenance";
+  if (intent === "return") return "Warehouse";
+  if (intent === "lost") return "Equipment Admin";
+  if (intent === "report") return "Equipment Admin";
+  if (intent === "task") return "Equipment Admin";
+  if (intent === "request_purchase") return "Procurement";
+  if (intent === "assign" || intent === "transfer") {
+    if (assets?.some((a) => /TRU|TRA|trailer|truck/i.test(a.label))) return "Fleet";
+    return "Equipment Yard";
+  }
+  return "Equipment Admin";
+}
+
 const BATCH_SIZE = 5;
 
 export async function processQueuedMessages(db: Database, env: ServerEnv): Promise<number> {
@@ -130,6 +144,43 @@ async function processOne(
     },
   });
 
+  if (engineResp.intent === "task") {
+    const resolvedAssets = engineResp.entities.assets.length > 0
+      ? await resolveEngineAssets(db, tid, engineResp.entities.assets)
+      : [];
+    const relatedAssetId = resolvedAssets.length > 0 ? resolvedAssets[0]!.id : null;
+    const custodian = engineResp.entities.custodian?.raw
+      ? await resolveCustodian(db, tid, engineResp.entities.custodian.raw)
+      : null;
+    const project = engineResp.entities.project?.raw
+      ? await resolveProject(db, tid, engineResp.entities.project.raw)
+      : null;
+    const title = msg.body.length > 120 ? msg.body.slice(0, 117) + "..." : msg.body;
+    await db.insert(schema.task).values({
+      tenantId: tid,
+      title,
+      description: msg.body,
+      assignedToEmployeeId: custodian?.id ?? null,
+      relatedProjectId: project?.id ?? null,
+      createdByUserId: msg.authorUserId,
+      relatedAssetId,
+      source: "chat",
+      sourceMessageId: msg.id,
+      status: "pending",
+      priority: "medium",
+    });
+    await db
+      .update(schema.message)
+      .set({
+        processingStatus: "action_executed",
+        intentType: engineResp.intent,
+        intentPayload: engineResp as Record<string, unknown>,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.message.id, msg.id));
+    return;
+  }
+
   const isHighConfidence = engineResp.confidence >= 0.6 && engineResp.intent !== "none";
 
   if (!isHighConfidence || !engineResp.entities.assets.length) {
@@ -165,9 +216,11 @@ async function processOne(
   const resolvedProj = await resolveProject(db, tid, engineResp.entities.project?.raw ?? "");
 
   const assetIds = resolvedAssets.map((a) => a.id);
+  const department = determineDepartment(engineResp.intent, engineResp.entities.assets);
   const proposedAction: Record<string, unknown> = {
     type: engineResp.intent,
     assetIds,
+    department,
   };
 
   if (engineResp.intent === "assign" || engineResp.intent === "transfer") {

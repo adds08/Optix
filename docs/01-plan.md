@@ -4,8 +4,17 @@ Master planning and functional specification for Urban Infraconstruction's inter
 small-tools and equipment platform. Inspired by United Rentals' operating model, adapted
 for an internal owner/custodian model rather than an external rental marketplace.
 
-Status: planning only. No code yet. This is a standalone track; see §16 for how it
-relates to Mark 85 and the legacy stack.
+Status (2026-07-25): **partially built and running.** The asset register, custody
+(assignments/transfers), vehicles, the notification engine, and an unplanned conversational
+layer are live. Procurement and maintenance are not started. This document is the functional
+target; for what actually exists today see:
+
+- `03-data-model.md` Part A — the as-built schema (Part B is designed but unbuilt)
+- `06-decisions.md` — architecture decisions taken during the build
+- `07-conversational-layer.md` — the chat/intent subsystem, which was not in this plan
+- §16 and §18 below — module-by-module and roadmap status
+
+This is a standalone track; see §19 for how it relates to Mark 85 and the legacy stack.
 
 ---
 
@@ -122,6 +131,11 @@ HR event triggers an equipment clearance workflow:
 outstanding assets listed → inspect → return or transfer each → anything unaccounted marked
 Missing → investigation → history retained. Clearance blocks final offboarding sign-off.
 
+*Built:* the clearance **queue** (`dashboard.clearanceQueue`) derives outstanding assets from
+`employee.employment_status = terminated`, and the dashboard surfaces it.
+*Not built:* the BambooHR termination trigger (status is set by hand today), the inspection
+step, and the **sign-off gate** — nothing currently blocks offboarding.
+
 ### 7.5 Phase changes
 When a project phase ends, surface tools now idle for that phase → recommend return to
 warehouse or transfer to projects/phases that need them.
@@ -178,6 +192,26 @@ Output: reserve-vs-procure recommendations ahead of each project/phase start.
 Asset Register, Assets by Project, Assets by Foreman, Utilization, Idle Assets, Lost
 Assets, Maintenance History, Procurement Status, Transfers, Audit Trail, Cost Allocation.
 
+| Report | Status |
+|---|---|
+| Asset Register | Built — `report.assetRegister` |
+| Assets by Project | Built — `report.byProject` |
+| Assets by Foreman | Built — `report.byForeman` |
+| Idle Assets | Built — `report.idle` |
+| Lost Assets | Built — `report.lost` |
+| Cost Allocation | Partial — `report.capitalByProject` covers capital by owning project only |
+| Audit Trail | Built — via `transaction.list`, surfaced at `/d02/audit` |
+| Utilization | Not built |
+| Maintenance History | Not built (blocked on the maintenance module) |
+| Procurement Status | Not built (blocked on the procurement module) |
+| Transfers | Not built as a report; `transfer.list` exists |
+
+> **The reports-first principle is currently being violated.** Six report procedures exist
+> in `packages/api-contracts/src/routers/report.ts` and **none of them has a web page** —
+> there is no Reports entry in the navigation (`apps/web/components/d02/d02-shell.tsx`).
+> The moat is built in the API and invisible in the product. Closing this is the
+> highest-value small piece of work outstanding.
+
 ## 13. Data & Events
 
 Suggested tables:
@@ -202,19 +236,30 @@ Upcoming Demand.
 
 ## 16. System Modules
 
-1. Dashboard
-2. Asset Register / Asset Management
-3. Procurement
-4. Warehouses & Locations
-5. Projects (+ Phases)
-6. Foremen & Employees
-7. Assignments
-8. Transfers / Logistics
-9. Maintenance
-10. HR Integration
-11. Planning & Forecasting
-12. Reporting
-13. Administration
+| # | Module | Status | Notes |
+|---|---|---|---|
+| 1 | Dashboard | Built | KPIs, overdue loans, clearance queue, pending approvals, activity feed |
+| 2 | Asset Register / Asset Management | Built | serialized + bulk, search/filter, status changes |
+| 3 | Procurement | Not built | no PR/PO/vendor tables — `03-data-model.md` Part B |
+| 4 | Warehouses & Locations | Built | incl. the nested location hierarchy |
+| 5 | Projects (+ Phases) | Partial | phases exist as a table; no phase-level custody (`assignment` has no `phase_id`) |
+| 6 | Foremen & Employees | Built | incl. org chart via `reports_to_employee_id` |
+| 7 | Assignments | Built | permanent + temporary, overdue detection, approval gate |
+| 8 | Transfers / Logistics | Built | approval gate on cross-person and high-value moves |
+| 9 | Maintenance | Not built | no maintenance/inspection tables |
+| 10 | HR Integration | Partial | clearance queue built; no BambooHR trigger, no sign-off gate (§7.4) |
+| 11 | Planning & Forecasting | Not built | |
+| 12 | Reporting | Partial | 6 procedures, **no UI** — see §12 |
+| 13 | Administration | Partial | RBAC + `tenant_settings` built; no admin console |
+
+Three modules exist in the product that this plan never listed:
+
+| # | Module | Status | Notes |
+|---|---|---|---|
+| 14 | Vehicles / Fleet | Built | trucks and trailers as moving tracking locations with GPS |
+| 15 | Messaging & Intent Capture | Built | chat → LLM intent → proposed custody action; see `07-conversational-layer.md` |
+| 16 | Tasks | Built | work items extracted from chat that are not custody events |
+| 17 | Verification Queue | Built | admin review of low-confidence and unresolved messages |
 
 ## 17. Process Flow
 
@@ -236,14 +281,29 @@ J-->K(Reassign / Store / Repair)
 
 ## 18. Roadmap
 
-- Phase 1 — Asset Register (catalog, tagging, current-state)
-- Phase 2 — Procurement (PR → PO → Receive)
-- Phase 3 — Assignments & Transfers (custody + movement)
-- Phase 4 — Mobile QR/barcode
-- Phase 5 — Maintenance & Inspections
-- Phase 6 — Planning & Forecasting
-- Phase 7 — ERP / Accounting integration (FoundationSoft charge-back)
-- Phase 8 — RFID / BLE tracking
+The original phase order was not followed. Custody (Phase 3) shipped before procurement
+(Phase 2), because custody is what the spreadsheet fails at hardest and procurement can be
+run on the existing process meanwhile. An unplanned conversational phase was inserted after
+custody. Actual state:
+
+| Phase | Scope | Status |
+|---|---|---|
+| 1 | Asset Register (catalog, tagging, current-state) | **Done** |
+| 3 | Assignments & Transfers (custody + movement) | **Done** — taken ahead of Phase 2 |
+| — | Vehicles as tracking locations | **Done** — unplanned |
+| — | Conversational capture (chat → intent → custody action) | **Done** — unplanned; `07-conversational-layer.md` |
+| 12 | Reporting | **Partial** — API built, no UI (§12) |
+| 2 | Procurement (PR → PO → Receive) | Not started |
+| 5 | Maintenance & Inspections | Not started |
+| 4 | Mobile QR/barcode | Not started — Expo shell only, no scan flows |
+| 10 | HR clearance sign-off gate + BambooHR trigger | Not started (§7.4) |
+| 6 | Planning & Forecasting | Not started |
+| 7 | ERP / Accounting integration (FoundationSoft charge-back) | Not started — `external_id` seams exist |
+| 8 | RFID / BLE tracking | Not started |
+
+Recommended next order: **reports UI → procurement → maintenance → mobile scan flows.**
+Reports first because the API work is already paid for and invisible; procurement next
+because it is the largest remaining hole in the lifecycle.
 
 ## 19. Relationship to Mark 85 and the legacy stack
 
@@ -273,6 +333,23 @@ module, or to stay a satellite app that shares Mark 85's data layer. Decide late
 - Tool templates by work package — who defines them.
 - Multi-company support (Urban entities / Bodhi).
 - Offline mobile workflow (yards/sites with no signal).
-- Approval matrix for PR/PO and high-value custody.
-- Notifications & SLA (overdue, missing, maintenance-due).
-- Serialized assets vs bulk/consumable small tools — one model or two.
+- Approval matrix for PR/PO and high-value custody. *(Partly resolved: custody approvals run
+  off `tenant_settings.high_value_threshold` + `custody_approver_role`. PR/PO still open.)*
+- Notifications & SLA (overdue, missing, maintenance-due). *(Resolved for overdue/missing;
+  maintenance-due blocked on the maintenance module.)*
+- Serialized assets vs bulk/consumable small tools — one model or two. *(Resolved: one
+  model, with `is_serialized` + `quantity` on `asset`.)*
+
+Raised during the build, still open:
+
+- **`project_phase` has no `tenant_id`** — blocks RLS and therefore tenant two. See
+  `02-saas-architecture.md` §5.
+- **Reports have no UI** — six procedures, zero pages. See §12.
+- **Phase-level custody** — `assignment` has no `phase_id`, so §7.5 phase-change detection
+  runs off project dates rather than the assignment itself. Add the column or accept the
+  looser rule.
+- **Auto-execute policy for chat intents** — how much should the system do without a human
+  confirming? See `07-conversational-layer.md`.
+- **LLM hosting** — the intent engine currently expects a local OpenAI-compatible endpoint.
+  Self-hosted vs. hosted API is undecided and has cost, latency, and data-residency
+  consequences.

@@ -57,6 +57,13 @@ This means:
 - **You can answer "who paid for this?" in one click**, even while the tool is physically
   on another job site.
 
+**And the WhatsApp thread moves inside the system.** The reason custody data never got
+recorded is that WhatsApp costs one sentence and a form costs a minute in the cab of a truck.
+So STInventory takes the sentence. A foreman types "gave the rotary hammer UIC-1012 to Dwayne
+for Trinity Bridge" into the equipment channel, exactly as he would have texted it, and the
+system turns it into a proposed custody transaction he confirms with one tap. Same effort as
+the group chat — except now it lands in the register, the audit trail, and the reports.
+
 ## Why this is low risk
 
 The system is modeled on the same operating shape United Rentals uses (catalog → warehouse

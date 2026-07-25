@@ -19,8 +19,9 @@ from pydantic import BaseModel, Field
 
 app = FastAPI(title="STInventory AI Engine", version="0.1.0")
 
-LLM_BASE_URL = os.environ.get("ENGINE_LLM_BASE_URL", "http://localhost:11434/v1")
-LLM_MODEL = os.environ.get("ENGINE_MODEL", "gemma3:4b-it")
+LLM_BASE_URL = os.environ.get("ENGINE_LLM_BASE_URL", "http://localhost:8088/v1")
+LLM_MODEL = os.environ.get("ENGINE_MODEL", "lmstudio-community/gemma-4-E2B-it-MLX-6bit")
+LLM_API_KEY = os.environ.get("ENGINE_API_KEY", "1234")
 LLM_TIMEOUT = int(os.environ.get("ENGINE_TIMEOUT_MS", "15000")) // 1000
 
 PROMPT_DIR = os.path.join(os.path.dirname(__file__), "prompts")
@@ -116,7 +117,7 @@ _CLIENT: OpenAI | None = None
 def _get_client() -> OpenAI:
     global _CLIENT
     if _CLIENT is None:
-        _CLIENT = OpenAI(base_url=LLM_BASE_URL, api_key="noop")
+        _CLIENT = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
     return _CLIENT
 
 
@@ -132,17 +133,20 @@ _DEFAULT_RESPONSE: dict[str, Any] = {
 
 def _call_llm(user_prompt: str) -> dict[str, Any]:
     client = _get_client()
-    resp = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.1,
-        max_tokens=1024,
-        timeout=LLM_TIMEOUT,
-    )
+    try:
+        resp = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+            max_tokens=1024,
+            timeout=LLM_TIMEOUT,
+        )
+    except Exception as exc:
+        raise ValueError(f"LLM call failed: {exc}") from exc
     content = resp.choices[0].message.content or ""
     parsed = _extract_json(content)
     if parsed is None:
@@ -166,7 +170,7 @@ def parse(req: ParseRequest, request: Request):
     intent = data.get("intent", "none")
     valid_intents = {
         "transfer", "assign", "return", "lost", "repair",
-        "request_purchase", "report", "none",
+        "request_purchase", "report", "task", "none",
     }
     if intent not in valid_intents:
         intent = "none"

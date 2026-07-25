@@ -9,3 +9,31 @@ coverage
 .env.*
 !.env.example
 .DS_Store
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+
+# tooling scratch
+.playwright-mcp/
+.kilo/
+
+# stray screenshot / snapshot dumps at repo root
+/*.png
+/app-polished-*
+/dashboard-*
+/chat-*
+/kanban-and-chat
+/login-*
+/new-login
+/sidebar-check
+/dark-sidebar
+/final-shadcn-dashboard
+/pure-shadcn*
+/shadcn-website
+/v2-*
+/flutter-web-check
+/core-shadcn-final*
+/classic-shadcn-dashboard*
+/newyork-dash*

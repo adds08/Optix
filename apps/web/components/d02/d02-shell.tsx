@@ -6,42 +6,153 @@ import { clearSession } from "@/lib/auth";
 import { usePermissions } from "@/components/use-permissions";
 import type { Permission } from "@stinventory/types";
 import {
-  LayoutDashboard, Package, ArrowLeftRight, Truck, Users, ScrollText, LogOut, Bell
+  SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter,
+  SidebarMenu, SidebarMenuItem, SidebarMenuButton,
+  SidebarGroup, SidebarGroupLabel, SidebarGroupContent,
+  SidebarTrigger, SidebarInset, SidebarRail, useSidebar,
+} from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  LayoutDashboard, Package, ArrowLeftRight, Truck, Users, ScrollText,
+  LogOut, ClipboardCheck, ListChecks, Box,
 } from "lucide-react";
 import { AiChat } from "@/components/ai-chat";
 import { ToastProvider } from "./d02-toast";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode; perm?: Permission };
 
-const NAV: NavItem[] = [
-  { href: "/d02/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-  { href: "/d02/assets", label: "Asset Register", icon: <Package size={18} />, perm: "asset.read" },
-  { href: "/d02/assignments", label: "Assignments", icon: <ArrowLeftRight size={18} />, perm: "assignment.read" },
-  { href: "/d02/vehicles", label: "Vehicles", icon: <Truck size={18} />, perm: "vehicle.read" },
-  { href: "/d02/foremen", label: "Foremen", icon: <Users size={18} />, perm: "employee.read" },
-  { href: "/d02/audit", label: "Audit Trail", icon: <ScrollText size={18} />, perm: "audit.read" },
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Overview",
+    items: [
+      { href: "/d02/dashboard", label: "Dashboard", icon: <LayoutDashboard /> },
+    ],
+  },
+  {
+    label: "Equipment",
+    items: [
+      { href: "/d02/assets", label: "Asset Register", icon: <Package />, perm: "asset.read" },
+      { href: "/d02/assignments", label: "Assignments", icon: <ArrowLeftRight />, perm: "assignment.read" },
+      { href: "/d02/vehicles", label: "Vehicles", icon: <Truck />, perm: "vehicle.read" },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { href: "/d02/foremen", label: "Foremen", icon: <Users />, perm: "employee.read" },
+      { href: "/d02/audit", label: "Audit Trail", icon: <ScrollText />, perm: "audit.read" },
+      { href: "/d02/verification", label: "Verification", icon: <ClipboardCheck />, perm: "assignment.read" },
+      { href: "/d02/tasks", label: "Tasks", icon: <ListChecks />, perm: "assignment.read" },
+    ],
+  },
 ];
+
+const ALL_NAV: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 function getSession() {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("sti-session");
 }
 
+function TeamSwitcher() {
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton size="lg">
+          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <Box className="size-4" />
+          </div>
+          <div className="flex flex-col gap-0.5 leading-none">
+            <span className="font-semibold">STInventory</span>
+            <span className="text-xs text-sidebar-foreground/60">Equipment Management</span>
+          </div>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+function NavMain() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { has } = usePermissions();
+  const { setOpenMobile } = useSidebar();
+
+  const navTo = (href: string) => {
+    router.push(href);
+    setOpenMobile(false);
+  };
+
+  return (
+    <>
+      {NAV_GROUPS.map((group) => {
+        const visible = group.items.filter((n) => !n.perm || has(n.perm));
+        if (visible.length === 0) return null;
+        return (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visible.map((n) => (
+                  <SidebarMenuItem key={n.href}>
+                    <SidebarMenuButton
+                      isActive={pathname === n.href}
+                      onClick={() => navTo(n.href)}
+                      tooltip={n.label}
+                    >
+                      {n.icon}
+                      <span>{n.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        );
+      })}
+    </>
+  );
+}
+
+function NavUser({ who, doLogout }: { who: string; doLogout: () => void }) {
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <div className="flex items-center gap-2 px-1 py-1.5 group-data-[collapsible=icon]:justify-center">
+          <Avatar className="h-8 w-8 rounded-lg shrink-0">
+            <AvatarFallback className="rounded-lg">
+              {who?.split(" ")[0]?.[0] ?? "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="truncate font-semibold">{who || "Loading\u2026"}</span>
+            <span className="truncate text-xs text-sidebar-foreground/60">Equipment Admin</span>
+          </div>
+        </div>
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton onClick={doLogout} tooltip="Sign out">
+          <LogOut />
+          <span>Sign out</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
 export function D02Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [who, setWho] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
   const me = trpc.identity.me.useQuery();
   const notifications = trpc.notification.list.useQuery(undefined, { refetchInterval: 30_000 });
   const unread = notifications.data?.filter((n) => !n.readAt).length ?? 0;
-  const { has } = usePermissions();
-
-  const visibleNav = NAV.filter((n) => !n.perm || has(n.perm));
 
   useEffect(() => {
     if (!getSession()) { router.replace("/"); return; }
-    if (me.data) setWho(`${me.data.firstName} ${me.data.lastName} · ${me.data.role ?? ""}`);
+    if (me.data) setWho(`${me.data.firstName} ${me.data.lastName}`);
     if (me.error?.data?.code === "UNAUTHORIZED") { clearSession(); router.replace("/"); }
   }, [me.data, me.error, router]);
 
@@ -50,54 +161,38 @@ export function D02Shell({ children }: { children: React.ReactNode }) {
     await logout(); clearSession(); router.replace("/");
   };
 
-  const navTo = (href: string) => { router.push(href); setMenuOpen(false); };
-
   return (
-    <div className="d02">
-      <div className="d02-app">
-        <aside className={`d02-side ${menuOpen ? "d02-open" : ""}`}>
-          <div className="d02-brand">
-            <Package size={20} style={{ color: "var(--d2-accent)" }} />
-            <span>ST<span>Inventory</span></span>
-          </div>
-          <nav className="d02-nav">
-            {visibleNav.map((n) => (
-              <a key={n.href} className={pathname === n.href ? "active" : ""} onClick={() => navTo(n.href)}>
-                {n.icon}{n.label}
-              </a>
-            ))}
-            <a onClick={doLogout} style={{ marginTop: 24, cursor: "pointer" }}>
-              <LogOut size={18} /> Sign out
-            </a>
-          </nav>
-        </aside>
-        <main className="d02-main">
-          <div className="d02-topbar">
-            <button className="d02-hamburger" onClick={() => setMenuOpen(!menuOpen)}>
-              <span /><span /><span />
-            </button>
-            <h1>{NAV.find((n) => pathname?.startsWith(n.href))?.label ?? "STInventory"}</h1>
-            <div className="d02-topbar-right">
-              {unread > 0 && <span className="d02-notif-badge">{unread}</span>}
-              <div className="d02-who">{who}</div>
-              <span className="d02-design-badge" onClick={() => {
-                const cur = pathname.replace("/d02/", "/");
-                router.push(cur);
-              }}>
-                v2
-              </span>
-            </div>
-          </div>
-          <div className="d02-wrap">
-            <ToastProvider>
-              {children}
-            </ToastProvider>
-          </div>
-          <div className="d02-foot">STInventory · v2 Design · event-sourced</div>
-        </main>
-        <AiChat />
-        {menuOpen && <div className="d02-overlay" onClick={() => setMenuOpen(false)} />}
-      </div>
-    </div>
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <TeamSwitcher />
+        </SidebarHeader>
+        <SidebarContent>
+          <NavMain />
+        </SidebarContent>
+        <SidebarFooter>
+          <NavUser who={who} doLogout={doLogout} />
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <span className="text-sm font-medium">
+            {ALL_NAV.find((n) => pathname?.startsWith(n.href))?.label ?? "STInventory"}
+          </span>
+          {unread > 0 && (
+            <Badge className="ml-auto rounded-full px-2 text-xs" variant="secondary">
+              {unread}
+            </Badge>
+          )}
+        </header>
+        <div className="flex flex-1 flex-col gap-4 p-4">
+          <ToastProvider>{children}</ToastProvider>
+        </div>
+      </SidebarInset>
+      <AiChat />
+    </SidebarProvider>
   );
 }

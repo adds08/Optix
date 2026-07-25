@@ -11,6 +11,7 @@ import { notificationRouter } from "./routers/notification.js";
 import { reportRouter } from "./routers/report.js";
 import { messagingRouter } from "./routers/messaging.js";
 import { entityRouter } from "./routers/entity.js";
+import { taskRouter } from "./routers/task.js";
 
 export const appRouter = router({
   identity: identityRouter,
@@ -27,6 +28,7 @@ export const appRouter = router({
   report: reportRouter,
   messaging: messagingRouter,
   entity: entityRouter,
+  task: taskRouter,
 });
 
 export type AppRouter = typeof appRouter;

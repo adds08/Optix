@@ -4,41 +4,19 @@ import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { Can } from "@/components/can";
 import { useToast } from "@/components/d02/d02-toast";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Wrench, CheckCircle2, AlertTriangle, Bookmark, SearchX, DollarSign, AlertOctagon,
-  Clock, Activity, ThumbsUp, Plus, Check
+  Wrench, CheckCircle2, AlertTriangle, Bookmark, SearchX, DollarSign,
+  AlertOctagon, Clock, Activity, ThumbsUp, Plus, Check, ArrowUpRight,
 } from "lucide-react";
 import { ProjectForm } from "@/components/project-form";
 
 const money = (n: string | null | undefined) => "$" + Number(n ?? 0).toLocaleString();
-
-function LoadSkeleton({ n, type }: { n: number; type: "kpi" | "table" }) {
-  return type === "kpi" ? (
-    <div className="d02-kpis">
-      {Array.from({ length: n }).map((_, i) => (
-        <div key={i} className="d02-kpi-card">
-          <div className="d02-skeleton d02-skeleton-card" />
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div style={{ padding: 18 }}>
-      {Array.from({ length: n }).map((_, i) => (
-        <div key={i} className="d02-skeleton d02-skeleton-table-row" style={{ width: `${70 + Math.random() * 30}%` }} />
-      ))}
-    </div>
-  );
-}
-
-function EmptyState({ icon, title, action }: { icon: React.ReactNode; title: string; action?: React.ReactNode }) {
-  return (
-    <div className="d02-empty">
-      {icon}
-      <div>{title}</div>
-      {action}
-    </div>
-  );
-}
 
 export default function D02DashboardPage() {
   const k = trpc.dashboard.kpis.useQuery();
@@ -51,139 +29,214 @@ export default function D02DashboardPage() {
   const toast = useToast();
   const [showProjectForm, setShowProjectForm] = useState(false);
 
-  if (!k.data) return <LoadSkeleton n={6} type="kpi" />;
+  if (!k.data) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Card key={i}><CardContent className="p-5 space-y-3"><Skeleton className="h-8 w-8 rounded-lg" /><Skeleton className="h-6 w-16" /><Skeleton className="h-4 w-12" /></CardContent></Card>
+        ))}
+      </div>
+    );
+  }
 
   const doApprove = async (type: string, id: string) => {
     try {
       if (type === "assignment") await utils.client.assignment.approve.mutate({ id });
       else await utils.client.transfer.approve.mutate({ id });
       pending.refetch();
-      utils.assignment.list.invalidate();
-      utils.transfer.list.invalidate();
-      utils.asset.list.invalidate();
-      utils.dashboard.kpis.invalidate();
+      utils.assignment.list.invalidate(); utils.transfer.list.invalidate();
+      utils.asset.list.invalidate(); utils.dashboard.kpis.invalidate();
       utils.dashboard.recentActivity.invalidate();
-      toast("ok", `${type === "assignment" ? "Assignment" : "Transfer"} approved`);
-    } catch (e: any) {
-      toast("err", e.message ?? "Approval failed");
-    }
+      toast("ok", "Approved");
+    } catch { toast("err", "Approval failed"); }
   };
 
-  const kpiData = [
-    { key: "assigned", n: k.data.assigned, l: "In Use", icon: <Wrench />, style: "blue" as const },
-    { key: "available", n: k.data.available, l: "Available", icon: <CheckCircle2 />, style: "ok" as const },
-    { key: "inMaintenance", n: k.data.inMaintenance, l: "In Repair", icon: <AlertTriangle />, style: "warn" as const },
-    { key: "reserved", n: k.data.reserved, l: "Reserved", icon: <Bookmark />, style: "warn" as const },
-    ...(k.data.lost > 0 ? [{ key: "lost", n: k.data.lost, l: "Lost", icon: <SearchX />, style: "bad" as const }] : []),
-    { key: "fleetValue", n: money(k.data.fleetValue), l: "Fleet Value", icon: <DollarSign />, style: "blue" as const },
-  ];
-
   return (
-    <>
-      <div className="d02-toolbar" style={{ background: "#fff", borderRadius: "var(--d2-radius)", marginBottom: 18, boxShadow: "var(--d2-card-shadow)" }}>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Equipment and tool management overview.</p>
+        </div>
         <Can perm="project.manage">
-          <button className="d02-btn d02-sm" onClick={() => setShowProjectForm(true)}><Plus size={14} /> New Project</button>
+          <Button onClick={() => setShowProjectForm(true)} size="sm"><Plus className="h-4 w-4" /> New Project</Button>
         </Can>
-        <div style={{ flex: 1 }} />
-        <span className="d02-chip" style={{ fontSize: 12 }}>{k.data.available} available / {k.data.assigned} assigned</span>
       </div>
 
-      <div className="d02-alerts">
-        {overdue.data?.length ? (
-          <div className="d02-alert d02-alert-danger">
-            <AlertOctagon />
-            <span><b>{overdue.data.length} overdue</b> temporary loan{overdue.data.length > 1 ? "s" : ""} — <a href="/d02/assignments">review now</a></span>
-          </div>
-        ) : null}
-        {clearance.data?.length ? (
-          <div className="d02-alert d02-alert-warn">
-            <AlertTriangle />
-            <span><b>{clearance.data.length} asset{clearance.data.length > 1 ? "s" : ""}</b> pending HR clearance (terminated foreman)</span>
-          </div>
-        ) : null}
+      {((overdue.data?.length ?? 0) > 0 || (clearance.data?.length ?? 0) > 0 || k.data.lost > 0) && (
+        <div className="flex flex-col gap-2">
+          {overdue.data?.length ? (
+            <Alert variant="destructive">
+              <AlertOctagon className="h-4 w-4" />
+              <AlertTitle>{overdue.data.length} overdue loan{overdue.data.length > 1 ? "s" : ""}</AlertTitle>
+              <AlertDescription>
+                <a href="/d02/assignments" className="font-semibold inline-flex items-center gap-1 hover:underline">Review <ArrowUpRight className="h-3 w-3" /></a>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {clearance.data?.length ? (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>{clearance.data.length} asset{clearance.data.length > 1 ? "s" : ""} pending HR clearance</AlertTitle>
+            </Alert>
+          ) : null}
+          {k.data.lost > 0 ? (
+            <Alert variant="destructive">
+              <SearchX className="h-4 w-4" />
+              <AlertTitle>{k.data.lost} lost asset{k.data.lost > 1 ? "s" : ""}</AlertTitle>
+              <AlertDescription>
+                <a href="/d02/assets" className="font-semibold inline-flex items-center gap-1 hover:underline">Audit <ArrowUpRight className="h-3 w-3" /></a>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">In Use</CardTitle>
+            <Wrench className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono tabular-nums">{k.data.assigned}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Available</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono tabular-nums">{k.data.available}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">In Repair</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono tabular-nums">{k.data.inMaintenance}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Reserved</CardTitle>
+            <Bookmark className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono tabular-nums">{k.data.reserved}</div>
+          </CardContent>
+        </Card>
         {k.data.lost > 0 ? (
-          <div className="d02-alert d02-alert-danger">
-            <SearchX />
-            <span><b>{k.data.lost} lost</b> asset{k.data.lost > 1 ? "s" : ""} — <a href="/d02/assets">audit trail</a></span>
-          </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Lost</CardTitle>
+              <SearchX className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold font-mono tabular-nums">{k.data.lost}</div>
+            </CardContent>
+          </Card>
         ) : null}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Fleet Value</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold font-mono tabular-nums">{money(k.data.fleetValue)}</div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="d02-kpis">
-        {kpiData.map((kpi) => (
-          <div key={kpi.key} className={`d02-kpi-card d02-kpi-${kpi.style}`}>
-            <div className="d02-kpi-icon">{kpi.icon}</div>
-            <div className="d02-kpi-n">{kpi.n}</div>
-            <div className="d02-kpi-l">{kpi.l}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="d02-grid2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {pending.data?.length && has("assignment.approve") ? (
-          <div className="d02-card">
-            <h2><ThumbsUp size={16} className="d02-card-header-icon" /> Pending Approvals</h2>
-            <div className="d02-body d02-scroll">
-              <table className="d02-table"><thead><tr><th>Tool</th><th>Custodian</th><th>Type</th><th>Action</th></tr></thead>
-                <tbody>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><ThumbsUp className="h-4 w-4" /> Pending Approvals</CardTitle>
+              <CardDescription>Review and approve assignments and transfers.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader><TableRow><TableHead>Tool</TableHead><TableHead>Custodian</TableHead><TableHead>Type</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableBody>
                   {pending.data.map((p) => (
-                    <tr key={`${p.type}-${p.id}`}>
-                      <td><b>{p.assetTag}</b><br /><span className="d02-id">{p.assetModel}</span></td>
-                      <td>{p.custodianName}</td>
-                      <td><span className="d02-chip">{p.type}</span></td>
-                      <td><button className="d02-btn d02-sm d02-ok" onClick={() => doApprove(p.type, p.id)}><Check size={14} /> Approve</button></td>
-                    </tr>
+                    <TableRow key={`${p.type}-${p.id}`}>
+                      <TableCell><span className="font-medium">{p.assetTag}</span><span className="text-xs text-muted-foreground block">{p.assetModel}</span></TableCell>
+                      <TableCell>{p.custodianName}</TableCell>
+                      <TableCell><Badge variant="outline">{p.type}</Badge></TableCell>
+                      <TableCell><Button size="sm" variant="outline" onClick={() => doApprove(p.type, p.id)}><Check className="h-4 w-4" /> Approve</Button></TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         ) : null}
 
-        <div className="d02-card">
-          <h2><Clock size={16} className="d02-card-header-icon" /> Overdue Loans</h2>
-          <div className="d02-body d02-scroll">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" /> Overdue Loans</CardTitle>
+            <CardDescription>Temporary loans past their expected return date.</CardDescription>
+          </CardHeader>
+          <CardContent>
             {overdue.data?.length ? (
-              <table className="d02-table"><thead><tr><th>Tool</th><th>Custodian</th><th>Due</th><th>Overdue</th></tr></thead>
-                <tbody>
+              <Table>
+                <TableHeader><TableRow><TableHead>Tool</TableHead><TableHead>Custodian</TableHead><TableHead>Due</TableHead><TableHead>Overdue</TableHead></TableRow></TableHeader>
+                <TableBody>
                   {overdue.data.map((o) => (
-                    <tr key={o.id} className="d02-row-overdue">
-                      <td><b>{o.tag}</b><br /><span className="d02-id">{o.modelName}</span></td>
-                      <td>{o.custodianName}<br /><span className="d02-id">#{o.custodianExternalId ?? "—"}</span></td>
-                      <td>{o.expectedEnd}</td>
-                      <td><span className="d02-chip d02-chip-overdue">{o.daysOverdue}d overdue</span></td>
-                    </tr>
+                    <TableRow key={o.id}>
+                      <TableCell><span className="font-medium">{o.tag}</span><span className="text-xs text-muted-foreground block">{o.modelName}</span></TableCell>
+                      <TableCell>{o.custodianName}</TableCell>
+                      <TableCell className="text-sm">{o.expectedEnd}</TableCell>
+                      <TableCell><Badge variant="destructive">{o.daysOverdue}d</Badge></TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             ) : (
-              <EmptyState icon={<CheckCircle2 />} title="All clear — no overdue loans" />
+              <div className="py-8 text-center text-muted-foreground text-sm">
+                <CheckCircle2 className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                <p>All clear — no overdue loans</p>
+              </div>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="d02-card">
-          <h2><Activity size={16} className="d02-card-header-icon" /> Recent Movements</h2>
-          <div className="d02-body">
-            <ul className="d02-feed">
-              {activity.data?.length ? activity.data.map((t) => (
-                <li key={t.id}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="d02-chip">{t.eventType.replace("_", " ")}</span>
-                    <b>{t.assetTag}</b>
-                  </span>
-                  <span className="d02-muted" style={{ fontSize: 12 }}>{t.note}</span>
-                  <span className="d02-t">{new Date(t.occurredAt).toLocaleString()}</span>
-                </li>
-              )) : (
-                <li><EmptyState icon={<Activity />} title="No recent activity" /></li>
-              )}
-            </ul>
-          </div>
-        </div>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2"><Activity className="h-4 w-4" /> Recent Activity</CardTitle>
+            <CardDescription>Latest transactions and asset movements.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {activity.data?.length ? (
+              <div className="space-y-0 divide-y">
+                {activity.data.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between py-3">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="capitalize text-xs">{t.eventType.replace("_", " ")}</Badge>
+                        <span className="font-medium text-sm">{t.assetTag}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{t.note}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">{new Date(t.occurredAt).toLocaleDateString()}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-muted-foreground text-sm">
+                <Activity className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                <p>No recent activity</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <ProjectForm open={showProjectForm} onClose={() => setShowProjectForm(false)} />
-    </>
+    </div>
   );
 }

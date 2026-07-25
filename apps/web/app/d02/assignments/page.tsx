@@ -4,20 +4,14 @@ import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { Can } from "@/components/can";
 import { useToast } from "@/components/d02/d02-toast";
-import {
-  ClipboardList, Plus, RotateCcw, ArrowRightLeft, AlertOctagon, CheckCircle2
-} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ClipboardList, Plus, RotateCcw, ArrowRightLeft, AlertOctagon } from "lucide-react";
 import { AssignForm } from "@/components/assign-form";
 import { TransferForm } from "@/components/transfer-form";
-
-function StatusChip({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    active: "d02-chip-active",
-    overdue: "d02-chip-overdue",
-    pending_approval: "d02-chip-maintenance",
-  };
-  return <span className={`d02-chip ${colors[status] ?? ""}`}>{status.replace("_", " ")}</span>;
-}
 
 export default function D02AssignmentsPage() {
   const a = trpc.assignment.list.useQuery();
@@ -27,8 +21,6 @@ export default function D02AssignmentsPage() {
   const assignments = a.data ?? [];
 
   const overdue = assignments.filter((x) => x.overdue);
-  const loans = assignments.filter((x) => x.type === "temporary" && !x.overdue);
-  const permanent = assignments.filter((x) => x.type === "permanent");
 
   const [showAssign, setShowAssign] = useState(false);
   const [showTransfer, setShowTransfer] = useState<{ id: string; tag: string } | null>(null);
@@ -39,76 +31,77 @@ export default function D02AssignmentsPage() {
     try {
       await utils.client.assignment.return.mutate({ id: assignmentId });
       toast("ok", "Tool returned successfully");
-      utils.assignment.list.invalidate();
-      utils.asset.list.invalidate();
-      utils.dashboard.kpis.invalidate();
-      utils.dashboard.recentActivity.invalidate();
-    } catch (e: any) {
-      toast("err", e.message ?? "Return failed");
-    }
+      utils.assignment.list.invalidate(); utils.asset.list.invalidate();
+      utils.dashboard.kpis.invalidate(); utils.dashboard.recentActivity.invalidate();
+    } catch { toast("err", "Return failed"); }
     setReturning(null);
   };
 
   return (
-    <div className="d02-card" style={{ padding: 0 }}>
-      <h2><ClipboardList size={16} className="d02-card-header-icon" /> All Assignments ({assignments.length})</h2>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Assignments</h1>
+          <p className="text-muted-foreground">Track custody and tool assignments.</p>
+        </div>
+        <Can perm="assignment.create">
+          <Button size="sm" onClick={() => setShowAssign(true)}><Plus className="h-4 w-4" /> Assign</Button>
+        </Can>
+      </div>
 
       {overdue.length > 0 && (
-        <div className="d02-alert d02-alert-danger" style={{ margin: "14px 18px", marginBottom: 0 }}>
-          <AlertOctagon />
-          <span><b>{overdue.length} overdue loan{overdue.length > 1 ? "s" : ""}</b> — tools that should have been returned</span>
-        </div>
+        <Alert variant="destructive">
+          <AlertOctagon className="h-4 w-4" />
+          <AlertTitle>{overdue.length} overdue loan{overdue.length > 1 ? "s" : ""} — tools that should have been returned</AlertTitle>
+        </Alert>
       )}
 
-      <div className="d02-toolbar">
-        <Can perm="assignment.create">
-          <button className="d02-btn d02-sm" onClick={() => setShowAssign(true)}><Plus size={14} /> Assign</button>
-        </Can>
-        <div style={{ flex: 1 }} />
-        <span className="d02-chip" style={{ fontSize: 12 }}>{loans.length} loans · {permanent.length} permanent</span>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><ClipboardList className="h-4 w-4" /> All Assignments</CardTitle>
+          <CardDescription>{assignments.length} total</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tool</TableHead><TableHead>Custodian</TableHead><TableHead>Project</TableHead>
+                <TableHead>Type</TableHead><TableHead>Since</TableHead><TableHead>Due</TableHead>
+                <TableHead>Status</TableHead><TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {assignments.map((x) => (
+                <TableRow key={x.id}>
+                  <TableCell><span className="font-medium">{x.tag}</span><span className="text-xs text-muted-foreground block">{x.modelName}</span></TableCell>
+                  <TableCell>{x.custodianName}</TableCell>
+                  <TableCell>{x.projectName ?? "\u2014"}</TableCell>
+                  <TableCell><Badge variant={x.type === "temporary" ? "secondary" : "outline"}>{x.type === "temporary" ? "loan" : "permanent"}</Badge></TableCell>
+                  <TableCell className="text-sm">{x.startDate}</TableCell>
+                  <TableCell className="text-sm">{x.expectedEnd ?? "\u2014"}</TableCell>
+                  <TableCell>{x.overdue ? <Badge variant="destructive">overdue</Badge> : <Badge variant="default">{x.status.replace("_", " ")}</Badge>}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {x.status === "active" && has("assignment.create") && (
+                        <>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => doReturn(x.id)} disabled={returning === x.id}><RotateCcw className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowTransfer({ id: x.assetId, tag: x.tag })}><ArrowRightLeft className="h-4 w-4" /></Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!assignments.length && (
+                <TableRow><TableCell colSpan={8} className="h-24 text-center text-muted-foreground">No assignments yet.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-      <div className="d02-body d02-scroll">
-        <table className="d02-table">
-          <thead><tr>
-            <th>Tool</th><th>Custodian</th><th>Project</th><th>Type</th><th>Since</th><th>Due</th><th>Status</th>
-            <th>Actions</th>
-          </tr></thead>
-          <tbody>
-            {assignments.map((x) => (
-              <tr key={x.id} className={x.overdue ? "d02-row-overdue" : ""}>
-                <td><b>{x.tag}</b><br /><span className="d02-id">{x.modelName}</span></td>
-                <td>{x.custodianName}</td>
-                <td>{x.projectName ?? <span className="d02-muted">—</span>}</td>
-                <td>{x.type === "temporary" ? <span className="d02-chip d02-chip-loan">loan</span> : <span className="d02-chip">permanent</span>}</td>
-                <td>{x.startDate}</td>
-                <td>{x.expectedEnd ?? <span className="d02-muted">—</span>}</td>
-                <td>{x.overdue ? <StatusChip status="overdue" /> : <StatusChip status={x.status} />}</td>
-                <td>
-                  <div className="d02-actions">
-                    {x.status === "active" && has("assignment.create") && (
-                      <>
-                        <button className="d02-btn d02-ghost d02-sm" onClick={() => doReturn(x.id)} disabled={returning === x.id}>
-                          {returning === x.id ? "..." : <RotateCcw size={14} />}
-                        </button>
-                        <button className="d02-btn d02-ghost d02-sm" onClick={() => setShowTransfer({ id: x.assetId, tag: x.tag })}>
-                          <ArrowRightLeft size={14} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {!assignments.length && (
-              <tr><td colSpan={8}><div className="d02-empty"><CheckCircle2 size={36} /><div>No assignments yet</div></div></td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <AssignForm open={showAssign} onClose={() => setShowAssign(false)} />
       {showTransfer && <TransferForm open={!!showTransfer} onClose={() => setShowTransfer(null)} assetId={showTransfer.id} assetTag={showTransfer.tag} />}
+      <AssignForm open={showAssign} onClose={() => setShowAssign(false)} />
     </div>
   );
 }
