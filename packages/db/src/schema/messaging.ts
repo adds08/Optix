@@ -27,7 +27,11 @@ export const message = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
     channelId: uuid("channel_id").notNull().references(() => channel.id, { onDelete: "cascade" }),
-    authorUserId: uuid("author_user_id").notNull().references(() => user.id, { onDelete: "set null" }),
+    // Same reason as task.created_by_user_id: NOT NULL alongside
+    // `on delete set null` makes deleting a user violate this constraint.
+    // The message body and its resulting transactions are the record; the
+    // author link is metadata that may outlive the account.
+    authorUserId: uuid("author_user_id").references(() => user.id, { onDelete: "set null" }),
     authorEmployeeId: uuid("author_employee_id").references(() => employee.id, { onDelete: "set null" }),
     body: text("body").notNull(),
     processingStatus: text("processing_status").notNull().default("queued"),

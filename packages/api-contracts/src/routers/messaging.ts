@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
+import { applyChatAction, type ChatAction } from "../apply-action.js";
 
 export const messagingRouter = router({
   // List channels the current user has access to (role-derived: foreman + equipment_admin + superintendent).
@@ -93,11 +94,7 @@ export const messagingRouter = router({
 
   // Confirm a proposed action (foreman taps "Confirm" on the action card).
   confirmAction: protectedProcedure
-    .input(
-      z.object({
-        messageId: z.string().uuid(),
-      }),
-    )
+    .input(z.object({ messageId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       const msg = await ctx.db.query.message.findFirst({
@@ -108,193 +105,25 @@ export const messagingRouter = router({
         throw new Error("Message does not have a proposed action to confirm");
       }
 
-      const action = msg.proposedAction as {
-        type: string;
-        assetIds: string[];
-        custodianId?: string;
-        projectId?: string;
-        locationId?: string;
-        note?: string;
-      };
+      const action = msg.proposedAction as ChatAction;
 
-      let transactionIds: string[] = [];
+      // Single executor shared with the background worker, so the two paths
+      // cannot drift apart again. Throws rather than silently succeeding.
+      const { transactionIds } = await applyChatAction(
+        ctx.db,
+        tid,
+        ctx.session.userId,
+        action,
+        msg.id,
+      );
 
-      if (action.type === "assign" && action.custodianId) {
-        for (const assetId of action.assetIds) {
-          const asset = await ctx.db.query.asset.findFirst({
-            where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)),
-          });
-          if (!asset) continue;
-
-          const [assignment] = await ctx.db
-            .insert(schema.assignment)
-            .values({
-              tenantId: tid,
-              assetId,
-              custodianId: action.custodianId,
-              projectId: action.projectId ?? null,
-              locationId: action.locationId ?? null,
-              type: "permanent",
-              startDate: new Date().toISOString().slice(0, 10),
-              status: "active",
-              approvedBy: ctx.session.userId,
-            })
-            .returning();
-
-          if (assignment) {
-            await ctx.db
-              .update(schema.asset)
-              .set({
-                currentStatus: "assigned",
-                currentCustodianId: action.custodianId,
-                currentProjectId: action.projectId ?? asset.currentProjectId,
-                currentLocationId: action.locationId ?? asset.currentLocationId,
-                updatedAt: new Date(),
-              })
-              .where(eq(schema.asset.id, assetId));
-
-            const [tx] = await ctx.db
-              .insert(schema.transaction)
-              .values({
-                tenantId: tid,
-                assetId,
-                eventType: "assign",
-                actorId: ctx.session.userId,
-                fromState: {
-                  status: asset.currentStatus,
-                  custodianId: asset.currentCustodianId,
-                  projectId: asset.currentProjectId,
-                  locationId: asset.currentLocationId,
-                },
-                toState: {
-                  status: "assigned",
-                  custodianId: action.custodianId,
-                  projectId: action.projectId ?? null,
-                  locationId: action.locationId ?? null,
-                },
-                refType: "assignment",
-                refId: assignment.id,
-                note: action.note ?? "Confirmed via chat",
-              })
-              .returning();
-            if (tx) transactionIds.push(String(tx.id));
-          }
-        }
-      } else if (action.type === "return") {
-        for (const assetId of action.assetIds) {
-          const existingAssign = await ctx.db.query.assignment.findFirst({
-            where: and(
-              eq(schema.assignment.assetId, assetId),
-              eq(schema.assignment.status, "active"),
-              eq(schema.assignment.tenantId, tid),
-            ),
-          });
-
-          if (existingAssign) {
-            await ctx.db
-              .update(schema.assignment)
-              .set({ status: "returned", returnedAt: new Date(), updatedAt: new Date() })
-              .where(eq(schema.assignment.id, existingAssign.id));
-          }
-
-          const asset = await ctx.db.query.asset.findFirst({
-            where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)),
-          });
-          await ctx.db
-            .update(schema.asset)
-            .set({ currentStatus: "available", currentCustodianId: null, updatedAt: new Date() })
-            .where(eq(schema.asset.id, assetId));
-
-          const [tx] = await ctx.db
-            .insert(schema.transaction)
-            .values({
-              tenantId: tid,
-              assetId,
-              eventType: "return",
-              actorId: ctx.session.userId,
-              fromState: asset
-                ? { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId }
-                : null,
-              toState: { status: "available", custodianId: null, projectId: null, locationId: null },
-              refType: "assignment",
-              refId: existingAssign?.id ?? null,
-              note: action.note ?? "Returned via chat",
-            })
-            .returning();
-          if (tx) transactionIds.push(String(tx.id));
-        }
-      } else if (action.type === "transfer" && action.custodianId) {
-        for (const assetId of action.assetIds) {
-          const asset = await ctx.db.query.asset.findFirst({
-            where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)),
-          });
-          if (!asset) continue;
-
-          const [transfer] = await ctx.db
-            .insert(schema.transfer)
-            .values({
-              tenantId: tid,
-              assetId,
-              fromCustodianId: asset.currentCustodianId,
-              toCustodianId: action.custodianId,
-              fromLocationId: asset.currentLocationId,
-              toLocationId: action.locationId ?? null,
-              fromProjectId: asset.currentProjectId,
-              toProjectId: action.projectId ?? null,
-              reason: "reallocation",
-              status: "completed",
-              requestedBy: ctx.session.userId,
-              approvedBy: ctx.session.userId,
-              completedAt: new Date(),
-            })
-            .returning();
-
-          if (transfer) {
-            await ctx.db
-              .update(schema.asset)
-              .set({
-                currentCustodianId: action.custodianId,
-                currentLocationId: action.locationId ?? asset.currentLocationId,
-                currentProjectId: action.projectId ?? asset.currentProjectId,
-                updatedAt: new Date(),
-              })
-              .where(eq(schema.asset.id, assetId));
-
-            const [tx] = await ctx.db
-              .insert(schema.transaction)
-              .values({
-                tenantId: tid,
-                assetId,
-                eventType: "transfer",
-                actorId: ctx.session.userId,
-                fromState: {
-                  status: asset.currentStatus,
-                  custodianId: asset.currentCustodianId,
-                  projectId: asset.currentProjectId,
-                  locationId: asset.currentLocationId,
-                },
-                toState: {
-                  status: "assigned",
-                  custodianId: action.custodianId,
-                  projectId: action.projectId ?? null,
-                  locationId: action.locationId ?? null,
-                },
-                refType: "transfer",
-                refId: transfer.id,
-                note: action.note ?? "Transfer confirmed via chat",
-              })
-              .returning();
-            if (tx) transactionIds.push(String(tx.id));
-          }
-        }
-      }
-
-      // Update the message record.
       await ctx.db
         .update(schema.message)
         .set({
           processingStatus: "action_executed",
           executedTransactionIds: transactionIds,
+          handledByUserId: ctx.session.userId,
+          handledAt: new Date(),
           updatedAt: new Date(),
         })
         .where(eq(schema.message.id, input.messageId));

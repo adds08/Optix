@@ -33,6 +33,12 @@ export const appRouter = router({
 
 export type AppRouter = typeof appRouter;
 export {
+  applyChatAction,
+  AUTO_SAFE_INTENTS,
+  CUSTODY_INTENTS,
+  type ChatAction,
+} from "./apply-action.js";
+export {
   router,
   publicProcedure,
   protectedProcedure,

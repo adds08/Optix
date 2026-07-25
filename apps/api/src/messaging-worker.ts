@@ -5,6 +5,7 @@ import type { ServerEnv } from "@stinventory/env";
 import { createLogger } from "@stinventory/logger";
 import { parseIntent } from "./engine-client.js";
 import type { EngineParseResponse } from "./engine-types.js";
+import { applyChatAction, AUTO_SAFE_INTENTS, type ChatAction } from "@stinventory/api-contracts";
 import {
   resolveEngineAssets,
   resolveCustodian,
@@ -243,14 +244,13 @@ async function processOne(
     proposedAction.type = "lost";
   }
 
-  const allResolved = engineResp.intent !== "none" &&
-    (engineResp.intent === "report" ||
-     engineResp.intent === "return" ||
-     engineResp.intent === "repair" ||
-     engineResp.intent === "lost" ||
-     (["assign", "transfer"].includes(engineResp.intent) && !!proposedAction.custodianId));
+  // Anything that moves custody or changes status waits for a human, however
+  // confident the model is. Model confidence is an input to the workflow, not
+  // authority over it (docs/06-decisions.md ADR-4). Only annotations
+  // auto-apply.
+  const autoSafe = AUTO_SAFE_INTENTS.has(engineResp.intent);
 
-  if (allResolved && !engineResp.needsConfirmation) {
+  if (autoSafe && !engineResp.needsConfirmation) {
     await autoExecuteAction(db, tid, msg, engineResp, proposedAction, assetIds);
   } else {
     await db
@@ -274,19 +274,16 @@ async function autoExecuteAction(
   proposedAction: Record<string, unknown>,
   assetIds: string[],
 ): Promise<void> {
-  if (engineResp.intent === "report") {
-    for (const assetId of assetIds) {
-      await db.insert(schema.transaction).values({
-        tenantId: tid,
-        assetId,
-        eventType: "status_change",
-        actorId: msg.authorUserId,
-        toState: {},
-        refType: "message",
-        refId: msg.id,
-        note: engineResp.replyText || msg.body,
-      });
-    }
+  // Same executor the confirm path uses. Throws instead of reporting a
+  // success it did not perform; the caller marks the message `error`.
+  if (assetIds.length) {
+    await applyChatAction(
+      db,
+      tid,
+      msg.authorUserId,
+      { ...(proposedAction as ChatAction), note: engineResp.replyText || msg.body },
+      msg.id,
+    );
   }
 
   await db

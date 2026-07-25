@@ -5,8 +5,8 @@ import {
   Boxes,
   Inbox,
   LayoutDashboard,
+  MapPin,
   MessageSquare,
-  Truck,
   Users,
   Wrench,
 } from "lucide-react";
@@ -54,7 +54,13 @@ export const DESK_NAV: NavGroup[] = [
     items: [
       { href: "/tools", label: "Tool Register", icon: Boxes, perm: "asset.read" },
       { href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read" },
-      { href: "/fleet", label: "Fleet", icon: Truck, perm: "vehicle.read" },
+      /*
+        Trucks and trailers are NOT a fleet to manage — they are locations that
+        move, carrying small tools around. They belong here beside warehouses,
+        site containers and gang boxes, answering "where is UIC-1012?" with
+        "Truck 12". No mileage, no maintenance schedules, no driver assignment.
+      */
+      { href: "/locations", label: "Locations", icon: MapPin, perm: "location.read" },
     ],
   },
   {

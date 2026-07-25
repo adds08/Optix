@@ -15,7 +15,11 @@ export const task = pgTable(
     status: text("status").notNull().default("pending"),
     priority: text("priority").notNull().default("medium"),
     assignedToEmployeeId: uuid("assigned_to_employee_id").references(() => employee.id, { onDelete: "set null" }),
-    createdByUserId: uuid("created_by_user_id").notNull().references(() => user.id, { onDelete: "set null" }),
+    // Nullable on purpose: the FK is `on delete set null`, so a NOT NULL here
+    // makes deleting a user violate this table's own constraint. A task
+    // outliving the account that raised it is fine — the body still says what
+    // needs doing.
+    createdByUserId: uuid("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
     relatedAssetId: uuid("related_asset_id").references(() => asset.id, { onDelete: "set null" }),
     relatedProjectId: uuid("related_project_id").references(() => project.id, { onDelete: "set null" }),
     source: text("source").notNull().default("chat"),
