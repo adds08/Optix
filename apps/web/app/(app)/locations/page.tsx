@@ -1,9 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
 import { Tag, humanize } from "@/components/sti/status";
+import { CreateAction } from "@/components/sti/create-action";
+import { ImportButton } from "@/components/import-dialog";
+import { LocationForm, type LocationEditable } from "@/components/location-form";
+import { VehicleForm, type VehicleEditable } from "@/components/vehicle-form";
+import { RowActions } from "@/components/sti/row-actions";
+import { Can } from "@/components/can";
+import { Button } from "@/components/ui/button";
+import { ContainerCustodyForm } from "@/components/container-custody-form";
 import { relative } from "@/lib/format";
 
 /*
@@ -15,6 +24,33 @@ import { relative } from "@/lib/format";
   schedules, no driver rosters.
 */
 export default function LocationsPage() {
+  /* The container whose custody is being changed, if any. */
+  const [handing, setHanding] = useState<{
+    id: string;
+    name: string;
+    custodianId?: string | null;
+    custodianName?: string | null;
+    toolCount: number;
+  } | null>(null);
+  const [editingLoc, setEditingLoc] = useState<LocationEditable | null>(null);
+  const [editingVeh, setEditingVeh] = useState<VehicleEditable | null>(null);
+  const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
+  const utils = trpc.useUtils();
+
+  const invalidate = () => {
+    setFailed(null);
+    utils.location.list.invalidate();
+    utils.vehicle.list.invalidate();
+  };
+  const removeLoc = trpc.location.delete.useMutation({
+    onSuccess: invalidate,
+    onError: (e, vars) => setFailed({ id: vars.id, message: e.message }),
+  });
+  const removeVeh = trpc.vehicle.delete.useMutation({
+    onSuccess: invalidate,
+    onError: (e, vars) => setFailed({ id: vars.id, message: e.message }),
+  });
+
   const locations = trpc.location.list.useQuery();
   const vehicles = trpc.vehicle.list.useQuery();
   const assets = trpc.asset.list.useQuery({});
@@ -33,10 +69,31 @@ export default function LocationsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {editingLoc ? <LocationForm open onClose={() => setEditingLoc(null)} edit={editingLoc} /> : null}
+      {editingVeh ? <VehicleForm open onClose={() => setEditingVeh(null)} edit={editingVeh} /> : null}
+      {handing ? (
+        <ContainerCustodyForm
+          open
+          onClose={() => setHanding(null)}
+          locationId={handing.id}
+          locationName={handing.name}
+          currentCustodianId={handing.custodianId}
+          currentCustodianName={handing.custodianName}
+          toolCount={handing.toolCount}
+        />
+      ) : null}
       <PageHeader
         eyebrow="Equipment"
         title="Locations"
         description="Every place a tool can be — yards, containers, gang boxes, and the trucks and trailers that carry them around."
+        actions={
+          <>
+            <ImportButton entity="location" />
+            <ImportButton entity="vehicle" />
+            <CreateAction perm="location.manage" label="New location" Form={LocationForm} />
+            <CreateAction perm="vehicle.manage" label="New vehicle" Form={VehicleForm} />
+          </>
+        }
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -59,8 +116,8 @@ export default function LocationsPage() {
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    {["Name", "Type", "Warehouse", "Project", "Tools here"].map((h, i) => (
-                      <th key={h} className={`label-xs px-4 py-2.5 ${i === 4 ? "text-right" : "text-left"}`}>{h}</th>
+                    {["Name", "Type", "Held by", "Warehouse", "Project", "Tools here", ""].map((h, i) => (
+                      <th key={h || "actions"} className={`label-xs px-4 py-2.5 ${i >= 5 ? "text-right" : "text-left"}`}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -69,9 +126,55 @@ export default function LocationsPage() {
                     <tr key={l.id} className="border-b last:border-0 hover:bg-muted/40">
                       <td className="px-4 py-2.5 font-medium">{l.name}</td>
                       <td className="px-4 py-2.5">{humanize(l.type)}</td>
+                      {/* A gang box travels with whoever loaded it; a yard travels
+                          with nobody. Both are legitimate answers. */}
+                      <td className="px-4 py-2.5">
+                        {l.custodianName ?? <span className="text-muted-foreground">nobody carries it</span>}
+                      </td>
                       <td className="px-4 py-2.5">{l.warehouseName ?? "—"}</td>
                       <td className="px-4 py-2.5">{l.projectName ?? "—"}</td>
                       <td className="px-4 py-2.5 text-right tnum">{countByLocation.get(l.id) ?? 0}</td>
+                      <td className="px-4 py-2.5">
+                        <RowActions
+                          perm="location.manage"
+                          label={l.name}
+                          /* Warehouses and project sites are places, not things
+                             anyone carries — only containers get handed over. */
+                          extra={
+                            l.type === "warehouse" || l.type === "project_site" ? null : (
+                              <Can perm="location.manage">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    setHanding({
+                                      id: l.id,
+                                      name: l.name,
+                                      custodianId: l.custodianEmployeeId,
+                                      custodianName: l.custodianName,
+                                      toolCount: countByLocation.get(l.id) ?? 0,
+                                    })
+                                  }
+                                >
+                                  {l.custodianEmployeeId ? "Change" : "Hand over"}
+                                </Button>
+                              </Can>
+                            )
+                          }
+                          onEdit={() =>
+                            setEditingLoc({
+                              id: l.id,
+                              name: l.name,
+                              type: l.type,
+                              warehouseId: l.warehouseId,
+                              projectId: l.projectId,
+                            })
+                          }
+                          onDelete={() => removeLoc.mutate({ id: l.id })}
+                          deleting={removeLoc.isPending}
+                          error={failed?.id === l.id ? failed.message : null}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -94,8 +197,8 @@ export default function LocationsPage() {
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      {["Unit", "Type", "Assigned to", "Project", "Last position", "Tools aboard"].map((h, i) => (
-                        <th key={h} className={`label-xs px-4 py-2.5 ${i === 5 ? "text-right" : "text-left"}`}>{h}</th>
+                      {["Unit", "Type", "Held by", "Project", "Last position", "Tools aboard", ""].map((h, i) => (
+                        <th key={h || "actions"} className={`label-xs px-4 py-2.5 ${i >= 5 ? "text-right" : "text-left"}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -111,6 +214,46 @@ export default function LocationsPage() {
                         </td>
                         <td className="px-4 py-2.5 text-right tnum">
                           {v.locationId ? (countByLocation.get(v.locationId) ?? 0) : 0}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <RowActions
+                            perm="vehicle.manage"
+                            label={v.unit}
+                            extra={
+                              <Can perm="location.manage">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!v.locationId}
+                                  onClick={() =>
+                                    setHanding({
+                                      id: v.locationId!,
+                                      name: v.unit,
+                                      custodianId: v.foremanEmployeeId,
+                                      custodianName: v.foremanName,
+                                      toolCount: v.locationId ? (countByLocation.get(v.locationId) ?? 0) : 0,
+                                    })
+                                  }
+                                >
+                                  {v.foremanEmployeeId ? "Change" : "Hand over"}
+                                </Button>
+                              </Can>
+                            }
+                            onEdit={() =>
+                              setEditingVeh({
+                                id: v.id,
+                                unit: v.unit,
+                                vehicleType: v.vehicleType,
+                                plate: v.plate,
+                                makeModel: v.makeModel,
+                                ownershipType: v.ownershipType,
+                                projectId: v.projectId,
+                              })
+                            }
+                            onDelete={() => removeVeh.mutate({ id: v.id })}
+                            deleting={removeVeh.isPending}
+                            error={failed?.id === v.id ? failed.message : null}
+                          />
                         </td>
                       </tr>
                     ))}

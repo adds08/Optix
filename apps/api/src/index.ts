@@ -9,9 +9,10 @@ import { createDb } from "@stinventory/db";
 import { resolveSession, login, logout } from "@stinventory/auth";
 import { serverEnv } from "@stinventory/env";
 import { createLogger } from "@stinventory/logger";
-import { detectOverdueLoans, deliverPendingNotifications } from "./notifications.js";
-import { handleAiChat } from "./ai.js";
+import { detectOverdueLoans, detectRentalsDue, deliverPendingNotifications } from "./notifications.js";
 import { processQueuedMessages } from "./messaging-worker.js";
+import { clearRateLimit, clientIp, rateLimit } from "./rate-limit.js";
+import { sweepRequests } from "./request-worker.js";
 import { mountRestRoutes } from "./rest-routes.js";
 import * as schema from "@stinventory/db/schema";
 import { eq } from "drizzle-orm";
@@ -40,8 +41,31 @@ app.use(
 
 app.get("/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
 
+/*
+  Login is the one endpoint an unauthenticated stranger can hammer, and bcrypt
+  makes each attempt expensive for us as well as for them — so an unbounded
+  login route is both a credential-stuffing surface and a way to pin the CPU.
+
+  Ten attempts per fifteen minutes per IP+email. Generous for a person who has
+  forgotten which password they used, useless for a script.
+*/
+const LOGIN_LIMIT = 10;
+const LOGIN_WINDOW_MS = 15 * 60_000;
+
 app.post("/auth/login", async (c) => {
   const body = await c.req.json<{ email: string; password: string }>();
+
+  const key = `login:${clientIp(c.req.raw.headers)}:${(body.email ?? "").toLowerCase()}`;
+  const limited = rateLimit(key, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+  if (!limited.allowed) {
+    log.warn("[auth] login rate limited", { key });
+    /* No detail about whether the account exists — a 429 that distinguished
+       them would be an account enumeration oracle. */
+    return c.json({ error: "too_many_attempts" }, 429, {
+      "Retry-After": String(limited.retryAfter),
+    });
+  }
+
   const result = await login(db, body.email, body.password);
   if (!result.ok) {
     await db.insert(schema.eventLog).values({
@@ -70,6 +94,9 @@ app.post("/auth/login", async (c) => {
     httpMethod: "POST",
     httpPath: "/auth/login",
   }).catch((err) => log.error("[audit] login insert", { err: String(err) }));
+  /* Succeeded, so the earlier failures were a person misremembering rather
+     than an attack — give them their budget back. */
+  clearRateLimit(key);
   return c.json({ sessionId: result.sessionId, userId: result.userId, tenantId: result.tenantId });
 });
 
@@ -96,40 +123,17 @@ app.post("/auth/logout", async (c) => {
   return c.json({ ok: true });
 });
 
-app.post("/ai/chat", async (c) => {
-  const token = c.req.header("authorization")?.replace(/^Bearer\s+/i, "");
-  const session = await resolveSession(db, token);
-  if (!session) return c.json({ error: "unauthorized" }, 401);
-  const { message } = await c.req.json<{ message: string }>();
-  if (!message || !message.trim()) return c.json({ result: "Say something!" });
-  const result = await handleAiChat(db, session, message.trim());
+/*
+  `POST /ai/chat` used to live here. It carried a second, older copy of the
+  intent logic that applied custody changes directly — no permission check, no
+  confirmation step. A foreman with no `asset.manage` could write a tool off as
+  lost through it, which the equivalent form refused. Nothing called it; both
+  clients go through `messaging.send` → worker → `messaging.confirmAction`.
 
-  // Bridge: create a message record so the Kanban sees it
-  if (result.intent) {
-    const channel = await db.query.channel.findFirst({
-      where: eq(schema.channel.tenantId, session.tenantId),
-    });
-    if (channel) {
-      const status = !result.ok ? "error"
-        : result.intent.status === "pending_verification" ? "action_proposed"
-        : "action_executed";
-      await db.insert(schema.message).values({
-        tenantId: session.tenantId,
-        channelId: channel.id,
-        authorUserId: session.userId,
-        body: message.trim(),
-        processingStatus: status,
-        intentType: result.intent.type,
-        proposedAction: {
-          type: result.intent.type,
-          department: result.intent.department,
-        },
-      });
-    }
-  }
-
-  return c.json(result);
-});
+  Removed rather than patched: a second executor is the bug. Everything now
+  routes through applyChatAction (packages/api-contracts/src/apply-action.ts),
+  which charges permissions and never silently succeeds.
+*/
 
 mountRestRoutes(app, db);
 
@@ -146,6 +150,7 @@ app.use(
       return {
         db,
         session,
+        sessionSecret: env.SESSION_SECRET,
         request: {
           method: c.req.method,
           path: url.pathname,
@@ -169,6 +174,8 @@ setInterval(async () => {
   try {
     const n = await detectOverdueLoans(db);
     if (n > 0) log.info(`[notifications] detected ${n} new overdue loans`);
+    const r = await detectRentalsDue(db);
+    if (r > 0) log.info(`[notifications] raised ${r} rental due/overdue alerts`);
     await deliverPendingNotifications(db, env);
   } catch (err) {
     log.error("[notifications] scan failed", { err: String(err) });
@@ -187,3 +194,24 @@ setInterval(async () => {
   }
 }, MSG_POLL_INTERVAL_MS);
 log.info(`[messaging-worker] poller started (every ${MSG_POLL_INTERVAL_MS / 1000}s)`);
+
+/*
+  Request worker: retries messages stranded by an unreachable parser, and makes
+  sure a field request waiting on the desk gets noticed.
+
+  Slower than the message poller on purpose — nothing here is urgent to the
+  second, and the retry only helps once the parser is actually back. It never
+  approves anything; custody always waits for a person (ADR-4).
+*/
+const REQUEST_SWEEP_INTERVAL_MS = 60_000;
+setInterval(async () => {
+  try {
+    const r = await sweepRequests(db);
+    if (r.requeued || r.unstuck || r.announced || r.escalated) {
+      log.info("[request-worker] sweep", r);
+    }
+  } catch (err) {
+    log.error("[request-worker] sweep failed", { err: String(err) });
+  }
+}, REQUEST_SWEEP_INTERVAL_MS);
+log.info(`[request-worker] sweeper started (every ${REQUEST_SWEEP_INTERVAL_MS / 1000}s)`);

@@ -18,13 +18,12 @@ export function ReportForm({ open, onClose, assetId, assetTag }: Props) {
     setResult("");
     try {
       await utils.client.asset.setStatus.mutate({ id: assetId, status: issueType, note: note || undefined });
-      setResult("Reported!");
       utils.asset.list.invalidate();
       utils.dashboard.kpis.invalidate();
       utils.dashboard.recentActivity.invalidate();
-      setTimeout(onClose, 1200);
-    } catch {
-      setResult("Error");
+      onClose();
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : "Could not save. Try again.");
     }
     setSubmitting(false);
   };
@@ -53,7 +52,7 @@ export function ReportForm({ open, onClose, assetId, assetTag }: Props) {
               className="flex min-h-[80px] w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 placeholder:text-muted-foreground resize-y"
             />
           </div>
-          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+          {result && <p className="text-sm text-destructive">{result}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>

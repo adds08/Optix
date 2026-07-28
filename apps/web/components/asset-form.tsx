@@ -5,22 +5,46 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Props = { open: boolean; onClose: () => void };
+/*
+  One dialog for both jobs.
 
-export function AssetForm({ open, onClose }: Props) {
+  Passing `edit` turns it into an edit form: the fields start populated and it
+  calls `asset.update` instead of `asset.create`. Keeping the two in one
+  component is what stops the edit dialog quietly losing a field the create
+  dialog gained.
+
+  Location is create-only on purpose. Where a tool IS comes from the
+  transaction log — moving it is Assign, Transfer or Return, not a text field.
+*/
+export type AssetEditable = {
+  id: string;
+  tag: string;
+  modelName: string;
+  categoryName?: string | null;
+  serialNumber?: string | null;
+  quantity?: number | null;
+  acquisitionCost?: string | null;
+  acquisitionDate?: string | null;
+  condition?: string | null;
+  owningProjectId?: string | null;
+};
+
+type Props = { open: boolean; onClose: () => void; edit?: AssetEditable };
+
+export function AssetForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
 
-  const [tag, setTag] = useState("");
-  const [modelName, setModelName] = useState("");
-  const [categoryName, setCategoryName] = useState("");
-  const [serialNumber, setSerialNumber] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [acquisitionCost, setAcquisitionCost] = useState("");
-  const [acquisitionDate, setAcquisitionDate] = useState("");
-  const [owningProjectId, setOwningProjectId] = useState("");
-  const [condition, setCondition] = useState("good");
+  const [tag, setTag] = useState(edit?.tag ?? "");
+  const [modelName, setModelName] = useState(edit?.modelName ?? "");
+  const [categoryName, setCategoryName] = useState(edit?.categoryName ?? "");
+  const [serialNumber, setSerialNumber] = useState(edit?.serialNumber ?? "");
+  const [quantity, setQuantity] = useState(edit?.quantity ?? 1);
+  const [acquisitionCost, setAcquisitionCost] = useState(edit?.acquisitionCost ?? "");
+  const [acquisitionDate, setAcquisitionDate] = useState(edit?.acquisitionDate ?? "");
+  const [owningProjectId, setOwningProjectId] = useState(edit?.owningProjectId ?? "");
+  const [condition, setCondition] = useState(edit?.condition ?? "good");
   const [locationId, setLocationId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
@@ -30,20 +54,36 @@ export function AssetForm({ open, onClose }: Props) {
     setSubmitting(true);
     setResult("");
     try {
-      await utils.client.asset.create.mutate({
-        tag, modelName, categoryName: categoryName || undefined,
-        serialNumber: serialNumber || undefined, quantity,
-        acquisitionCost: acquisitionCost || undefined,
-        acquisitionDate: acquisitionDate || undefined,
-        owningProjectId: owningProjectId || undefined, condition,
-        locationId: locationId || undefined,
-      });
-      setResult("Created!");
+      if (edit) {
+        /* Nulls rather than undefined: clearing a serial has to persist as
+           empty, and `undefined` would leave the old value in place. */
+        await utils.client.asset.update.mutate({
+          id: edit.id,
+          tag, modelName,
+          categoryName: categoryName || null,
+          serialNumber: serialNumber || null,
+          quantity,
+          acquisitionCost: acquisitionCost || null,
+          acquisitionDate: acquisitionDate || null,
+          owningProjectId: owningProjectId || null,
+          condition,
+        });
+        utils.asset.get.invalidate({ id: edit.id });
+      } else {
+        await utils.client.asset.create.mutate({
+          tag, modelName, categoryName: categoryName || undefined,
+          serialNumber: serialNumber || undefined, quantity,
+          acquisitionCost: acquisitionCost || undefined,
+          acquisitionDate: acquisitionDate || undefined,
+          owningProjectId: owningProjectId || undefined, condition,
+          locationId: locationId || undefined,
+        });
+      }
       utils.asset.list.invalidate();
       utils.dashboard.kpis.invalidate();
-      setTimeout(onClose, 1200);
-    } catch {
-      setResult("Error");
+      onClose();
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : "Could not save. Try again.");
     }
     setSubmitting(false);
   };
@@ -52,7 +92,7 @@ export function AssetForm({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New Asset</DialogTitle>
+          <DialogTitle>{edit ? `Edit ${edit.tag}` : "New Asset"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -104,18 +144,22 @@ export function AssetForm({ open, onClose }: Props) {
               <option value="damaged">Damaged</option>
             </select>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Location</label>
-            <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Select...</option>
-              {locations.data?.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </div>
-          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+          {/* Only when creating. On an existing tool, where it is comes from
+              the ledger — use Assign, Transfer or Return to move it. */}
+          {edit ? null : (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Location</label>
+              <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                <option value="">Select...</option>
+                {locations.data?.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </div>
+          )}
+          {result && <p className="text-sm text-destructive">{result}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting || !tag || !modelName}>{submitting ? "..." : "Create"}</Button>
+          <Button onClick={submit} disabled={submitting || !tag || !modelName}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

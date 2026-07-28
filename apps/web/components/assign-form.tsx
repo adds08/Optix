@@ -13,6 +13,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const utils = trpc.useUtils();
   const assets = trpc.asset.list.useQuery({ status: "available" });
   const projects = trpc.project.list.useQuery();
+  const locations = trpc.location.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
   const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: role === "superintendent" });
   const me = trpc.identity.me.useQuery();
@@ -31,6 +32,10 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const [assetId, setAssetId] = useState(preselectedAssetId ?? "");
   const [custodianId, setCustodianId] = useState("");
   const [projectId, setProjectId] = useState("");
+  /* Where it physically goes. Assigning a tool to a foreman almost always
+     means it is going in their trailer or gang box, and without this the only
+     way to record that was a separate Transfer afterwards. */
+  const [locationId, setLocationId] = useState("");
   const [type, setType] = useState<"permanent" | "temporary">("permanent");
   const [expectedEnd, setExpectedEnd] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +50,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
     try {
       const res = await utils.client.assignment.create.mutate({
         assetId, custodianId, projectId: projectId || undefined,
+        locationId: locationId || undefined,
         type, expectedEnd: expectedEnd || undefined,
       });
       setResult(res.needsApproval ? "Pending approval" : "Assigned!");
@@ -52,9 +58,9 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
       utils.asset.list.invalidate();
       utils.dashboard.kpis.invalidate();
       utils.dashboard.recentActivity.invalidate();
-      setTimeout(onClose, 1200);
-    } catch {
-      setResult("Error");
+      onClose();
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : "Could not save. Try again.");
     }
     setSubmitting(false);
   };
@@ -92,6 +98,21 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
             </select>
           </div>
           <div className="space-y-2">
+            <label className="text-sm font-medium">Where it goes</label>
+            <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="">Leave where it is</option>
+              {locations.data?.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                  {l.custodianName ? ` — ${l.custodianName}` : ""}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              A truck, trailer or gang box, if the tool is going into one.
+            </p>
+          </div>
+          <div className="space-y-2">
             <label className="text-sm font-medium">Type</label>
             <select value={type} onChange={(e) => setType(e.target.value as "permanent" | "temporary")} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
               <option value="permanent">Permanent</option>
@@ -104,7 +125,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
               <Input type="date" value={expectedEnd} onChange={(e) => setExpectedEnd(e.target.value)} />
             </div>
           )}
-          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+          {result && <p className="text-sm text-destructive">{result}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>

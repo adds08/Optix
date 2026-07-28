@@ -21,7 +21,7 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev up down restart build rebuild logs ps seed reset push migrate studio psql shell test typecheck lint mobile
+.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint mobile
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -56,11 +56,18 @@ ps: ## Show running containers
 seed: ## Populate sample data (idempotent; SEED_RESET=1 to wipe first)
 	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm seed"
 
-push: ## Apply Drizzle schema to DB
-	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm push --force"
+generate: ## Generate a migration from schema changes (commit the result)
+	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm generate"
 
-migrate: ## Apply existing migrations
+migrate: ## Apply pending migrations — this is what runs on deploy
 	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm migrate"
+
+# `drizzle-kit push` diffs the live database against the schema and applies the
+# difference with no review step and no record. It is how a production column
+# gets dropped silently. Change the schema, `make generate`, commit the SQL,
+# `make migrate`.
+push-dangerous: ## Escape hatch. Never point this at a real database.
+	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm push:dangerous --force"
 
 studio: ## Open Drizzle Studio
 	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm studio"

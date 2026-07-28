@@ -1,12 +1,34 @@
 "use client";
 
+import Link from "next/link";
+import { useState } from "react";
 import { UserMinus, Users } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
+import { CreateAction } from "@/components/sti/create-action";
+import { ImportButton } from "@/components/import-dialog";
+import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
+import { PostingForm } from "@/components/posting-form";
+import { RowActions } from "@/components/sti/row-actions";
+import { Can } from "@/components/can";
+import { Button } from "@/components/ui/button";
 import { money } from "@/lib/format";
 
 export default function PeoplePage() {
+  const [editing, setEditing] = useState<EmployeeEditable | null>(null);
+  const [moving, setMoving] = useState<{ id: string; name: string; projectId?: string | null } | null>(null);
+  const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
+  const utils = trpc.useUtils();
+
+  const remove = trpc.employee.delete.useMutation({
+    onSuccess: () => {
+      setFailed(null);
+      utils.employee.list.invalidate();
+    },
+    onError: (e, vars) => setFailed({ id: vars.id, message: e.message }),
+  });
+
   const employees = trpc.employee.list.useQuery();
   const byForeman = trpc.report.byForeman.useQuery();
   const clearance = trpc.dashboard.clearanceQueue.useQuery();
@@ -17,10 +39,26 @@ export default function PeoplePage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {editing ? <EmployeeForm open onClose={() => setEditing(null)} edit={editing} /> : null}
+      {moving ? (
+        <PostingForm
+          open
+          onClose={() => setMoving(null)}
+          employeeId={moving.id}
+          employeeName={moving.name}
+          currentProjectId={moving.projectId}
+        />
+      ) : null}
       <PageHeader
         eyebrow="Operations"
         title="People"
         description="Who can hold custody, and what they are still holding."
+        actions={
+          <>
+            <ImportButton entity="employee" />
+            <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
+          </>
+        }
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -84,8 +122,8 @@ export default function PeoplePage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  {["Name", "Role", "Primary project", "Status", "Tools held", "Value held"].map((h, i) => (
-                    <th key={h} className={`label-xs px-4 py-2.5 ${i > 3 ? "text-right" : "text-left"}`}>{h}</th>
+                  {["Name", "Role", "Primary project", "Status", "Tools held", "Value held", ""].map((h, i) => (
+                    <th key={h || "actions"} className={`label-xs px-4 py-2.5 ${i > 3 ? "text-right" : "text-left"}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -94,12 +132,50 @@ export default function PeoplePage() {
                   const f = held.get(e.id);
                   return (
                     <tr key={e.id} className="border-b last:border-0 hover:bg-muted/40">
-                      <td className="px-4 py-2.5 font-medium">{e.name}</td>
+                      <td className="px-4 py-2.5 font-medium">
+                        <Link href={`/people/${e.id}`} className="hover:underline">
+                          {e.name}
+                        </Link>
+                      </td>
                       <td className="px-4 py-2.5">{humanize(e.role)}</td>
                       <td className="px-4 py-2.5">{e.primaryProjectName ?? "—"}</td>
                       <td className="px-4 py-2.5"><StatusPill status={e.employmentStatus} /></td>
                       <td className="px-4 py-2.5 text-right tnum">{f ? Number(f.assetCount) : 0}</td>
                       <td className="px-4 py-2.5 text-right tnum">{f ? money(f.totalValue) : "—"}</td>
+                      <td className="px-4 py-2.5">
+                        <RowActions
+                          perm="employee.manage"
+                          label={e.name}
+                          /* Moving somebody to a job is its own action, not an
+                             edit — it takes their tools with them. */
+                          extra={
+                            <Can perm="employee.manage">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setMoving({ id: e.id, name: e.name, projectId: e.primaryProjectId })}
+                              >
+                                Move job
+                              </Button>
+                            </Can>
+                          }
+                          onEdit={() =>
+                            setEditing({
+                              id: e.id,
+                              name: e.name,
+                              role: e.role,
+                              email: e.email,
+                              phone: e.phone,
+                              externalId: e.externalId,
+                              employmentStatus: e.employmentStatus,
+                              reportsToEmployeeId: e.reportsToEmployeeId,
+                            })
+                          }
+                          onDelete={() => remove.mutate({ id: e.id })}
+                          deleting={remove.isPending}
+                          error={failed?.id === e.id ? failed.message : null}
+                        />
+                      </td>
                     </tr>
                   );
                 })}

@@ -1,0 +1,142 @@
+# Production compose.
+#
+# Differences from docker-compose.yml that matter: real builds instead of
+# `pnpm dev`, no source mounts, restart policies, healthchecks with dependency
+# gating, and the engine is actually here — its absence from the dev file is
+# why chat silently degrades to `pending_manual` in any containerised run.
+#
+# Postgres is included so a single-droplet deployment works out of the box, but
+# a managed database is the better call: `make backup` is not a backup strategy,
+# and point-in-time recovery is not something you can retrofit after you need
+# it. To use one, delete the postgres service and point DATABASE_URL at it.
+
+services:
+  # TLS terminator and the only thing bound to the host's network. Everything
+  # else talks over the compose network, so Postgres and the parser are not
+  # reachable from the internet at all.
+  caddy:
+    image: caddy:2-alpine
+    container_name: stinventory-caddy
+    restart: unless-stopped
+    environment:
+      SITE_HOST: ${SITE_HOST:?set SITE_HOST to the public hostname, e.g. tools.example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Static export of the Expo app (apps/mobile). Built with
+      # `expo export --platform web` and copied here — no container needed,
+      # Caddy serves the files directly.
+      - ./field:/srv/field:ro
+      # Certificates and the ACME account key. Losing these means re-issuing on
+      # every restart, which Let's Encrypt rate-limits.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: stinventory-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-stinventory}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Not published to the host. Reachable only on the compose network.
+    expose:
+      - "5432"
+
+  engine:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.engine
+    image: stinventory-engine:latest
+    container_name: stinventory-engine
+    restart: unless-stopped
+    environment:
+      ENGINE_PORT: 4600
+      # Point these at your serverless inference provider. The engine speaks
+      # the OpenAI wire format, so any compatible endpoint works unchanged.
+      ENGINE_LLM_BASE_URL: ${ENGINE_LLM_BASE_URL:?set ENGINE_LLM_BASE_URL}
+      ENGINE_MODEL: ${ENGINE_MODEL:?set ENGINE_MODEL}
+      ENGINE_API_KEY: ${ENGINE_API_KEY:?set ENGINE_API_KEY}
+      ENGINE_TIMEOUT_MS: ${ENGINE_TIMEOUT_MS:-15000}
+    expose:
+      - "4600"
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    image: stinventory-api:latest
+    container_name: stinventory-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4100
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-stinventory}}
+      # No default. A guessable session secret in production is the same as no
+      # authentication at all, so the stack refuses to start without one.
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET to 32+ random chars}
+      WEB_ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN}
+      MOBILE_ORIGIN: ${MOBILE_ORIGIN:-}
+      ENGINE_BASE_URL: ${ENGINE_BASE_URL:-http://engine:4600}
+      ENGINE_TIMEOUT_MS: ${ENGINE_TIMEOUT_MS:-15000}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+    expose:
+      - "4100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      engine:
+        # Started, not healthy: chat degrades gracefully when the parser is
+        # unreachable (the request worker requeues), so the API must not be
+        # held down by it.
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        # Inlined into the client bundle at build time, so this is the public
+        # URL a browser will use — not the compose-internal hostname.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL to the public API URL}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-STInventory}
+        # Pre-fills the login form and lists the demo accounts. Defaults off:
+        # on a reachable host it publishes valid addresses and their shared
+        # password. Set to 1 deliberately while this is a demo deployment.
+        NEXT_PUBLIC_SHOW_DEMO_LOGINS: ${NEXT_PUBLIC_SHOW_DEMO_LOGINS:-0}
+    image: stinventory-web:latest
+    container_name: stinventory-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+    expose:
+      - "3100"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

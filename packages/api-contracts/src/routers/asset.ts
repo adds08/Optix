@@ -3,6 +3,7 @@ import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
+import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
 
 export const assetRouter = router({
@@ -157,6 +158,131 @@ export const assetRouter = router({
         });
       }
       return row;
+    }),
+
+  /*
+    Correct the record, not the custody.
+
+    Only the descriptive fields are editable: what the tool IS, what it cost,
+    which project's capital bought it. Where it is and who has it are
+    projections of the transaction log and must not be typed over — that is
+    what Assign, Transfer and Return are for, and editing around them would
+    put the register and its own audit trail into disagreement.
+
+    `owningProjectId` is included with reluctance. It is meant to be immutable
+    once set, but it is also the field most often wrong at import time and
+    there is no other way to fix a mis-keyed one.
+  */
+  update: requirePermission("asset.manage")
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        tag: z.string().min(1).max(60).optional(),
+        modelName: z.string().min(1).max(200).optional(),
+        categoryName: z.string().max(120).nullable().optional(),
+        serialNumber: z.string().max(120).nullable().optional(),
+        quantity: z.number().int().min(1).optional(),
+        acquisitionCost: z.string().max(20).nullable().optional(),
+        acquisitionDate: z.string().nullable().optional(),
+        warrantyExpiresOn: z.string().nullable().optional(),
+        condition: z.string().max(30).optional(),
+        owningProjectId: z.string().uuid().nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const { id, ...changes } = input;
+
+      const existing = await ctx.db.query.asset.findFirst({
+        where: and(eq(schema.asset.id, id), eq(schema.asset.tenantId, tid)),
+      });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such tool in this tenant" });
+
+      /* A tag is how everyone refers to the tool out loud; two rows answering
+         to the same one makes every conversation ambiguous. */
+      if (changes.tag && changes.tag !== existing.tag) {
+        const clash = await ctx.db.query.asset.findFirst({
+          where: and(eq(schema.asset.tenantId, tid), eq(schema.asset.tag, changes.tag)),
+        });
+        if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.tag} is already in the register` });
+      }
+
+      const patch = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
+      if (!Object.keys(patch).length) return existing;
+
+      const [row] = await ctx.db
+        .update(schema.asset)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(and(eq(schema.asset.id, id), eq(schema.asset.tenantId, tid)))
+        .returning();
+
+      await logEvent(ctx, {
+        category: "asset",
+        action: "update",
+        entityType: "asset",
+        entityId: id,
+        entityLabel: row?.tag ?? existing.tag,
+        details: { changed: Object.keys(patch) },
+      });
+      return row;
+    }),
+
+  /*
+    Remove a tool from the register.
+
+    A tool with history is never deleted. Its transactions ARE the audit trail,
+    and dropping the row would take them with it (`on delete cascade`) — so a
+    tool that was assigned, lost and found would leave no trace it ever
+    existed. Those get `disposed` instead, which keeps the history and takes
+    them out of every active view.
+
+    Hard delete stays available for the case it is actually for: a row typed in
+    wrong five minutes ago that has never been used.
+  */
+  delete: requirePermission("asset.manage")
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const existing = await ctx.db.query.asset.findFirst({
+        where: and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, tid)),
+      });
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such tool in this tenant" });
+
+      if (existing.currentCustodianId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Someone is holding this tool. Return it first.",
+        });
+      }
+
+      /* The opening `tag` event is written by every creation path, so one
+         transaction means "never used" and more means real history. */
+      const events = await ctx.db
+        .select({ id: schema.transaction.id })
+        .from(schema.transaction)
+        .where(eq(schema.transaction.assetId, input.id))
+        .limit(2);
+
+      if (events.length > 1) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "This tool has history. Deleting it would delete its audit trail — mark it disposed instead.",
+        });
+      }
+
+      await ctx.db
+        .delete(schema.asset)
+        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, tid)));
+
+      await logEvent(ctx, {
+        category: "asset",
+        action: "delete",
+        entityType: "asset",
+        entityId: input.id,
+        entityLabel: existing.tag,
+      });
+      return { ok: true };
     }),
 
   setStatus: requirePermission("asset.manage")

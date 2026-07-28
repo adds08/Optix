@@ -3,10 +3,13 @@ import {
   Activity,
   BarChart3,
   Boxes,
+  HardHat,
   Inbox,
   LayoutDashboard,
   MapPin,
   MessageSquare,
+  Settings,
+  Truck,
   Users,
   Wrench,
 } from "lucide-react";
@@ -61,6 +64,13 @@ export const DESK_NAV: NavGroup[] = [
         "Truck 12". No mileage, no maintenance schedules, no driver assignment.
       */
       { href: "/locations", label: "Locations", icon: MapPin, perm: "location.read" },
+      /*
+        Rented kit is a separate register on purpose. Urban does not own it,
+        it has a return date, and it is the only equipment on the system that
+        costs money simply by existing — merging it into the tool register
+        would bury that.
+      */
+      { href: "/rentals", label: "Rented", icon: Truck, perm: "rental.read" },
     ],
   },
   {
@@ -75,6 +85,8 @@ export const DESK_NAV: NavGroup[] = [
     items: [
       { href: "/inbox", label: "Inbox", icon: Inbox, perm: "assignment.read" },
       { href: "/people", label: "People", icon: Users, perm: "employee.read" },
+      { href: "/projects", label: "Projects", icon: HardHat, perm: "project.read" },
+      { href: "/settings", label: "Settings", icon: Settings, perm: "config.manage" },
     ],
   },
 ];

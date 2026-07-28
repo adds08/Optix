@@ -5,17 +5,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Props = { open: boolean; onClose: () => void };
+export type ProjectEditable = {
+  id: string;
+  name: string;
+  externalId?: string | null;
+  status?: string | null;
+  costCenter?: string | null;
+  siteAddress?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+};
 
-export function ProjectForm({ open, onClose }: Props) {
+type Props = { open: boolean; onClose: () => void; edit?: ProjectEditable };
+
+export function ProjectForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
 
-  const [name, setName] = useState("");
-  const [externalId, setExternalId] = useState("");
-  const [status, setStatus] = useState("active");
-  const [costCenter, setCostCenter] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [name, setName] = useState(edit?.name ?? "");
+  const [externalId, setExternalId] = useState(edit?.externalId ?? "");
+  const [status, setStatus] = useState(edit?.status ?? "active");
+  const [costCenter, setCostCenter] = useState(edit?.costCenter ?? "");
+  const [siteAddress, setSiteAddress] = useState(edit?.siteAddress ?? "");
+  const [startDate, setStartDate] = useState(edit?.startDate ?? "");
+  const [endDate, setEndDate] = useState(edit?.endDate ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
 
@@ -24,17 +36,28 @@ export function ProjectForm({ open, onClose }: Props) {
     setSubmitting(true);
     setResult("");
     try {
-      await utils.client.project.create.mutate({
-        name, externalId: externalId || undefined, status,
-        costCenter: costCenter || undefined,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-      });
-      setResult("Created!");
+      if (edit) {
+        await utils.client.project.update.mutate({
+          id: edit.id, name, status,
+          externalId: externalId || null,
+          costCenter: costCenter || null,
+          siteAddress: siteAddress || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
+        });
+      } else {
+        await utils.client.project.create.mutate({
+          name, externalId: externalId || undefined, status,
+          costCenter: costCenter || undefined,
+          siteAddress: siteAddress || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        });
+      }
       utils.project.list.invalidate();
-      setTimeout(onClose, 1200);
-    } catch {
-      setResult("Error");
+      onClose();
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : "Could not save. Try again.");
     }
     setSubmitting(false);
   };
@@ -43,7 +66,7 @@ export function ProjectForm({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New Project</DialogTitle>
+          <DialogTitle>{edit ? `Edit ${edit.name}` : "New Project"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -69,6 +92,14 @@ export function ProjectForm({ open, onClose }: Props) {
             <label className="text-sm font-medium">Cost center</label>
             <Input value={costCenter} onChange={(e) => setCostCenter(e.target.value)} />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Site address</label>
+            <Input
+              value={siteAddress}
+              onChange={(e) => setSiteAddress(e.target.value)}
+              placeholder="7501 Windrose Ave, Plano TX"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Start date</label>
@@ -79,11 +110,11 @@ export function ProjectForm({ open, onClose }: Props) {
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
-          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+          {result && <p className="text-sm text-destructive">{result}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting || !name}>{submitting ? "..." : "Create"}</Button>
+          <Button onClick={submit} disabled={submitting || !name}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

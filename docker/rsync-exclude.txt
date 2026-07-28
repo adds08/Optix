@@ -1,0 +1,19 @@
+node_modules/
+.git/
+.next/
+dist/
+.turbo/
+*.log
+.env.local
+.DS_Store
+app-polished-*/
+dashboard-*/
+v2-*/
+*.png
+prototype/
+# Built on the droplet by `expo export`, not present in the repo tree — without
+# this, --delete removes the deployed field app on every deploy.
+field/
+.env.production
+.admin-credential
+*.log

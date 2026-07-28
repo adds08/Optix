@@ -5,17 +5,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Props = { open: boolean; onClose: () => void };
+export type LocationEditable = {
+  id: string;
+  name: string;
+  type: string;
+  warehouseId?: string | null;
+  projectId?: string | null;
+};
 
-export function LocationForm({ open, onClose }: Props) {
+/* "Held by" is create-only: handing a container over is `setCustodian`, which
+   also moves the tools inside it. Setting the column alone would say a trailer
+   belongs to somebody while its contents sit with the last person. */
+type Props = { open: boolean; onClose: () => void; edit?: LocationEditable };
+
+export function LocationForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
   const warehouses = trpc.location.list.useQuery();
   const projects = trpc.project.list.useQuery();
+  const employees = trpc.employee.list.useQuery();
 
-  const [type, setType] = useState("site_container");
-  const [name, setName] = useState("");
-  const [warehouseId, setWarehouseId] = useState("");
-  const [projectId, setProjectId] = useState("");
+  const [type, setType] = useState(edit?.type ?? "site_container");
+  const [name, setName] = useState(edit?.name ?? "");
+  const [warehouseId, setWarehouseId] = useState(edit?.warehouseId ?? "");
+  const [projectId, setProjectId] = useState(edit?.projectId ?? "");
+  const [custodianEmployeeId, setCustodianEmployeeId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
 
@@ -26,15 +39,23 @@ export function LocationForm({ open, onClose }: Props) {
     setSubmitting(true);
     setResult("");
     try {
-      await utils.client.location.create.mutate({
-        type, name, warehouseId: warehouseId || undefined,
-        projectId: projectId || undefined,
-      });
-      setResult("Created!");
+      if (edit) {
+        await utils.client.location.update.mutate({
+          id: edit.id, name, type,
+          warehouseId: warehouseId || null,
+          projectId: projectId || null,
+        });
+      } else {
+        await utils.client.location.create.mutate({
+          type, name, warehouseId: warehouseId || undefined,
+          projectId: projectId || undefined,
+          custodianEmployeeId: custodianEmployeeId || undefined,
+        });
+      }
       utils.location.list.invalidate();
-      setTimeout(onClose, 1200);
-    } catch {
-      setResult("Error");
+      onClose();
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : "Could not save. Try again.");
     }
     setSubmitting(false);
   };
@@ -43,7 +64,7 @@ export function LocationForm({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New Location</DialogTitle>
+          <DialogTitle>{edit ? `Edit ${edit.name}` : "New Location"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -73,11 +94,20 @@ export function LocationForm({ open, onClose }: Props) {
               {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+          {/* A container someone carries; a yard nobody does. Leaving this blank
+              is the right answer for warehouses and project sites. */}
+          <div className={edit ? "hidden" : "space-y-2"}>
+            <label className="text-sm font-medium">Held by</label>
+            <select value={custodianEmployeeId} onChange={(e) => setCustodianEmployeeId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+              <option value="">Nobody carries it</option>
+              {employees.data?.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </div>
+          {result && <p className="text-sm text-destructive">{result}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting || !name}>{submitting ? "..." : "Create"}</Button>
+          <Button onClick={submit} disabled={submitting || !name}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

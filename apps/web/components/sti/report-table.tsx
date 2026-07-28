@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown, Download, Search } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { downloadCsv } from "@/lib/csv";
 import { EmptyState, TableWrap } from "./page";
 
 export type Col<T> = {
@@ -25,11 +26,6 @@ function raw<T>(row: T, col: Col<T>): string | number | null | undefined {
   if (v === null || v === undefined) return v as null | undefined;
   if (v instanceof Date) return v.toISOString();
   return v as string | number;
-}
-
-function csvEscape(v: unknown): string {
-  const s = v === null || v === undefined ? "" : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export function ReportTable<T extends Record<string, unknown>>({
@@ -80,15 +76,10 @@ export function ReportTable<T extends Record<string, unknown>>({
   }
 
   function exportCsv() {
-    const header = cols.map((c) => csvEscape(c.header)).join(",");
-    const body = sorted.map((r) => cols.map((c) => csvEscape(raw(r, c))).join(",")).join("\n");
-    const blob = new Blob([`${header}\n${body}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(`${filename}-${new Date().toISOString().slice(0, 10)}`, [
+      cols.map((c) => c.header),
+      ...sorted.map((r) => cols.map((c) => raw(r, c))),
+    ]);
   }
 
   return (

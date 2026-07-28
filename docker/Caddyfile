@@ -1,0 +1,69 @@
+# TLS and routing for the whole stack.
+#
+# One hostname, not two. The API lives under the same origin as the web app
+# rather than on api.<domain>, which means a single certificate, no CORS
+# preflight on every request, and — the part that matters — the browser never
+# has to be told about a second origin it should trust with a session token.
+#
+# Caddy gets and renews the certificate from Let's Encrypt on its own. The only
+# requirement is that {$SITE_HOST} already resolves to this machine, which is
+# why the droplet is created before the DNS record is asked for.
+
+{$SITE_HOST} {
+	encode gzip
+
+	# API surface. These prefixes are the complete set apps/api serves —
+	# see apps/api/src/index.ts. Anything else belongs to Next.
+	handle /trpc/* {
+		reverse_proxy api:4100
+	}
+	handle /auth/* {
+		reverse_proxy api:4100
+	}
+	handle /health {
+		reverse_proxy api:4100
+	}
+
+	# The Expo app, exported as a static web bundle and served from disk.
+	#
+	# A path rather than its own subdomain, deliberately: it needs no second DNS
+	# record and no second certificate, and it shares an origin with the API so
+	# the session token it stores is usable without any CORS arrangement.
+	# `experiments.baseUrl` in apps/mobile/app.json must stay in step with this
+	# prefix or every asset 404s.
+	handle_path /field/* {
+		root * /srv/field
+		# Client-side routing: any unknown path is a route inside the app, not a
+		# missing file, so it has to fall back to the shell rather than 404.
+		try_files {path} /index.html
+		file_server
+	}
+	# Without this a bare /field (no slash) misses handle_path entirely.
+	redir /field /field/
+
+	handle {
+		reverse_proxy web:3100
+	}
+
+	# The app is the only thing on this host, so a request for something else
+	# is a scanner. Say nothing useful.
+	handle_errors {
+		respond "{err.status_code}"
+	}
+
+	header {
+		# HSTS is deliberately modest to start. Raise max-age once you are
+		# certain the certificate renewal loop is healthy — a long max-age on a
+		# host you later need to serve over http is painful to undo.
+		Strict-Transport-Security "max-age=86400; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

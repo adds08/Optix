@@ -34,3 +34,50 @@ export function isOverdueLoan(input: OverdueInput): boolean {
 export function isIdleAsset(status: string): boolean {
   return status === "available";
 }
+
+/*
+  A rented line that is past its end date and has not been called off rent.
+
+  Deliberately a separate function from `isOverdueLoan` even though the shape
+  rhymes, because the consequences differ and so will the thresholds. An owned
+  tool held past its expected return is an inconvenience someone will get to.
+  A rental past its end date is an invoice arriving every day until a person
+  phones the vendor — so this one is worth chasing harder and earlier.
+
+  `quoted` lines are excluded: a quote nobody took up has an end date in the
+  past and costs nothing, and alerting on those would bury the real ones.
+*/
+export type RentalDueInput = {
+  status: string;
+  endDate: string | null;
+  today: string;
+};
+
+export function isRentalOverdue(input: RentalDueInput): boolean {
+  if (input.status !== "on_rent") return false;
+  if (!input.endDate) return false;
+  return input.endDate < input.today;
+}
+
+/** Days until a rented line is due back. Negative means already past. */
+export function daysUntilOffRent(endDate: string | null, today: string): number | null {
+  if (!endDate) return null;
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+  const now = Date.parse(`${today}T00:00:00Z`);
+  if (Number.isNaN(end) || Number.isNaN(now)) return null;
+  return Math.round((end - now) / 86_400_000);
+}
+
+/*
+  Worth a nudge before it turns into an overdue.
+
+  Seven days is the window a yard can actually act in: long enough to arrange
+  collection, short enough that the reminder still feels connected to the date.
+*/
+export const RENTAL_DUE_SOON_DAYS = 7;
+
+export function isRentalDueSoon(input: RentalDueInput): boolean {
+  if (input.status !== "on_rent") return false;
+  const days = daysUntilOffRent(input.endDate, input.today);
+  return days !== null && days >= 0 && days <= RENTAL_DUE_SOON_DAYS;
+}

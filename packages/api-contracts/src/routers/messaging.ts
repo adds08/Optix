@@ -1,9 +1,57 @@
 import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
+import { MENTION_KINDS, type ChatMention } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { applyChatAction, type ChatAction } from "../apply-action.js";
+import { TRPCError } from "@trpc/server";
+import {
+  applyChatAction,
+  canApplyAction,
+  permissionForAction,
+  requestChatAction,
+  type ChatAction,
+} from "../apply-action.js";
+
+/*
+  Confirm each mentioned id really is a row of that kind in this tenant.
+
+  The client sends ids it got from `entity.search`, but a tRPC input is just
+  JSON — nothing stops a crafted call from claiming an asset id belongs to
+  another tenant. Since a verified mention goes on to outrank the parser and
+  can end up naming the tool in a custody action, it has to be checked here.
+*/
+async function verifyMentions(
+  db: any,
+  tenantId: string,
+  mentions: ChatMention[],
+): Promise<ChatMention[]> {
+  const table = {
+    asset: schema.asset,
+    employee: schema.employee,
+    project: schema.project,
+    location: schema.location,
+    vehicle: schema.vehicle,
+  } as const;
+
+  const out: ChatMention[] = [];
+  const seen = new Set<string>();
+
+  for (const m of mentions) {
+    const key = `${m.kind}:${m.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const t = table[m.kind];
+    const [row] = await db
+      .select({ id: t.id })
+      .from(t)
+      .where(and(eq(t.id, m.id), eq(t.tenantId, tenantId)))
+      .limit(1);
+    if (row) out.push(m);
+  }
+  return out;
+}
 
 export const messagingRouter = router({
   // List channels the current user has access to (role-derived: foreman + equipment_admin + superintendent).
@@ -40,6 +88,7 @@ export const messagingRouter = router({
           authorUserId: schema.message.authorUserId,
           authorEmployeeId: schema.message.authorEmployeeId,
           body: schema.message.body,
+          mentions: schema.message.mentions,
           processingStatus: schema.message.processingStatus,
           intentType: schema.message.intentType,
           intentPayload: schema.message.intentPayload,
@@ -66,10 +115,36 @@ export const messagingRouter = router({
       z.object({
         channelId: z.string().uuid(),
         body: z.string().min(1).max(2000),
+        /*
+          Entities the author picked off the @ list. The sentence still says
+          what happened and the parser still reads it — but these are already
+          resolved, so the parser never has to guess which "rotary hammer" was
+          meant. Empty is normal: typing a plain sentence is still the fastest
+          way to file something, and it behaves exactly as before.
+        */
+        mentions: z
+          .array(
+            z.object({
+              kind: z.enum(MENTION_KINDS),
+              id: z.string().uuid(),
+              label: z.string().max(200),
+            }),
+          )
+          .max(20)
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
+
+      /* Never trust the client's word for what an id is. A mention that does
+         not resolve to a row of that kind in this tenant is dropped rather
+         than rejected — the sentence is still worth filing, and the parser
+         gets the same shot at it that an unmentioned message gets. */
+      const mentions = input.mentions?.length
+        ? await verifyMentions(ctx.db, tid, input.mentions)
+        : [];
+
       const [row] = await ctx.db
         .insert(schema.message)
         .values({
@@ -78,6 +153,7 @@ export const messagingRouter = router({
           authorUserId: ctx.session.userId,
           authorEmployeeId: ctx.session.employeeId ?? null,
           body: input.body,
+          mentions: mentions.length ? mentions : null,
           processingStatus: "queued",
         })
         .returning();
@@ -87,7 +163,7 @@ export const messagingRouter = router({
         action: "send",
         entityType: "message",
         entityId: row.id,
-        details: { channelId: input.channelId },
+        details: { channelId: input.channelId, mentionCount: mentions.length },
       });
       return row;
     }),
@@ -107,20 +183,32 @@ export const messagingRouter = router({
 
       const action = msg.proposedAction as ChatAction;
 
+      const opts = {
+        tenantId: tid,
+        actorUserId: ctx.session.userId,
+        actorEmployeeId: ctx.session.employeeId ?? null,
+        permissions: ctx.session.permissions,
+        action,
+        refMessageId: msg.id,
+      };
+
+      /*
+        Chat carries no more authority than the equivalent form. Someone without
+        the permission an action costs does not get an error — their observation
+        is still worth capturing — it becomes a request for the owning desk.
+      */
+      const allowed = canApplyAction(action.type, ctx.session.permissions);
+
       // Single executor shared with the background worker, so the two paths
       // cannot drift apart again. Throws rather than silently succeeding.
-      const { transactionIds } = await applyChatAction(
-        ctx.db,
-        tid,
-        ctx.session.userId,
-        action,
-        msg.id,
-      );
+      const { transactionIds, taskId } = allowed
+        ? { ...(await applyChatAction(ctx.db, opts)), taskId: null as string | null }
+        : await requestChatAction(ctx.db, opts);
 
       await ctx.db
         .update(schema.message)
         .set({
-          processingStatus: "action_executed",
+          processingStatus: allowed ? "action_executed" : "action_requested",
           executedTransactionIds: transactionIds,
           handledByUserId: ctx.session.userId,
           handledAt: new Date(),
@@ -130,225 +218,121 @@ export const messagingRouter = router({
 
       await logEvent(ctx, {
         category: "messaging",
-        action: "confirm_action",
+        action: allowed ? "confirm_action" : "request_action",
         entityType: "message",
         entityId: input.messageId,
-        details: { actionType: action.type, transactionIds },
+        details: { actionType: action.type, transactionIds, taskId },
       });
 
-      return { ok: true, transactionIds };
+      return { ok: true, applied: allowed, transactionIds, taskId };
     }),
 
   // Manual entry by admin for pending_manual messages.
-  manualEntry: requirePermission("assignment.create")
+  /*
+    The desk resolving a message the parser could not.
+
+    This used to be a fourth hand-rolled copy of the custody logic, and it had
+    drifted the way copies do: assign never closed the previous custody link,
+    and repair/lost wrote `toState: { status }` alone — a partial snapshot,
+    which the last-snapshot-wins fold reads as "custodian, project and location
+    are now null". Rebuilding the projection from the log would have quietly
+    emptied those tools.
+
+    It now delegates to the same executor as chat confirm, the request approval
+    and the manual forms. Which also means it supports every action type they
+    do, rather than the five it had been frozen at.
+  */
+  manualEntry: protectedProcedure
     .input(
       z.object({
         messageId: z.string().uuid(),
-        actionType: z.enum(["assign", "return", "transfer", "repair", "lost"]),
-        assetIds: z.array(z.string().uuid()),
+        actionType: z.enum([
+          "assign",
+          "return",
+          "transfer",
+          "repair",
+          "lost",
+          "report",
+          "intake",
+        ]),
+        assetIds: z.array(z.string().uuid()).max(50).default([]),
         custodianId: z.string().uuid().optional(),
         projectId: z.string().uuid().optional(),
         locationId: z.string().uuid().optional(),
-        note: z.string().optional(),
+        note: z.string().max(2000).optional(),
+        draft: z
+          .object({
+            tag: z.string().max(60).optional(),
+            modelName: z.string().max(200).optional(),
+            categoryName: z.string().max(120).optional(),
+            serialNumber: z.string().max(120).optional(),
+            acquisitionCost: z.string().max(20).optional(),
+          })
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      let transactionIds: string[] = [];
 
-      if (input.actionType === "assign" && input.custodianId) {
-        for (const assetId of input.assetIds) {
-          const asset = await ctx.db.query.asset.findFirst({
-            where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)),
-          });
-          if (!asset) continue;
+      const msg = await ctx.db.query.message.findFirst({
+        where: and(eq(schema.message.id, input.messageId), eq(schema.message.tenantId, tid)),
+      });
+      if (!msg) throw new TRPCError({ code: "NOT_FOUND", message: "Message not found" });
 
-          const [assignment] = await ctx.db
-            .insert(schema.assignment)
-            .values({
-              tenantId: tid,
-              assetId,
-              custodianId: input.custodianId,
-              projectId: input.projectId ?? null,
-              locationId: input.locationId ?? null,
-              type: "permanent",
-              startDate: new Date().toISOString().slice(0, 10),
-              status: "active",
-              approvedBy: ctx.session.userId,
-            })
-            .returning();
-          if (!assignment) continue;
-
-          await ctx.db
-            .update(schema.asset)
-            .set({
-              currentStatus: "assigned",
-              currentCustodianId: input.custodianId,
-              currentProjectId: input.projectId ?? asset.currentProjectId,
-              currentLocationId: input.locationId ?? asset.currentLocationId,
-              updatedAt: new Date(),
-            })
-            .where(eq(schema.asset.id, assetId));
-
-          const [tx] = await ctx.db
-            .insert(schema.transaction)
-            .values({
-              tenantId: tid,
-              assetId,
-              eventType: "assign",
-              actorId: ctx.session.userId,
-              fromState: { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId },
-              toState: { status: "assigned", custodianId: input.custodianId, projectId: input.projectId ?? null, locationId: input.locationId ?? null },
-              refType: "assignment",
-              refId: assignment.id,
-              note: input.note ?? "Manual entry",
-            })
-            .returning();
-          if (tx) transactionIds.push(String(tx.id));
-        }
-      } else if (input.actionType === "return") {
-        for (const assetId of input.assetIds) {
-          const existing = await ctx.db.query.assignment.findFirst({
-            where: and(eq(schema.assignment.assetId, assetId), eq(schema.assignment.status, "active"), eq(schema.assignment.tenantId, tid)),
-          });
-          if (existing) {
-            await ctx.db
-              .update(schema.assignment)
-              .set({ status: "returned", returnedAt: new Date(), updatedAt: new Date() })
-              .where(eq(schema.assignment.id, existing.id));
-          }
-          const asset = await ctx.db.query.asset.findFirst({
-            where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)),
-          });
-          await ctx.db
-            .update(schema.asset)
-            .set({ currentStatus: "available", currentCustodianId: null, updatedAt: new Date() })
-            .where(eq(schema.asset.id, assetId));
-
-          const [tx] = await ctx.db
-            .insert(schema.transaction)
-            .values({
-              tenantId: tid,
-              assetId,
-              eventType: "return",
-              actorId: ctx.session.userId,
-              fromState: asset ? { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId } : null,
-              toState: { status: "available", custodianId: null, projectId: null, locationId: null },
-              refType: "assignment",
-              refId: existing?.id ?? null,
-              note: input.note ?? "Manual return",
-            })
-            .returning();
-          if (tx) transactionIds.push(String(tx.id));
-        }
-      } else if (input.actionType === "transfer" && input.custodianId) {
-        for (const assetId of input.assetIds) {
-          const asset = await ctx.db.query.asset.findFirst({
-            where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)),
-          });
-          if (!asset) continue;
-
-          const [transfer] = await ctx.db
-            .insert(schema.transfer)
-            .values({
-              tenantId: tid,
-              assetId,
-              fromCustodianId: asset.currentCustodianId,
-              toCustodianId: input.custodianId,
-              fromLocationId: asset.currentLocationId,
-              toLocationId: input.locationId ?? null,
-              fromProjectId: asset.currentProjectId,
-              toProjectId: input.projectId ?? null,
-              reason: "reallocation",
-              status: "completed",
-              requestedBy: ctx.session.userId,
-              approvedBy: ctx.session.userId,
-              completedAt: new Date(),
-            })
-            .returning();
-          if (!transfer) continue;
-
-          await ctx.db
-            .update(schema.asset)
-            .set({
-              currentCustodianId: input.custodianId,
-              currentLocationId: input.locationId ?? asset.currentLocationId,
-              currentProjectId: input.projectId ?? asset.currentProjectId,
-              updatedAt: new Date(),
-            })
-            .where(eq(schema.asset.id, assetId));
-
-          const [tx] = await ctx.db
-            .insert(schema.transaction)
-            .values({
-              tenantId: tid,
-              assetId,
-              eventType: "transfer",
-              actorId: ctx.session.userId,
-              fromState: { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId },
-              toState: { status: "assigned", custodianId: input.custodianId, projectId: input.projectId ?? null, locationId: input.locationId ?? null },
-              refType: "transfer",
-              refId: transfer.id,
-              note: input.note ?? "Manual transfer",
-            })
-            .returning();
-          if (tx) transactionIds.push(String(tx.id));
-        }
-      } else if (input.actionType === "repair") {
-        for (const assetId of input.assetIds) {
-          await ctx.db
-            .update(schema.asset)
-            .set({ currentStatus: "in_maintenance", updatedAt: new Date() })
-            .where(eq(schema.asset.id, assetId));
-
-          const [tx] = await ctx.db
-            .insert(schema.transaction)
-            .values({
-              tenantId: tid,
-              assetId,
-              eventType: "repair_start",
-              actorId: ctx.session.userId,
-              toState: { status: "in_maintenance" },
-              refType: "manual",
-              note: input.note ?? "Manual repair entry",
-            })
-            .returning();
-          if (tx) transactionIds.push(String(tx.id));
-        }
-      } else if (input.actionType === "lost") {
-        for (const assetId of input.assetIds) {
-          await ctx.db
-            .update(schema.asset)
-            .set({ currentStatus: "lost", updatedAt: new Date() })
-            .where(eq(schema.asset.id, assetId));
-
-          const [tx] = await ctx.db
-            .insert(schema.transaction)
-            .values({
-              tenantId: tid,
-              assetId,
-              eventType: "lost",
-              actorId: ctx.session.userId,
-              toState: { status: "lost" },
-              refType: "manual",
-              note: input.note ?? "Manual lost report",
-            })
-            .returning();
-          if (tx) transactionIds.push(String(tx.id));
-        }
+      /* Permission is charged by action, not by "can you use this screen".
+         Resolving somebody else's message into a write-off still costs
+         `asset.manage`. */
+      if (!canApplyAction(input.actionType, ctx.session.permissions)) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `Recording a ${input.actionType} requires ${permissionForAction(input.actionType)}.`,
+        });
       }
 
-      // Update the message record.
+      const { transactionIds } = await applyChatAction(ctx.db, {
+        tenantId: tid,
+        actorUserId: ctx.session.userId,
+        actorEmployeeId: ctx.session.employeeId ?? null,
+        permissions: ctx.session.permissions,
+        action: {
+          type: input.actionType,
+          assetIds: input.assetIds,
+          custodianId: input.custodianId,
+          projectId: input.projectId,
+          locationId: input.locationId,
+          note: input.note || `Resolved by the desk: ${msg.body.slice(0, 120)}`,
+          draft: input.draft,
+        },
+        refMessageId: msg.id,
+      });
+
       await ctx.db
         .update(schema.message)
         .set({
           processingStatus: "action_executed",
+          intentType: input.actionType,
           executedTransactionIds: transactionIds,
           handledByUserId: ctx.session.userId,
           handledAt: new Date(),
+          errorNote: null,
           updatedAt: new Date(),
         })
         .where(eq(schema.message.id, input.messageId));
+
+      /* Tell whoever sent it that their message was dealt with — the desk
+         acting on it is the answer they were waiting for. */
+      if (msg.authorEmployeeId) {
+        await ctx.db.insert(schema.notification).values({
+          tenantId: tid,
+          recipientEmployeeId: msg.authorEmployeeId,
+          type: "request_approved",
+          refType: "message",
+          refId: msg.id,
+          title: `Recorded: ${msg.body.slice(0, 80)}`,
+          body: "The equipment desk sorted this one out for you.",
+          channel: "in_app",
+        });
+      }
 
       await logEvent(ctx, {
         category: "messaging",
@@ -359,6 +343,66 @@ export const messagingRouter = router({
       });
 
       return { ok: true, transactionIds };
+    }),
+
+  /*
+    Close a message without recording anything.
+
+    Every message has to reach a terminal state — chatter, duplicates and
+    mistakes included. Without this the unresolved queue only grows, and a
+    desk that cannot empty its queue stops reading it, which costs more than
+    the odd unrecorded hand-off.
+  */
+  dismiss: protectedProcedure
+    .input(z.object({ messageId: z.string().uuid(), reason: z.string().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const msg = await ctx.db.query.message.findFirst({
+        where: and(eq(schema.message.id, input.messageId), eq(schema.message.tenantId, tid)),
+      });
+      if (!msg) throw new TRPCError({ code: "NOT_FOUND", message: "Message not found" });
+      if (msg.processingStatus === "action_executed") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This one already changed the register — it cannot be dismissed.",
+        });
+      }
+
+      await ctx.db
+        .update(schema.message)
+        .set({
+          processingStatus: "dismissed",
+          handledByUserId: ctx.session.userId,
+          handledAt: new Date(),
+          errorNote: input.reason ?? null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.message.id, input.messageId));
+
+      /* A dismissal the sender never hears about is the silence problem again,
+         so they are told — with the reason, which is the useful part. */
+      if (msg.authorEmployeeId) {
+        await ctx.db.insert(schema.notification).values({
+          tenantId: tid,
+          recipientEmployeeId: msg.authorEmployeeId,
+          type: "request_declined",
+          refType: "message",
+          refId: msg.id,
+          title: `Nothing recorded: ${msg.body.slice(0, 80)}`,
+          body: input.reason || "The equipment desk closed this without a change to the register.",
+          channel: "in_app",
+        });
+      }
+
+      await logEvent(ctx, {
+        category: "messaging",
+        action: "dismiss",
+        entityType: "message",
+        entityId: input.messageId,
+        details: { reason: input.reason ?? null },
+      });
+
+      return { ok: true };
     }),
 
   // Admin: list pending_manual messages grouped by foreman.
@@ -374,6 +418,7 @@ export const messagingRouter = router({
         .select({
           id: schema.message.id,
           body: schema.message.body,
+          mentions: schema.message.mentions,
           processingStatus: schema.message.processingStatus,
           intentType: schema.message.intentType,
           intentPayload: schema.message.intentPayload,
@@ -413,6 +458,7 @@ export const messagingRouter = router({
         .select({
           id: schema.message.id,
           body: schema.message.body,
+          mentions: schema.message.mentions,
           processingStatus: schema.message.processingStatus,
           intentType: schema.message.intentType,
           intentPayload: schema.message.intentPayload,
@@ -439,6 +485,7 @@ export const messagingRouter = router({
         .select({
           id: schema.message.id,
           body: schema.message.body,
+          mentions: schema.message.mentions,
           processingStatus: schema.message.processingStatus,
           intentType: schema.message.intentType,
           intentPayload: schema.message.intentPayload,

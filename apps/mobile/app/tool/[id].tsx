@@ -59,6 +59,44 @@ export default function ToolDetailScreen() {
               </View>
             </Card>
 
+            {/* The manual path. Present whether or not the parser is reachable —
+                the tool screen is the one place a foreman always knows how to
+                get to. Which actions make sense depends on where the tool is:
+                nothing in the yard needs returning. */}
+            <View className="gap-2">
+              <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                What do you need to do?
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {(a.custodianId
+                  ? ([
+                      ["transfer", "Move it"],
+                      ["return", "Return it"],
+                    ] as const)
+                  : ([["assign", "Give it out"]] as const)
+                ).map(([type, label]) => (
+                  <ActionChip
+                    key={type}
+                    label={label}
+                    onPress={() => router.push(`/action/${type}?assetId=${a.id}`)}
+                  />
+                ))}
+                <ActionChip
+                  label="Broken"
+                  onPress={() => router.push(`/action/repair?assetId=${a.id}`)}
+                />
+                <ActionChip
+                  label="Missing"
+                  tone="crit"
+                  onPress={() => router.push(`/action/lost?assetId=${a.id}`)}
+                />
+                <ActionChip
+                  label="Add note"
+                  onPress={() => router.push(`/action/report?assetId=${a.id}`)}
+                />
+              </View>
+            </View>
+
             <View className="gap-3">
               <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 History
@@ -96,6 +134,33 @@ export default function ToolDetailScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function ActionChip({
+  label,
+  onPress,
+  tone = "default",
+}: {
+  label: string;
+  onPress: () => void;
+  tone?: "default" | "crit";
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      className={`min-h-[48px] items-center justify-center rounded-md border px-4 ${
+        tone === "crit" ? "border-crit bg-crit-bg" : "border-border bg-card"
+      }`}
+    >
+      <Text
+        className={`text-[15px] font-semibold ${tone === "crit" ? "text-crit" : "text-foreground"}`}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 

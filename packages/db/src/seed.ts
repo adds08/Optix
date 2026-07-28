@@ -11,6 +11,7 @@ import {
   category,
   channel,
   employee,
+  employeeProjectAssignment,
   location,
   manufacturer,
   notification,
@@ -49,6 +50,7 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "employee.read",
     "assignment.read",
     "assignment.create",
+    "rental.read",
     "transfer.read",
     "transfer.create",
     "report.read",
@@ -91,6 +93,7 @@ async function main() {
     await db.delete(notification);
     await db.delete(vehicle);
     await db.delete(location);
+    await db.delete(employeeProjectAssignment); // before employees — it points at them
     await db.delete(employee);
     await db.delete(project);
     await db.delete(warehouse);
@@ -104,6 +107,22 @@ async function main() {
     await db.delete(permission);
     await db.delete(tenantSettings);
     await db.delete(tenant);
+  }
+
+  /*
+    Demo logins must never exist on a production database.
+
+    This seed creates five accounts with the password `stinventory-demo`,
+    including an owner with every permission. That is exactly right for a demo
+    and catastrophic on a real deployment — and "we will remember not to run
+    it" is not a control.
+  */
+  if (process.env.NODE_ENV === "production" && process.env.SEED_ALLOW_PRODUCTION !== "1") {
+    console.error(
+      "[seed] refusing to run with NODE_ENV=production — this creates demo logins " +
+        "with a published password. Set SEED_ALLOW_PRODUCTION=1 only if you are certain.",
+    );
+    process.exit(1);
   }
 
   const existing = await db.query.tenant.findMany({ limit: 1 });
@@ -139,11 +158,11 @@ async function main() {
   // ---- Employees (domain persons; custody holders) ----
   // Insert projects first (employees reference primaryProjectId).
   const projectSpecs = [
-    { key: "p-legacy", extId: "URB-2401", name: "Legacy West Phase 3", status: "active", costCenter: "CC-4100", start: "2026-01-06", end: "2026-11-30" },
-    { key: "p-trinity", extId: "URB-2402", name: "Trinity Bridge Rehab", status: "active", costCenter: "CC-4210", start: "2026-03-02", end: "2027-02-15" },
-    { key: "p-gpk", extId: "URB-2403", name: "Grand Parkway Segment H", status: "active", costCenter: "CC-4315", start: "2026-02-10", end: "2026-12-20" },
-    { key: "p-uptown", extId: "URB-2398", name: "Uptown Utility Relocate", status: "closing", costCenter: "CC-3980", start: "2025-08-01", end: "2026-07-31" },
-    { key: "p-warehouse", extId: "URB-YARD", name: "Equipment Yard (unassigned)", status: "active", costCenter: "CC-0000", start: "2025-01-01", end: "2030-01-01" },
+    { key: "p-legacy", extId: "URB-2401", name: "Legacy West Phase 3", status: "active", costCenter: "CC-4100", start: "2026-01-06", end: "2026-11-30", site: "7501 Windrose Ave, Plano TX 75024" },
+    { key: "p-trinity", extId: "URB-2402", name: "Trinity Bridge Rehab", status: "active", costCenter: "CC-4210", start: "2026-03-02", end: "2027-02-15", site: "Sylvan Ave at Trinity Levee, Dallas TX 75207" },
+    { key: "p-gpk", extId: "URB-2403", name: "Grand Parkway Segment H", status: "active", costCenter: "CC-4315", start: "2026-02-10", end: "2026-12-20", site: "TX-99 at Morton Rd, Katy TX 77493" },
+    { key: "p-uptown", extId: "URB-2398", name: "Uptown Utility Relocate", status: "closing", costCenter: "CC-3980", start: "2025-08-01", end: "2026-07-31", site: "2300 McKinney Ave, Dallas TX 75201" },
+    { key: "p-warehouse", extId: "URB-YARD", name: "Equipment Yard (unassigned)", status: "active", costCenter: "CC-0000", start: "2025-01-01", end: "2030-01-01", site: "1400 S Lamar St, Dallas TX 75215" },
   ];
   const projectRows = await db
     .insert(project)
@@ -154,6 +173,7 @@ async function main() {
         name: p.name,
         status: p.status,
         costCenter: p.costCenter,
+        siteAddress: p.site,
         startDate: p.start,
         endDate: p.end,
       })),
@@ -199,6 +219,29 @@ async function main() {
         .where(eq(employee.id, empByKey[e.key]!));
     }
   }
+
+  // ---- Job postings ----
+  // The backtrack behind "tools follow the foreman". Dwayne carries a closed
+  // posting as well as an open one, so the history screen has something real to
+  // show: Uptown stalled, he moved to Trinity, and his trailer went with him.
+  const postingSpecs = [
+    { emp: "e-carlos", proj: "p-legacy", from: "2026-01-06", to: null, note: "Initial posting" },
+    { emp: "e-miguel", proj: "p-legacy", from: "2026-01-06", to: null, note: "Initial posting" },
+    { emp: "e-dwayne", proj: "p-uptown", from: "2026-01-06", to: "2026-05-18", note: "Initial posting" },
+    { emp: "e-dwayne", proj: "p-trinity", from: "2026-05-18", to: null, note: "Uptown paused — moved with his trailer" },
+    { emp: "e-sofia", proj: "p-gpk", from: "2026-02-02", to: null, note: "Initial posting" },
+    { emp: "e-james", proj: "p-uptown", from: "2026-01-06", to: null, note: "Initial posting" },
+  ];
+  await db.insert(employeeProjectAssignment).values(
+    postingSpecs.map((p) => ({
+      tenantId: tid,
+      employeeId: empByKey[p.emp]!,
+      projectId: projectByKey[p.proj]!,
+      startedOn: p.from,
+      endedOn: p.to,
+      note: p.note,
+    })),
+  );
 
   // ---- Login users ----
   const passwordHash = await bcrypt.hash("stinventory-demo", 10);
@@ -288,22 +331,27 @@ async function main() {
   const whByName = Object.fromEntries(whRows.map((w) => [w.name, w.id]));
 
   // Non-vehicle locations.
+  // `custodian` = who carries this container. A yard carries itself; a gang box
+  // rides with whoever loaded it, which is why it has a person and a warehouse
+  // does not.
   const locSpecs = [
-    { key: "l-dal", type: "warehouse", name: "Dallas Yard", warehouse: "Main Warehouse — Dallas", project: null },
-    { key: "l-hou", type: "warehouse", name: "Houston Yard", warehouse: "Regional Warehouse — Houston", project: null },
-    { key: "l-gbA", type: "gang_box", name: "Gang Box A", warehouse: null, project: "p-legacy" },
-    { key: "l-contH", type: "site_container", name: "Container — GPK H", warehouse: null, project: "p-gpk" },
-    { key: "l-contU", type: "site_container", name: "Container — Uptown", warehouse: null, project: "p-uptown" },
+    { key: "l-dal", type: "warehouse", name: "Dallas Yard", warehouse: "Main Warehouse — Dallas", project: null, custodian: null },
+    { key: "l-hou", type: "warehouse", name: "Houston Yard", warehouse: "Regional Warehouse — Houston", project: null, custodian: null },
+    { key: "l-gbA", type: "gang_box", name: "Gang Box A", warehouse: null, project: "p-legacy", custodian: "e-miguel" },
+    { key: "l-contH", type: "site_container", name: "Container — GPK H", warehouse: null, project: "p-gpk", custodian: "e-sofia" },
+    { key: "l-contU", type: "site_container", name: "Container — Uptown", warehouse: null, project: "p-uptown", custodian: "e-james" },
   ];
   // Vehicle locations (one location row per truck/trailer, type=vehicle).
+  // `custodian` mirrors the vehicle's foreman below — the location column is the
+  // authoritative one.
   const vehLocSpecs = [
-    { key: "l-t07", type: "vehicle", name: "Truck 07", project: "p-legacy" },
-    { key: "l-tr21", type: "vehicle", name: "Trailer 21", project: "p-legacy" },
-    { key: "l-truck12", type: "vehicle", name: "Truck 12", project: "p-trinity" },
-    { key: "l-tr08", type: "vehicle", name: "Trailer 08", project: "p-trinity" },
-    { key: "l-t15", type: "vehicle", name: "Truck 15", project: "p-gpk" },
-    { key: "l-tr33", type: "vehicle", name: "Trailer 33", project: "p-gpk" },
-    { key: "l-t04", type: "vehicle", name: "Truck 04", project: "p-uptown" },
+    { key: "l-t07", type: "vehicle", name: "Truck 07", project: "p-legacy", custodian: "e-miguel" },
+    { key: "l-tr21", type: "vehicle", name: "Trailer 21", project: "p-legacy", custodian: "e-miguel" },
+    { key: "l-truck12", type: "vehicle", name: "Truck 12", project: "p-trinity", custodian: "e-dwayne" },
+    { key: "l-tr08", type: "vehicle", name: "Trailer 08", project: "p-trinity", custodian: "e-dwayne" },
+    { key: "l-t15", type: "vehicle", name: "Truck 15", project: "p-gpk", custodian: "e-sofia" },
+    { key: "l-tr33", type: "vehicle", name: "Trailer 33", project: "p-gpk", custodian: "e-sofia" },
+    { key: "l-t04", type: "vehicle", name: "Truck 04", project: "p-uptown", custodian: "e-james" },
   ];
   const allLocRows = await db
     .insert(location)
@@ -314,6 +362,7 @@ async function main() {
         name: l.name,
         warehouseId: (l as any).warehouse ? whByName[(l as any).warehouse]! : null,
         projectId: (l as any).project ? projectByKey[(l as any).project]! : null,
+        custodianEmployeeId: l.custodian ? empByKey[l.custodian]! : null,
       })),
     )
     .returning();

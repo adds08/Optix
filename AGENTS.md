@@ -24,9 +24,11 @@ it can later fold in as Mark 85's Equipment module or ship as a satellite SaaS.
 | **Transactions** | Every movement is an immutable transaction. Nothing is edited in place. |
 | **Projections** | Current state (where/who/status) is **derived** from the transaction log. |
 | **Custody ≠ Ownership** | `owning_project_id` (who paid) is separate from `current_project_id` (who uses it now). |
-| **One custodian** | At most one active custodian per serialized asset at a time. |
+| **One custodian** | At most one active custodian per serialized asset at a time. Every writer goes through `packages/api-contracts/src/custody.ts`. |
+| **Tools follow the foreman** | Small tools live with the person, not the site. When a foreman changes job, `currentProjectId` on everything they hold moves with them; `owningProjectId` never does. |
 | **Reports-first** | Each module ships its reports before its edit UI. Reports are the moat. |
 | **Multi-tenant-ready** | Every row carries `tenant_id` from commit one. RLS stays off until the second tenant is real. |
+| **Owned ≠ rented** | `asset` is what Urban owns. Rented kit lives in `rental_*` and never enters the register — mixing them corrupts what the fleet is worth. |
 
 ## 3. Current pain (why this exists)
 
@@ -41,7 +43,7 @@ WhatsApp threads buried under other messages. The result:
 ## 4. Tech stack
 
 - **API:** Hono + tRPC (Node 22+). tRPC is the single API surface — see ADR-2.
-- **Web:** Next.js 15 + shadcn (routes live under `/d02`)
+- **Web:** Next.js 15 + shadcn (routes live under `apps/web/app/(app)/`)
 - **Mobile:** Expo Router (React Native) — shell only; Flutter is dropped, see ADR-3
 - **Intent engine:** Python FastAPI sidecar (port 4600) calling an OpenAI-compatible LLM
 - **DB:** Postgres 16 + Drizzle ORM
@@ -55,8 +57,9 @@ WhatsApp threads buried under other messages. The result:
 ```
 apps/
   api/          Hono + tRPC + auth + notification scheduler + messaging worker
-  web/          Next.js 15 dashboard (routes under /d02)
-  mobile/       Expo Router app (login + index only so far)
+  web/          Next.js 15 dashboard (routes under app/(app)/)
+  mobile/       Expo Router app — tabs (my tools / hand-off / alerts), tool detail,
+                action forms, @-mention input. No QR scan, no offline queue.
 engine/         Python FastAPI intent parser (POST /parse, port 4600)
 packages/
   api-contracts/   tRPC routers (identity, dashboard, asset, assignment, transfer,
@@ -71,8 +74,10 @@ packages/
   types/           Branded IDs, enums, permissions
   config-eslint/   Shared ESLint flat config
   config-tsconfig/ Shared tsconfig presets
-prototype/           Single-file no-build UI prototype (throwaway)
-docker-compose.yml   Postgres + API + Web (NOT the engine — see §12)
+prototype/           Single-file no-build UI mockup — design reference for the
+                     Tool Register redesign; see prototype/README.md and HANDOFF.md
+docker-compose.yml   Postgres + API + Web + engine (dev)
+docker-compose.prod.yml  Production stack — see §12
 Makefile             ENV-driven: up / seed / logs / psql / test
 ```
 
@@ -97,29 +102,84 @@ make ENV=local seed    # load sample data
 
 ## 7. What's built
 
-- **Asset Register** — serialized + bulk assets, searchable/filterable
+- **Asset Register** — serialized + bulk assets, searchable. Faceted rail (category /
+  status / flags, each count computed with its own filter lifted), cards-or-table toggle,
+  and value weight so a $33k total station does not read like a $260 drill.
+  See `HANDOFF.md` for why the filtering is client-side.
 - **Assignments** — custody links, temporary loans, overdue detection, approval gate
 - **Transfers** — hand-off reporting, high-value + cross-person approval
 - **Vehicles** — trucks/trailers as moving tracking locations (GPS + ownership)
+- **Job postings** — `employee_project_assignment` records which job a person was on and
+  when. `employee.assignToProject` closes the open posting, opens the next, and moves every
+  tool in that person's custody to the new project with a `project_change` event each.
+  Surfaced at `/people/[id]`. Containers (`location.custodianEmployeeId`) name who carries
+  them, so a gang box or trailer has a holder the same way a tool does.
 - **Dashboard** — KPIs, overdue loans, HR clearance queue, pending approvals, activity feed
 - **Conversational layer** — chat → LLM intent parse → entity resolution → proposed custody
   action → confirm. Plus tasks extracted from chat and an admin verification queue.
   Full spec: `docs/07-conversational-layer.md`
-- **Notification engine** — overdue detection, SLA timers, email/SMS provider interface
+- **@-mentions** — the message stays a plain sentence; `@` plus two characters opens one
+  ranked list across tools, people, jobs, places and trucks (`entity.search`). A picked row
+  is stored on `message.mentions` as `{kind, id, label}`, server-verified in `messaging.send`,
+  and **outranks anything the parser infers** — see `packages/types/src/mentions.ts`. There is
+  deliberately **no command syntax**: foremen should not have to remember one. Both clients
+  show a tappable `@` button that does the same thing — the shortcut alone is undiscoverable.
+- **Every message ends somewhere** — `messaging.manualEntry` (resolve into a real action, via
+  `applyChatAction` like everything else) or `messaging.dismiss` (close it, `dismissed`
+  status). Both tell the sender. The desk drives these from `/inbox`.
+- **Field requests** — when someone describes an action they lack the permission for, the
+  action itself is stored on the task (`task.actionType` + `task.pendingAction`), not just
+  prose. `task.approve` replays it through `applyChatAction` charging the **approver's**
+  permissions; `task.decline` records a refusal. Approve/decline live on the Inbox.
+- **Decisions reach the requester** — every approve/decline (task, transfer, assignment)
+  writes a notification via `packages/api-contracts/src/notify.ts` to whoever asked, whoever
+  was receiving and whoever was holding. `/inbox` serves two audiences off one route: the
+  desk sees the work queue (gated on `assignment.read`), everyone sees their own alerts first.
+- **Edit / delete** — `update` + `delete` on asset, employee, project, location, vehicle.
+  Update covers descriptive fields only; custody and location are projections and are moved
+  through Assign/Transfer/Return, `assignToProject` or `setCustodian`, never typed over.
+  Delete refuses anything carrying history and names the status change to use instead
+  (disposed / terminated / complete). Row actions live in `components/sti/row-actions.tsx`.
+- **Container custody** — `location.setCustodian` hands a trailer, truck or gang box to a
+  foreman, or takes it back with a null custodian. Contents move with it by default, since
+  that is what physically happens. Set at create time only until now, so a reassigned trailer
+  silently kept its original custodian.
+- **Request worker** (`apps/api/src/request-worker.ts`, every 60s) — requeues messages
+  stranded by an unreachable parser (bounded by `message.attempts`), unsticks dead
+  `processing` rows, announces new requests to the desk and chases aging ones on a widening
+  interval. **It never approves anything** — auto-applying after a timeout would be a way to
+  obtain a permission by waiting.
+- **Rented equipment** — `vendor` / `rental_order` / `rental_line`, deliberately NOT rows in
+  `asset`: Urban does not own these, they have a return date, and they cost money by simply
+  existing. The vendor's CSV export imports as-is (`rental` import spec uses United Rentals'
+  own headers, MM/DD/YYYY dates, one row per line item grouped into orders by contract
+  number) and re-importing is idempotent. `rental.onRent` is the report that pays for it:
+  what is still out, soonest due first, overdue at the top. `rental.offRent` is the one write
+  that stops money leaving. **No cost figures anywhere** — the export carries no rates, so
+  anything shown would be invented; the fields exist for when rates arrive. Surfaced at
+  `/rentals`.
+- **Notification engine** — overdue detection, SLA timers, email/SMS provider interface.
+  `detectRentalsDue` raises `rental_due_soon` (7 days out) and `rental_overdue` to the
+  equipment desk rather than the field, since a foreman cannot end a hire contract.
 - **Event-sourced core** — append-only `transaction`; rebuild guarantee; audit trail is free
-- **Reports (API only)** — `assetRegister`, `byProject`, `byForeman`, `idle`, `lost`,
-  `capitalByProject`. **None of these has a web page yet** — see §12.
+- **Reports** — `assetRegister`, `byProject`, `byForeman`, `idle`, `lost`,
+  `capitalByProject`, all six with pages under `/reports` driven by
+  `app/(app)/reports/registry.ts`.
 
 ## 8. What's not built yet (roadmap)
 
-1. **Reports UI** — six procedures exist with no pages; highest-value gap
-2. Procurement end-to-end (PR → PO → Receive → Tag → Assign) — no tables at all
-3. Maintenance & inspections module — no tables at all
-4. HR clearance **sign-off gate** + BambooHR trigger (the queue itself is built)
-5. Mobile QR scanning + offline queue (Expo shell exists; no scan flows)
-6. Integrations (FoundationSoft, BambooHR, HCSS) — `external_id` seams exist only
-7. Self-serve SaaS onboarding & billing
-8. RLS + tenant resolver hardening (blocked on the `project_phase` defect, §12)
+1. Procurement end-to-end (PR → PO → Receive → Tag → Assign) — no tables at all
+2. Maintenance & inspections module — no tables at all. Blocks the "Service due" flag
+   the register prototype shows and production deliberately omits.
+3. HR clearance **sign-off gate** + BambooHR trigger (the queue itself is built)
+4. Mobile QR scanning + offline queue — no scan flows, and no offline support at all
+5. Integrations — FoundationSoft, BambooHR, HCSS. United Rentals is now importable by
+   file; the Total Control API (EDI / cXML / JSON, punchout catalogue) needs vendor
+   credentials before it can replace the manual export
+6. Self-serve SaaS onboarding & billing
+7. RLS + tenant resolver hardening — no longer blocked; `project_phase` now carries
+   `tenant_id`, so policies can be written against every table
+8. Session cookie migration — tokens still live in `localStorage`, readable by any XSS
 
 ## 9. Key architectural decisions
 
@@ -149,27 +209,58 @@ make ENV=local seed    # load sample data
 | `docs/05-build-proposal.md` | Bodhi Labs scope, team, hours, pricing, delivery plan, handoff — plus the delivery-status addendum |
 | `docs/06-decisions.md` | Architecture decision records (ADR-1..6) — read before changing the API surface, the mobile stack, or the event model |
 | `docs/07-conversational-layer.md` | The chat → intent → custody-action subsystem, its state machine, and its known gaps |
-| `prototype/README.md` | How to run the throwaway single-file UI prototype |
+| `HANDOFF.md` | Tool Register redesign — what changed, the two decisions behind it, and what is still unverified |
+| `prototype/README.md` | The single-file UI mockup, and what was borrowed from United Rentals |
 | `README.md` | Human quick-start, login credentials, monorepo layout |
 
-## 12. Known defects (verified 2026-07-25, not yet fixed)
+## 12. Production posture (as of 2026-07-26)
+
+> `HANDOFF.md` covers the Tool Register redesign specifically — read it before
+> touching `tools/page.tsx`, `facets.tsx`, `flags.tsx` or `asset-card.tsx`.
+
+
+- **Migrations, not push.** `packages/db/drizzle/` holds versioned SQL. `make generate`
+  after a schema change, commit the SQL, `make migrate` to apply. The API container migrates
+  on boot and refuses to serve if it fails. `push` is renamed `push-dangerous` — it diffs a
+  live database and applies with no review and no record.
+- **Tests.** 59, in `packages/domain` (custody rules + the event-fold rebuild guarantee),
+  `packages/types` (the @ parser) and `packages/api-contracts` (the permission map).
+  `pnpm test`. The fold tests pin the partial-`toState` bug that shipped twice.
+- **Production images.** `docker/Dockerfile.{api,web,engine}` + `docker-compose.prod.yml`.
+  The API is bundled with esbuild (`apps/api/build.mjs`) because every workspace package
+  exports raw `.ts` — `tsc && node dist/index.js` never worked. Web uses Next standalone.
+- **CI.** `.github/workflows/ci.yml` — typecheck, test, all three image builds, and a smoke
+  job that migrates a fresh Postgres and boots the API.
+- **Auth.** bcrypt cost 12 with transparent rehash on login; 32-byte session tokens; login
+  rate limited 10/15min per IP+email (in-memory — single-instance only, see `rate-limit.ts`).
+  `assertProductionSafe` refuses to boot production with the example secret or a plain-http
+  origin. The seed refuses to run with `NODE_ENV=production`.
+
+## 13. Known defects (verified 2026-07-26, not yet fixed)
 
 Read these before trusting a demo:
 
 1. **`make dev` fails** — `Makefile` `dev` and `mobile` targets build Flutter from
    `apps/desktop`, which does not exist (ADR-3 dropped Flutter). Use `make ENV=local up`.
-2. **The engine is not in `docker-compose.yml`** — in a containerized run the messaging
-   worker cannot reach the parser, so every chat message silently lands in `pending_manual`.
-3. **Confirming a `repair` or `lost` chat action does nothing** — `messaging.confirmAction`
-   implements only `assign`, `return`, `transfer`, but still marks the message
-   `action_executed`. Same class of bug in the worker's auto-execute path.
-4. **`project_phase` has no `tenant_id`** — violates the multi-tenant rule and blocks RLS.
-5. **Two API surfaces** — `apps/api/src/rest-routes.ts` duplicates the tRPC routers. Per
+2. **Two API surfaces** — `apps/api/src/rest-routes.ts` duplicates the tRPC routers. Per
    ADR-2 the routers win; fix bugs there.
-6. **`packages/notifications/` is an empty directory.**
-7. **Chat-confirmed custody bypasses the approval gate** (ADR-6).
+3. **`packages/notifications/` is an empty directory.**
+4. **The manual action path skips the high-value approval rule** — `action.submit` routes
+   through `applyChatAction`, which does apply `requiresCustodyApproval`, but `action.submit`
+   itself does not consult `tenantSettings` before deciding. Noted in `routers/action.ts`.
+5. **The login rate limiter is in-memory** — two API instances give an attacker twice the
+   budget. Single-instance only until it moves to Redis. See `apps/api/src/rate-limit.ts`.
+6. **`action_proposed` chat messages never expire** — nothing chases a proposal nobody
+   confirms, unlike tasks, which the request worker escalates.
 
-## 13. Open questions / blockers
+Fixed since the last pass: chat `repair`/`lost` confirmations now write (they used to mark
+the message done and change nothing); chat-confirmed custody now honours the approval gate;
+`project_phase` gained its `tenant_id`; and the one-active-custody-link invariant is enforced — `assignment.create`,
+`transfer.create`, `transfer.approve` and the chat executor all closed or skipped the
+previous link inconsistently, so a tool could sit in two people's custody at once. All four
+now go through `packages/api-contracts/src/custody.ts`.
+
+## 14. Open questions / blockers
 
 - Internal rental / charge-back policy: flat, daily, or none?
 - Approval matrix for PR/PO (custody approvals are resolved — `tenant_settings`)
@@ -178,12 +269,13 @@ Read these before trusting a demo:
 - Tool templates by work package — who defines and where stored?
 - LLM hosting: self-hosted vs. hosted API (cost, latency, data residency)
 
-## 14. Status (as of 2026-07-25)
+## 15. Status (as of 2026-07-27)
 
-Running system, not feature-complete. Asset register, custody (assignments/transfers),
-vehicles, dashboard, notification engine, and the conversational layer are built and
-working. Procurement and maintenance have **no tables and no code**. Reports exist in the
-API with no UI. Mobile is an Expo shell.
+Running system, not feature-complete. Asset register (faceted), custody, vehicles and
+container custody, job postings, dashboard, reports, the notification engine, the
+conversational layer and the request queue are built and working. Procurement and
+maintenance have **no tables and no code**. Mobile has real screens but no offline support.
 
-Docs were reconciled against the code on 2026-07-25; `docs/03-data-model.md` Part A is the
-as-built schema and Part B is explicitly unbuilt.
+Production posture landed 2026-07-26 (§12): migrations, tests, production images, CI, auth
+hardening. Docs were reconciled against the code on 2026-07-27; `docs/03-data-model.md`
+Part A is the as-built schema and Part B is explicitly unbuilt.

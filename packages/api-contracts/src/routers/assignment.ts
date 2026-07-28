@@ -4,6 +4,8 @@ import * as schema from "@stinventory/db/schema";
 import { requiresCustodyApproval, isOverdueLoan } from "@stinventory/domain";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
+import { closeActiveCustody } from "../custody.js";
+import { notifyCustodyDecision } from "../notify.js";
 
 export const assignmentRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -68,6 +70,13 @@ export const assignmentRouter = router({
       });
 
       const status = needsApproval ? "pending_approval" : "active";
+
+      /* One active link per tool. Assigning something that is already out used
+         to leave both rows active, so the tool showed up in two people's
+         custody at once. A row waiting on approval changes nothing yet, so the
+         old link only closes when this one actually takes effect. */
+      if (!needsApproval) await closeActiveCustody(ctx.db, tid, input.assetId);
+
       const [row] = await ctx.db
         .insert(schema.assignment)
         .values({
@@ -141,6 +150,57 @@ export const assignmentRouter = router({
         refType: "assignment",
         refId: a.id,
         note: "Assignment approved",
+      });
+
+      const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, a.assetId) });
+      await notifyCustodyDecision(ctx.db, {
+        tenantId: ctx.session.tenantId,
+        toCustodianId: a.custodianId,
+        refType: "assignment",
+        refId: a.id,
+        assetTag: asset?.tag ?? "a tool",
+        approved: true,
+      });
+      return { ok: true };
+    }),
+
+  /* Refusing a proposed custody link. The row is kept as `cancelled` so the
+     register can still answer why the tool never went out. */
+  decline: requirePermission("assignment.approve")
+    .input(z.object({ id: z.string().uuid(), reason: z.string().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const a = await ctx.db.query.assignment.findFirst({
+        where: and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, tid)),
+      });
+      if (!a) throw new Error("Assignment not found");
+      if (a.status !== "pending_approval") {
+        throw new Error(`This assignment is already ${a.status}`);
+      }
+
+      await ctx.db
+        .update(schema.assignment)
+        .set({ status: "cancelled", approvedBy: ctx.session.userId, updatedAt: new Date() })
+        .where(eq(schema.assignment.id, input.id));
+
+      const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, a.assetId) });
+      await notifyCustodyDecision(ctx.db, {
+        tenantId: tid,
+        toCustodianId: a.custodianId,
+        refType: "assignment",
+        refId: a.id,
+        assetTag: asset?.tag ?? "a tool",
+        approved: false,
+        reason: input.reason ?? null,
+      });
+
+      await logEvent(ctx, {
+        category: "assignment",
+        action: "decline",
+        entityType: "assignment",
+        entityId: a.id,
+        entityLabel: asset?.tag ?? null,
+        details: { reason: input.reason ?? null },
       });
       return { ok: true };
     }),

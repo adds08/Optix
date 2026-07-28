@@ -1,4 +1,4 @@
-import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant } from "./identity";
 import { user } from "./identity";
 import { employee } from "./employee";
@@ -34,6 +34,10 @@ export const message = pgTable(
     authorUserId: uuid("author_user_id").references(() => user.id, { onDelete: "set null" }),
     authorEmployeeId: uuid("author_employee_id").references(() => employee.id, { onDelete: "set null" }),
     body: text("body").notNull(),
+    // Entities the author picked from the @ list rather than merely described.
+    // [{ kind, id, label }]. These are resolved at type time and outrank
+    // anything the parser infers from the wording — see packages/types/mentions.
+    mentions: jsonb("mentions"),
     processingStatus: text("processing_status").notNull().default("queued"),
     intentType: text("intent_type"),
     intentPayload: jsonb("intent_payload"),
@@ -42,6 +46,10 @@ export const message = pgTable(
     handledByUserId: uuid("handled_by_user_id").references(() => user.id, { onDelete: "set null" }),
     handledAt: timestamp("handled_at", { withTimezone: true }),
     errorNote: text("error_note"),
+    /* How many times the worker has tried to parse this. A message that failed
+       because the parser was unreachable is retryable; one that has failed
+       repeatedly is a job for the desk, not an infinite loop. */
+    attempts: integer("attempts").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

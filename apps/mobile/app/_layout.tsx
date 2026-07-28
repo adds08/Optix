@@ -31,7 +31,18 @@ export default function RootLayout() {
         <trpc.Provider client={client} queryClient={queryClient}>
           <QueryClientProvider client={queryClient}>
             <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }} />
+            <Stack screenOptions={{ headerShown: false }}>
+              {/* Action forms come up as a sheet over the tool they act on, so
+                  the foreman never loses sight of which tool they picked. */}
+              <Stack.Screen
+                name="action/[type]"
+                options={{
+                  presentation: "formSheet",
+                  sheetAllowedDetents: [0.75, 1],
+                  sheetGrabberVisible: true,
+                }}
+              />
+            </Stack>
           </QueryClientProvider>
         </trpc.Provider>
       </AuthProvider>

@@ -6,6 +6,19 @@ import { login, getSession, setSession } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+/*
+  The demo affordances are opt-in, and off unless a build says otherwise.
+
+  This page used to pre-fill a working account and print the shared password
+  underneath the form. That is exactly right on a laptop and indefensible on a
+  public host: it advertises four valid addresses and their password to anyone
+  who loads the page, and it breaks the moment those accounts are disabled —
+  which is the first thing a real deployment does.
+
+  Local development sets NEXT_PUBLIC_SHOW_DEMO_LOGINS=1 and loses nothing.
+*/
+const SHOW_DEMO = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "1";
+
 const DEMO = [
   { email: "owner@stinventory.local", who: "Owner — full access" },
   { email: "admin@stinventory.local", who: "Karen Osei — Equipment Admin" },
@@ -15,8 +28,8 @@ const DEMO = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@stinventory.local");
-  const [password, setPassword] = useState("stinventory-demo");
+  const [email, setEmail] = useState(SHOW_DEMO ? "admin@stinventory.local" : "");
+  const [password, setPassword] = useState(SHOW_DEMO ? "stinventory-demo" : "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -91,22 +104,24 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="flex flex-col gap-2 rounded-md border bg-muted/40 p-3">
-            <span className="label-xs">Demo accounts · password stinventory-demo</span>
-            <div className="flex flex-col gap-1">
-              {DEMO.map((d) => (
-                <button
-                  key={d.email}
-                  type="button"
-                  onClick={() => { setEmail(d.email); setPassword("stinventory-demo"); }}
-                  className="rounded-sm px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <span className="font-mono">{d.email}</span>
-                  <span className="block text-[0.7rem] opacity-80">{d.who}</span>
-                </button>
-              ))}
+          {SHOW_DEMO ? (
+            <div className="flex flex-col gap-2 rounded-md border bg-muted/40 p-3">
+              <span className="label-xs">Demo accounts · password stinventory-demo</span>
+              <div className="flex flex-col gap-1">
+                {DEMO.map((d) => (
+                  <button
+                    key={d.email}
+                    type="button"
+                    onClick={() => { setEmail(d.email); setPassword("stinventory-demo"); }}
+                    className="rounded-sm px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <span className="font-mono">{d.email}</span>
+                    <span className="block text-[0.7rem] opacity-80">{d.who}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
 

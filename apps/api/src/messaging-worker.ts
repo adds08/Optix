@@ -1,11 +1,23 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import type { ServerEnv } from "@stinventory/env";
 import { createLogger } from "@stinventory/logger";
 import { parseIntent } from "./engine-client.js";
 import type { EngineParseResponse } from "./engine-types.js";
-import { applyChatAction, AUTO_SAFE_INTENTS, type ChatAction } from "@stinventory/api-contracts";
+import {
+  applyChatAction,
+  AUTO_SAFE_INTENTS,
+  departmentForAction,
+  llmConfigFor,
+  type ChatAction,
+} from "@stinventory/api-contracts";
+import {
+  slotsFromMentions,
+  type ChatMention,
+  type MentionSlots,
+  type Permission,
+} from "@stinventory/types";
 import {
   resolveEngineAssets,
   resolveCustodian,
@@ -14,20 +26,6 @@ import {
 } from "./entity-resolve.js";
 
 const log = createLogger("messaging-worker");
-
-function determineDepartment(intent: string, assets?: { label: string }[]): string {
-  if (intent === "repair") return "Maintenance";
-  if (intent === "return") return "Warehouse";
-  if (intent === "lost") return "Equipment Admin";
-  if (intent === "report") return "Equipment Admin";
-  if (intent === "task") return "Equipment Admin";
-  if (intent === "request_purchase") return "Procurement";
-  if (intent === "assign" || intent === "transfer") {
-    if (assets?.some((a) => /TRU|TRA|trailer|truck/i.test(a.label))) return "Fleet";
-    return "Equipment Yard";
-  }
-  return "Equipment Admin";
-}
 
 const BATCH_SIZE = 5;
 
@@ -43,9 +41,16 @@ export async function processQueuedMessages(db: Database, env: ServerEnv): Promi
 
   const msgIds = msgRows.map((m) => m.id);
 
+  /* Count the attempt on claim, not on failure: a message that kills the
+     worker mid-parse would otherwise never increment and would be retried
+     forever by the request worker. */
   await db
     .update(schema.message)
-    .set({ processingStatus: "processing", updatedAt: new Date() })
+    .set({
+      processingStatus: "processing",
+      attempts: sql`${schema.message.attempts} + 1`,
+      updatedAt: new Date(),
+    })
     .where(inArray(schema.message.id, msgIds));
 
   for (const msg of msgRows) {
@@ -66,12 +71,37 @@ export async function processQueuedMessages(db: Database, env: ServerEnv): Promi
   return msgRows.length;
 }
 
+/*
+  What the author picked off the @ list, if anything.
+
+  A vehicle mention is turned into the location row tools actually ride in —
+  "@TRU-012" means "in truck 12", and the register points at the location, not
+  the vehicle record.
+*/
+async function mentionSlots(
+  db: Database,
+  tid: string,
+  raw: unknown,
+): Promise<MentionSlots | null> {
+  if (!Array.isArray(raw) || !raw.length) return null;
+  const slots = slotsFromMentions(raw as ChatMention[]);
+
+  if (!slots.locationId && slots.vehicleIds.length) {
+    const veh = await db.query.vehicle.findFirst({
+      where: and(eq(schema.vehicle.id, slots.vehicleIds[0]!), eq(schema.vehicle.tenantId, tid)),
+    });
+    if (veh) slots.locationId = veh.locationId;
+  }
+  return slots;
+}
+
 async function processOne(
   db: Database,
   env: ServerEnv,
   msg: typeof schema.message.$inferSelect,
 ): Promise<void> {
   const tid = msg.tenantId;
+  const picked = await mentionSlots(db, tid, msg.mentions);
 
   let foremanName = "";
   let foremanRole = "";
@@ -133,8 +163,15 @@ async function processOne(
     .limit(10);
   const recentMessages = recent.map((r) => r.body);
 
+  /* Model configuration lives in tenant_settings so it can be changed from the
+     settings page. Null means unconfigured, and the engine falls back to its
+     own environment — which in a deployment means it will fail and the message
+     will be retried, rather than silently parsing against the wrong model. */
+  const llm = await llmConfigFor(db, tid, env.SESSION_SECRET);
+
   const engineResp = await parseIntent(env, {
     message: msg.body,
+    ...(llm ? { llm } : {}),
     context: {
       foremanName,
       foremanRole,
@@ -149,13 +186,19 @@ async function processOne(
     const resolvedAssets = engineResp.entities.assets.length > 0
       ? await resolveEngineAssets(db, tid, engineResp.entities.assets)
       : [];
-    const relatedAssetId = resolvedAssets.length > 0 ? resolvedAssets[0]!.id : null;
-    const custodian = engineResp.entities.custodian?.raw
-      ? await resolveCustodian(db, tid, engineResp.entities.custodian.raw)
-      : null;
-    const project = engineResp.entities.project?.raw
-      ? await resolveProject(db, tid, engineResp.entities.project.raw)
-      : null;
+    /* A picked tool beats a matched one everywhere below: it was chosen off a
+       list of real rows, not inferred from wording. */
+    const relatedAssetId = picked?.assetIds[0] ?? (resolvedAssets.length > 0 ? resolvedAssets[0]!.id : null);
+    const custodian = picked?.custodianId
+      ? { id: picked.custodianId }
+      : engineResp.entities.custodian?.raw
+        ? await resolveCustodian(db, tid, engineResp.entities.custodian.raw)
+        : null;
+    const project = picked?.projectId
+      ? { id: picked.projectId }
+      : engineResp.entities.project?.raw
+        ? await resolveProject(db, tid, engineResp.entities.project.raw)
+        : null;
     const title = msg.body.length > 120 ? msg.body.slice(0, 117) + "..." : msg.body;
     await db.insert(schema.task).values({
       tenantId: tid,
@@ -184,8 +227,14 @@ async function processOne(
 
   const isHighConfidence = engineResp.confidence >= 0.6 && engineResp.intent !== "none";
 
-  if (!isHighConfidence || !engineResp.entities.assets.length) {
-    await db
+  /* Registering a tool and asking for one to be bought are the two intents
+     whose subject is not in the register yet. Requiring a resolved asset would
+     send every one of them to `pending_manual` — the absence of a match is the
+     whole point. */
+  const aboutNewTool = engineResp.intent === "intake" || engineResp.intent === "request_purchase";
+
+  const markPendingManual = () =>
+    db
       .update(schema.message)
       .set({
         processingStatus: "pending_manual",
@@ -194,30 +243,62 @@ async function processOne(
         updatedAt: new Date(),
       })
       .where(eq(schema.message.id, msg.id));
+
+  /* A picked tool is proof the author named something real, so the "no asset
+     in this message" bail-out does not apply — that check exists to catch the
+     parser hallucinating a subject, which is not a risk here. */
+  const hasPickedAsset = !!picked?.assetIds.length;
+
+  if (!isHighConfidence || (!aboutNewTool && !hasPickedAsset && !engineResp.entities.assets.length)) {
+    await markPendingManual();
     return;
   }
 
-  const resolvedAssets = await resolveEngineAssets(db, tid, engineResp.entities.assets);
-
-  if (resolvedAssets.length === 0) {
-    await db
-      .update(schema.message)
-      .set({
-        processingStatus: "pending_manual",
-        intentType: engineResp.intent,
-        intentPayload: engineResp as Record<string, unknown>,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.message.id, msg.id));
+  /* applyChatAction refuses an intake without both a tag and a model name, so
+     anything missing either goes to manual entry rather than becoming a card
+     that can only fail on confirm. Small models routinely catch the tag and
+     drop the model name — "put it in as UIC-1100" — and that is a job for the
+     desk's form, not a dead button. */
+  if (engineResp.intent === "intake" && !(engineResp.draft?.tag && engineResp.draft?.modelName)) {
+    await markPendingManual();
     return;
   }
 
-  const resolvedDest = await resolveDestination(db, tid, engineResp.entities.destination);
-  const resolvedCust = await resolveCustodian(db, tid, engineResp.entities.custodian?.raw ?? msg.body);
-  const resolvedProj = await resolveProject(db, tid, engineResp.entities.project?.raw ?? "");
+  const resolvedAssets = engineResp.entities.assets.length
+    ? await resolveEngineAssets(db, tid, engineResp.entities.assets)
+    : [];
 
-  const assetIds = resolvedAssets.map((a) => a.id);
-  const department = determineDepartment(engineResp.intent, engineResp.entities.assets);
+  if (!aboutNewTool && !hasPickedAsset && resolvedAssets.length === 0) {
+    await markPendingManual();
+    return;
+  }
+
+  /* Only fall back to fuzzy resolution for the slots nobody filled by hand.
+     Searching for a custodian in the raw message text is a last resort that
+     regularly picks the wrong person — skipping it when someone was actually
+     named off the list is most of the value of this feature. */
+  const resolvedDest = picked?.custodianId || picked?.locationId
+    ? null
+    : await resolveDestination(db, tid, engineResp.entities.destination);
+  const resolvedCust = picked?.custodianId
+    ? null
+    : await resolveCustodian(db, tid, engineResp.entities.custodian?.raw ?? msg.body);
+  const resolvedProj = picked?.projectId
+    ? null
+    : await resolveProject(db, tid, engineResp.entities.project?.raw ?? "");
+
+  /* A purchase request names a KIND of tool, not one in the register. The
+     resolver will happily match "another rotary hammer" to whichever rotary
+     hammer already exists, and linking it there would annotate an unrelated
+     tool's history with somebody's shopping list. Drop the match and keep only
+     the words. */
+  const assetIds =
+    engineResp.intent === "request_purchase"
+      ? []
+      : picked?.assetIds.length
+        ? picked.assetIds
+        : resolvedAssets.map((a) => a.id);
+  const department = departmentForAction(engineResp.intent, engineResp.entities.assets);
   const proposedAction: Record<string, unknown> = {
     type: engineResp.intent,
     assetIds,
@@ -225,13 +306,26 @@ async function processOne(
   };
 
   if (engineResp.intent === "assign" || engineResp.intent === "transfer") {
-    const targetId = resolvedDest?.id ?? resolvedCust?.id;
-    if (targetId && resolvedDest?.kind === "employee") {
-      proposedAction.custodianId = targetId;
-    } else if (targetId && resolvedDest?.kind === "location") {
-      proposedAction.locationId = targetId;
+    if (picked?.custodianId) {
+      proposedAction.custodianId = picked.custodianId;
+    } else {
+      const targetId = resolvedDest?.id ?? resolvedCust?.id;
+      if (targetId && resolvedDest?.kind === "employee") {
+        proposedAction.custodianId = targetId;
+      } else if (targetId && resolvedDest?.kind === "location") {
+        proposedAction.locationId = targetId;
+      }
     }
-    if (resolvedProj) proposedAction.projectId = resolvedProj.id;
+    /* A named truck or gang box is where the tool ends up, whoever holds it. */
+    if (picked?.locationId) proposedAction.locationId = picked.locationId;
+    if (picked?.projectId) proposedAction.projectId = picked.projectId;
+    else if (resolvedProj) proposedAction.projectId = resolvedProj.id;
+  }
+
+  /* Returning to a named place, or reporting from one, still wants the
+     location recorded even though custody is not moving to a person. */
+  if (!proposedAction.locationId && picked?.locationId) {
+    proposedAction.locationId = picked.locationId;
   }
 
   if (engineResp.intent === "return") {
@@ -242,6 +336,37 @@ async function processOne(
   }
   if (engineResp.intent === "lost") {
     proposedAction.type = "lost";
+  }
+
+  /* Name what was asked for from the words in the message, since there is no
+     row to point at. */
+  if (engineResp.intent === "request_purchase") {
+    const wanted =
+      engineResp.draft?.modelName ??
+      engineResp.entities.assets[0]?.label ??
+      engineResp.entities.assets[0]?.raw ??
+      null;
+    if (wanted) proposedAction.draft = { modelName: wanted };
+    if (picked?.projectId) proposedAction.projectId = picked.projectId;
+    else if (resolvedProj) proposedAction.projectId = resolvedProj.id;
+  }
+
+  if (engineResp.intent === "intake" && engineResp.draft) {
+    /* Carry only what the model actually stated. Nulls are dropped rather than
+       written through, so a blank serial stays blank instead of becoming the
+       string "null" in the register. */
+    const d = engineResp.draft;
+    proposedAction.draft = {
+      ...(d.tag ? { tag: d.tag } : {}),
+      ...(d.modelName ? { modelName: d.modelName } : {}),
+      ...(d.serialNumber ? { serialNumber: d.serialNumber } : {}),
+      ...(d.categoryName ? { categoryName: d.categoryName } : {}),
+      ...(d.acquisitionCost ? { acquisitionCost: d.acquisitionCost } : {}),
+    };
+    if (picked?.projectId) proposedAction.projectId = picked.projectId;
+    else if (resolvedProj) proposedAction.projectId = resolvedProj.id;
+    if (picked?.locationId) proposedAction.locationId = picked.locationId;
+    else if (resolvedDest?.kind === "location") proposedAction.locationId = resolvedDest.id;
   }
 
   // Anything that moves custody or changes status waits for a human, however
@@ -276,14 +401,19 @@ async function autoExecuteAction(
 ): Promise<void> {
   // Same executor the confirm path uses. Throws instead of reporting a
   // success it did not perform; the caller marks the message `error`.
+  //
+  // The worker has no session, so it runs with an empty permission set. That is
+  // deliberate: only `report` costs nothing, and AUTO_SAFE_INTENTS already
+  // limits this path to report/task. Any future intent added to AUTO_SAFE_INTENTS
+  // that moves custody will be refused here rather than applied unattended.
   if (assetIds.length) {
-    await applyChatAction(
-      db,
-      tid,
-      msg.authorUserId,
-      { ...(proposedAction as ChatAction), note: engineResp.replyText || msg.body },
-      msg.id,
-    );
+    await applyChatAction(db, {
+      tenantId: tid,
+      actorUserId: msg.authorUserId,
+      permissions: new Set<Permission>(),
+      action: { ...(proposedAction as ChatAction), note: engineResp.replyText || msg.body },
+      refMessageId: msg.id,
+    });
   }
 
   await db

@@ -1,6 +1,6 @@
 import { createLogger } from "@stinventory/logger";
 import type { ServerEnv } from "@stinventory/env";
-import type { EngineParseRequest, EngineParseResponse } from "./engine-types.js";
+import type { EngineAssetDraft, EngineParseRequest, EngineParseResponse } from "./engine-types.js";
 
 const log = createLogger("engine-client");
 
@@ -22,7 +22,8 @@ Your job is to parse foremen's chat messages into structured tool-management int
 - \`transfer\` — moving a tool between foremen or between projects
 - \`lost\` — a tool is missing / can't be found
 - \`repair\` — a tool is broken, damaged, not working, needs maintenance
-- \`request_purchase\` — requesting a new tool be purchased ("we need another...")
+- \`request_purchase\` — asking for a tool to be bought that the company does not have ("we need another...", "can we order")
+- \`intake\` — registering a tool the company already has into the system for the first time ("add a new...", "register", "just took delivery of", "put this in the system"). Distinct from \`request_purchase\`: the tool is physically present.
 - \`report\` — general note / issue / problem report about a tool
 - \`task\` — a general work item or to-do related to small tools that doesn't fit the specific intents above. Examples: "I need someone to check the generator on Friday", "Please organize the gang box", "We need the miter saw serviced before Monday"
 - \`none\` — greeting, question about process, or unclear intent
@@ -35,6 +36,19 @@ Your job is to parse foremen's chat messages into structured tool-management int
 - Extract **project** as \`{raw: "as written"}\` — which project
 - **Do NOT** guess IDs or DB fields. Return only raw text spans and labels.
 - If an entity is not mentioned, set it to \`null\` (or empty array for \`assets\`).
+
+## Registering a new tool (\`intake\`)
+
+For \`intake\` only, also fill \`draft\` with what the message actually states:
+
+- \`tag\` — the asset tag, e.g. \`UIC-1099\`
+- \`modelName\` — make and model as spoken, e.g. \`DeWalt DCH273 Rotary Hammer\`
+- \`serialNumber\`, \`categoryName\`, \`acquisitionCost\` — only if stated
+
+**Never invent a tag, a serial number or a price.** These identify a physical
+object and a wrong one is worse than a missing one — leave the field \`null\` and
+let a human fill it in. Leave \`assets\` empty for \`intake\`: the tool is not in the
+system yet, which is the entire point.
 
 ## Confidence
 
@@ -50,7 +64,7 @@ Respond with valid JSON. No prose before or after.
 
 \`\`\`json
 {
-  "intent": "assign|return|transfer|lost|repair|request_purchase|report|task|none",
+  "intent": "assign|return|transfer|lost|repair|intake|request_purchase|report|task|none",
   "confidence": 0.0-1.0,
   "entities": {
     "assets": [{"label": "best match label", "raw": "original text"}],
@@ -58,6 +72,13 @@ Respond with valid JSON. No prose before or after.
     "custodian": {"raw": "original text"} | null,
     "project": {"raw": "original text"} | null
   },
+  "draft": {
+    "tag": "UIC-1099" | null,
+    "modelName": "DeWalt DCH273 Rotary Hammer" | null,
+    "serialNumber": "4471X" | null,
+    "categoryName": "Power Tools" | null,
+    "acquisitionCost": "489.00" | null
+  } | null,
   "actionPayload": {},
   "needsConfirmation": true|false,
   "replyText": "A natural language confirmation or reply to the foreman"
@@ -68,6 +89,7 @@ const FALLBACK: EngineParseResponse = {
   intent: "none",
   confidence: 0,
   entities: { assets: [], destination: null, custodian: null, project: null },
+  draft: null,
   actionPayload: {},
   needsConfirmation: true,
   replyText: "",
@@ -92,6 +114,34 @@ function buildUserPrompt(req: EngineParseRequest): string {
   }
   parts.push("## Context\n" + ctxLines.join("\n"));
   return parts.join("\n\n");
+}
+
+/*
+  Small models are loose with "not stated" — they emit "", "null", "N/A" or
+  "unknown" where the prompt asked for null. Every one of those would land in
+  the register as a literal serial number, so they are all flattened to null
+  here rather than trusted downstream.
+*/
+const NOT_STATED = new Set(["", "null", "none", "n/a", "na", "unknown", "-"]);
+
+function draftField(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return NOT_STATED.has(s.toLowerCase()) ? null : s;
+}
+
+function normalizeDraft(raw: unknown): EngineAssetDraft | null {
+  if (!raw || typeof raw !== "object") return null;
+  const d = raw as Record<string, unknown>;
+  const out: EngineAssetDraft = {
+    tag: draftField(d.tag),
+    modelName: draftField(d.modelName),
+    serialNumber: draftField(d.serialNumber),
+    categoryName: draftField(d.categoryName),
+    acquisitionCost: draftField(d.acquisitionCost),
+  };
+  /* An object where nothing survived is the same as no draft at all. */
+  return Object.values(out).some((v) => v !== null) ? out : null;
 }
 
 function extractJson(text: string): Record<string, unknown> | null {
@@ -163,6 +213,7 @@ export async function parseIntent(
         custodian: (parsed.entities as any)?.custodian ?? null,
         project: (parsed.entities as any)?.project ?? null,
       },
+      draft: normalizeDraft(parsed.draft),
       actionPayload: (parsed.actionPayload as Record<string, unknown>) ?? {},
       needsConfirmation: Boolean(parsed.needsConfirmation ?? true),
       replyText: (parsed.replyText as string) ?? "",

@@ -1,4 +1,4 @@
-import { bigint, boolean, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant, user } from "./identity";
 import { asset } from "./asset";
 import { employee } from "./employee";
@@ -64,5 +64,35 @@ export const tenantSettings = pgTable("tenant_settings", {
   discrepancyReviewSlaDays: jsonb("discrepancy_review_sla_days").$type<number>(),
   emailEnabled: boolean("email_enabled").notNull().default(true),
   smsEnabled: boolean("sms_enabled").notNull().default(false),
+
+  /*
+    Intent parser configuration, per tenant.
+
+    These used to be environment variables on the engine container, which meant
+    changing the model was an ssh session and a restart — fine for the person
+    who deployed it, impossible for the equipment manager who actually decides
+    whether the thing is worth paying for. The engine stays stateless: the API
+    reads these and passes them with each parse request.
+
+    `llmApiKeyEnc` is encrypted at rest (AES-256-GCM, key derived from
+    SESSION_SECRET — see packages/auth/src/secrets.ts) and is never returned to
+    a browser. Rotating SESSION_SECRET makes stored keys unreadable and they
+    must be re-entered; that tradeoff is deliberate, since the alternative is a
+    second key to manage.
+  */
+  llmEnabled: boolean("llm_enabled").notNull().default(false),
+  llmBaseUrl: text("llm_base_url"),
+  llmModel: text("llm_model"),
+  llmApiKeyEnc: text("llm_api_key_enc"),
+  /* Last four characters, kept in the clear so the UI can show which key is in
+     place without ever decrypting it. */
+  llmApiKeyHint: text("llm_api_key_hint"),
+  llmTimeoutMs: integer("llm_timeout_ms").notNull().default(15000),
+  /* Result of the last "test connection", so the page can say something
+     truthful about whether this config has ever worked. */
+  llmLastCheckedAt: timestamp("llm_last_checked_at", { withTimezone: true }),
+  llmLastCheckOk: boolean("llm_last_check_ok"),
+  llmLastCheckError: text("llm_last_check_error"),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

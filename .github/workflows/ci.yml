@@ -1,0 +1,116 @@
+name: CI
+
+# Every push and every PR. The point is that nothing reaches main without the
+# custody tests passing — four separate writers of the custody invariant were
+# fixed by hand recently with nothing to catch the next regression.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # A newer push makes an in-flight run irrelevant.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: typecheck · lint · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.11.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      # Lint last: it currently fails on pre-existing `any` usage in apps/api,
+      # so it reports without blocking. Drop `continue-on-error` once that is
+      # cleaned up — leaving it here permanently makes the step decorative.
+      - name: Lint
+        run: pnpm lint
+        continue-on-error: true
+
+  build:
+    name: production images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Builds the real images. This is what catches the class of failure that
+      # went unnoticed for the whole project so far: the API compiled fine and
+      # could not actually run, because workspace packages export raw
+      # TypeScript. A build that is never executed proves nothing.
+      - name: Build API image
+        run: docker build -f docker/Dockerfile.api -t stinventory-api:ci .
+
+      - name: Build web image
+        run: docker build -f docker/Dockerfile.web -t stinventory-web:ci .
+
+      - name: Build engine image
+        run: docker build -f docker/Dockerfile.engine -t stinventory-engine:ci .
+
+  smoke:
+    name: migrate + boot against a real postgres
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: stinventory_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/stinventory_ci
+      SESSION_SECRET: ci-session-secret-at-least-32-characters-long
+      WEB_ORIGIN: http://localhost:3100
+      PORT: 4100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Migrations run from scratch on an empty database. This is the check
+      # that the committed SQL actually reproduces the schema — a drift between
+      # schema.ts and the migration folder is invisible until a fresh deploy.
+      - name: Migrate a fresh database
+        run: pnpm db:migrate
+
+      - name: Build and boot the API
+        run: |
+          pnpm --filter @stinventory/db build
+          pnpm --filter @stinventory/api build
+          node apps/api/dist/index.js &
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:4100/health > /dev/null; then
+              echo "API is serving"; exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not become healthy"; exit 1

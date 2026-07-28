@@ -50,9 +50,24 @@ class EngineContext(BaseModel):
     recentMessages: list[str] = Field(default_factory=list)
 
 
+class LlmConfig(BaseModel):
+    """Where to send this request.
+
+    Optional throughout: when absent the engine falls back to its environment,
+    which is how a local development run works. In deployment these come from
+    tenant_settings so the model can be changed from the settings page without
+    a redeploy."""
+
+    baseUrl: str | None = None
+    model: str | None = None
+    apiKey: str | None = None
+    timeoutMs: int | None = None
+
+
 class ParseRequest(BaseModel):
     message: str
     context: EngineContext = Field(default_factory=EngineContext)
+    llm: LlmConfig | None = None
 
 
 class ParseResponse(BaseModel):
@@ -111,14 +126,25 @@ def _extract_json(text: str) -> dict[str, Any] | None:
     return None
 
 
-_CLIENT: OpenAI | None = None
+# Clients are cached per (base_url, api_key) rather than as a single global.
+#
+# The configuration now arrives with each request instead of from the process
+# environment, because it lives in the database where an admin can change it
+# from the settings page. The engine stays stateless — it holds no config of
+# its own, only a connection pool keyed by what it was told to use.
+_CLIENTS: dict[tuple[str, str], OpenAI] = {}
 
 
-def _get_client() -> OpenAI:
-    global _CLIENT
-    if _CLIENT is None:
-        _CLIENT = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
-    return _CLIENT
+def _get_client(base_url: str, api_key: str) -> OpenAI:
+    key = (base_url, api_key)
+    client = _CLIENTS.get(key)
+    if client is None:
+        # Bounded so a misconfigured caller cannot grow this without limit.
+        if len(_CLIENTS) > 8:
+            _CLIENTS.clear()
+        client = OpenAI(base_url=base_url, api_key=api_key)
+        _CLIENTS[key] = client
+    return client
 
 
 _DEFAULT_RESPONSE: dict[str, Any] = {
@@ -131,11 +157,18 @@ _DEFAULT_RESPONSE: dict[str, Any] = {
 }
 
 
-def _call_llm(user_prompt: str) -> dict[str, Any]:
-    client = _get_client()
+def _call_llm(user_prompt: str, llm: "LlmConfig | None" = None) -> dict[str, Any]:
+    # Per-request config wins; the environment is the fallback so a local dev
+    # run with no database settings still works exactly as before.
+    base_url = llm.baseUrl if llm and llm.baseUrl else LLM_BASE_URL
+    api_key = llm.apiKey if llm and llm.apiKey else LLM_API_KEY
+    model = llm.model if llm and llm.model else LLM_MODEL
+    timeout = (llm.timeoutMs / 1000) if llm and llm.timeoutMs else LLM_TIMEOUT
+
+    client = _get_client(base_url, api_key)
     try:
         resp = client.chat.completions.create(
-            model=LLM_MODEL,
+            model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
@@ -143,7 +176,7 @@ def _call_llm(user_prompt: str) -> dict[str, Any]:
             response_format={"type": "json_object"},
             temperature=0.1,
             max_tokens=1024,
-            timeout=LLM_TIMEOUT,
+            timeout=timeout,
         )
     except Exception as exc:
         raise ValueError(f"LLM call failed: {exc}") from exc
@@ -163,7 +196,7 @@ def health():
 def parse(req: ParseRequest, request: Request):
     user_prompt = _build_user_prompt(req)
     try:
-        data = _call_llm(user_prompt)
+        data = _call_llm(user_prompt, req.llm)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

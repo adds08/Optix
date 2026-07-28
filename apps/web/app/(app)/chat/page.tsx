@@ -2,17 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, Loader2, Send } from "lucide-react";
+import type { ChatMention } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, EmptyState, ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { StatusPill } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { MentionInput, MentionChips } from "@/components/mention-input";
 import { dateTime } from "@/lib/format";
 
 const EXAMPLES = [
   "gave the rotary hammer UIC-1012 to Dwayne for Trinity Bridge",
   "returning UIC-1002 to the yard",
   "UIC-1008 is broken, needs repair",
+  "register a DeWalt DCH273 rotary hammer, tag UIC-1099, serial 4471X",
   "check the generator on Friday",
 ];
 
@@ -22,6 +24,9 @@ const EXAMPLES = [
 */
 export default function ChatPage() {
   const [draft, setDraft] = useState("");
+  /* What the author picked off the @ list. Resolved ids, not labels — these
+     travel with the message so the parser never has to guess which tool. */
+  const [mentions, setMentions] = useState<ChatMention[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
   const utils = trpc.useUtils();
 
@@ -44,6 +49,7 @@ export default function ChatPage() {
   const send = trpc.messaging.send.useMutation({
     onSuccess: () => {
       setDraft("");
+      setMentions([]);
       if (channelId) utils.messaging.messages.invalidate({ channelId, limit: 40 });
     },
   });
@@ -62,10 +68,16 @@ export default function ChatPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!draft.trim() || !channelId) return;
-    send.mutate({ channelId, body: draft.trim() });
+  function submit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!draft.trim() || !channelId || send.isPending) return;
+    send.mutate({
+      channelId,
+      body: draft.trim(),
+      /* Only send what is still in the text — MentionInput prunes anything the
+         author deleted. */
+      mentions: mentions.length ? mentions : undefined,
+    });
   }
 
   return (
@@ -101,18 +113,27 @@ export default function ChatPage() {
             <div ref={endRef} />
           </div>
 
-          <form onSubmit={submit} className="flex gap-2">
-            <Input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="What happened?"
-              aria-label="Message"
-              className="flex-1"
-            />
-            <Button type="submit" disabled={!draft.trim() || send.isPending}>
-              <Send className="size-4" />
-              Send
-            </Button>
+          <form onSubmit={submit} className="flex flex-col gap-2">
+            <div className="flex items-end gap-2">
+              <MentionInput
+                value={draft}
+                onChange={setDraft}
+                onSubmit={() => submit()}
+                mentions={mentions}
+                onMentionsChange={setMentions}
+                disabled={send.isPending}
+              />
+              <Button type="submit" disabled={!draft.trim() || send.isPending}>
+                <Send className="size-4" />
+                Send
+              </Button>
+            </div>
+            <MentionChips mentions={mentions} />
+            <p className="text-xs text-muted-foreground">
+              Write it however you would say it. Type <kbd className="rounded-sm border px-1">@</kbd>{" "}
+              and part of a tag, name or job number to pick the exact one — <code>@10</code> finds
+              everything with 10 in it.
+            </p>
           </form>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -121,7 +142,10 @@ export default function ChatPage() {
               <button
                 key={x}
                 type="button"
-                onClick={() => setDraft(x)}
+                onClick={() => {
+                  setDraft(x);
+                  setMentions([]);
+                }}
                 className="rounded-sm border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 {x}
@@ -150,7 +174,44 @@ const ACTION_COPY: Record<string, string> = {
   return: "Return this tool to the yard",
   lost: "Mark this tool missing",
   repair: "Send this tool for repair",
+  intake: "Register this tool",
+  request_purchase: "Ask Procurement to buy this",
 };
+
+type Draft = {
+  tag?: string;
+  modelName?: string;
+  categoryName?: string;
+  serialNumber?: string;
+  acquisitionCost?: string;
+};
+
+/*
+  Registering a tool writes a brand new row, so the drafted fields are shown in
+  full before anyone confirms. Everything the model heard is on screen — a wrong
+  serial is far cheaper to catch here than after it is in the register.
+*/
+function DraftFields({ draft }: { draft: Draft }) {
+  const fields: [string, string | undefined][] = [
+    ["Tag", draft.tag],
+    ["Model", draft.modelName],
+    ["Serial", draft.serialNumber],
+    ["Category", draft.categoryName],
+    ["Cost", draft.acquisitionCost],
+  ];
+  return (
+    <dl className="mt-1 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+      {fields.map(([label, value]) => (
+        <div key={label} className="flex gap-1.5">
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className={value ? "font-medium" : "text-muted-foreground"}>
+            {value || "not stated"}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 function Message({
   m,
@@ -161,7 +222,12 @@ function Message({
   onConfirm: () => void;
   confirming: boolean;
 }) {
-  const action = (m.proposedAction ?? null) as { type?: string; assetIds?: string[]; department?: string } | null;
+  const action = (m.proposedAction ?? null) as {
+    type?: string;
+    assetIds?: string[];
+    department?: string;
+    draft?: Draft;
+  } | null;
   const payload = (m.intentPayload ?? null) as { replyText?: string; confidence?: number } | null;
   const working = ["queued", "processing"].includes(m.processingStatus);
 
@@ -189,6 +255,7 @@ function Message({
                 : ""}
               {action.department ? ` · ${action.department}` : ""}
             </span>
+            {action.draft ? <DraftFields draft={action.draft} /> : null}
             {typeof payload?.confidence === "number" ? (
               <span className="text-xs text-muted-foreground">
                 model confidence {Math.round(payload.confidence * 100)}%
@@ -207,6 +274,15 @@ function Message({
           <Check className="size-3.5" />
           Recorded{m.intentType ? ` · ${m.intentType}` : ""}
         </span>
+      ) : null}
+
+      {/* Confirmed by someone without the permission the action costs. Captured
+          as a task for the owning desk; the register was left alone. */}
+      {m.processingStatus === "action_requested" ? (
+        <div className="flex items-center gap-2 rounded-md border border-warn/40 bg-warn-bg px-3 py-2 text-xs text-warn">
+          <CircleAlert className="size-3.5 shrink-0" />
+          Sent to the desk as a request. Nothing changed until they sign off.
+        </div>
       ) : null}
 
       {m.processingStatus === "pending_manual" ? (

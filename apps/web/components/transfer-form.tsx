@@ -43,9 +43,9 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
       utils.asset.list.invalidate();
       utils.dashboard.kpis.invalidate();
       utils.dashboard.recentActivity.invalidate();
-      setTimeout(onClose, 1200);
-    } catch {
-      setResult("Error");
+      onClose();
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : "Could not save. Try again.");
     }
     setSubmitting(false);
   };
@@ -92,7 +92,7 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
               <option value="handoff">Handoff</option>
             </select>
           </div>
-          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+          {result && <p className="text-sm text-destructive">{result}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>

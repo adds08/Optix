@@ -62,6 +62,11 @@ export const PERMISSIONS = [
   "transfer.create",
   "transfer.approve",
   "report.read",
+  /* Rented equipment. Separate from asset.* because the people who decide what
+     Urban buys are not always the people who can call a pump off rent, and the
+     cost of getting the second one wrong is a daily invoice. */
+  "rental.read",
+  "rental.manage",
   "notification.read",
   "notification.manage",
   "config.manage",
@@ -114,7 +119,16 @@ export type EventType = (typeof EVENT_TYPES)[number];
 export const ASSIGNMENT_TYPES = ["permanent", "temporary"] as const;
 export type AssignmentType = (typeof ASSIGNMENT_TYPES)[number];
 
-export const ASSIGNMENT_STATUSES = ["active", "returned", "transferred", "overdue", "pending_approval"] as const;
+export const ASSIGNMENT_STATUSES = [
+  "active",
+  "returned",
+  "transferred",
+  "overdue",
+  "pending_approval",
+  /* Put up for approval and refused. Kept rather than deleted so the register
+     can answer why a tool never went out. */
+  "cancelled",
+] as const;
 export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
 
 export const TRANSFER_REASONS = [
@@ -136,39 +150,6 @@ export const TRANSFER_STATUSES = [
 ] as const;
 export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
 
-export const LOCATION_TYPES = [
-  "warehouse",
-  "site_container",
-  "gang_box",
-  "vehicle",
-  "project_site",
-] as const;
-export type LocationType = (typeof LOCATION_TYPES)[number];
-
-export const VEHICLE_TYPES = ["truck", "trailer"] as const;
-export type VehicleType = (typeof VEHICLE_TYPES)[number];
-
-export const VEHICLE_OWNERSHIP = ["company_owned", "personal_allowance"] as const;
-export type VehicleOwnership = (typeof VEHICLE_OWNERSHIP)[number];
-
-export const EMPLOYEE_ROLES = [
-  "foreman",
-  "superintendent",
-  "pm",
-  "equipment_admin",
-  "warehouse",
-  "procurement",
-  "hr",
-  "finance",
-] as const;
-export type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
-
-export const EMPLOYMENT_STATUSES = ["active", "terminated", "on_leave"] as const;
-export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
-
-export const PROJECT_STATUSES = ["awarded", "active", "closing", "complete"] as const;
-export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
-
 export const CHANNEL_KINDS = ["department", "role_group"] as const;
 export type ChannelKind = (typeof CHANNEL_KINDS)[number];
 
@@ -179,6 +160,10 @@ export const NOTIFICATION_TYPES = [
   "approval_pending",
   "missing",
   "custody_discrepancy",
+  /* A rented line past its end date and still on rent. Unlike an overdue owned
+     tool, this one is costing money every day it stays open. */
+  "rental_overdue",
+  "rental_due_soon",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -194,7 +179,13 @@ export const PROCESSING_STATUSES = [
   "pending_manual",
   "action_proposed",
   "action_executed",
+  // Confirmed by someone who lacked the permission the action costs: captured
+  // as a task for the owning desk, with the register left untouched.
+  "action_requested",
   "error",
+  // Closed by the desk without touching the register — chatter, a duplicate, a
+  // mistake. A terminal state, so every message can leave the queue.
+  "dismissed",
 ] as const;
 export type ProcessingStatus = (typeof PROCESSING_STATUSES)[number];
 
@@ -210,3 +201,7 @@ export const MESSAGE_INTENTS = [
   "none",
 ] as const;
 export type MessageIntent = (typeof MESSAGE_INTENTS)[number];
+
+export * from "./enums";
+export * from "./import-specs";
+export * from "./mentions";

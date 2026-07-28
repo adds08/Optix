@@ -5,90 +5,240 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>STInventory — Urban Infraconstruction</title>
 <style>
+  /*
+    Palette follows packages/design-system/tokens/colors.ts so this prototype
+    stays a truthful preview of the production Next.js app.
+
+    Interaction patterns adapted from United Rentals' catalog UX — faceted
+    left rail with live counts, card/grid toggle, a persistent jobsite+dates
+    context bar, breadcrumbs, result counts, quick-view, and attribute badges.
+    Deliberately NOT copied: rate tiers, add-to-cart, SEO prose, FAQ blocks.
+    UR is a marketplace merchandising to us; this is an internal register.
+  */
   :root {
-    --blue: #0033a0;        /* United Rentals-ish deep blue */
-    --blue-600: #0b46c2;
-    --accent: #ffb500;      /* UR yellow accent */
-    --ink: #1a1d21;
-    --muted: #6b7280;
-    --line: #e5e7eb;
-    --bg: #f5f6f8;
-    --ok: #1a7f37;
-    --warn: #b45309;
-    --bad: #b42318;
-    --chip: #eef1f6;
+    --background: hsl(0 0% 100%);
+    --foreground: hsl(0 0% 3.9%);
+    --card: hsl(0 0% 100%);
+    --primary: hsl(0 0% 9%);
+    --primary-foreground: hsl(0 0% 98%);
+    --secondary: hsl(0 0% 96%);
+    --muted: hsl(0 0% 96%);
+    --muted-foreground: hsl(0 0% 46%);
+    --destructive: hsl(0 84% 60%);
+    --border: hsl(0 0% 90%);
+    --sidebar: hsl(0 0% 13%);
+    --sidebar-foreground: hsl(0 0% 98%);
+    --sidebar-accent: hsl(0 0% 18%);
+    --sidebar-primary: hsl(261 83% 63%);
+
+    --status-available-bg: #f0fdf4; --status-available-text: #16a34a;
+    --status-assigned-bg: #eff6ff;  --status-assigned-text: #2563eb;
+    --status-maint-bg: #fefce8;     --status-maint-text: #ca8a04; --status-maint-border: #eab308;
+    --status-reserved-bg: #faf5ff;  --status-reserved-text: #9333ea;
+    --status-lost-bg: #fef2f2;      --status-lost-text: #dc2626;
+    --link: hsl(221 83% 53%);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
-  body {
-    font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: var(--ink); background: var(--bg);
-  }
+  body { font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--foreground); background: var(--secondary); }
   .app { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
   /* Sidebar */
-  .side { background: var(--blue); color: #fff; padding: 0; position: sticky; top: 0; height: 100vh; }
-  .brand { padding: 16px 18px; font-weight: 700; font-size: 15px; letter-spacing: .3px; border-bottom: 1px solid rgba(255,255,255,.15); }
-  .brand span { color: var(--accent); }
-  .brand small { display: block; font-weight: 400; font-size: 11px; opacity: .7; letter-spacing: 0; margin-top: 2px; }
+  .side { background: var(--sidebar); color: var(--sidebar-foreground); position: sticky; top: 0; height: 100vh; }
+  .brand { padding: 16px 18px; font-weight: 700; font-size: 15px; letter-spacing: .3px; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .brand span { color: var(--sidebar-primary); }
+  .brand small { display: block; font-weight: 400; font-size: 11px; opacity: .65; letter-spacing: 0; margin-top: 2px; }
   .nav { padding: 8px 0; }
-  .nav a { display: flex; gap: 10px; align-items: center; padding: 9px 18px; color: #dfe6f5; text-decoration: none; font-size: 13px; cursor: pointer; border-left: 3px solid transparent; }
-  .nav a:hover { background: rgba(255,255,255,.08); }
-  .nav a.active { background: rgba(255,255,255,.14); border-left-color: var(--accent); color: #fff; font-weight: 600; }
+  .nav a { display: flex; gap: 10px; align-items: center; padding: 9px 18px; color: hsl(0 0% 80%); text-decoration: none; font-size: 13px; cursor: pointer; border-left: 3px solid transparent; }
+  .nav a:hover { background: var(--sidebar-accent); }
+  .nav a.active { background: var(--sidebar-accent); border-left-color: var(--sidebar-primary); color: #fff; font-weight: 600; }
   .nav .ico { width: 16px; text-align: center; opacity: .9; }
   /* Main */
-  .main { padding: 0; }
-  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 22px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 22px; background: var(--card); border-bottom: 1px solid var(--border); }
   .topbar h1 { font-size: 16px; margin: 0; }
-  .topbar .who { font-size: 12px; color: var(--muted); }
-  .wrap { padding: 20px 22px; }
+  .topbar .who { font-size: 12px; color: var(--muted-foreground); }
+  /* Persistent job context bar — UR pins jobsite + dates under the nav so the
+     "what job am I working on" context follows you across every screen. */
+  .ctxbar { position: sticky; top: 0; z-index: 6; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 22px; background: var(--sidebar); border-bottom: 1px solid rgba(255,255,255,.08); }
+  .ctxfield { display: flex; align-items: center; gap: 7px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); border-radius: 5px; padding: 5px 10px; }
+  .ctxfield .cico { opacity: .6; font-size: 12px; color: #fff; }
+  .ctxfield label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: hsl(0 0% 62%); display: block; }
+  .ctxfield select, .ctxfield input { font: inherit; font-size: 12px; background: transparent; border: none; color: #fff; padding: 0; outline: none; }
+  .ctxfield select option { color: #111; }
+  .ctxfield input::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .5; cursor: pointer; }
+  .ctxscope { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: hsl(0 0% 68%); }
+  .ctxscope b { color: var(--sidebar-primary); }
+  .ctxreset { font-size: 11.5px; color: hsl(0 0% 72%); background: none; border: none; cursor: pointer; text-decoration: underline; font-family: inherit; padding: 0; }
+  .ctxreset:hover { color: #fff; }
+  .wrap { padding: 18px 22px; }
+  /* Breadcrumb */
+  .crumb { font-size: 11.5px; color: var(--muted-foreground); margin-bottom: 10px; }
+  .crumb a { color: var(--link); cursor: pointer; text-decoration: none; }
+  .crumb a:hover { text-decoration: underline; }
+  .crumb .sep { margin: 0 6px; opacity: .5; }
   /* KPI tiles */
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
-  .kpi { background: #fff; border: 1px solid var(--line); padding: 14px 16px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); padding: 14px 16px; }
+  .kpi.clickable { cursor: pointer; transition: box-shadow .12s, border-color .12s; }
+  .kpi.clickable:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); border-color: hsl(0 0% 75%); }
   .kpi .n { font-size: 26px; font-weight: 700; line-height: 1; }
-  .kpi .l { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); margin-top: 6px; }
-  .kpi.alert .n { color: var(--bad); }
-  .kpi.warnk .n { color: var(--warn); }
-  .kpi.okk .n { color: var(--ok); }
+  .kpi .l { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted-foreground); margin-top: 6px; }
+  .kpi.alert .n { color: var(--destructive); }
+  .kpi.warnk .n { color: var(--status-maint-text); }
+  .kpi.okk .n { color: var(--status-available-text); }
   /* Cards / tables */
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 1100px) { .register { grid-template-columns: 1fr !important; } }
   @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } .app { grid-template-columns: 1fr; } .side { position: static; height: auto; } }
-  .card { background: #fff; border: 1px solid var(--line); margin-bottom: 16px; }
-  .card h2 { font-size: 13px; margin: 0; padding: 11px 14px; border-bottom: 1px solid var(--line); text-transform: uppercase; letter-spacing: .4px; color: #374151; }
-  .card .body { padding: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); margin-bottom: 16px; }
+  .card h2 { font-size: 13px; margin: 0; padding: 11px 14px; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: .4px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { font-size: 11px; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); font-weight: 600; background: #fafbfc; position: sticky; top: 0; }
-  tbody tr:hover { background: #f8fafc; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .3px; color: var(--muted-foreground); font-weight: 600; background: var(--secondary); }
+  tbody tr:hover { background: var(--secondary); }
+  tbody tr[data-clickable]:hover { background: var(--status-assigned-bg); cursor: pointer; }
   .scroll { overflow-x: auto; }
   /* chips */
-  .chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: var(--chip); color: #374151; }
-  .chip.available { background: #e7f6ec; color: var(--ok); }
-  .chip.assigned { background: #e7eefb; color: var(--blue-600); }
-  .chip.in_maintenance, .chip.reserved { background: #fdf2e1; color: var(--warn); }
-  .chip.lost { background: #fdeaea; color: var(--bad); }
-  .chip.overdue { background: #fdeaea; color: var(--bad); }
-  .toolbar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-  .toolbar input, .toolbar select { font: inherit; padding: 5px 8px; border: 1px solid var(--line); background: #fff; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: var(--secondary); color: var(--foreground); }
+  .chip.available { background: var(--status-available-bg); color: var(--status-available-text); }
+  .chip.assigned { background: var(--status-assigned-bg); color: var(--status-assigned-text); }
+  .chip.in_maintenance { background: var(--status-maint-bg); color: var(--status-maint-text); }
+  .chip.reserved { background: var(--status-reserved-bg); color: var(--status-reserved-text); }
+  .chip.lost, .chip.overdue { background: var(--status-lost-bg); color: var(--status-lost-text); }
+  /* Attribute badges — UR puts one glanceable non-status fact on each card
+     ("Zero Emissions"). Ours carry operational meaning instead of marketing. */
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; border: 1px solid; }
+  .badge.hv { color: #7c3aed; border-color: #ddd6fe; background: #f5f3ff; }
+  .badge.svc { color: var(--status-maint-text); border-color: #fde68a; background: var(--status-maint-bg); }
+  .badge.warr { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
+  .badge.serial { color: var(--muted-foreground); border-color: var(--border); background: var(--card); }
+  .badges { display: flex; gap: 4px; flex-wrap: wrap; }
+  /* Faceted left rail (UR catalog sidebar) */
+  .register { display: grid; grid-template-columns: 232px 1fr; gap: 16px; align-items: start; }
+  .facets { background: var(--card); border: 1px solid var(--border); position: sticky; top: 62px; }
+  .facets .fsearch { padding: 11px 12px; border-bottom: 1px solid var(--border); }
+  .facets .fsearch input { width: 100%; font: inherit; padding: 6px 9px; border: 1px solid var(--border); border-radius: 4px; }
+  .fgroup { border-bottom: 1px solid var(--border); }
+  .fgroup:last-child { border-bottom: none; }
+  .fgroup > h3 { margin: 0; padding: 10px 12px 6px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted-foreground); }
+  .facet { display: flex; align-items: center; gap: 8px; padding: 5px 12px; cursor: pointer; font-size: 12.5px; }
+  .facet:hover { background: var(--secondary); }
+  .facet.active { font-weight: 700; }
+  .facet.active .fdot { background: var(--foreground); border-color: var(--foreground); }
+  .facet .fdot { width: 12px; height: 12px; border-radius: 3px; border: 1px solid hsl(0 0% 72%); flex: none; }
+  .facet .fname { flex: 1; }
+  .facet .fcount { color: var(--muted-foreground); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .facet.sub { padding-left: 26px; font-size: 12px; }
+  .facet.disabled { opacity: .42; cursor: default; }
+  .facet.disabled:hover { background: none; }
+  .fclear { display: block; width: 100%; text-align: left; padding: 9px 12px; font: inherit; font-size: 11.5px; color: var(--link); background: none; border: none; border-top: 1px solid var(--border); cursor: pointer; }
+  .fclear:hover { text-decoration: underline; }
+  /* Result header + view toggle */
+  .reshead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .reshead h2 { margin: 0; font-size: 15px; text-transform: none; letter-spacing: 0; padding: 0; border: none; }
+  .reshead .cnt { color: var(--muted-foreground); font-weight: 400; }
+  .toggle { margin-left: auto; display: flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+  .toggle button { font: inherit; font-size: 11.5px; padding: 5px 11px; background: var(--card); border: none; cursor: pointer; color: var(--muted-foreground); }
+  .toggle button.active { background: var(--foreground); color: var(--background); font-weight: 600; }
+  .activefilters { display: flex; gap: 6px; flex-wrap: wrap; padding: 9px 14px; border-bottom: 1px solid var(--border); background: var(--secondary); }
+  .fpill { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2px 6px 2px 10px; font-size: 11.5px; }
+  .fpill button { border: none; background: none; cursor: pointer; color: var(--muted-foreground); font-size: 13px; line-height: 1; padding: 0 2px; }
+  .fpill button:hover { color: var(--destructive); }
+  /* Photo frame — designed for real photos; gray placeholder until asset.photoUrl is set */
+  .photo { background: var(--secondary); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 3px; color: hsl(0 0% 66%); overflow: hidden; flex: none; }
+  .photo img { width: 100%; height: 100%; object-fit: contain; }
+  .photo .pico { font-size: 17px; opacity: .5; }
+  .photo .ptxt { font-size: 8.5px; text-transform: uppercase; letter-spacing: .4px; }
+  .photo.sm { width: 46px; height: 46px; border-radius: 4px; }
+  .photo.sm .pico { font-size: 15px; } .photo.sm .ptxt { display: none; }
+  .photo.lg { width: 100%; height: 132px; border: none; border-bottom: 1px solid var(--border); }
+  .photo.xl { width: 132px; height: 132px; border-radius: 5px; }
+  /* Asset grid cards */
+  .assetgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 12px; padding: 14px; }
+  .assetcard { border: 1px solid var(--border); border-radius: 5px; overflow: hidden; cursor: pointer; background: var(--card); display: flex; flex-direction: column; transition: box-shadow .12s, transform .12s; }
+  .assetcard:hover { box-shadow: 0 3px 12px rgba(0,0,0,.10); transform: translateY(-1px); }
+  /* Value hierarchy: high-value units carry a weighted rail + heavier cost type,
+     so a $33k total station never reads the same as a $260 drill. */
+  .assetcard.hv { border-left: 3px solid var(--sidebar-primary); }
+  .acbody { padding: 10px 11px 11px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .actag { font-size: 10.5px; color: var(--muted-foreground); letter-spacing: .3px; }
+  .acname { font-size: 12.5px; font-weight: 600; line-height: 1.3; }
+  .acfoot { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; padding-top: 4px; }
+  .accost { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .assetcard.hv .accost { font-size: 16px; font-weight: 800; }
+  .acmeta { font-size: 10.5px; color: var(--muted-foreground); }
+  /* Table row weight for high-value */
+  tr.hv td:first-child { box-shadow: inset 3px 0 0 var(--sidebar-primary); }
+  tr.hv .costcell { font-weight: 800; font-size: 13px; }
+  .toolbar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .toolbar input, .toolbar select { font: inherit; padding: 5px 8px; border: 1px solid var(--border); background: var(--card); color: var(--foreground); }
   .toolbar input[type=search] { min-width: 200px; }
-  .muted { color: var(--muted); }
+  .muted { color: var(--muted-foreground); }
   .right { text-align: right; }
   .view { display: none; }
   .view.active { display: block; }
-  .banner { background: #fdf2e1; border: 1px solid #f0d9a8; color: #7a4d05; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; }
-  .banner b { color: var(--bad); }
-  .feed li { padding: 8px 14px; border-bottom: 1px solid var(--line); list-style: none; font-size: 12.5px; }
+  .banner { background: var(--status-maint-bg); border: 1px solid var(--status-maint-border); color: #7a5b02; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; }
+  .banner a { color: var(--destructive); text-decoration: underline; cursor: pointer; font-weight: 700; }
+  .feed li { padding: 8px 14px; border-bottom: 1px solid var(--border); list-style: none; font-size: 12.5px; }
+  .feed li[data-clickable] { cursor: pointer; }
+  .feed li[data-clickable]:hover { background: var(--secondary); }
   .feed { margin: 0; padding: 0; }
-  .feed .t { color: var(--muted); font-size: 11px; }
-  .foot { padding: 16px 22px; color: var(--muted); font-size: 11px; }
-  /* Job header meta */
-  .jobhead { padding: 12px 14px; border-bottom: 1px solid var(--line); background: #fafbfc; }
+  .feed .t { color: var(--muted-foreground); font-size: 11px; }
+  .foot { padding: 16px 22px; color: var(--muted-foreground); font-size: 11px; }
+  /* Empty states that instruct (UR's "Set location to see rates" pattern) */
+  .empty { padding: 34px 20px; text-align: center; color: var(--muted-foreground); }
+  .empty .eico { font-size: 26px; opacity: .35; display: block; margin-bottom: 8px; }
+  .empty b { display: block; color: var(--foreground); font-size: 13px; margin-bottom: 3px; }
+  .empty .ehint { font-size: 12px; }
+  .empty button { margin-top: 10px; }
+  .jobhead { padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--secondary); }
   .metagrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  .meta { }
-  .meta .k { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
+  .meta .k { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted-foreground); }
   .meta .v { font-size: 13px; font-weight: 600; margin-top: 2px; }
-  .meta .v small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
-  .meta .v.warn { color: var(--warn); }
-  .card h2 .ext { float: right; font-weight: 400; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .meta .v small { display: block; font-weight: 400; font-size: 11px; color: var(--muted-foreground); }
+  .meta .v.warn { color: var(--status-maint-text); }
+  .card h2 .ext { font-weight: 400; color: var(--muted-foreground); text-transform: none; letter-spacing: 0; }
+  .card h2 .viewall { font-size: 11px; text-transform: none; letter-spacing: 0; color: var(--link); font-weight: 600; cursor: pointer; }
+  .card h2 .viewall:hover { text-decoration: underline; }
+  /* Custody cards */
+  .custody-card { background: var(--card); border: 1px solid var(--border); margin-bottom: 12px; }
+  .custody-card.hv { border-left: 3px solid var(--sidebar-primary); }
+  .custody-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 14px; border-bottom: 1px solid var(--border); gap: 14px; flex-wrap: wrap; }
+  .custody-id { font-weight: 700; font-size: 13px; }
+  .custody-dates { color: var(--muted-foreground); font-size: 11.5px; margin-top: 2px; }
+  .custody-meta-inline { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; }
+  .custody-meta-inline .k { color: var(--muted-foreground); font-size: 10.5px; text-transform: uppercase; letter-spacing: .3px; }
+  .custody-meta-inline .v { font-weight: 600; margin-top: 2px; }
+  .custody-actions { display: flex; gap: 12px; align-items: center; }
+  .btnline { font-size: 11.5px; color: var(--link); cursor: pointer; font-weight: 600; background: none; border: none; padding: 0; font-family: inherit; }
+  .btnline:hover { text-decoration: underline; }
+  .btnline.danger { color: var(--destructive); }
+  .custody-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+  .custody-item .info b { display: block; font-size: 12.5px; }
+  .custody-item .info .cat { font-size: 11px; color: var(--muted-foreground); margin-top: 1px; }
+  .custody-item .right-col { margin-left: auto; text-align: right; font-size: 12px; }
+  /* Modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding: 5vh 16px; z-index: 50; }
+  .modal-backdrop.hidden { display: none; }
+  .modal { background: var(--card); width: 620px; max-width: 100%; max-height: 90vh; overflow: auto; border-radius: 6px; box-shadow: 0 12px 40px rgba(0,0,0,.28); }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); z-index: 2; }
+  .modal-head h3 { margin: 0; font-size: 14px; }
+  .modal-close { cursor: pointer; color: var(--muted-foreground); font-size: 20px; line-height: 1; background: none; border: none; }
+  .modal-close:hover { color: var(--foreground); }
+  .modal-body { padding: 16px; }
+  .modal-foot { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+  .modalhero { display: flex; gap: 16px; margin-bottom: 16px; }
+  .modalhero .hero-meta { flex: 1; }
+  .photoupload { margin-top: 6px; text-align: center; }
+  .btn { font: inherit; padding: 6px 13px; border-radius: 4px; border: 1px solid var(--border); background: var(--card); cursor: pointer; color: var(--foreground); }
+  .btn:hover { background: var(--secondary); }
+  .btn.sm { font-size: 11px; padding: 4px 9px; }
+  .btn.danger { background: var(--destructive); color: #fff; border-color: var(--destructive); }
+  .detailgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-bottom: 16px; }
+  .detailgrid .k { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted-foreground); }
+  .detailgrid .v { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .sectionlabel { font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted-foreground); margin-bottom: 6px; }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--foreground); color: var(--background); padding: 10px 18px; border-radius: 5px; font-size: 12.5px; z-index: 60; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
 </style>
 </head>
 <body>
@@ -99,7 +249,7 @@
       <a data-view="dashboard" class="active"><span class="ico">▤</span> Dashboard</a>
       <a data-view="jobs"><span class="ico">◲</span> Jobs</a>
       <a data-view="assets"><span class="ico">▣</span> Asset Register</a>
-      <a data-view="assignments"><span class="ico">◧</span> Assignments</a>
+      <a data-view="custody"><span class="ico">◧</span> Custody</a>
       <a data-view="foremen"><span class="ico">☰</span> Foremen</a>
       <a data-view="procurement"><span class="ico">⛁</span> Procurement</a>
       <a data-view="maintenance"><span class="ico">✷</span> Maintenance</a>
@@ -112,117 +262,247 @@
       <h1 id="title">Dashboard</h1>
       <div class="who">Karen Osei · Equipment Admin · Dallas</div>
     </div>
+    <div class="ctxbar" id="ctxbar"></div>
     <div class="wrap">
+      <div id="crumbs" class="crumb"></div>
       <div id="dashboard" class="view active"></div>
       <div id="jobs" class="view"></div>
       <div id="assets" class="view"></div>
-      <div id="assignments" class="view"></div>
+      <div id="custody" class="view"></div>
       <div id="foremen" class="view"></div>
       <div id="procurement" class="view"></div>
       <div id="maintenance" class="view"></div>
       <div id="audit" class="view"></div>
     </div>
-    <div class="foot">STInventory prototype · sample data · derived state from transaction log · see ../DATA_MODEL.md</div>
+    <div class="foot">STInventory prototype · sample data · derived state from transaction log · see ../docs/03-data-model.md</div>
   </main>
 </div>
+
+<div class="modal-backdrop hidden" id="modalRoot"><div class="modal" id="modalCard"></div></div>
+<div class="toast" id="toast"></div>
 
 <script src="data.js"></script>
 <script>
 const $ = (s, r=document) => r.querySelector(s);
-const el = (h) => { const d=document.createElement('div'); d.innerHTML=h.trim(); return d.firstChild; };
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 const money = (n) => '$' + n.toLocaleString();
 const today = new Date('2026-07-09');
-
 const D = STI;
 const L = D.lookups;
 
-function statusChip(s){ return `<span class="chip ${s}">${s.replace('_',' ')}</span>`; }
+/* Maps to tenantSettings.highValueThreshold, which already gates custody
+   approval server-side in packages/api-contracts/src/routers/assignment.ts. */
+const HIGH_VALUE = 5000;
+const WARRANTY_SOON_DAYS = 120;
 
-function isOverdue(as){ return as.type==='temporary' && as.expectedEnd && new Date(as.expectedEnd) < today && as.status==='active'; }
+const days = (d) => Math.round((new Date(d) - today) / 86400000);
+const isHighValue = (a) => a.cost >= HIGH_VALUE;
+const hasService = (a) => D.maintenance.some(m => m.asset === a.id && m.status !== 'complete');
+const warrantyState = (a) => { const d = days(a.warranty); return d < 0 ? 'expired' : d <= WARRANTY_SOON_DAYS ? 'soon' : null; };
+
+function statusChip(s){ return `<span class="chip ${s}">${(s||'').replace('_',' ')}</span>`; }
+function isOverdue(as){ return !!(as && as.type==='temporary' && as.expectedEnd && new Date(as.expectedEnd) < today && as.status==='active'); }
+
+function badgesFor(a){
+  const b = [];
+  if (isHighValue(a)) b.push('<span class="badge hv">High value</span>');
+  if (hasService(a)) b.push('<span class="badge svc">Service due</span>');
+  const w = warrantyState(a);
+  if (w === 'expired') b.push('<span class="badge warr">Warranty expired</span>');
+  else if (w === 'soon') b.push('<span class="badge warr">Warranty ends soon</span>');
+  return b.join('');
+}
+
+/* Photo frame. Every asset carries a photoUrl field (null in sample data), so
+   the card is built for a real image and degrades to an instructive
+   placeholder — the same idea as UR's "Set location to see rates". */
+function photo(a, size){
+  if (a.photoUrl) return `<div class="photo ${size}"><img src="${a.photoUrl}" alt="${a.model}"></div>`;
+  return `<div class="photo ${size}"><span class="pico">▧</span><span class="ptxt">Add photo</span></div>`;
+}
+
+// ---------- Persistent job context ----------
+const ctx = { project: 'all', from: '', to: '' };
+const inCtxProject = (a) => ctx.project === 'all' || a.currentProject === ctx.project;
+const inCtxDates = (dateStr) => {
+  if (!dateStr) return true;
+  const d = new Date(String(dateStr).slice(0,10));
+  if (ctx.from && d < new Date(ctx.from)) return false;
+  if (ctx.to && d > new Date(ctx.to)) return false;
+  return true;
+};
+const ctxActive = () => ctx.project !== 'all' || !!ctx.from || !!ctx.to;
+const scopedAssets = () => D.assets.filter(inCtxProject);
+
+function renderCtxBar(){
+  const jobs = D.projects.filter(p => p.id !== 'p-warehouse');
+  const n = scopedAssets().length;
+  $('#ctxbar').innerHTML = `
+    <div class="ctxfield"><span class="cico">◎</span><div><label>Jobsite</label>
+      <select id="ctxProject">
+        <option value="all" ${ctx.project==='all'?'selected':''}>All jobsites</option>
+        ${jobs.map(p=>`<option value="${p.id}" ${ctx.project===p.id?'selected':''}>${p.name}</option>`).join('')}
+        <option value="p-warehouse" ${ctx.project==='p-warehouse'?'selected':''}>Equipment Yard</option>
+      </select></div></div>
+    <div class="ctxfield"><span class="cico">▤</span><div><label>From</label>
+      <input type="date" id="ctxFrom" value="${ctx.from}"></div></div>
+    <div class="ctxfield"><span class="cico">▤</span><div><label>To</label>
+      <input type="date" id="ctxTo" value="${ctx.to}"></div></div>
+    <div class="ctxscope">
+      ${ctxActive() ? `Scoped to <b>${ctx.project==='all'?'all jobsites':L.project(ctx.project).name}</b> · ${n} tool${n===1?'':'s'}` : 'No jobsite filter — showing everything'}
+      ${ctxActive() ? `<button class="ctxreset" id="ctxReset">Clear</button>` : ''}
+    </div>`;
+  $('#ctxProject').onchange = e => { ctx.project = e.target.value; refresh(); };
+  $('#ctxFrom').onchange = e => { ctx.from = e.target.value; refresh(); };
+  $('#ctxTo').onchange = e => { ctx.to = e.target.value; refresh(); };
+  const rst = $('#ctxReset'); if (rst) rst.onclick = () => { ctx.project='all'; ctx.from=''; ctx.to=''; refresh(); };
+}
+
+// ---------- Navigation ----------
+const pending = {};
+function go(view, filter){ pending[view] = filter || {}; show(view); }
+
+const recentlyViewed = [];
+function noteViewed(id){ const i = recentlyViewed.indexOf(id); if (i>-1) recentlyViewed.splice(i,1); recentlyViewed.unshift(id); }
+
+// ---------- Modal ----------
+function openModal(html){ $('#modalCard').innerHTML = html; $('#modalRoot').classList.remove('hidden'); }
+function closeModal(){ $('#modalRoot').classList.add('hidden'); }
+$('#modalRoot').addEventListener('click', e => { if (e.target.id==='modalRoot') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
+
+let toastTimer;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+function assetDetailModal(assetId){
+  const a = L.asset(assetId);
+  if (!a || a.tag === '—') return;
+  noteViewed(assetId);
+  const asRec = D.assignments.find(x => x.asset === assetId && x.status === 'active');
+  const history = D.transactions.filter(t => t.asset === assetId).slice().reverse();
+  const historyRows = history.map(t => `<li><b>${t.event.replace('_',' ')}</b><br><span class="muted">${t.note}</span> <span class="t">— ${t.at} · ${L.employee(t.actor).name}</span></li>`).join('')
+    || '<li class="muted">No recorded transactions</li>';
+  const loanLine = a.custodian
+    ? `${asRec ? asRec.type : 'permanent'}${asRec && asRec.expectedEnd ? ` · due ${asRec.expectedEnd}${isOverdue(asRec)?' <span class="chip overdue">overdue</span>':''}` : ' · open-ended'}`
+    : '<span class="muted">Not currently held</span>';
+  const bdg = badgesFor(a);
+
+  openModal(`
+    <div class="modal-head"><h3>${a.tag} — ${a.model}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="modalhero">
+        <div>
+          ${photo(a, 'xl')}
+          <div class="photoupload"><button class="btn sm" onclick="toast('Photo upload writes to asset.photoUrl — not wired in the prototype')">${a.photoUrl?'Replace photo':'Add photo'}</button></div>
+        </div>
+        <div class="hero-meta">
+          ${bdg ? `<div class="badges" style="margin-bottom:8px">${bdg}</div>` : ''}
+          <div style="font-size:22px;font-weight:700;font-variant-numeric:tabular-nums">${money(a.cost)}</div>
+          <div class="muted" style="margin-bottom:10px">${a.category} · acquired ${a.acquired}</div>
+          <div>${statusChip(a.status)}</div>
+          <div class="muted" style="margin-top:8px;font-size:12px">Serial ${a.serial}<br>Warranty until ${a.warranty}</div>
+        </div>
+      </div>
+      <div class="detailgrid">
+        <div><div class="k">Condition</div><div class="v">${a.condition}</div></div>
+        <div><div class="k">Location</div><div class="v">${L.location(a.location).name}</div></div>
+        <div><div class="k">Custodian</div><div class="v">${a.custodian ? L.employee(a.custodian).name : '<span class="muted">—</span>'}</div></div>
+        <div><div class="k">Current project</div><div class="v">${L.project(a.currentProject).name}</div></div>
+        <div><div class="k">Owning (charged)</div><div class="v">${L.project(a.owningProject).name}</div></div>
+        <div><div class="k">Loan</div><div class="v">${loanLine}</div></div>
+      </div>
+      <div class="sectionlabel">Transaction history</div>
+      <ul class="feed" style="border:1px solid var(--border)">${historyRows}</ul>
+    </div>
+    <div class="modal-foot">
+      ${a.custodian ? `<button class="btn danger" onclick="markReturned('${assetId}')">Mark Returned</button>` : ''}
+      <button class="btn" onclick="closeModal()">Close</button>
+    </div>`);
+}
+
+function markReturned(assetId){
+  const a = D.assets.find(x => x.id === assetId);
+  if (!a || !a.custodian) return;
+  const fromCustodian = L.employee(a.custodian).name;
+  a.status = 'available'; a.custodian = null; a.currentProject = 'p-warehouse'; a.location = 'l-dal';
+  const asRec = D.assignments.find(x => x.asset === assetId && x.status === 'active');
+  if (asRec) asRec.status = 'returned';
+  const stamp = new Date().toISOString().slice(0,16).replace('T',' ');
+  D.transactions.push({ id: D.transactions.length+1, asset: assetId, event: 'return', actor: 'e-karen', at: stamp, note: `Returned to Dallas Yard by ${fromCustodian} — recorded via Custody › Mark Returned` });
+  closeModal();
+  toast(`${a.tag} marked returned — now available at Dallas Yard`);
+  refresh();
+}
 
 // ---------- Dashboard ----------
 function renderDashboard(){
-  const a = D.assets;
-  const counts = {
-    available: a.filter(x=>x.status==='available').length,
-    assigned: a.filter(x=>x.status==='assigned').length,
-    maint: a.filter(x=>x.status==='in_maintenance').length,
-    lost: a.filter(x=>x.status==='lost').length,
-    reserved: a.filter(x=>x.status==='reserved').length,
-  };
-  const overdue = D.assignments.filter(isOverdue);
-  const dueMaint = D.maintenance.filter(m=>m.status==='scheduled').length;
-  const terminated = D.employees.filter(e=>e.status==='terminated');
-  const clearance = a.filter(x=> terminated.some(t=>t.id===x.custodian) && x.status!=='available');
-  const totalValue = a.reduce((s,x)=>s+x.cost,0);
+  const a = scopedAssets();
+  const c = s => a.filter(x => x.status === s).length;
+  const overdue = D.assignments.filter(x => isOverdue(x) && a.some(y => y.id === x.asset));
+  const dueMaint = D.maintenance.filter(m => m.status === 'scheduled' && a.some(y => y.id === m.asset)).length;
+  const terminated = D.employees.filter(e => e.status === 'terminated');
+  const clearance = a.filter(x => terminated.some(t => t.id === x.custodian) && x.status !== 'available');
+  const totalValue = a.reduce((s,x) => s + x.cost, 0);
 
-  const overdueRows = overdue.map(o=>{
-    const as=L.asset(o.asset); const days=Math.round((today-new Date(o.expectedEnd))/86400000);
-    return `<tr><td>${as.tag}</td><td>${as.model}</td><td>${L.employee(o.custodian).name}</td><td>${o.expectedEnd}</td><td>${statusChip('overdue')} ${days}d</td></tr>`;
+  const overdueRows = overdue.map(o => {
+    const as = L.asset(o.asset);
+    return `<tr data-clickable onclick="assetDetailModal('${as.id}')"><td>${as.tag}</td><td>${as.model}</td><td>${L.employee(o.custodian).name}</td><td>${o.expectedEnd}</td><td>${statusChip('overdue')} ${-days(o.expectedEnd)}d</td></tr>`;
   }).join('');
-
-  const clearanceRows = clearance.map(c=>`<tr><td>${c.tag}</td><td>${c.model}</td><td>${L.employee(c.custodian).name}</td><td>${statusChip(c.status)}</td><td>${money(c.cost)}</td></tr>`).join('');
-
-  const feed = D.transactions.slice().reverse().map(t=>{
-    const as=L.asset(t.asset);
-    return `<li><b>${t.event.replace('_',' ')}</b> · ${as.tag} ${as.model}<br><span class="muted">${t.note}</span> <span class="t">— ${t.at} · ${L.employee(t.actor).name}</span></li>`;
-  }).join('');
+  const clearanceRows = clearance.map(x => `<tr data-clickable onclick="assetDetailModal('${x.id}')"><td>${x.tag}</td><td>${x.model}</td><td>${L.employee(x.custodian).name}</td><td>${statusChip(x.status)}</td><td>${money(x.cost)}</td></tr>`).join('');
+  const feed = D.transactions.slice().reverse()
+    .filter(t => inCtxDates(t.at) && a.some(y => y.id === t.asset))
+    .map(t => { const as = L.asset(t.asset);
+      return `<li data-clickable onclick="assetDetailModal('${as.id}')"><b>${t.event.replace('_',' ')}</b> · ${as.tag} ${as.model}<br><span class="muted">${t.note}</span> <span class="t">— ${t.at} · ${L.employee(t.actor).name}</span></li>`;
+    }).join('');
 
   $('#dashboard').innerHTML = `
-    ${overdue.length||clearance.length ? `<div class="banner">
-      ${overdue.length?`<b>${overdue.length} overdue temporary loan(s)</b> need follow-up. `:''}
-      ${clearance.length?`<b>${clearance.length} asset(s)</b> pending HR clearance for terminated foreman James Whitaker.`:''}
-    </div>`:''}
+    ${overdue.length || clearance.length ? `<div class="banner">
+      ${overdue.length ? `<a onclick="go('custody',{status:'overdue'})">${overdue.length} overdue temporary loan(s)</a> need follow-up. ` : ''}
+      ${clearance.length ? `<a onclick="go('foremen')">${clearance.length} asset(s)</a> pending HR clearance for terminated foreman James Whitaker.` : ''}
+    </div>` : ''}
     <div class="kpis">
-      <div class="kpi okk"><div class="n">${counts.available}</div><div class="l">Available</div></div>
-      <div class="kpi"><div class="n">${counts.assigned}</div><div class="l">Assigned</div></div>
-      <div class="kpi warnk"><div class="n">${counts.reserved}</div><div class="l">Reserved</div></div>
-      <div class="kpi warnk"><div class="n">${counts.maint}</div><div class="l">In Repair</div></div>
-      <div class="kpi alert"><div class="n">${counts.lost}</div><div class="l">Lost</div></div>
-      <div class="kpi warnk"><div class="n">${dueMaint}</div><div class="l">Maint. Due</div></div>
-      <div class="kpi"><div class="n">${money(totalValue)}</div><div class="l">Fleet Value</div></div>
+      <div class="kpi okk clickable" onclick="go('assets',{status:'available'})"><div class="n">${c('available')}</div><div class="l">Available</div></div>
+      <div class="kpi clickable" onclick="go('assets',{status:'assigned'})"><div class="n">${c('assigned')}</div><div class="l">Assigned</div></div>
+      <div class="kpi warnk clickable" onclick="go('assets',{status:'reserved'})"><div class="n">${c('reserved')}</div><div class="l">Reserved</div></div>
+      <div class="kpi warnk clickable" onclick="go('assets',{status:'in_maintenance'})"><div class="n">${c('in_maintenance')}</div><div class="l">In Repair</div></div>
+      <div class="kpi alert clickable" onclick="go('assets',{status:'lost'})"><div class="n">${c('lost')}</div><div class="l">Lost</div></div>
+      <div class="kpi warnk clickable" onclick="go('maintenance',{status:'scheduled'})"><div class="n">${dueMaint}</div><div class="l">Maint. Due</div></div>
+      <div class="kpi clickable" onclick="go('assets',{})"><div class="n">${money(totalValue)}</div><div class="l">Fleet Value</div></div>
     </div>
     <div class="grid2">
-      <div class="card"><h2>Overdue Temporary Loans</h2><div class="body scroll">
+      <div class="card"><h2>Overdue Temporary Loans <span class="viewall" onclick="go('custody',{status:'overdue'})">View all →</span></h2><div class="scroll">
         <table><thead><tr><th>Tag</th><th>Model</th><th>Custodian</th><th>Due</th><th>Status</th></tr></thead>
-        <tbody>${overdueRows||'<tr><td colspan=5 class="muted" style="padding:14px">None</td></tr>'}</tbody></table></div></div>
-      <div class="card"><h2>HR Clearance Queue — Terminated Foreman</h2><div class="body scroll">
+        <tbody>${overdueRows || '<tr><td colspan=5 class="muted" style="padding:14px">None</td></tr>'}</tbody></table></div></div>
+      <div class="card"><h2>HR Clearance Queue — Terminated Foreman <span class="viewall" onclick="go('foremen')">View all →</span></h2><div class="scroll">
         <table><thead><tr><th>Tag</th><th>Model</th><th>Held by</th><th>Status</th><th class="right">Value</th></tr></thead>
-        <tbody>${clearanceRows||'<tr><td colspan=5 class="muted" style="padding:14px">Clear</td></tr>'}</tbody></table></div></div>
+        <tbody>${clearanceRows || '<tr><td colspan=5 class="muted" style="padding:14px">Clear</td></tr>'}</tbody></table></div></div>
     </div>
-    <div class="card"><h2>Recent Activity (transaction log)</h2><div class="body"><ul class="feed">${feed}</ul></div></div>
-  `;
+    <div class="card"><h2>Recent Activity (transaction log)</h2><div><ul class="feed">${feed || '<li class="muted">No activity in this jobsite / date range</li>'}</ul></div></div>`;
 }
 
 // ---------- Jobs ----------
 function renderJobs(){
-  const jobs = D.projects.filter(p=> p.id!=='p-warehouse');
-  const cards = jobs.map(p=>{
+  const jobs = D.projects.filter(p => p.id !== 'p-warehouse' && (ctx.project === 'all' || p.id === ctx.project));
+  if (!jobs.length){ $('#jobs').innerHTML = `<div class="card"><div class="empty"><span class="eico">◲</span><b>No jobs in scope</b><div class="ehint">The jobsite filter is set to the Equipment Yard, which is not a job.</div></div></div>`; return; }
+  const cards = jobs.map(p => {
     const foreman = L.foremanOf(p.id);
-    const vehicles = L.vehiclesOf(p.id);
-    const truck = vehicles.find(v=>v.type==='truck');
-    const trailer = vehicles.find(v=>v.type==='trailer');
-    // Tools physically on this job (custody-based current project).
-    const tools = D.assets.filter(a=> a.currentProject===p.id);
-    const val = tools.reduce((s,x)=>s+x.cost,0);
-    const flags = tools.filter(t=> t.status==='lost' || t.status==='in_maintenance').length;
-    const inspSoon = (v)=> v && v.inspDue && (new Date(v.inspDue)-today)/86400000 <= 30;
-
-    const toolRows = tools.map(a=>{
-      const owned = a.owningProject===p.id;
-      return `<tr>
-        <td><b>${a.tag}</b></td><td>${a.model}</td><td>${a.category}</td>
-        <td>${statusChip(a.status)}</td>
-        <td>${a.custodian?L.employee(a.custodian).name:'<span class="muted">—</span>'}</td>
+    const vs = L.vehiclesOf(p.id);
+    const truck = vs.find(v => v.type === 'truck'), trailer = vs.find(v => v.type === 'trailer');
+    const tools = D.assets.filter(a => a.currentProject === p.id);
+    const val = tools.reduce((s,x) => s + x.cost, 0);
+    const flags = tools.filter(t => t.status === 'lost' || t.status === 'in_maintenance').length;
+    const inspSoon = v => v && v.inspDue && days(v.inspDue) <= 30;
+    const toolRows = tools.map(a => `<tr data-clickable class="${isHighValue(a)?'hv':''}" onclick="assetDetailModal('${a.id}')">
+        <td><b>${a.tag}</b></td><td>${a.model}</td><td>${a.category}</td><td>${statusChip(a.status)}</td>
+        <td>${a.custodian ? L.employee(a.custodian).name : '<span class="muted">—</span>'}</td>
         <td>${L.location(a.location).name}</td>
-        <td>${owned?'<span class="muted">this job</span>':'<span class="chip">charged: '+L.project(a.owningProject).name+'</span>'}</td>
-        <td class="right">${money(a.cost)}</td></tr>`;
-    }).join('') || '<tr><td colspan=8 class="muted" style="padding:12px">No tools on this job</td></tr>';
-
-    const vehLine = (v)=> v
-      ? `<div class="v${inspSoon(v)?' warn':''}">${v.unit}<small>${v.make} · ${v.plate}${v.inspDue?` · insp ${v.inspDue}`:''}</small></div>`
-      : `<div class="v"><span class="muted">— none —</span></div>`;
-
+        <td>${a.owningProject === p.id ? '<span class="muted">this job</span>' : '<span class="chip">charged: '+L.project(a.owningProject).name+'</span>'}</td>
+        <td class="right costcell">${money(a.cost)}</td></tr>`).join('')
+      || '<tr><td colspan=8 class="muted" style="padding:12px">No tools on this job</td></tr>';
+    const vehLine = v => v ? `<div class="v${inspSoon(v)?' warn':''}">${v.unit}<small>${v.make} · ${v.plate}${v.inspDue?` · insp ${v.inspDue}`:''}</small></div>` : `<div class="v"><span class="muted">— none —</span></div>`;
     return `<div class="card">
       <h2>${p.name} <span class="ext">${p.extId} · ${p.costCenter}</span></h2>
       <div class="jobhead"><div class="metagrid">
@@ -233,102 +513,243 @@ function renderJobs(){
         <div class="meta"><div class="k">Tools on job</div><div class="v">${tools.length}${flags?` <span class="chip lost">${flags} flag</span>`:''}</div></div>
         <div class="meta"><div class="k">On-job value</div><div class="v">${money(val)}</div></div>
       </div></div>
-      <div class="body scroll"><table>
+      <div class="scroll"><table>
         <thead><tr><th>Tag</th><th>Model</th><th>Category</th><th>Status</th><th>Custodian</th><th>Location</th><th>Ownership</th><th class="right">Cost</th></tr></thead>
-        <tbody>${toolRows}</tbody></table></div>
-    </div>`;
+        <tbody>${toolRows}</tbody></table></div></div>`;
   }).join('');
-  $('#jobs').innerHTML = `
-    <div class="banner">Job-centric view — each job shows its assigned <b>foreman</b>, <b>truck</b> &amp; <b>trailer</b>, and every tool currently in custody on that job. Tools charged to another job are flagged (custody ≠ ownership).</div>
-    ${cards}`;
+  $('#jobs').innerHTML = `<div class="banner">Job-centric view — each job shows its assigned <b>foreman</b>, <b>truck</b> &amp; <b>trailer</b>, and every tool currently in custody on that job. Tools charged to another job are flagged (custody ≠ ownership).</div>${cards}`;
 }
 
-// ---------- Asset Register ----------
+// ---------- Asset Register: faceted rail + card/grid toggle ----------
+let assetMode = 'grid';
+const aFilters = { category: 'all', status: 'all', flags: new Set(), recent: false, q: '' };
+
 function renderAssets(){
-  const opts = ['all','available','assigned','in_maintenance','reserved','lost'];
+  const pf = pending.assets || {}; pending.assets = null;
+  if (pf.status) aFilters.status = pf.status;
+  if (pf.category) aFilters.category = pf.category;
+  drawAssets();
+}
+
+function assetPasses(a, skip){
+  if (!inCtxProject(a)) return false;
+  if (skip !== 'category' && aFilters.category !== 'all' && a.category !== aFilters.category) return false;
+  if (skip !== 'status' && aFilters.status !== 'all' && a.status !== aFilters.status) return false;
+  if (skip !== 'flags' && aFilters.flags.size){
+    for (const f of aFilters.flags){
+      if (f === 'hv' && !isHighValue(a)) return false;
+      if (f === 'svc' && !hasService(a)) return false;
+      if (f === 'warr' && !warrantyState(a)) return false;
+    }
+  }
+  if (skip !== 'recent' && aFilters.recent && !recentlyViewed.includes(a.id)) return false;
+  if (aFilters.q && !(`${a.tag} ${a.model} ${a.serial}`.toLowerCase().includes(aFilters.q))) return false;
+  return true;
+}
+
+function drawAssets(){
+  const base = scopedAssets();
+  // Facet counts are computed with that facet's own filter lifted, so a count
+  // always answers "how many would I get if I picked this" — the UR behaviour.
+  const catCount = c => base.filter(a => a.category === c && assetPasses(a,'category')).length;
+  const stCount  = s => base.filter(a => a.status === s && assetPasses(a,'status')).length;
+  const flagCount = f => base.filter(a => (f==='hv'?isHighValue(a):f==='svc'?hasService(a):!!warrantyState(a)) && assetPasses(a,'flags')).length;
+  const categories = [...new Set(D.assets.map(a => a.category))].sort();
+  const statuses = ['available','assigned','in_maintenance','reserved','lost'];
+  const rows = base.filter(a => assetPasses(a));
+
+  const facetRow = (active, name, count, onclick, cls='') =>
+    `<div class="facet ${cls} ${active?'active':''} ${count===0&&!active?'disabled':''}" ${count===0&&!active?'':`onclick="${onclick}"`}>
+       <span class="fdot"></span><span class="fname">${name}</span><span class="fcount">${count}</span></div>`;
+
+  const pills = [];
+  if (aFilters.category !== 'all') pills.push(`<span class="fpill">${aFilters.category}<button onclick="setACat('all')">&times;</button></span>`);
+  if (aFilters.status !== 'all') pills.push(`<span class="fpill">${aFilters.status.replace('_',' ')}<button onclick="setAStatus('all')">&times;</button></span>`);
+  aFilters.flags.forEach(f => pills.push(`<span class="fpill">${f==='hv'?'High value':f==='svc'?'Service due':'Warranty'}<button onclick="toggleAFlag('${f}')">&times;</button></span>`));
+  if (aFilters.recent) pills.push(`<span class="fpill">Recently viewed<button onclick="toggleARecent()">&times;</button></span>`);
+
   $('#assets').innerHTML = `
-    <div class="card">
-      <h2>Asset Register (${D.assets.length})</h2>
-      <div class="toolbar">
-        <input type="search" id="assetSearch" placeholder="Search tag, model, serial…" />
-        <select id="assetStatus">${opts.map(o=>`<option value="${o}">${o==='all'?'All statuses':o.replace('_',' ')}</option>`).join('')}</select>
-        <select id="assetProject"><option value="all">All projects</option>${D.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select>
-        <span class="muted" id="assetCount"></span>
+  <div class="register">
+    <aside class="facets">
+      <div class="fsearch"><input type="search" id="aq" placeholder="Search within register…" value="${aFilters.q}"></div>
+      <div class="fgroup"><h3>My equipment</h3>
+        ${facetRow(aFilters.recent, 'Recently viewed', recentlyViewed.length, 'toggleARecent()')}
       </div>
-      <div class="body scroll"><table id="assetTable">
-        <thead><tr><th>Tag</th><th>Model</th><th>Category</th><th>Status</th><th>Custodian</th><th>Current Project</th><th>Location</th><th>Owning (charged)</th><th>Cond.</th><th class="right">Cost</th></tr></thead>
-        <tbody></tbody></table></div>
-    </div>`;
+      <div class="fgroup"><h3>Category</h3>
+        ${facetRow(aFilters.category==='all','All categories', base.filter(a=>assetPasses(a,'category')).length, `setACat('all')`)}
+        ${categories.map(c => facetRow(aFilters.category===c, c, catCount(c), `setACat('${c}')`, 'sub')).join('')}
+      </div>
+      <div class="fgroup"><h3>Status</h3>
+        ${facetRow(aFilters.status==='all','Any status', base.filter(a=>assetPasses(a,'status')).length, `setAStatus('all')`)}
+        ${statuses.map(s => facetRow(aFilters.status===s, s.replace('_',' '), stCount(s), `setAStatus('${s}')`, 'sub')).join('')}
+      </div>
+      <div class="fgroup"><h3>Flags</h3>
+        ${facetRow(aFilters.flags.has('hv'), `High value (≥${money(HIGH_VALUE)})`, flagCount('hv'), `toggleAFlag('hv')`)}
+        ${facetRow(aFilters.flags.has('svc'), 'Service due', flagCount('svc'), `toggleAFlag('svc')`)}
+        ${facetRow(aFilters.flags.has('warr'), 'Warranty ending/expired', flagCount('warr'), `toggleAFlag('warr')`)}
+      </div>
+      ${pills.length ? `<button class="fclear" onclick="clearAFilters()">Clear all filters</button>` : ''}
+    </aside>
+
+    <section class="card" style="margin:0">
+      <div class="reshead">
+        <h2>Asset Register <span class="cnt">(${rows.length}${rows.length!==base.length?` of ${base.length}`:''})</span></h2>
+        <div class="toggle">
+          <button class="${assetMode==='grid'?'active':''}" onclick="setAMode('grid')">▦ Cards</button>
+          <button class="${assetMode==='table'?'active':''}" onclick="setAMode('table')">▤ Table</button>
+        </div>
+      </div>
+      ${pills.length ? `<div class="activefilters">${pills.join('')}</div>` : ''}
+      ${rows.length ? (assetMode === 'grid' ? gridHTML(rows) : tableHTML(rows)) : emptyHTML()}
+    </section>
+  </div>`;
+
+  const q = $('#aq');
+  q.oninput = e => { aFilters.q = e.target.value.toLowerCase(); drawAssets(); const n=$('#aq'); n.focus(); n.setSelectionRange(n.value.length,n.value.length); };
+  // Facet changes are navigation, so the breadcrumb has to follow them.
+  renderCrumbs('assets');
+}
+
+function gridHTML(rows){
+  return `<div class="assetgrid">${rows.map(a => `
+    <div class="assetcard ${isHighValue(a)?'hv':''}" onclick="assetDetailModal('${a.id}')">
+      ${photo(a,'lg')}
+      <div class="acbody">
+        <div class="actag">${a.tag} · ${a.category}</div>
+        <div class="acname">${a.model}</div>
+        <div class="badges">${badgesFor(a)}</div>
+        <div class="acfoot">
+          <div>${statusChip(a.status)}<div class="acmeta" style="margin-top:4px">${a.custodian?L.employee(a.custodian).name:L.location(a.location).name}</div></div>
+          <div class="accost">${money(a.cost)}</div>
+        </div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function tableHTML(rows){
+  return `<div class="scroll"><table>
+    <thead><tr><th></th><th>Tag</th><th>Model</th><th>Category</th><th>Status</th><th>Flags</th><th>Custodian</th><th>Current Project</th><th>Owning (charged)</th><th class="right">Cost</th></tr></thead>
+    <tbody>${rows.map(a => `<tr data-clickable class="${isHighValue(a)?'hv':''}" onclick="assetDetailModal('${a.id}')">
+      <td>${photo(a,'sm')}</td><td><b>${a.tag}</b></td><td>${a.model}</td><td>${a.category}</td>
+      <td>${statusChip(a.status)}</td><td><div class="badges">${badgesFor(a)}</div></td>
+      <td>${a.custodian?L.employee(a.custodian).name:'<span class="muted">—</span>'}</td>
+      <td>${L.project(a.currentProject).name}</td><td class="muted">${L.project(a.owningProject).name}</td>
+      <td class="right costcell">${money(a.cost)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+function emptyHTML(){
+  return `<div class="empty"><span class="eico">▧</span><b>No tools match these filters</b>
+    <div class="ehint">${ctxActive() ? 'The jobsite filter at the top is also narrowing these results.' : 'Try clearing a filter in the left rail.'}</div>
+    <button class="btn" onclick="clearAFilters()">Clear filters</button></div>`;
+}
+
+function setAMode(m){ assetMode = m; drawAssets(); }
+function setACat(c){ aFilters.category = c; drawAssets(); }
+function setAStatus(s){ aFilters.status = s; drawAssets(); }
+function toggleAFlag(f){ aFilters.flags.has(f) ? aFilters.flags.delete(f) : aFilters.flags.add(f); drawAssets(); }
+function toggleARecent(){ aFilters.recent = !aFilters.recent; drawAssets(); }
+function clearAFilters(){ aFilters.category='all'; aFilters.status='all'; aFilters.flags.clear(); aFilters.recent=false; aFilters.q=''; drawAssets(); }
+
+// ---------- Custody ----------
+function renderCustody(){
+  const pf = pending.custody || {}; pending.custody = null;
+  const entries = scopedAssets().filter(a => a.custodian).map(a => {
+    const as = D.assignments.find(x => x.asset === a.id && x.status === 'active');
+    return { asset:a, type: as?as.type:'permanent', start: as?as.start:a.acquired, expectedEnd: as?as.expectedEnd:null,
+             overdue: isOverdue(as), custodian: a.custodian, project: a.currentProject };
+  }).filter(e => inCtxDates(e.start))
+    .sort((x,y) => (y.overdue - x.overdue) || (new Date(y.start) - new Date(x.start)));
+
+  const projOpts = D.projects.filter(p => p.id !== 'p-warehouse');
+  const foremen = D.employees.filter(e => e.role === 'foreman');
+  const init = { status: pf.status||'all', project: pf.project||'all', custodian: pf.custodian||'all', type: pf.type||'all' };
+
+  $('#custody').innerHTML = `
+    <div class="card">
+      <div class="reshead"><h2>Custody — Active Hand-offs <span class="cnt" id="cCount"></span></h2></div>
+      <div class="toolbar">
+        <select id="cStatus">${[['all','All statuses'],['overdue','Overdue'],['ok','On track']].map(([v,l])=>`<option value="${v}" ${v===init.status?'selected':''}>${l}</option>`).join('')}</select>
+        <select id="cProject"><option value="all">All projects</option>${projOpts.map(p=>`<option value="${p.id}" ${p.id===init.project?'selected':''}>${p.name}</option>`).join('')}</select>
+        <select id="cCustodian"><option value="all">All custodians</option>${foremen.map(f=>`<option value="${f.id}" ${f.id===init.custodian?'selected':''}>${f.name}</option>`).join('')}</select>
+        <select id="cType">${[['all','All types'],['temporary','Temporary loan'],['permanent','Permanent']].map(([v,l])=>`<option value="${v}" ${v===init.type?'selected':''}>${l}</option>`).join('')}</select>
+      </div>
+      <div id="custodyList" style="padding:12px 14px"></div>
+    </div>
+    <div class="card"><h2>Notes</h2><div><ul class="feed">
+      <li>Temporary loans past their due date surface as <span class="chip overdue">overdue</span> here and on the dashboard.</li>
+      <li>UIC-1012 is owned/charged to Trinity but temporarily loaned to Legacy West — custody ≠ ownership.</li>
+      <li>Card layout and filter bar adapted from United Rentals' Orders page. "Mark Returned" writes a real <code>return</code> event into the in-memory transaction log.</li>
+    </ul></div></div>`;
+
   const draw = () => {
-    const q = $('#assetSearch').value.toLowerCase();
-    const st = $('#assetStatus').value, pj = $('#assetProject').value;
-    const rows = D.assets.filter(a=>{
-      if(st!=='all' && a.status!==st) return false;
-      if(pj!=='all' && a.currentProject!==pj) return false;
-      if(q && !(`${a.tag} ${a.model} ${a.serial}`.toLowerCase().includes(q))) return false;
+    const st=$('#cStatus').value, pj=$('#cProject').value, cu=$('#cCustodian').value, ty=$('#cType').value;
+    const rows = entries.filter(e => {
+      if (st==='overdue' && !e.overdue) return false;
+      if (st==='ok' && e.overdue) return false;
+      if (pj!=='all' && e.project!==pj) return false;
+      if (cu!=='all' && e.custodian!==cu) return false;
+      if (ty!=='all' && e.type!==ty) return false;
       return true;
     });
-    $('#assetCount').textContent = `${rows.length} shown`;
-    $('#assetTable tbody').innerHTML = rows.map(a=>`<tr>
-      <td><b>${a.tag}</b></td><td>${a.model}</td><td>${a.category}</td><td>${statusChip(a.status)}</td>
-      <td>${a.custodian?L.employee(a.custodian).name:'<span class="muted">—</span>'}</td>
-      <td>${L.project(a.currentProject).name}</td><td>${L.location(a.location).name}</td>
-      <td class="muted">${L.project(a.owningProject).name}</td><td>${a.condition}</td><td class="right">${money(a.cost)}</td></tr>`).join('')
-      || '<tr><td colspan=10 class="muted" style="padding:14px">No matches</td></tr>';
+    $('#cCount').textContent = `(${rows.length})`;
+    $('#custodyList').innerHTML = rows.map(e => {
+      const a = e.asset;
+      return `<div class="custody-card ${isHighValue(a)?'hv':''}">
+        <div class="custody-top">
+          <div><div class="custody-id">${e.type==='temporary'?'Temporary Loan':'Permanent Assignment'} · ${a.tag}</div>
+            <div class="custody-dates">${e.start}${e.expectedEnd?` – ${e.expectedEnd}`:' – open-ended'}</div></div>
+          <div class="custody-meta-inline">
+            <div><div class="k">Custodian</div><div class="v">${L.employee(e.custodian).name}</div></div>
+            <div><div class="k">Project</div><div class="v">${L.project(e.project).name}</div></div>
+            <div><div class="k">Status</div><div class="v">${e.overdue?statusChip('overdue'):statusChip('assigned')}</div></div>
+          </div>
+          <div class="custody-actions">
+            <button class="btnline" onclick="assetDetailModal('${a.id}')">View Details</button>
+            <button class="btnline danger" onclick="markReturned('${a.id}')">Mark Returned</button>
+          </div>
+        </div>
+        <div class="custody-item">
+          ${photo(a,'sm')}
+          <div class="info"><b>${a.model}</b><div class="cat">${a.category} · ${a.tag} · Serial ${a.serial}</div>
+            <div class="badges" style="margin-top:4px">${badgesFor(a)}</div></div>
+          <div class="right-col">${money(a.cost)}<div class="muted" style="font-size:11px">${a.condition}</div></div>
+        </div>
+      </div>`;
+    }).join('') || `<div class="empty"><span class="eico">◧</span><b>Nothing in custody here</b><div class="ehint">${ctxActive()?'The jobsite/date filter at the top is narrowing this list.':'Every tool is in the yard.'}</div></div>`;
   };
-  $('#assetSearch').oninput = draw; $('#assetStatus').onchange = draw; $('#assetProject').onchange = draw;
+  ['cStatus','cProject','cCustodian','cType'].forEach(id => { $('#'+id).onchange = draw; });
   draw();
-}
-
-// ---------- Assignments ----------
-function renderAssignments(){
-  const rows = D.assignments.map(as=>{
-    const a=L.asset(as.asset); const od=isOverdue(as);
-    return `<tr><td><b>${a.tag}</b></td><td>${a.model}</td><td>${L.employee(as.custodian).name}</td>
-      <td>${L.project(as.project).name}</td><td>${as.type}</td><td>${as.start}</td>
-      <td>${as.expectedEnd||'<span class="muted">—</span>'}</td>
-      <td>${od?statusChip('overdue'):statusChip('assigned')}</td></tr>`;
-  }).join('');
-  $('#assignments').innerHTML = `<div class="card"><h2>Active Assignments</h2><div class="body scroll">
-    <table><thead><tr><th>Tag</th><th>Model</th><th>Custodian</th><th>Project</th><th>Type</th><th>Start</th><th>Due</th><th>Status</th></tr></thead>
-    <tbody>${rows}</tbody></table></div></div>
-    <div class="card"><h2>Notes</h2><div class="body"><ul class="feed">
-      <li>Temporary loans past their due date surface as <span class="chip overdue">overdue</span> and on the dashboard.</li>
-      <li>UIC-1012 is owned/charged to Trinity but temporarily loaned to Legacy West — custody ≠ ownership.</li>
-    </ul></div></div>`;
 }
 
 // ---------- Foremen ----------
 function renderForemen(){
-  const foremen = D.employees.filter(e=>e.role==='foreman');
-  const cards = foremen.map(f=>{
-    const held = D.assets.filter(a=>a.custodian===f.id && a.status!=='available');
-    const val = held.reduce((s,x)=>s+x.cost,0);
-    const projs = [...new Set(held.map(h=>L.project(h.currentProject).name))];
-    const rows = held.map(h=>`<tr><td>${h.tag}</td><td>${h.model}</td><td>${L.project(h.currentProject).name}</td><td>${statusChip(h.status)}</td></tr>`).join('')
-      || '<tr><td colspan=4 class="muted" style="padding:12px">No tools held</td></tr>';
+  const cards = D.employees.filter(e => e.role === 'foreman').map(f => {
+    const held = D.assets.filter(a => a.custodian === f.id && a.status !== 'available' && inCtxProject(a));
+    const val = held.reduce((s,x) => s + x.cost, 0);
+    const projs = [...new Set(held.map(h => L.project(h.currentProject).name))];
+    const rows = held.map(h => `<tr data-clickable class="${isHighValue(h)?'hv':''}" onclick="assetDetailModal('${h.id}')"><td>${photo(h,'sm')}</td><td>${h.tag}</td><td>${h.model}</td><td>${L.project(h.currentProject).name}</td><td>${statusChip(h.status)}</td><td class="right costcell">${money(h.cost)}</td></tr>`).join('')
+      || '<tr><td colspan=6 class="muted" style="padding:12px">No tools held in this scope</td></tr>';
     return `<div class="card"><h2>${f.name} ${f.status==='terminated'?'<span class="chip lost">terminated</span>':''}</h2>
       <div class="toolbar">
         <span class="chip">Primary: ${L.project(f.primaryProject).name}</span>
-        <span class="chip">${held.length} tools</span>
-        <span class="chip">${money(val)}</span>
-        <span class="chip">${projs.length} project(s)</span>
+        <span class="chip">${held.length} tools</span><span class="chip">${money(val)}</span><span class="chip">${projs.length} project(s)</span>
       </div>
-      <div class="body scroll"><table><thead><tr><th>Tag</th><th>Model</th><th>On project</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      <div class="scroll"><table><thead><tr><th></th><th>Tag</th><th>Model</th><th>On project</th><th>Status</th><th class="right">Cost</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
   }).join('');
   $('#foremen').innerHTML = cards;
 }
 
 // ---------- Procurement ----------
 function renderProcurement(){
-  const rows = D.purchaseRequests.map(p=>`<tr><td><b>${p.id.toUpperCase()}</b></td><td>${p.item}</td>
+  const prs = D.purchaseRequests.filter(p => ctx.project === 'all' || p.project === ctx.project);
+  const rows = prs.map(p => `<tr><td><b>${p.id.toUpperCase()}</b></td><td>${p.item}</td>
     <td>${L.project(p.project).name}</td><td>${L.employee(p.requestedBy).name}</td><td>${p.neededBy}</td>
-    <td>${statusChip(p.status==='ordered'?'assigned':p.status==='approved'?'available':'reserved')}${' '}${p.status}</td>
+    <td>${statusChip(p.status==='ordered'?'assigned':p.status==='approved'?'available':'reserved')} ${p.status}</td>
     <td class="right">${money(p.estCost)}</td></tr>`).join('');
-  $('#procurement').innerHTML = `<div class="card"><h2>Purchase Requests</h2><div class="body scroll">
+  $('#procurement').innerHTML = `<div class="card"><h2>Purchase Requests</h2><div class="scroll">
     <table><thead><tr><th>PR#</th><th>Item</th><th>Charge to</th><th>Requested by</th><th>Needed by</th><th>Status</th><th class="right">Est. Cost</th></tr></thead>
-    <tbody>${rows}</tbody></table></div></div>
-    <div class="card"><h2>Workflow</h2><div class="body"><ul class="feed">
+    <tbody>${rows || '<tr><td colspan=7 class="muted" style="padding:14px">No purchase requests for this jobsite</td></tr>'}</tbody></table></div></div>
+    <div class="card"><h2>Workflow</h2><div><ul class="feed">
       <li>Project Awarded → Estimate Demand → Check Inventory → Reserve or Purchase Request → Approve → PO → Receive → Inspect → Tag → Assign.</li>
       <li>Charge-to-project is set at receive; it does not change when custody later moves.</li>
     </ul></div></div>`;
@@ -336,34 +757,64 @@ function renderProcurement(){
 
 // ---------- Maintenance ----------
 function renderMaintenance(){
-  const rows = D.maintenance.map(m=>{const a=L.asset(m.asset);
-    return `<tr><td><b>${a.tag}</b></td><td>${a.model}</td><td>${m.type}</td><td>${statusChip(m.status==='in_progress'?'in_maintenance':'reserved')} ${m.status}</td>
-    <td>${m.vendor}</td><td>${m.scheduled}</td><td class="right">${money(m.cost)}</td></tr>`;}).join('');
-  $('#maintenance').innerHTML = `<div class="card"><h2>Maintenance &amp; Inspections</h2><div class="body scroll">
-    <table><thead><tr><th>Tag</th><th>Model</th><th>Type</th><th>Status</th><th>Vendor</th><th>Scheduled</th><th class="right">Cost</th></tr></thead>
-    <tbody>${rows}</tbody></table></div></div>`;
+  const pf = pending.maintenance || {}; pending.maintenance = null;
+  const init = pf.status || 'all';
+  $('#maintenance').innerHTML = `<div class="card"><h2>Maintenance &amp; Inspections</h2>
+    <div class="toolbar">
+      <select id="mStatus">${[['all','All statuses'],['scheduled','Scheduled'],['in_progress','In progress']].map(([v,l])=>`<option value="${v}" ${v===init?'selected':''}>${l}</option>`).join('')}</select>
+      <span class="muted" id="mCount"></span>
+    </div>
+    <div class="scroll"><table id="maintTable">
+      <thead><tr><th></th><th>Tag</th><th>Model</th><th>Type</th><th>Status</th><th>Vendor</th><th>Scheduled</th><th class="right">Cost</th></tr></thead>
+      <tbody></tbody></table></div></div>`;
+  const draw = () => {
+    const st = $('#mStatus').value;
+    const rows = D.maintenance.filter(m => (st==='all'||m.status===st) && inCtxProject(L.asset(m.asset)) && inCtxDates(m.scheduled));
+    $('#mCount').textContent = `${rows.length} shown`;
+    $('#maintTable tbody').innerHTML = rows.map(m => { const a = L.asset(m.asset);
+      return `<tr data-clickable class="${isHighValue(a)?'hv':''}" onclick="assetDetailModal('${a.id}')"><td>${photo(a,'sm')}</td><td><b>${a.tag}</b></td><td>${a.model}</td><td>${m.type}</td>
+        <td>${statusChip(m.status==='in_progress'?'in_maintenance':'reserved')} ${m.status}</td><td>${m.vendor}</td><td>${m.scheduled}</td><td class="right costcell">${money(m.cost)}</td></tr>`;
+    }).join('') || '<tr><td colspan=8 class="muted" style="padding:14px">No matches in this scope</td></tr>';
+  };
+  $('#mStatus').onchange = draw;
+  draw();
 }
 
 // ---------- Audit ----------
 function renderAudit(){
-  const rows = D.transactions.slice().reverse().map(t=>{const a=L.asset(t.asset);
-    return `<tr><td>${t.at}</td><td><span class="chip">${t.event.replace('_',' ')}</span></td><td>${a.tag}</td><td>${a.model}</td><td>${L.employee(t.actor).name}</td><td>${t.note}</td></tr>`;}).join('');
-  $('#audit').innerHTML = `<div class="card"><h2>Transaction Log — append-only system of record</h2><div class="body scroll">
+  const rows = D.transactions.slice().reverse()
+    .filter(t => inCtxDates(t.at) && inCtxProject(L.asset(t.asset)))
+    .map(t => { const a = L.asset(t.asset);
+      return `<tr data-clickable onclick="assetDetailModal('${a.id}')"><td>${t.at}</td><td><span class="chip">${t.event.replace('_',' ')}</span></td><td>${a.tag}</td><td>${a.model}</td><td>${L.employee(t.actor).name}</td><td>${t.note}</td></tr>`;
+    }).join('');
+  $('#audit').innerHTML = `<div class="card"><h2>Transaction Log — append-only system of record</h2><div class="scroll">
     <table><thead><tr><th>When</th><th>Event</th><th>Tag</th><th>Model</th><th>Actor</th><th>Note</th></tr></thead>
-    <tbody>${rows}</tbody></table></div></div>`;
+    <tbody>${rows || '<tr><td colspan=6 class="muted" style="padding:14px">No events in this jobsite / date range</td></tr>'}</tbody></table></div></div>`;
 }
 
-const views = { dashboard: renderDashboard, jobs: renderJobs, assets: renderAssets, assignments: renderAssignments, foremen: renderForemen, procurement: renderProcurement, maintenance: renderMaintenance, audit: renderAudit };
-const titles = { dashboard:'Dashboard', jobs:'Jobs', assets:'Asset Register', assignments:'Assignments', foremen:'Foremen', procurement:'Procurement', maintenance:'Maintenance', audit:'Audit Trail' };
+const views = { dashboard: renderDashboard, jobs: renderJobs, assets: renderAssets, custody: renderCustody, foremen: renderForemen, procurement: renderProcurement, maintenance: renderMaintenance, audit: renderAudit };
+const titles = { dashboard:'Dashboard', jobs:'Jobs', assets:'Asset Register', custody:'Custody', foremen:'Foremen', procurement:'Procurement', maintenance:'Maintenance', audit:'Audit Trail' };
+
+function renderCrumbs(name){
+  const parts = [`<a onclick="go('dashboard')">Equipment</a>`, `<span>${titles[name]}</span>`];
+  if (name === 'assets' && aFilters.category !== 'all') parts.push(`<span>${aFilters.category}</span>`);
+  if (ctx.project !== 'all') parts.splice(1, 0, `<span>${L.project(ctx.project).name}</span>`);
+  $('#crumbs').innerHTML = parts.join('<span class="sep">›</span>');
+}
+
+function currentView(){ return $('.nav a.active')?.dataset.view || 'dashboard'; }
+function refresh(){ renderCtxBar(); const v = currentView(); views[v](); renderCrumbs(v); }
 
 function show(name){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active', a.dataset.view===name));
+  $$('.view').forEach(v => v.classList.remove('active'));
+  $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.view === name));
   $('#'+name).classList.add('active');
   $('#title').textContent = titles[name];
+  renderCtxBar();
   views[name]();
+  renderCrumbs(name);
 }
-$('#nav').addEventListener('click', e=>{ const a=e.target.closest('a'); if(a) show(a.dataset.view); });
+$('#nav').addEventListener('click', e => { const a = e.target.closest('a'); if (a) go(a.dataset.view); });
 show('dashboard');
 </script>
 </body>

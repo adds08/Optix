@@ -29,10 +29,16 @@ export const location = pgTable(
     warehouseId: uuid("warehouse_id").references(() => warehouse.id, { onDelete: "set null" }),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
     parentLocationId: uuid("parent_location_id").references((): any => location.id, { onDelete: "set null" }),
+    // Who holds this container. Nobody checks out forty tools one at a time —
+    // they take a trailer or a gang box, and the contents follow. Null for
+    // places nobody carries (a warehouse, a project site).
+    custodianEmployeeId: uuid("custodian_employee_id").references(() => employee.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     tenantIdx: index("location_tenant_idx").on(t.tenantId),
+    parentIdx: index("location_parent_idx").on(t.parentLocationId),
+    custodianIdx: index("location_custodian_idx").on(t.custodianEmployeeId),
   }),
 );
 
@@ -51,6 +57,10 @@ export const vehicle = pgTable(
     makeModel: text("make_model"),
     ownershipType: text("ownership_type").notNull().default("company_owned"), // company_owned | personal_allowance
     payeeEmployeeId: uuid("payee_employee_id").references(() => employee.id, { onDelete: "set null" }),
+    // NOTE: mirrors location.custodianEmployeeId on this vehicle's location row.
+    // The location column is authoritative; this one is kept in sync because the
+    // locations page, vehicle form and import spec already read it. Collapse the
+    // two once those move over.
     allowanceRate: decimal("allowance_rate", { precision: 10, scale: 2 }),
     allowanceFrequency: text("allowance_frequency"), // weekly | monthly
     gpsLat: decimal("gps_lat", { precision: 10, scale: 6 }),

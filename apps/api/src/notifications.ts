@@ -3,6 +3,7 @@
 // console fallback when SMTP/Twilio credentials are absent.
 
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
+import { isRentalOverdue, isRentalDueSoon } from "@stinventory/domain";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import type { ServerEnv } from "@stinventory/env";
@@ -85,6 +86,100 @@ export async function detectOverdueLoans(db: Database) {
           refId: l.id,
           title: `Overdue loan: ${l.tag}`,
           body: `${l.modelName} due ${l.expectedEnd}. Please return or extend.`,
+        });
+        created++;
+      }
+    }
+  }
+  return created;
+}
+
+/*
+  Rented lines coming due, and rented lines already past their date.
+
+  The difference from `detectOverdueLoans` is who pays. An owned tool held too
+  long is an internal annoyance; a rental past its end date is the vendor
+  billing Urban every day until somebody phones them. So this raises two levels
+  — a nudge inside the window, and an alert once it has gone past — and it
+  addresses the equipment desk rather than the holder, because the desk is who
+  can actually call it off.
+*/
+export async function detectRentalsDue(db: Database) {
+  const tenants = await db.select({ id: schema.tenant.id }).from(schema.tenant);
+  const today = new Date().toISOString().slice(0, 10);
+  let created = 0;
+
+  for (const t of tenants) {
+    const lines = await db
+      .select({
+        id: schema.rentalLine.id,
+        itemName: schema.rentalLine.itemName,
+        quantity: schema.rentalLine.quantity,
+        endDate: schema.rentalLine.endDate,
+        status: schema.rentalLine.status,
+        externalNumber: schema.rentalOrder.externalNumber,
+        jobsiteLabel: schema.rentalOrder.jobsiteLabel,
+        vendorName: schema.vendor.name,
+      })
+      .from(schema.rentalLine)
+      .innerJoin(schema.rentalOrder, eq(schema.rentalLine.orderId, schema.rentalOrder.id))
+      .innerJoin(schema.vendor, eq(schema.rentalOrder.vendorId, schema.vendor.id))
+      .where(and(eq(schema.rentalLine.tenantId, t.id), eq(schema.rentalLine.status, "on_rent")));
+
+    if (!lines.length) continue;
+
+    /* The desk, not the field. Foremen cannot end a rental contract. */
+    const desk = await db
+      .select({ id: schema.employee.id })
+      .from(schema.employee)
+      .where(
+        and(
+          eq(schema.employee.tenantId, t.id),
+          eq(schema.employee.employmentStatus, "active"),
+          eq(schema.employee.role, "equipment_admin"),
+        ),
+      );
+    if (!desk.length) continue;
+
+    for (const l of lines) {
+      const input = { status: l.status, endDate: l.endDate, today };
+      const overdue = isRentalOverdue(input);
+      const dueSoon = !overdue && isRentalDueSoon(input);
+      if (!overdue && !dueSoon) continue;
+
+      const type = overdue ? "rental_overdue" : "rental_due_soon";
+
+      /* One unread alert per line per level — the scheduler runs every minute
+         and a yard that gets the same line 1,440 times a day stops reading. */
+      const existing = await db
+        .select({ id: schema.notification.id })
+        .from(schema.notification)
+        .where(
+          and(
+            eq(schema.notification.tenantId, t.id),
+            eq(schema.notification.type, type),
+            eq(schema.notification.refType, "rental_line"),
+            eq(schema.notification.refId, l.id),
+            isNull(schema.notification.readAt),
+          ),
+        )
+        .limit(1);
+      if (existing.length) continue;
+
+      const where = l.jobsiteLabel ? ` at ${l.jobsiteLabel}` : "";
+      for (const d of desk) {
+        await createNotification(db, {
+          tenantId: t.id,
+          recipientEmployeeId: d.id,
+          type,
+          refType: "rental_line",
+          refId: l.id,
+          title: overdue
+            ? `Still on rent past its date: ${l.itemName}`
+            : `Due back soon: ${l.itemName}`,
+          body: `${l.quantity} on contract ${l.externalNumber} from ${l.vendorName}${where}, due ${l.endDate}. ${
+            overdue ? "Being billed until it is called off." : "Arrange collection or extend."
+          }`,
         });
         created++;
       }

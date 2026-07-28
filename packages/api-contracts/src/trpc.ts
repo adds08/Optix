@@ -7,6 +7,9 @@ import type { Permission } from "@stinventory/types";
 export type Context = {
   db: Database;
   session: ResolvedSession | null;
+  /* Needed to decrypt tenant-held secrets (see routers/settings.ts). Passed in
+     rather than read here, so this package never loads env of its own. */
+  sessionSecret: string;
   request: {
     method: string | null;
     path: string | null;

@@ -5,12 +5,13 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import type { ChatMention } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
+import { MentionInput, MentionChips } from "../../components/mention-input";
 import { Button, Card, Empty, ErrorNote, Loading, ScreenTitle } from "../../components/ui";
 
 /*
@@ -22,6 +23,9 @@ import { Button, Card, Empty, ErrorNote, Loading, ScreenTitle } from "../../comp
 */
 export default function HandOffScreen() {
   const [draft, setDraft] = useState("");
+  /* Entities picked off the @ list — resolved ids, so the parser never has to
+     work out which "rotary hammer" was meant. */
+  const [mentions, setMentions] = useState<ChatMention[]>([]);
   const scrollRef = useRef<ScrollView>(null);
   const utils = trpc.useUtils();
 
@@ -46,6 +50,7 @@ export default function HandOffScreen() {
   const send = trpc.messaging.send.useMutation({
     onSuccess: () => {
       setDraft("");
+      setMentions([]);
       if (channelId) utils.messaging.messages.invalidate({ channelId, limit: 30 });
     },
   });
@@ -103,33 +108,43 @@ export default function HandOffScreen() {
           {!messages.length ? (
             <Empty
               title="Nothing here yet"
-              body={'Try: "gave the rotary hammer UIC-1012 to Dwayne for Trinity Bridge"'}
+              body={'Say it how you would text it: "gave the rotary hammer to Dwayne for Trinity Bridge". Type @ and part of a tag or name to pick the exact one.'}
             />
           ) : (
             messages.map((m) => <Bubble key={m.id} m={m} onConfirm={confirm} />)
           )}
         </ScrollView>
 
-        <View className="flex-row items-end gap-2 border-t border-border bg-card px-4 py-3">
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            multiline
-            placeholder="What happened?"
-            placeholderTextColor="#98A0AA"
-            className="max-h-28 min-h-[48px] flex-1 rounded-md border border-input bg-background px-4 py-3 text-[16px] text-foreground"
+        <View className="border-t border-border bg-card pt-2">
+          <MentionChips
+            mentions={mentions}
+            onRemove={(m) => setMentions((prev) => prev.filter((x) => x.id !== m.id))}
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Send"
-            disabled={!draft.trim() || send.isPending}
-            onPress={() => send.mutate({ channelId, body: draft.trim() })}
-            className={`h-[48px] w-[48px] items-center justify-center rounded-md bg-primary ${
-              !draft.trim() || send.isPending ? "opacity-50" : ""
-            }`}
-          >
-            <Ionicons name="arrow-up" size={22} color="#FCFDFD" />
-          </Pressable>
+          <View className="flex-row items-end gap-2 px-4 pb-3">
+            <MentionInput
+              value={draft}
+              onChange={setDraft}
+              mentions={mentions}
+              onMentionsChange={setMentions}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Send"
+              disabled={!draft.trim() || send.isPending}
+              onPress={() =>
+                send.mutate({
+                  channelId,
+                  body: draft.trim(),
+                  mentions: mentions.length ? mentions : undefined,
+                })
+              }
+              className={`h-[48px] w-[48px] items-center justify-center rounded-md bg-primary ${
+                !draft.trim() || send.isPending ? "opacity-50" : ""
+              }`}
+            >
+              <Ionicons name="arrow-up" size={22} color="#FCFDFD" />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -186,6 +201,16 @@ function Bubble({
         <View className="flex-row items-center gap-1.5 self-start">
           <Ionicons name="checkmark-circle" size={16} color="#1F6B57" />
           <Text className="text-[13px] text-ok">Recorded</Text>
+        </View>
+      ) : null}
+
+      {/* Confirmed by someone without the permission it costs. The observation
+          is kept and routed; the register deliberately did not move. */}
+      {m.processingStatus === "action_requested" ? (
+        <View className="rounded-md border border-warn bg-warn-bg px-4 py-3">
+          <Text className="text-[14px] leading-5 text-warn">
+            Sent to the yard desk. The tool stays as it is until they sign off.
+          </Text>
         </View>
       ) : null}
 

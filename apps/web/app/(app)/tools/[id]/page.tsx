@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
+import { AssetActions } from "@/components/asset-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { dateTime, money, relative, shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -65,7 +66,16 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
             eyebrow={a.categoryName ?? "Equipment"}
             title={a.modelName}
             description={a.serialNumber ? `Serial ${a.serialNumber}` : undefined}
-            actions={<StatusPill status={a.status} className="text-xs" />}
+            actions={
+              <div className="flex flex-wrap items-center gap-3">
+                <AssetActions
+                  assetId={id}
+                  assetTag={a.tag}
+                  heldBySomeone={!!a.custodianId}
+                />
+                <StatusPill status={a.status} className="text-xs" />
+              </div>
+            }
           />
 
           {/* Current state — derived, and labelled as such so nobody mistakes it

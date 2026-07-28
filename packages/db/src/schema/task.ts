@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant } from "./identity";
 import { user } from "./identity";
 import { employee } from "./employee";
@@ -24,6 +24,33 @@ export const task = pgTable(
     relatedProjectId: uuid("related_project_id").references(() => project.id, { onDelete: "set null" }),
     source: text("source").notNull().default("chat"),
     sourceMessageId: uuid("source_message_id"),
+    /*
+      What this task will DO when someone signs it off.
+
+      A request raised by somebody without the permission it costs used to be
+      recorded as prose — "Repair requested: UIC-1008" — and the action itself
+      was discarded. That left the desk reading a sentence with no way to act
+      on it but to retype the whole thing into a form, which is why the approve
+      button had nothing to call.
+
+      `actionType` is the verb; `pendingAction` is the exact ChatAction payload
+      the requester's message resolved to. Approving replays it through the
+      same executor every other path uses, so an approved request and a
+      directly-applied one are indistinguishable in the ledger.
+    */
+    actionType: text("action_type"),
+    pendingAction: jsonb("pending_action"),
+    /* Who asked. `createdByUserId` can be null once an account is deleted, and
+       the desk still needs to know whose request this was. */
+    requestedByEmployeeId: uuid("requested_by_employee_id").references(() => employee.id, { onDelete: "set null" }),
+    /* Which desk owns it — Maintenance, Procurement, Equipment Yard. Set from
+       departmentForAction at request time. */
+    department: text("department"),
+    declineReason: text("decline_reason"),
+    /* Escalation bookkeeping for the request worker: how many times the desk
+       has been nudged, and when it last happened. */
+    escalationCount: integer("escalation_count").notNull().default(0),
+    lastEscalatedAt: timestamp("last_escalated_at", { withTimezone: true }),
     dueDate: timestamp("due_date", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -1,0 +1,88 @@
+# Production image for apps/api.
+#
+# Three stages so the shipped layer carries no compilers, no dev dependencies
+# and no source: deps installs, build compiles, runtime holds the output. The
+# dev image (Dockerfile.dev) mounts the repo and runs tsx — useful for local
+# work, wrong for anything facing a network.
+FROM node:22-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.11.0 --activate
+WORKDIR /workspace
+
+# ---- deps -------------------------------------------------------------------
+# Manifests only, so a source edit does not invalidate the install layer.
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+# NOTE: the repo pins `node-linker=hoisted` in .npmrc for Metro's benefit —
+# React Native cannot follow symlinks. A side effect is that every install
+# flattens the WHOLE workspace into one root node_modules, so this image still
+# carries Next.js and Expo it can never load (~700MB of the 1.2GB). Switching
+# this stage to isolated linking fixes the size but collides with the symlinked
+# node_modules copied in the build stage. Fixable with a .dockerignore pass;
+# not worth blocking a deploy over.
+COPY packages/db/package.json packages/db/
+COPY packages/domain/package.json packages/domain/
+COPY packages/api-contracts/package.json packages/api-contracts/
+COPY packages/auth/package.json packages/auth/
+COPY packages/env/package.json packages/env/
+COPY packages/logger/package.json packages/logger/
+COPY packages/types/package.json packages/types/
+COPY packages/config-eslint/package.json packages/config-eslint/
+COPY packages/config-tsconfig/package.json packages/config-tsconfig/
+COPY apps/api/package.json apps/api/
+# Filtered to the two packages this image runs. An unfiltered install resolves
+# the whole workspace and hoists it into the root node_modules, so the API
+# image ended up carrying Next.js, Expo, React Native and Hermes — none of
+# which it can even load. `...` includes each one's workspace dependencies.
+RUN pnpm install --frozen-lockfile --filter @stinventory/api... --filter @stinventory/db...
+
+# ---- build ------------------------------------------------------------------
+FROM deps AS build
+COPY tsconfig.base.json turbo.json ./
+COPY packages/ packages/
+COPY apps/api/ apps/api/
+# The db package builds too: its migrator has to be runnable in an image with
+# no tsx, and it imports workspace code that only exists as TypeScript.
+RUN pnpm --filter @stinventory/db build && pnpm --filter @stinventory/api build
+
+# ---- prod deps --------------------------------------------------------------
+# A second install with dev dependencies stripped. The build needs esbuild,
+# typescript, drizzle-kit and vitest; the running container needs none of them,
+# and carrying them made the image 2.5GB — most of a small droplet's patience
+# on every pull. esbuild has already inlined the workspace code, so what is
+# left here is only the real runtime packages.
+FROM deps AS proddeps
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts \
+      --filter @stinventory/api... --filter @stinventory/db...
+
+# ---- runtime ----------------------------------------------------------------
+FROM base AS runtime
+ENV NODE_ENV=production
+
+# Migrations run at container start, so the SQL and the runner have to be
+# present in the final image — they are deployment inputs, not build artifacts.
+# Workspace source is NOT copied — esbuild bundled it into dist. Only real
+# node_modules (kept external, see apps/api/build.mjs) and the two outputs.
+COPY --from=proddeps --chown=node:node /workspace/node_modules ./node_modules
+COPY --from=proddeps --chown=node:node /workspace/apps/api/node_modules ./apps/api/node_modules
+COPY --from=build --chown=node:node /workspace/apps/api/dist ./apps/api/dist
+COPY --from=build --chown=node:node /workspace/apps/api/package.json ./apps/api/package.json
+COPY --from=proddeps --chown=node:node /workspace/packages/db/node_modules ./packages/db/node_modules
+COPY --from=build --chown=node:node /workspace/packages/db/dist ./packages/db/dist
+COPY --from=build --chown=node:node /workspace/packages/db/package.json ./packages/db/package.json
+COPY --from=build --chown=node:node /workspace/packages/db/drizzle ./packages/db/drizzle
+COPY --from=build --chown=node:node /workspace/package.json ./package.json
+
+# Ownership is set on each COPY above. A `RUN chown -R` here would rewrite every
+# file into a fresh layer — 1.3GB of pure duplication in this image.
+USER node
+
+WORKDIR /workspace/apps/api
+EXPOSE 4100
+
+# Alpine has no curl by default and adding it just for this is a wasted layer.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4100)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+# Migrate then serve. Failing the migration must stop the container rather than
+# start an API against a schema it does not match — `&&` is load-bearing.
+CMD ["sh", "-c", "cd /workspace/packages/db && node dist/migrate.js && cd /workspace/apps/api && node dist/index.js"]

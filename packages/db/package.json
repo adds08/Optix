@@ -13,10 +13,11 @@
     "typecheck": "tsc --noEmit",
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/migrate.ts",
-    "push": "drizzle-kit push",
     "studio": "drizzle-kit studio",
     "seed": "tsx src/seed.ts",
-    "clean": "rm -rf dist .turbo drizzle"
+    "clean": "rm -rf dist .turbo",
+    "push:dangerous": "drizzle-kit push",
+    "build": "node build.mjs"
   },
   "dependencies": {
     "@stinventory/types": "workspace:*",
@@ -29,6 +30,7 @@
     "@types/bcryptjs": "^2.4.6",
     "drizzle-kit": "^0.28.1",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "esbuild": "^0.24.0"
   }
 }

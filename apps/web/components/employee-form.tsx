@@ -5,21 +5,36 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Props = { open: boolean; onClose: () => void };
+export type EmployeeEditable = {
+  id: string;
+  name: string;
+  role: string;
+  email?: string | null;
+  phone?: string | null;
+  externalId?: string | null;
+  employmentStatus?: string | null;
+  reportsToEmployeeId?: string | null;
+};
 
-export function EmployeeForm({ open, onClose }: Props) {
+/* Primary project is create-only: moving somebody to a job is
+   `assignToProject`, which closes their posting and takes their tools with
+   them. Editing the column alone would change the answer without any of it. */
+type Props = { open: boolean; onClose: () => void; edit?: EmployeeEditable };
+
+export function EmployeeForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
   const projects = trpc.project.list.useQuery();
   const allEmployees = trpc.employee.list.useQuery();
   const superintendents = allEmployees.data?.filter((e) => e.role === "superintendent") ?? [];
 
-  const [name, setName] = useState("");
-  const [externalId, setExternalId] = useState("");
-  const [role, setRole] = useState("foreman");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState(edit?.name ?? "");
+  const [externalId, setExternalId] = useState(edit?.externalId ?? "");
+  const [role, setRole] = useState(edit?.role ?? "foreman");
+  const [email, setEmail] = useState(edit?.email ?? "");
+  const [phone, setPhone] = useState(edit?.phone ?? "");
   const [primaryProjectId, setPrimaryProjectId] = useState("");
-  const [reportsToEmployeeId, setReportsToEmployeeId] = useState("");
+  const [reportsToEmployeeId, setReportsToEmployeeId] = useState(edit?.reportsToEmployeeId ?? "");
+  const [employmentStatus, setEmploymentStatus] = useState(edit?.employmentStatus ?? "active");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
 
@@ -28,17 +43,28 @@ export function EmployeeForm({ open, onClose }: Props) {
     setSubmitting(true);
     setResult("");
     try {
-      await utils.client.employee.create.mutate({
-        name, externalId: externalId || undefined, role,
-        email: email || undefined, phone: phone || undefined,
-        primaryProjectId: primaryProjectId || undefined,
-        reportsToEmployeeId: reportsToEmployeeId || undefined,
-      });
-      setResult("Created!");
+      if (edit) {
+        await utils.client.employee.update.mutate({
+          id: edit.id, name, role,
+          externalId: externalId || null,
+          email: email || null,
+          phone: phone || null,
+          employmentStatus,
+          reportsToEmployeeId: reportsToEmployeeId || null,
+        });
+        utils.employee.get.invalidate({ id: edit.id });
+      } else {
+        await utils.client.employee.create.mutate({
+          name, externalId: externalId || undefined, role,
+          email: email || undefined, phone: phone || undefined,
+          primaryProjectId: primaryProjectId || undefined,
+          reportsToEmployeeId: reportsToEmployeeId || undefined,
+        });
+      }
       utils.employee.list.invalidate();
-      setTimeout(onClose, 1200);
-    } catch {
-      setResult("Error");
+      onClose();
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : "Could not save. Try again.");
     }
     setSubmitting(false);
   };
@@ -47,7 +73,7 @@ export function EmployeeForm({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New Employee</DialogTitle>
+          <DialogTitle>{edit ? `Edit ${edit.name}` : "New Employee"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -79,7 +105,20 @@ export function EmployeeForm({ open, onClose }: Props) {
               <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
           </div>
-          <div className="space-y-2">
+          {edit ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <select value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                <option value="active">Active</option>
+                <option value="on_leave">On leave</option>
+                <option value="terminated">Terminated</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Terminating opens the HR clearance queue for anything they still hold.
+              </p>
+            </div>
+          ) : null}
+          <div className={edit ? "hidden" : "space-y-2"}>
             <label className="text-sm font-medium">Primary project</label>
             <select value={primaryProjectId} onChange={(e) => setPrimaryProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
               <option value="">Select...</option>
@@ -95,11 +134,11 @@ export function EmployeeForm({ open, onClose }: Props) {
               </select>
             </div>
           )}
-          {result && <p className={`text-sm ${result === "Error" ? "text-destructive" : "text-green-600"}`}>{result}</p>}
+          {result && <p className="text-sm text-destructive">{result}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting || !name}>{submitting ? "..." : "Create"}</Button>
+          <Button onClick={submit} disabled={submitting || !name}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

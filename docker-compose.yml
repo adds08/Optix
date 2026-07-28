@@ -19,6 +19,34 @@ services:
       timeout: 3s
       retries: 20
 
+  # The parser. Absent from this file until now, which is why every chat message
+  # in a containerised run landed in `pending_manual`: the worker could not
+  # reach it.
+  #
+  # The default points at a local OpenAI-compatible server on the host (oMLX /
+  # LM Studio / Ollama). Two things catch people out:
+  #   - the port differs per tool (oMLX 8088, Ollama 11434, LM Studio 1234);
+  #   - from a container the host is `host.docker.internal`, never localhost.
+  # Point these at a hosted endpoint instead and nothing else has to change.
+  engine:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.engine
+    image: stinventory-engine:latest
+    container_name: stinventory-engine
+    environment:
+      ENGINE_PORT: 4600
+      ENGINE_LLM_BASE_URL: ${ENGINE_LLM_BASE_URL:-http://host.docker.internal:8088/v1}
+      ENGINE_MODEL: ${ENGINE_MODEL:-gemma-4-E2B-it-MLX-6bit}
+      # Matches engine/main.py's own default so compose does not silently
+      # override it with something the local server rejects.
+      ENGINE_API_KEY: ${ENGINE_API_KEY:-1234}
+      ENGINE_TIMEOUT_MS: ${ENGINE_TIMEOUT_MS:-15000}
+    ports:
+      - "${ENGINE_PORT:-4600}:4600"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   api:
     build:
       context: .
@@ -30,8 +58,8 @@ services:
       sh -c "
         echo '[api] waiting for postgres' &&
         until pg_isready -h postgres -U postgres -d stinventory -t 1 >/dev/null 2>&1; do sleep 1; done &&
-        echo '[api] pushing schema (drizzle-kit push)' &&
-        cd /workspace/packages/db && pnpm push --force &&
+        echo '[api] applying migrations' &&
+        cd /workspace/packages/db && pnpm migrate &&
         cd /workspace/apps/api && pnpm dev
       "
     environment:
@@ -40,6 +68,7 @@ services:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-stinventory}@postgres:5432/${POSTGRES_DB:-stinventory}
       SESSION_SECRET: ${SESSION_SECRET:-stinventory-dev-secret-please-change-to-32-chars-minimum}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3100}
+      ENGINE_BASE_URL: ${ENGINE_BASE_URL:-http://engine:4600}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
@@ -86,6 +115,8 @@ services:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4100}
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-STInventory}
+      # Local only: pre-fills the form and shows the demo account list.
+      NEXT_PUBLIC_SHOW_DEMO_LOGINS: ${NEXT_PUBLIC_SHOW_DEMO_LOGINS:-1}
     ports:
       - "${WEB_PORT:-3100}:3100"
     volumes:
