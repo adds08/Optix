@@ -23,6 +23,73 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 | `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
 | `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
 
+## Live deployment
+
+| | |
+|---|---|
+| Desk app | <https://urban.bodhitechlabs.com> |
+| Field app (Expo web export) | <https://urban.bodhitechlabs.com/field> |
+| Settings | <https://urban.bodhitechlabs.com/settings> |
+| Host | DigitalOcean droplet `stinventory-01`, nyc1, 1 vCPU / 1GB, $6/mo |
+
+Sign in with `admin@stinventory.local` / `stinventory-demo`. Those demo accounts are
+deliberately enabled in production for now — see the note at the end of `DEPLOY.md`
+for how to turn them off.
+
+Full operational detail, including how one hostname serves every service, is in
+[`DEPLOY.md`](DEPLOY.md).
+
+### Push to deploy
+
+Pushing to `main` deploys, provided the checks pass.
+
+```
+push to main
+     │
+     ├── check   typecheck · tests · lint
+     ├── build   all three production images actually build
+     ├── smoke   migrate a fresh Postgres, boot the API, hit /health
+     │
+     └── deploy  (only if all three pass)
+             │
+             └── ssh → /opt/stinventory/docker/deploy.sh
+                       fetch · checkout · build · restart
+                       wait for /health, roll back if it never comes
+```
+
+The deploy is gated on the checks because a deploy that runs regardless is just a
+slower way to break production. It is also serialised — two builds at once would
+starve a 1GB droplet.
+
+**How the server gets the code.** The droplet is a git checkout of this repo.
+`deploy.sh` does `git fetch` and `git reset --hard`, which only touches tracked files —
+so `.env.production`, the Expo export in `field/`, and anything else that exists only on
+the server are left alone. This replaced an rsync-from-laptop flow that twice deleted
+exactly those files, because `--delete` cannot tell "removed from the repo" from "never
+in the repo".
+
+**The deploy key can only deploy.** CI authenticates with a dedicated key that is
+restricted server-side to running one script:
+
+```
+command="/opt/stinventory/docker/deploy.sh",restrict ssh-ed25519 AAAA...
+```
+
+Whatever command CI sends is ignored; the server runs the deploy. Holding that secret
+gets you a deploy, not a shell. It is a separate key from any human's — a CI credential
+should never have blast radius beyond its job.
+
+**Deploying by hand**, if CI is not available:
+
+```bash
+ssh -i ~/.ssh/do@it_urban root@68.183.27.164 /opt/stinventory/docker/deploy.sh
+```
+
+**Known rough edge.** Images are built on the droplet, which briefly starves the running
+containers — expect a short 502 during the swap, and about ten minutes end to end. The
+fix is to build in CI and push to a registry so the droplet only pulls; the repo is
+public, so GitHub Container Registry would cost nothing. Not done yet.
+
 ## Core model in one paragraph
 
 The Equipment Department owns every asset; foremen are custodians, not owners; projects
