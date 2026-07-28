@@ -82,8 +82,12 @@ should never have blast radius beyond its job.
 **Deploying by hand**, if CI is not available:
 
 ```bash
-ssh -i ~/.ssh/do@it_urban root@68.183.27.164 /opt/stinventory/docker/deploy.sh
+ssh -i ~/.ssh/do@it_urban root@68.183.27.164 bash /opt/stinventory/docker/deploy.sh
 ```
+
+Invoked through `bash` rather than relying on the file's executable bit. Git records
+that bit, so a script committed without it gets its permission stripped by the very
+`git reset --hard` that the deploy runs — which is a deploy that works exactly once.
 
 **Known rough edge.** Images are built on the droplet, which briefly starves the running
 containers — expect a short 502 during the swap, and about ten minutes end to end. The
