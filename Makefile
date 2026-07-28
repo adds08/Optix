@@ -8,6 +8,21 @@
 #   make ENV=local reset     # wipe DB volume and reseed (destructive)
 #   make ENV=local psql      # psql shell on the DB
 #   make ENV=local test      # run vitest in api container
+#
+# Production (the droplet — nothing here needs ENV):
+#   make deploy              # ship main to production
+#   make prod-status         # what is running there
+#   make prod-logs           # tail its logs
+
+# --- production droplet -------------------------------------------------------
+# Overridable, but these are the real values so `make deploy` works unconfigured.
+PROD_HOST ?= 68.183.27.164
+PROD_USER ?= root
+PROD_KEY  ?= $(HOME)/.ssh/do@it_urban
+PROD_URL  ?= https://urban.bodhitechlabs.com
+PROD_SSH  := ssh -o ConnectTimeout=20 -i $(PROD_KEY) $(PROD_USER)@$(PROD_HOST)
+PROD_DIR  := /opt/stinventory
+PROD_COMPOSE := cd $(PROD_DIR) && docker compose -f docker-compose.prod.yml --env-file .env.production
 
 ENV ?= local
 ENV_FILE := .env.$(ENV)
@@ -21,7 +36,7 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint mobile
+.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -113,3 +128,32 @@ mobile: ## Start the Expo app (apps/mobile) — run `make up` first
 	@echo "A physical device needs to be on the same wifi as this machine;"
 	@echo "the app derives the API host from the Expo dev server automatically."
 	@cd apps/mobile && pnpm start
+
+# --- production ---------------------------------------------------------------
+#
+# The droplet is a git checkout and deploys by pulling origin/main, so what runs
+# there is whatever has been PUSHED — not whatever is in your working tree. The
+# checks below exist because "I ran make deploy and my change isn't there" is
+# otherwise a genuinely confusing ten minutes.
+#
+# Normally you do not need this at all: pushing to main deploys through CI. This
+# is for when CI is unavailable, or to re-run a deploy without a new commit.
+
+deploy: ## Ship main to the production droplet (CI does this on push; this is the manual path)
+	@if [ -n "$$(git status --porcelain)" ]; then 		echo "  ! Uncommitted changes — these will NOT be deployed:"; 		git status --short | sed 's/^/      /'; 		echo ""; 	fi
+	@UNPUSHED=$$(git rev-list --count origin/main..main 2>/dev/null || echo 0); 	if [ "$$UNPUSHED" != "0" ]; then 		echo "  ! $$UNPUSHED commit(s) on main not pushed. The server pulls from origin,"; 		echo "    so it cannot deploy them. Run: git push origin main"; 		echo ""; 		exit 1; 	fi
+	@echo "  deploying $$(git rev-parse --short origin/main) to $(PROD_HOST)"
+	@$(PROD_SSH) bash $(PROD_DIR)/docker/deploy.sh
+	@echo ""
+	@printf "  %s -> " "$(PROD_URL)"; curl -s -o /dev/null -w "%{http_code}\n" --max-time 20 $(PROD_URL)
+
+prod-status: ## What is running on the droplet, and at which commit
+	@$(PROD_SSH) "cd $(PROD_DIR) && echo 'commit:' \$$(git rev-parse --short HEAD) \"\$$(git log -1 --format=%s)\" && $(PROD_COMPOSE) ps --format '{{.Name}}\t{{.Status}}'"
+	@printf "\n  health -> "; curl -s --max-time 20 $(PROD_URL)/health || echo "unreachable"
+	@echo ""
+
+prod-logs: ## Tail production logs (SVC=api|web|engine|postgres|caddy)
+	@$(PROD_SSH) -t "$(PROD_COMPOSE) logs -f --tail 100 $(SVC)"
+
+prod-shell: ## Shell on the droplet
+	@$(PROD_SSH) -t "cd $(PROD_DIR) && bash"
