@@ -17,3 +17,6 @@ field/
 .env.production
 .admin-credential
 *.log
+# TypeScript incremental build caches — machine-local artifacts that differ on
+# every machine and mean nothing on the server.
+*.tsbuildinfo
