@@ -37,3 +37,10 @@ __pycache__/
 /core-shadcn-final*
 /classic-shadcn-dashboard*
 /newyork-dash*
+
+# Deployed artefacts and secrets that exist only on the server. Tracked here
+# so a `git reset --hard` during deploy cannot remove them.
+# Expo web export, built on the server by `expo export` and served by Caddy
+field/
+# generated owner password, lives only on the droplet
+.admin-credential
