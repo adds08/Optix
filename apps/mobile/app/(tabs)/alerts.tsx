@@ -8,8 +8,12 @@ import { Card, Empty, ErrorNote, Loading, ScreenTitle, Tag } from "../../compone
 export default function AlertsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
-  const overdue = trpc.dashboard.overdueLoans.useQuery();
-  const notifications = trpc.notification.list.useQuery();
+  /* Alerts are pushed here by other people — a declined request, a tool going
+     overdue. Pull-to-refresh alone means an alert is only as timely as the
+     next time somebody thinks to check. */
+  const live = { refetchInterval: 30_000 };
+  const overdue = trpc.dashboard.overdueLoans.useQuery(undefined, live);
+  const notifications = trpc.notification.list.useQuery(undefined, live);
   const utils = trpc.useUtils();
 
   const markRead = trpc.notification.markRead.useMutation({

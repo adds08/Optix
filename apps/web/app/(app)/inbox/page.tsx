@@ -33,10 +33,22 @@ export default function InboxPage() {
      it is the permission the nav already gates the desk Inbox on. */
   const isDesk = has("assignment.read");
 
-  const alerts = trpc.notification.list.useQuery();
-  const pending = trpc.messaging.pendingActions.useQuery({ limit: 50 }, { enabled: isDesk });
-  const approvals = trpc.dashboard.pendingApprovals.useQuery(undefined, { enabled: isDesk });
-  const tasks = trpc.task.list.useQuery({ limit: 50 }, { enabled: isDesk });
+  /*
+    Polled, because everything on this page arrives from somewhere else.
+
+    Nothing here is caused by the person looking at it — a foreman sends a
+    message from the field app, the worker parses it a second or two later, and
+    it lands in one of these lists. Without a poll the desk had to know to
+    reload, so "I sent it and it never showed up" was a page that had simply
+    stopped asking. Fifteen seconds against four small queries is nothing next
+    to a request sitting unseen.
+  */
+  const live = { refetchInterval: 15_000 };
+
+  const alerts = trpc.notification.list.useQuery(undefined, live);
+  const pending = trpc.messaging.pendingActions.useQuery({ limit: 50 }, { ...live, enabled: isDesk });
+  const approvals = trpc.dashboard.pendingApprovals.useQuery(undefined, { ...live, enabled: isDesk });
+  const tasks = trpc.task.list.useQuery({ limit: 50 }, { ...live, enabled: isDesk });
 
   const markRead = trpc.notification.markRead.useMutation({
     onSuccess: () => utils.notification.list.invalidate(),

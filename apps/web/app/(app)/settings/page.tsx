@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, TriangleAlert } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, ErrorNote, TableSkeleton } from "@/components/sti/page";
@@ -21,6 +21,12 @@ import { dateTime } from "@/lib/format";
   save means "keep what is there" rather than "clear it".
 */
 
+const PROVIDERS = [
+  { label: "DigitalOcean", baseUrl: "https://inference.do-ai.run/v1" },
+  { label: "OpenAI", baseUrl: "https://api.openai.com/v1" },
+  { label: "Local", baseUrl: "http://localhost:8088/v1" },
+];
+
 export default function SettingsPage() {
   const utils = trpc.useUtils();
   const settings = trpc.settings.get.useQuery();
@@ -39,13 +45,24 @@ export default function SettingsPage() {
 
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
-  /* Populate once the server answers. Not a controlled-from-props form: the
-     page is a draft the user edits, and refetching mid-edit should not stamp
-     over what they are typing. */
+  /*
+    Populate from the server exactly once.
+
+    This used to depend on `s` alone, which looks right and is not: react-query
+    refetches on window focus by default, and every refetch produced a fresh
+    object, re-ran this effect and stamped the saved values back over whatever
+    was half-typed. Switching to another tab and back — or to the terminal to
+    copy an API key, which is precisely what this page is for — silently
+    emptied the fields.
+
+    A ref rather than state because the guard must not itself cause a render,
+    and it must be set in the same pass that does the hydrating.
+  */
+  const hydrated = useRef(false);
   useEffect(() => {
-    if (!s) return;
+    if (!s || hydrated.current) return;
+    hydrated.current = true;
     setLlmEnabled(!!s.llmEnabled);
     setBaseUrl(s.llmBaseUrl ?? "");
     setModel(s.llmModel ?? "");
@@ -68,17 +85,14 @@ export default function SettingsPage() {
   });
 
   const test = trpc.settings.testLlm.useMutation({
-    onSuccess: (r) => {
-      setTestResult({
-        ok: r.ok,
-        text: r.ok
-          ? `Answered in ${r.ms}ms${r.reply ? ` — "${r.reply}"` : ""}`
-          : (r.error ?? "No response"),
-      });
-      utils.settings.get.invalidate();
-    },
-    onError: (e) => setTestResult({ ok: false, text: e.message }),
+    onSuccess: () => utils.settings.get.invalidate(),
   });
+  const result = test.data;
+
+  /* Every field the test needs. A stored key counts — the input is blank on
+     load by design, and requiring it to be retyped to run a test would be a
+     reason to keep keys in a text file. */
+  const canTest = !!(baseUrl.trim() && model.trim() && (apiKey.trim() || s?.llmApiKeyHint));
 
   if (settings.isLoading) return <TableSkeleton rows={8} cols={2} />;
   if (settings.isError) {
@@ -129,8 +143,23 @@ export default function SettingsPage() {
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="https://inference.do-ai.run/v1"
             />
+            {/* Typing this from memory is how you get a silent 404 that reads
+                as an authentication problem. */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-muted-foreground">Use:</span>
+              {PROVIDERS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => setBaseUrl(p.baseUrl)}
+                  className="rounded border px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Must end in <code>/v1</code>. Take it from your provider&apos;s console.
+              Must end in <code>/v1</code>.
             </p>
           </div>
           <div className="space-y-2">
@@ -186,30 +215,84 @@ export default function SettingsPage() {
           </p>
         ) : null}
 
-        {testResult ? (
-          <p
-            className={`rounded-md border px-3 py-2 text-sm ${
-              testResult.ok ? "border-ok/30 bg-ok-bg text-ok" : "border-crit/30 bg-crit-bg text-crit"
+        {/*
+          The result of the test, spelled out rather than reduced to a tick.
+
+          A green "connected" told you the key was live and nothing else, which
+          is the least interesting of the things that can be wrong. What the
+          desk needs to know is whether the model can turn a sentence into an
+          action — so the reading below is the parse itself.
+        */}
+        {test.isPending ? (
+          <p className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Parsing a sample message…
+          </p>
+        ) : test.error ? (
+          <p className="rounded-md border border-crit/30 bg-crit-bg px-3 py-2 text-sm text-crit">
+            {test.error.message}
+          </p>
+        ) : result ? (
+          <div
+            className={`flex flex-col gap-2 rounded-md border px-3 py-2.5 text-sm ${
+              result.ok ? "border-ok/30 bg-ok-bg" : "border-crit/30 bg-crit-bg"
             }`}
           >
-            {testResult.text}
-          </p>
+            <p className={`flex items-center gap-1.5 font-medium ${result.ok ? "text-ok" : "text-crit"}`}>
+              {result.ok ? <Check className="size-4" /> : <TriangleAlert className="size-4" />}
+              {result.ok ? `Working — parsed in ${result.ms}ms` : (result.error ?? "Failed")}
+            </p>
+            {result.detail ? (
+              <p className="text-xs text-muted-foreground">{result.detail}</p>
+            ) : null}
+            {result.ok ? (
+              <dl className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-[7rem_1fr]">
+                <dt className="text-muted-foreground">Sent</dt>
+                <dd className="italic">&ldquo;{result.message}&rdquo;</dd>
+                <dt className="text-muted-foreground">Understood as</dt>
+                <dd>
+                  <span className="font-medium">{result.intent}</span>
+                  {result.confidence !== null
+                    ? ` (${Math.round(result.confidence * 100)}% confident)`
+                    : ""}
+                </dd>
+                {result.assets.length ? (
+                  <>
+                    <dt className="text-muted-foreground">Tool</dt>
+                    <dd>{result.assets.join(", ")}</dd>
+                  </>
+                ) : null}
+                {result.custodian ? (
+                  <>
+                    <dt className="text-muted-foreground">Person</dt>
+                    <dd>{result.custodian}</dd>
+                  </>
+                ) : null}
+                {result.project ? (
+                  <>
+                    <dt className="text-muted-foreground">Project</dt>
+                    <dd>{result.project}</dd>
+                  </>
+                ) : null}
+              </dl>
+            ) : null}
+          </div>
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
-            disabled={test.isPending || (!baseUrl && !s?.llmBaseUrl)}
-            onClick={() => {
-              setTestResult(null);
+            disabled={test.isPending || !canTest}
+            onClick={() =>
               /* Tests what is on screen, so a key can be checked before it is
-                 committed. */
+                 committed — and before the page is left, which is when a
+                 mistyped one used to become somebody else's problem. */
               test.mutate({
                 baseUrl: baseUrl || undefined,
                 model: model || undefined,
                 apiKey: apiKey || undefined,
-              });
-            }}
+              })
+            }
           >
             {test.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
             Test connection
@@ -222,6 +305,12 @@ export default function SettingsPage() {
             >
               Clear key
             </Button>
+          ) : null}
+          {/* A greyed-out button with no reason is the same as a broken one. */}
+          {!canTest ? (
+            <span className="text-xs text-muted-foreground">
+              Needs a base URL, a model and a key first.
+            </span>
           ) : null}
         </div>
       </section>

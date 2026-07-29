@@ -4,8 +4,36 @@ import * as schema from "@stinventory/db/schema";
 import { decryptSecret, encryptSecret, secretHint } from "@stinventory/auth";
 import { DEFAULT_HIGH_VALUE_THRESHOLD } from "@stinventory/types";
 import { TRPCError } from "@trpc/server";
+import {
+  IntentParseError,
+  parseIntent,
+  type ParseContext,
+  type ParsedIntent,
+} from "@stinventory/intent";
 import { requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
+
+/*
+  The sentence the connection test parses.
+
+  Chosen to exercise every slot at once — a tagged tool, a person and a job
+  site — so a model that only half works shows up as half working rather than
+  as a green tick. Nothing here needs to exist in the tenant's data: the test
+  is asking whether the model can find the shape, not whether the resolver can
+  find the rows.
+*/
+const TEST_MESSAGE = "gave the rotary hammer UIC-1012 to Dave for the bridge job";
+
+const TEST_CONTEXT: ParseContext = {
+  foremanName: "Test",
+  foremanRole: "foreman",
+  currentAssignments: [
+    { tag: "UIC-1012", model: "Rotary Hammer", project: "Bridge Job", location: "Gang Box A" },
+  ],
+  primaryProject: "Bridge Job",
+  currentLocation: "Gang Box A",
+  recentMessages: [],
+};
 
 /*
   Tenant configuration, editable by the people who own the decisions.
@@ -157,13 +185,19 @@ export const settingsRouter = router({
     }),
 
   /*
-    Actually call the model.
+    Actually parse a message with the configured model.
 
     Pasting a key and being told "saved" proves nothing — the failures that
-    matter (wrong base URL, wrong model name, key without access to that model)
-    all look identical until something tries to use it. This makes that attempt
-    immediately, and records the result so the page can say when it last worked
-    rather than implying it works now.
+    matter (wrong base URL, wrong model name, a key with no access to that
+    model, a model that cannot hold a JSON format) all look identical until
+    something tries to use it.
+
+    This deliberately runs the *real* prompt over a *real* sentence rather than
+    sending "say ready". A provider can answer a one-word prompt perfectly and
+    still be useless here: `gpt-5-nano` and friends will happily reply in prose
+    and never produce the JSON the worker needs. Proving the key is live and
+    proving the chat feature works are different claims, and the desk needs the
+    second one.
   */
   testLlm: requirePermission("config.manage")
     .input(
@@ -173,6 +207,9 @@ export const settingsRouter = router({
           baseUrl: z.string().url().optional(),
           model: z.string().max(200).optional(),
           apiKey: z.string().max(400).optional(),
+          /* The sentence to parse. Defaults to one that exercises every slot:
+             a tool, a person and a job site. */
+          message: z.string().max(500).optional(),
         })
         .optional(),
     )
@@ -198,39 +235,33 @@ export const settingsRouter = router({
         });
       }
 
+      const message = input?.message?.trim() || TEST_MESSAGE;
       const started = Date.now();
       let ok = false;
       let error: string | null = null;
-      let reply: string | null = null;
+      let detail: string | null = null;
+      let parsed: ParsedIntent | null = null;
 
       try {
-        const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: "Reply with the single word: ready" }],
-            max_tokens: 8,
-            temperature: 0,
-          }),
-          signal: AbortSignal.timeout(row?.llmTimeoutMs ?? 15000),
-        });
-
-        if (!res.ok) {
-          const body = await res.text();
-          /* The provider's own message is the useful part — "model not found"
-             and "invalid api key" need different fixes. */
-          error = `${res.status}: ${body.slice(0, 200)}`;
+        parsed = await parseIntent(
+          { baseUrl, model, apiKey, timeoutMs: row?.llmTimeoutMs ?? 15000 },
+          { message, context: TEST_CONTEXT },
+        );
+        /* Reaching the provider is not the same as it being usable. A model
+           that classifies our own worked example as `none` will classify the
+           field's messages the same way, and saying "connected" about that is
+           the failure this whole procedure exists to catch. */
+        if (parsed.intent === "none") {
+          error = "Connected, but the model could not parse a worked example.";
+          detail = `It answered "none" for: "${message}". Usually the model is too small for structured output — try a larger one.`;
         } else {
-          const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-          reply = data.choices?.[0]?.message?.content?.trim()?.slice(0, 80) ?? "";
           ok = true;
         }
       } catch (e) {
+        /* The provider's own words are the useful part: "model not found" and
+           "invalid api key" need different fixes. */
         error = e instanceof Error ? e.message : String(e);
+        detail = e instanceof IntentParseError ? (e.detail ?? null) : null;
       }
 
       await ctx.db
@@ -238,7 +269,7 @@ export const settingsRouter = router({
         .set({
           llmLastCheckedAt: new Date(),
           llmLastCheckOk: ok,
-          llmLastCheckError: error?.slice(0, 500) ?? null,
+          llmLastCheckError: error ? `${error}${detail ? ` ${detail}` : ""}`.slice(0, 500) : null,
         })
         .where(eq(schema.tenantSettings.tenantId, tid));
 
@@ -247,9 +278,23 @@ export const settingsRouter = router({
         action: "settings.testLlm",
         entityType: "tenant_settings",
         result: ok ? "success" : "failure",
-        details: { ok, ms: Date.now() - started },
+        details: { ok, ms: Date.now() - started, intent: parsed?.intent ?? null },
       });
 
-      return { ok, error, reply, ms: Date.now() - started };
+      return {
+        ok,
+        error,
+        detail,
+        ms: Date.now() - started,
+        message,
+        /* What the model actually understood, so a half-right answer is
+           visible as half-right rather than as a green tick. */
+        intent: parsed?.intent ?? null,
+        confidence: parsed?.confidence ?? null,
+        assets: parsed?.entities.assets.map((a) => a.label) ?? [],
+        custodian: parsed?.entities.destination?.raw ?? parsed?.entities.custodian?.raw ?? null,
+        project: parsed?.entities.project?.raw ?? null,
+        reply: parsed?.replyText ?? null,
+      };
     }),
 });

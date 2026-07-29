@@ -37,11 +37,18 @@ export default function ChatPage() {
     { channelId: channelId!, limit: 40 },
     {
       enabled: !!channelId,
+      /*
+        Fast while something of ours is mid-parse, slow otherwise — but never
+        off. It used to stop entirely once the queue drained, which meant the
+        channel only ever showed messages this browser had sent: anything
+        arriving from the field app was invisible until a manual reload. The
+        channel is shared, so there is always another writer.
+      */
       refetchInterval: (q) => {
         const items = q.state.data?.items ?? [];
         return items.some((m) => ["queued", "processing"].includes(m.processingStatus))
           ? 1500
-          : false;
+          : 8000;
       },
     },
   );

@@ -4,7 +4,7 @@ import type { Database } from "@stinventory/db";
 import type { ServerEnv } from "@stinventory/env";
 import { createLogger } from "@stinventory/logger";
 import { parseIntent } from "./engine-client.js";
-import type { EngineParseResponse } from "./engine-types.js";
+import type { EngineParseResponse } from "./engine-client.js";
 import {
   applyChatAction,
   AUTO_SAFE_INTENTS,
@@ -12,6 +12,7 @@ import {
   llmConfigFor,
   type ChatAction,
 } from "@stinventory/api-contracts";
+import { NEW_TOOL_INTENTS } from "@stinventory/intent";
 import {
   slotsFromMentions,
   type ChatMention,
@@ -164,9 +165,10 @@ async function processOne(
   const recentMessages = recent.map((r) => r.body);
 
   /* Model configuration lives in tenant_settings so it can be changed from the
-     settings page. Null means unconfigured, and the engine falls back to its
-     own environment — which in a deployment means it will fail and the message
-     will be retried, rather than silently parsing against the wrong model. */
+     settings page without a redeploy. Null means the tenant has not configured
+     one, and parseIntent falls back to the process environment — a development
+     convenience. With neither, the message goes to the desk's manual queue
+     rather than being parsed against something arbitrary. */
   const llm = await llmConfigFor(db, tid, env.SESSION_SECRET);
 
   const engineResp = await parseIntent(env, {
@@ -231,7 +233,7 @@ async function processOne(
      whose subject is not in the register yet. Requiring a resolved asset would
      send every one of them to `pending_manual` — the absence of a match is the
      whole point. */
-  const aboutNewTool = engineResp.intent === "intake" || engineResp.intent === "request_purchase";
+  const aboutNewTool = NEW_TOOL_INTENTS.has(engineResp.intent);
 
   const markPendingManual = () =>
     db

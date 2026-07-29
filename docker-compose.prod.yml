@@ -1,9 +1,8 @@
 # Production compose.
 #
 # Differences from docker-compose.yml that matter: real builds instead of
-# `pnpm dev`, no source mounts, restart policies, healthchecks with dependency
-# gating, and the engine is actually here — its absence from the dev file is
-# why chat silently degrades to `pending_manual` in any containerised run.
+# `pnpm dev`, no source mounts, restart policies, and healthchecks with
+# dependency gating.
 #
 # Postgres is included so a single-droplet deployment works out of the box, but
 # a managed database is the better call: `make backup` is not a backup strategy,
@@ -12,8 +11,8 @@
 
 services:
   # TLS terminator and the only thing bound to the host's network. Everything
-  # else talks over the compose network, so Postgres and the parser are not
-  # reachable from the internet at all.
+  # else talks over the compose network, so Postgres is not reachable from the
+  # internet at all.
   caddy:
     image: caddy:2-alpine
     container_name: stinventory-caddy
@@ -56,23 +55,11 @@ services:
     expose:
       - "5432"
 
-  engine:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.engine
-    image: stinventory-engine:latest
-    container_name: stinventory-engine
-    restart: unless-stopped
-    environment:
-      ENGINE_PORT: 4600
-      # Point these at your serverless inference provider. The engine speaks
-      # the OpenAI wire format, so any compatible endpoint works unchanged.
-      ENGINE_LLM_BASE_URL: ${ENGINE_LLM_BASE_URL:?set ENGINE_LLM_BASE_URL}
-      ENGINE_MODEL: ${ENGINE_MODEL:?set ENGINE_MODEL}
-      ENGINE_API_KEY: ${ENGINE_API_KEY:?set ENGINE_API_KEY}
-      ENGINE_TIMEOUT_MS: ${ENGINE_TIMEOUT_MS:-15000}
-    expose:
-      - "4600"
+  # The Python parser service was removed. It had drifted into a second,
+  # unreachable copy of the intent logic: the API never called it (it talks to
+  # the model directly, now via @stinventory/intent), so it sat holding ~150MB
+  # on a 1GB droplet while carrying its own stale list of valid intents. Two
+  # places to add a custom intent, one of which did nothing.
 
   api:
     build:
@@ -90,8 +77,13 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET to 32+ random chars}
       WEB_ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN}
       MOBILE_ORIGIN: ${MOBILE_ORIGIN:-}
-      ENGINE_BASE_URL: ${ENGINE_BASE_URL:-http://engine:4600}
-      ENGINE_TIMEOUT_MS: ${ENGINE_TIMEOUT_MS:-15000}
+      # Fallback only. The model a tenant actually uses is configured on the
+      # settings page and stored encrypted in tenant_settings; these are here
+      # so a local stack works before anyone has visited that page.
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://inference.do-ai.run/v1}
+      LLM_MODEL: ${LLM_MODEL:-openai-gpt-5-nano}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-15000}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
@@ -105,11 +97,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      engine:
-        # Started, not healthy: chat degrades gracefully when the parser is
-        # unreachable (the request worker requeues), so the API must not be
-        # held down by it.
-        condition: service_started
 
   web:
     build:

@@ -60,9 +60,6 @@ jobs:
       - name: Build web image
         run: docker build -f docker/Dockerfile.web -t stinventory-web:ci .
 
-      - name: Build engine image
-        run: docker build -f docker/Dockerfile.engine -t stinventory-engine:ci .
-
   smoke:
     name: migrate + boot against a real postgres
     runs-on: ubuntu-latest

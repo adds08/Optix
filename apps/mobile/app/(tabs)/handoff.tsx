@@ -36,13 +36,19 @@ export default function HandOffScreen() {
     { channelId: channelId!, limit: 30 },
     {
       enabled: !!channelId,
-      /* Poll while anything is still being worked on by the parser. */
+      /*
+        Fast while the parser is still working, slow otherwise — but never
+        stopped. Polling used to end once this phone's own message finished,
+        so the channel showed nothing anyone else added. Ten seconds is a
+        compromise for a truck on bad signal: `staleTime` still suppresses the
+        duplicate fetches, and a failed poll costs nothing visible.
+      */
       refetchInterval: (q) => {
         const items = q.state.data?.items ?? [];
         const busy = items.some(
           (m) => m.processingStatus === "queued" || m.processingStatus === "processing",
         );
-        return busy ? 1500 : false;
+        return busy ? 1500 : 10_000;
       },
     },
   );

@@ -119,8 +119,7 @@ dev: up ## Start web + api + db, then print next steps
 	@echo "           foreman.miguel@stinventory.local  (field layout)"
 	@echo ""
 	@echo "  Mobile:  make mobile        (Expo — separate terminal)"
-	@echo "  Chat:    cd engine && .venv/bin/uvicorn main:app --port 4600"
-	@echo "           (the intent engine is NOT a compose service)"
+	@echo "  Chat:    configure a model at /settings, then use /chat"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 mobile: ## Start the Expo app (apps/mobile) — run `make up` first
@@ -152,7 +151,7 @@ prod-status: ## What is running on the droplet, and at which commit
 	@printf "\n  health -> "; curl -s --max-time 20 $(PROD_URL)/health || echo "unreachable"
 	@echo ""
 
-prod-logs: ## Tail production logs (SVC=api|web|engine|postgres|caddy)
+prod-logs: ## Tail production logs (SVC=api|web|postgres|caddy)
 	@$(PROD_SSH) -t "$(PROD_COMPOSE) logs -f --tail 100 $(SVC)"
 
 prod-shell: ## Shell on the droplet

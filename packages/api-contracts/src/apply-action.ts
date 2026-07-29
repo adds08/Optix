@@ -2,6 +2,13 @@ import { and, eq, inArray } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 import { requiresCustodyApproval } from "@stinventory/domain";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, type Permission } from "@stinventory/types";
+import {
+  ACTION_DEPARTMENTS,
+  ACTION_PERMISSIONS,
+  AUTO_SAFE_INTENTS,
+  CUSTODY_INTENTS,
+  REQUEST_TITLES,
+} from "@stinventory/intent";
 import { closeActiveCustody } from "./custody.js";
 
 /*
@@ -40,41 +47,17 @@ export type ChatAction = {
   draft?: AssetDraft;
 };
 
-/* Intents that move custody or change an asset's status. These always need a
-   human to confirm — the model's confidence is an input to the workflow, not
-   an authority over it (see docs/06-decisions.md ADR-4). */
-export const CUSTODY_INTENTS = new Set(["assign", "transfer", "return", "repair", "lost"]);
-
-/* Intents that are safe to apply without confirmation: they annotate or create
-   a work item, and move nothing. */
-export const AUTO_SAFE_INTENTS = new Set(["report", "task"]);
-
 /*
-  The permission each action costs, mirroring what the equivalent router
-  procedure charges: `assignment.create` for assign/return, `transfer.create`
-  for transfer, `asset.manage` for repair/lost.
+  Which intents need a human, which are safe to run unattended, and what each
+  one costs — all re-exported from the catalog in @stinventory/intent rather
+  than declared here.
 
-  This map is the reason the chat path is no longer a privilege escalation.
-  `confirmAction` is a plain protectedProcedure, so before this existed a
-  foreman could write a tool off as lost by typing it — an action the Flag form
-  would have refused, since foremen do not hold `asset.manage`.
+  These were three hand-maintained maps sitting next to a fourth copy of the
+  same list inside the LLM prompt. They are kept as named exports because a
+  dozen call sites import them, but the catalog is now the only place the
+  answers are written down.
 */
-export const ACTION_PERMISSIONS: Record<string, Permission | null> = {
-  assign: "assignment.create",
-  return: "assignment.create",
-  transfer: "transfer.create",
-  repair: "asset.manage",
-  lost: "asset.manage",
-  /* Registering a tool is an equipment department action, not a field one. A
-     foreman describing a new tool is useful information, but the row that
-     enters the register is the desk's call — so this costs `asset.manage` and
-     everyone else's version becomes an intake request. */
-  intake: "asset.manage",
-  report: null, // annotation only; any authenticated member of the tenant
-  /* `request_purchase` is deliberately absent. It has no "apply" — asking for a
-     tool to be bought is always a request, never a change to the register, so
-     it falls through canApplyAction to requestChatAction for every role. */
-};
+export { CUSTODY_INTENTS, AUTO_SAFE_INTENTS, ACTION_PERMISSIONS, ACTION_DEPARTMENTS };
 
 export function permissionForAction(type: string): Permission | null {
   return ACTION_PERMISSIONS[type] ?? null;
@@ -466,21 +449,9 @@ async function applyIntake(
   return { transactionIds: tx ? [String(tx.id)] : [], applied: 1, awaitingApproval: 0 };
 }
 
-/* Which desk owns the follow-up. Kept next to the permission map because the
-   two answer the same question from opposite ends: who may act, and who must. */
-export const ACTION_DEPARTMENTS: Record<string, string> = {
-  repair: "Maintenance",
-  lost: "Equipment Admin",
-  return: "Warehouse",
-  assign: "Equipment Yard",
-  transfer: "Equipment Yard",
-  report: "Equipment Admin",
-  task: "Equipment Admin",
-  request_purchase: "Procurement",
-};
+/* Which desk owns the follow-up, and what the approval card is headed. Both
+   live in the catalog next to the intent they describe. */
 
-/* Custody of a truck or trailer is Fleet's business, not the yard's, so the
-   asset labels refine what the map alone can tell us. */
 export function departmentForAction(type: string, assetLabels?: { label: string }[]): string {
   if ((type === "assign" || type === "transfer") &&
       assetLabels?.some((a) => /TRU|TRA|trailer|truck/i.test(a.label))) {
@@ -489,15 +460,6 @@ export function departmentForAction(type: string, assetLabels?: { label: string 
   return ACTION_DEPARTMENTS[type] ?? "Equipment Admin";
 }
 
-const REQUEST_TITLES: Record<string, string> = {
-  repair: "Repair requested",
-  lost: "Reported missing",
-  assign: "Assignment requested",
-  transfer: "Transfer requested",
-  return: "Return requested",
-  intake: "New tool to register",
-  request_purchase: "Purchase requested",
-};
 
 export type RequestResult = { taskId: string | null; transactionIds: string[] };
 
