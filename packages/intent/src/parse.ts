@@ -138,32 +138,36 @@ export class IntentParseError extends Error {
   }
 }
 
-/*
-  Throws rather than returning FALLBACK.
+type ChatCompletion = {
+  choices?: { message?: { content?: string }; finish_reason?: string }[];
+  usage?: { completion_tokens?: number; prompt_tokens?: number };
+};
 
-  The caller decides what a failure means: the worker swallows it into the
-  manual queue, while the settings page's connection test needs the provider's
-  own words — "model not found" and "invalid api key" need different fixes and
-  look identical once flattened to a fallback.
-*/
-/*
-  Not every OpenAI-compatible endpoint accepts every OpenAI parameter, and the
-  two that get rejected are the two we would rather have.
+/* The initial ceiling. A useful reply to this prompt is ~200 tokens; 1024 is
+   already generous for a model that answers rather than deliberates. */
+const TOKEN_BUDGET = 1024;
 
-  `response_format: json_object` is unsupported by a good number of hosted
-  models, and `temperature` is rejected outright by the newer reasoning models
-  — gpt-5-nano among them, which is the cheap option somebody will reach for
-  first. Both come back as a 400 naming the field, so a single retry without
-  the offending parameter turns "this provider does not work" into "this
-  provider works slightly worse": extractJson already copes with a model that
-  wraps its answer in prose.
-*/
+/* Headroom for a reasoning model, which spends most of it before writing
+   anything. Only ever sent after a first attempt came back empty. */
+const RETRY_TOKEN_BUDGET = 8192;
+
 type Fixup = {
   /** Does the provider's 400 look like it is complaining about this? */
   matches: (body: string) => boolean;
   apply: (body: Record<string, unknown>) => void;
 };
 
+/*
+  Not every OpenAI-compatible endpoint accepts every OpenAI parameter, and the
+  ones that get rejected are the ones we would rather have.
+
+  `response_format: json_object` is unsupported by a good number of hosted
+  models; `temperature` is rejected outright by the reasoning models, and
+  `max_tokens` was renamed for them. All three come back as a 400 naming the
+  field, so a single retry without the offending parameter turns "this provider
+  does not work" into "this provider works slightly worse" — extractJson copes
+  with a model that wraps its answer in prose.
+*/
 const FIXUPS: Fixup[] = [
   {
     /* Rejected by many hosted models. Dropping it costs nothing but a little
@@ -186,12 +190,23 @@ const FIXUPS: Fixup[] = [
        and swap only when told to. */
     matches: (b) => b.includes("max_completion_tokens") || b.includes("max_tokens"),
     apply: (b) => {
+      /* Carry the current ceiling across, which matters when the budget retry
+         already raised it — reading after the delete would silently reset it. */
+      const current = b.max_tokens;
       delete b.max_tokens;
-      b.max_completion_tokens = 1024;
+      b.max_completion_tokens = current ?? TOKEN_BUDGET;
     },
   },
 ];
 
+/*
+  Throws rather than returning FALLBACK.
+
+  The caller decides what a failure means: the worker swallows it into the
+  manual queue, while the settings page's connection test needs the provider's
+  own words — "model not found" and "invalid api key" need different fixes and
+  look identical once flattened to a fallback.
+*/
 export async function parseIntent(
   llm: LlmConfig,
   input: { message: string; context: ParseContext },
@@ -208,14 +223,15 @@ export async function parseIntent(
     ],
     response_format: { type: "json_object" },
     temperature: 0.1,
-    max_tokens: 1024,
+    max_tokens: TOKEN_BUDGET,
   };
 
   const used = new Set<Fixup>();
+  let raisedBudget = false;
   let lastError = "";
 
-  /* At most one attempt per fixup, plus the first. */
-  for (let attempt = 0; attempt <= FIXUPS.length; attempt++) {
+  /* One attempt per fixup, plus the first, plus the budget retry below. */
+  for (let attempt = 0; attempt <= FIXUPS.length + 1; attempt++) {
     let res: Response;
     try {
       res = await fetch(url, {
@@ -250,13 +266,45 @@ export async function parseIntent(
       throw new IntentParseError(`Provider returned ${res.status}`, lastError);
     }
 
-    const data = (await res.json().catch(() => null)) as
-      | { choices?: { message?: { content?: string } }[] }
-      | null;
-    const content = data?.choices?.[0]?.message?.content ?? "";
+    const data = (await res.json().catch(() => null)) as ChatCompletion | null;
+    const choice = data?.choices?.[0];
+    const content = choice?.message?.content ?? "";
+    const finish = choice?.finish_reason ?? "";
+    const usage = data?.usage;
+
+    /*
+      Empty content with `finish_reason: "length"` is the reasoning models'
+      signature failure, and it is not a small-print edge case: gpt-5-nano
+      spends the entire budget thinking and returns an empty string, so the
+      whole feature looks broken while the API key is perfectly fine. The
+      reasoning tokens are invisible in `content` but counted in
+      `completion_tokens`, which is how we tell this apart from a model that
+      simply had nothing to say.
+
+      One retry with a much larger ceiling. Not the initial value, because most
+      models would then be allowed a 4k answer to a request whose useful reply
+      is about 200 tokens.
+    */
+    if (!content.trim() && finish === "length" && !raisedBudget) {
+      raisedBudget = true;
+      const key = "max_completion_tokens" in body ? "max_completion_tokens" : "max_tokens";
+      body[key] = RETRY_TOKEN_BUDGET;
+      continue;
+    }
+
     const parsed = extractJson(content);
     if (!parsed) {
-      throw new IntentParseError("Model did not return JSON", content.slice(0, 300));
+      /* Say which of the two it was. "Returned nothing" and "returned prose"
+         need different fixes, and an empty detail string told nobody anything. */
+      const spent = usage?.completion_tokens;
+      throw new IntentParseError(
+        content.trim() ? "Model did not return JSON" : "Model returned an empty reply",
+        content.trim()
+          ? content.slice(0, 300)
+          : `finish_reason=${finish || "unknown"}${
+              spent ? `, ${spent} completion tokens spent with no output` : ""
+            }. A reasoning model can spend its whole budget thinking; try a non-reasoning model.`,
+      );
     }
     return normalizeResponse(parsed);
   }

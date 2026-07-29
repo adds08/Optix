@@ -198,3 +198,99 @@ describe("parseIntent parameter fixups", () => {
     await expect(parseIntent(llm, input)).rejects.toThrow(/401/);
   });
 });
+
+/*
+  The reasoning-model empty reply.
+
+  This is not hypothetical: openai-gpt-5-nano on DigitalOcean returned exactly
+  this against the real deployment — HTTP 200, a valid response envelope, and
+  content of "". Every token went on reasoning. Without the retry the feature
+  looks broken while the API key is perfectly fine, and the error said only
+  "Model did not return JSON" with an empty detail.
+*/
+describe("parseIntent empty-reply handling", () => {
+  const llm = { baseUrl: "https://x.test/v1", model: "gpt-5-nano", apiKey: "k" };
+  const input = {
+    message: "returning UIC-1002 to the yard",
+    context: {
+      foremanName: "T", foremanRole: "foreman", currentAssignments: [],
+      primaryProject: "", currentLocation: "", recentMessages: [],
+    },
+  };
+
+  const empty = (finish: string, spent = 1024) => ({
+    ok: true,
+    json: async () => ({
+      choices: [{ message: { content: "" }, finish_reason: finish }],
+      usage: { completion_tokens: spent },
+    }),
+  });
+  const answered = {
+    ok: true,
+    json: async () => ({
+      choices: [{ message: { content: '{"intent":"return","confidence":0.9}' } }],
+    }),
+  };
+
+  function stubFetch(queue: unknown[]) {
+    const bodies: Record<string, unknown>[] = [];
+    globalThis.fetch = (async (_u: string, init: { body: string }) => {
+      bodies.push(JSON.parse(init.body));
+      return queue.shift() as Response;
+    }) as unknown as typeof fetch;
+    return bodies;
+  }
+
+  const realFetch = globalThis.fetch;
+  afterEach(() => { globalThis.fetch = realFetch; });
+
+  it("retries once with a much larger budget", async () => {
+    const bodies = stubFetch([empty("length"), answered]);
+    const r = await parseIntent(llm, input);
+    expect(r.intent).toBe("return");
+    expect(bodies[0]!.max_tokens).toBe(1024);
+    expect(bodies[1]!.max_tokens).toBe(8192);
+  });
+
+  it("raises the renamed field when the provider made us rename it", async () => {
+    /* Order matters: a 400 on max_tokens swaps the key, and the budget retry
+       has to raise the new one or it silently sends 1024 again. */
+    const bodies = stubFetch([
+      { ok: false, status: 400, text: async () => "use 'max_completion_tokens'" },
+      empty("length"),
+      answered,
+    ]);
+    await parseIntent(llm, input);
+    expect(bodies[1]!.max_completion_tokens).toBe(1024);
+    expect(bodies[2]!.max_completion_tokens).toBe(8192);
+    expect(bodies[2]).not.toHaveProperty("max_tokens");
+  });
+
+  it("gives up after one raise rather than escalating forever", async () => {
+    stubFetch([empty("length"), empty("length"), answered]);
+    await expect(parseIntent(llm, input)).rejects.toThrow(/empty reply/);
+  });
+
+  it("explains an empty reply instead of blaming the JSON", async () => {
+    stubFetch([empty("length"), empty("length")]);
+    const err = await parseIntent(llm, input).catch((e) => e);
+    expect(err.message).toMatch(/empty reply/);
+    expect(err.detail).toMatch(/finish_reason=length/);
+    expect(err.detail).toMatch(/1024 completion tokens spent/);
+    expect(err.detail).toMatch(/reasoning model/);
+  });
+
+  it("does not retry an empty reply the model chose to give", async () => {
+    /* finish_reason "stop" with no content is a model declining to answer, not
+       one that ran out of room. Retrying with more room changes nothing. */
+    stubFetch([empty("stop", 5), answered]);
+    await expect(parseIntent(llm, input)).rejects.toThrow(/empty reply/);
+  });
+
+  it("still reports prose as a JSON problem", async () => {
+    stubFetch([{ ok: true, json: async () => ({ choices: [{ message: { content: "Sure, I can help!" } }] }) }]);
+    const err = await parseIntent(llm, input).catch((e) => e);
+    expect(err.message).toMatch(/did not return JSON/);
+    expect(err.detail).toBe("Sure, I can help!");
+  });
+});
