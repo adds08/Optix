@@ -27,16 +27,24 @@ and the system turns it into a proposed custody transaction he confirms with one
 
 | Component | Path | Role |
 |---|---|---|
-| Intent engine | `engine/main.py`, `engine/prompts/system.md` | FastAPI sidecar, `POST /parse`; calls an OpenAI-compatible LLM endpoint |
-| Engine client | `apps/api/src/engine-client.ts` | HTTP client, timeout + signal combiner, fallback JSON parse |
-| Engine types | `apps/api/src/engine-types.ts` | TypeScript mirror of the engine's request/response JSON |
+| Intent catalog | `packages/intent/src/catalog.ts` | Every intent declared once; the prompt and the permission / department / title maps are generated from it. See `docs/08-custom-intents.md` |
+| Parser | `packages/intent/src/parse.ts`, `prompt.ts` | Builds the prompt, calls an OpenAI-compatible endpoint, normalises the reply |
+| Engine client | `apps/api/src/engine-client.ts` | Resolves which model to use — tenant settings first, environment as a fallback — and turns a failure into the manual queue |
 | Entity resolver | `apps/api/src/entity-resolve.ts` | Maps raw text spans to tenant-scoped DB rows |
 | Worker | `apps/api/src/messaging-worker.ts` | Polls queued messages every 4s, orchestrates the pipeline |
 | Router | `packages/api-contracts/src/routers/messaging.ts` | `listChannels`, `messages`, `send`, `confirmAction`, `manualEntry`, `pendingActions`, `feed` |
 | Suggest | `packages/api-contracts/src/routers/entity.ts` | Typeahead across assets, employees, projects, locations, vehicles |
 | Web UI | `apps/web/components/ai-chat.tsx`, `apps/web/app/d02/verification/page.tsx` | Chat surface and the admin review queue |
 
-The engine is a **separate process**, stateless, holding no database credentials.
+There is no separate parser process. There was one — a Python FastAPI sidecar on
+port 4600 — and it was removed once it became clear nothing had called it in some
+time: the API talks to the model directly. It had also grown its own copy of the
+valid-intent list, so adding an intent meant editing two parsers, one of which
+did nothing.
+
+Model configuration is per tenant, in `tenant_settings`, editable at **Settings →
+Chat parser** and encrypted at rest. The environment variables (`LLM_BASE_URL`,
+`LLM_MODEL`, `LLM_API_KEY`) are a development fallback only.
 
 ## 3. Message state machine
 
@@ -62,7 +70,8 @@ The engine is a **separate process**, stateless, holding no database credentials
 2. The worker claims a batch of 5 (`BATCH_SIZE`), flips them to `processing`.
 3. It builds **foreman context**: name, role, primary project, current location, every active
    assignment they hold, and the last 10 messages in the channel.
-4. It calls the engine with the message body plus that context.
+4. It looks the tenant's model configuration up and calls the parser with the message
+   body plus that context.
 5. Routing on the response:
    - **`task` intent** → insert a `task` row, status `action_executed`. No confirmation.
    - **confidence < 0.6, or intent `none`, or no assets named** → `pending_manual`.
@@ -76,19 +85,22 @@ The engine is a **separate process**, stateless, holding no database credentials
 |---|---|---|
 | `>= 0.6` and intent ≠ `none` | eligible to proceed | `messaging-worker.ts` |
 | `needsConfirmation = false` **and** all entities resolved | eligible to auto-execute | `messaging-worker.ts` |
-| `>= 0.9` with all entities present | the engine itself sets `needsConfirmation = false` | `engine/prompts/system.md` |
+| `>= 0.9` with all entities present | the model sets `needsConfirmation = false` | `packages/intent/src/prompt.ts` |
 
 ## 4. Intents
 
-Nine, from `engine/prompts/system.md`:
+Ten, declared in `packages/intent/src/catalog.ts`. To add one, see
+`docs/08-custom-intents.md` — it is a single entry there, plus a `case` in the
+executor only if the intent changes the register.
 
 | Intent | Meaning | Execution today |
 |---|---|---|
 | `assign` | first hand-off / check-out to a foreman | on confirm: inserts `assignment`, updates projection, appends `assign` transaction |
 | `return` | tool comes back to the yard | on confirm: closes the assignment, appends `return` transaction |
 | `transfer` | move between foremen or projects | on confirm: inserts `transfer`, updates projection, appends `transfer` transaction |
-| `lost` | tool is missing | **not executed** — see §7 |
-| `repair` | broken / needs maintenance | **not executed** — see §7 |
+| `lost` | tool is missing | on confirm: sets status `lost`, appends a `lost` transaction |
+| `repair` | broken / needs maintenance | on confirm: closes custody, sets `in_maintenance`, appends `repair_start` |
+| `intake` | register a tool the company already has | on confirm: inserts the asset and its opening `tag` transaction |
 | `request_purchase` | "we need another one" | **not executed** — blocked on the procurement module |
 | `report` | general note about a tool | auto-executes: appends a `status_change` transaction carrying the note |
 | `task` | work item that is not a custody event | auto-executes: creates a `task` row |
@@ -96,13 +108,13 @@ Nine, from `engine/prompts/system.md`:
 
 ### Department routing
 
-`determineDepartment` tags each proposed action with an owning desk — Maintenance (`repair`),
+`departmentForAction` tags each proposed action with an owning desk — Maintenance (`repair`),
 Warehouse (`return`), Procurement (`request_purchase`), Fleet (`assign`/`transfer` where the
 asset label looks like a truck or trailer), otherwise Equipment Admin or Equipment Yard.
 
 ## 5. The entity-resolution contract
 
-**The LLM never returns database IDs.** `engine/prompts/system.md` instructs it to emit only
+**The LLM never returns database IDs.** The generated prompt instructs it to emit only
 raw text spans and best-guess labels:
 
 ```json
@@ -155,21 +167,31 @@ not design choices:
 4. **No `FOR UPDATE SKIP LOCKED`** on the worker's claim query (Drizzle 0.36.4 limitation).
    Single-instance safe; multi-instance may double-process.
 5. **No streaming and no caching** — every message is a fresh LLM call.
-6. **Context window is the first 10 messages in the channel, ascending**, i.e. the *oldest*
-   ten, not the most recent — so channel context stops being relevant once a channel has any
-   history.
+6. **Context window is the 10 most recent messages in the channel.** (Was the oldest ten,
+   which meant channel context froze at whatever was said first.)
 7. **`source_message_id` on `task` has no FK** to `message`.
 
 ## 8. Configuration
 
+Model configuration is per tenant and lives in the database, not the environment:
+**Settings → Chat parser** sets the base URL, model name, API key (encrypted at
+rest, never returned to the browser) and timeout. **Test connection** there runs
+the real prompt over a real sentence and shows the parse, because a live key and
+a usable parser are different claims.
+
+The environment variables below are a fallback for local development only, used
+when a tenant has configured nothing:
+
 | Variable | Purpose |
 |---|---|
-| `ENGINE_BASE_URL` | where the API reaches the parser (default port 4600) |
-| `ENGINE_TIMEOUT_MS` | per-parse timeout |
+| `LLM_BASE_URL` | OpenAI-compatible endpoint, ending in `/v1` |
+| `LLM_MODEL` | model name exactly as the provider names it |
+| `LLM_API_KEY` | bearer token |
+| `LLM_TIMEOUT_MS` | per-parse timeout |
 | `LLM_API_KEY` | passed through to the OpenAI-compatible endpoint |
 | `MOBILE_ORIGIN` | CORS origin for the Expo client |
 
-> The engine is **not** a service in `docker-compose.yml` (which defines postgres, api, web
+> OBSOLETE: The engine is **not** a service in `docker-compose.yml` (which defines postgres, api, web
 > only). In a containerized run the worker cannot reach the parser, so every message lands in
 > `pending_manual` and chat degrades to a manual-entry queue with no error surfaced to the
 > user. Add the service, or run the engine on the host, before demoing chat.

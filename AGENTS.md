@@ -45,7 +45,8 @@ WhatsApp threads buried under other messages. The result:
 - **API:** Hono + tRPC (Node 22+). tRPC is the single API surface — see ADR-2.
 - **Web:** Next.js 15 + shadcn (routes live under `apps/web/app/(app)/`)
 - **Mobile:** Expo Router (React Native) — shell only; Flutter is dropped, see ADR-3
-- **Intent engine:** Python FastAPI sidecar (port 4600) calling an OpenAI-compatible LLM
+- **Chat parser:** in-process (`packages/intent`), calling an OpenAI-compatible LLM
+  configured per tenant at Settings → Chat parser
 - **DB:** Postgres 16 + Drizzle ORM
 - **Auth:** Lucia-style sessions + tenant-scoped RBAC
 - **Monorepo:** pnpm workspaces + Turbo
@@ -60,7 +61,6 @@ apps/
   web/          Next.js 15 dashboard (routes under app/(app)/)
   mobile/       Expo Router app — tabs (my tools / hand-off / alerts), tool detail,
                 action forms, @-mention input. No QR scan, no offline queue.
-engine/         Python FastAPI intent parser (POST /parse, port 4600)
 packages/
   api-contracts/   tRPC routers (identity, dashboard, asset, assignment, transfer,
                    vehicle, report, messaging, entity, task, …)
@@ -68,6 +68,8 @@ packages/
   db/              Drizzle schema + seed (Postgres)
   design-system/   Shared tokens (colors, spacing, radii, typography) + tailwind preset
   domain/          Event-sourcing fold + custody rules (pure)
+  intent/          Intent catalog, generated LLM prompt, parser — the one place
+                   an intent is declared; see docs/08-custom-intents.md
   env/             Zod-validated env loader
   frontend-shared/ Cross-client auth + API helpers (REST client — retired under ADR-2)
   logger/          pino logger
@@ -76,7 +78,7 @@ packages/
   config-tsconfig/ Shared tsconfig presets
 prototype/           Single-file no-build UI mockup — design reference for the
                      Tool Register redesign; see prototype/README.md and HANDOFF.md
-docker-compose.yml   Postgres + API + Web + engine (dev)
+docker-compose.yml   Postgres + API + Web (dev)
 docker-compose.prod.yml  Production stack — see §12
 Makefile             ENV-driven: up / seed / logs / psql / test
 ```
@@ -226,7 +228,7 @@ make ENV=local seed    # load sample data
 - **Tests.** 59, in `packages/domain` (custody rules + the event-fold rebuild guarantee),
   `packages/types` (the @ parser) and `packages/api-contracts` (the permission map).
   `pnpm test`. The fold tests pin the partial-`toState` bug that shipped twice.
-- **Production images.** `docker/Dockerfile.{api,web,engine}` + `docker-compose.prod.yml`.
+- **Production images.** `docker/Dockerfile.{api,web}` + `docker-compose.prod.yml`.
   The API is bundled with esbuild (`apps/api/build.mjs`) because every workspace package
   exports raw `.ts` — `tsc && node dist/index.js` never worked. Web uses Next standalone.
 - **CI.** `.github/workflows/ci.yml` — typecheck, test, all three image builds, and a smoke

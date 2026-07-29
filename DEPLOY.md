@@ -35,13 +35,13 @@ private Docker network and is unreachable from the internet.
       │  (Hono)    │                    │ (Next.js)  │
       └──────┬─────┘                    └────────────┘
              │
-      ┌──────┴──────┬───────────────┐
-      ▼             ▼               ▼
-┌──────────┐  ┌──────────┐   (SMTP / SMS,
-│ postgres │  │  engine  │    unconfigured)
-│  :5432   │  │  :4600   │
-└──────────┘  └──────────┘
-   internal      internal
+      ┌──────┴──────────────────────┐
+      ▼                             ▼
+┌──────────┐              ┌────────────────────┐
+│ postgres │              │ LLM provider (per  │
+│  :5432   │              │ tenant, Settings)  │
+└──────────┘              └────────────────────┘
+   internal                       outbound
 ```
 
 | Path | Goes to | Why |
@@ -57,9 +57,13 @@ matters — the browser is never told to trust a second origin with a session
 token. `NEXT_PUBLIC_API_URL` is therefore just `https://urban.bodhitechlabs.com`,
 baked into the web bundle at build time.
 
-**Not reachable from outside:** `postgres` and `engine` publish no host ports at
-all. They are addressable only as `postgres:5432` / `engine:4600` on the compose
-network. The firewall allows 22, 80 and 443 and nothing else.
+**Not reachable from outside:** `postgres` publishes no host ports at all. It is
+addressable only as `postgres:5432` on the compose network. The firewall allows
+22, 80 and 443 and nothing else.
+
+The chat parser is not a service here. It was — a Python sidecar on :4600 — and
+it was removed once it turned out nothing called it. The API calls the tenant's
+configured model directly, outbound over 443.
 
 ---
 

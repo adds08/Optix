@@ -167,10 +167,9 @@ cd apps/mobile && EXPO_PUBLIC_API_URL=http://localhost:4100 pnpm dev
 ```
 Requires Expo CLI + iOS Simulator / Android emulator.
 
-**AI Engine** — http://localhost:4600 (Python, uvicorn)
-```bash
-cd engine && .venv/bin/uvicorn main:app --port 4600 --reload
-```
+**Chat parser** — no separate process. Configure a model at **Settings → Chat
+parser** (any OpenAI-compatible endpoint) and use **Test connection** to confirm
+it can parse a real sentence before relying on it.
 
 ### Login
 
@@ -211,7 +210,6 @@ STInventory/
 │   ├── api/          Hono + tRPC + auth + notification scheduler + messaging worker
 │   ├── web/          Next.js 15 dashboard (routes under /d02)
 │   └── mobile/       Expo Router app — shell only (login + index)
-├── engine/           Python FastAPI intent parser (POST /parse, port 4600)
 ├── packages/
 │   ├── api-contracts/   tRPC routers (identity, dashboard, asset, assignment, transfer,
 │   │                    vehicle, report, messaging, entity, task, …)
@@ -219,6 +217,7 @@ STInventory/
 │   ├── db/              Drizzle schema + seed (Postgres)
 │   ├── design-system/   Shared tokens + tailwind preset
 │   ├── domain/          Event-sourcing fold + custody rules (pure)
+│   ├── intent/          Intent catalog + generated LLM prompt + parser (pure + fetch)
 │   ├── env/             Zod-validated env loader
 │   ├── frontend-shared/ Cross-client auth + API helpers
 │   ├── logger/          pino logger
@@ -226,7 +225,7 @@ STInventory/
 │   ├── config-eslint/   Shared ESLint flat config
 │   └── config-tsconfig/ Shared tsconfig presets
 ├── prototype/           Single-file no-build UI prototype
-├── docker-compose.yml   Postgres + API + Web (the engine is NOT a service — run it on the host)
+├── docker-compose.yml   Postgres + API + Web
 └── Makefile             ENV-driven: up/down/seed/logs/psql/test
 ```
 

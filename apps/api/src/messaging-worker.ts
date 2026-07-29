@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import type { ServerEnv } from "@stinventory/env";
@@ -154,15 +154,19 @@ async function processOne(
     }
   }
 
+  /* Newest ten, then flipped back into reading order.
+     This was ascending, which took the OLDEST ten in the channel — so the
+     "recent messages" the model saw were frozen at whatever was said first and
+     stopped being relevant the moment a channel had any history. */
   const recent = await db
     .select({ body: schema.message.body })
     .from(schema.message)
     .where(
       and(eq(schema.message.channelId, msg.channelId), eq(schema.message.tenantId, tid)),
     )
-    .orderBy(asc(schema.message.createdAt))
+    .orderBy(desc(schema.message.createdAt))
     .limit(10);
-  const recentMessages = recent.map((r) => r.body);
+  const recentMessages = recent.map((r) => r.body).reverse();
 
   /* Model configuration lives in tenant_settings so it can be changed from the
      settings page without a redeploy. Null means the tenant has not configured
