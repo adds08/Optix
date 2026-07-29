@@ -10,9 +10,15 @@ RUN corepack enable && corepack prepare pnpm@9.11.0 --activate
 WORKDIR /workspace
 
 FROM base AS deps
+# Manifests only, so `pnpm install` is cached against dependency changes rather
+# than source changes. The cost of that is this list: a NEW WORKSPACE PACKAGE
+# MUST BE ADDED HERE or pnpm never links it, and the build fails much later
+# with a misleading "Cannot find module '@stinventory/types'" from inside the
+# package that was missed.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/db/package.json packages/db/
 COPY packages/domain/package.json packages/domain/
+COPY packages/intent/package.json packages/intent/
 COPY packages/api-contracts/package.json packages/api-contracts/
 COPY packages/auth/package.json packages/auth/
 COPY packages/env/package.json packages/env/
