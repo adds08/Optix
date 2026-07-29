@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { extractJson, normalizeDraft, normalizeResponse } from "./parse.js";
+import { afterEach, describe, expect, it } from "vitest";
+import { extractJson, normalizeDraft, normalizeResponse, parseIntent } from "./parse.js";
 
 /*
   Everything here is about not trusting the model's output shape.
@@ -99,5 +99,102 @@ describe("normalizeResponse", () => {
     expect(
       normalizeResponse({ intent: "assign", entities: { assets: [{}, null, "x"] } }).entities.assets,
     ).toEqual([]);
+  });
+});
+
+/*
+  The retry ladder.
+
+  Every one of these is a real 400 from a real provider. They matter because
+  the failure mode without them is indistinguishable from a bad API key: the
+  desk sees "provider returned 400", concludes the key is wrong, and pastes it
+  again.
+*/
+describe("parseIntent parameter fixups", () => {
+  const llm = { baseUrl: "https://x.test/v1", model: "m", apiKey: "k" };
+  const input = {
+    message: "returning UIC-1002 to the yard",
+    context: {
+      foremanName: "T", foremanRole: "foreman", currentAssignments: [],
+      primaryProject: "", currentLocation: "", recentMessages: [],
+    },
+  };
+
+  const ok = {
+    ok: true,
+    json: async () => ({
+      choices: [{ message: { content: '{"intent":"return","confidence":0.9}' } }],
+    }),
+  };
+  const reject = (msg: string) => ({ ok: false, status: 400, text: async () => msg });
+
+  /** Records every body sent, and answers from a scripted queue. */
+  function stubFetch(queue: unknown[]) {
+    const bodies: Record<string, unknown>[] = [];
+    const fn = async (_url: string, init: { body: string }) => {
+      bodies.push(JSON.parse(init.body));
+      return queue.shift() as Response;
+    };
+    globalThis.fetch = fn as unknown as typeof fetch;
+    return bodies;
+  }
+
+  const realFetch = globalThis.fetch;
+  afterEach(() => { globalThis.fetch = realFetch; });
+
+  it("drops response_format when the provider rejects it", async () => {
+    const bodies = stubFetch([
+      reject("Invalid parameter: 'response_format' is not supported"),
+      ok,
+    ]);
+    const r = await parseIntent(llm, input);
+    expect(r.intent).toBe("return");
+    expect(bodies[0]).toHaveProperty("response_format");
+    expect(bodies[1]).not.toHaveProperty("response_format");
+  });
+
+  it("drops temperature for a model that only accepts the default", async () => {
+    /* gpt-5-nano and the rest of the reasoning line. This is the cheap model
+       somebody reaches for first, so it has to work. */
+    const bodies = stubFetch([
+      reject("Unsupported value: 'temperature' does not support 0.1"),
+      ok,
+    ]);
+    await parseIntent(llm, input);
+    expect(bodies[0]).toHaveProperty("temperature");
+    expect(bodies[1]).not.toHaveProperty("temperature");
+  });
+
+  it("renames max_tokens rather than dropping the cap", async () => {
+    const bodies = stubFetch([
+      reject("'max_tokens' is not supported, use 'max_completion_tokens'"),
+      ok,
+    ]);
+    await parseIntent(llm, input);
+    expect(bodies[0]).toHaveProperty("max_tokens");
+    expect(bodies[1]).not.toHaveProperty("max_tokens");
+    expect(bodies[1]!.max_completion_tokens).toBe(1024);
+  });
+
+  it("climbs the whole ladder when a provider objects to everything", async () => {
+    const bodies = stubFetch([
+      reject("'response_format' unsupported"),
+      reject("'temperature' unsupported"),
+      reject("use 'max_completion_tokens'"),
+      ok,
+    ]);
+    const r = await parseIntent(llm, input);
+    expect(r.intent).toBe("return");
+    expect(bodies).toHaveLength(4);
+  });
+
+  it("gives up rather than looping on a 400 it cannot fix", async () => {
+    stubFetch([reject("insufficient quota"), ok]);
+    await expect(parseIntent(llm, input)).rejects.toThrow(/400/);
+  });
+
+  it("does not retry a 401 — a bad key is not a parameter problem", async () => {
+    stubFetch([{ ok: false, status: 401, text: async () => "invalid api key" }, ok]);
+    await expect(parseIntent(llm, input)).rejects.toThrow(/401/);
   });
 });
