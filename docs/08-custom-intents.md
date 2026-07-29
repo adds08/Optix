@@ -99,6 +99,29 @@ A model that answers `none` to a worked example will answer `none` to the
 field. The test reports that as a failure rather than as a successful
 connection, because a live API key and a usable parser are different claims.
 
+### Which model
+
+Measured against DigitalOcean inference on 2026-07-30, parsing "gave the rotary
+hammer UIC-1012 to Dave for the bridge job":
+
+| Model | Result | Latency |
+|---|---|---|
+| `openai-gpt-4o-mini` | `assign`, all three entities correct | ~2s |
+| `llama3.3-70b-instruct` | `assign`, all three entities correct | ~6s |
+| `openai-gpt-5-nano` | `transfer` — wrong, at 0.95 confidence | ~16s |
+
+`openai-gpt-4o-mini` is what the deployment uses. Avoid the reasoning models
+(`gpt-5-nano` and relatives): they spend the whole token budget deliberating
+and return empty content, which needed a dedicated retry to work around at all,
+and then get the answer wrong anyway. Confidently wrong is worse here than
+slow — a 0.95 on the wrong intent is above the auto-execute threshold.
+
+**On timeouts:** `llmTimeoutMs` is a budget for the *whole* parse including any
+parameter retries, not per attempt. That is deliberate — one message must not
+be able to occupy a worker indefinitely — but it means a slow model can run out
+of room mid-retry. 30s is the deployed value; 15s was tight enough that a
+single slow provider response failed a parse that would otherwise have worked.
+
 ## What is deliberately not configurable
 
 The intent list is code, not data. It could live in the database and be edited
