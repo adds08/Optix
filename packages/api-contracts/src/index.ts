@@ -2,6 +2,7 @@ import { router } from "./trpc.js";
 import { identityRouter } from "./routers/identity.js";
 import { dashboardRouter } from "./routers/dashboard.js";
 import { assetRouter } from "./routers/asset.js";
+import { categoryRouter } from "./routers/category.js";
 import { projectRouter, employeeRouter } from "./routers/project.js";
 import { locationRouter, vehicleRouter } from "./routers/location.js";
 import { assignmentRouter } from "./routers/assignment.js";
@@ -22,6 +23,7 @@ export const appRouter = router({
   identity: identityRouter,
   dashboard: dashboardRouter,
   asset: assetRouter,
+  category: categoryRouter,
   project: projectRouter,
   employee: employeeRouter,
   location: locationRouter,

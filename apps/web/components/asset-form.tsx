@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CategorySelect } from "@/components/category-select";
 
 /*
   One dialog for both jobs.
@@ -105,7 +106,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Category</label>
-            <Input value={categoryName} onChange={(e) => setCategoryName(e.target.value)} />
+            <CategorySelect value={categoryName} onChange={setCategoryName} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Boxes, LayoutGrid, Rows3 } from "lucide-react";
+import { ArrowUpDown, Boxes, Columns3, LayoutGrid, Rows3 } from "lucide-react";
 import { DEFAULT_HIGH_VALUE_THRESHOLD } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap } from "@/components/sti/page";
@@ -13,8 +13,14 @@ import { AssetCard } from "@/components/sti/asset-card";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
 import { AssetForm, type AssetEditable } from "@/components/asset-form";
-import { AssetActions } from "@/components/asset-actions";
-import { RowActions } from "@/components/sti/row-actions";
+import { ToolMenu } from "@/components/tool-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -87,6 +93,143 @@ export default function ToolsPage() {
 
   const rows = useMemo(() => all.filter((r) => matches(r)), [all, matches]);
 
+  /*
+    Columns as data, so sorting and hiding are one mechanism rather than nine
+    special cases. `sortValue` is separate from `cell` because what you read and
+    what you order by are not the same thing — a status pill sorts by its raw
+    value, a cost sorts as a number and not as "$1,299.00".
+  */
+  type Row = (typeof all)[number];
+  type Col = {
+    key: string;
+    label: string;
+    cell: (r: Row) => React.ReactNode;
+    sortValue?: (r: Row) => string | number;
+    numeric?: boolean;
+    sortable?: boolean;
+    /* Off unless asked for. The table showed nine columns at once and the ones
+       that answer "where is it and who has it" were competing with serial
+       numbers nobody scans down. */
+    optional?: boolean;
+  };
+
+  const COLUMNS: Col[] = useMemo(
+    () => [
+      {
+        key: "tag",
+        label: "Tag",
+        sortValue: (r) => r.tag,
+        cell: (r) => (
+          <Link href={`/tools/${r.id}`} className="hover:underline">
+            <Tag>{r.tag}</Tag>
+          </Link>
+        ),
+      },
+      {
+        key: "model",
+        label: "Tool",
+        sortValue: (r) => r.modelName,
+        cell: (r) => (
+          <Link href={`/tools/${r.id}`} className="font-medium hover:underline">
+            {r.modelName}
+          </Link>
+        ),
+      },
+      {
+        key: "category",
+        label: "Category",
+        sortValue: (r) => r.categoryName ?? "",
+        cell: (r) => r.categoryName ?? <span className="text-muted-foreground">—</span>,
+      },
+      {
+        key: "status",
+        label: "Status",
+        sortValue: (r) => r.status,
+        cell: (r) => <StatusPill status={r.status} />,
+      },
+      {
+        key: "holder",
+        label: "Holder",
+        sortValue: (r) => r.custodianName ?? "",
+        cell: (r) => r.custodianName ?? <span className="text-muted-foreground">In the yard</span>,
+      },
+      {
+        key: "location",
+        label: "Where",
+        sortValue: (r) => r.locationName ?? "",
+        cell: (r) => r.locationName ?? <span className="text-muted-foreground">—</span>,
+      },
+      {
+        key: "project",
+        label: "Project",
+        sortValue: (r) => r.currentProjectName ?? "",
+        cell: (r) => r.currentProjectName ?? <span className="text-muted-foreground">—</span>,
+      },
+      {
+        key: "cost",
+        label: "Cost",
+        numeric: true,
+        sortValue: (r) => Number(r.acquisitionCost ?? 0),
+        cell: (r) => (
+          <span className={isHighValue(r) ? "font-semibold" : "text-muted-foreground"}>
+            {money(r.acquisitionCost)}
+          </span>
+        ),
+      },
+      {
+        key: "flags",
+        label: "Flags",
+        sortable: false,
+        optional: true,
+        cell: (r) => <FlagBadges asset={r} />,
+      },
+      {
+        key: "serial",
+        label: "Serial",
+        optional: true,
+        sortValue: (r) => r.serialNumber ?? "",
+        cell: (r) => (
+          <span className="font-mono text-xs text-muted-foreground">{r.serialNumber ?? "—"}</span>
+        ),
+      },
+      {
+        key: "owning",
+        label: "Charged to",
+        optional: true,
+        sortValue: (r) => r.owningProjectName ?? "",
+        cell: (r) => r.owningProjectName ?? <span className="text-muted-foreground">—</span>,
+      },
+    ],
+    [],
+  );
+
+  const [hidden, setHidden] = useState<Set<string>>(
+    () => new Set(COLUMNS.filter((c) => c.optional).map((c) => c.key)),
+  );
+  const visibleCols = COLUMNS.filter((c) => !hidden.has(c.key));
+
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({ key: "tag", dir: "asc" });
+  const toggleSort = (key: string) =>
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+
+  const sorted = useMemo(() => {
+    const col = COLUMNS.find((c) => c.key === sort.key);
+    if (!col?.sortValue) return rows;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = col.sortValue!(a);
+      const bv = col.sortValue!(b);
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+      /* Empty cells last whichever way the column is pointing — a blank is not
+         a value that belongs at the top of an ascending sort. */
+      const as = String(av);
+      const bs = String(bv);
+      if (!as && bs) return 1;
+      if (as && !bs) return -1;
+      return as.localeCompare(bs) * dir;
+    });
+  }, [rows, sort, COLUMNS]);
+
   const categories = useMemo(
     () => Array.from(new Set(all.map((r) => r.categoryName).filter((c): c is string => !!c))).sort(),
     [all],
@@ -127,31 +270,28 @@ export default function ToolsPage() {
     })),
   ];
 
-  const rowActionsFor = (r: (typeof all)[number]) => (
-    <RowActions
-      perm="asset.manage"
-      label={r.tag}
-      /* Assign / Transfer / Return, the same control the detail
-         page uses — so acting on a tool no longer means opening
-         it first. */
-      extra={<AssetActions assetId={r.id} assetTag={r.tag} heldBySomeone={!!r.custodianId} />}
-      onEdit={() =>
-        setEditing({
-          id: r.id,
-          tag: r.tag,
-          modelName: r.modelName,
-          categoryName: r.categoryName,
-          serialNumber: r.serialNumber,
-          quantity: r.quantity,
-          acquisitionCost: r.acquisitionCost,
-          acquisitionDate: r.acquisitionDate,
-          condition: r.condition,
-          owningProjectId: r.owningProjectId,
-        })
-      }
+  /* One shape for the edit dialog, used by the card menu and the table. */
+  const editableFrom = (r: (typeof all)[number]): AssetEditable => ({
+    id: r.id,
+    tag: r.tag,
+    modelName: r.modelName,
+    categoryName: r.categoryName,
+    serialNumber: r.serialNumber,
+    quantity: r.quantity,
+    acquisitionCost: r.acquisitionCost,
+    acquisitionDate: r.acquisitionDate,
+    condition: r.condition,
+    owningProjectId: r.owningProjectId,
+  });
+
+  const menuFor = (r: (typeof all)[number]) => (
+    <ToolMenu
+      assetId={r.id}
+      assetTag={r.tag}
+      heldBySomeone={!!r.custodianId}
+      onEdit={() => setEditing(editableFrom(r))}
       onDelete={() => remove.mutate({ id: r.id })}
-      deleting={remove.isPending}
-      error={failed?.id === r.id ? failed.message : null}
+      deleting={remove.isPending && failed?.id !== r.id}
     />
   );
 
@@ -224,7 +364,50 @@ export default function ToolsPage() {
               {rows.length !== all.length ? <> of <span className="tnum">{all.length}</span></> : null} tools
             </span>
 
-            <div className="ml-auto flex overflow-hidden rounded-sm border" role="group" aria-label="View mode">
+            {/* Column control belongs to the table, so it only exists there. */}
+            {mode === "table" ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="ml-auto flex items-center gap-1.5 rounded-sm border bg-card px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent">
+                  <Columns3 className="size-3.5" aria-hidden />
+                  Columns
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuLabel>Show</DropdownMenuLabel>
+                  {COLUMNS.map((c) => {
+                    const shown = !hidden.has(c.key);
+                    return (
+                      <DropdownMenuItem
+                        key={c.key}
+                        onSelect={(e) => {
+                          /* Keep it open — picking columns is several decisions,
+                             not one. */
+                          e.preventDefault();
+                          setHidden((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(c.key)) next.delete(c.key);
+                            else next.add(c.key);
+                            return next;
+                          });
+                        }}
+                      >
+                        <span
+                          className={cn(
+                            "flex size-3.5 items-center justify-center rounded-[3px] border text-[9px]",
+                            shown ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                          )}
+                          aria-hidden
+                        >
+                          {shown ? "\u2713" : ""}
+                        </span>
+                        {c.label}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+
+            <div className={cn("flex overflow-hidden rounded-sm border", mode !== "table" && "ml-auto")} role="group" aria-label="View mode">
               {([["cards", "Cards", LayoutGrid], ["table", "Table", Rows3]] as const).map(([k, label, Icon]) => (
                 <button
                   key={k}
@@ -267,61 +450,81 @@ export default function ToolsPage() {
           ) : mode === "cards" ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {rows.map((r) => (
-                <AssetCard key={r.id} row={r} actions={rowActionsFor(r)} />
+                <AssetCard key={r.id} row={r} actions={menuFor(r)} />
               ))}
             </div>
           ) : (
             <TableWrap>
               <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/50">
-                    {["Tag", "Model", "Status", "Flags", "Held by", "On project", "Location", "Cost", ""].map((h, i) => (
-                      <th key={h || "actions"} className={cn("label-xs px-4 py-2.5 text-left", i >= 7 && "text-right")}>
-                        {h}
+                <thead className="sticky top-0 z-10 bg-card">
+                  <tr className="border-b">
+                    {visibleCols.map((c) => (
+                      <th
+                        key={c.key}
+                        scope="col"
+                        className={cn(
+                          "label-xs whitespace-nowrap px-3 py-2 text-left font-medium",
+                          c.numeric && "text-right",
+                        )}
+                      >
+                        {c.sortable === false ? (
+                          c.label
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => toggleSort(c.key)}
+                            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                          >
+                            {c.label}
+                            <ArrowUpDown
+                              className={cn(
+                                "size-3",
+                                sort.key === c.key ? "text-foreground" : "text-muted-foreground/40",
+                              )}
+                              aria-hidden
+                            />
+                            <span className="sr-only">
+                              {sort.key === c.key
+                                ? `sorted ${sort.dir === "asc" ? "ascending" : "descending"}`
+                                : "not sorted"}
+                            </span>
+                          </button>
+                        )}
                       </th>
                     ))}
+                    <th scope="col" className="w-10 px-2 py-2" />
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => {
+                  {sorted.map((r) => {
                     const heavy = isHighValue(r);
                     return (
-                      <tr key={r.id} className="border-b last:border-0 hover:bg-muted/40">
-                        {/* The same quiet edge the card uses, so the two views
-                            agree about what "expensive" looks like. */}
-                        <td className={cn("px-4 py-2.5", heavy && "shadow-[inset_2px_0_0_var(--primary)]")}>
-                          <Link href={`/tools/${r.id}`} className="hover:underline">
-                            <Tag>{r.tag}</Tag>
-                          </Link>
+                      <tr
+                        key={r.id}
+                        /* Zebra rather than a rule under every row: at this
+                           density the lines were doing more work than the data. */
+                        className="border-b border-border/40 last:border-0 odd:bg-muted/20 hover:bg-accent/40"
+                      >
+                        {visibleCols.map((c) => (
+                          <td
+                            key={c.key}
+                            className={cn(
+                              "px-3 py-2 align-middle",
+                              c.numeric && "text-right tnum",
+                              c.key === "tag" && heavy && "shadow-[inset_2px_0_0_var(--primary)]",
+                            )}
+                          >
+                            {c.cell(r)}
+                          </td>
+                        ))}
+                        <td className="px-2 py-2 text-right">
+                          <ToolMenu
+                            assetId={r.id}
+                            assetTag={r.tag}
+                            heldBySomeone={!!r.custodianId}
+                            onEdit={() => setEditing(editableFrom(r))}
+                          />
                         </td>
-                        <td className="px-4 py-2.5">
-                          <Link href={`/tools/${r.id}`} className="font-medium hover:underline">
-                            {r.modelName}
-                          </Link>
-                          {r.categoryName ? (
-                            <span className="block text-xs text-muted-foreground">{r.categoryName}</span>
-                          ) : null}
-                        </td>
-                        <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
-                        <td className="px-4 py-2.5"><FlagBadges asset={r} /></td>
-                        <td className="px-4 py-2.5">
-                          {r.custodianName ?? <span className="text-muted-foreground">In warehouse</span>}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          {r.currentProjectName ?? <span className="text-muted-foreground">—</span>}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          {r.locationName ?? <span className="text-muted-foreground">—</span>}
-                        </td>
-                        <td
-                          className={cn(
-                            "px-4 py-2.5 text-right tnum",
-                            heavy ? "font-semibold" : "text-muted-foreground",
-                          )}
-                        >
-                          {money(r.acquisitionCost)}
-                        </td>
-                        <td className="px-4 py-2.5">{rowActionsFor(r)}</td>
                       </tr>
                     );
                   })}

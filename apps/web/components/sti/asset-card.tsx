@@ -47,11 +47,10 @@ export function AssetCard({ row, actions }: { row: AssetCardRow; actions?: React
         heavy && "border-l-2 border-l-primary/60",
       )}
     >
-      {actions ? (
-        <div className="absolute right-1.5 top-1.5 z-10 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-          {actions}
-        </div>
-      ) : null}
+      {/* Always drawn. This was `opacity-0 group-hover:opacity-100`, which is
+          not a gesture on a touch screen and, on the desk, hid the actions
+          until the pointer happened to be over the right card. */}
+      {actions ? <div className="absolute right-1.5 top-1.5 z-10">{actions}</div> : null}
 
       <Link href={`/tools/${row.id}`} className="flex flex-1 flex-col">
         {row.photoUrl ? (
