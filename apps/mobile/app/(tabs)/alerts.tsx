@@ -31,6 +31,13 @@ export default function AlertsScreen() {
     { ...live, enabled: !!myEmployeeId },
   );
   const notifications = trpc.notification.list.useQuery(undefined, live);
+  /* Read-only by design: the desk approves, the foreman needs to know it is
+     sitting there. Especially outbound — a tool handed over in the yard is
+     still on this person's name until the desk clears it. */
+  const waiting = trpc.dashboard.awaitingDesk.useQuery(
+    { employeeId: myEmployeeId },
+    { ...live, enabled: !!myEmployeeId },
+  );
   const utils = trpc.useUtils();
 
   const markRead = trpc.notification.markRead.useMutation({
@@ -39,13 +46,14 @@ export default function AlertsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([overdue.refetch(), notifications.refetch()]);
+    await Promise.all([overdue.refetch(), notifications.refetch(), waiting.refetch()]);
     setRefreshing(false);
-  }, [overdue, notifications]);
+  }, [overdue, notifications, waiting]);
 
   const loans = overdue.data ?? [];
   const notes = (notifications.data ?? []).filter((n) => !n.readAt);
-  const nothing = !loans.length && !notes.length;
+  const pending = waiting.data ?? [];
+  const nothing = !loans.length && !notes.length && !pending.length;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -103,6 +111,51 @@ export default function AlertsScreen() {
                     </View>
                   </Card>
                 ))}
+              </View>
+            ) : null}
+
+            {/*
+              Sitting with the desk. No buttons: the desk approves, and a
+              foreman does not hold transfer.approve. Showing it anyway is the
+              point — the outbound rows say "you are still the custodian of
+              record", which is the thing a foreman would otherwise get wrong
+              after physically handing a tool to somebody.
+            */}
+            {pending.length ? (
+              <View className="gap-3">
+                <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  With the equipment desk
+                </Text>
+                {pending.map((p) => {
+                  const outgoing = p.direction === "outgoing";
+                  return (
+                    <Card key={`${p.kind}-${p.id}`} className={outgoing ? "border-warn" : ""}>
+                      <View className="gap-2">
+                        <View className="flex-row items-center justify-between">
+                          <Tag>{p.tag}</Tag>
+                          <View className="flex-row items-center gap-1">
+                            <Ionicons
+                              name={outgoing ? "hourglass-outline" : "arrow-down-circle-outline"}
+                              size={14}
+                              color={outgoing ? "#8A5A16" : "#69727E"}
+                            />
+                            <Text
+                              className={`text-[13px] font-semibold ${outgoing ? "text-warn" : "text-muted-foreground"}`}
+                            >
+                              {outgoing ? "Still yours" : "Coming to you"}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text className="text-[16px] font-semibold text-foreground">{p.modelName}</Text>
+                        <Text className="text-[13px] leading-5 text-muted-foreground">
+                          {outgoing
+                            ? `Waiting for the equipment desk to sign it over${p.otherPartyName ? ` to ${p.otherPartyName}` : ""}. It stays on your name until they do — keep track of where it actually is.`
+                            : `${p.otherPartyName ? `${p.otherPartyName} is handing this to you` : "The desk is assigning this to you"}. It shows up in My Tools once they sign it off — you are not responsible for it yet.`}
+                        </Text>
+                      </View>
+                    </Card>
+                  );
+                })}
               </View>
             ) : null}
 

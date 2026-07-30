@@ -1,4 +1,4 @@
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { byMostOverdue } from "@stinventory/domain";
@@ -156,6 +156,128 @@ export const dashboardRouter = router({
         )})`,
       );
   }),
+
+  /*
+    What the desk has not signed off yet, for one person, read-only.
+
+    Approvals belong to the desk — a foreman holds `transfer.create` but not
+    `transfer.approve`, and that is deliberate: accepting a $12k tool onto
+    somebody's name is the equipment department's call. But "the foreman cannot
+    approve it" was being implemented as "the foreman is not told about it",
+    which are different things and the second one costs custody accuracy.
+
+    The outbound direction is the one that matters. A foreman who hands a tool
+    to somebody in the yard believes they are rid of it; until the desk signs
+    the transfer off they are still the custodian of record, and they are the
+    only person who can tell you where the tool physically is. A screen that
+    says "still yours until the desk clears it" is the difference between a
+    stale record somebody can explain and one nobody can.
+
+    Deliberately has no mutations. This is a window onto the desk's queue, not
+    a back door into it.
+  */
+  awaitingDesk: protectedProcedure
+    .input(z.object({ employeeId: z.string().uuid().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const empId = input?.employeeId ?? ctx.session.employeeId;
+      /* No employee record means no custody, so nothing here can apply. */
+      if (!empId) return [];
+
+      const transfers = await ctx.db
+        .select({
+          id: schema.transfer.id,
+          assetId: schema.transfer.assetId,
+          tag: schema.asset.tag,
+          modelName: schema.asset.modelName,
+          fromCustodianId: schema.transfer.fromCustodianId,
+          toCustodianId: schema.transfer.toCustodianId,
+          createdAt: schema.transfer.createdAt,
+        })
+        .from(schema.transfer)
+        .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
+        .where(
+          and(
+            eq(schema.transfer.tenantId, tid),
+            eq(schema.transfer.status, "pending_approval"),
+            or(
+              eq(schema.transfer.toCustodianId, empId),
+              eq(schema.transfer.fromCustodianId, empId),
+            ),
+          ),
+        );
+
+      const assignments = await ctx.db
+        .select({
+          id: schema.assignment.id,
+          assetId: schema.assignment.assetId,
+          tag: schema.asset.tag,
+          modelName: schema.asset.modelName,
+          createdAt: schema.assignment.createdAt,
+        })
+        .from(schema.assignment)
+        .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
+        .where(
+          and(
+            eq(schema.assignment.tenantId, tid),
+            eq(schema.assignment.status, "pending_approval"),
+            eq(schema.assignment.custodianId, empId),
+          ),
+        );
+
+      /* Names in one pass rather than a self-join with two aliases — at these
+         volumes the join buys nothing and costs readability. */
+      const otherIds = [
+        ...new Set(
+          transfers
+            .map((t) => (t.toCustodianId === empId ? t.fromCustodianId : t.toCustodianId))
+            .filter((id): id is string => !!id && id !== empId),
+        ),
+      ];
+      const names = otherIds.length
+        ? await ctx.db
+            .select({ id: schema.employee.id, name: schema.employee.name })
+            .from(schema.employee)
+            .where(and(eq(schema.employee.tenantId, tid), inArray(schema.employee.id, otherIds)))
+        : [];
+      const nameById = new Map(names.map((n) => [n.id, n.name]));
+
+      const rows = [
+        ...transfers.map((t) => {
+          const outbound = t.fromCustodianId === empId;
+          const otherId = outbound ? t.toCustodianId : t.fromCustodianId;
+          return {
+            id: t.id,
+            kind: "transfer" as const,
+            /* Outbound wins a tool that is somehow both, which would mean a
+               transfer to and from the same person — a no-op the executor
+               refuses, but the projection should not depend on that. */
+            direction: outbound ? ("outgoing" as const) : ("incoming" as const),
+            assetId: t.assetId,
+            tag: t.tag,
+            modelName: t.modelName,
+            otherPartyName: (otherId && nameById.get(otherId)) ?? null,
+            createdAt: t.createdAt,
+          };
+        }),
+        ...assignments.map((a) => ({
+          id: a.id,
+          kind: "assignment" as const,
+          direction: "incoming" as const,
+          assetId: a.assetId,
+          tag: a.tag,
+          modelName: a.modelName,
+          otherPartyName: null,
+          createdAt: a.createdAt,
+        })),
+      ];
+
+      /* Oldest first: the one that has been sitting longest is the one worth
+         asking the desk about. */
+      return rows.sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
+    }),
 
   pendingApprovals: protectedProcedure.query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
