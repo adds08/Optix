@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import type { Permission } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
 import { EntityPicker, type EntityValue } from "../../components/entity-picker";
-import { Button, Card, ErrorNote, Loading, StatusPill, Tag } from "../../components/ui";
+import { Button, Card, ErrorNote, Loading, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";
 
 /*
   The manual path, and the shape the chat confirm card will collapse into.
@@ -127,7 +127,8 @@ export default function ActionScreen() {
       keyboardVerticalOffset={40}
       className="flex-1 bg-background"
     >
-      <ScrollView contentContainerClassName="px-5 py-5 gap-5 pb-8" keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerClassName="px-5 py-5 gap-5 pb-8"
+        contentContainerStyle={SCREEN_CONTENT} keyboardShouldPersistTaps="handled">
         <View className="gap-1.5">
           <Text className="text-[22px] font-bold leading-7 text-foreground">{copy.title}</Text>
           <Text className="text-[15px] leading-5 text-muted-foreground">{copy.blurb}</Text>

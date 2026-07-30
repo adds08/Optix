@@ -3,7 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { trpc } from "../../lib/trpc";
-import { Card, Empty, ErrorNote, Loading, StatusPill, Tag } from "../../components/ui";
+import { Card, Empty, ErrorNote, Loading, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";
 
 export default function ToolDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -28,7 +28,8 @@ export default function ToolDetailScreen() {
         <Text className="text-[16px] font-semibold text-foreground">Tool</Text>
       </View>
 
-      <ScrollView contentContainerClassName="px-5 py-4 gap-5 pb-10">
+      <ScrollView contentContainerClassName="px-5 py-4 gap-5 pb-10"
+        contentContainerStyle={SCREEN_CONTENT}>
         {asset.isLoading ? (
           <Loading />
         ) : asset.isError ? (

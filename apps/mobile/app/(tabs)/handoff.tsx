@@ -12,7 +12,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ChatMention } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
 import { MentionInput, MentionChips } from "../../components/mention-input";
-import { Button, Card, Empty, ErrorNote, Loading, ScreenTitle } from "../../components/ui";
+import { Button, Card, Empty, ErrorNote, Loading, ScreenTitle, SCREEN_CONTENT } from "../../components/ui";
 
 /*
   The whole product thesis on one screen: the foreman types the sentence they
@@ -103,14 +103,18 @@ export default function HandOffScreen() {
         keyboardVerticalOffset={90}
         className="flex-1"
       >
-        <View className="px-5 pt-4">
+        {/* The header and the composer below live outside the ScrollView, so
+            they need the width cap applied directly or they stretch across a
+            desktop browser while the messages between them stay narrow. */}
+        <View className="px-5 pt-4" style={SCREEN_CONTENT}>
           <ScreenTitle
             title="Hand Off"
             subtitle="Say it the way you'd text it. We'll turn it into a record for you to confirm."
           />
         </View>
 
-        <ScrollView ref={scrollRef} contentContainerClassName="px-5 pb-4 gap-3">
+        <ScrollView ref={scrollRef} contentContainerClassName="px-5 pb-4 gap-3"
+        contentContainerStyle={SCREEN_CONTENT}>
           {!messages.length ? (
             <Empty
               title="Nothing here yet"
@@ -121,7 +125,7 @@ export default function HandOffScreen() {
           )}
         </ScrollView>
 
-        <View className="border-t border-border bg-card pt-2">
+        <View className="border-t border-border bg-card pt-2" style={SCREEN_CONTENT}>
           <MentionChips
             mentions={mentions}
             onRemove={(m) => setMentions((prev) => prev.filter((x) => x.id !== m.id))}

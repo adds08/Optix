@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View, type ViewStyle } from "react-native";
 
 /*
   Field UI primitives.
@@ -7,6 +7,24 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
   targets, high contrast, no hover states, and labels that say what happens
   rather than what the system calls it.
 */
+
+/*
+  Keeps the app phone-shaped when it is served to a browser.
+
+  This app is also exported for web and reached from a desktop, where a
+  ScrollView happily stretches to the full width of the monitor. Nothing was
+  stopping it, so a card holding forty characters of text was being drawn three
+  thousand pixels wide, with the tag on the far left and the day count on the
+  far right of a 27-inch screen.
+
+  480 is a large phone. On a real device the constraint never binds — the
+  viewport is narrower — so this costs native nothing.
+*/
+export const SCREEN_CONTENT: ViewStyle = {
+  width: "100%",
+  maxWidth: 480,
+  alignSelf: "center",
+};
 
 const TONE = {
   ok: { text: "text-ok", bg: "bg-ok-bg", border: "border-ok" },

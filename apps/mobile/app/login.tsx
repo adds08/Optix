@@ -11,7 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../lib/auth";
-import { Button } from "../components/ui";
+import { Button, SCREEN_CONTENT } from "../components/ui";
 
 const DEMO = [
   { email: "foreman.miguel@stinventory.local", who: "Miguel Torres — Foreman" },
@@ -46,6 +46,7 @@ export default function LoginScreen() {
       >
         <ScrollView
           contentContainerClassName="grow justify-center px-6 py-10 gap-8"
+        contentContainerStyle={SCREEN_CONTENT}
           keyboardShouldPersistTaps="handled"
         >
           <View className="gap-2">

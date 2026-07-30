@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isIdleAsset, isOverdueLoan, requiresCustodyApproval } from "./rules.js";
+import { byMostOverdue, isIdleAsset, isOverdueLoan, requiresCustodyApproval } from "./rules.js";
 
 /*
   The approval gate and the overdue rule.
@@ -126,5 +126,36 @@ describe("isIdleAsset", () => {
     for (const s of ["assigned", "in_maintenance", "lost", "disposed", "reserved"]) {
       expect(isIdleAsset(s)).toBe(false);
     }
+  });
+});
+
+describe("byMostOverdue", () => {
+  const tool = (tag: string, daysOverdue: number) => ({ tag, daysOverdue });
+
+  it("puts the worst offender first", () => {
+    /* The screenshot that prompted this had UIC-1005 at 15 days above UIC-1012
+       at 35 days, under a heading that claimed "newest first". There was no
+       sort at all — the rows arrived in Postgres's chosen order. */
+    const rows = [tool("UIC-1005", 15), tool("UIC-1012", 35), tool("UIC-1001", 2)];
+    expect([...rows].sort(byMostOverdue).map((r) => r.tag)).toEqual([
+      "UIC-1012",
+      "UIC-1005",
+      "UIC-1001",
+    ]);
+  });
+
+  it("is stable on ties, so a poll does not reshuffle the list", () => {
+    /* A truck's kit goes out and comes back together, so same-day overdues are
+       the common case rather than the exception. Without a tiebreak the list
+       reorders itself every thirty seconds under the alerts screen's poll. */
+    const a = [tool("UIC-1009", 4), tool("UIC-1002", 4), tool("UIC-1007", 4)];
+    const once = [...a].sort(byMostOverdue).map((r) => r.tag);
+    const again = [...a].reverse().sort(byMostOverdue).map((r) => r.tag);
+    expect(once).toEqual(["UIC-1002", "UIC-1007", "UIC-1009"]);
+    expect(again).toEqual(once);
+  });
+
+  it("does not care whether a tag is present", () => {
+    expect([{ daysOverdue: 1 }, { daysOverdue: 9 }].sort(byMostOverdue)[0]!.daysOverdue).toBe(9);
   });
 });

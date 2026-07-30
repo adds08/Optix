@@ -5,7 +5,7 @@ import { Link, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { trpc } from "../../lib/trpc";
 import { useAuth } from "../../lib/auth";
-import { Card, Empty, ErrorNote, Loading, ScreenTitle, StatusPill, Tag } from "../../components/ui";
+import { Card, Empty, ErrorNote, Loading, ScreenTitle, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";
 
 export default function MyToolsScreen() {
   const router = useRouter();
@@ -41,6 +41,7 @@ export default function MyToolsScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <ScrollView
         contentContainerClassName="px-5 py-4 gap-4 pb-10"
+        contentContainerStyle={SCREEN_CONTENT}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1F6E8C" />}
       >
         <View className="flex-row items-start justify-between">

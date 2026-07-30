@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { trpc } from "../../lib/trpc";
-import { Card, Empty, ErrorNote, Loading, ScreenTitle, Tag } from "../../components/ui";
+import { Card, Empty, ErrorNote, Loading, ScreenTitle, Tag, SCREEN_CONTENT } from "../../components/ui";
 
 export default function AlertsScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -14,6 +14,14 @@ export default function AlertsScreen() {
   const live = { refetchInterval: 30_000 };
   const overdue = trpc.dashboard.overdueLoans.useQuery(undefined, live);
   const notifications = trpc.notification.list.useQuery(undefined, live);
+  /*
+    Who is looking. `overdueLoans` scopes itself to the caller only when they
+    are a foreman — a superintendent or the equipment desk gets the whole
+    tenant's overdue list, which is correct but means most rows on this screen
+    are about somebody else's tool.
+  */
+  const me = trpc.identity.me.useQuery();
+  const myEmployeeId = me.data?.employeeId ?? null;
   const utils = trpc.useUtils();
 
   const markRead = trpc.notification.markRead.useMutation({
@@ -34,11 +42,21 @@ export default function AlertsScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <ScrollView
         contentContainerClassName="px-5 py-4 gap-5 pb-10"
+        contentContainerStyle={SCREEN_CONTENT}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1F6E8C" />
         }
       >
-        <ScreenTitle title="Alerts" subtitle="Things chasing you, newest first." />
+        {/* "newest first" was wrong twice over: the list had no ordering at all,
+            and on this screen the useful order is worst first, not newest. */}
+        <ScreenTitle
+          title="Alerts"
+          subtitle={
+            myEmployeeId && loans.every((o) => o.custodianId === myEmployeeId)
+              ? "Things chasing you, most overdue first."
+              : "Overdue tools and anything waiting on you, most overdue first."
+          }
+        />
 
         {overdue.isLoading || notifications.isLoading ? (
           <Loading />
@@ -69,9 +87,19 @@ export default function AlertsScreen() {
                         </View>
                       </View>
                       <Text className="text-[16px] font-semibold text-foreground">{o.modelName}</Text>
+                      {/*
+                        Only tell somebody to return a tool if they are the one
+                        holding it. This used to read "Held by Sofia Ramirez.
+                        Return it to the yard or hand it over from the Hand Off
+                        tab" to the equipment desk — an instruction the reader
+                        cannot carry out, about a tool they have never touched,
+                        pointing at their own Hand Off tab which only moves
+                        their own custody.
+                      */}
                       <Text className="text-[13px] leading-5 text-muted-foreground">
-                        Held by {o.custodianName ?? "—"}. Return it to the yard or hand it over from
-                        the Hand Off tab.
+                        {myEmployeeId && o.custodianId === myEmployeeId
+                          ? "You're holding this. Return it to the yard or hand it over from the Hand Off tab."
+                          : `Held by ${o.custodianName ?? "somebody not on record"} — due back ${o.expectedEnd ?? "on an unrecorded date"}. Chase the return or move it from the tool's page.`}
                       </Text>
                     </View>
                   </Card>

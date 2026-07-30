@@ -81,3 +81,23 @@ export function isRentalDueSoon(input: RentalDueInput): boolean {
   const days = daysUntilOffRent(input.endDate, input.today);
   return days !== null && days >= 0 && days <= RENTAL_DUE_SOON_DAYS;
 }
+
+/*
+  Chase order for anything overdue: worst first.
+
+  This exists as a named function rather than an inline `.sort()` because the
+  query it belongs to had no ordering at all, and the bug that produced was
+  invisible in code review — the list simply came back in whatever order
+  Postgres chose, which on the alerts screen put a tool 15 days late above one
+  35 days late. A screen whose entire purpose is "what needs chasing" has to
+  lead with the worst of it.
+
+  Ties break on the tool's tag so the order is stable between refetches. Two
+  tools going overdue on the same day is common — a truck's kit goes out and
+  comes back together — and a list that reshuffles itself every thirty seconds
+  under a polling refetch is its own small nuisance.
+*/
+export function byMostOverdue<T extends { daysOverdue: number; tag?: string }>(a: T, b: T): number {
+  if (b.daysOverdue !== a.daysOverdue) return b.daysOverdue - a.daysOverdue;
+  return (a.tag ?? "").localeCompare(b.tag ?? "");
+}

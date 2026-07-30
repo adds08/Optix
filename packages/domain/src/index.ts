@@ -7,6 +7,7 @@ export { foldAssetState, foldAllAssets } from "./fold.js";
 export {
   requiresCustodyApproval,
   isOverdueLoan,
+  byMostOverdue,
   isIdleAsset,
   isRentalOverdue,
   isRentalDueSoon,

@@ -1,6 +1,7 @@
 import { and, count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
+import { byMostOverdue } from "@stinventory/domain";
 import { protectedProcedure, router } from "../trpc.js";
 
 export const dashboardRouter = router({
@@ -95,11 +96,15 @@ export const dashboardRouter = router({
         assetId: r.assetId,
         tag: r.tag,
         modelName: r.modelName,
+        /* Needed by the caller to tell "you are holding this" from "somebody
+           else is", which decides what the alert can sensibly ask for. */
+        custodianId: r.custodianId,
         custodianName: r.custodianName,
         custodianExternalId: r.custodianExternalId,
         expectedEnd: r.expectedEnd,
         daysOverdue: Math.round((new Date(today).getTime() - new Date(r.expectedEnd!).getTime()) / 86400000),
-      }));
+      }))
+      .sort(byMostOverdue);
   }),
 
   recentActivity: protectedProcedure
