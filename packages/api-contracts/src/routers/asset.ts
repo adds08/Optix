@@ -307,6 +307,11 @@ export const assetRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      /* Read before the write, so the ledger can record both sides. */
+      const before = await ctx.db.query.asset.findFirst({
+        where: and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)),
+      });
+
       const [row] = await ctx.db
         .update(schema.asset)
         .set({ currentStatus: input.status, updatedAt: new Date() })
@@ -318,7 +323,26 @@ export const assetRouter = router({
           assetId: row.id,
           eventType: "status_change",
           actorId: ctx.session.userId,
-          toState: { status: input.status },
+          fromState: before
+            ? {
+                status: before.currentStatus,
+                custodianId: before.currentCustodianId,
+                projectId: before.currentProjectId,
+                locationId: before.currentLocationId,
+              }
+            : null,
+          /*
+            A complete snapshot. This wrote `{ status }` alone, and the fold is
+            last-snapshot-wins — so replaying the ledger past a status change
+            blanked the holder, the project and the location. Only the status
+            was changing; everything else has to be restated to survive.
+          */
+          toState: {
+            status: input.status,
+            custodianId: row.currentCustodianId,
+            projectId: row.currentProjectId,
+            locationId: row.currentLocationId,
+          },
           refType: "manual",
           note: input.note ?? `Status → ${input.status}`,
         });

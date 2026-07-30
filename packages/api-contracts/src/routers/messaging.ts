@@ -201,14 +201,40 @@ export const messagingRouter = router({
 
       // Single executor shared with the background worker, so the two paths
       // cannot drift apart again. Throws rather than silently succeeding.
-      const { transactionIds, taskId } = allowed
-        ? { ...(await applyChatAction(ctx.db, opts)), taskId: null as string | null }
-        : await requestChatAction(ctx.db, opts);
+      let transactionIds: string[] = [];
+      let taskId: string | null = null;
+      let awaitingApproval = 0;
+
+      if (allowed) {
+        const res = await applyChatAction(ctx.db, opts);
+        transactionIds = res.transactionIds;
+        awaitingApproval = res.awaitingApproval;
+      } else {
+        const res = await requestChatAction(ctx.db, opts);
+        transactionIds = res.transactionIds;
+        taskId = res.taskId;
+      }
+
+      /*
+        The same bug action.submit had: `applied: allowed` reported the
+        permission check rather than the outcome, and the message was stamped
+        `action_executed` even when the executor had parked the change for a
+        signature. The chat bubble then said "Recorded" about a tool that had
+        not moved.
+
+        A parked change is genuinely waiting on the desk, which is what
+        `action_requested` already means — no new status needed.
+      */
+      const outcome = !allowed
+        ? ("requested" as const)
+        : awaitingApproval > 0
+          ? ("awaiting_approval" as const)
+          : ("applied" as const);
 
       await ctx.db
         .update(schema.message)
         .set({
-          processingStatus: allowed ? "action_executed" : "action_requested",
+          processingStatus: outcome === "applied" ? "action_executed" : "action_requested",
           executedTransactionIds: transactionIds,
           handledByUserId: ctx.session.userId,
           handledAt: new Date(),
@@ -221,10 +247,10 @@ export const messagingRouter = router({
         action: allowed ? "confirm_action" : "request_action",
         entityType: "message",
         entityId: input.messageId,
-        details: { actionType: action.type, transactionIds, taskId },
+        details: { actionType: action.type, transactionIds, taskId, outcome },
       });
 
-      return { ok: true, applied: allowed, transactionIds, taskId };
+      return { ok: true, outcome, awaitingApproval, transactionIds, taskId };
     }),
 
   // Manual entry by admin for pending_manual messages.

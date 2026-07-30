@@ -40,6 +40,9 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const [expectedEnd, setExpectedEnd] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
+  /* Same fix as transfer-form: "waiting" is a success, not a failure, and it
+     needs the dialog to stay open long enough to be read. */
+  const [pending, setPending] = useState(false);
 
   useEffect(() => { setAssetId(preselectedAssetId ?? ""); }, [preselectedAssetId]);
 
@@ -53,12 +56,19 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
         locationId: locationId || undefined,
         type, expectedEnd: expectedEnd || undefined,
       });
-      setResult(res.needsApproval ? "Pending approval" : "Assigned!");
+      if (res.needsApproval) {
+        setPending(true);
+        setResult(
+          "Sent to the equipment desk. This tool is above the value that needs a second signature — it stays where it is until someone approves it in the Inbox.",
+        );
+      }
       utils.assignment.list.invalidate();
       utils.asset.list.invalidate();
       utils.dashboard.kpis.invalidate();
+      utils.dashboard.pendingApprovals.invalidate();
       utils.dashboard.recentActivity.invalidate();
-      onClose();
+      /* Close only when the register actually changed. */
+      if (!res.needsApproval) onClose();
     } catch (err) {
       setResult(err instanceof Error ? err.message : "Could not save. Try again.");
     }
@@ -125,11 +135,27 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
               <Input type="date" value={expectedEnd} onChange={(e) => setExpectedEnd(e.target.value)} />
             </div>
           )}
-          {result && <p className="text-sm text-destructive">{result}</p>}
+          {result ? (
+            <p
+              className={`rounded-md border px-3 py-2 text-sm ${
+                pending ? "border-warn/40 bg-warn-bg text-warn" : "border-destructive/40 text-destructive"
+              }`}
+            >
+              {result}
+            </p>
+          ) : null}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting || !assetId || !custodianId}>{submitting ? "..." : "Assign"}</Button>
+          {pending ? (
+            <Button onClick={onClose}>Close</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button onClick={submit} disabled={submitting || !assetId || !custodianId}>
+                {submitting ? "Saving…" : "Assign"}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

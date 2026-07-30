@@ -129,7 +129,16 @@ export const transferRouter = router({
           eventType: "transfer",
           actorId: ctx.session.userId,
           fromState: { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId },
-          toState: { status: "assigned", custodianId: input.toCustodianId, projectId: input.toProjectId ?? null, locationId: input.toLocationId ?? null },
+          /* Mirrors the asset update above, which already fell back to the
+             current values. The ledger did not, so the two disagreed — and this
+             is now the common path rather than the rare one, because an
+             ordinary hand-off no longer waits for approval. */
+          toState: {
+            status: "assigned",
+            custodianId: input.toCustodianId,
+            projectId: input.toProjectId ?? asset.currentProjectId ?? null,
+            locationId: input.toLocationId ?? asset.currentLocationId ?? null,
+          },
           refType: "transfer",
           refId: row.id,
           note: input.note ?? "Transfer completed",

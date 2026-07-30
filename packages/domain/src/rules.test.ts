@@ -13,63 +13,75 @@ import { byMostOverdue, isIdleAsset, isOverdueLoan, requiresCustodyApproval } fr
 */
 
 describe("requiresCustodyApproval", () => {
-  const cheap = { assetCost: 100, highValueThreshold: 5000 };
+  const between = { fromCustodianId: "a", toCustodianId: "b" };
 
-  it("does not gate a first issue out of the yard", () => {
-    /* Nobody held it, so there is no second party with an interest yet. */
+  it("does not gate an ordinary hand-off between two people", () => {
+    /* Changed deliberately. This used to return true for any cross-person move,
+       which meant a $40 hand tool needed the equipment desk exactly as much as a
+       compactor did. A gate on every hand-off is not a control — it is a queue
+       nobody clears, while the tools move regardless and the register drifts. */
     expect(
-      requiresCustodyApproval({ fromCustodianId: null, toCustodianId: "b", ...cheap }),
+      requiresCustodyApproval({ ...between, assetCost: 100, highValueThreshold: 5000 }),
     ).toBe(false);
   });
 
-  it("gates a hand-off between two people", () => {
-    expect(
-      requiresCustodyApproval({ fromCustodianId: "a", toCustodianId: "b", ...cheap }),
-    ).toBe(true);
-  });
-
-  it("does not gate a no-op hand-off to the same person", () => {
-    expect(
-      requiresCustodyApproval({ fromCustodianId: "a", toCustodianId: "a", ...cheap }),
-    ).toBe(false);
-  });
-
-  it("gates a return, because the tool is leaving somebody's hands", () => {
-    expect(
-      requiresCustodyApproval({ fromCustodianId: "a", toCustodianId: null, ...cheap }),
-    ).toBe(true);
-  });
-
-  it("gates anything at or above the high-value threshold, even from the yard", () => {
-    /* A $12k plate compactor going out for the first time still wants a second
-       signature. `>=`, not `>`: a threshold of exactly 5000 includes 5000. */
-    expect(
-      requiresCustodyApproval({
-        fromCustodianId: null,
-        toCustodianId: "b",
-        assetCost: 5000,
-        highValueThreshold: 5000,
-      }),
-    ).toBe(true);
-    expect(
-      requiresCustodyApproval({
-        fromCustodianId: null,
-        toCustodianId: "b",
-        assetCost: 4999,
-        highValueThreshold: 5000,
-      }),
-    ).toBe(false);
-  });
-
-  it("disables the value rule when the tenant has set no threshold", () => {
-    for (const highValueThreshold of [null, undefined]) {
+  it("gates anything at or above the threshold, however it moves", () => {
+    /* `>=`, not `>`: a threshold of exactly 5000 includes 5000. */
+    for (const from of [null, "a"]) {
       expect(
         requiresCustodyApproval({
-          fromCustodianId: null,
+          fromCustodianId: from,
           toCustodianId: "b",
-          assetCost: 999_999,
-          highValueThreshold,
+          assetCost: 5000,
+          highValueThreshold: 5000,
         }),
+      ).toBe(true);
+    }
+    expect(
+      requiresCustodyApproval({ ...between, assetCost: 4999, highValueThreshold: 5000 }),
+    ).toBe(false);
+  });
+
+  it("does not gate a first issue out of the yard below the threshold", () => {
+    expect(
+      requiresCustodyApproval({
+        fromCustodianId: null,
+        toCustodianId: "b",
+        assetCost: 100,
+        highValueThreshold: 5000,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not gate a cheap tool coming back to the yard", () => {
+    expect(
+      requiresCustodyApproval({
+        fromCustodianId: "a",
+        toCustodianId: null,
+        assetCost: 100,
+        highValueThreshold: 5000,
+      }),
+    ).toBe(false);
+  });
+
+  it("still gates a valuable tool coming back", () => {
+    /* Returning a compactor is the moment it is easiest to lose track of. */
+    expect(
+      requiresCustodyApproval({
+        fromCustodianId: "a",
+        toCustodianId: null,
+        assetCost: 12_000,
+        highValueThreshold: 5000,
+      }),
+    ).toBe(true);
+  });
+
+  it("disables approval entirely when the tenant has set no threshold", () => {
+    /* A tenant that has not said what high value means has not asked for a
+       gate. Inventing one produces the queue described above. */
+    for (const highValueThreshold of [null, undefined]) {
+      expect(
+        requiresCustodyApproval({ ...between, assetCost: 999_999, highValueThreshold }),
       ).toBe(false);
     }
   });
@@ -79,12 +91,7 @@ describe("requiresCustodyApproval", () => {
        become "needs approval" for everything. */
     for (const assetCost of [null, undefined]) {
       expect(
-        requiresCustodyApproval({
-          fromCustodianId: null,
-          toCustodianId: "b",
-          assetCost,
-          highValueThreshold: 5000,
-        }),
+        requiresCustodyApproval({ ...between, assetCost, highValueThreshold: 5000 }),
       ).toBe(false);
     }
   });

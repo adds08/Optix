@@ -1,20 +1,30 @@
 // Custody + SLA rules (pure). Inputs come from the caller (db reads); the rules
 // themselves have no side effects and are unit-tested.
 
-// A custody change requires approval if:
-//   - the custodian changes (cross-person hand-off), OR
-//   - the asset's acquisition cost is at/above the tenant high-value threshold.
-// `cost` and `threshold` are numeric; null/undefined threshold disables the value rule.
+/*
+  A custody change needs a second signature when the tool is worth enough to
+  justify one, and not otherwise.
+
+  This used to gate on the hand-off itself as well: any tool passing between two
+  people needed the desk, whatever it cost. That made a $40 hand tool as
+  expensive to move as a $12k compactor, and the threshold could only ever add
+  cases — it never exempted one. In a yard, a gate on every hand-off is not a
+  control, it is a queue nobody clears, and the tools move anyway while the
+  register falls behind.
+
+  A null or unset threshold disables approval entirely. That is deliberate: a
+  tenant that has not said what "high value" means has not asked for a gate, and
+  inventing one for them produces the same unattended queue.
+*/
 export function requiresCustodyApproval(input: {
   fromCustodianId: string | null;
   toCustodianId: string | null;
   assetCost: number | null | undefined;
   highValueThreshold: number | null | undefined;
 }): boolean {
-  const crossPerson = !!input.fromCustodianId && input.toCustodianId !== input.fromCustodianId;
-  const highValue =
-    input.highValueThreshold != null && (input.assetCost ?? 0) >= input.highValueThreshold;
-  return crossPerson || highValue;
+  return (
+    input.highValueThreshold != null && (input.assetCost ?? 0) >= input.highValueThreshold
+  );
 }
 
 export type OverdueInput = {

@@ -110,7 +110,17 @@ export const assignmentRouter = router({
           eventType: "assign",
           actorId: ctx.session.userId,
           fromState: { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId },
-          toState: { status: "assigned", custodianId: input.custodianId, projectId: input.projectId ?? null, locationId: input.locationId ?? null },
+          /* Same fallbacks the asset update two statements up uses. They were
+             `?? null` here, so the row said one thing and the ledger said
+             another: replaying the ledger blanked a project the register still
+             showed. Nothing surfaces that until somebody rebuilds, which is
+             exactly when it is least welcome. */
+          toState: {
+            status: "assigned",
+            custodianId: input.custodianId,
+            projectId: input.projectId ?? asset.currentProjectId ?? null,
+            locationId: input.locationId ?? asset.currentLocationId ?? null,
+          },
           refType: "assignment",
           refId: row.id,
           note: `Assigned to foreman`,
