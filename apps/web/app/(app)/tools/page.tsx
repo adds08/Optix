@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { money } from "@/lib/format";
+import { money, photoUrl } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATUSES = ["available", "assigned", "in_maintenance", "reserved", "lost"] as const;
@@ -276,6 +276,7 @@ export default function ToolsPage() {
     tag: r.tag,
     modelName: r.modelName,
     categoryName: r.categoryName,
+    photoKey: r.photoKey,
     serialNumber: r.serialNumber,
     quantity: r.quantity,
     acquisitionCost: r.acquisitionCost,
@@ -450,7 +451,7 @@ export default function ToolsPage() {
           ) : mode === "cards" ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {rows.map((r) => (
-                <AssetCard key={r.id} row={r} actions={menuFor(r)} />
+                <AssetCard key={r.id} row={{ ...r, photoUrl: photoUrl(r.photoKey) }} actions={menuFor(r)} />
               ))}
             </div>
           ) : (

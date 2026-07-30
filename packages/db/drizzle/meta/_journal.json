@@ -29,6 +29,13 @@
       "when": 1785408667893,
       "tag": "0003_nasty_thunderbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785448709732,
+      "tag": "0004_tense_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }

@@ -24,6 +24,14 @@ export const asset = pgTable(
     acquisitionDate: date("acquisition_date"),
     owningProjectId: uuid("owning_project_id").references(() => project.id, { onDelete: "set null" }),
     warrantyExpiresOn: date("warranty_expires_on"),
+    /*
+      Object key, not a URL.
+
+      Storing the full URL would bake the storage host into every row, so moving
+      from the MinIO container to Spaces later would mean rewriting the register.
+      The key is stable; the API turns it into a signed URL at read time.
+    */
+    photoKey: text("photo_key"),
     // Projection (derived from transactions; never edited directly except by projection builder):
     currentStatus: text("current_status").notNull().default("available"),
     currentCustodianId: uuid("current_custodian_id").references(() => employee.id, { onDelete: "set null" }),

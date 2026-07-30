@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategorySelect } from "@/components/category-select";
+import { PhotoUpload } from "@/components/photo-upload";
 
 /*
   One dialog for both jobs.
@@ -22,6 +23,7 @@ export type AssetEditable = {
   tag: string;
   modelName: string;
   categoryName?: string | null;
+  photoKey?: string | null;
   serialNumber?: string | null;
   quantity?: number | null;
   acquisitionCost?: string | null;
@@ -40,6 +42,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
   const [tag, setTag] = useState(edit?.tag ?? "");
   const [modelName, setModelName] = useState(edit?.modelName ?? "");
   const [categoryName, setCategoryName] = useState(edit?.categoryName ?? "");
+  const [photoKey, setPhotoKey] = useState<string | null>(edit?.photoKey ?? null);
   const [serialNumber, setSerialNumber] = useState(edit?.serialNumber ?? "");
   const [quantity, setQuantity] = useState(edit?.quantity ?? 1);
   const [acquisitionCost, setAcquisitionCost] = useState(edit?.acquisitionCost ?? "");
@@ -104,6 +107,15 @@ export function AssetForm({ open, onClose, edit }: Props) {
             <label className="text-sm font-medium">Model name *</label>
             <Input value={modelName} onChange={(e) => setModelName(e.target.value)} />
           </div>
+          {/* Only when the tool exists — an upload needs somewhere to attach,
+              and inventing an id before the row is saved would orphan the file
+              if the form is abandoned. */}
+          {edit?.id ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Photo</label>
+              <PhotoUpload assetId={edit.id} photoKey={photoKey} onChange={setPhotoKey} />
+            </div>
+          ) : null}
           <div className="space-y-2">
             <label className="text-sm font-medium">Category</label>
             <CategorySelect value={categoryName} onChange={setCategoryName} />

@@ -24,6 +24,18 @@
 		reverse_proxy api:4100
 	}
 
+	# Tool photos, served from the object store on this same origin.
+	#
+	# Same-origin matters: a photo behind a second host would need CORS on the
+	# bucket and a second certificate, to serve pictures of drills. The bucket
+	# name is added here rather than stored in the database, so the rows hold a
+	# bare object key and moving the bytes to Spaces later is a change to this
+	# block alone.
+	handle_path /media/* {
+		rewrite * /{$S3_BUCKET}{uri}
+		reverse_proxy minio:9000
+	}
+
 	# The Expo app, exported as a static web bundle and served from disk.
 	#
 	# A path rather than its own subdomain, deliberately: it needs no second DNS

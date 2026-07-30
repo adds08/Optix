@@ -12,10 +12,11 @@ import { createLogger } from "@stinventory/logger";
 import { detectOverdueLoans, detectRentalsDue, deliverPendingNotifications } from "./notifications.js";
 import { processQueuedMessages } from "./messaging-worker.js";
 import { clearRateLimit, clientIp, rateLimit } from "./rate-limit.js";
+import { isAllowedImage, MAX_PHOTO_BYTES, storageFor } from "./storage.js";
 import { sweepRequests } from "./request-worker.js";
 import { mountRestRoutes } from "./rest-routes.js";
 import * as schema from "@stinventory/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 function detectSource(userAgent: string | undefined): "web" | "mobile" | "api" {
   if (!userAgent) return "api";
@@ -98,6 +99,95 @@ app.post("/auth/login", async (c) => {
      than an attack — give them their budget back. */
   clearRateLimit(key);
   return c.json({ sessionId: result.sessionId, userId: result.userId, tenantId: result.tenantId });
+});
+
+/*
+  Tool photos.
+
+  Not a tRPC procedure: this takes multipart form data, and tRPC's transport is
+  JSON. Putting it on Hono keeps the binary path plain — the browser and the
+  Expo app both post a normal FormData, and neither needs a serialiser that
+  understands files.
+
+  Authorisation is the same session and the same permission the register uses
+  for any other edit, checked here rather than trusted from the client.
+*/
+app.post("/assets/:id/photo", async (c) => {
+  const token = c.req.header("authorization")?.replace(/^Bearer\s+/i, "");
+  const session = token ? await resolveSession(db, token) : null;
+  if (!session) return c.json({ error: "Unauthorized" }, 401);
+  if (!session.permissions.has("asset.manage")) {
+    return c.json({ error: "You do not have permission to change tools." }, 403);
+  }
+
+  const storage = storageFor(env);
+  if (!storage) {
+    return c.json(
+      { error: "Photo storage is not configured on this server." },
+      503,
+    );
+  }
+
+  const assetId = c.req.param("id");
+  const asset = await db.query.asset.findFirst({
+    where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, session.tenantId)),
+  });
+  if (!asset) return c.json({ error: "No such tool." }, 404);
+
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("photo");
+  if (!(file instanceof File)) return c.json({ error: "No image was attached." }, 400);
+
+  if (!isAllowedImage(file.type)) {
+    return c.json({ error: "Photos must be a JPEG, PNG or WebP image." }, 415);
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    return c.json(
+      { error: `That image is ${(file.size / 1048576).toFixed(1)}MB. The limit is 8MB.` },
+      413,
+    );
+  }
+
+  const body = Buffer.from(await file.arrayBuffer());
+  const key = await storage.put({
+    body,
+    contentType: file.type,
+    keyPrefix: `tools/${session.tenantId}`,
+  });
+
+  const previous = asset.photoKey;
+  await db
+    .update(schema.asset)
+    .set({ photoKey: key, updatedAt: new Date() })
+    .where(eq(schema.asset.id, assetId));
+
+  /* Replacing a photo should not leave the old one paying rent. Done after the
+     row is updated, so a failed delete cannot lose the new picture. */
+  if (previous && previous !== key) await storage.remove(previous);
+
+  return c.json({ ok: true, photoKey: key, photoUrl: storage.urlFor(key) });
+});
+
+app.delete("/assets/:id/photo", async (c) => {
+  const token = c.req.header("authorization")?.replace(/^Bearer\s+/i, "");
+  const session = token ? await resolveSession(db, token) : null;
+  if (!session) return c.json({ error: "Unauthorized" }, 401);
+  if (!session.permissions.has("asset.manage")) {
+    return c.json({ error: "You do not have permission to change tools." }, 403);
+  }
+
+  const assetId = c.req.param("id");
+  const asset = await db.query.asset.findFirst({
+    where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, session.tenantId)),
+  });
+  if (!asset) return c.json({ error: "No such tool." }, 404);
+
+  await db
+    .update(schema.asset)
+    .set({ photoKey: null, updatedAt: new Date() })
+    .where(eq(schema.asset.id, assetId));
+  if (asset.photoKey) await storageFor(env)?.remove(asset.photoKey);
+  return c.json({ ok: true });
 });
 
 app.post("/auth/logout", async (c) => {

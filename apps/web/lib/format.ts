@@ -64,3 +64,17 @@ export function relative(v: string | Date | null | undefined): string {
   if (days < 365) return `${Math.floor(days / 30)} mo ago`;
   return `${Math.floor(days / 365)} yr ago`;
 }
+
+/*
+  Where a tool photo is served from.
+
+  The register stores an object key, never a URL — a URL would bake today's
+  storage host into every row. Caddy routes `/media/*` on the same origin
+  through to the bucket, so the browser needs nothing beyond the API base it
+  already has, and moving the bytes to Spaces later changes one proxy line.
+*/
+export function photoUrl(key: string | null | undefined): string | null {
+  if (!key) return null;
+  const base = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+  return `${base}/media/${key}`;
+}

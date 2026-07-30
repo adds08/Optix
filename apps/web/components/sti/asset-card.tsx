@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Wrench } from "lucide-react";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { FlagBadges, isHighValue } from "@/components/sti/flags";
 import { money } from "@/lib/format";
@@ -18,10 +19,11 @@ import { cn } from "@/lib/utils";
   1. The signal is quiet. A 2px edge and a weight change, not a colour block —
      a register where a fifth of the rows shout is a register nobody scans.
 
-  2. No empty photo frame. There is no photo column on `asset` yet, so a
-     placeholder would appear on *every* card: a third of the surface given to
-     something that is never information. The frame renders only when there is
-     an image, so wiring `photoUrl` up later changes this file not at all.
+  2. The photo frame is small and always present. It was omitted entirely while
+     no photo column existed; now that tools can carry one, a fixed frame keeps
+     every card the same height whether or not somebody has taken a picture.
+     The placeholder is a muted glyph rather than a grey box with "no image" in
+     it — the tag and model already say what the tool is.
 */
 
 export type AssetCardRow = {
@@ -34,7 +36,7 @@ export type AssetCardRow = {
   warrantyExpiresOn?: string | null;
   custodianName?: string | null;
   locationName?: string | null;
-  /** Not in the schema yet — see docs/01-plan.md §18. */
+  /** Object key resolved to a URL by the caller, or null when none was taken. */
   photoUrl?: string | null;
 };
 
@@ -53,13 +55,15 @@ export function AssetCard({ row, actions }: { row: AssetCardRow; actions?: React
       {actions ? <div className="absolute right-1.5 top-1.5 z-10">{actions}</div> : null}
 
       <Link href={`/tools/${row.id}`} className="flex flex-1 flex-col">
-        {row.photoUrl ? (
-          <div className="flex h-28 items-center justify-center border-b bg-muted/40">
-            {/* Decorative: the tag and model already name the tool, so an alt
-                text here would only repeat them to a screen reader. */}
-            <img src={row.photoUrl} alt="" className="size-full object-contain" />
-          </div>
-        ) : null}
+        <div className="flex h-24 shrink-0 items-center justify-center border-b bg-muted/30">
+          {row.photoUrl ? (
+            /* Decorative: the tag and model already name the tool, so alt text
+               here would only repeat them to a screen reader. */
+            <img src={row.photoUrl} alt="" className="size-full object-contain" loading="lazy" />
+          ) : (
+            <Wrench className="size-7 text-muted-foreground/30" aria-hidden />
+          )}
+        </div>
 
         <div className="flex flex-1 flex-col gap-1.5 p-3">
           <span className="label-xs">

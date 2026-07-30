@@ -22,6 +22,29 @@ const serverSchema = z.object({
   LLM_MODEL: z.string().default("gpt-4o-mini"),
   LLM_TIMEOUT_MS: z.coerce.number().default(15000),
   MOBILE_ORIGIN: z.string().default("http://localhost:8081"),
+
+  /*
+    Photo storage, spoken to over the S3 API.
+
+    Deliberately not "MinIO settings". MinIO, DigitalOcean Spaces, AWS S3 and
+    Cloudflare R2 all answer the same protocol, so which one is behind this is a
+    deployment choice rather than a code one — moving from the container on the
+    droplet to a managed bucket is four environment variables, no rebuild.
+
+    Unset means photos are simply off: the upload route refuses and the register
+    shows placeholders. That is the correct behaviour for a stack nobody has
+    given a bucket to, rather than an error at boot.
+  */
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_REGION: z.string().default("us-east-1"),
+  S3_BUCKET: z.string().default("stinventory"),
+  S3_ACCESS_KEY: z.string().optional(),
+  S3_SECRET_KEY: z.string().optional(),
+  /* Public base for reading objects back. Separate from the endpoint because a
+     MinIO container is reached internally as http://minio:9000 and publicly
+     through Caddy at /media — the URL a browser needs is not the one the API
+     writes to. */
+  S3_PUBLIC_URL: z.string().url().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
