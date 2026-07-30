@@ -155,7 +155,7 @@ export default function PeoplePage() {
                                 variant="outline"
                                 onClick={() => setMoving({ id: e.id, name: e.name, projectId: e.primaryProjectId })}
                               >
-                                Move job
+                                Move project
                               </Button>
                             </Can>
                           }

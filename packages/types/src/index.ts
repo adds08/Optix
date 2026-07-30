@@ -12,7 +12,6 @@ export type AssetModelId = Brand<string, "AssetModelId">;
 export type CategoryId = Brand<string, "CategoryId">;
 export type ManufacturerId = Brand<string, "ManufacturerId">;
 export type ProjectId = Brand<string, "ProjectId">;
-export type ProjectPhaseId = Brand<string, "ProjectPhaseId">;
 export type EmployeeId = Brand<string, "EmployeeId">;
 export type WarehouseId = Brand<string, "WarehouseId">;
 export type LocationId = Brand<string, "LocationId">;
@@ -133,7 +132,9 @@ export type AssignmentStatus = (typeof ASSIGNMENT_STATUSES)[number];
 
 export const TRANSFER_REASONS = [
   "project_complete",
-  "phase_change",
+  /* No "phase_change": phases are a project-accounting concept that small-tools
+     custody does not carry, so the option could only ever record a reason that
+     referred to nothing. See the note in packages/db/src/schema/project.ts. */
   "reallocation",
   "hr_offboarding",
   "repair",
@@ -189,18 +190,15 @@ export const PROCESSING_STATUSES = [
 ] as const;
 export type ProcessingStatus = (typeof PROCESSING_STATUSES)[number];
 
-export const MESSAGE_INTENTS = [
-  "transfer",
-  "assign",
-  "return",
-  "lost",
-  "repair",
-  "request_purchase",
-  "report",
-  "task",
-  "none",
-] as const;
-export type MessageIntent = (typeof MESSAGE_INTENTS)[number];
+/*
+  The intent list lives in @stinventory/intent, not here.
+
+  There was a `MESSAGE_INTENTS` const at this spot with nothing importing it, and
+  it had already drifted — no `intake`, which shipped months ago. That is the
+  failure the catalog consolidation was for: a copy nobody reads is a copy nobody
+  updates, and the next person to add an intent would have found two lists and
+  guessed which one mattered.
+*/
 
 export * from "./enums";
 export * from "./import-specs";

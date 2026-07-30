@@ -40,7 +40,7 @@ export default function ProjectsPage() {
       <PageHeader
         eyebrow="Operations"
         title="Projects"
-        description="Every job site tools can be assigned to, and the cost code each one reports under."
+        description="Every project tools can be charged to, and the cost code each one reports under."
         actions={
           <>
             <ImportButton entity="project" />
@@ -57,7 +57,7 @@ export default function ProjectsPage() {
         <EmptyState
           icon={HardHat}
           title="No projects yet"
-          description="Add the job sites you run, or bring them across in bulk from a spreadsheet."
+          description="Add the projects you run, or bring them across from a spreadsheet."
         />
       ) : (
         <TableWrap>

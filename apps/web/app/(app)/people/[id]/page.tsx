@@ -72,7 +72,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
                 <Can perm="employee.manage">
                   <Button size="sm" onClick={() => setMoving(true)}>
                     <HardHat className="size-4" aria-hidden />
-                    Move to a job
+                    Move to a project
                   </Button>
                 </Can>
                 <StatusPill status={p.employmentStatus} className="text-xs" />
@@ -91,7 +91,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
 
           <dl className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2 lg:grid-cols-4">
             <Field
-              label="On job"
+              label="On project"
               value={p.primaryProjectName ?? <span className="text-muted-foreground">unposted</span>}
             />
             <Field label="Reports to" value={p.reportsToName ?? <span className="text-muted-foreground">—</span>} />
@@ -125,7 +125,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      {["Tag", "Model", "On job", "Charged to", "Status", "Value"].map((h, i) => (
+                      {["Tag", "Model", "On project", "Charged to", "Status", "Value"].map((h, i) => (
                         <th key={h} className={`label-xs px-4 py-2.5 ${i === 5 ? "text-right" : "text-left"}`}>{h}</th>
                       ))}
                     </tr>

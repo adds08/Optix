@@ -25,7 +25,7 @@ export type EntityValue = { id: string; label: string } | null;
 const PLACEHOLDER: Record<MentionKind, string> = {
   asset: "Tag, model or serial",
   employee: "Name or employee number",
-  project: "Job name or cost code",
+  project: "Project name or cost code",
   location: "Yard, gang box or container",
   vehicle: "Unit number or plate",
 };

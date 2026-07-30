@@ -96,7 +96,7 @@ export default function RentalsPage() {
       {unlinked.data?.length ? (
         <p className="rounded-md border border-warn/30 bg-warn-bg px-3 py-2 text-sm text-warn">
           {unlinked.data.length} vendor jobsite{unlinked.data.length === 1 ? "" : "s"} not yet
-          matched to a project — rented cost cannot be charged to a job until they are.
+          matched to a project — rented cost cannot be charged anywhere until they are.
         </p>
       ) : null}
 

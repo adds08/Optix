@@ -72,7 +72,7 @@ export function PostingForm({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Move {employeeName} to a job</DialogTitle>
+          <DialogTitle>Move {employeeName} to a project</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -104,7 +104,7 @@ export function PostingForm({
               className="mt-0.5 size-4"
             />
             <span className="text-sm">
-              Move everything they are holding to the new job
+              Move everything they are holding to the new project
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 Tools travel with the foreman. Untick only to correct history where the tools
                 were already moved separately. Who paid for each tool does not change either way.

@@ -138,7 +138,7 @@ export default function ChatPage() {
             <MentionChips mentions={mentions} />
             <p className="text-xs text-muted-foreground">
               Write it however you would say it. Type <kbd className="rounded-sm border px-1">@</kbd>{" "}
-              and part of a tag, name or job number to pick the exact one — <code>@10</code> finds
+              and part of a tag, name or project number to pick the exact one — <code>@10</code> finds
               everything with 10 in it.
             </p>
           </form>

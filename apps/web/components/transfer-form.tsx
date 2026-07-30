@@ -86,7 +86,6 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
             <select value={reason} onChange={(e) => setReason(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
               <option value="reallocation">Reallocation</option>
               <option value="project_complete">Project complete</option>
-              <option value="phase_change">Phase change</option>
               <option value="hr_offboarding">HR offboarding</option>
               <option value="repair">Repair</option>
               <option value="handoff">Handoff</option>

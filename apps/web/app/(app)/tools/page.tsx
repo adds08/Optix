@@ -20,7 +20,21 @@ import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATUSES = ["available", "assigned", "in_maintenance", "reserved", "lost"] as const;
-type FlagKey = "high_value" | "warranty";
+type FlagKey = "high_value" | "warranty" | "no_project";
+
+const FLAG_LABELS: Record<FlagKey, string> = {
+  high_value: "High value",
+  warranty: "Warranty ending",
+  no_project: "No project",
+};
+
+/* One predicate per flag, so adding a third one did not mean extending a
+   ternary that already read as a puzzle. */
+function flagged(r: { currentProjectId?: string | null }, f: FlagKey): boolean {
+  if (f === "high_value") return isHighValue(r as Parameters<typeof isHighValue>[0]);
+  if (f === "warranty") return !!warrantyFlag(r as Parameters<typeof warrantyFlag>[0]);
+  return !r.currentProjectId;
+}
 
 /*
   Only `search` is sent to the API. Category, status and flags are applied here
@@ -62,6 +76,10 @@ export default function ToolsPage() {
       if (skip !== "flags") {
         if (flags.has("high_value") && !isHighValue(r)) return false;
         if (flags.has("warranty") && !warrantyFlag(r)) return false;
+        /* Not an error state — a tool between jobs, or sitting in the yard. It
+           is a filter because "what are we holding that no job is paying for"
+           was previously only answerable one row at a time. */
+        if (flags.has("no_project") && r.currentProjectId) return false;
       }
       return true;
     };
@@ -80,7 +98,7 @@ export default function ToolsPage() {
     status: (s: string) => all.filter((r) => r.status === s && matches(r, "status")).length,
     anyStatus: () => all.filter((r) => matches(r, "status")).length,
     flag: (f: FlagKey) =>
-      all.filter((r) => (f === "high_value" ? isHighValue(r) : !!warrantyFlag(r)) && matches(r, "flags")).length,
+      all.filter((r) => flagged(r, f) && matches(r, "flags")).length,
   };
 
   const toggleFlag = (f: FlagKey) =>
@@ -104,7 +122,7 @@ export default function ToolsPage() {
     ...(status !== "all" ? [{ key: "st", label: humanize(status), onRemove: () => setStatus("all") }] : []),
     ...Array.from(flags).map((f) => ({
       key: f,
-      label: f === "high_value" ? "High value" : "Warranty ending",
+      label: FLAG_LABELS[f],
       onRemove: () => toggleFlag(f),
     })),
   ];
@@ -174,6 +192,12 @@ export default function ToolsPage() {
               count={countBy.flag("high_value")}
               active={flags.has("high_value")}
               onClick={() => toggleFlag("high_value")}
+            />
+            <FacetRow
+              label="No project"
+              count={countBy.flag("no_project")}
+              active={flags.has("no_project")}
+              onClick={() => toggleFlag("no_project")}
             />
             <FacetRow
               label="Warranty ending / expired"

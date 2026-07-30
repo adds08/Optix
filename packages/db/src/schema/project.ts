@@ -1,4 +1,4 @@
-import { date, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { date, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant } from "./identity";
 
 export const project = pgTable(
@@ -21,23 +21,18 @@ export const project = pgTable(
   }),
 );
 
-export const projectPhase = pgTable(
-  "project_phase",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    // Every row carries tenant_id from commit one — this table was the one
-    // exception and it blocked RLS, because a policy cannot be written against
-    // a table with nothing to scope on. Reachable via project_id, but RLS
-    // policies do not follow joins.
-    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id").notNull().references(() => project.id, { onDelete: "cascade" }),
-    name: text("name").notNull(),
-    sortOrder: integer("sort_order").notNull().default(0),
-    startDate: date("start_date"),
-    endDate: date("end_date"),
-  },
-  (t) => ({
-    tenantIdx: index("project_phase_tenant_idx").on(t.tenantId),
-    projectIdx: index("project_phase_project_idx").on(t.projectId),
-  }),
-);
+/*
+  There was a `project_phase` table here. It was migrated to every database and
+  never held a row: no router read it, no screen wrote it, the seed ignored it.
+
+  Phases are real in the business — a project has them, a project without them
+  still counts as having one ("No Phase" is phase zero) — and each carries cost
+  codes. None of that reaches small-tools custody, which needs to know the job a
+  tool is booked to and nothing finer. FoundationSoft is the system of record for
+  cost codes, so modelling phases here before that shape is settled would mean
+  migrating twice to arrive at somebody else's schema.
+
+  Dropped rather than kept as a seam: an empty table is not a head start, it is
+  a guess that looks like a decision. Rebuild it from what FoundationSoft
+  actually exposes, if tools ever need to be booked below job level.
+*/

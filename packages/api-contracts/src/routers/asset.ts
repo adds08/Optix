@@ -1,5 +1,5 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, ilike, or, sql } from "drizzle-orm";
+import { and, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
@@ -13,7 +13,19 @@ export const assetRouter = router({
         .object({
           search: z.string().optional(),
           status: z.string().optional(),
-          projectId: z.string().uuid().optional(),
+          /*
+            A project id, or the literal "none" for tools booked to no project
+            at all.
+
+            A tool without a project is a normal state, not a broken one — it is
+            in the yard, or a foreman is holding it between jobs. But "no
+            project" is not expressible as a uuid, so the only question that
+            could be asked here was "which tools are on project X". The tools on
+            no project were visible one at a time in the register and impossible
+            to see as a group, which is also the group with a billing question
+            attached to it.
+          */
+          projectId: z.union([z.string().uuid(), z.literal("none")]).optional(),
           custodianId: z.string().uuid().optional(),
         })
         .optional(),
@@ -22,7 +34,8 @@ export const assetRouter = router({
       const tid = ctx.session.tenantId;
       const conditions = [eq(schema.asset.tenantId, tid)];
       if (input?.status && input.status !== "all") conditions.push(eq(schema.asset.currentStatus, input.status));
-      if (input?.projectId) conditions.push(eq(schema.asset.currentProjectId, input.projectId));
+      if (input?.projectId === "none") conditions.push(isNull(schema.asset.currentProjectId));
+      else if (input?.projectId) conditions.push(eq(schema.asset.currentProjectId, input.projectId));
       if (input?.custodianId) conditions.push(eq(schema.asset.currentCustodianId, input.custodianId));
       if (input?.search) {
         const q = `%${input.search}%`;

@@ -126,7 +126,7 @@ export function ResolveMessage({
           {spec.needsPerson ? (
             <EntityField label="Person" kind="employee" value={custodianId} onChange={setCustodianId} required />
           ) : null}
-          <EntityField label="Job" kind="project" value={projectId} onChange={setProjectId} />
+          <EntityField label="Project" kind="project" value={projectId} onChange={setProjectId} />
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Note</label>
