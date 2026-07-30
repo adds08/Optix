@@ -21,7 +21,14 @@ export default function MyToolsScreen() {
     { custodianId: employeeId },
     { enabled: !!employeeId },
   );
-  const overdue = trpc.dashboard.overdueLoans.useQuery();
+  /* Same scope as the list it badges. Unscoped, this returned the whole
+     tenant's overdue loans for anyone who is not a foreman — harmless here only
+     because it is intersected with the reader's own tools, which is a fragile
+     reason for two queries on one screen to disagree about whose data it is. */
+  const overdue = trpc.dashboard.overdueLoans.useQuery(
+    { employeeId },
+    { enabled: !!employeeId },
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

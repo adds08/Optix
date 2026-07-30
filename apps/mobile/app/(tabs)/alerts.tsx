@@ -12,16 +12,25 @@ export default function AlertsScreen() {
      overdue. Pull-to-refresh alone means an alert is only as timely as the
      next time somebody thinks to check. */
   const live = { refetchInterval: 30_000 };
-  const overdue = trpc.dashboard.overdueLoans.useQuery(undefined, live);
-  const notifications = trpc.notification.list.useQuery(undefined, live);
+
   /*
-    Who is looking. `overdueLoans` scopes itself to the caller only when they
-    are a foreman — a superintendent or the equipment desk gets the whole
-    tenant's overdue list, which is correct but means most rows on this screen
-    are about somebody else's tool.
+    Everything on this screen is about the person holding the phone.
+
+    This app is the foreman's tool; the desk works in the browser. So the scope
+    is asked for explicitly rather than left to the server's default, which
+    widens to the whole tenant for anyone who is not a foreman. Without it a
+    superintendent opening the app got the company's entire overdue list under a
+    heading that said "chasing you", with instructions to return tools they had
+    never touched. Self-scoping is what makes the copy below simply true.
   */
   const me = trpc.identity.me.useQuery();
-  const myEmployeeId = me.data?.employeeId ?? null;
+  const myEmployeeId = me.data?.employeeId ?? undefined;
+
+  const overdue = trpc.dashboard.overdueLoans.useQuery(
+    { employeeId: myEmployeeId },
+    { ...live, enabled: !!myEmployeeId },
+  );
+  const notifications = trpc.notification.list.useQuery(undefined, live);
   const utils = trpc.useUtils();
 
   const markRead = trpc.notification.markRead.useMutation({
@@ -49,14 +58,7 @@ export default function AlertsScreen() {
       >
         {/* "newest first" was wrong twice over: the list had no ordering at all,
             and on this screen the useful order is worst first, not newest. */}
-        <ScreenTitle
-          title="Alerts"
-          subtitle={
-            myEmployeeId && loans.every((o) => o.custodianId === myEmployeeId)
-              ? "Things chasing you, most overdue first."
-              : "Overdue tools and anything waiting on you, most overdue first."
-          }
-        />
+        <ScreenTitle title="Alerts" subtitle="Things chasing you, most overdue first." />
 
         {overdue.isLoading || notifications.isLoading ? (
           <Loading />
@@ -87,19 +89,16 @@ export default function AlertsScreen() {
                         </View>
                       </View>
                       <Text className="text-[16px] font-semibold text-foreground">{o.modelName}</Text>
-                      {/*
-                        Only tell somebody to return a tool if they are the one
-                        holding it. This used to read "Held by Sofia Ramirez.
-                        Return it to the yard or hand it over from the Hand Off
-                        tab" to the equipment desk — an instruction the reader
-                        cannot carry out, about a tool they have never touched,
-                        pointing at their own Hand Off tab which only moves
-                        their own custody.
-                      */}
+                      {/* Second person, and now accurate: the query above is
+                          scoped to the reader, so every row here is a tool they
+                          are personally holding. It used to say "Held by Sofia
+                          Ramirez. Return it to the yard..." to whoever opened
+                          the app, which for the desk was an instruction they
+                          could not carry out about a tool they had never
+                          touched. */}
                       <Text className="text-[13px] leading-5 text-muted-foreground">
-                        {myEmployeeId && o.custodianId === myEmployeeId
-                          ? "You're holding this. Return it to the yard or hand it over from the Hand Off tab."
-                          : `Held by ${o.custodianName ?? "somebody not on record"} — due back ${o.expectedEnd ?? "on an unrecorded date"}. Chase the return or move it from the tool's page.`}
+                        Due back {o.expectedEnd ?? "on an unrecorded date"}. Return it to the yard,
+                        or hand it to someone else from the Hand Off tab.
                       </Text>
                     </View>
                   </Card>
