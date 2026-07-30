@@ -38,7 +38,15 @@ export function AssetActions({
     utils.assignment.list.invalidate();
   };
 
-  const submit = trpc.action.submit.useMutation({ onSuccess: invalidate });
+  /* Return can also come back parked — returning a tool takes it out of
+     somebody's hands, which is a custody change like any other. Saying nothing
+     on success meant the row simply did not change and the button looked dead. */
+  const submit = trpc.action.submit.useMutation({
+    onSuccess: () => {
+      invalidate();
+      utils.dashboard.pendingApprovals.invalidate();
+    },
+  });
 
   const close = () => {
     setOpen(null);
@@ -79,6 +87,12 @@ export function AssetActions({
 
       {submit.isError ? (
         <span className="text-sm text-destructive">{submit.error.message}</span>
+      ) : submit.data && submit.data.outcome !== "applied" ? (
+        <span className="text-sm text-warn">
+          {submit.data.outcome === "awaiting_approval"
+            ? "Sent to the desk for a second signature — the tool has not moved yet."
+            : "Sent as a request. The desk makes this change."}
+        </span>
       ) : null}
 
       {open === "assign" ? (

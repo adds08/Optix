@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
@@ -45,6 +46,29 @@ export const transferRouter = router({
         where: and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)),
       });
       if (!asset) throw new Error("Asset not found");
+
+      /*
+        One open hand-off per tool.
+
+        Nothing stopped a second identical transfer being raised while the first
+        was still waiting, and the desk got two rows for one physical event —
+        approve one and the other stays in the queue forever, pointing at a
+        hand-off that already happened. Easy to hit by tapping twice on bad
+        signal, which is the normal condition in a yard.
+      */
+      const openTransfer = await ctx.db.query.transfer.findFirst({
+        where: and(
+          eq(schema.transfer.tenantId, tid),
+          eq(schema.transfer.assetId, input.assetId),
+          eq(schema.transfer.status, "pending_approval"),
+        ),
+      });
+      if (openTransfer) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "This tool already has a transfer waiting for approval at the equipment desk.",
+        });
+      }
 
       const settings = await ctx.db.query.tenantSettings.findFirst({ where: eq(schema.tenantSettings.tenantId, tid) });
       const needsApproval = requiresCustodyApproval({
@@ -122,6 +146,25 @@ export const transferRouter = router({
         where: and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, ctx.session.tenantId)),
       });
       if (!tr) throw new Error("Transfer not found");
+
+      /*
+        A transfer names only what it changes.
+
+        `create` stores `toProjectId`/`toLocationId` as null when the person
+        moving the tool did not pick one — the form's "No change" option. Approve
+        then wrote those nulls straight onto the asset, so signing off a
+        person-to-person hand-off silently erased where the tool was and which
+        project it was on. UIC-1001 lost both this way, and the register could no
+        longer answer "where is it" for a tool it still called assigned.
+
+        Null means "leave it alone", so the current value is the fallback.
+      */
+      const asset = await ctx.db.query.asset.findFirst({
+        where: and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)),
+      });
+      const toProjectId = tr.toProjectId ?? asset?.currentProjectId ?? null;
+      const toLocationId = tr.toLocationId ?? asset?.currentLocationId ?? null;
+
       await ctx.db
         .update(schema.transfer)
         .set({ status: "completed", approvedBy: ctx.session.userId, completedAt: new Date() })
@@ -130,8 +173,8 @@ export const transferRouter = router({
         .update(schema.asset)
         .set({
           currentCustodianId: tr.toCustodianId,
-          currentLocationId: tr.toLocationId,
-          currentProjectId: tr.toProjectId,
+          currentLocationId: toLocationId,
+          currentProjectId: toProjectId,
           updatedAt: new Date(),
         })
         .where(eq(schema.asset.id, tr.assetId));
@@ -139,8 +182,8 @@ export const transferRouter = router({
         tenantId: ctx.session.tenantId,
         assetId: tr.assetId,
         toCustodianId: tr.toCustodianId,
-        projectId: tr.toProjectId,
-        locationId: tr.toLocationId,
+        projectId: toProjectId,
+        locationId: toLocationId,
         actorUserId: ctx.session.userId,
       });
       await ctx.db.insert(schema.transaction).values({
@@ -148,15 +191,26 @@ export const transferRouter = router({
         assetId: tr.assetId,
         eventType: "transfer",
         actorId: ctx.session.userId,
-        toState: { status: "assigned", custodianId: tr.toCustodianId, projectId: tr.toProjectId, locationId: tr.toLocationId },
+        /* The fold is last-snapshot-wins, so this has to be the complete state
+           after the move — a partial one blanks whatever it omits. */
+        fromState: asset
+          ? {
+              status: asset.currentStatus,
+              custodianId: asset.currentCustodianId,
+              projectId: asset.currentProjectId,
+              locationId: asset.currentLocationId,
+            }
+          : null,
+        toState: { status: "assigned", custodianId: tr.toCustodianId, projectId: toProjectId, locationId: toLocationId },
         refType: "transfer",
         refId: tr.id,
         note: "Transfer approved",
       });
 
       /* Close the loop. Whoever asked for this hand-off, and whoever is now
-         holding the tool, both need to hear that it went through. */
-      const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, tr.assetId) });
+         holding the tool, both need to hear that it went through. The asset was
+         already read above, before the update, which is also the state the
+         notification should describe. */
       await notifyCustodyDecision(ctx.db, {
         tenantId: ctx.session.tenantId,
         requestedByUserId: tr.requestedBy,

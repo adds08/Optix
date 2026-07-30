@@ -82,15 +82,41 @@ export const actionRouter = router({
 
       const allowed = canApplyAction(input.type, ctx.session.permissions);
 
-      /* NOTE: this path does not yet consult the high-value approval rule that
-         `assignment.create` and `transfer.create` apply via tenantSettings.
-         The chat path has never applied it either, so this is a pre-existing
-         gap being made visible rather than a new one — but a $12k plate compactor
-         handed over on a form should still route through approval. Worth closing
-         before the register carries real money. */
-      const { transactionIds, taskId } = allowed
-        ? { ...(await applyChatAction(ctx.db, opts)), taskId: null as string | null }
-        : await requestChatAction(ctx.db, opts);
+      let transactionIds: string[] = [];
+      let taskId: string | null = null;
+      let applied = 0;
+      let awaitingApproval = 0;
+
+      if (allowed) {
+        const res = await applyChatAction(ctx.db, opts);
+        transactionIds = res.transactionIds;
+        applied = res.applied;
+        awaitingApproval = res.awaitingApproval;
+      } else {
+        const res = await requestChatAction(ctx.db, opts);
+        transactionIds = res.transactionIds;
+        taskId = res.taskId;
+      }
+
+      /*
+        What actually happened, not what the caller was permitted to attempt.
+
+        This used to return `applied: allowed` — the permission check. A transfer
+        between two people always routes through approval, so the executor parked
+        it and wrote nothing, while this said `applied: true` with an empty
+        transaction list. Every caller believed the tool had moved. It had not,
+        and nothing told anyone it was waiting, which is the whole of "transfer
+        doesn't work".
+
+        `awaiting_approval` beats `applied` when a batch produced both: a partly
+        parked hand-off still needs somebody to go and clear it, and that is the
+        instruction the screen has to give.
+      */
+      const outcome = !allowed
+        ? ("requested" as const)
+        : awaitingApproval > 0
+          ? ("awaiting_approval" as const)
+          : ("applied" as const);
 
       await logEvent(ctx, {
         category: "asset",
@@ -100,9 +126,9 @@ export const actionRouter = router({
            trail still names what was acted on. */
         entityId: input.assetIds[0] ?? null,
         entityLabel: input.draft?.tag ?? null,
-        details: { type: input.type, assetIds: input.assetIds, transactionIds, taskId },
+        details: { type: input.type, assetIds: input.assetIds, transactionIds, taskId, outcome },
       });
 
-      return { ok: true, applied: allowed, transactionIds, taskId };
+      return { ok: true, outcome, applied, awaitingApproval, transactionIds, taskId };
     }),
 });

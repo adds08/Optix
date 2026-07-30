@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import type { Permission } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
 import { EntityPicker, type EntityValue } from "../../components/entity-picker";
@@ -81,6 +82,15 @@ export default function ActionScreen() {
   const me = trpc.identity.me.useQuery();
   const asset = trpc.asset.get.useQuery({ id: assetId! }, { enabled: !!assetId });
 
+  /*
+    Stay on the screen and say what happened.
+
+    This used to call `router.back()` on any success. A hand-off between two
+    people always routes through the desk, so the common case was: tap Transfer,
+    the screen closes, the tool is still yours, and nothing anywhere says why.
+    That reads as the button being broken, and it is the reason this screen was
+    reported as not working at all.
+  */
   const submit = trpc.action.submit.useMutation({
     onSuccess: () => {
       if (assetId) {
@@ -89,8 +99,8 @@ export default function ActionScreen() {
       }
       utils.asset.list.invalidate();
       utils.dashboard.overdueLoans.invalidate();
+      utils.dashboard.awaitingDesk.invalidate();
       utils.task.list.invalidate();
-      router.back();
     },
   });
 
@@ -213,26 +223,87 @@ export default function ActionScreen() {
           <Text className="text-[13px] text-muted-foreground">Still need {missing.join(" and ")}.</Text>
         ) : null}
 
-        <View className="gap-2">
-          <Button
-            label={willApply ? copy.verb : "Send request"}
-            onPress={() =>
-              submit.mutate({
-                type,
-                assetIds: [assetId],
-                custodianId: custodian?.id,
-                projectId: project?.id,
-                locationId: location?.id,
-                note: note.trim() || undefined,
-              })
-            }
-            disabled={!ready}
-            busy={submit.isPending}
-            variant={type === "lost" ? "danger" : "primary"}
-          />
-          <Button label="Cancel" variant="outline" onPress={() => router.back()} />
-        </View>
+        {/* The answer, in the three shapes it can take. Every one of them says
+            whether the tool moved, because that is the only question the person
+            holding the phone is asking. */}
+        {submit.data ? (
+          <Outcome outcome={submit.data.outcome} verb={copy.verb} onDone={() => router.back()} />
+        ) : (
+          <View className="gap-2">
+            <Button
+              label={willApply ? copy.verb : "Send request"}
+              onPress={() =>
+                submit.mutate({
+                  type,
+                  assetIds: [assetId],
+                  custodianId: custodian?.id,
+                  projectId: project?.id,
+                  locationId: location?.id,
+                  note: note.trim() || undefined,
+                })
+              }
+              disabled={!ready}
+              busy={submit.isPending}
+              variant={type === "lost" ? "danger" : "primary"}
+            />
+            <Button label="Cancel" variant="outline" onPress={() => router.back()} />
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+/*
+  What happened, in the words a foreman needs.
+
+  The distinction that matters is not success versus failure — all three of
+  these are successes. It is whether the tool moved. Two of them mean it did
+  not, and the person standing in the yard has to know that before they walk
+  away, because in both cases they are still holding it.
+*/
+function Outcome({
+  outcome,
+  verb,
+  onDone,
+}: {
+  outcome: "applied" | "awaiting_approval" | "requested";
+  verb: string;
+  onDone: () => void;
+}) {
+  const done = outcome === "applied";
+  const copy = done
+    ? { title: "Done", body: "The register is updated." }
+    : outcome === "awaiting_approval"
+      ? {
+          title: "Sent to the equipment desk",
+          body: "Handing a tool to somebody else needs their sign-off. It stays on your name until they clear it — keep hold of it, or make sure you know where it is.",
+        }
+      : {
+          title: "Reported",
+          body: "The desk makes this change. Nothing has moved yet, and they will come back to you.",
+        };
+
+  return (
+    <View className="gap-3">
+      <View
+        className={`gap-1.5 rounded-md border px-4 py-3.5 ${
+          done ? "border-ok bg-ok-bg" : "border-warn bg-warn-bg"
+        }`}
+      >
+        <View className="flex-row items-center gap-2">
+          <Ionicons
+            name={done ? "checkmark-circle" : "hourglass-outline"}
+            size={18}
+            color={done ? "#1F6B57" : "#8A5A16"}
+          />
+          <Text className={`text-[15px] font-semibold ${done ? "text-ok" : "text-warn"}`}>
+            {copy.title}
+          </Text>
+        </View>
+        <Text className={`text-[13px] leading-5 ${done ? "text-ok" : "text-warn"}`}>{copy.body}</Text>
+      </View>
+      <Button label={done ? "Done" : "Got it"} onPress={onDone} />
+    </View>
   );
 }
