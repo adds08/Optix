@@ -172,6 +172,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3100
+      # Next.js standalone binds to $HOSTNAME, and Docker sets that to the
+      # container id — so the server listened only on the container's own
+      # address and the image's healthcheck, which probes 127.0.0.1, could
+      # never connect. Caddy reaches it as web:3100 either way, so this showed
+      # up as a permanently unhealthy container in front of a working site.
+      HOSTNAME: 0.0.0.0
     expose:
       - "3100"
     depends_on:

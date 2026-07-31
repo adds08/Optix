@@ -49,6 +49,8 @@ private Docker network and is unreachable from the internet.
 | `/trpc/*` | api:4100 | The entire tRPC surface — every query and mutation |
 | `/auth/*` | api:4100 | Login and logout |
 | `/health` | api:4100 | Liveness, also used by the container healthcheck |
+| `/media/*` | minio:9000 | Tool photos. Caddy prepends the bucket, so rows store a bare object key |
+| `/field/*` | disk | The Expo app, exported by `expo export` and served from `/srv/field` |
 | everything else | web:3100 | Next.js owns all remaining routes |
 
 **Why one hostname rather than `api.` and `app.`:** same-origin means one
@@ -127,10 +129,12 @@ producing an API talking to a schema it does not match.
 - **No backups.** Postgres runs on the droplet. A droplet loss is a data loss.
   DO's weekly droplet backups are about $1.20/mo; a `pg_dump` to Spaces is
   cheaper still. Do this before the system holds anything Urban relies on.
-- **No LLM.** `ENGINE_*` points at an invalid host deliberately. Chat messages
-  queue and are retried by the request worker rather than failing, so the rest
-  of the app is unaffected — but nothing will parse until a hosted
-  OpenAI-compatible endpoint is configured.
+- **The LLM key exists in exactly one place.** It is configured through the
+  Settings page and stored encrypted in `tenant_settings`, keyed off
+  `SESSION_SECRET`. There is no `LLM_*` fallback in `.env.production`, which is
+  deliberate — but it means rotating `SESSION_SECRET` silently costs you the
+  key, and chat drops to `pending_manual` with no error anywhere but the
+  Settings page. Re-enter it there after any secret rotation.
 - **1GB is tight.** It builds only because of the swap file, and slowly. If
   builds start failing, build elsewhere and push images rather than resizing.
 - **The API image is ~1.9GB.** `.npmrc` pins `node-linker=hoisted` for Metro's

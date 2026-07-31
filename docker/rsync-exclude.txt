@@ -6,11 +6,32 @@ dist/
 *.log
 .env.local
 .DS_Store
-app-polished-*/
-dashboard-*/
-v2-*/
-*.png
+# Stray screenshot / snapshot dumps at the repo root, left over from UI
+# prototyping. These mirror the same list in .gitignore and must stay in step
+# with it. A leading `/` anchors to the repo root; a *trailing* slash would
+# match only directories, and these are plain files — which is exactly why they
+# were being deployed despite appearing to be excluded here.
+/*.png
+/app-polished-*
+/dashboard-*
+/chat-*
+/kanban-and-chat
+/login-*
+/new-login
+/sidebar-check
+/dark-sidebar
+/final-shadcn-dashboard
+/pure-shadcn*
+/shadcn-website
+/v2-*
+/flutter-web-check
+/core-shadcn-final*
+/classic-shadcn-dashboard*
+/newyork-dash*
 prototype/
+# Local tooling scratch — no reason to exist on the server.
+.playwright-mcp/
+.kilo/
 # Built on the droplet by `expo export`, not present in the repo tree — without
 # this, --delete removes the deployed field app on every deploy.
 field/
