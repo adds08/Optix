@@ -65,6 +65,18 @@ $COMPOSE build
 log "starting"
 $COMPOSE up -d --remove-orphans
 
+# --- config mounted as a volume ---------------------------------------------
+# The Caddyfile is bind-mounted, not baked into an image, so `up -d` has no
+# reason to touch Caddy when only that file changed — the service definition is
+# identical and the container is left running its old routing table.
+#
+# This cost a release: an API route was added, the proxy rule for it shipped in
+# the same commit, and requests kept falling through to Next with "Server action
+# not found" long after the deploy reported success. `caddy reload` was not
+# enough either; the running config only picked it up on a restart.
+log "restarting caddy to pick up mounted config"
+$COMPOSE restart caddy
+
 # --- verify -----------------------------------------------------------------
 # Migrations run inside the API container on boot and it refuses to serve if
 # they fail, so a healthy API is also proof the schema matches the code.

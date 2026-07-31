@@ -86,8 +86,19 @@ export function storageFor(env: ServerEnv): Storage | null {
       }
     },
 
+    /*
+      S3_PUBLIC_URL is the base under which object keys are directly
+      addressable — the bucket is already accounted for in it, so this must not
+      add it again.
+
+      That holds for both deployments this is meant to serve. Caddy's /media
+      handler rewrites the bucket in on the way to MinIO, and a Spaces or R2
+      URL carries the bucket in the hostname. Prepending it here produced
+      /media/stinventory/stinventory/... and a 404 on every photo the API
+      reported the URL of.
+    */
     urlFor(key) {
-      return key ? `${publicBase}/${bucket}/${key}` : null;
+      return key ? `${publicBase}/${key}` : null;
     },
   };
 }
