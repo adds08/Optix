@@ -2,29 +2,50 @@
 // themselves have no side effects and are unit-tested.
 
 /*
-  A custody change needs a second signature when the tool is worth enough to
-  justify one, and not otherwise.
+  What happens when somebody moves a tool: apply it, apply it and flag it, or
+  park it for a signature.
 
-  This used to gate on the hand-off itself as well: any tool passing between two
-  people needed the desk, whatever it cost. That made a $40 hand tool as
-  expensive to move as a $12k compactor, and the threshold could only ever add
-  cases — it never exempted one. In a yard, a gate on every hand-off is not a
-  control, it is a queue nobody clears, and the tools move anyway while the
-  register falls behind.
+  Two things decide this, and only one of them used to be consulted.
 
-  A null or unset threshold disables approval entirely. That is deliberate: a
-  tenant that has not said what "high value" means has not asked for a gate, and
-  inventing one for them produces the same unattended queue.
+  WHO IS ACTING. A foreman may raise a hand-off (`transfer.create`) but not sign
+  one off (`transfer.approve`) — the roles already say so. The old rule never
+  looked, so a foreman's hand-off approved itself and, worse, wrote a PERMANENT
+  custody change. In the yard a foreman handing a tool to another foreman is a
+  borrow: he is telling the equipment desk where his tool went, not reassigning
+  ownership. Only the desk changes who a tool belongs to.
+
+  WHAT IT IS WORTH. Kept from the previous rule, and still the right gate for
+  the desk itself: an equipment admin moving something at or above the tenant's
+  threshold wants a second admin on it. A null threshold disables that gate —
+  a tenant that has not said what "high value" means has not asked for one.
+
+  Note the asymmetry, which is deliberate: value parks the desk's own moves but
+  never a foreman's. A foreman's move is temporary custody only — the register
+  still shows the permanent owner, and the borrow is already in the desk's queue
+  — so there is nothing a value gate would protect. Blocking him instead would
+  rebuild the queue nobody clears while the tool has physically moved anyway,
+  which is the failure the value-only rule was written to escape.
 */
-export function requiresCustodyApproval(input: {
-  fromCustodianId: string | null;
-  toCustodianId: string | null;
+export type CustodyOutcome =
+  /** Apply it as a permanent custody change. Nobody else is needed. */
+  | "auto"
+  /** Apply it now as a temporary borrow, and put it in front of the desk.
+      The permanent owner is untouched. */
+  | "verify"
+  /** Write nothing. The register does not move until a second person signs. */
+  | "approve";
+
+export function custodyOutcome(input: {
+  /** Does the actor hold the approve permission for what they are doing? */
+  actorCanApprove: boolean;
   assetCost: number | null | undefined;
   highValueThreshold: number | null | undefined;
-}): boolean {
-  return (
-    input.highValueThreshold != null && (input.assetCost ?? 0) >= input.highValueThreshold
-  );
+}): CustodyOutcome {
+  if (!input.actorCanApprove) return "verify";
+  if (input.highValueThreshold != null && (input.assetCost ?? 0) >= input.highValueThreshold) {
+    return "approve";
+  }
+  return "auto";
 }
 
 export type OverdueInput = {

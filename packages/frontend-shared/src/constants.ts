@@ -12,6 +12,9 @@ export const NAV_ITEMS = [
 export const STATUS_LABELS: Record<string, string> = {
   available: "Available", assigned: "Assigned", in_maintenance: "In Maintenance",
   reserved: "Reserved", lost: "Lost", pending_approval: "Pending",
+  /* "On loan", not "Pending": the tool has moved and the register is right. What
+     is outstanding is the desk looking at it, not the hand-off itself. */
+  pending_verification: "On loan",
   active: "Active", completed: "Completed",
 };
 

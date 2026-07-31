@@ -44,6 +44,7 @@ const ASSET_TONE: Record<string, Tone> = {
   transferred: "idle",
   overdue: "crit",
   pending_approval: "warn",
+  pending_verification: "warn",
   completed: "ok",
   cancelled: "idle",
   in_progress: "info",

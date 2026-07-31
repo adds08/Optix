@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
-import { requiresCustodyApproval } from "@stinventory/domain";
+import { custodyOutcome, type CustodyOutcome } from "@stinventory/domain";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, type Permission } from "@stinventory/types";
 import {
   ACTION_DEPARTMENTS,
@@ -9,7 +9,7 @@ import {
   CUSTODY_INTENTS,
   REQUEST_TITLES,
 } from "@stinventory/intent";
-import { closeActiveCustody } from "./custody.js";
+import { closeActiveCustody, moveCustody } from "./custody.js";
 
 /*
   The single place a chat-derived intent becomes real state.
@@ -92,27 +92,29 @@ export type ApplyResult = {
   /* Custody changes that were parked for a second signature rather than applied.
      The register did not move for these. */
   awaitingApproval: number;
+  /* Applied as borrows and put in front of the equipment desk. The register DID
+     move for these — counted apart from `applied` so the chat reply can say
+     "recorded, the desk will confirm" rather than claiming it is settled. */
+  awaitingVerification: number;
 };
 
 /*
-  Cross-person hand-offs and anything at or above the tenant's high-value
-  threshold need a second person, per requiresCustodyApproval in
-  packages/domain/src/rules.ts. `transfer.create` has always honoured it; this
-  executor did not, so until now a $12k compactor could change hands from a
-  phone with nobody else involved.
+  The same rule the routers use, per custodyOutcome in
+  packages/domain/src/rules.ts. Chat has to agree with the forms exactly: this
+  is the surface a foreman actually uses, so a rule that only the web forms
+  honoured would be a rule that never applied to the people it is for.
 */
-async function approvalNeeded(
+async function outcomeFor(
   db: any,
   tenantId: string,
-  asset: { currentCustodianId: string | null; acquisitionCost: string | null },
-  toCustodianId: string | null | undefined,
-): Promise<boolean> {
+  asset: { acquisitionCost: string | null },
+  permissions: Set<string>,
+): Promise<CustodyOutcome> {
   const settings = await db.query.tenantSettings.findFirst({
     where: eq(schema.tenantSettings.tenantId, tenantId),
   });
-  return requiresCustodyApproval({
-    fromCustodianId: asset.currentCustodianId,
-    toCustodianId: toCustodianId ?? null,
+  return custodyOutcome({
+    actorCanApprove: permissions.has("transfer.approve"),
     assetCost: asset.acquisitionCost != null ? Number(asset.acquisitionCost) : null,
     highValueThreshold: settings?.highValueThreshold ?? DEFAULT_HIGH_VALUE_THRESHOLD,
   });
@@ -145,6 +147,7 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
   const transactionIds: string[] = [];
   let applied = 0;
   let awaitingApproval = 0;
+  let awaitingVerification = 0;
 
   for (const assetId of assetIds) {
     const asset = await db.query.asset.findFirst({
@@ -152,48 +155,106 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
     });
     if (!asset) continue;
 
-    /* Custody moves get the rule applied before anything is written. A parked
-       hand-off leaves the register exactly where it was — the pending row is
-       the only trace until someone approves it. */
+    /* Custody moves get the rule applied before anything is written. */
     if (action.type === "assign" || action.type === "transfer") {
-      if (await approvalNeeded(db, tenantId, asset, action.custodianId)) {
+      const outcome = await outcomeFor(db, tenantId, asset, permissions as Set<string>);
+
+      if (outcome !== "auto") {
         /*
-          A parked hand-off has to name where it is going, or approving it does
-          nothing and declining it means nothing.
+          A hand-off the desk will look at has to name where it is going, or
+          acting on it does nothing and refusing it means nothing.
 
           This used to default `toCustodianId` to the CURRENT holder, so a
           message whose destination the parser could not resolve produced a
           transfer reading "Dwayne → Dwayne": a row the desk cannot act on in
           either direction, and which tells the requester nothing when refused.
           If there is no destination of any kind, the message is not an
-          approvable hand-off — it goes back as unresolved.
+          actionable hand-off — it goes back as unresolved.
         */
         const toCustodianId = action.custodianId ?? null;
         const toLocationId = action.locationId ?? null;
 
         if (!toCustodianId && !toLocationId) {
           throw new Error(
-            "This hand-off needs approval but names nobody to hand it to. Say who is taking it, or record it from Custody.",
+            "This hand-off names nobody to hand it to. Say who is taking it, or record it from Custody.",
           );
         }
 
-        await db.insert(schema.transfer).values({
+        const [transferRow] = await db
+          .insert(schema.transfer)
+          .values({
+            tenantId,
+            assetId,
+            fromCustodianId: asset.currentCustodianId,
+            toCustodianId,
+            fromLocationId: asset.currentLocationId,
+            /* Falling back to the current location is fine — a tool can change
+               hands without moving. Falling back on the PERSON is what made the
+               row meaningless. */
+            toLocationId: toLocationId ?? asset.currentLocationId,
+            fromProjectId: asset.currentProjectId,
+            toProjectId: action.projectId ?? asset.currentProjectId,
+            reason: "handoff",
+            status: outcome === "approve" ? "pending_approval" : "pending_verification",
+            requestedBy: actorUserId,
+          })
+          .returning();
+
+        /* `approve` withholds the move entirely. `verify` is a foreman telling
+           the desk where his tool went — the tool has already gone, so the
+           register follows it now, as a borrow, and the desk sees the row. */
+        if (outcome === "approve") {
+          awaitingApproval++;
+          continue;
+        }
+
+        const borrowProjectId = action.projectId ?? asset.currentProjectId ?? null;
+        const borrowLocationId = toLocationId ?? asset.currentLocationId ?? null;
+        await moveCustody(db, {
           tenantId,
           assetId,
-          fromCustodianId: asset.currentCustodianId,
           toCustodianId,
-          fromLocationId: asset.currentLocationId,
-          /* Falling back to the current location is fine — a tool can change
-             hands without moving. Falling back on the PERSON is what made the
-             row meaningless. */
-          toLocationId: toLocationId ?? asset.currentLocationId,
-          fromProjectId: asset.currentProjectId,
-          toProjectId: action.projectId ?? asset.currentProjectId,
-          reason: "handoff",
-          status: "pending_approval",
-          requestedBy: actorUserId,
+          projectId: borrowProjectId,
+          locationId: borrowLocationId,
+          actorUserId,
+          type: "temporary",
         });
-        awaitingApproval++;
+        await db
+          .update(schema.asset)
+          .set({
+            currentCustodianId: toCustodianId,
+            currentStatus: "assigned",
+            currentProjectId: borrowProjectId,
+            currentLocationId: borrowLocationId,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.asset.id, assetId));
+        const [borrowTx] = await db
+          .insert(schema.transaction)
+          .values({
+            tenantId,
+            assetId,
+            eventType: "transfer",
+            actorId: actorUserId,
+            fromState: {
+              status: asset.currentStatus,
+              custodianId: asset.currentCustodianId,
+              projectId: asset.currentProjectId,
+              locationId: asset.currentLocationId,
+            },
+            toState: {
+              status: "assigned",
+              custodianId: toCustodianId,
+              projectId: borrowProjectId,
+              locationId: borrowLocationId,
+            },
+            refType: "transfer",
+            refId: transferRow?.id ?? null,
+            note: action.note ?? "Lent, awaiting equipment desk",
+          })
+          .returning();
+        if (borrowTx?.id) transactionIds.push(borrowTx.id);
+        awaitingVerification++;
         continue;
       }
     }
@@ -372,12 +433,12 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
   }
 
   /* Parking everything for approval is a success, not a failure — the hand-off
-     was recorded, it just needs a second signature. Only a run that touched
-     nothing at all is an error. */
-  if (applied === 0 && awaitingApproval === 0) {
+     was recorded, it just needs a second signature. A borrow is more clearly a
+     success: the register moved. Only a run that touched nothing is an error. */
+  if (applied === 0 && awaitingApproval === 0 && awaitingVerification === 0) {
     throw new Error("No matching assets in this tenant");
   }
-  return { transactionIds, applied, awaitingApproval };
+  return { transactionIds, applied, awaitingApproval, awaitingVerification };
 }
 
 /*
@@ -446,7 +507,7 @@ async function applyIntake(
     })
     .returning();
 
-  return { transactionIds: tx ? [String(tx.id)] : [], applied: 1, awaitingApproval: 0 };
+  return { transactionIds: tx ? [String(tx.id)] : [], applied: 1, awaitingApproval: 0, awaitingVerification: 0 };
 }
 
 /* Which desk owns the follow-up, and what the approval card is headed. Both

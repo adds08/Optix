@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import { requiresCustodyApproval, isOverdueLoan } from "@stinventory/domain";
+import { custodyOutcome, isOverdueLoan } from "@stinventory/domain";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { closeActiveCustody } from "../custody.js";
@@ -62,12 +62,18 @@ export const assignmentRouter = router({
       const settings = await ctx.db.query.tenantSettings.findFirst({
         where: eq(schema.tenantSettings.tenantId, tid),
       });
-      const needsApproval = requiresCustodyApproval({
-        fromCustodianId: asset.currentCustodianId ?? null,
-        toCustodianId: input.custodianId,
+      const outcome = custodyOutcome({
+        actorCanApprove: ctx.session.permissions.has("assignment.approve"),
         assetCost: asset.acquisitionCost ? Number(asset.acquisitionCost) : null,
         highValueThreshold: settings?.highValueThreshold ?? null,
       });
+      const needsApproval = outcome === "approve";
+
+      /* `type` is the caller's to choose only if the caller may grant ownership.
+         A foreman handing a tool out is lending it however the form is filled
+         in — permanent custody is the equipment desk's to give, and this input
+         was the last way round that. */
+      const type = outcome === "verify" ? "temporary" : input.type;
 
       const status = needsApproval ? "pending_approval" : "active";
 
@@ -85,7 +91,7 @@ export const assignmentRouter = router({
           custodianId: input.custodianId,
           projectId: input.projectId ?? null,
           locationId: input.locationId ?? null,
-          type: input.type,
+          type,
           startDate: new Date().toISOString().slice(0, 10),
           expectedEndDate: input.expectedEnd ?? null,
           status,

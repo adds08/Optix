@@ -267,22 +267,30 @@ function Outcome({
   verb,
   onDone,
 }: {
-  outcome: "applied" | "awaiting_approval" | "requested";
+  outcome: "applied" | "awaiting_approval" | "requested" | "borrowed";
   verb: string;
   onDone: () => void;
 }) {
-  const done = outcome === "applied";
-  const copy = done
-    ? { title: "Done", body: "The register is updated." }
-    : outcome === "awaiting_approval"
-      ? {
-          title: "Sent to the equipment desk",
-          body: "Handing a tool to somebody else needs their sign-off. It stays on your name until they clear it — keep hold of it, or make sure you know where it is.",
-        }
-      : {
-          title: "Reported",
-          body: "The desk makes this change. Nothing has moved yet, and they will come back to you.",
-        };
+  /* A borrow is a success on the phone: the tool moved and the register says
+     so. It is not "done" only because the desk has still to look at it. */
+  const done = outcome === "applied" || outcome === "borrowed";
+  const copy =
+    outcome === "applied"
+      ? { title: "Done", body: "The register is updated." }
+      : outcome === "borrowed"
+        ? {
+            title: "Recorded as a loan",
+            body: "It shows against them now, and it still belongs to you. The equipment desk will confirm it — only they can change who a tool belongs to.",
+          }
+        : outcome === "awaiting_approval"
+          ? {
+              title: "Sent to the equipment desk",
+              body: "This one needs their sign-off. It stays on your name until they clear it — keep hold of it, or make sure you know where it is.",
+            }
+          : {
+              title: "Reported",
+              body: "The desk makes this change. Nothing has moved yet, and they will come back to you.",
+            };
 
   return (
     <View className="gap-3">

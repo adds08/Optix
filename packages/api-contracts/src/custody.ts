@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 
 /*
@@ -55,6 +55,37 @@ export async function closeActiveCustody(
     )
     .returning({ id: schema.assignment.id });
   return closed.map((r: { id: string }) => r.id);
+}
+
+/*
+  Who a tool belongs to when nobody has borrowed it.
+
+  A foreman's hand-off opens a `temporary` link, which closes the `permanent`
+  one — the invariant allows only one active link per asset, and relaxing that
+  would mean every reader of "who holds this" has to learn which of two rows to
+  believe. So the permanent owner is not stored a second time; it is read back
+  out of the history, which is append-only and already has the answer.
+
+  The most recent `permanent` row is the home, whatever its status: closing it
+  as `transferred` is exactly what a borrow does, and it stays the home until
+  the desk grants ownership to somebody else.
+
+  Returns null for a tool that has only ever been lent, or never assigned.
+*/
+export async function homeCustodianId(
+  db: any,
+  tenantId: string,
+  assetId: string,
+): Promise<string | null> {
+  const row = await db.query.assignment.findFirst({
+    where: and(
+      eq(schema.assignment.tenantId, tenantId),
+      eq(schema.assignment.assetId, assetId),
+      eq(schema.assignment.type, "permanent"),
+    ),
+    orderBy: [desc(schema.assignment.createdAt)],
+  });
+  return row?.custodianId ?? null;
 }
 
 /** Closes whatever was active, then opens the new link if there is a holder. */

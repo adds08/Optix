@@ -1,88 +1,56 @@
 import { describe, expect, it } from "vitest";
-import { byMostOverdue, isIdleAsset, isOverdueLoan, requiresCustodyApproval } from "./rules.js";
+import { byMostOverdue, custodyOutcome, isIdleAsset, isOverdueLoan } from "./rules.js";
 
 /*
-  The approval gate and the overdue rule.
+  The custody gate and the overdue rule.
 
   These two decide when a person other than the actor has to be involved, and
-  when the system starts chasing somebody. They are pure functions with four
-  inputs each, which makes them cheap to pin down — and worth pinning, because
-  four separate call sites depend on `requiresCustodyApproval` agreeing with
-  itself: assignment.create, transfer.create, the chat executor and the manual
-  action path.
+  when the system starts chasing somebody. They are pure functions, which makes
+  them cheap to pin down — and worth pinning, because four separate call sites
+  depend on `custodyOutcome` agreeing with itself: assignment.create,
+  transfer.create, the chat executor and the manual action path.
 */
 
-describe("requiresCustodyApproval", () => {
-  const between = { fromCustodianId: "a", toCustodianId: "b" };
+describe("custodyOutcome", () => {
+  const desk = { actorCanApprove: true };
+  const foreman = { actorCanApprove: false };
 
-  it("does not gate an ordinary hand-off between two people", () => {
-    /* Changed deliberately. This used to return true for any cross-person move,
-       which meant a $40 hand tool needed the equipment desk exactly as much as a
-       compactor did. A gate on every hand-off is not a control — it is a queue
-       nobody clears, while the tools move regardless and the register drifts. */
-    expect(
-      requiresCustodyApproval({ ...between, assetCost: 100, highValueThreshold: 5000 }),
-    ).toBe(false);
+  it("makes a foreman's hand-off a borrow the desk must verify", () => {
+    /* The regression this rule exists for. A foreman moved UIC-090 ($90, well
+       under the $5,000 threshold) and the value-only rule auto-approved it AND
+       wrote permanent ownership — so a borrow silently reassigned the tool with
+       nobody at the equipment desk ever seeing it. */
+    expect(custodyOutcome({ ...foreman, assetCost: 90, highValueThreshold: 5000 })).toBe("verify");
   });
 
-  it("gates anything at or above the threshold, however it moves", () => {
-    /* `>=`, not `>`: a threshold of exactly 5000 includes 5000. */
-    for (const from of [null, "a"]) {
-      expect(
-        requiresCustodyApproval({
-          fromCustodianId: from,
-          toCustodianId: "b",
-          assetCost: 5000,
-          highValueThreshold: 5000,
-        }),
-      ).toBe(true);
+  it("keeps a foreman's move a borrow no matter what it is worth", () => {
+    /* Deliberate, and the reason it is safe: a borrow never changes ownership
+       and is already in the desk's queue, so there is nothing a value gate
+       would protect. Blocking him instead rebuilds the queue nobody clears
+       while the tool has physically moved anyway. */
+    for (const assetCost of [40, 4999, 12_000, 999_999]) {
+      expect(custodyOutcome({ ...foreman, assetCost, highValueThreshold: 5000 })).toBe("verify");
     }
-    expect(
-      requiresCustodyApproval({ ...between, assetCost: 4999, highValueThreshold: 5000 }),
-    ).toBe(false);
   });
 
-  it("does not gate a first issue out of the yard below the threshold", () => {
-    expect(
-      requiresCustodyApproval({
-        fromCustodianId: null,
-        toCustodianId: "b",
-        assetCost: 100,
-        highValueThreshold: 5000,
-      }),
-    ).toBe(false);
+  it("still asks the desk for a second signature above the threshold", () => {
+    /* `>=`, not `>`: a threshold of exactly 5000 includes 5000. */
+    expect(custodyOutcome({ ...desk, assetCost: 5000, highValueThreshold: 5000 })).toBe("approve");
+    expect(custodyOutcome({ ...desk, assetCost: 4999, highValueThreshold: 5000 })).toBe("auto");
   });
 
-  it("does not gate a cheap tool coming back to the yard", () => {
-    expect(
-      requiresCustodyApproval({
-        fromCustodianId: "a",
-        toCustodianId: null,
-        assetCost: 100,
-        highValueThreshold: 5000,
-      }),
-    ).toBe(false);
+  it("lets the desk move an ordinary tool without ceremony", () => {
+    /* Kept from the previous rule. A $40 hand tool must not cost the equipment
+       desk the same attention as a compactor. */
+    expect(custodyOutcome({ ...desk, assetCost: 100, highValueThreshold: 5000 })).toBe("auto");
   });
 
-  it("still gates a valuable tool coming back", () => {
-    /* Returning a compactor is the moment it is easiest to lose track of. */
-    expect(
-      requiresCustodyApproval({
-        fromCustodianId: "a",
-        toCustodianId: null,
-        assetCost: 12_000,
-        highValueThreshold: 5000,
-      }),
-    ).toBe(true);
-  });
-
-  it("disables approval entirely when the tenant has set no threshold", () => {
+  it("disables the value gate entirely when the tenant has set no threshold", () => {
     /* A tenant that has not said what high value means has not asked for a
-       gate. Inventing one produces the queue described above. */
+       gate. This exempts the desk only — a foreman is still lending. */
     for (const highValueThreshold of [null, undefined]) {
-      expect(
-        requiresCustodyApproval({ ...between, assetCost: 999_999, highValueThreshold }),
-      ).toBe(false);
+      expect(custodyOutcome({ ...desk, assetCost: 999_999, highValueThreshold })).toBe("auto");
+      expect(custodyOutcome({ ...foreman, assetCost: 999_999, highValueThreshold })).toBe("verify");
     }
   });
 
@@ -90,9 +58,7 @@ describe("requiresCustodyApproval", () => {
     /* Imported rows routinely have no cost. Unknown value must not silently
        become "needs approval" for everything. */
     for (const assetCost of [null, undefined]) {
-      expect(
-        requiresCustodyApproval({ ...between, assetCost, highValueThreshold: 5000 }),
-      ).toBe(false);
+      expect(custodyOutcome({ ...desk, assetCost, highValueThreshold: 5000 })).toBe("auto");
     }
   });
 });

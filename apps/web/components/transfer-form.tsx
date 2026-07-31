@@ -57,10 +57,18 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
       utils.dashboard.kpis.invalidate();
       utils.dashboard.pendingApprovals.invalidate();
       utils.dashboard.recentActivity.invalidate();
-      if (res.needsApproval) {
+      if (res.outcome === "approve") {
         setPending(true);
         setResult(
-          "Sent to the equipment desk. This tool is changing hands, so it needs a second signature — it stays where it is until someone approves it in the Inbox.",
+          "Sent to the equipment desk. This tool is worth enough to need a second signature — it stays where it is until someone approves it in the Inbox.",
+        );
+      } else if (res.outcome === "verify") {
+        /* The tool HAS moved — saying "sent for approval" here would be a lie,
+           and saying nothing would leave the foreman thinking ownership changed.
+           It is recorded as a loan; the desk decides if it becomes permanent. */
+        setPending(true);
+        setResult(
+          "Recorded as a loan. The tool now shows against them and it still belongs to you — the equipment desk will confirm it, and only they can change who owns it.",
         );
       } else {
         onClose();

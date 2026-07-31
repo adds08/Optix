@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle2, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { ResolveMessage } from "@/components/resolve-message";
@@ -223,20 +223,30 @@ export default function InboxPage() {
           {approvals.data?.length ? (
             <section className="flex flex-col gap-3">
               <h2 className="text-sm font-medium">
-                Awaiting approval <span className="text-muted-foreground">({approvals.data.length})</span>
+                Needs the desk <span className="text-muted-foreground">({approvals.data.length})</span>
               </h2>
               <ul className="flex flex-col gap-px overflow-hidden rounded-md border bg-border">
                 {approvals.data.map((a) => (
                   <li key={a.id} className="flex flex-wrap items-center gap-3 bg-card px-4 py-3 text-sm">
                     <Tag>{a.assetTag}</Tag>
                     <span className="font-medium">{a.assetModel}</span>
-                    <span className="text-muted-foreground">
-                      {a.type} · {a.custodianName ?? "—"}
+                    {/* Name both ends. "transfer · Dwayne Ellis" never said who
+                        gave it up, which is half of what the desk is checking. */}
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      {a.fromName ? (
+                        <>
+                          {a.fromName}
+                          <ArrowRight aria-hidden className="size-3 shrink-0 opacity-60" />
+                        </>
+                      ) : null}
+                      <span className="text-foreground">{a.custodianName ?? "—"}</span>
                     </span>
+                    <StatusPill status={a.status} />
                     <span className="ml-auto text-xs text-muted-foreground">{relative(a.createdAt)}</span>
                     <ApprovalControls
                       type={a.type}
                       id={a.id}
+                      status={a.status}
                       onDone={() => {
                         utils.dashboard.pendingApprovals.invalidate();
                         utils.asset.list.invalidate();
@@ -332,10 +342,12 @@ export default function InboxPage() {
 function ApprovalControls({
   type,
   id,
+  status,
   onDone,
 }: {
   type: string;
   id: string;
+  status: string;
   onDone: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -349,11 +361,58 @@ function ApprovalControls({
   const declineAssignment = trpc.assignment.decline.useMutation({ onSuccess: settled, onError: failed });
   const approveTransfer = trpc.transfer.approve.useMutation({ onSuccess: settled, onError: failed });
   const declineTransfer = trpc.transfer.decline.useMutation({ onSuccess: settled, onError: failed });
+  const verifyTransfer = trpc.transfer.verify.useMutation({ onSuccess: settled, onError: failed });
 
   const isTransfer = type === "transfer";
   const approve = isTransfer ? approveTransfer : approveAssignment;
   const decline = isTransfer ? declineTransfer : declineAssignment;
-  const busy = approve.isPending || decline.isPending;
+  const busy = approve.isPending || decline.isPending || verifyTransfer.isPending;
+
+  /*
+    A borrow is a different question, so it gets different buttons.
+
+    "Approve" would be the wrong word: the hand-off already happened and the
+    register already shows it. What the desk is deciding is whether the record
+    is right, and separately whether the tool should now belong to the person
+    holding it — which is the only thing here that changes ownership, and the
+    reason it is a deliberate second button rather than a default.
+  */
+  if (isTransfer && status === "pending_verification") {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => {
+              const reason = window.prompt("Why is this wrong? The tool goes back to its owner.");
+              if (reason === null) return;
+              decline.mutate({ id, reason: reason || undefined });
+            }}
+          >
+            Reject
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => {
+              if (!window.confirm("Hand ownership to the person holding it? This is permanent.")) return;
+              verifyTransfer.mutate({ id, makePermanent: true });
+            }}
+          >
+            Make permanent
+          </Button>
+          <Button size="sm" disabled={busy} onClick={() => verifyTransfer.mutate({ id, makePermanent: false })}>
+            {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+            Verify loan
+          </Button>
+        </div>
+        {error ? <span className="text-xs text-crit">{error}</span> : null}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-end gap-1">

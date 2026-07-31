@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { eq, desc, and, sql, ne, ilike, or } from "drizzle-orm";
+import { eq, desc, and, sql, ne, ilike, inArray, or } from "drizzle-orm";
 import { resolveSession } from "@stinventory/auth";
 import * as s from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
@@ -114,6 +114,7 @@ export function mountRestRoutes(app: Hono, db: Database) {
       assetTag: s.asset.tag,
       assetModel: s.asset.modelName,
       custodianName: s.employee.name,
+      status: s.assignment.status,
     }).from(s.assignment)
       .innerJoin(s.asset, eq(s.assignment.assetId, s.asset.id))
       .innerJoin(s.employee, eq(s.assignment.custodianId, s.employee.id))
@@ -124,10 +125,13 @@ export function mountRestRoutes(app: Hono, db: Database) {
       assetTag: s.asset.tag,
       assetModel: s.asset.modelName,
       custodianName: s.employee.name,
+      status: s.transfer.status,
     }).from(s.transfer)
       .innerJoin(s.asset, eq(s.transfer.assetId, s.asset.id))
       .innerJoin(s.employee, eq(s.transfer.toCustodianId, s.employee.id))
-      .where(and(eq(s.transfer.tenantId, tenantId), eq(s.transfer.status, "pending_approval")));
+      /* Borrows belong in the desk's queue too — they are the larger half of it
+         now, since a foreman's hand-off no longer settles itself. */
+      .where(and(eq(s.transfer.tenantId, tenantId), inArray(s.transfer.status, ["pending_approval", "pending_verification"])));
     return c.json([...assignments, ...transfers]);
   });
 

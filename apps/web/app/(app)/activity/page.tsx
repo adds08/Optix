@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Activity } from "lucide-react";
+import { Activity, ArrowRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { Tag } from "@/components/sti/status";
@@ -19,6 +19,45 @@ const EVENT_TONE: Record<string, string> = {
   lost: "border-crit",
   dispose: "border-idle",
 };
+
+/*
+  The custody line of an entry: who held it, who holds it now, and who typed it.
+
+  A movement with no people in it is a status change, not a hand-off, so this
+  renders nothing rather than an arrow pointing at nobody. "The yard" stands in
+  for a null custodian — a tool with no holder is in stock, and "→ —" made that
+  read like missing data.
+*/
+function Movement({
+  from,
+  to,
+  actor,
+}: {
+  from: string | null;
+  to: string | null;
+  actor: string | null;
+}) {
+  const moved = from !== to && (from || to);
+  if (!moved && !actor) return null;
+
+  return (
+    <p className="flex flex-wrap items-center gap-1.5 text-sm">
+      {moved ? (
+        <>
+          <span className="text-muted-foreground">{from ?? "The yard"}</span>
+          <ArrowRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground/60" />
+          <span className="font-medium">{to ?? "The yard"}</span>
+        </>
+      ) : null}
+      {actor ? (
+        <span className="text-xs text-muted-foreground">
+          {moved ? "· recorded by " : "recorded by "}
+          {actor}
+        </span>
+      ) : null}
+    </p>
+  );
+}
 
 /*
   The audit trail is not a feature bolted on — it IS the transaction log,
@@ -60,10 +99,20 @@ export default function ActivityPage() {
                     <Tag>{e.tag}</Tag>
                   </Link>
                   <span className="text-sm text-muted-foreground">{e.modelName}</span>
-                  {e.refType ? (
+                  {/* "transfer … via transfer" said nothing twice. The ref type
+                      only earns its place when it is not just the event again. */}
+                  {e.refType && e.refType !== e.eventType ? (
                     <span className="text-xs text-muted-foreground">via {e.refType}</span>
                   ) : null}
                 </div>
+
+                {/* Who moved what to whom — the line the log was missing. */}
+                <Movement
+                  from={e.fromCustodianName}
+                  to={e.toCustodianName}
+                  actor={e.actorName}
+                />
+
                 {e.note ? <p className="text-sm text-pretty">{e.note}</p> : null}
               </div>
               <div className="shrink-0 text-right">

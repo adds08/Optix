@@ -144,6 +144,10 @@ export type TransferReason = (typeof TRANSFER_REASONS)[number];
 
 export const TRANSFER_STATUSES = [
   "pending_approval",
+  /* Recorded and applied, but as a borrow: a foreman told the desk where his
+     tool went. Distinct from `pending_approval`, where nothing moved at all —
+     the desk is confirming a fact here, not permitting a change. */
+  "pending_verification",
   "approved",
   "in_transit",
   "completed",

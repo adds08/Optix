@@ -5,7 +5,8 @@ export {
 } from "./events.js";
 export { foldAssetState, foldAllAssets } from "./fold.js";
 export {
-  requiresCustodyApproval,
+  custodyOutcome,
+  type CustodyOutcome,
   isOverdueLoan,
   byMostOverdue,
   isIdleAsset,

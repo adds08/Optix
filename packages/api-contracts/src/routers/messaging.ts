@@ -106,7 +106,65 @@ export const messagingRouter = router({
         .limit(input.limit + 1);
       const hasMore = rows.length > input.limit;
       const items = hasMore ? rows.slice(0, input.limit) : rows;
-      return { items, nextCursor: hasMore ? items[items.length - 1]?.id : null };
+
+      /*
+        Everything the bubble needs to become a card.
+
+        The stored action carries ids and nothing else, so the chat could say
+        "Hand over · 1 tool" and no more — not which tool, not to whom, not what
+        became of it. A foreman reading his own messages back could not tell
+        what he had recorded, which is the one thing chat capture has to be able
+        to show him.
+
+        Resolved in two queries for the whole page rather than per message: the
+        same tool appears in several messages and the same person in most of
+        them, so per-row lookups would be the classic N+1 on the busiest screen.
+      */
+      const actions = items.map((m) => (m.proposedAction ?? null) as ChatAction | null);
+      const assetIds = [...new Set(actions.flatMap((a) => a?.assetIds ?? []))];
+      const custodianIds = [
+        ...new Set(actions.map((a) => a?.custodianId).filter((id): id is string => !!id)),
+      ];
+
+      const assets = assetIds.length
+        ? await ctx.db
+            .select({
+              id: schema.asset.id,
+              tag: schema.asset.tag,
+              modelName: schema.asset.modelName,
+              status: schema.asset.currentStatus,
+              holderName: schema.employee.name,
+            })
+            .from(schema.asset)
+            .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
+            .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, assetIds)))
+        : [];
+      const custodians = custodianIds.length
+        ? await ctx.db
+            .select({ id: schema.employee.id, name: schema.employee.name })
+            .from(schema.employee)
+            .where(and(eq(schema.employee.tenantId, tid), inArray(schema.employee.id, custodianIds)))
+        : [];
+
+      const assetById = new Map(assets.map((a) => [a.id, a]));
+      const custodianById = new Map(custodians.map((c) => [c.id, c.name]));
+
+      const withCards = items.map((m, i) => {
+        const action = actions[i];
+        return {
+          ...m,
+          card: action
+            ? {
+                tools: (action.assetIds ?? [])
+                  .map((id) => assetById.get(id))
+                  .filter((a): a is NonNullable<typeof a> => !!a),
+                toName: action.custodianId ? custodianById.get(action.custodianId) ?? null : null,
+              }
+            : null,
+        };
+      });
+
+      return { items: withCards, nextCursor: hasMore ? items[items.length - 1]?.id : null };
     }),
 
   // Send a message. Sets processingStatus = 'queued' for the background poller.
@@ -204,11 +262,13 @@ export const messagingRouter = router({
       let transactionIds: string[] = [];
       let taskId: string | null = null;
       let awaitingApproval = 0;
+      let awaitingVerification = 0;
 
       if (allowed) {
         const res = await applyChatAction(ctx.db, opts);
         transactionIds = res.transactionIds;
         awaitingApproval = res.awaitingApproval;
+        awaitingVerification = res.awaitingVerification;
       } else {
         const res = await requestChatAction(ctx.db, opts);
         transactionIds = res.transactionIds;
@@ -229,12 +289,18 @@ export const messagingRouter = router({
         ? ("requested" as const)
         : awaitingApproval > 0
           ? ("awaiting_approval" as const)
-          : ("applied" as const);
+          : awaitingVerification > 0
+            ? ("borrowed" as const)
+            : ("applied" as const);
 
+      /* A borrow DID move the register, so it is executed, not requested — the
+         desk still has to look at it, but the tool is where the message said it
+         is and the bubble must not imply otherwise. */
       await ctx.db
         .update(schema.message)
         .set({
-          processingStatus: outcome === "applied" ? "action_executed" : "action_requested",
+          processingStatus:
+            outcome === "applied" || outcome === "borrowed" ? "action_executed" : "action_requested",
           executedTransactionIds: transactionIds,
           handledByUserId: ctx.session.userId,
           handledAt: new Date(),
@@ -250,7 +316,7 @@ export const messagingRouter = router({
         details: { actionType: action.type, transactionIds, taskId, outcome },
       });
 
-      return { ok: true, outcome, awaitingApproval, transactionIds, taskId };
+      return { ok: true, outcome, awaitingApproval, awaitingVerification, transactionIds, taskId };
     }),
 
   // Manual entry by admin for pending_manual messages.

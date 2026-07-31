@@ -34,6 +34,24 @@ export const transactionRouter = router({
           toState: schema.transaction.toState,
           refType: schema.transaction.refType,
           actorName: schema.user.firstName,
+          /*
+            The custodian ids live inside the state snapshots as raw uuids, so
+            every row rendered as "transfer · UIC-090 · via transfer" and the
+            reader could not tell which foreman gave what to whom — the one
+            question an activity log exists to answer.
+
+            Resolved as scalar subqueries rather than two more joins: the ids
+            are inside jsonb, so joining on them means casting in the ON clause
+            and two more aliases of `employee` for a feed that reads 200 rows.
+          */
+          fromCustodianName: sql<string | null>`(
+            select name from employee
+            where id = (${schema.transaction.fromState} ->> 'custodianId')::uuid
+          )`,
+          toCustodianName: sql<string | null>`(
+            select name from employee
+            where id = (${schema.transaction.toState} ->> 'custodianId')::uuid
+          )`,
         })
         .from(schema.transaction)
         .innerJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))

@@ -47,6 +47,7 @@ const STATUS_TONE: Record<string, Tone> = {
   in_transit: "idle",
   in_maintenance: "warn",
   pending_approval: "warn",
+  pending_verification: "warn",
   action_proposed: "warn",
   pending_manual: "warn",
   overdue: "crit",

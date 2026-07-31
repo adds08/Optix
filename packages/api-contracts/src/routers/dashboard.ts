@@ -288,6 +288,8 @@ export const dashboardRouter = router({
         assetTag: schema.asset.tag,
         assetModel: schema.asset.modelName,
         custodianName: schema.employee.name,
+        status: schema.assignment.status,
+        fromName: sql<string | null>`null`,
         createdAt: schema.assignment.createdAt,
       })
       .from(schema.assignment)
@@ -301,12 +303,21 @@ export const dashboardRouter = router({
         assetTag: schema.asset.tag,
         assetModel: schema.asset.modelName,
         custodianName: schema.employee.name,
+        /* The desk has to be able to tell the two apart before it acts: one is
+           "may this happen", the other is "this happened, is it right". */
+        status: schema.transfer.status,
+        fromName: sql<string | null>`(select name from employee where id = ${schema.transfer.fromCustodianId})`,
         createdAt: schema.transfer.createdAt,
       })
       .from(schema.transfer)
       .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
       .innerJoin(schema.employee, eq(schema.transfer.toCustodianId, schema.employee.id))
-      .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval")));
+      .where(
+        and(
+          eq(schema.transfer.tenantId, tid),
+          inArray(schema.transfer.status, ["pending_approval", "pending_verification"]),
+        ),
+      );
     return [...pendingAssignments, ...pendingTransfers].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }),
 });

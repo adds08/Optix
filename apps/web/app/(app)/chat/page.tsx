@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, CircleAlert, Loader2, Send } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Check, CircleAlert, Loader2, Send } from "lucide-react";
 import type { ChatMention } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, EmptyState, ErrorNote, TableSkeleton } from "@/components/sti/page";
-import { StatusPill } from "@/components/sti/status";
+import { StatusPill, Tag } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
 import { MentionInput, MentionChips } from "@/components/mention-input";
 import { dateTime } from "@/lib/format";
@@ -165,6 +166,14 @@ export default function ChatPage() {
   );
 }
 
+type CardTool = {
+  id: string;
+  tag: string;
+  modelName: string | null;
+  status: string;
+  holderName: string | null;
+};
+
 type Msg = {
   id: string;
   body: string;
@@ -173,6 +182,7 @@ type Msg = {
   proposedAction: unknown;
   intentPayload: unknown;
   createdAt: Date | string;
+  card: { tools: CardTool[]; toName: string | null } | null;
 };
 
 const ACTION_COPY: Record<string, string> = {
@@ -184,6 +194,44 @@ const ACTION_COPY: Record<string, string> = {
   intake: "Register this tool",
   request_purchase: "Ask Procurement to buy this",
 };
+
+/*
+  The tools a message is about, named.
+
+  This is the whole complaint: the card used to say "· 1 tool" and leave the
+  reader to guess which one and where it went. Every tool gets its tag, its
+  model, who is holding it now and what state it is in — so the message and the
+  register agree on screen without anybody navigating away to check.
+
+  Rendered for proposed AND settled messages alike. A card that disappears the
+  moment it is confirmed cannot answer "what did I record earlier", which is
+  most of why anyone scrolls back.
+*/
+function ToolLines({ tools, toName }: { tools: CardTool[]; toName: string | null }) {
+  if (!tools.length) return null;
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {tools.map((t) => (
+        <li key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
+          <Link href={`/tools/${t.id}`}>
+            <Tag>{t.tag}</Tag>
+          </Link>
+          {t.modelName ? <span className="text-muted-foreground">{t.modelName}</span> : null}
+          <StatusPill status={t.status} />
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {t.holderName ?? "The yard"}
+            {toName && toName !== t.holderName ? (
+              <>
+                <ArrowRight aria-hidden className="size-3 shrink-0 opacity-60" />
+                <span className="font-medium text-foreground">{toName}</span>
+              </>
+            ) : null}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 type Draft = {
   tag?: string;
@@ -252,35 +300,40 @@ function Message({
       ) : null}
 
       {m.processingStatus === "action_proposed" && action ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-primary/50 bg-accent/40 px-4 py-3">
-          <div className="flex flex-col gap-0.5">
-            <span className="label-xs text-primary">Confirm this</span>
-            <span className="text-sm font-medium">
-              {ACTION_COPY[action.type ?? ""] ?? "Record this"}
-              {action.assetIds?.length
-                ? ` · ${action.assetIds.length} tool${action.assetIds.length === 1 ? "" : "s"}`
-                : ""}
-              {action.department ? ` · ${action.department}` : ""}
-            </span>
-            {action.draft ? <DraftFields draft={action.draft} /> : null}
-            {typeof payload?.confidence === "number" ? (
-              <span className="text-xs text-muted-foreground">
-                model confidence {Math.round(payload.confidence * 100)}%
+        <div className="flex flex-col gap-3 rounded-md border border-primary/50 bg-accent/40 px-4 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="label-xs text-primary">Confirm this</span>
+              <span className="text-sm font-medium">
+                {ACTION_COPY[action.type ?? ""] ?? "Record this"}
+                {action.department ? ` · ${action.department}` : ""}
               </span>
-            ) : null}
+            </div>
+            <Button size="sm" onClick={onConfirm} disabled={confirming}>
+              {confirming ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              Confirm
+            </Button>
           </div>
-          <Button size="sm" onClick={onConfirm} disabled={confirming}>
-            {confirming ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-            Confirm
-          </Button>
+          {m.card ? <ToolLines tools={m.card.tools} toName={m.card.toName} /> : null}
+          {action.draft ? <DraftFields draft={action.draft} /> : null}
+          {typeof payload?.confidence === "number" ? (
+            <span className="text-xs text-muted-foreground">
+              model confidence {Math.round(payload.confidence * 100)}%
+            </span>
+          ) : null}
         </div>
       ) : null}
 
+      {/* Settled, and still a card. "Recorded · transfer" told the reader an
+          event type and nothing about the tools it happened to. */}
       {m.processingStatus === "action_executed" ? (
-        <span className="flex items-center gap-1.5 text-xs text-ok">
-          <Check className="size-3.5" />
-          Recorded{m.intentType ? ` · ${m.intentType}` : ""}
-        </span>
+        <div className="flex flex-col gap-2 rounded-md border border-ok/40 bg-ok-bg/40 px-4 py-3">
+          <span className="flex items-center gap-1.5 text-xs text-ok">
+            <Check className="size-3.5" />
+            Recorded{m.intentType ? ` · ${m.intentType}` : ""}
+          </span>
+          {m.card ? <ToolLines tools={m.card.tools} toName={m.card.toName} /> : null}
+        </div>
       ) : null}
 
       {/* Confirmed by someone without the permission the action costs. Captured
