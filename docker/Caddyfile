@@ -14,6 +14,10 @@
 
 	# API surface. These prefixes are the complete set apps/api serves —
 	# see apps/api/src/index.ts. Anything else belongs to Next.
+	#
+	# Keep this list in step with that file. A route added to the API and not
+	# added here does not 502; it falls through to Next and comes back as
+	# "Server action not found", which points at entirely the wrong program.
 	handle /trpc/* {
 		reverse_proxy api:4100
 	}
@@ -22,6 +26,17 @@
 	}
 	handle /health {
 		reverse_proxy api:4100
+	}
+	# Photo upload and removal. Multipart, so it cannot travel over tRPC.
+	handle /assets/* {
+		reverse_proxy api:4100 {
+			# Default is 10s, which is not enough for an 8MB photo coming off a
+			# phone on site wifi.
+			transport http {
+				read_timeout 120s
+				write_timeout 120s
+			}
+		}
 	}
 
 	# Tool photos, served from the object store on this same origin.
