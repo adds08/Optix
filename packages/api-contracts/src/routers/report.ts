@@ -1,7 +1,9 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { protectedProcedure, router } from "../trpc.js";
+import { pageParamsSchema, type Paginated, type SortableMap, sortSql } from "../table-helpers.js";
 
 export const reportRouter = router({
   assetRegister: protectedProcedure.query(async ({ ctx }) => {
@@ -179,4 +181,99 @@ export const reportRouter = router({
       .where(eq(schema.department.tenantId, tid))
       .groupBy(schema.department.id, schema.department.name);
   }),
+
+  /*
+    The audit trail as a report — the one place "everything that happened"
+    lives (docs/20, C1).
+
+    The dashboard's movement strip and the old /activity page both read the
+    same `transaction` rows; this page is the deep end of that single source,
+    server-paginated and filterable. Sort keys are whitelisted — the ledger is
+    append-only and the page must not let the query string order it by
+    something it does not expose.
+  */
+  auditTrail: protectedProcedure
+    .input(
+      z
+        .object({
+          ...pageParamsSchema.shape,
+          search: z.string().optional(),
+          eventType: z.string().optional(),
+        })
+        .default({}),
+    )
+    .query(async ({ ctx, input }): Promise<Paginated<{
+      id: number;
+      eventType: string;
+      occurredAt: Date;
+      note: string | null;
+      tag: string | null;
+      model: string;
+      actorName: string | null;
+    }>> => {
+      const tid = ctx.session.tenantId;
+      const conditions = [eq(schema.transaction.tenantId, tid)];
+      if (input.eventType) conditions.push(eq(schema.transaction.eventType, input.eventType));
+      if (input.search) {
+        const q = `%${input.search}%`;
+        conditions.push(
+          or(
+            ilike(schema.asset.tag, q),
+            ilike(schema.asset.make, q),
+            ilike(schema.asset.modelNumber, q),
+            ilike(schema.asset.description, q),
+            ilike(schema.transaction.note, q),
+          )!,
+        );
+      }
+
+      const [countResult] = await ctx.db
+        .select({ c: sql<number>`count(*)` })
+        .from(schema.transaction)
+        .leftJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
+        .where(and(...conditions));
+
+      const sortable: SortableMap = {
+        occurredAt: sql`${schema.transaction.occurredAt}`,
+        eventType: sql`${schema.transaction.eventType}`,
+        note: sql`${schema.transaction.note}`,
+        tag: sql`${schema.asset.tag}`,
+      };
+      const order = sortSql(input, sortable) ?? desc(schema.transaction.occurredAt);
+
+      const rows = await ctx.db
+        .select({
+          id: schema.transaction.id,
+          eventType: schema.transaction.eventType,
+          occurredAt: schema.transaction.occurredAt,
+          note: schema.transaction.note,
+          tag: schema.asset.tag,
+          make: schema.asset.make,
+          modelNumber: schema.asset.modelNumber,
+          description: schema.asset.description,
+          actorName: schema.user.firstName,
+        })
+        .from(schema.transaction)
+        .leftJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
+        .leftJoin(schema.user, eq(schema.transaction.actorId, schema.user.id))
+        .where(and(...conditions))
+        .orderBy(order)
+        .limit(input.pageSize)
+        .offset((input.page - 1) * input.pageSize);
+
+      return {
+        rows: rows.map((r) => ({
+          id: r.id,
+          eventType: r.eventType,
+          occurredAt: r.occurredAt,
+          note: r.note,
+          tag: r.tag,
+          model: [r.make, r.modelNumber, r.description].filter(Boolean).join(" "),
+          actorName: r.actorName,
+        })),
+        total: Number(countResult?.c ?? 0),
+        page: input.page,
+        pageSize: input.pageSize,
+      };
+    }),
 });

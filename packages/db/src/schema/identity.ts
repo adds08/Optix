@@ -104,7 +104,7 @@ export const userPreferences = pgTable(
     fontFamily: text("font_family").notNull().default("system"),
     fontScale: text("font_scale").notNull().default("1.0"),
     density: text("density").notNull().default("comfortable"),
-    dashboard: jsonb("dashboard").$type<{ widgets: Record<string, boolean> }>().notNull().default({ widgets: {} }),
+    dashboard: jsonb("dashboard").$type<{ widgets: Record<string, boolean>; defaultTab?: "fleet" | "command" }>().notNull().default({ widgets: {} }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

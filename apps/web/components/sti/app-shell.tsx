@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Menu, Moon, Sun, X } from "lucide-react";
+import { Menu, Moon, PanelLeftClose, Sun, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NotificationCenter } from "@/components/notification-center";
 import { UserMenu } from "@/components/user-menu";
+import { GlobalSearch } from "@/components/global-search";
+import { WorkingBar } from "@/components/working-bar";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
@@ -30,6 +32,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const me = trpc.identity.me.useQuery(undefined, { enabled: ready, retry: false });
   const prefs = trpc.preferences.get.useQuery(undefined, { enabled: ready });
+  /* Sidebar badge — the queue count the bell shows, mirrored on the nav row so
+     "there is something in the inbox" survives a glance at the rail. */
+  const notif = trpc.dashboard.notifications.useQuery(undefined, { enabled: ready, refetchInterval: 15_000 });
+  const inboxCount = notif.data?.unread ?? 0;
 
   /* Theme: hydrate dark mode from storage/preference, hydrate prefs from the
      server row, then apply whenever either changes.
@@ -75,6 +81,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const field = isFieldRole(role);
   const current = allItems(role).find((n) => pathname === n.href || pathname.startsWith(n.href + "/"));
 
+  /* Collapsible rail (docs/20, A2): a desk person on a 1400px layout gains
+     ~180px of table width by folding the labels away. Desktop-only state —
+     a phone drawer is always expanded. */
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    if (window.innerWidth < 1024) return;
+    setCollapsed(localStorage.getItem("sti-sidebar") === "collapsed");
+  }, []);
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      localStorage.setItem("sti-sidebar", c ? "expanded" : "collapsed");
+      return !c;
+    });
+  };
+
   async function onLogout() {
     try {
       await logout();
@@ -88,20 +109,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-svh bg-background">
+      <WorkingBar />
       {/* ---- rail ---- */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r bg-sidebar text-sidebar-foreground",
-          "transition-transform duration-200 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex flex-col border-r bg-sidebar text-sidebar-foreground",
+          "transition-[width,transform] duration-200 lg:translate-x-0",
+          collapsed ? "w-16" : "w-[248px]",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
-          <Link href={field ? "/my-tools" : "/home"} className="flex items-center gap-2">
-            <span className="grid size-6 place-items-center rounded-sm bg-sidebar-primary text-[11px] font-bold text-sidebar-primary-foreground">
+        <div className={cn("flex h-14 items-center border-b border-sidebar-border", collapsed ? "justify-center px-2" : "justify-between px-4")}>
+          <Link href={field ? "/my-tools" : "/home"} className="flex items-center gap-2" title="STInventory">
+            <span className="grid size-6 shrink-0 place-items-center rounded-sm bg-sidebar-primary text-[11px] font-bold text-sidebar-primary-foreground">
               ST
             </span>
-            <span className="text-sm font-semibold tracking-tight">STInventory</span>
+            <span className={cn("text-sm font-semibold tracking-tight", collapsed && "hidden")}>
+              STInventory
+            </span>
           </Link>
           <button
             type="button"
@@ -113,13 +138,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className={cn("flex-1 overflow-y-auto py-4", collapsed ? "px-2" : "px-3")}>
           {groups.map((g) => {
             const visible = g.items.filter((n) => !n.perm || perms.includes(n.perm));
             if (!visible.length) return null;
             return (
-              <div key={g.label} className="mb-5 flex flex-col gap-1">
-                <span className="label-xs px-2 pb-1">{g.label}</span>
+              <div key={g.label} className={cn("flex flex-col gap-1", !collapsed && "mb-5")}>
+                <span className={cn("label-xs px-2 pb-1", collapsed && "sr-only")}>{g.label}</span>
                 {visible.map((n) => {
                   const active = pathname === n.href || pathname.startsWith(n.href + "/");
                   return (
@@ -127,8 +152,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       key={n.href}
                       href={n.href}
                       aria-current={active ? "page" : undefined}
+                      title={collapsed ? n.label : undefined}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-md px-2 py-2 text-sm transition-colors",
+                        "relative flex items-center gap-2.5 rounded-md text-sm transition-colors",
+                        collapsed ? "justify-center px-0 py-2.5" : "px-2 py-2",
                         field && "py-3 text-[0.95rem]",
                         active
                           ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
@@ -136,7 +163,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       )}
                     >
                       <n.icon className="size-4 shrink-0" />
-                      <span className="truncate">{n.label}</span>
+                      <span className={cn("truncate", collapsed && "hidden")}>{n.label}</span>
+                      {n.href === "/inbox" && inboxCount > 0 ? (
+                        <span
+                          className={cn(
+                            "tnum ml-auto shrink-0 rounded-full bg-crit px-1.5 py-0.5 text-[10px] font-semibold leading-3 text-white",
+                            collapsed && "absolute right-1 top-1 ml-0",
+                          )}
+                        >
+                          {inboxCount > 99 ? "99+" : inboxCount}
+                        </span>
+                      ) : null}
                     </Link>
                   );
                 })}
@@ -145,15 +182,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t border-sidebar-border p-3">
+        {/* Collapse toggle — desk only; a phone drawer never collapses. */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+          title={collapsed ? "Expand" : "Collapse"}
+          className={cn(
+            "hidden items-center justify-center border-t border-sidebar-border py-2 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground lg:flex",
+          )}
+        >
+          <PanelLeftClose className={cn("size-4 transition-transform", collapsed && "rotate-180")} />
+        </button>
+
+        <div className={cn("border-t border-sidebar-border p-3", collapsed && "px-2")}>
           {me.isLoading ? (
             <Skeleton className="h-9 w-full" />
           ) : (
-            <div className="flex items-center gap-2">
+            <div className={cn("flex items-center gap-2", collapsed && "justify-center")}>
               <div className="grid size-8 shrink-0 place-items-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
                 {(me.data?.firstName?.[0] ?? "") + (me.data?.lastName?.[0] ?? "")}
               </div>
-              <div className="flex min-w-0 flex-col leading-tight">
+              <div className={cn("flex min-w-0 flex-col leading-tight", collapsed && "hidden")}>
                 <span className="truncate text-sm font-medium">
                   {me.data?.firstName} {me.data?.lastName}
                 </span>
@@ -178,7 +228,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       ) : null}
 
       {/* ---- content ---- */}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-[248px]">
+      <div className={cn("flex min-w-0 flex-1 flex-col", collapsed ? "lg:pl-16" : "lg:pl-[248px]")}>
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur lg:px-8">
           <button
             type="button"
@@ -188,8 +238,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="size-5" />
           </button>
-          <span className="text-sm font-medium">{current?.label ?? "STInventory"}</span>
-          <div className="ml-auto flex items-center gap-1">
+          {/* Page context — the register's own title still tells you where you
+              are; the dashboard drops it in favour of its tabs (docs/20). */}
+          <span className={cn("truncate text-sm font-medium", pathname === "/home" && "hidden")}>
+            {current?.label ?? "STInventory"}
+          </span>
+          <div className="ml-auto flex items-center gap-1.5">
+            {!field ? <GlobalSearch /> : null}
             <NotificationCenter />
             <ThemeToggle />
             {me.data ? (

@@ -100,7 +100,12 @@ export type ThemePrefs = {
   fontFamily: FontFamilyName;
   fontScale: string;
   density: Density;
-  dashboard: { widgets: Record<string, boolean> };
+  dashboard: {
+    widgets: Record<string, boolean>;
+    /* The tab that opens first (docs/20, B1). The star on the dashboard sets
+       it; default is the fleet view. */
+    defaultTab?: "fleet" | "command";
+  };
 };
 
 export const DEFAULT_PREFS: ThemePrefs = {

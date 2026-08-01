@@ -61,7 +61,7 @@ export function NotificationCenter() {
         <Primitive.Content
           align="end"
           sideOffset={8}
-          className="z-50 w-[320px] overflow-hidden rounded-md border bg-popover p-0 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          className="z-[70] w-[320px] overflow-hidden rounded-md border bg-popover p-0 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
         >
           <div className="flex items-center justify-between border-b px-3 py-2.5">
             <span className="text-sm font-medium">Notifications</span>

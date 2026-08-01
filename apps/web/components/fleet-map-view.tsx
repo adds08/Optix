@@ -65,7 +65,12 @@ export function FleetMapView({
   }
 
   return (
-    <div className={cn("overflow-hidden rounded-md border bg-muted", className)}>
+    /* `isolate` + z-0 is the fix for the bell-over-map bug (docs/20, A4):
+       Leaflet's internal panes stack up to z-700 INSIDE this container, and
+       without a new stacking context they escaped it and drew over the
+       header's popovers. The popover now sits at z-[70] in the root context,
+       which is above everything this container can ever produce. */
+    <div className={cn("relative z-0 isolate overflow-hidden rounded-md border bg-muted", className)}>
       <MapContainer center={CENTER} zoom={11} className="h-full w-full" scrollWheelZoom={scrollWheelZoom}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

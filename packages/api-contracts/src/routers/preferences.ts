@@ -20,7 +20,10 @@ const prefsInput = z.object({
   fontFamily: z.enum(FONT_FAMILIES),
   fontScale: z.string().regex(/^(0\.\d|1|1\.\d|2)$/),
   density: z.enum(["comfortable", "compact"]),
-  dashboard: z.object({ widgets: z.record(z.string(), z.boolean()) }),
+  dashboard: z.object({
+    widgets: z.record(z.string(), z.boolean()),
+    defaultTab: z.enum(["fleet", "command"]).optional(),
+  }),
 });
 
 export const preferencesRouter = router({

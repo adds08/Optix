@@ -1,16 +1,21 @@
 import {
+  Activity,
+  BarChart3,
   Boxes,
+  ChartArea,
   CircleSlash,
   DollarSign,
   HardHat,
   MapPin,
+  PieChart,
   SearchX,
   Tag as TagIcon,
   Wrench,
 } from "lucide-react";
 
 /* One place that knows what reports exist, so the hub and the report pages
-   can never fall out of step. */
+   can never fall out of step. `path` lets chart reports and the audit trail
+   live under their own routes while staying in the same hub. */
 
 export type ReportMeta = {
   slug: string;
@@ -19,6 +24,7 @@ export type ReportMeta = {
   description: string;
   headlineLabel: string;
   icon: React.ComponentType<{ className?: string }>;
+  path?: string;
 };
 
 export const REPORTS: ReportMeta[] = [
@@ -102,6 +108,43 @@ export const REPORTS: ReportMeta[] = [
       "The other half of who pays for the fleet — tools charged to a department (like Repair & Maintenance) rather than to a job.",
     headlineLabel: "shop capital",
     icon: DollarSign,
+  },
+  {
+    slug: "capital-split",
+    title: "Capital Split",
+    group: "Charts",
+    description: "Projects versus departments, by acquisition cost.",
+    headlineLabel: "who pays",
+    icon: PieChart,
+    path: "/reports/charts/capital-split",
+  },
+  {
+    slug: "fleet-status",
+    title: "Fleet by Status",
+    group: "Charts",
+    description: "The fleet's current distribution across statuses.",
+    headlineLabel: "fleet shape",
+    icon: BarChart3,
+    path: "/reports/charts/fleet-status",
+  },
+  {
+    slug: "movements",
+    title: "Movement Rate",
+    group: "Charts",
+    description: "Ledger writes per week — the register's heartbeat.",
+    headlineLabel: "activity rate",
+    icon: ChartArea,
+    path: "/reports/charts/movements",
+  },
+  {
+    slug: "audit-trail",
+    title: "Audit Trail",
+    group: "Logs",
+    description:
+      "Every ledger write, searchable and paged. The single history for activity and logs.",
+    headlineLabel: "ledger events",
+    icon: Activity,
+    path: "/reports/audit-trail",
   },
 ];
 

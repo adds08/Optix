@@ -15,22 +15,21 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowRight, CloudSun, Sparkles, Sun, Sunset } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useThemeStore } from "@/lib/themes/store";
 import { num } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*
-  The command-center widgets (docs/19).
+  The command-center widgets (docs/19 + docs/20).
 
   Each widget is one small card reading one query. Visibility is per-user,
   persisted in user_preferences.dashboard and mirrored through the theme store
   so the dashboard reacts instantly to the Customize menu.
 
-  Weather is Open-Meteo — free, no API key, no geolocation prompt. The yard
-  city is a constant for now (Dallas); the widget degrades silently if the
-  fetch fails, because a weather card that errors must not error the dashboard.
+  These live on the Command Center tab only (docs/20, B3). The greeting and
+  weather moved out into the compact GreetingBar on the Fleet tab.
 */
 
 export const WIDGET_DEFS = [
@@ -191,74 +190,6 @@ export function MovementsWidget() {
           </AreaChart>
         </ResponsiveContainer>
       )}
-    </Card>
-  );
-}
-
-/* ---- greeting ---- */
-export function GreetingWidget({ firstName }: { firstName: string }) {
-  const h = new Date().getHours();
-  const part = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-  const Icon = h < 12 ? Sun : h < 17 ? Sun : Sunset;
-  return (
-    <Card title={part}>
-      <div className="flex items-center gap-3">
-        <Icon className="size-6 text-warn" />
-        <div className="flex flex-col">
-          <span className="text-lg font-semibold">{firstName}</span>
-          <span className="text-sm text-muted-foreground">
-            {new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
-          </span>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-/* ---- weather ---- */
-const YARD = { city: "Dallas", lat: 32.7767, lng: -96.797 };
-
-type Weather = { temp: number; code: number; label: string };
-
-const WEATHER_CODES: Record<number, string> = {
-  0: "Clear", 1: "Mostly clear", 2: "Partly cloudy", 3: "Overcast",
-  45: "Fog", 48: "Icy fog", 51: "Drizzle", 61: "Rain", 63: "Rain", 71: "Snow", 80: "Showers", 95: "Storm",
-};
-
-export function WeatherWidget() {
-  const [w, setW] = useState<Weather | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${YARD.lat}&longitude=${YARD.lng}&current_weather=true&temperature_unit=fahrenheit`,
-    )
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("weather fetch failed"))))
-      .then((j) => {
-        if (!live || !j?.current_weather) return;
-        const cw = j.current_weather as { temperature: number; weathercode: number };
-        setW({ temp: Math.round(cw.temperature), code: cw.weathercode, label: WEATHER_CODES[cw.weathercode] ?? "—" });
-      })
-      .catch(() => {
-        if (live) setFailed(true);
-      });
-    return () => { live = false; };
-  }, []);
-
-  /* Silent degradation: a yard on bad signal must not see a broken dashboard
-     because the weather API was unreachable. */
-  if (failed) return null;
-
-  return (
-    <Card title={`Weather · ${YARD.city}`}>
-      <div className="flex items-center gap-3">
-        <CloudSun className="size-6 text-warn" />
-        <div className="flex flex-col">
-          <span className="tnum text-lg font-semibold">{w ? `${w.temp}°F` : "—"}</span>
-          <span className="text-sm text-muted-foreground">{w ? w.label : "Checking…"}</span>
-        </div>
-      </div>
     </Card>
   );
 }

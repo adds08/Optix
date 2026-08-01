@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { login, getSession, setSession } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AuthPanel } from "@/components/auth-panel";
 
 /*
   The demo affordances are opt-in, and off unless a build says otherwise.
@@ -53,6 +54,12 @@ export default function LoginPage() {
 
   return (
     <main className="grid min-h-svh lg:grid-cols-2">
+      {/* The yard, animated — left (docs/20, E). The form is the task; this
+          panel is the reason to bother, and it must never slow the form. */}
+      <aside className="relative hidden overflow-hidden border-r bg-muted/30 lg:block">
+        <AuthPanel />
+      </aside>
+
       <div className="flex items-center justify-center px-6 py-12">
         <div className="flex w-full max-w-[380px] flex-col gap-8">
           <div className="flex items-center gap-2">
@@ -124,40 +131,6 @@ export default function LoginPage() {
           ) : null}
         </div>
       </div>
-
-      {/* The product thesis, not decoration. */}
-      <aside className="relative hidden overflow-hidden border-l bg-muted/30 lg:block">
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-50"
-          style={{
-            backgroundImage:
-              "linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)",
-            backgroundSize: "28px 28px",
-          }}
-        />
-        <div className="relative flex h-full flex-col justify-center gap-8 px-14">
-          <p className="max-w-[24ch] text-3xl font-semibold leading-[1.15] tracking-tight text-balance">
-            Every hand-off is a transaction, not a memory.
-          </p>
-          <div className="flex flex-col gap-3">
-            {[
-              ["03 MAR", "Received from Hilti, tagged UIC-1012"],
-              ["11 MAR", "Assigned to M. Torres — Legacy West"],
-              ["02 JUN", "Transferred to D. Ellis — Trinity Bridge"],
-            ].map(([when, what]) => (
-              <div key={when} className="flex items-baseline gap-3 rounded-md border bg-card px-3 py-2">
-                <span className="label-xs shrink-0">{when}</span>
-                <span className="text-sm">{what}</span>
-              </div>
-            ))}
-          </div>
-          <p className="max-w-[44ch] text-sm text-muted-foreground text-pretty">
-            Where a tool is, who holds it, and which project paid for it are derived from that
-            log — never typed into a field somebody can overwrite.
-          </p>
-        </div>
-      </aside>
     </main>
   );
 }

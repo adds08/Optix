@@ -32,6 +32,21 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 | `docs/17-optional-tags.md` | **Built** — a tag is a physical label, not an assigned id; tools can exist untagged |
 | `docs/18-vehicle-tracking-and-map.md` | **Built** — online/offline from GPS freshness, the fleet map, and the personal-allowance "no tracker" nuance |
 | `docs/19-command-center-and-modernization.md` | **Built** — DataTable + filter sheet, top-nav notification center, intelligent inbox, dashboard widgets + theme engine, mobile motion |
+| `docs/20-dashboard-chat-auth-redesign.md` | **Built** — global search, collapsible rail, dashboard tabs + weather bar, reports consolidation, chat two-pane, auth redesign, motion |
+
+## Remote localhost (docs/20, G)
+
+To test the local build from a phone or another machine before anything is
+pushed, expose the web dev server through a free quick tunnel:
+
+```bash
+brew install cloudflared          # one-time
+pnpm --filter @stinventory/web dev -- -H 0.0.0.0   # listen on the network
+make tunnel                       # prints a public https URL
+```
+
+The tunnel carries only the web page; the browser's API calls go straight to
+`http://localhost:4100`, so `NEXT_PUBLIC_API_URL` stays unchanged.
 | `docs/changelogs/` | What actually shipped, one file per body of work — see its README for how specs, changelogs and release notes relate |
 | `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
 | `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |

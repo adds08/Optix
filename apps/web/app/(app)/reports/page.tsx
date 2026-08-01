@@ -1,17 +1,24 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { PageHeader } from "@/components/sti/page";
 import { money, num } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { REPORTS } from "./registry";
 
 /*
   The reports hub. Each card carries a live headline figure, so this page
   answers the common question ("how many are idle?") without anyone having to
   open the report at all. Reports are the moat — they get the front door.
+
+  The group chips (docs/20, C2) classify the surface: Operations, Utilization,
+  Exceptions, Finance, Charts, Logs. The audit trail lives here too — it is
+  the single history for activity and logs, so there is no separate Activity
+  page to keep in sync with the dashboard's strip.
 */
 export default function ReportsPage() {
   const register = trpc.report.assetRegister.useQuery();
@@ -20,6 +27,9 @@ export default function ReportsPage() {
   const byProject = trpc.report.byProject.useQuery();
   const byForeman = trpc.report.byForeman.useQuery();
   const capital = trpc.report.capitalByProject.useQuery();
+
+  const groups = useMemo(() => Array.from(new Set(REPORTS.map((r) => r.group))), []);
+  const [group, setGroup] = useState<string>("all");
 
   const headline: Record<string, { value: string; loading: boolean }> = {
     "asset-register": {
@@ -45,21 +55,30 @@ export default function ReportsPage() {
     },
   };
 
+  const visible = REPORTS.filter((r) => group === "all" || r.group === group);
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
+        compact
         eyebrow="Insight"
-        title="Reports"
-        description="Every report is folded from the same transaction log, so the numbers here and the numbers on the dashboard can never disagree. All exportable to CSV."
+        title="Reports & logs"
       />
 
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Report group">
+        <GroupChip active={group === "all"} onClick={() => setGroup("all")}>All</GroupChip>
+        {groups.map((g) => (
+          <GroupChip key={g} active={group === g} onClick={() => setGroup(g)}>{g}</GroupChip>
+        ))}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {REPORTS.map((r) => {
+        {visible.map((r) => {
           const h = headline[r.slug];
           return (
             <Link
               key={r.slug}
-              href={`/reports/${r.slug}`}
+              href={r.path ?? `/reports/${r.slug}`}
               className="group flex flex-col gap-3 rounded-md border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-accent/40"
             >
               <div className="flex items-start justify-between gap-3">
@@ -78,23 +97,32 @@ export default function ReportsPage() {
                   <span className="text-xs text-muted-foreground">{r.headlineLabel}</span>
                 </div>
               )}
-
-              <p className="text-sm text-muted-foreground text-pretty">{r.description}</p>
-
-              <span className="mt-auto inline-flex items-center gap-1 pt-1 text-sm font-medium text-primary">
-                Open report
-                <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-              </span>
+              <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+                <span className="line-clamp-2 text-xs leading-4 text-muted-foreground">{r.description}</span>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+              </div>
             </Link>
           );
         })}
       </div>
-
-      <p className="text-sm text-muted-foreground">
-        Utilization, maintenance history, procurement status and a transfers report are specified in
-        the plan but not yet built — utilization needs a window function over the event stream, and
-        the other two are blocked on the maintenance and procurement modules.
-      </p>
     </div>
+  );
+}
+
+function GroupChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-sm border px-2.5 py-1 text-xs transition-colors",
+        active
+          ? "border-primary/40 bg-primary/10 font-medium text-primary"
+          : "border-border bg-card text-muted-foreground hover:bg-accent",
+      )}
+    >
+      {children}
+    </button>
   );
 }

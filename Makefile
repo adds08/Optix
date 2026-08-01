@@ -128,6 +128,25 @@ mobile: ## Start the Expo app (apps/mobile) — run `make up` first
 	@echo "the app derives the API host from the Expo dev server automatically."
 	@cd apps/mobile && pnpm start
 
+# --- remote localhost (docs/20, G) -------------------------------------------
+#
+# A quick tunnel so a phone on the yard wifi can hit the local build before
+# anything is pushed. cloudflared quick tunnels need no account and print a
+# public URL. The web dev server must listen on 0.0.0.0 for this to work;
+# NEXT_PUBLIC_API_URL stays http://localhost:4100 for the browser itself,
+# because the tunnel only carries the page — the API calls go direct.
+
+tunnel: ## Expose localhost:3100 through a cloudflared quick tunnel
+	@if ! command -v cloudflared >/dev/null 2>&1; then \
+		echo "  cloudflared is not installed. Install it first:"; \
+		echo "    brew install cloudflared   (macOS)"; \
+		echo "    or https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"; \
+		exit 1; \
+	fi
+	@echo "  Tunneling http://localhost:3100 — the printed URL is your public address."
+	@echo "  Web dev must be listening on 0.0.0.0:  pnpm --filter @stinventory/web dev -- -H 0.0.0.0"
+	@cloudflared tunnel --url http://localhost:3100
+
 # --- production ---------------------------------------------------------------
 #
 # The droplet is a git checkout and deploys by pulling origin/main, so what runs

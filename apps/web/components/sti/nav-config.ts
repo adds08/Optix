@@ -79,10 +79,7 @@ export const DESK_NAV: NavGroup[] = [
   },
   {
     label: "Insight",
-    items: [
-      { href: "/reports", label: "Reports", icon: BarChart3, perm: "report.read" },
-      { href: "/activity", label: "Activity", icon: Activity, perm: "audit.read" },
-    ],
+    items: [{ href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read" }],
   },
   {
     label: "Operations",
