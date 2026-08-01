@@ -8,24 +8,52 @@ some categories, by an equipment number in an unlabelled column.
 That mismatch blocked the entire import path: a real sheet gets through header
 matching and then fails because `tag` is required and not in the file.
 
-The decision is that a tag is **not** an identity the system assigns. It is a
-physical label somebody puts on a tool, and it exists in the register only once
-that has happened. A tool with no label has no tag, and that is a normal state,
-not a gap to be filled with a generated number.
+## Identity is the id; the tag is a label
+
+Every asset already has a unique identity and always has: `asset.id`, a uuid
+primary key, generated on insert, never null, never reused. Every other entity
+in the schema works the same way. Nothing about this change touches identity,
+because identity was never the tag's job.
+
+A tag is a **label** — the thing physically written or stuck on the tool so a
+person in the yard can say it out loud. It exists in the register only once
+somebody has put it on the tool. A tool with no label has no tag, and that is a
+normal state, not a gap.
+
+That distinction decides everything below:
+
+| | `asset.id` | `asset.tag` |
+|---|---|---|
+| What it is | The entity's identity | A label on a physical object |
+| Assigned by | The database, on insert | A person, with a label maker |
+| Always present | Yes | No |
+| Unique | Yes, by construction | Yes, enforced in app code |
+| Sequential | No, and never | No, and never |
+| Safe to invent | Yes — nobody reads it | No — it must match the tool |
 
 This supersedes the "generate the tag on import" recommendation in
 `docs/13-excel-round-trip.md`, which is now wrong — do not build it.
 
-## Why not generate them
+## Why the system must not invent a tag
 
-It is the obvious alternative and it is worse. A generated `UIC-2001` in the
-database that is not written on the tool is a number nobody in the yard can
-read off the thing in their hands. It would be right in the register and absent
-in reality, and every conversation about it would go "which one is UIC-2001?"
+A generated `UIC-2001` in the database that is not written on the tool is a
+number nobody in the yard can read off the thing in their hands. It would be
+right in the register and absent in reality, and every conversation about it
+would go "which one is UIC-2001?"
 
-Worse, it hides the real state. If the register cannot distinguish "labelled"
-from "not labelled yet", nobody can ever produce the list of tools that still
-need labels — which is the actual work this data implies.
+There is no need for it either, since the id already guarantees the row is
+distinguishable. Inventing a tag buys nothing the id does not already give and
+costs a number that lies.
+
+It also hides the real state. If the register cannot distinguish "labelled" from
+"not labelled yet", nobody can produce the list of tools that still need labels
+— which is the actual work this data implies.
+
+The same reasoning rules out **suggesting** a next tag in sequence. A sequence
+implies the tags are an allocation the system owns, which invites somebody to
+accept the suggestion without labelling the tool, and puts the register straight
+back into the state above. Whoever adds a tag types what is on the label, and
+nothing else.
 
 ## Schema
 
@@ -119,11 +147,14 @@ somebody labels it in the yard; the register needs to catch up.
 mutation exists. What is missing is a path to it that makes sense to the person
 holding the label gun:
 
-- On the tool detail page, an untagged tool shows a **Add tag** action rather
+- On the tool detail page, an untagged tool shows an **Add tag** action rather
   than requiring a trip through the full edit form.
-- The suggested next tag is the tenant's highest existing `UIC-####` plus one,
-  offered as a default the user can overwrite. Suggesting is not generating —
-  the number only exists once somebody accepts it and writes it on the tool.
+- The field is **empty**, with no suggested value. Whoever is adding it reads
+  what is on the label and types that. See above for why a suggestion is worse
+  than nothing here.
+- The existing clash check applies, so a label already in use is rejected with
+  the tag named. That is the only validation — a tag has no format the system
+  should enforce, because the yard's labels are the yard's to choose.
 - A **Needs a tag** report: every asset where `tag is null`, which is the
   worklist for whoever is doing the labelling.
 
@@ -173,7 +204,7 @@ passes the gate fails on confirm.
 3. `apps/web/components/sti/status.tsx` — `Tag` handles the empty case
 4. `packages/types/src/import-specs.ts` — `tag` no longer required
 5. `apply-action.ts` and `messaging-worker.ts` — intake no longer demands a tag
-6. Tool detail page — "Add tag" action with a suggested next number
+6. Tool detail page — "Add tag" action, empty field, no suggested value
 7. `report.ts` + registry — "Needs a tag"
 8. Import preview — warn on rows with neither tag nor serial
 
@@ -183,8 +214,11 @@ passes the gate fails on confirm.
   before it failed the required-column check.
 - Confirm the register shows those tools with a muted "no tag" rather than an
   empty cell.
-- Add a tag to one from its detail page; confirm the clash check still rejects a
-  tag already in use.
+- Add a tag to one from its detail page. Confirm the field opens empty with no
+  suggested value, and that the clash check still rejects a tag already in use.
+- Confirm an untagged tool is still fully usable — assignable, transferable,
+  findable, and present in reports. Its `id` is its identity; nothing should
+  degrade because it has no label.
 - Re-import the same sheet. Rows with serials should deduplicate; note which
   rows duplicate and confirm they are the ones with neither tag nor serial.
 - In chat, refer to an untagged tool by description and confirm it resolves.
