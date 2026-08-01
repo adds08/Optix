@@ -28,6 +28,8 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 | `docs/13-excel-round-trip.md` | **Spec, unbuilt** — importing and exporting the trailer sheets Urban already keeps |
 | `docs/14-dashboard-additions.md` | **Spec, unbuilt** — the four things the desk dashboard cannot currently answer |
 | `docs/15-vendors-and-orders.md` | **Roadmap** — vendors, purchase orders, and linking a tool to where it came from |
+| `docs/16-handoff-brief.md` | Orientation for an implementer picking up 11–14: architecture, conventions, what must not regress |
+| `docs/changelogs/` | What actually shipped, one file per body of work — see its README for how specs, changelogs and release notes relate |
 | `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
 | `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
 
