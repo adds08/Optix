@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { use } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
@@ -33,10 +31,10 @@ type AuditRow = {
   actorName: string | null;
 };
 
-export default function AuditTrailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = use(params);
-  /* Reached via /reports/audit-trail; anything else is not this page. */
-  if (slug !== "audit-trail") notFound();
+/* A static route — no params to read. The old version read `slug` off an
+   empty params object, decided the slug was wrong, and notFound()'d the page
+   client-side while the server shell still returned 200. */
+export default function AuditTrailPage() {
 
   const [state, setState] = useState<DataTableServerState>({ page: 1, pageSize: 25 });
 
