@@ -119,16 +119,44 @@ In `packages/types/src/import-specs.ts`, replace the single `model` column in
   example: "DCH273", hint: "The manufacturer's number. Blank is fine." },
 ```
 
-`OTHER` maps to the existing `condition` column, not to `otherRef`. It holds
-`NEW` and `USED`, and `ASSET_CONDITIONS` is `new | good | fair | poor |
-damaged` — so `USED` needs folding onto `good`, which is what the yard means by
-it. Add that to the alias handling rather than widening the enum:
+`OTHER` maps to the existing `condition` column, not to `otherRef`:
 
 ```ts
 { key: "condition", header: "other", type: "enum", values: ASSET_CONDITIONS,
+  valueAliases: { used: "good" },
   example: "new",
   hint: "NEW or USED on the trailer sheets. USED is recorded as good." },
 ```
+
+`checkCell`'s enum branch is already case-insensitive — it lowercases the cell
+and matches against lowercased spec values — so `NEW` resolves to `new` today
+with no change. `USED` does not: `ASSET_CONDITIONS` is `new | good | fair |
+poor | damaged`, and the yard's "used" means "good".
+
+There is no value-alias mechanism on `ImportColumn` yet, so one has to be added.
+It is small: an optional field on the column type, applied in `checkCell` before
+the enum match.
+
+```ts
+// packages/types/src/import-specs.ts, on ImportColumn
+/** Vendor and yard vocabulary folded onto ours. Keys are lowercase. */
+valueAliases?: Record<string, string>;
+```
+
+```ts
+// packages/api-contracts/src/routers/import.ts, in checkCell's enum branch
+case "enum": {
+  const lower = col.valueAliases?.[v.toLowerCase()] ?? v.toLowerCase();
+  const match = col.values?.find((o) => o.toLowerCase() === lower);
+  if (!match) return { error: `must be one of: ${col.values?.join(", ")}` };
+  return { value: match };
+}
+```
+
+Prefer this to widening `ASSET_CONDITIONS`. The enum is what the register means
+by condition; "used" is what one vendor's paperwork calls it, and those are not
+the same list. Widening the enum would put "used" alongside "good" as a distinct
+condition forever, and nothing downstream would know they meant the same thing.
 
 The unlabelled ninth column is where `otherRef` comes from, and a column with no
 header cannot be matched by name. Two options, and the second is better:

@@ -17,7 +17,8 @@ reproduce a sheet anyone recognises, and no report can answer "how many Bosch
 tools do we own" — because the brand is buried in the middle of a sentence.
 
 This splits the column. It is the largest change in this sequence: roughly
-ninety call sites across thirty files, in five packages and three apps.
+a hundred call sites across thirty-seven files, in five packages and three
+apps.
 
 ## The two conventions already in the codebase
 
@@ -91,7 +92,7 @@ is worse, and the desk can clean up the few rows that need it.
 Drop the column. Do not keep it as a generated or computed column.
 
 A generated column (`make || ' ' || model_number || ' ' || description`) would
-let every one of the ninety call sites keep working untouched, which sounds like
+let every one of those call sites keep working untouched, which sounds like
 a mercy and is actually the failure mode: the split would sit half-finished
 forever, with new code reading the compatibility column because it is easier.
 
