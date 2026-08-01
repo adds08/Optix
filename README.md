@@ -20,6 +20,14 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 | `docs/05-build-proposal.md` | Bodhi Labs build proposal — scope, team, hours, pricing, scope options, payment schedule, handoff, plus a delivery-status addendum |
 | `docs/06-decisions.md` | Architecture decision records (ADR-1..6) |
 | `docs/07-conversational-layer.md` | The chat → intent → custody-action subsystem |
+| `docs/08-custom-intents.md` | How to add an intent, and which of the two kinds you are adding |
+| `docs/09-vocabulary.md` | What the screens say and what they should say — user-visible strings only |
+| `docs/10-corpus-context.md` | How this repo relates to the rest of Urban's stack |
+| `docs/11-department-cost-targets.md` | **Spec, unbuilt** — charging a tool to a department instead of a project, and the `mechanic` role |
+| `docs/12-model-field-split.md` | **Spec, unbuilt** — splitting `asset.modelName` into make / model number / description |
+| `docs/13-excel-round-trip.md` | **Spec, unbuilt** — importing and exporting the trailer sheets Urban already keeps |
+| `docs/14-dashboard-additions.md` | **Spec, unbuilt** — the four things the desk dashboard cannot currently answer |
+| `docs/15-vendors-and-orders.md` | **Roadmap** — vendors, purchase orders, and linking a tool to where it came from |
 | `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
 | `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
 
