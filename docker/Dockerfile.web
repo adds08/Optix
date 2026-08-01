@@ -47,6 +47,12 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV NEXT_PUBLIC_SHOW_DEMO_LOGINS=$NEXT_PUBLIC_SHOW_DEMO_LOGINS
 ENV NEXT_TELEMETRY_DISABLED=1
+# The production droplet is 1GB of RAM. Next's build workers happily balloon
+# past that and the box OOMs mid-deploy (see the 2026-08-02 command-center
+# changelog). Cap the heap and build with a single worker so the build fits
+# in RAM + swap instead of thrashing it.
+ENV NODE_OPTIONS=--max-old-space-size=1536
+ENV NEXT_BUILD_WORKERS=1
 RUN pnpm --filter @stinventory/web build
 # `public/` is optional in Next and this app has none today. Creating it keeps
 # the COPY below unconditional, so adding static assets later needs no
