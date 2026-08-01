@@ -1,8 +1,11 @@
 # Docs 11, 12, 13, 14, 17 implemented: departments, model split, Excel round-trip, dashboard, optional tags
 
-One migration (`0005_department_model_split.sql`), all five phases. **Not yet
-deployed** — the migration has been run against a fresh local Postgres 16 and the
-seed rebuilt, but nothing has shipped to the droplet.
+One migration (`0005_department_model_split.sql`), all five phases. **Deployed**
+to the droplet 2026-08-01 via CI (commit `8dbf832`): the migration applied to
+the production database on API boot — all six new asset columns present, the
+`department` table created with Repair & Maintenance seeded for the existing
+tenant, and `drizzle.__drizzle_migrations` at 6 entries. Site serving
+`/health` 200.
 
 ## What shipped
 
