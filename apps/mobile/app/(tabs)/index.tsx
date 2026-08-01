@@ -5,6 +5,7 @@ import { Link, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
+import { AnimatedRow, ScreenFade } from "../../components/motion";
 import { useAuth } from "../../lib/auth";
 import { Card, Empty, ErrorNote, Loading, ScreenTitle, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";
 
@@ -47,11 +48,12 @@ export default function MyToolsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <ScrollView
-        contentContainerClassName="px-5 py-4 gap-4 pb-10"
-        contentContainerStyle={SCREEN_CONTENT}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1F6E8C" />}
-      >
+      <ScreenFade>
+        <ScrollView
+          contentContainerClassName="px-5 py-4 gap-4 pb-10"
+          contentContainerStyle={SCREEN_CONTENT}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1F6E8C" />}
+        >
         <View className="flex-row items-start justify-between">
           <ScreenTitle
             title={me.data ? `Hi, ${me.data.firstName}` : "My Tools"}
@@ -96,41 +98,44 @@ export default function MyToolsScreen() {
         ) : (
           <View className="gap-3">
             {rows.map((t) => (
-              <Link key={t.id} href={{ pathname: "/tool/[id]", params: { id: t.id } }} asChild>
-                <Pressable accessibilityRole="button">
-                  <Card className={overdueIds.has(t.id) ? "border-crit" : ""}>
-                    <View className="gap-2">
-                      <View className="flex-row items-center justify-between gap-3">
-                        <Tag>{t.tag}</Tag>
-                        {overdueIds.has(t.id) ? (
-                          <StatusPill status="overdue" label="Overdue" />
-                        ) : (
-                          <StatusPill status={t.status} />
-                        )}
+              <AnimatedRow key={t.id}>
+                <Link href={{ pathname: "/tool/[id]", params: { id: t.id } }} asChild>
+                  <Pressable accessibilityRole="button">
+                    <Card className={overdueIds.has(t.id) ? "border-crit" : ""}>
+                      <View className="gap-2">
+                        <View className="flex-row items-center justify-between gap-3">
+                          <Tag>{t.tag}</Tag>
+                          {overdueIds.has(t.id) ? (
+                            <StatusPill status="overdue" label="Overdue" />
+                          ) : (
+                            <StatusPill status={t.status} />
+                          )}
+                        </View>
+                        <Text className="text-[17px] font-semibold leading-6 text-foreground">
+                          {formatAssetModel(t) || "Untagged tool"}
+                        </Text>
+                        <View className="flex-row flex-wrap gap-x-4 gap-y-1">
+                          {t.currentProjectName ? (
+                            <Text className="text-[13px] text-muted-foreground">
+                              {t.currentProjectName}
+                            </Text>
+                          ) : null}
+                          {t.locationName ? (
+                            <Text className="text-[13px] text-muted-foreground">
+                              {t.locationName}
+                            </Text>
+                          ) : null}
+                        </View>
                       </View>
-                      <Text className="text-[17px] font-semibold leading-6 text-foreground">
-                        {formatAssetModel(t) || "Untagged tool"}
-                      </Text>
-                      <View className="flex-row flex-wrap gap-x-4 gap-y-1">
-                        {t.currentProjectName ? (
-                          <Text className="text-[13px] text-muted-foreground">
-                            {t.currentProjectName}
-                          </Text>
-                        ) : null}
-                        {t.locationName ? (
-                          <Text className="text-[13px] text-muted-foreground">
-                            {t.locationName}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-                  </Card>
-                </Pressable>
-              </Link>
+                    </Card>
+                  </Pressable>
+                </Link>
+              </AnimatedRow>
             ))}
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </ScreenFade>
     </SafeAreaView>
   );
 }

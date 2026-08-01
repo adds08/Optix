@@ -43,6 +43,13 @@
       "when": 1785600673737,
       "tag": "0005_department_model_split",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785618443440,
+      "tag": "0006_command_center_prefs",
+      "breakpoints": true
     }
   ]
 }

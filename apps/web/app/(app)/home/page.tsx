@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowRight, CheckCircle2, Handshake, UserMinus } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Handshake, SlidersHorizontal, UserMinus } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
@@ -12,8 +12,29 @@ import { isFieldRole } from "@/components/sti/nav-config";
 import { PageHeader, Metric, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { dateTime, money, num, relative } from "@/lib/format";
 import { FleetLegend } from "@/components/fleet-map-view";
+import { useThemeStore } from "@/lib/themes/store";
+import {
+  CapitalSplitWidget,
+  GreetingWidget,
+  InboxStatusWidget,
+  MovementsWidget,
+  StatusWidget,
+  WeatherWidget,
+  WIDGET_DEFS,
+  widgetVisibility,
+  type WidgetId,
+} from "@/components/dashboard-widgets";
 
 /*
   The desk dashboard answers one question first: what needs a person today.
@@ -50,6 +71,26 @@ export default function HomePage() {
   const capitalJobs = trpc.report.capitalByProject.useQuery();
   const capitalShop = trpc.report.capitalByDepartment.useQuery();
   const idleReport = trpc.report.idle.useQuery();
+  const me = trpc.identity.me.useQuery();
+
+  /* Widget visibility, mirrored through the theme store so the Customize menu
+     updates the grid instantly; persisted on change via preferences.set. */
+  const prefs = useThemeStore((s) => s.prefs);
+  const setPrefs = useThemeStore((s) => s.setPrefs);
+  const utils = trpc.useUtils();
+  const visible = widgetVisibility(prefs);
+  const toggleWidget = (id: WidgetId, on: boolean) => {
+    const base = prefs ?? {
+      themeName: "drafting-ink" as const,
+      fontFamily: "system" as const,
+      fontScale: "1.0",
+      density: "comfortable" as const,
+      dashboard: { widgets: {} },
+    };
+    const next = { ...base, dashboard: { widgets: { ...visible, [id]: on } } };
+    setPrefs(next);
+    utils.client.preferences.set.mutate(next);
+  };
 
   const k = kpis.data;
 
@@ -231,6 +272,45 @@ export default function HomePage() {
           </Link>
           <Metric label="Terminated staff" value={num(k?.terminatedCount)} loading={kpis.isLoading} />
           <Metric label="Held by terminated" value={num(k?.clearanceCount)} loading={kpis.isLoading} tone={k?.clearanceCount ? "crit" : "ok"} />
+        </div>
+      </section>
+
+      {/* ---- command widgets ---- */}
+      {/* The desk's second screen: inbox status, capital, fleet shape, movement
+          rate, and the human touches. Visibility is per-user and persisted. */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">Command center</h2>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <SlidersHorizontal className="size-3.5" />
+                Customize
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Show widgets</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {WIDGET_DEFS.map((w) => (
+                <DropdownMenuCheckboxItem
+                  key={w.id}
+                  checked={visible[w.id]}
+                  onCheckedChange={(v) => toggleWidget(w.id, !!v)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {w.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.inbox ? <InboxStatusWidget /> : null}
+          {visible.capital ? <CapitalSplitWidget /> : null}
+          {visible.status ? <StatusWidget /> : null}
+          {visible.movements ? <MovementsWidget /> : null}
+          {visible.greeting ? <GreetingWidget firstName={me.data?.firstName ?? "there"} /> : null}
+          {visible.weather ? <WeatherWidget /> : null}
         </div>
       </section>
 

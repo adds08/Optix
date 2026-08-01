@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { DropdownMenu as Primitive } from "radix-ui";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /*
@@ -62,6 +63,31 @@ export function DropdownMenuSeparator({
   ...props
 }: React.ComponentProps<typeof Primitive.Separator>) {
   return <Primitive.Separator className={cn("-mx-1 my-1 h-px bg-border", className)} {...props} />;
+}
+
+/* Checkbox rows for the DataTable's column-visibility menu. The check indicator
+   is drawn by radix itself via its onCheckedChange contract. */
+export function DropdownMenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof Primitive.CheckboxItem>) {
+  return (
+    <Primitive.CheckboxItem
+      className={cn(
+        "relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+        "focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "[&>svg]:size-3.5 [&>svg]:shrink-0",
+        className,
+      )}
+      {...props}
+    >
+      <Primitive.ItemIndicator className="flex items-center">
+        <Check className="size-3.5" />
+      </Primitive.ItemIndicator>
+      {children}
+    </Primitive.CheckboxItem>
+  );
 }
 
 export function DropdownMenuLabel({

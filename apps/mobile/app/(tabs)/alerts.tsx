@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { trpc } from "../../lib/trpc";
 import { Card, Empty, ErrorNote, Loading, ScreenTitle, Tag, SCREEN_CONTENT } from "../../components/ui";
+import { ScreenFade } from "../../components/motion";
 
 export default function AlertsScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -57,6 +58,7 @@ export default function AlertsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+      <ScreenFade>
       <ScrollView
         contentContainerClassName="px-5 py-4 gap-5 pb-10"
         contentContainerStyle={SCREEN_CONTENT}
@@ -190,6 +192,7 @@ export default function AlertsScreen() {
           </>
         )}
       </ScrollView>
+      </ScreenFade>
     </SafeAreaView>
   );
 }

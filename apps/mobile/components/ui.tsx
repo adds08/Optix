@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, Text, View, type ViewStyle } from "react-native";
+import { PressableScale } from "./motion";
 
 /*
   Field UI primitives.
@@ -115,19 +116,21 @@ export function Button({
   }[variant];
 
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
       disabled={disabled || busy}
-      className={`${base} ${styles} ${disabled || busy ? "opacity-50" : ""}`}
+      style={{ opacity: disabled || busy ? 0.5 : 1 }}
     >
-      {busy ? (
-        <ActivityIndicator color={variant === "outline" ? "#1F6E8C" : "#FFFFFF"} />
-      ) : (
-        <Text className={`text-base font-semibold ${text}`}>{label}</Text>
-      )}
-    </Pressable>
+      <View className={`${base} ${styles}`}>
+        {busy ? (
+          <ActivityIndicator color={variant === "outline" ? "#1F6E8C" : "#FFFFFF"} />
+        ) : (
+          <Text className={`text-base font-semibold ${text}`}>{label}</Text>
+        )}
+      </View>
+    </PressableScale>
   );
 }
 

@@ -40,6 +40,23 @@ export const task = pgTable(
     */
     actionType: text("action_type"),
     pendingAction: jsonb("pending_action"),
+    /*
+      The intelligent inbox's buckets (docs/19).
+
+      `recognized` — the task carries an actionType + pendingAction that can be
+      replayed, or the message it came from resolved to real entities.
+      `completed` — terminal state; history, not work.
+      `unrecognized` — the model could not bind this to an action; a human has
+      to resolve or dismiss it.
+
+      Set by the request worker's sweep, idempotently — nothing here is written
+      by the frontend.
+    */
+    classification: text("classification"),
+    /* The LLM's one-sentence reading of the item, for the Recognized and
+       Unrecognized rows. Populated at classification time, nullable when the
+       classifier was deterministic and had nothing to say. */
+    llmSummary: text("llm_summary"),
     /* Who asked. `createdByUserId` can be null once an account is deleted, and
        the desk still needs to know whose request this was. */
     requestedByEmployeeId: uuid("requested_by_employee_id").references(() => employee.id, { onDelete: "set null" }),

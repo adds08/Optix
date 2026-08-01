@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, Menu, Moon, Sun, X } from "lucide-react";
+import { Menu, Moon, Sun, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NotificationCenter } from "@/components/notification-center";
+import { UserMenu } from "@/components/user-menu";
+import { useThemeStore } from "@/lib/themes/store";
+import { applyTheme } from "@/lib/themes/apply-theme";
+import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
 import { allItems, isFieldRole, navFor } from "./nav-config";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -24,6 +29,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const me = trpc.identity.me.useQuery(undefined, { enabled: ready, retry: false });
+  const prefs = trpc.preferences.get.useQuery(undefined, { enabled: ready });
+
+  /* Theme: hydrate dark mode from storage/preference, hydrate prefs from the
+     server row, then apply whenever either changes. */
+  const dark = useThemeStore((s) => s.dark);
+  const setDark = useThemeStore((s) => s.setDark);
+  const setPrefs = useThemeStore((s) => s.setPrefs);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("sti-theme");
+    const prefers = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setDark(saved ? saved === "dark" : prefers);
+  }, [setDark]);
+
+  useEffect(() => {
+    if (prefs.data) setPrefs(prefs.data as ThemePrefs);
+  }, [prefs.data, setPrefs]);
+
+  useEffect(() => {
+    /* Fall back to defaults before the preference row arrives, so the engine
+       never flashes un-themed. */
+    applyTheme((prefs.data as ThemePrefs | undefined) ?? DEFAULT_PREFS, dark);
+  }, [prefs.data, dark]);
 
   useEffect(() => {
     if (me.isError) {
@@ -128,14 +156,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {role?.replace(/_/g, " ") ?? "—"}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={onLogout}
-                aria-label="Sign out"
-                className="ml-auto rounded-md p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              >
-                <LogOut className="size-4" />
-              </button>
+              {/* The actions (profile, settings, sign out) live in the header's
+                  user menu; this block is identity only. */}
             </div>
           )}
         </div>
@@ -163,7 +185,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
           <span className="text-sm font-medium">{current?.label ?? "STInventory"}</span>
           <div className="ml-auto flex items-center gap-1">
+            <NotificationCenter />
             <ThemeToggle />
+            {me.data ? (
+              <UserMenu
+                name={`${me.data.firstName} ${me.data.lastName}`}
+                role={me.data.role}
+                onSignOut={onLogout}
+              />
+            ) : null}
           </div>
         </header>
 
@@ -176,15 +206,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("sti-theme");
-    const prefers = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const on = saved ? saved === "dark" : prefers;
-    setDark(on);
-    document.documentElement.classList.toggle("dark", on);
-  }, []);
+  const dark = useThemeStore((s) => s.dark);
+  const setDark = useThemeStore((s) => s.setDark);
 
   function toggle() {
     const on = !dark;

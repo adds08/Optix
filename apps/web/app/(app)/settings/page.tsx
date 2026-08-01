@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { PageHeader, ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AppearanceSettings } from "@/components/appearance-settings";
 import { dateTime } from "@/lib/format";
 
 /*
@@ -346,6 +347,12 @@ export default function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* ---- appearance ---- */}
+      {/* Appearance saves through its own preferences.set — it is a per-user
+          preference, not tenant config, and mixing the two save buttons would
+          make the tenant Save silently overwrite the theme. */}
+      <AppearanceSettings />
 
       {/* ---- notifications ---- */}
       <section className="flex flex-col gap-4 rounded-md border bg-card p-5">

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
+import { ScreenFade } from "../../components/motion";
 import { Card, Empty, ErrorNote, Loading, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";
 
 export default function ToolDetailScreen() {
@@ -29,6 +30,7 @@ export default function ToolDetailScreen() {
         <Text className="text-[16px] font-semibold text-foreground">Tool</Text>
       </View>
 
+      <ScreenFade>
       <ScrollView contentContainerClassName="px-5 py-4 gap-5 pb-10"
         contentContainerStyle={SCREEN_CONTENT}>
         {asset.isLoading ? (
@@ -137,6 +139,7 @@ export default function ToolDetailScreen() {
           </>
         )}
       </ScrollView>
+      </ScreenFade>
     </SafeAreaView>
   );
 }

@@ -2,27 +2,24 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpDown, Boxes, Columns3, Download, LayoutGrid, Rows3 } from "lucide-react";
+import { Boxes, Download, LayoutGrid, Rows3, Search } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap } from "@/components/sti/page";
+import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
-import { FacetRail, FacetGroup, FacetRow, ClearFacets, FilterPills } from "@/components/sti/facets";
+import { FacetGroup, FacetRow, ClearFacets, FilterPills } from "@/components/sti/facets";
 import { FlagBadges, isHighValue, warrantyFlag } from "@/components/sti/flags";
 import { AssetCard } from "@/components/sti/asset-card";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
 import { AssetForm, type AssetEditable } from "@/components/asset-form";
 import { ToolMenu } from "@/components/tool-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DataTable } from "@/components/sti/data-table/data-table";
+import { col } from "@/components/sti/data-table/columns";
+import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { downloadCsv } from "@/lib/csv";
 import { exportAssetsToSpec } from "@/lib/export-assets";
 import { money, photoUrl } from "@/lib/format";
@@ -45,12 +42,23 @@ function flagged(r: { currentProjectId?: string | null }, f: FlagKey): boolean {
   return !r.currentProjectId;
 }
 
+function matchesText(r: { tag: string | null; make: string | null; modelNumber: string | null; description: string | null; serialNumber: string | null }, q: string): boolean {
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  return [r.tag, r.make, r.modelNumber, r.description, r.serialNumber]
+    .some((v) => v?.toLowerCase().includes(needle));
+}
+
 /*
-  Only `search` is sent to the API. Category, status and flags are applied here
+  Only search is sent to the API. Category, status and flags are applied here
   on the client, because the facet counts have to be computed from the unfiltered
   set — asking the server for one status would throw away the numbers needed to
   label every other option. Worth revisiting if a tenant's fleet outgrows a
   single fetch; `asset.list` already accepts the filters when that day comes.
+
+  The facet rail now lives inside the filter sheet: same controls, same
+  counts, same behaviour — but the rail no longer eats a third of the
+  register's width (docs/19).
 */
 export default function ToolsPage() {
   const [q, setQ] = useState("");
@@ -74,7 +82,7 @@ export default function ToolsPage() {
     onError: (e, vars) => setFailed({ id: vars.id, message: e.message }),
   });
 
-  const list = trpc.asset.list.useQuery({ search: q.trim() || undefined });
+  const list = trpc.asset.list.useQuery();
   const all = useMemo(() => list.data ?? [], [list.data]);
 
   const matches = useMemo(() => {
@@ -94,144 +102,106 @@ export default function ToolsPage() {
     };
   }, [category, status, flags]);
 
-  const rows = useMemo(() => all.filter((r) => matches(r)), [all, matches]);
+  /* Facets only — the table view's search is the DataTable's own; the cards
+     view applies `matchesText` here. */
+  const filtered = useMemo(() => all.filter((r) => matches(r)), [all, matches]);
+  const cards = useMemo(() => filtered.filter((r) => matchesText(r, q)), [filtered, q]);
 
-  /*
-    Columns as data, so sorting and hiding are one mechanism rather than nine
-    special cases. `sortValue` is separate from `cell` because what you read and
-    what you order by are not the same thing — a status pill sorts by its raw
-    value, a cost sorts as a number and not as "$1,299.00".
-  */
   type Row = (typeof all)[number];
-  type Col = {
-    key: string;
-    label: string;
-    cell: (r: Row) => React.ReactNode;
-    sortValue?: (r: Row) => string | number;
-    numeric?: boolean;
-    sortable?: boolean;
-    /* Off unless asked for. The table showed nine columns at once and the ones
-       that answer "where is it and who has it" were competing with serial
-       numbers nobody scans down. */
-    optional?: boolean;
-  };
 
-  const COLUMNS: Col[] = useMemo(
+  const TABLE_COLUMNS: ColumnDef<Row>[] = useMemo(
     () => [
-      {
-        key: "tag",
-        label: "Tag",
-        sortValue: (r) => r.tag ?? "",
+      col<Row>({
+        header: "Tag",
+        accessorFn: (r) => r.tag ?? "",
         cell: (r) => (
           <Link href={`/tools/${r.id}`} className="hover:underline">
             <Tag>{r.tag}</Tag>
           </Link>
         ),
-      },
-      {
-        key: "model",
-        label: "Tool",
-        sortValue: (r) => formatAssetModel(r),
+      }),
+      col<Row>({
+        header: "Tool",
+        accessorFn: (r) => formatAssetModel(r),
         cell: (r) => (
           <Link href={`/tools/${r.id}`} className="font-medium hover:underline">
             {formatAssetModel(r) || "Untagged tool"}
           </Link>
         ),
-      },
-      {
-        key: "category",
-        label: "Category",
-        sortValue: (r) => r.categoryName ?? "",
+      }),
+      col<Row>({
+        header: "Category",
+        accessorFn: (r) => r.categoryName ?? "",
         cell: (r) => r.categoryName ?? <span className="text-muted-foreground">—</span>,
-      },
-      {
-        key: "status",
-        label: "Status",
-        sortValue: (r) => r.status,
+      }),
+      col<Row>({
+        header: "Status",
+        accessorFn: (r) => r.status,
         cell: (r) => <StatusPill status={r.status} />,
-      },
-      {
-        key: "holder",
-        label: "Holder",
-        sortValue: (r) => r.custodianName ?? "",
+      }),
+      col<Row>({
+        header: "Holder",
+        accessorFn: (r) => r.custodianName ?? "",
         cell: (r) => r.custodianName ?? <span className="text-muted-foreground">In the yard</span>,
-      },
-      {
-        key: "location",
-        label: "Where",
-        sortValue: (r) => r.locationName ?? "",
+      }),
+      col<Row>({
+        header: "Where",
+        accessorFn: (r) => r.locationName ?? "",
         cell: (r) => r.locationName ?? <span className="text-muted-foreground">—</span>,
-      },
-      {
-        key: "project",
-        label: "Project",
-        sortValue: (r) => r.currentProjectName ?? "",
+      }),
+      col<Row>({
+        header: "Project",
+        accessorFn: (r) => r.currentProjectName ?? "",
         cell: (r) => r.currentProjectName ?? <span className="text-muted-foreground">—</span>,
-      },
-      {
-        key: "cost",
-        label: "Cost",
+      }),
+      col<Row>({
+        header: "Cost",
+        accessorFn: (r) => Number(r.acquisitionCost ?? 0),
         numeric: true,
-        sortValue: (r) => Number(r.acquisitionCost ?? 0),
         cell: (r) => (
           <span className={isHighValue(r) ? "font-semibold" : "text-muted-foreground"}>
             {money(r.acquisitionCost)}
           </span>
         ),
-      },
-      {
-        key: "flags",
-        label: "Flags",
+      }),
+      col<Row>({
+        header: "Flags",
         sortable: false,
-        optional: true,
         cell: (r) => <FlagBadges asset={r} />,
-      },
-      {
-        key: "serial",
-        label: "Serial",
-        optional: true,
-        sortValue: (r) => r.serialNumber ?? "",
+      }),
+      col<Row>({
+        header: "Serial",
+        accessorFn: (r) => r.serialNumber ?? "",
         cell: (r) => (
           <span className="font-mono text-xs text-muted-foreground">{r.serialNumber ?? "—"}</span>
         ),
-      },
-      {
-        key: "owning",
-        label: "Charged to",
-        optional: true,
-        sortValue: (r) => r.owningDepartmentName ?? r.owningProjectName ?? "",
+      }),
+      col<Row>({
+        header: "Charged to",
+        accessorFn: (r) => r.owningDepartmentName ?? r.owningProjectName ?? "",
         cell: (r) => r.owningDepartmentName ?? r.owningProjectName ?? <span className="text-muted-foreground">—</span>,
-      },
+      }),
+      col<Row>({
+        header: "",
+        enableHiding: false,
+        cell: (r) => (
+          <ToolMenu
+            assetId={r.id}
+            assetTag={r.tag ?? "Untagged tool"}
+            heldBySomeone={!!r.custodianId}
+            onEdit={() => setEditing(editableFrom(r))}
+          />
+        ),
+      }),
     ],
     [],
   );
 
-  const [hidden, setHidden] = useState<Set<string>>(
-    () => new Set(COLUMNS.filter((c) => c.optional).map((c) => c.key)),
+  /* Optional columns start hidden; the DataTable's Columns menu restores them. */
+  const initialHidden = useMemo(
+    () => Object.fromEntries(["Flags", "Serial", "Charged to"].map((h) => [h, false])),
+    [],
   );
-  const visibleCols = COLUMNS.filter((c) => !hidden.has(c.key));
-
-  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({ key: "tag", dir: "asc" });
-  const toggleSort = (key: string) =>
-    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
-
-  const sorted = useMemo(() => {
-    const col = COLUMNS.find((c) => c.key === sort.key);
-    if (!col?.sortValue) return rows;
-    const dir = sort.dir === "asc" ? 1 : -1;
-    return [...rows].sort((a, b) => {
-      const av = col.sortValue!(a);
-      const bv = col.sortValue!(b);
-      if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
-      /* Empty cells last whichever way the column is pointing — a blank is not
-         a value that belongs at the top of an ascending sort. */
-      const as = String(av);
-      const bs = String(bv);
-      if (!as && bs) return 1;
-      if (as && !bs) return -1;
-      return as.localeCompare(bs) * dir;
-    });
-  }, [rows, sort, COLUMNS]);
 
   const categories = useMemo(
     () => Array.from(new Set(all.map((r) => r.categoryName).filter((c): c is string => !!c))).sort(),
@@ -286,6 +256,7 @@ export default function ToolsPage() {
   };
 
   const filtering = category !== "all" || status !== "all" || flags.size > 0;
+  const filterCount = (category !== "all" ? 1 : 0) + (status !== "all" ? 1 : 0) + flags.size;
 
   const pills = [
     ...(category !== "all" ? [{ key: "cat", label: category, onRemove: () => setCategory("all") }] : []),
@@ -327,6 +298,47 @@ export default function ToolsPage() {
     />
   );
 
+  const facetControls = (
+    <>
+      <FacetGroup title="Category">
+        <FacetRow label="All categories" count={countBy.anyCategory()} active={category === "all"} onClick={() => setCategory("all")} />
+        {categories.map((c) => (
+          <FacetRow key={c} label={c} count={countBy.category(c)} active={category === c} indent onClick={() => setCategory(c)} />
+        ))}
+      </FacetGroup>
+
+      <FacetGroup title="Status">
+        <FacetRow label="Any status" count={countBy.anyStatus()} active={status === "all"} onClick={() => setStatus("all")} />
+        {STATUSES.map((s) => (
+          <FacetRow key={s} label={humanize(s)} count={countBy.status(s)} active={status === s} indent onClick={() => setStatus(s)} />
+        ))}
+      </FacetGroup>
+
+      <FacetGroup title="Flags">
+        <FacetRow
+          label={`High value (≥ ${money(DEFAULT_HIGH_VALUE_THRESHOLD)})`}
+          count={countBy.flag("high_value")}
+          active={flags.has("high_value")}
+          onClick={() => toggleFlag("high_value")}
+        />
+        <FacetRow
+          label="No project"
+          count={countBy.flag("no_project")}
+          active={flags.has("no_project")}
+          onClick={() => toggleFlag("no_project")}
+        />
+        <FacetRow
+          label="Warranty ending / expired"
+          count={countBy.flag("warranty")}
+          active={flags.has("warranty")}
+          onClick={() => toggleFlag("warranty")}
+        />
+      </FacetGroup>
+
+      {filtering ? <ClearFacets onClick={clearAll} /> : null}
+    </>
+  );
+
   return (
     <div className="flex flex-col gap-6">
       {editing ? <AssetForm open onClose={() => setEditing(null)} edit={editing} /> : null}
@@ -346,229 +358,93 @@ export default function ToolsPage() {
         }
       />
 
-      <div className="grid gap-5 lg:grid-cols-[13rem_1fr] lg:items-start">
-        <FacetRail className="lg:sticky lg:top-4">
-          <FacetGroup title="Category">
-            <FacetRow label="All categories" count={countBy.anyCategory()} active={category === "all"} onClick={() => setCategory("all")} />
-            {categories.map((c) => (
-              <FacetRow key={c} label={c} count={countBy.category(c)} active={category === c} indent onClick={() => setCategory(c)} />
-            ))}
-          </FacetGroup>
-
-          <FacetGroup title="Status">
-            <FacetRow label="Any status" count={countBy.anyStatus()} active={status === "all"} onClick={() => setStatus("all")} />
-            {STATUSES.map((s) => (
-              <FacetRow key={s} label={humanize(s)} count={countBy.status(s)} active={status === s} indent onClick={() => setStatus(s)} />
-            ))}
-          </FacetGroup>
-
-          <FacetGroup title="Flags">
-            <FacetRow
-              label={`High value (≥ ${money(DEFAULT_HIGH_VALUE_THRESHOLD)})`}
-              count={countBy.flag("high_value")}
-              active={flags.has("high_value")}
-              onClick={() => toggleFlag("high_value")}
-            />
-            <FacetRow
-              label="No project"
-              count={countBy.flag("no_project")}
-              active={flags.has("no_project")}
-              onClick={() => toggleFlag("no_project")}
-            />
-            <FacetRow
-              label="Warranty ending / expired"
-              count={countBy.flag("warranty")}
-              active={flags.has("warranty")}
-              onClick={() => toggleFlag("warranty")}
-            />
-          </FacetGroup>
-
-          {filtering ? <ClearFacets onClick={clearAll} /> : null}
-        </FacetRail>
-
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-3">
+        {/* One toolbar for both views: search, the filter sheet (the former
+            facet rail), and the cards/table toggle. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[200px] max-w-sm flex-1">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search by tag, model or serial…"
-              className="max-w-sm"
+              className="pl-8"
               aria-label="Search tools"
             />
-            <span className="text-sm text-muted-foreground">
-              <span className="tnum font-medium text-foreground">{rows.length}</span>
-              {rows.length !== all.length ? <> of <span className="tnum">{all.length}</span></> : null} tools
-            </span>
-
-            {/* Column control belongs to the table, so it only exists there. */}
-            {mode === "table" ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger className="ml-auto flex items-center gap-1.5 rounded-sm border bg-card px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent">
-                  <Columns3 className="size-3.5" aria-hidden />
-                  Columns
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuLabel>Show</DropdownMenuLabel>
-                  {COLUMNS.map((c) => {
-                    const shown = !hidden.has(c.key);
-                    return (
-                      <DropdownMenuItem
-                        key={c.key}
-                        onSelect={(e) => {
-                          /* Keep it open — picking columns is several decisions,
-                             not one. */
-                          e.preventDefault();
-                          setHidden((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(c.key)) next.delete(c.key);
-                            else next.add(c.key);
-                            return next;
-                          });
-                        }}
-                      >
-                        <span
-                          className={cn(
-                            "flex size-3.5 items-center justify-center rounded-[3px] border text-[9px]",
-                            shown ? "border-primary bg-primary text-primary-foreground" : "border-input",
-                          )}
-                          aria-hidden
-                        >
-                          {shown ? "\u2713" : ""}
-                        </span>
-                        {c.label}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-
-            <div className={cn("flex overflow-hidden rounded-sm border", mode !== "table" && "ml-auto")} role="group" aria-label="View mode">
-              {([["cards", "Cards", LayoutGrid], ["table", "Table", Rows3]] as const).map(([k, label, Icon]) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setMode(k)}
-                  aria-pressed={mode === k}
-                  /* A segmented control, not a call to action. Which view you
-                     are in is minor state; a filled brand button gave it more
-                     weight than the tools it was showing. */
-                  className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-colors",
-                    mode === k
-                      ? "bg-muted font-medium text-foreground"
-                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  <Icon className="size-3.5" aria-hidden />
-                  {label}
-                </button>
-              ))}
-            </div>
           </div>
-
-          <FilterPills pills={pills} />
-
-          {list.isLoading ? (
-            <TableSkeleton cols={6} />
-          ) : list.isError ? (
-            <ErrorNote message="The tool register could not be loaded. Check that the API is running, then reload." />
-          ) : !rows.length ? (
-            <EmptyState
-              icon={Boxes}
-              title={q || filtering ? "No tools match" : "No tools registered yet"}
-              description={
-                q || filtering
-                  ? "Try a different search, or clear a filter in the left rail."
-                  : "Import the existing fleet, or register the first tool to start the custody chain."
-              }
-            />
-          ) : mode === "cards" ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {rows.map((r) => (
-                <AssetCard key={r.id} row={{ ...r, photoUrl: photoUrl(r.photoKey) }} actions={menuFor(r)} />
-              ))}
-            </div>
-          ) : (
-            <TableWrap>
-              <table className="w-full border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-card">
-                  <tr className="border-b">
-                    {visibleCols.map((c) => (
-                      <th
-                        key={c.key}
-                        scope="col"
-                        className={cn(
-                          "label-xs whitespace-nowrap px-3 py-2 text-left font-medium",
-                          c.numeric && "text-right",
-                        )}
-                      >
-                        {c.sortable === false ? (
-                          c.label
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => toggleSort(c.key)}
-                            className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
-                          >
-                            {c.label}
-                            <ArrowUpDown
-                              className={cn(
-                                "size-3",
-                                sort.key === c.key ? "text-foreground" : "text-muted-foreground/40",
-                              )}
-                              aria-hidden
-                            />
-                            <span className="sr-only">
-                              {sort.key === c.key
-                                ? `sorted ${sort.dir === "asc" ? "ascending" : "descending"}`
-                                : "not sorted"}
-                            </span>
-                          </button>
-                        )}
-                      </th>
-                    ))}
-                    <th scope="col" className="w-10 px-2 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((r) => {
-                    const heavy = isHighValue(r);
-                    return (
-                      <tr
-                        key={r.id}
-                        /* Zebra rather than a rule under every row: at this
-                           density the lines were doing more work than the data. */
-                        className="border-b border-border/40 last:border-0 odd:bg-muted/20 hover:bg-accent/40"
-                      >
-                        {visibleCols.map((c) => (
-                          <td
-                            key={c.key}
-                            className={cn(
-                              "px-3 py-2 align-middle",
-                              c.numeric && "text-right tnum",
-                              c.key === "tag" && heavy && "shadow-[inset_2px_0_0_var(--primary)]",
-                            )}
-                          >
-                            {c.cell(r)}
-                          </td>
-                        ))}
-                        <td className="px-2 py-2 text-right">
-                          <ToolMenu
-                            assetId={r.id}
-                            assetTag={r.tag ?? "Untagged tool"}
-                            heldBySomeone={!!r.custodianId}
-                            onEdit={() => setEditing(editableFrom(r))}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </TableWrap>
-          )}
+          <FilterSheet
+            title="Filter the register"
+            activeCount={filterCount}
+            onApply={() => {}}
+            onClear={clearAll}
+          >
+            {facetControls}
+          </FilterSheet>
+          <span className="text-sm text-muted-foreground">
+            <span className="tnum font-medium text-foreground">{cards.length}</span>
+            {cards.length !== all.length ? <> of <span className="tnum">{all.length}</span></> : null} tools
+          </span>
+          <div className={cn("ml-auto flex overflow-hidden rounded-sm border")} role="group" aria-label="View mode">
+            {([["cards", "Cards", LayoutGrid], ["table", "Table", Rows3]] as const).map(([k, label, Icon]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setMode(k)}
+                aria-pressed={mode === k}
+                /* A segmented control, not a call to action. Which view you
+                   are in is minor state; a filled brand button gave it more
+                   weight than the tools it was showing. */
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-colors",
+                  mode === k
+                    ? "bg-muted font-medium text-foreground"
+                    : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                )}
+              >
+                <Icon className="size-3.5" aria-hidden />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        <FilterPills pills={pills} />
+
+        {list.isLoading ? (
+          <TableSkeleton cols={6} />
+        ) : list.isError ? (
+          <ErrorNote message="The tool register could not be loaded. Check that the API is running, then reload." />
+        ) : !cards.length ? (
+          <EmptyState
+            icon={Boxes}
+            title={q || filtering ? "No tools match" : "No tools registered yet"}
+            description={
+              q || filtering
+                ? "Try a different search, or clear a filter in the sheet."
+                : "Import the existing fleet, or register the first tool to start the custody chain."
+            }
+          />
+        ) : mode === "cards" ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {cards.map((r) => (
+              <AssetCard key={r.id} row={{ ...r, photoUrl: photoUrl(r.photoKey) }} actions={menuFor(r)} />
+            ))}
+          </div>
+        ) : (
+          <DataTable<Row>
+            mode="client"
+            columns={TABLE_COLUMNS}
+            rows={filtered}
+            rowId={(r) => r.id}
+            filterPredicate={matches}
+            searchValue={q}
+            onSearchChange={setQ}
+            showToolbar={false}
+            columnVisibilityInitial={initialHidden}
+            emptyTitle="No tools match"
+            emptyDescription="Try a different search, or clear a filter in the sheet."
+          />
+        )}
       </div>
     </div>
   );

@@ -4,12 +4,8 @@ import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import {
-  applyChatAction,
-  canApplyAction,
-  permissionForAction,
-  type ChatAction,
-} from "../apply-action.js";
+import { canApplyAction, permissionForAction } from "../apply-action.js";
+import { approveTaskAction } from "../approve.js";
 
 export const taskRouter = router({
   list: protectedProcedure
@@ -208,107 +204,14 @@ export const taskRouter = router({
     Permission is charged against the APPROVER, not the requester. That is the
     entire point of the gate — otherwise a request would be a way to perform an
     action nobody was allowed to perform.
+
+    The body lives in `approve.ts` — the inbox's one-click resolve calls the
+    same code, so the two surfaces cannot drift.
   */
   approve: protectedProcedure
     .input(z.object({ id: z.string().uuid(), note: z.string().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {
-      const tid = ctx.session.tenantId;
-      const task = await ctx.db.query.task.findFirst({
-        where: and(eq(schema.task.id, input.id), eq(schema.task.tenantId, tid)),
-      });
-      if (!task) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
-
-      if (!task.actionType || !task.pendingAction) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This task is a note, not a request — there is nothing to approve.",
-        });
-      }
-      if (task.status !== "pending" && task.status !== "in_progress") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: `This request was already ${task.status}.`,
-        });
-      }
-
-      if (!canApplyAction(task.actionType, ctx.session.permissions)) {
-        const needed = permissionForAction(task.actionType);
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: needed
-            ? `Approving a ${task.actionType} request requires ${needed}.`
-            : `${task.actionType} cannot be approved from here.`,
-        });
-      }
-
-      const stored = task.pendingAction as Record<string, unknown>;
-      /* Nulls were written for absent fields so the payload shape stays
-         readable in the database; the executor wants them gone. */
-      const action: ChatAction = {
-        type: task.actionType,
-        assetIds: (stored.assetIds as string[]) ?? [],
-        ...(stored.custodianId ? { custodianId: stored.custodianId as string } : {}),
-        ...(stored.projectId ? { projectId: stored.projectId as string } : {}),
-        ...(stored.locationId ? { locationId: stored.locationId as string } : {}),
-        ...(stored.draft ? { draft: stored.draft as ChatAction["draft"] } : {}),
-        note: input.note || (stored.note as string) || `Approved from request: ${task.title}`,
-      };
-
-      const result = await applyChatAction(ctx.db, {
-        tenantId: tid,
-        actorUserId: ctx.session.userId,
-        permissions: ctx.session.permissions,
-        action,
-        refMessageId: task.sourceMessageId ?? undefined,
-      });
-
-      await ctx.db
-        .update(schema.task)
-        .set({
-          status: "completed",
-          completedAt: new Date(),
-          assignedToEmployeeId: task.assignedToEmployeeId ?? ctx.session.employeeId ?? null,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.task.id, task.id));
-
-      /* Close the loop for the foreman who raised it — they asked for
-         something and are entitled to hear that it happened. */
-      if (task.requestedByEmployeeId) {
-        await ctx.db.insert(schema.notification).values({
-          tenantId: tid,
-          recipientEmployeeId: task.requestedByEmployeeId,
-          type: "request_approved",
-          refType: "task",
-          refId: task.id,
-          title: `Approved: ${task.title}`,
-          body: input.note || "The equipment desk signed this off.",
-          channel: "in_app",
-        });
-      }
-
-      await logEvent(ctx, {
-        category: "task",
-        action: "approve",
-        entityType: "task",
-        entityId: task.id,
-        entityLabel: task.title,
-        details: {
-          actionType: task.actionType,
-          transactionIds: result.transactionIds,
-          awaitingApproval: result.awaitingApproval,
-        },
-      });
-
-      return {
-        ok: true,
-        applied: result.applied,
-        /* A hand-off that itself needs a second signature is parked as a
-           pending transfer rather than applied — the request was approved, the
-           custody move still needs its own approval. */
-        awaitingApproval: result.awaitingApproval,
-        transactionIds: result.transactionIds,
-      };
+      return approveTaskAction(ctx, input.id, input.note);
     }),
 
   /* Turning a request down is part of the gate. Without it the only way to

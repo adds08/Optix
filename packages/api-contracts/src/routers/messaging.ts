@@ -12,6 +12,7 @@ import {
   requestChatAction,
   type ChatAction,
 } from "../apply-action.js";
+import { confirmMessageAction } from "../approve.js";
 
 /*
   Confirm each mentioned id really is a row of that kind in this tenant.
@@ -231,96 +232,12 @@ export const messagingRouter = router({
     }),
 
   // Confirm a proposed action (foreman taps "Confirm" on the action card).
+  /* The body lives in `approve.ts`, shared with the inbox's one-click resolve —
+     confirming here and resolving there must be the same code. */
   confirmAction: protectedProcedure
     .input(z.object({ messageId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const tid = ctx.session.tenantId;
-      const msg = await ctx.db.query.message.findFirst({
-        where: and(eq(schema.message.id, input.messageId), eq(schema.message.tenantId, tid)),
-      });
-      if (!msg) throw new Error("Message not found");
-      if (msg.processingStatus !== "action_proposed" || !msg.proposedAction) {
-        throw new Error("Message does not have a proposed action to confirm");
-      }
-
-      const action = msg.proposedAction as ChatAction;
-
-      const opts = {
-        tenantId: tid,
-        actorUserId: ctx.session.userId,
-        actorEmployeeId: ctx.session.employeeId ?? null,
-        permissions: ctx.session.permissions,
-        action,
-        refMessageId: msg.id,
-      };
-
-      /*
-        Chat carries no more authority than the equivalent form. Someone without
-        the permission an action costs does not get an error — their observation
-        is still worth capturing — it becomes a request for the owning desk.
-      */
-      const allowed = canApplyAction(action.type, ctx.session.permissions);
-
-      // Single executor shared with the background worker, so the two paths
-      // cannot drift apart again. Throws rather than silently succeeding.
-      let transactionIds: string[] = [];
-      let taskId: string | null = null;
-      let awaitingApproval = 0;
-      let awaitingVerification = 0;
-
-      if (allowed) {
-        const res = await applyChatAction(ctx.db, opts);
-        transactionIds = res.transactionIds;
-        awaitingApproval = res.awaitingApproval;
-        awaitingVerification = res.awaitingVerification;
-      } else {
-        const res = await requestChatAction(ctx.db, opts);
-        transactionIds = res.transactionIds;
-        taskId = res.taskId;
-      }
-
-      /*
-        The same bug action.submit had: `applied: allowed` reported the
-        permission check rather than the outcome, and the message was stamped
-        `action_executed` even when the executor had parked the change for a
-        signature. The chat bubble then said "Recorded" about a tool that had
-        not moved.
-
-        A parked change is genuinely waiting on the desk, which is what
-        `action_requested` already means — no new status needed.
-      */
-      const outcome = !allowed
-        ? ("requested" as const)
-        : awaitingApproval > 0
-          ? ("awaiting_approval" as const)
-          : awaitingVerification > 0
-            ? ("borrowed" as const)
-            : ("applied" as const);
-
-      /* A borrow DID move the register, so it is executed, not requested — the
-         desk still has to look at it, but the tool is where the message said it
-         is and the bubble must not imply otherwise. */
-      await ctx.db
-        .update(schema.message)
-        .set({
-          processingStatus:
-            outcome === "applied" || outcome === "borrowed" ? "action_executed" : "action_requested",
-          executedTransactionIds: transactionIds,
-          handledByUserId: ctx.session.userId,
-          handledAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.message.id, input.messageId));
-
-      await logEvent(ctx, {
-        category: "messaging",
-        action: allowed ? "confirm_action" : "request_action",
-        entityType: "message",
-        entityId: input.messageId,
-        details: { actionType: action.type, transactionIds, taskId, outcome },
-      });
-
-      return { ok: true, outcome, awaitingApproval, awaitingVerification, transactionIds, taskId };
+      return confirmMessageAction(ctx, input.messageId);
     }),
 
   // Manual entry by admin for pending_manual messages.

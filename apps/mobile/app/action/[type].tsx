@@ -5,6 +5,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import type { Permission } from "@stinventory/types";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
+import { ScreenFade } from "../../components/motion";
 import { EntityPicker, type EntityValue } from "../../components/entity-picker";
 import { Button, Card, ErrorNote, Loading, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";
 
@@ -133,6 +134,7 @@ export default function ActionScreen() {
   const a = asset.data;
 
   return (
+    <ScreenFade>
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={40}
@@ -254,6 +256,7 @@ export default function ActionScreen() {
         )}
       </ScrollView>
     </KeyboardAvoidingView>
+    </ScreenFade>
   );
 }
 
@@ -318,3 +321,4 @@ function Outcome({
     </View>
   );
 }
+    

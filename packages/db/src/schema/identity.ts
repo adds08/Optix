@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 // Tenant — multi-tenant-ready from day one. Constant for Urban in the prototype.
 export const tenant = pgTable(
@@ -82,5 +82,34 @@ export const userRole = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.userId, t.roleId] }),
+  }),
+);
+
+/*
+  Per-user appearance and dashboard preferences (docs/19).
+
+  One row per user, read on boot to theme the shell and write on change. The
+  dashboard jsonb holds widget visibility so the command center is the same
+  on every browser, not just the one it was arranged in. Values are validated
+  against the theme catalog in the router — the database stores what the UI
+  chose, it does not invent choices.
+*/
+export const userPreferences = pgTable(
+  "user_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    themeName: text("theme_name").notNull().default("drafting-ink"),
+    fontFamily: text("font_family").notNull().default("system"),
+    fontScale: text("font_scale").notNull().default("1.0"),
+    density: text("density").notNull().default("comfortable"),
+    dashboard: jsonb("dashboard").$type<{ widgets: Record<string, boolean> }>().notNull().default({ widgets: {} }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userUq: uniqueIndex("user_preferences_user_uq").on(t.userId),
+    tenantIdx: index("user_preferences_tenant_idx").on(t.tenantId),
   }),
 );

@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { byMostOverdue } from "@stinventory/domain";
@@ -360,5 +360,155 @@ export const dashboardRouter = router({
         }),
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }),
+
+  /*
+    The bell in the top bar: one round-trip that answers "is anything waiting,
+    and what is it".
+
+    The badge is the same sum the inbox shows — unread alerts plus every desk
+    queue — so the bell and the inbox cannot disagree about the number. The
+    alerts list is the top unread notifications for THIS user; the queue counts
+    are tenant-wide, because the desk owns them and the bell is how the desk
+    sees them without opening the page.
+  */
+  notifications: protectedProcedure.query(async ({ ctx }) => {    const tid = ctx.session.tenantId;
+    const empId = ctx.session.employeeId;
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [alerts, overdue, approvals, tasks, messages, clearance] = await Promise.all([
+      ctx.db
+        .select({ id: schema.notification.id, title: schema.notification.title, body: schema.notification.body, createdAt: schema.notification.createdAt })
+        .from(schema.notification)
+        .where(
+          and(
+            eq(schema.notification.tenantId, tid),
+            isNull(schema.notification.readAt),
+            empId ? eq(schema.notification.recipientEmployeeId, empId) : undefined,
+          ),
+        )
+        .orderBy(desc(schema.notification.createdAt))
+        .limit(5),
+      ctx.db
+        .select({ c: count() })
+        .from(schema.assignment)
+        .where(
+          and(
+            eq(schema.assignment.tenantId, tid),
+            eq(schema.assignment.type, "temporary"),
+            eq(schema.assignment.status, "active"),
+            lt(schema.assignment.expectedEndDate, today),
+          ),
+        )
+        .then((r) => Number(r[0]?.c ?? 0)),
+      (async () => {
+        const [a, t] = await Promise.all([
+          ctx.db
+            .select({ c: count() })
+            .from(schema.assignment)
+            .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.status, "pending_approval"))),
+          ctx.db
+            .select({ c: count() })
+            .from(schema.transfer)
+            .where(
+              and(
+                eq(schema.transfer.tenantId, tid),
+                inArray(schema.transfer.status, ["pending_approval", "pending_verification"]),
+              ),
+            ),
+        ]);
+        return Number(a[0]?.c ?? 0) + Number(t[0]?.c ?? 0);
+      })(),
+      ctx.db
+        .select({ c: count() })
+        .from(schema.task)
+        .where(
+          and(
+            eq(schema.task.tenantId, tid),
+            notInArray(schema.task.status, ["completed", "cancelled"]),
+          ),
+        )
+        .then((r) => Number(r[0]?.c ?? 0)),
+      ctx.db
+        .select({ c: count() })
+        .from(schema.message)
+        .where(
+          and(
+            eq(schema.message.tenantId, tid),
+            inArray(schema.message.processingStatus, ["pending_manual", "error"]),
+          ),
+        )
+        .then((r) => Number(r[0]?.c ?? 0)),
+      ctx.db
+        .select({ c: count() })
+        .from(schema.asset)
+        .innerJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
+        .where(
+          and(
+            eq(schema.asset.tenantId, tid),
+            eq(schema.employee.employmentStatus, "terminated"),
+            ne(schema.asset.currentStatus, "available"),
+          ),
+        )
+        .then((r) => Number(r[0]?.c ?? 0)),
+    ]);
+
+    return {
+      alerts: alerts.map((a) => ({
+        id: a.id,
+        title: a.title,
+        body: a.body,
+        createdAt: a.createdAt,
+      })),
+      queues: { overdue, approvals, tasks, messages, clearance },
+      unread: alerts.length + overdue + approvals + tasks + messages + clearance,
+    };
+  }),
+
+  /*
+    The dashboard widgets' numbers — static aggregates over the ledger, no LLM.
+
+    Three shapes feed the recharts widgets: the fleet split by status, capital
+    by who pays (project vs department), and the movement rate per week folded
+    from the transaction log. All read-only; the ledger stays the source.
+  */
+  charts: protectedProcedure.query(async ({ ctx }) => {
+    const tid = ctx.session.tenantId;
+
+    const statuses = await ctx.db
+      .select({ status: schema.asset.currentStatus, count: count() })
+      .from(schema.asset)
+      .where(eq(schema.asset.tenantId, tid))
+      .groupBy(schema.asset.currentStatus);
+
+    const capital = await ctx.db
+      .select({
+        kind: sql<string>`case when ${schema.asset.costTarget} = 'department' then 'department' else 'project' end`,
+        value: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
+      })
+      .from(schema.asset)
+      .where(eq(schema.asset.tenantId, tid))
+      .groupBy(sql`1`);
+
+    const movements = await ctx.db
+      .select({
+        week: sql<string>`to_char(date_trunc('week', ${schema.transaction.occurredAt}), 'YYYY-MM-DD')`,
+        count: count(),
+      })
+      .from(schema.transaction)
+      .where(
+        and(
+          eq(schema.transaction.tenantId, tid),
+          sql`${schema.transaction.occurredAt} >= now() - interval '8 weeks'`,
+        ),
+      )
+      .groupBy(sql`1`)
+      .orderBy(sql`1`);
+
+    return {
+      statusDistribution: statuses.map((s) => ({ status: s.status, count: Number(s.count) })),
+      capitalSplit: capital.map((c) => ({ kind: c.kind, value: c.value })),
+      movementsByWeek: movements.map((m) => ({ week: m.week, count: Number(m.count) })),
+    };
   }),
 });

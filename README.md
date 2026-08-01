@@ -31,6 +31,7 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 | `docs/16-handoff-brief.md` | Orientation for an implementer picking up the specs: architecture, conventions, what must not regress |
 | `docs/17-optional-tags.md` | **Built** — a tag is a physical label, not an assigned id; tools can exist untagged |
 | `docs/18-vehicle-tracking-and-map.md` | **Built** — online/offline from GPS freshness, the fleet map, and the personal-allowance "no tracker" nuance |
+| `docs/19-command-center-and-modernization.md` | **Built** — DataTable + filter sheet, top-nav notification center, intelligent inbox, dashboard widgets + theme engine, mobile motion |
 | `docs/changelogs/` | What actually shipped, one file per body of work — see its README for how specs, changelogs and release notes relate |
 | `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
 | `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |

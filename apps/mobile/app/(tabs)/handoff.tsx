@@ -13,6 +13,7 @@ import type { ChatMention } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
 import { MentionInput, MentionChips } from "../../components/mention-input";
 import { Button, Card, Empty, ErrorNote, Loading, ScreenTitle, SCREEN_CONTENT } from "../../components/ui";
+import { ScreenFade } from "../../components/motion";
 
 /*
   The whole product thesis on one screen: the foreman types the sentence they
@@ -98,11 +99,12 @@ export default function HandOffScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={90}
-        className="flex-1"
-      >
+      <ScreenFade>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={90}
+          className="flex-1"
+        >
         {/* The header and the composer below live outside the ScrollView, so
             they need the width cap applied directly or they stretch across a
             desktop browser while the messages between them stay narrow. */}
@@ -156,7 +158,8 @@ export default function HandOffScreen() {
             </Pressable>
           </View>
         </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </ScreenFade>
     </SafeAreaView>
   );
 }

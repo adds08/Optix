@@ -48,7 +48,7 @@ export function Metric({
   const accent =
     tone === "warn" ? "text-warn" : tone === "crit" ? "text-crit" : tone === "ok" ? "text-ok" : "text-foreground";
   return (
-    <div className="flex flex-col gap-1 rounded-md border bg-card p-4">
+    <div className="metric-card flex flex-col gap-1 rounded-md border bg-card p-4">
       <span className="label-xs">{label}</span>
       {loading ? (
         <Skeleton className="h-8 w-20" />

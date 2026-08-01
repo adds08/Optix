@@ -4,6 +4,7 @@ import * as schema from "@stinventory/db/schema";
 import { isRentalOverdue, daysUntilOffRent } from "@stinventory/domain";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
+import { pageParamsSchema } from "../table-helpers.js";
 import { logEvent } from "../audit.js";
 
 /*
@@ -152,39 +153,82 @@ export const rentalRouter = router({
     their end date at the top. This is the list somebody works down on a Monday
     morning with the vendor's number open.
   */
-  onRent: requirePermission("rental.read").query(async ({ ctx }) => {
-    const tid = ctx.session.tenantId;
-    const rows = await ctx.db
-      .select({
-        lineId: schema.rentalLine.id,
-        itemName: schema.rentalLine.itemName,
-        catClass: schema.rentalLine.catClass,
-        quantity: schema.rentalLine.quantity,
-        endDate: schema.rentalLine.endDate,
-        status: schema.rentalLine.status,
-        orderId: schema.rentalOrder.id,
-        externalNumber: schema.rentalOrder.externalNumber,
-        jobsiteLabel: schema.rentalOrder.jobsiteLabel,
-        projectName: schema.project.name,
-        vendorName: schema.vendor.name,
-      })
-      .from(schema.rentalLine)
-      .innerJoin(schema.rentalOrder, eq(schema.rentalLine.orderId, schema.rentalOrder.id))
-      .innerJoin(schema.vendor, eq(schema.rentalOrder.vendorId, schema.vendor.id))
-      .leftJoin(schema.project, eq(schema.rentalOrder.projectId, schema.project.id))
-      .where(and(eq(schema.rentalLine.tenantId, tid), eq(schema.rentalLine.status, "on_rent")));
+  onRent: requirePermission("rental.read")
+    .input(
+      z
+        .object({
+          ...pageParamsSchema.shape,
+          search: z.string().optional(),
+        })
+        .default({}),
+    )
+    .query(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const params = input;
+      const rows = await ctx.db
+        .select({
+          lineId: schema.rentalLine.id,
+          itemName: schema.rentalLine.itemName,
+          catClass: schema.rentalLine.catClass,
+          quantity: schema.rentalLine.quantity,
+          endDate: schema.rentalLine.endDate,
+          status: schema.rentalLine.status,
+          orderId: schema.rentalOrder.id,
+          externalNumber: schema.rentalOrder.externalNumber,
+          jobsiteLabel: schema.rentalOrder.jobsiteLabel,
+          projectName: schema.project.name,
+          vendorName: schema.vendor.name,
+        })
+        .from(schema.rentalLine)
+        .innerJoin(schema.rentalOrder, eq(schema.rentalLine.orderId, schema.rentalOrder.id))
+        .innerJoin(schema.vendor, eq(schema.rentalOrder.vendorId, schema.vendor.id))
+        .leftJoin(schema.project, eq(schema.rentalOrder.projectId, schema.project.id))
+        .where(and(eq(schema.rentalLine.tenantId, tid), eq(schema.rentalLine.status, "on_rent")));
 
-    const t = today();
-    return rows
-      .map((r) => ({
+      const t = today();
+      let out = rows.map((r) => ({
         ...r,
         overdue: isRentalOverdue({ status: r.status, endDate: r.endDate, today: t }),
         daysToOffRent: daysUntilOffRent(r.endDate, t),
-      }))
-      /* Nulls last: a line with no end date is open-ended, which is a data
-         problem to chase but not a bill to stop today. */
-      .sort((a, b) => (a.daysToOffRent ?? 9_999) - (b.daysToOffRent ?? 9_999));
-  }),
+      }));
+
+      /* Search runs server-side over the fields a person actually says. */
+      if (params.search) {
+        const q = params.search.toLowerCase();
+        out = out.filter((r) =>
+          [r.itemName, r.externalNumber, r.vendorName, r.jobsiteLabel]
+            .some((v) => v?.toLowerCase().includes(q)),
+        );
+      }
+
+      /* Whitelisted column sorts; anything else falls back to the canonical
+         soonest-due-first order. The comparator map is the whitelist. */
+      const SORTABLE: Record<string, (a: (typeof out)[number], b: (typeof out)[number]) => number> = {
+        itemName: (a, b) => a.itemName.localeCompare(b.itemName),
+        vendorName: (a, b) => (a.vendorName ?? "").localeCompare(b.vendorName ?? ""),
+        endDate: (a, b) => (a.endDate ?? "9999").localeCompare(b.endDate ?? "9999"),
+        quantity: (a, b) => (a.quantity ?? 0) - (b.quantity ?? 0),
+      };
+      const sort = params.sortKey ? SORTABLE[params.sortKey] : undefined;
+      if (sort) {
+        const dir = params.sortDir === "desc" ? -1 : 1;
+        out.sort((a, b) => sort(a, b) * dir);
+      } else {
+        /* Nulls last: a line with no end date is open-ended, which is a data
+           problem to chase but not a bill to stop today. */
+        out.sort((a, b) => (a.daysToOffRent ?? 9_999) - (b.daysToOffRent ?? 9_999));
+      }
+
+      const total = out.length;
+      const page = params.page ?? 1;
+      const pageSize = params.pageSize ?? 25;
+      return {
+        rows: out.slice((page - 1) * pageSize, page * pageSize),
+        total,
+        page,
+        pageSize,
+      };
+    }),
 
   /* Headline numbers for the dashboard tile. */
   summary: requirePermission("rental.read").query(async ({ ctx }) => {
