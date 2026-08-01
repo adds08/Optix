@@ -5,6 +5,27 @@ import * as schema from "@stinventory/db/schema";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
+import { COST_TARGETS, formatAssetModel } from "@stinventory/types";
+
+/* A tool needs to be describable, not catalogued. A brand with no catalogue
+   number is completely ordinary ("Skill Saw" is a description, not a brand), so
+   the rule is at least one of make or description — never a model number. */
+const assetRefine = (v: {
+  costTarget?: string;
+  owningDepartmentId?: string | null;
+  owningProjectId?: string | null;
+}, ctx: z.RefinementCtx) => {
+  if (v.costTarget === "department") {
+    if (!v.owningDepartmentId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["owningDepartmentId"], message: "Say which department pays for this tool." });
+    }
+    if (v.owningProjectId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["owningProjectId"], message: "A tool charged to a department cannot also name a project." });
+    }
+  } else if (v.costTarget === "project" && v.owningDepartmentId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["owningDepartmentId"], message: "A tool charged to a project cannot also name a department." });
+  }
+};
 
 export const assetRouter = router({
   list: protectedProcedure
@@ -42,18 +63,24 @@ export const assetRouter = router({
         conditions.push(
           or(
             ilike(schema.asset.tag, q),
-            ilike(schema.asset.modelName, q),
+            ilike(schema.asset.make, q),
+            ilike(schema.asset.modelNumber, q),
+            ilike(schema.asset.description, q),
             ilike(schema.asset.serialNumber, q),
           )!,
         );
       }
       const currentProject = alias(schema.project, "current_project");
       const owningProject = alias(schema.project, "owning_project");
+      const owningDepartment = alias(schema.department, "owning_department");
       const rows = await ctx.db
         .select({
           id: schema.asset.id,
           tag: schema.asset.tag,
-          modelName: schema.asset.modelName,
+          make: schema.asset.make,
+          modelNumber: schema.asset.modelNumber,
+          description: schema.asset.description,
+          otherRef: schema.asset.otherRef,
           categoryName: schema.asset.categoryName,
           serialNumber: schema.asset.serialNumber,
           isSerialized: schema.asset.isSerialized,
@@ -73,12 +100,16 @@ export const assetRouter = router({
           locationName: schema.location.name,
           owningProjectId: schema.asset.owningProjectId,
           owningProjectName: owningProject.name,
+          costTarget: schema.asset.costTarget,
+          owningDepartmentId: schema.asset.owningDepartmentId,
+          owningDepartmentName: owningDepartment.name,
         })
         .from(schema.asset)
         .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
+        .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
         .where(and(...conditions));
       return rows;
     }),
@@ -91,11 +122,14 @@ export const assetRouter = router({
     .query(async ({ ctx, input }) => {
       const currentProject = alias(schema.project, "current_project");
       const owningProject = alias(schema.project, "owning_project");
+      const owningDepartment = alias(schema.department, "owning_department");
       const [row] = await ctx.db
         .select({
           id: schema.asset.id,
           tag: schema.asset.tag,
-          modelName: schema.asset.modelName,
+          make: schema.asset.make,
+          modelNumber: schema.asset.modelNumber,
+          description: schema.asset.description,
           categoryName: schema.asset.categoryName,
           serialNumber: schema.asset.serialNumber,
           isSerialized: schema.asset.isSerialized,
@@ -115,6 +149,9 @@ export const assetRouter = router({
           locationName: schema.location.name,
           owningProjectId: schema.asset.owningProjectId,
           owningProjectName: owningProject.name,
+          costTarget: schema.asset.costTarget,
+          owningDepartmentId: schema.asset.owningDepartmentId,
+          owningDepartmentName: owningDepartment.name,
           createdAt: schema.asset.createdAt,
         })
         .from(schema.asset)
@@ -122,6 +159,7 @@ export const assetRouter = router({
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
+        .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
         .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)));
       return row ?? null;
     }),
@@ -129,8 +167,10 @@ export const assetRouter = router({
   create: requirePermission("asset.manage")
     .input(
       z.object({
-        tag: z.string().min(1).max(60),
-        modelName: z.string().min(1).max(200),
+        tag: z.string().max(60).optional(),
+        make: z.string().max(80).optional(),
+        modelNumber: z.string().max(80).optional(),
+        description: z.string().max(200).optional(),
         categoryName: z.string().optional(),
         serialNumber: z.string().optional(),
         isSerialized: z.boolean().default(true),
@@ -138,12 +178,23 @@ export const assetRouter = router({
         acquisitionCost: z.string().optional(),
         acquisitionDate: z.string().optional(),
         owningProjectId: z.string().uuid().optional(),
+        costTarget: z.enum(COST_TARGETS).default("project"),
+        owningDepartmentId: z.string().uuid().nullable().optional(),
         warrantyExpiresOn: z.string().optional(),
         condition: z.string().default("good"),
         locationId: z.string().uuid().optional(),
+      }).superRefine((v, ctx) => {
+        if (!v.make && !v.description) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["description"], message: "A tool needs a make or a description." });
+        }
+        assetRefine(v, ctx);
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      /* A tag is a label somebody has physically put on the tool, so a new row
+         may arrive without one. What it is called in the ledger is the id; the
+         display name is whatever of make/model/description was given. */
+      const label = formatAssetModel(input) || "Untagged tool";
       const [row] = await ctx.db
         .insert(schema.asset)
         .values({
@@ -162,14 +213,14 @@ export const assetRouter = router({
           actorId: ctx.session.userId,
           toState: { status: "available", custodianId: null, projectId: null, locationId: input.locationId ?? null },
           refType: "manual",
-          note: `Asset ${row.tag} registered`,
+          note: `Asset ${label} registered`,
         });
         await logEvent(ctx, {
           category: "asset",
           action: "create",
           entityType: "asset",
           entityId: row.id,
-          entityLabel: row.tag,
+          entityLabel: row.tag ?? label,
         });
       }
       return row;
@@ -192,8 +243,10 @@ export const assetRouter = router({
     .input(
       z.object({
         id: z.string().uuid(),
-        tag: z.string().min(1).max(60).optional(),
-        modelName: z.string().min(1).max(200).optional(),
+        tag: z.string().max(60).optional(),
+        make: z.string().max(80).nullable().optional(),
+        modelNumber: z.string().max(80).nullable().optional(),
+        description: z.string().max(200).nullable().optional(),
         categoryName: z.string().max(120).nullable().optional(),
         serialNumber: z.string().max(120).nullable().optional(),
         quantity: z.number().int().min(1).optional(),
@@ -202,6 +255,8 @@ export const assetRouter = router({
         warrantyExpiresOn: z.string().nullable().optional(),
         condition: z.string().max(30).optional(),
         owningProjectId: z.string().uuid().nullable().optional(),
+        costTarget: z.enum(COST_TARGETS).optional(),
+        owningDepartmentId: z.string().uuid().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -222,6 +277,30 @@ export const assetRouter = router({
         if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.tag} is already in the register` });
       }
 
+      /* `costTarget` is optional on update, so the refine runs against the
+         merged shape — clearing a project while switching to department is two
+         calls that each look fine but together must fail. */
+      if (changes.costTarget || changes.owningDepartmentId !== undefined) {
+        const merged = {
+          costTarget: changes.costTarget ?? existing.costTarget,
+          owningDepartmentId:
+            changes.owningDepartmentId !== undefined ? changes.owningDepartmentId : existing.owningDepartmentId,
+          owningProjectId:
+            changes.owningProjectId !== undefined ? changes.owningProjectId : existing.owningProjectId,
+        };
+        const parsed = z
+          .object({
+            costTarget: z.enum(COST_TARGETS),
+            owningDepartmentId: z.string().uuid().nullable(),
+            owningProjectId: z.string().uuid().nullable(),
+          })
+          .superRefine(assetRefine)
+          .safeParse(merged);
+        if (!parsed.success) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid cost target" });
+        }
+      }
+
       const patch = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
       if (!Object.keys(patch).length) return existing;
 
@@ -236,7 +315,7 @@ export const assetRouter = router({
         action: "update",
         entityType: "asset",
         entityId: id,
-        entityLabel: row?.tag ?? existing.tag,
+        entityLabel: row?.tag ?? existing.tag ?? formatAssetModel(existing),
         details: { changed: Object.keys(patch) },
       });
       return row;

@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
+import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, router } from "../trpc.js";
 
 export const transactionRouter = router({
@@ -26,7 +27,9 @@ export const transactionRouter = router({
           id: schema.transaction.id,
           assetId: schema.transaction.assetId,
           tag: schema.asset.tag,
-          modelName: schema.asset.modelName,
+          make: schema.asset.make,
+          modelNumber: schema.asset.modelNumber,
+          description: schema.asset.description,
           eventType: schema.transaction.eventType,
           occurredAt: schema.transaction.occurredAt,
           note: schema.transaction.note,

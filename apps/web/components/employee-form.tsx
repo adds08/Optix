@@ -92,6 +92,7 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
                 <option value="superintendent">Superintendent</option>
                 <option value="equipment_admin">Equipment Admin</option>
                 <option value="warehouse">Warehouse</option>
+                <option value="mechanic">Mechanic</option>
               </select>
             </div>
           </div>

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,8 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const isSuper = role === "superintendent";
   const isWarehouseOrAdmin = has("employee.manage");
 
-  let custodianOptions = foremen.data?.filter((e) => e.role === "foreman" && e.employmentStatus === "active") ?? [];
+  let custodianOptions =
+    foremen.data?.filter((e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active") ?? [];
   if (isSuper) {
     const myForemanIds = new Set(myForemen.data?.map((f) => f.id) ?? []);
     custodianOptions = custodianOptions.filter((e) => myForemanIds.has(e.id));
@@ -87,7 +89,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
             <select value={assetId} onChange={(e) => setAssetId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
               <option value="">Select asset...</option>
               {assets.data?.map((a) => (
-                <option key={a.id} value={a.id}>{a.tag} — {a.modelName}</option>
+                <option key={a.id} value={a.id}>{a.tag ?? "Untagged"} — {formatAssetModel(a) || "No description"}</option>
               ))}
             </select>
           </div>

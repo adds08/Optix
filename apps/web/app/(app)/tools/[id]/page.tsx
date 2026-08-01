@@ -1,13 +1,16 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { AssetActions } from "@/components/asset-actions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { dateTime, money, relative, shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -28,10 +31,33 @@ const EVENT_TONE: Record<string, string> = {
 
 export default function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const utils = trpc.useUtils();
   const asset = trpc.asset.get.useQuery({ id });
   const events = trpc.transaction.list.useQuery({ assetId: id, limit: 200 });
 
+  /* The other half of "tags that are created": an untagged tool can catch up
+     without a trip through the whole edit form. The field opens EMPTY — whoever
+     is holding the label gun types what is on the label, and the router's clash
+     check rejects anything already in use. No suggestion, ever. */
+  const [addTag, setAddTag] = useState(false);
+  const [tagDraft, setTagDraft] = useState("");
+  const [tagError, setTagError] = useState("");
+  const addTagMut = trpc.asset.update.useMutation({
+    onSuccess: () => {
+      utils.asset.get.invalidate({ id });
+      utils.asset.list.invalidate();
+      setAddTag(false);
+      setTagDraft("");
+    },
+    onError: (e) => setTagError(e.message),
+  });
+
   const a = asset.data;
+
+  const saveTag = () => {
+    setTagError("");
+    addTagMut.mutate({ id, tag: tagDraft.trim() });
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -64,19 +90,54 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         <>
           <PageHeader
             eyebrow={a.categoryName ?? "Equipment"}
-            title={a.modelName}
+            title={formatAssetModel(a) || "Untagged tool"}
             description={a.serialNumber ? `Serial ${a.serialNumber}` : undefined}
             actions={
               <div className="flex flex-wrap items-center gap-3">
                 <AssetActions
                   assetId={id}
-                  assetTag={a.tag}
+                  assetTag={a.tag ?? "Untagged tool"}
                   heldBySomeone={!!a.custodianId}
                 />
                 <StatusPill status={a.status} className="text-xs" />
               </div>
             }
           />
+
+          {/* Adding a tag to a tool that arrived without one. */}
+          {!a.tag && (
+            <div className="rounded-md border border-dashed p-4">
+              {addTag ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={tagDraft}
+                    onChange={(e) => setTagDraft(e.target.value)}
+                    placeholder="Type what is on the label"
+                    className="max-w-xs"
+                    aria-label="New tag"
+                    autoFocus
+                    onKeyDown={(e) => e.key === "Enter" && saveTag()}
+                  />
+                  <Button size="sm" onClick={saveTag} disabled={!tagDraft.trim() || addTagMut.isPending}>
+                    Save tag
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setAddTag(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    This tool has no tag yet. Add the label number when somebody has written one on it.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => setAddTag(true)}>
+                    Add tag
+                  </Button>
+                </div>
+              )}
+              {tagError ? <p className="mt-2 text-sm text-destructive">{tagError}</p> : null}
+            </div>
+          )}
 
           {/* Current state — derived, and labelled as such so nobody mistakes it
               for something they can edit here. */}
@@ -100,8 +161,8 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
               />
               <Field
                 label="Charged to"
-                value={a.owningProjectName ?? <span className="text-muted-foreground">—</span>}
-                hint="financial owner"
+                value={a.owningDepartmentName ?? a.owningProjectName ?? <span className="text-muted-foreground">—</span>}
+                hint={a.costTarget === "department" ? "department, not a job" : "financial owner"}
               />
               <Field label="Location" value={a.locationName ?? <span className="text-muted-foreground">—</span>} />
               <Field label="Condition" value={a.condition ?? "—"} />

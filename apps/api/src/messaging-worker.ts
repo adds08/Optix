@@ -14,6 +14,7 @@ import {
 } from "@stinventory/api-contracts";
 import { NEW_TOOL_INTENTS } from "@stinventory/intent";
 import {
+  formatAssetModel,
   slotsFromMentions,
   type ChatMention,
   type MentionSlots,
@@ -126,7 +127,9 @@ async function processOne(
     const assigns = await db
       .select({
         tag: schema.asset.tag,
-        modelName: schema.asset.modelName,
+        make: schema.asset.make,
+        modelNumber: schema.asset.modelNumber,
+        description: schema.asset.description,
         projectName: schema.project.name,
         locationName: schema.location.name,
       })
@@ -143,8 +146,8 @@ async function processOne(
       );
     for (const a of assigns) {
       currentAssignments.push({
-        tag: a.tag,
-        model: a.modelName,
+        tag: a.tag ?? "",
+        model: formatAssetModel(a),
         project: a.projectName ?? "",
         location: a.locationName ?? "",
       });
@@ -260,12 +263,14 @@ async function processOne(
     return;
   }
 
-  /* applyChatAction refuses an intake without both a tag and a model name, so
-     anything missing either goes to manual entry rather than becoming a card
-     that can only fail on confirm. Small models routinely catch the tag and
-     drop the model name — "put it in as UIC-1100" — and that is a job for the
-     desk's form, not a dead button. */
-  if (engineResp.intent === "intake" && !(engineResp.draft?.tag && engineResp.draft?.modelName)) {
+  /* applyChatAction refuses an intake without a tag and at least one of make
+     or description, so anything missing both goes to manual entry rather than
+     becoming a card that can only fail on confirm. Small models routinely catch
+     the tag and drop the model — "put it in as UIC-1100" — and that is a job
+     for the desk's form, not a dead button. A tag plus something descriptive
+     passes; the tag alone no longer does (docs/12 + docs/17). */
+  const d = engineResp.draft;
+  if (engineResp.intent === "intake" && !(d?.tag && (d?.make || d?.description))) {
     await markPendingManual();
     return;
   }
@@ -345,14 +350,16 @@ async function processOne(
   }
 
   /* Name what was asked for from the words in the message, since there is no
-     row to point at. */
+     row to point at. The split fields are folded back into one string — the
+     draft an ask carries is prose, and description is where the parser put
+     "another rotary hammer". */
   if (engineResp.intent === "request_purchase") {
     const wanted =
-      engineResp.draft?.modelName ??
-      engineResp.entities.assets[0]?.label ??
-      engineResp.entities.assets[0]?.raw ??
+      formatAssetModel(engineResp.draft ?? {}) ||
+      engineResp.entities.assets[0]?.label ||
+      engineResp.entities.assets[0]?.raw ||
       null;
-    if (wanted) proposedAction.draft = { modelName: wanted };
+    if (wanted) proposedAction.draft = { description: wanted };
     if (picked?.projectId) proposedAction.projectId = picked.projectId;
     else if (resolvedProj) proposedAction.projectId = resolvedProj.id;
   }
@@ -364,7 +371,9 @@ async function processOne(
     const d = engineResp.draft;
     proposedAction.draft = {
       ...(d.tag ? { tag: d.tag } : {}),
-      ...(d.modelName ? { modelName: d.modelName } : {}),
+      ...(d.make ? { make: d.make } : {}),
+      ...(d.modelNumber ? { modelNumber: d.modelNumber } : {}),
+      ...(d.description ? { description: d.description } : {}),
       ...(d.serialNumber ? { serialNumber: d.serialNumber } : {}),
       ...(d.categoryName ? { categoryName: d.categoryName } : {}),
       ...(d.acquisitionCost ? { acquisitionCost: d.acquisitionCost } : {}),

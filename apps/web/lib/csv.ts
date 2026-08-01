@@ -118,20 +118,35 @@ export function normalizeHeader(h: string): string {
   return HEADER_ALIASES[k] ?? k;
 }
 
-/** Parse into objects keyed by the header row, normalised to spec names.
-    Unknown columns are kept — the server ignores them, and dropping them here
-    would hide a typo'd header. */
-export function parseCsv(text: string): {
-  headers: string[];
-  rawHeaders: string[];
-  rows: Record<string, string>[];
-} {
-  const raw = parseCsvRows(text);
+/*
+  A trailer sheet has a title block above its header row — "TE-006", the
+  foreman, the project — so the header is not necessarily row 0. Scan the first
+  few rows for one that contains a header the spec knows, and treat everything
+  above it as preamble. Falls back to row 0 when nothing matches.
+*/
+export function findHeaderRow(rows: string[][], known: Set<string>): number {
+  const scan = Math.min(rows.length, 8);
+  for (let i = 0; i < scan; i++) {
+    if (rows[i]!.some((cell) => known.has(normalizeHeader(cell)))) return i;
+  }
+  return 0;
+}
+
+/*
+  Turn a raw row matrix (CSV parse or XLSX read) into objects keyed by the
+  header row, normalised to spec names. Unknown columns are kept — the server
+  ignores them, and dropping them here would hide a typo'd header.
+*/
+export function rowsToObjects(
+  raw: string[][],
+  known?: Set<string>,
+): { headers: string[]; rawHeaders: string[]; rows: Record<string, string>[] } {
   if (!raw.length) return { headers: [], rawHeaders: [], rows: [] };
 
-  const rawHeaders = raw[0]!.map((h) => h.trim());
+  const headerRow = known ? findHeaderRow(raw, known) : 0;
+  const rawHeaders = raw[headerRow]!.map((h) => h.trim());
   const headers = rawHeaders.map(normalizeHeader);
-  const rows = raw.slice(1).map((cells) => {
+  const rows = raw.slice(headerRow + 1).map((cells) => {
     const obj: Record<string, string> = {};
     headers.forEach((h, i) => {
       obj[h] = (cells[i] ?? "").trim();
@@ -140,4 +155,15 @@ export function parseCsv(text: string): {
   });
 
   return { headers, rawHeaders, rows };
+}
+
+/** Parse into objects keyed by the header row, normalised to spec names.
+    Unknown columns are kept — the server ignores them, and dropping them here
+    would hide a typo'd header. */
+export function parseCsv(text: string): {
+  headers: string[];
+  rawHeaders: string[];
+  rows: Record<string, string>[];
+} {
+  return rowsToObjects(parseCsvRows(text));
 }

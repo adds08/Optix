@@ -1,7 +1,8 @@
-import { and, count, eq, inArray, or, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { byMostOverdue } from "@stinventory/domain";
+import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, router } from "../trpc.js";
 
 export const dashboardRouter = router({
@@ -28,6 +29,20 @@ export const dashboardRouter = router({
       .from(schema.asset)
       .where(eq(schema.asset.tenantId, tid))
       .then((r) => r[0]?.total ?? "0");
+
+    /* Serialized tools with no serial are the data-quality number that matters
+       most: they cannot be identified after a theft, matched against a police
+       report, or deduped on import. Bulk lines legitimately have no serial and
+       must not count. */
+    const missingSerial = await ctx.db
+      .select({ c: count() })
+      .from(schema.asset)
+      .where(and(
+        eq(schema.asset.tenantId, tid),
+        eq(schema.asset.isSerialized, true),
+        isNull(schema.asset.serialNumber),
+      ))
+      .then((r) => Number(r[0]?.c ?? 0));
 
     const terminated = await ctx.db
       .select({ id: schema.employee.id, name: schema.employee.name })
@@ -59,6 +74,7 @@ export const dashboardRouter = router({
       fleetValue,
       clearanceCount,
       terminatedCount: terminated.length,
+      missingSerial,
     };
   }),
 
@@ -75,7 +91,9 @@ export const dashboardRouter = router({
           id: schema.assignment.id,
           assetId: schema.assignment.assetId,
           tag: schema.asset.tag,
-          modelName: schema.asset.modelName,
+          make: schema.asset.make,
+          modelNumber: schema.asset.modelNumber,
+          description: schema.asset.description,
           custodianId: schema.assignment.custodianId,
           custodianName: schema.employee.name,
           custodianExternalId: schema.employee.externalId,
@@ -94,8 +112,10 @@ export const dashboardRouter = router({
       .map((r) => ({
         id: r.id,
         assetId: r.assetId,
-        tag: r.tag,
-        modelName: r.modelName,
+        /* An untagged tool sorts fine once the tag is a string; the sort only
+           needs it as a stable tie-break. */
+        tag: r.tag ?? "",
+        modelName: formatAssetModel(r),
         /* Needed by the caller to tell "you are holding this" from "somebody
            else is", which decides what the alert can sensibly ask for. */
         custodianId: r.custodianId,
@@ -122,7 +142,9 @@ export const dashboardRouter = router({
           occurredAt: schema.transaction.occurredAt,
           note: schema.transaction.note,
           assetTag: schema.asset.tag,
-          assetModel: schema.asset.modelName,
+          assetMake: schema.asset.make,
+          assetModelNumber: schema.asset.modelNumber,
+          assetDescription: schema.asset.description,
         })
         .from(schema.transaction)
         .innerJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
@@ -142,7 +164,9 @@ export const dashboardRouter = router({
     return ctx.db
       .select({
         tag: schema.asset.tag,
-        modelName: schema.asset.modelName,
+        make: schema.asset.make,
+        modelNumber: schema.asset.modelNumber,
+        description: schema.asset.description,
         status: schema.asset.currentStatus,
         cost: schema.asset.acquisitionCost,
         custodianName: schema.employee.name,
@@ -189,7 +213,9 @@ export const dashboardRouter = router({
           id: schema.transfer.id,
           assetId: schema.transfer.assetId,
           tag: schema.asset.tag,
-          modelName: schema.asset.modelName,
+          make: schema.asset.make,
+          modelNumber: schema.asset.modelNumber,
+          description: schema.asset.description,
           fromCustodianId: schema.transfer.fromCustodianId,
           toCustodianId: schema.transfer.toCustodianId,
           createdAt: schema.transfer.createdAt,
@@ -212,7 +238,9 @@ export const dashboardRouter = router({
           id: schema.assignment.id,
           assetId: schema.assignment.assetId,
           tag: schema.asset.tag,
-          modelName: schema.asset.modelName,
+          make: schema.asset.make,
+          modelNumber: schema.asset.modelNumber,
+          description: schema.asset.description,
           createdAt: schema.assignment.createdAt,
         })
         .from(schema.assignment)
@@ -255,7 +283,7 @@ export const dashboardRouter = router({
             direction: outbound ? ("outgoing" as const) : ("incoming" as const),
             assetId: t.assetId,
             tag: t.tag,
-            modelName: t.modelName,
+            modelName: formatAssetModel(t),
             otherPartyName: (otherId && nameById.get(otherId)) ?? null,
             createdAt: t.createdAt,
           };
@@ -266,7 +294,7 @@ export const dashboardRouter = router({
           direction: "incoming" as const,
           assetId: a.assetId,
           tag: a.tag,
-          modelName: a.modelName,
+          modelName: formatAssetModel(a),
           otherPartyName: null,
           createdAt: a.createdAt,
         })),
@@ -286,7 +314,9 @@ export const dashboardRouter = router({
         id: schema.assignment.id,
         type: sql<string>`'assignment'`,
         assetTag: schema.asset.tag,
-        assetModel: schema.asset.modelName,
+        assetMake: schema.asset.make,
+        assetModelNumber: schema.asset.modelNumber,
+        assetDescription: schema.asset.description,
         custodianName: schema.employee.name,
         status: schema.assignment.status,
         fromName: sql<string | null>`null`,
@@ -301,7 +331,9 @@ export const dashboardRouter = router({
         id: schema.transfer.id,
         type: sql<string>`'transfer'`,
         assetTag: schema.asset.tag,
-        assetModel: schema.asset.modelName,
+        assetMake: schema.asset.make,
+        assetModelNumber: schema.asset.modelNumber,
+        assetDescription: schema.asset.description,
         custodianName: schema.employee.name,
         /* The desk has to be able to tell the two apart before it acts: one is
            "may this happen", the other is "this happened, is it right". */
@@ -318,6 +350,15 @@ export const dashboardRouter = router({
           inArray(schema.transfer.status, ["pending_approval", "pending_verification"]),
         ),
       );
-    return [...pendingAssignments, ...pendingTransfers].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return [...pendingAssignments, ...pendingTransfers]
+      .map((r) => ({
+        ...r,
+        assetModel: formatAssetModel({
+          make: r.assetMake,
+          modelNumber: r.assetModelNumber,
+          description: r.assetDescription,
+        }),
+      }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }),
 });

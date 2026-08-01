@@ -7,6 +7,7 @@ import { isRentalOverdue, isRentalDueSoon } from "@stinventory/domain";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import type { ServerEnv } from "@stinventory/env";
+import { formatAssetModel } from "@stinventory/types";
 
 type NotificationInput = {
   tenantId: string;
@@ -47,7 +48,9 @@ export async function detectOverdueLoans(db: Database) {
         id: schema.assignment.id,
         assetId: schema.assignment.assetId,
         tag: schema.asset.tag,
-        modelName: schema.asset.modelName,
+        make: schema.asset.make,
+        modelNumber: schema.asset.modelNumber,
+        description: schema.asset.description,
         custodianId: schema.assignment.custodianId,
         custodianName: schema.employee.name,
         expectedEnd: schema.assignment.expectedEndDate,
@@ -85,7 +88,7 @@ export async function detectOverdueLoans(db: Database) {
           refType: "assignment",
           refId: l.id,
           title: `Overdue loan: ${l.tag}`,
-          body: `${l.modelName} due ${l.expectedEnd}. Please return or extend.`,
+          body: `${formatAssetModel(l)} due ${l.expectedEnd}. Please return or extend.`,
         });
         created++;
       }

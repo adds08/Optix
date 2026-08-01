@@ -21,7 +21,9 @@ export type LlmConfig = {
 
 export type AssetDraft = {
   tag: string | null;
-  modelName: string | null;
+  make: string | null;
+  modelNumber: string | null;
+  description: string | null;
   serialNumber: string | null;
   categoryName: string | null;
   acquisitionCost: string | null;
@@ -77,7 +79,9 @@ export function normalizeDraft(raw: unknown): AssetDraft | null {
   const d = raw as Record<string, unknown>;
   const out: AssetDraft = {
     tag: draftField(d.tag),
-    modelName: draftField(d.modelName),
+    make: draftField(d.make),
+    modelNumber: draftField(d.modelNumber),
+    description: draftField(d.description),
     serialNumber: draftField(d.serialNumber),
     categoryName: draftField(d.categoryName),
     acquisitionCost: draftField(d.acquisitionCost),

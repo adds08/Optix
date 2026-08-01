@@ -47,7 +47,9 @@ export const actionRouter = router({
           draft: z
             .object({
               tag: z.string().max(60).optional(),
-              modelName: z.string().max(200).optional(),
+              make: z.string().max(80).optional(),
+              modelNumber: z.string().max(80).optional(),
+              description: z.string().max(200).optional(),
               categoryName: z.string().max(120).optional(),
               serialNumber: z.string().max(120).optional(),
               acquisitionCost: z.string().max(20).optional(),
@@ -58,9 +60,12 @@ export const actionRouter = router({
           message: "Pick at least one tool for this action",
           path: ["assetIds"],
         })
-        .refine((v) => v.type !== "intake" || !!v.draft?.tag, {
-          message: "A new tool needs a tag",
-          path: ["draft", "tag"],
+        /* A tag is only a label somebody has written on the tool — registering
+           one without it is allowed. What the tool IS is the gate: a make or a
+           description, which applyIntake refuses to write without. */
+        .refine((v) => v.type !== "intake" || !!(v.draft?.make || v.draft?.description), {
+          message: "A new tool needs a make or a description",
+          path: ["draft", "description"],
         }),
     )
     .mutation(async ({ ctx, input }) => {

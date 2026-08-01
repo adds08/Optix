@@ -168,7 +168,7 @@ export default function ChatPage() {
 
 type CardTool = {
   id: string;
-  tag: string;
+  tag: string | null;
   modelName: string | null;
   status: string;
   holderName: string | null;
@@ -235,7 +235,9 @@ function ToolLines({ tools, toName }: { tools: CardTool[]; toName: string | null
 
 type Draft = {
   tag?: string;
-  modelName?: string;
+  make?: string;
+  modelNumber?: string;
+  description?: string;
   categoryName?: string;
   serialNumber?: string;
   acquisitionCost?: string;
@@ -245,11 +247,16 @@ type Draft = {
   Registering a tool writes a brand new row, so the drafted fields are shown in
   full before anyone confirms. Everything the model heard is on screen — a wrong
   serial is far cheaper to catch here than after it is in the register.
+
+  Make, model number and description render as separate rows so a wrong split
+  ("DeWalt DCH273" dumped whole into one field) is visible before confirm.
 */
 function DraftFields({ draft }: { draft: Draft }) {
   const fields: [string, string | undefined][] = [
     ["Tag", draft.tag],
-    ["Model", draft.modelName],
+    ["Make", draft.make],
+    ["Model no.", draft.modelNumber],
+    ["Description", draft.description],
     ["Serial", draft.serialNumber],
     ["Category", draft.categoryName],
     ["Cost", draft.acquisitionCost],

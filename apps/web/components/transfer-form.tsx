@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { CUSTODIAN_ROLES } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,8 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
 
-  let custodianOptions = foremen.data?.filter((e) => e.role === "foreman" && e.employmentStatus === "active") ?? [];
+  let custodianOptions =
+    foremen.data?.filter((e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active") ?? [];
   if (role === "superintendent") {
     const ids = new Set(myForemen.data?.map((f) => f.id) ?? []);
     custodianOptions = custodianOptions.filter((e) => ids.has(e.id));

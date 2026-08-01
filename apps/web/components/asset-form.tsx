@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategorySelect } from "@/components/category-select";
 import { PhotoUpload } from "@/components/photo-upload";
+import { cn } from "@/lib/utils";
 
 /*
   One dialog for both jobs.
@@ -21,7 +22,9 @@ import { PhotoUpload } from "@/components/photo-upload";
 export type AssetEditable = {
   id: string;
   tag: string;
-  modelName: string;
+  make?: string | null;
+  modelNumber?: string | null;
+  description?: string | null;
   categoryName?: string | null;
   photoKey?: string | null;
   serialNumber?: string | null;
@@ -30,6 +33,8 @@ export type AssetEditable = {
   acquisitionDate?: string | null;
   condition?: string | null;
   owningProjectId?: string | null;
+  costTarget?: "project" | "department";
+  owningDepartmentId?: string | null;
 };
 
 type Props = { open: boolean; onClose: () => void; edit?: AssetEditable };
@@ -37,24 +42,41 @@ type Props = { open: boolean; onClose: () => void; edit?: AssetEditable };
 export function AssetForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
   const projects = trpc.project.list.useQuery();
+  const departments = trpc.department.list.useQuery();
   const locations = trpc.location.list.useQuery();
 
   const [tag, setTag] = useState(edit?.tag ?? "");
-  const [modelName, setModelName] = useState(edit?.modelName ?? "");
+  const [make, setMake] = useState(edit?.make ?? "");
+  const [modelNumber, setModelNumber] = useState(edit?.modelNumber ?? "");
+  const [description, setDescription] = useState(edit?.description ?? "");
   const [categoryName, setCategoryName] = useState(edit?.categoryName ?? "");
   const [photoKey, setPhotoKey] = useState<string | null>(edit?.photoKey ?? null);
   const [serialNumber, setSerialNumber] = useState(edit?.serialNumber ?? "");
   const [quantity, setQuantity] = useState(edit?.quantity ?? 1);
   const [acquisitionCost, setAcquisitionCost] = useState(edit?.acquisitionCost ?? "");
   const [acquisitionDate, setAcquisitionDate] = useState(edit?.acquisitionDate ?? "");
+  const [costTarget, setCostTarget] = useState<"project" | "department">(
+    edit?.costTarget ?? "project",
+  );
   const [owningProjectId, setOwningProjectId] = useState(edit?.owningProjectId ?? "");
+  const [owningDepartmentId, setOwningDepartmentId] = useState(
+    edit?.owningDepartmentId ?? departments.data?.find((d) => d.code === "RM")?.id ?? "",
+  );
   const [condition, setCondition] = useState(edit?.condition ?? "good");
   const [locationId, setLocationId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
 
+  /* A submitted form never carries both targets — switching the toggle clears
+     the other one, and the router's superRefine enforces exactly one either way. */
+  const switchTarget = (t: "project" | "department") => {
+    setCostTarget(t);
+    if (t === "project") setOwningDepartmentId("");
+    else setOwningProjectId("");
+  };
+
   const submit = async () => {
-    if (!tag || !modelName) return;
+    if (!make && !description) return;
     setSubmitting(true);
     setResult("");
     try {
@@ -63,23 +85,36 @@ export function AssetForm({ open, onClose, edit }: Props) {
            empty, and `undefined` would leave the old value in place. */
         await utils.client.asset.update.mutate({
           id: edit.id,
-          tag, modelName,
+          tag,
+          make: make || null,
+          modelNumber: modelNumber || null,
+          description: description || null,
           categoryName: categoryName || null,
           serialNumber: serialNumber || null,
           quantity,
           acquisitionCost: acquisitionCost || null,
           acquisitionDate: acquisitionDate || null,
-          owningProjectId: owningProjectId || null,
+          owningProjectId: costTarget === "project" ? owningProjectId || null : null,
+          costTarget,
+          owningDepartmentId: costTarget === "department" ? owningDepartmentId || null : null,
           condition,
         });
         utils.asset.get.invalidate({ id: edit.id });
       } else {
         await utils.client.asset.create.mutate({
-          tag, modelName, categoryName: categoryName || undefined,
-          serialNumber: serialNumber || undefined, quantity,
+          tag: tag || undefined,
+          make: make || undefined,
+          modelNumber: modelNumber || undefined,
+          description: description || undefined,
+          categoryName: categoryName || undefined,
+          serialNumber: serialNumber || undefined,
+          quantity,
           acquisitionCost: acquisitionCost || undefined,
           acquisitionDate: acquisitionDate || undefined,
-          owningProjectId: owningProjectId || undefined, condition,
+          owningProjectId: costTarget === "project" ? owningProjectId || undefined : undefined,
+          costTarget,
+          owningDepartmentId: costTarget === "department" ? owningDepartmentId || undefined : undefined,
+          condition,
           locationId: locationId || undefined,
         });
       }
@@ -100,12 +135,26 @@ export function AssetForm({ open, onClose, edit }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Tag *</label>
+            <label className="text-sm font-medium">Tag</label>
             <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="e.g. UIC-2001" />
+            <p className="text-xs text-muted-foreground">
+              The label physically on the tool. Leave blank until it has one — an untagged tool is a normal state.
+            </p>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Model name *</label>
-            <Input value={modelName} onChange={(e) => setModelName(e.target.value)} />
+            <label className="text-sm font-medium">Make</label>
+            <Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="e.g. Bosch" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Model number</label>
+            <Input value={modelNumber} onChange={(e) => setModelNumber(e.target.value)} placeholder="e.g. 11255VSR" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Description *</label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Rotary Hammer" />
+            <p className="text-xs text-muted-foreground">
+              What the tool is. A make or a description is required — the model number is always optional.
+            </p>
           </div>
           {/* Only when the tool exists — an upload needs somewhere to attach,
               and inventing an id before the row is saved would orphan the file
@@ -141,11 +190,36 @@ export function AssetForm({ open, onClose, edit }: Props) {
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Owning project</label>
-            <select value={owningProjectId} onChange={(e) => setOwningProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Select...</option>
-              {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <label className="text-sm font-medium">Charged to</label>
+            <div className="grid grid-cols-2 gap-2 rounded-md border p-1" role="group" aria-label="Cost target">
+              {(["project", "department"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => switchTarget(t)}
+                  aria-pressed={costTarget === t}
+                  className={cn(
+                    "rounded-sm px-3 py-1.5 text-sm transition-colors",
+                    costTarget === t
+                      ? "bg-muted font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  {t === "project" ? "Project" : "Department"}
+                </button>
+              ))}
+            </div>
+            {costTarget === "project" ? (
+              <select value={owningProjectId} onChange={(e) => setOwningProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                <option value="">Select...</option>
+                {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            ) : (
+              <select value={owningDepartmentId} onChange={(e) => setOwningDepartmentId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                <option value="">Select...</option>
+                {departments.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            )}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Condition</label>
@@ -172,7 +246,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting || !tag || !modelName}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
+          <Button onClick={submit} disabled={submitting || (!make && !description)}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

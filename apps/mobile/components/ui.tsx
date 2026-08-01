@@ -76,9 +76,15 @@ export function StatusPill({ status, label }: { status?: string | null; label?: 
 }
 
 export function Tag({ children }: { children: React.ReactNode }) {
+  /* An untagged tool is a normal state, not missing data — it is a tool nobody
+     has put a label on yet. Rendering an empty pill would read as a bug, and
+     rendering nothing would leave the row with no tag at all. */
+  const empty = children === null || children === undefined || children === "";
   return (
-    <View className="self-start rounded-sm bg-muted px-2 py-1">
-      <Text className="font-mono text-[13px] text-foreground">{children}</Text>
+    <View className={`self-start rounded-sm px-2 py-1 ${empty ? "bg-transparent" : "bg-muted"}`}>
+      <Text className={`font-mono text-[13px] ${empty ? "italic text-muted-foreground" : "text-foreground"}`}>
+        {empty ? "no tag" : children}
+      </Text>
     </View>
   );
 }

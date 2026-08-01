@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowUpDown, Boxes, Columns3, LayoutGrid, Rows3 } from "lucide-react";
-import { DEFAULT_HIGH_VALUE_THRESHOLD } from "@stinventory/types";
+import { ArrowUpDown, Boxes, Columns3, Download, LayoutGrid, Rows3 } from "lucide-react";
+import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
@@ -21,7 +21,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { downloadCsv } from "@/lib/csv";
+import { exportAssetsToSpec } from "@/lib/export-assets";
 import { money, photoUrl } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -118,7 +121,7 @@ export default function ToolsPage() {
       {
         key: "tag",
         label: "Tag",
-        sortValue: (r) => r.tag,
+        sortValue: (r) => r.tag ?? "",
         cell: (r) => (
           <Link href={`/tools/${r.id}`} className="hover:underline">
             <Tag>{r.tag}</Tag>
@@ -128,10 +131,10 @@ export default function ToolsPage() {
       {
         key: "model",
         label: "Tool",
-        sortValue: (r) => r.modelName,
+        sortValue: (r) => formatAssetModel(r),
         cell: (r) => (
           <Link href={`/tools/${r.id}`} className="font-medium hover:underline">
-            {r.modelName}
+            {formatAssetModel(r) || "Untagged tool"}
           </Link>
         ),
       },
@@ -196,8 +199,8 @@ export default function ToolsPage() {
         key: "owning",
         label: "Charged to",
         optional: true,
-        sortValue: (r) => r.owningProjectName ?? "",
-        cell: (r) => r.owningProjectName ?? <span className="text-muted-foreground">—</span>,
+        sortValue: (r) => r.owningDepartmentName ?? r.owningProjectName ?? "",
+        cell: (r) => r.owningDepartmentName ?? r.owningProjectName ?? <span className="text-muted-foreground">—</span>,
       },
     ],
     [],
@@ -258,6 +261,30 @@ export default function ToolsPage() {
     setFlags(new Set());
   };
 
+  /* The spec-driven export — the one that round-trips. It emits the import
+     spec's own columns (names for refs, raw numbers), so exporting the register
+     and re-importing it creates no new rows. Deliberately separate from
+     ReportTable's pretty export. */
+  const exportAll = () => {
+    const rows = all.map((r) => ({
+      tag: r.tag,
+      make: r.make,
+      modelNumber: r.modelNumber,
+      description: r.description,
+      categoryName: r.categoryName,
+      serialNumber: r.serialNumber,
+      quantity: r.quantity,
+      acquisitionCost: r.acquisitionCost,
+      acquisitionDate: r.acquisitionDate,
+      warrantyExpiresOn: r.warrantyExpiresOn,
+      condition: r.condition,
+      otherRef: r.otherRef ?? null,
+      locationName: r.locationName,
+      owningProjectName: r.owningProjectName,
+    }));
+    downloadCsv(`stinventory-assets-export-${new Date().toISOString().slice(0, 10)}`, exportAssetsToSpec(rows));
+  };
+
   const filtering = category !== "all" || status !== "all" || flags.size > 0;
 
   const pills = [
@@ -273,8 +300,10 @@ export default function ToolsPage() {
   /* One shape for the edit dialog, used by the card menu and the table. */
   const editableFrom = (r: (typeof all)[number]): AssetEditable => ({
     id: r.id,
-    tag: r.tag,
-    modelName: r.modelName,
+    tag: r.tag ?? "",
+    make: r.make,
+    modelNumber: r.modelNumber,
+    description: r.description,
     categoryName: r.categoryName,
     photoKey: r.photoKey,
     serialNumber: r.serialNumber,
@@ -283,12 +312,14 @@ export default function ToolsPage() {
     acquisitionDate: r.acquisitionDate,
     condition: r.condition,
     owningProjectId: r.owningProjectId,
+    costTarget: (r.costTarget ?? "project") as AssetEditable["costTarget"],
+    owningDepartmentId: r.owningDepartmentId,
   });
 
   const menuFor = (r: (typeof all)[number]) => (
     <ToolMenu
       assetId={r.id}
-      assetTag={r.tag}
+      assetTag={r.tag ?? "Untagged tool"}
       heldBySomeone={!!r.custodianId}
       onEdit={() => setEditing(editableFrom(r))}
       onDelete={() => remove.mutate({ id: r.id })}
@@ -306,6 +337,10 @@ export default function ToolsPage() {
         actions={
           <>
             <ImportButton entity="asset" />
+            <Button size="sm" variant="outline" onClick={exportAll} disabled={!all.length} title="Exports the register in the same columns the importer reads, so the file round-trips">
+              <Download className="size-4" aria-hidden />
+              Export
+            </Button>
             <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />
           </>
         }
@@ -521,7 +556,7 @@ export default function ToolsPage() {
                         <td className="px-2 py-2 text-right">
                           <ToolMenu
                             assetId={r.id}
-                            assetTag={r.tag}
+                            assetTag={r.tag ?? "Untagged tool"}
                             heldBySomeone={!!r.custodianId}
                             onEdit={() => setEditing(editableFrom(r))}
                           />

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { UserMinus, Users } from "lucide-react";
+import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
@@ -93,7 +94,7 @@ export default function PeoplePage() {
                 {clearance.data.map((c, i) => (
                   <tr key={i} className="border-b last:border-0">
                     <td className="px-4 py-2.5"><Tag>{c.tag}</Tag></td>
-                    <td className="px-4 py-2.5 font-medium">{c.modelName}</td>
+                    <td className="px-4 py-2.5 font-medium">{formatAssetModel(c) || "Untagged tool"}</td>
                     <td className="px-4 py-2.5">{c.custodianName ?? "—"}</td>
                     <td className="px-4 py-2.5"><StatusPill status={c.status} /></td>
                     <td className="px-4 py-2.5 tnum">{money(c.cost)}</td>

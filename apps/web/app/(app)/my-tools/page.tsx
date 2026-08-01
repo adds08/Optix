@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AlertTriangle, MessageSquare, Wrench } from "lucide-react";
+import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
@@ -79,7 +80,7 @@ export default function MyToolsPage() {
                     <StatusPill status={t.status} />
                   )}
                 </div>
-                <span className="font-medium">{t.modelName}</span>
+                <span className="font-medium">{formatAssetModel(t) || "Untagged tool"}</span>
                 <span className="text-sm text-muted-foreground">
                   {[t.currentProjectName, t.locationName].filter(Boolean).join(" · ") || "—"}
                 </span>

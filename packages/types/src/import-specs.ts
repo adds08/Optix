@@ -48,6 +48,8 @@ export type ImportColumn = {
   /** Sample value written into the template's example row. */
   example: string;
   hint?: string;
+  /** Vendor and yard vocabulary folded onto ours. Keys are lowercase. */
+  valueAliases?: Record<string, string>;
 };
 
 export type ImportEntity = "asset" | "employee" | "project" | "location" | "vehicle" | "rental";
@@ -72,9 +74,18 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     description:
       "The tool register. One row per serialized tool; use quantity for bulk lines that are not tracked individually.",
     columns: [
-      { key: "tag", header: "tag", type: "text", required: true, example: "UIC-2001",
-        hint: "Your asset tag. Must be unique." },
-      { key: "modelName", header: "model", type: "text", required: true, example: "DeWalt DCH273 Rotary Hammer" },
+      { key: "tag", header: "tag", type: "text", example: "UIC-2001",
+        hint: "Your asset tag, if the tool has one. Leave blank if it is not labelled yet." },
+      /* In the order the trailer sheets use them: description first, then make
+         and model number. The sheets have no tag column and the brand can be
+         buried in the description, so description is the one required field. */
+      { key: "description", header: "description", type: "text", required: true,
+        example: "Rotary Hammer",
+        hint: "What the tool is, in your own words." },
+      { key: "make", header: "make", type: "text",
+        example: "DeWalt", hint: "Brand only." },
+      { key: "modelNumber", header: "model", type: "text",
+        example: "DCH273", hint: "The manufacturer's number. Blank is fine." },
       { key: "categoryName", header: "category", type: "text", example: "Power Tools" },
       { key: "serialNumber", header: "serial", type: "text", example: "4471X99",
         hint: "Manufacturer serial. Unique if given — this is what a police report needs." },
@@ -84,7 +95,13 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
       { key: "acquisitionDate", header: "purchased_on", type: "date", example: "2026-03-14",
         hint: "YYYY-MM-DD." },
       { key: "warrantyExpiresOn", header: "warranty_expires", type: "date", example: "2028-03-14" },
-      { key: "condition", header: "condition", type: "enum", values: ASSET_CONDITIONS, example: "good" },
+      { key: "condition", header: "other", type: "enum", values: ASSET_CONDITIONS,
+        valueAliases: { used: "good" },
+        example: "new",
+        hint: "NEW or USED on the trailer sheets. USED is recorded as good." },
+      { key: "otherRef", header: "column_8", type: "text",
+        example: "PC-08",
+        hint: "The unlabelled ninth sheet column: a secondary equipment number or a note." },
       { key: "locationId", header: "location", type: "ref", ref: "location", example: "Dallas Yard",
         hint: "Name of an existing location." },
       { key: "owningProjectId", header: "owning_project", type: "ref", ref: "project", example: "Legacy West Phase 3",

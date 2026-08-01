@@ -10,6 +10,7 @@ import {
   assignment,
   category,
   channel,
+  department,
   employee,
   employeeProjectAssignment,
   location,
@@ -42,6 +43,7 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
   warehouse: [
     "asset.read",
     "asset.manage",
+    "department.read",
     "location.read",
     "location.manage",
     "vehicle.read",
@@ -155,6 +157,15 @@ async function main() {
     }
   }
 
+  // ---- Departments ----
+  /* The one department every tenant needs on day one: the shop's tools are not
+     on any job, and they still have to be charged to something. */
+  const [dept] = await db
+    .insert(department)
+    .values({ tenantId: tid, name: "Repair & Maintenance", code: "RM", isActive: true })
+    .returning();
+  const deptRm = dept!.id;
+
   // ---- Employees (domain persons; custody holders) ----
   // Insert projects first (employees reference primaryProjectId).
   const projectSpecs = [
@@ -190,6 +201,9 @@ async function main() {
     { key: "e-james", extId: "3308", name: "James Whitaker", role: "foreman", primary: "p-uptown", status: "terminated", email: "james.whitaker@urban.local", phone: "214-555-0113", reportsTo: null },
     { key: "e-karen", extId: "0199", name: "Karen Osei", role: "equipment_admin", primary: null, status: "active", email: "karen.osei@urban.local", phone: "214-555-0100", reportsTo: null },
     { key: "e-yard", extId: "7712", name: "Yard Desk", role: "warehouse", primary: null, status: "active", email: "yard@urban.local", phone: "214-555-0199", reportsTo: null },
+    /* Shop staff: a custodian who can hold tools but is not on any job. The
+       tools they hold get charged to Repair & Maintenance. */
+    { key: "e-dave", extId: "3904", name: "Dave Kowalski", role: "mechanic", primary: null, status: "active", email: "dave.kowalski@urban.local", phone: "214-555-0166", reportsTo: null },
   ];
   const employeeRows = await db
     .insert(employee)
@@ -403,50 +417,60 @@ async function main() {
 
   // ---- Assets (the register). current_* projection set at seed time; matching
   // transactions are appended below so the rebuild guarantee holds.
+  // `make`/`modelNumber`/`description` are the flat columns Urban's sheets use;
+  // `model` is the model-spec name for the vestigial asset_model link.
   type AssetSpec = {
-    tag: string; model: string; serial: string; cost: string; acquired: string;
-    own: string; status: string; cust: string | null; cur: string; loc: string;
-    cond: string; warranty: string;
+    tag: string; model: string; make: string; modelNumber: string | null; description: string;
+    serial: string; cost: string; acquired: string;
+    own: string | null; status: string; cust: string | null; cur: string | null; loc: string;
+    cond: string; warranty: string; dept: boolean;
   };
   const assetSpecs: AssetSpec[] = [
-    { tag: "UIC-1001", model: "TE 60-ATC Rotary Hammer", serial: "H60-88213", cost: "1650", acquired: "2025-04-11", own: "p-legacy", status: "assigned", cust: "e-miguel", cur: "p-legacy", loc: "l-gbA", cond: "good", warranty: "2027-04-11" },
-    { tag: "UIC-1002", model: "DWS779 Miter Saw", serial: "DW-42119", cost: "640", acquired: "2025-06-02", own: "p-legacy", status: "assigned", cust: "e-miguel", cur: "p-legacy", loc: "l-gbA", cond: "good", warranty: "2027-06-02" },
-    { tag: "UIC-1003", model: "EU7000is Generator", serial: "HG-77341", cost: "4600", acquired: "2024-11-20", own: "p-trinity", status: "assigned", cust: "e-dwayne", cur: "p-trinity", loc: "l-truck12", cond: "good", warranty: "2026-11-20" },
-    { tag: "UIC-1004", model: "R12i GNSS Receiver", serial: "TR-10093", cost: "21500", acquired: "2025-01-15", own: "p-gpk", status: "assigned", cust: "e-sofia", cur: "p-gpk", loc: "l-contH", cond: "good", warranty: "2028-01-15" },
-    { tag: "UIC-1005", model: "M18 Impact Kit", serial: "MW-55210", cost: "380", acquired: "2025-09-01", own: "p-gpk", status: "assigned", cust: "e-sofia", cur: "p-gpk", loc: "l-contH", cond: "fair", warranty: "2027-09-01" },
-    { tag: "UIC-1006", model: "Plate Compactor", serial: "WN-33027", cost: "2100", acquired: "2024-08-19", own: "p-uptown", status: "assigned", cust: "e-james", cur: "p-uptown", loc: "l-contU", cond: "fair", warranty: "2026-08-19" },
-    { tag: "UIC-1007", model: "PM 40-MG Laser Level", serial: "HL-19022", cost: "720", acquired: "2025-03-30", own: "p-uptown", status: "assigned", cust: "e-james", cur: "p-uptown", loc: "l-contU", cond: "good", warranty: "2027-03-30" },
-    { tag: "UIC-1008", model: "TS 500i Cut-Off Saw", serial: "ST-61140", cost: "1150", acquired: "2025-02-14", own: "p-warehouse", status: "in_maintenance", cust: null, cur: "p-warehouse", loc: "l-dal", cond: "damaged", warranty: "2027-02-14" },
-    { tag: "UIC-1009", model: "20V Drill/Driver Kit", serial: "DW-90311", cost: "260", acquired: "2025-10-05", own: "p-warehouse", status: "available", cust: null, cur: "p-warehouse", loc: "l-dal", cond: "good", warranty: "2027-10-05" },
-    { tag: "UIC-1010", model: "GLL3-330C Laser Level", serial: "BL-22178", cost: "480", acquired: "2025-05-22", own: "p-warehouse", status: "available", cust: null, cur: "p-warehouse", loc: "l-hou", cond: "good", warranty: "2027-05-22" },
-    { tag: "UIC-1011", model: "AWP-30S Personnel Lift", serial: "GN-40551", cost: "8900", acquired: "2024-07-08", own: "p-warehouse", status: "available", cust: null, cur: "p-warehouse", loc: "l-hou", cond: "good", warranty: "2026-07-08" },
-    { tag: "UIC-1012", model: "DX 6 Powder Fastener", serial: "HD-70012", cost: "1350", acquired: "2025-07-19", own: "p-trinity", status: "assigned", cust: "e-dwayne", cur: "p-legacy", loc: "l-gbA", cond: "good", warranty: "2027-07-19" },
-    { tag: "UIC-1013", model: "EK7651H Power Cutter", serial: "MK-31900", cost: "890", acquired: "2024-05-30", own: "p-warehouse", status: "lost", cust: "e-james", cur: "p-uptown", loc: "l-contU", cond: "poor", warranty: "2026-05-30" },
-    { tag: "UIC-1014", model: "GT-1200 Robotic Total Station", serial: "TP-88820", cost: "33000", acquired: "2025-01-30", own: "p-warehouse", status: "reserved", cust: null, cur: "p-gpk", loc: "l-dal", cond: "good", warranty: "2028-01-30" },
+    { tag: "UIC-1001", model: "TE 60-ATC Rotary Hammer", make: "Hilti", modelNumber: "TE 60-ATC", description: "Rotary Hammer", serial: "H60-88213", cost: "1650", acquired: "2025-04-11", own: "p-legacy", status: "assigned", cust: "e-miguel", cur: "p-legacy", loc: "l-gbA", cond: "good", warranty: "2027-04-11", dept: false },
+    { tag: "UIC-1002", model: "DWS779 Miter Saw", make: "DeWalt", modelNumber: "DWS779", description: "Miter Saw", serial: "DW-42119", cost: "640", acquired: "2025-06-02", own: "p-legacy", status: "assigned", cust: "e-miguel", cur: "p-legacy", loc: "l-gbA", cond: "good", warranty: "2027-06-02", dept: false },
+    { tag: "UIC-1003", model: "EU7000is Generator", make: "Honda", modelNumber: "EU7000is", description: "Generator", serial: "HG-77341", cost: "4600", acquired: "2024-11-20", own: "p-trinity", status: "assigned", cust: "e-dwayne", cur: "p-trinity", loc: "l-truck12", cond: "good", warranty: "2026-11-20", dept: false },
+    { tag: "UIC-1004", model: "R12i GNSS Receiver", make: "Trimble", modelNumber: "R12i", description: "GNSS Receiver", serial: "TR-10093", cost: "21500", acquired: "2025-01-15", own: "p-gpk", status: "assigned", cust: "e-sofia", cur: "p-gpk", loc: "l-contH", cond: "good", warranty: "2028-01-15", dept: false },
+    { tag: "UIC-1005", model: "M18 Impact Kit", make: "Milwaukee", modelNumber: "M18", description: "Impact Kit", serial: "MW-55210", cost: "380", acquired: "2025-09-01", own: "p-gpk", status: "assigned", cust: "e-sofia", cur: "p-gpk", loc: "l-contH", cond: "fair", warranty: "2027-09-01", dept: false },
+    { tag: "UIC-1006", model: "Plate Compactor", make: "Wacker Neuson", modelNumber: null, description: "Plate Compactor", serial: "WN-33027", cost: "2100", acquired: "2024-08-19", own: "p-uptown", status: "assigned", cust: "e-james", cur: "p-uptown", loc: "l-contU", cond: "fair", warranty: "2026-08-19", dept: false },
+    { tag: "UIC-1007", model: "PM 40-MG Laser Level", make: "Hilti", modelNumber: "PM 40-MG", description: "Laser Level", serial: "HL-19022", cost: "720", acquired: "2025-03-30", own: "p-uptown", status: "assigned", cust: "e-james", cur: "p-uptown", loc: "l-contU", cond: "good", warranty: "2027-03-30", dept: false },
+    { tag: "UIC-1008", model: "TS 500i Cut-Off Saw", make: "Stihl", modelNumber: "TS 500i", description: "Cut-Off Saw", serial: "ST-61140", cost: "1150", acquired: "2025-02-14", own: "p-warehouse", status: "in_maintenance", cust: null, cur: "p-warehouse", loc: "l-dal", cond: "damaged", warranty: "2027-02-14", dept: false },
+    { tag: "UIC-1009", model: "20V Drill/Driver Kit", make: "DeWalt", modelNumber: "20V", description: "Drill/Driver Kit", serial: "DW-90311", cost: "260", acquired: "2025-10-05", own: "p-warehouse", status: "available", cust: null, cur: "p-warehouse", loc: "l-dal", cond: "good", warranty: "2027-10-05", dept: false },
+    { tag: "UIC-1010", model: "GLL3-330C Laser Level", make: "Bosch", modelNumber: "GLL3-330C", description: "Laser Level", serial: "BL-22178", cost: "480", acquired: "2025-05-22", own: "p-warehouse", status: "available", cust: null, cur: "p-warehouse", loc: "l-hou", cond: "good", warranty: "2027-05-22", dept: false },
+    { tag: "UIC-1011", model: "AWP-30S Personnel Lift", make: "Genie", modelNumber: "AWP-30S", description: "Personnel Lift", serial: "GN-40551", cost: "8900", acquired: "2024-07-08", own: "p-warehouse", status: "available", cust: null, cur: "p-warehouse", loc: "l-hou", cond: "good", warranty: "2026-07-08", dept: false },
+    { tag: "UIC-1012", model: "DX 6 Powder Fastener", make: "Hilti", modelNumber: "DX 6", description: "Powder Fastener", serial: "HD-70012", cost: "1350", acquired: "2025-07-19", own: "p-trinity", status: "assigned", cust: "e-dwayne", cur: "p-legacy", loc: "l-gbA", cond: "good", warranty: "2027-07-19", dept: false },
+    { tag: "UIC-1013", model: "EK7651H Power Cutter", make: "Makita", modelNumber: "EK7651H", description: "Power Cutter", serial: "MK-31900", cost: "890", acquired: "2024-05-30", own: "p-warehouse", status: "lost", cust: "e-james", cur: "p-uptown", loc: "l-contU", cond: "poor", warranty: "2026-05-30", dept: false },
+    { tag: "UIC-1014", model: "GT-1200 Robotic Total Station", make: "Topcon", modelNumber: "GT-1200", description: "Robotic Total Station", serial: "TP-88820", cost: "33000", acquired: "2025-01-30", own: "p-warehouse", status: "reserved", cust: null, cur: "p-gpk", loc: "l-dal", cond: "good", warranty: "2028-01-30", dept: false },
+    /* Shop tools: charged to Repair & Maintenance, not to any job, so the
+       capital-by-department report has real rows from day one. */
+    { tag: "UIC-1015", model: "DX 6 Powder Fastener", make: "Hilti", modelNumber: "DX 6", description: "Powder Fastener", serial: "HD-70104", cost: "1350", acquired: "2025-02-11", own: null, status: "assigned", cust: "e-dave", cur: null, loc: "l-dal", cond: "good", warranty: "2027-02-11", dept: true },
+    { tag: "UIC-1016", model: "M18 Impact Kit", make: "Milwaukee", modelNumber: "M18", description: "Impact Kit", serial: "MW-55991", cost: "380", acquired: "2025-08-02", own: null, status: "assigned", cust: "e-dave", cur: null, loc: "l-dal", cond: "good", warranty: "2027-08-02", dept: true },
   ];
   const assetRows = await db
     .insert(asset)
     .values(
       assetSpecs.map((a) => {
-        const modelName = a.model;
-        const modelRow = modelRows.find((m) => m.name === modelName)!;
-        const catName = modelSpecs.find((m) => m.name === modelName)!.cat;
+        const modelRow = modelRows.find((m) => m.name === a.model)!;
+        const catName = modelSpecs.find((m) => m.name === a.model)!.cat;
         return {
           tenantId: tid,
           tag: a.tag,
           modelId: modelRow.id,
-          modelName,
+          make: a.make,
+          modelNumber: a.modelNumber,
+          description: a.description,
           categoryName: catName,
           serialNumber: a.serial,
           isSerialized: true,
           quantity: 1,
           acquisitionCost: a.cost,
           acquisitionDate: a.acquired,
-          owningProjectId: projectByKey[a.own]!,
+          owningProjectId: a.own ? projectByKey[a.own]! : null,
+          costTarget: a.dept ? "department" : "project",
+          owningDepartmentId: a.dept ? deptRm : null,
           warrantyExpiresOn: a.warranty,
           currentStatus: a.status,
           currentCustodianId: a.cust ? empByKey[a.cust]! : null,
-          currentProjectId: projectByKey[a.cur]!,
+          currentProjectId: a.cur ? projectByKey[a.cur]! : null,
           currentLocationId: locByKey[a.loc]!,
           condition: a.cond,
           createdBy: userByEmail["admin@stinventory.local"]!.id,
@@ -467,6 +491,8 @@ async function main() {
     { tag: "UIC-1006", cust: "e-james", proj: "p-uptown", loc: "l-contU", type: "permanent", start: "2025-08-10", end: null },
     { tag: "UIC-1007", cust: "e-james", proj: "p-uptown", loc: "l-contU", type: "permanent", start: "2025-09-01", end: null },
     { tag: "UIC-1012", cust: "e-dwayne", proj: "p-legacy", loc: "l-gbA", type: "temporary", start: "2026-06-01", end: "2026-06-25" },
+    { tag: "UIC-1015", cust: "e-dave", proj: null, loc: "l-dal", type: "permanent", start: "2026-02-15", end: null },
+    { tag: "UIC-1016", cust: "e-dave", proj: null, loc: "l-dal", type: "permanent", start: "2026-08-05", end: null },
   ];
   const adminId = userByEmail["admin@stinventory.local"]!.id;
   await db.insert(assignment).values(
@@ -474,7 +500,7 @@ async function main() {
       tenantId: tid,
       assetId: assetByTag[s.tag]!.id,
       custodianId: empByKey[s.cust]!,
-      projectId: projectByKey[s.proj]!,
+      projectId: s.proj ? projectByKey[s.proj]! : null,
       locationId: locByKey[s.loc]!,
       type: s.type,
       startDate: s.start,
@@ -510,8 +536,10 @@ async function main() {
     tx("UIC-1006", "assign", "2025-08-10 08:00", "Assigned to James Whitaker — Uptown", "assignment"),
     tx("UIC-1007", "assign", "2025-09-01 08:00", "Assigned to James Whitaker — Uptown", "assignment"),
     tx("UIC-1002", "assign", "2026-01-10 08:30", "Assigned to Miguel Torres — Legacy West", "assignment"),
+    tx("UIC-1015", "assign", "2026-02-15 07:45", "Assigned to Dave Kowalski — shop", "assignment"),
+    tx("UIC-1016", "assign", "2026-08-05 08:20", "Assigned to Dave Kowalski — shop", "assignment"),
   ]);
-  console.log(`[seed] 12 transactions`);
+  console.log(`[seed] 14 transactions`);
 
   // ---- Notifications ----
   await db.insert(notification).values([

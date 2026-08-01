@@ -4,6 +4,7 @@ import type { Context } from "./trpc.js";
 export type AuditCategory =
   | "auth"
   | "asset"
+  | "department"
   | "assignment"
   | "transfer"
   | "project"

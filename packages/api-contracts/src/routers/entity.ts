@@ -1,7 +1,7 @@
 import { and, eq, ilike, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import type { MentionKind } from "@stinventory/types";
+import { formatAssetModel, type MentionKind } from "@stinventory/types";
 import { protectedProcedure, router } from "../trpc.js";
 
 export const entityRouter = router({
@@ -24,7 +24,9 @@ export const entityRouter = router({
           .select({
             id: schema.asset.id,
             label: schema.asset.tag,
-            subtitle: schema.asset.modelName,
+            make: schema.asset.make,
+            modelNumber: schema.asset.modelNumber,
+            description: schema.asset.description,
           })
           .from(schema.asset)
           .where(
@@ -32,13 +34,21 @@ export const entityRouter = router({
               eq(schema.asset.tenantId, tid),
               or(
                 ilike(schema.asset.tag, q),
-                ilike(schema.asset.modelName, q),
+                ilike(schema.asset.make, q),
+                ilike(schema.asset.modelNumber, q),
+                ilike(schema.asset.description, q),
                 ilike(schema.asset.serialNumber, q),
               ),
             ),
           )
           .limit(limit);
-        return rows.map((r) => ({ id: r.id, label: r.label, subtitle: r.subtitle }));
+        return rows.map((r) => ({
+          id: r.id,
+          /* An untagged tool still needs a line in the picker — the id is the
+             identity, so the row is named by whatever the tool is. */
+          label: r.label ?? "Untagged tool",
+          subtitle: formatAssetModel(r),
+        }));
       }
 
       if (input.kind === "employee") {
@@ -141,7 +151,9 @@ export const entityRouter = router({
           .select({
             id: schema.asset.id,
             label: schema.asset.tag,
-            subtitle: schema.asset.modelName,
+            make: schema.asset.make,
+            modelNumber: schema.asset.modelNumber,
+            description: schema.asset.description,
             status: schema.asset.currentStatus,
             custodianName: schema.employee.name,
           })
@@ -152,7 +164,9 @@ export const entityRouter = router({
               eq(schema.asset.tenantId, tid),
               or(
                 ilike(schema.asset.tag, q),
-                ilike(schema.asset.modelName, q),
+                ilike(schema.asset.make, q),
+                ilike(schema.asset.modelNumber, q),
+                ilike(schema.asset.description, q),
                 ilike(schema.asset.serialNumber, q),
               ),
             ),
@@ -245,7 +259,7 @@ export const entityRouter = router({
           label: a.label,
           /* Who has it right now is the thing that decides whether this is the
              row they meant, so it goes in the line they can see. */
-          subtitle: [a.subtitle, a.custodianName ? `with ${a.custodianName}` : humanStatus(a.status)]
+          subtitle: [formatAssetModel(a), a.custodianName ? `with ${a.custodianName}` : humanStatus(a.status)]
             .filter(Boolean)
             .join(" · "),
         })),

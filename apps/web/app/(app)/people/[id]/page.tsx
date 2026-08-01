@@ -3,6 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Boxes, HardHat } from "lucide-react";
+import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
@@ -138,10 +139,12 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
                             <Tag>{t.tag}</Tag>
                           </Link>
                         </td>
-                        <td className="px-4 py-2.5 font-medium">{t.modelName}</td>
+                        <td className="px-4 py-2.5 font-medium">{formatAssetModel(t) || "Untagged tool"}</td>
                         <td className="px-4 py-2.5">{t.currentProjectName ?? "—"}</td>
                         {/* Who paid. Unchanged by every move on this page. */}
-                        <td className="px-4 py-2.5 text-muted-foreground">{t.owningProjectName ?? "—"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">
+                          {t.owningDepartmentName ?? t.owningProjectName ?? "—"}
+                        </td>
                         <td className="px-4 py-2.5"><StatusPill status={t.status} /></td>
                         <td className="px-4 py-2.5 text-right tnum">{money(t.acquisitionCost)}</td>
                       </tr>

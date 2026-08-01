@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } fro
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { Permission } from "@stinventory/types";
+import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
 import { EntityPicker, type EntityValue } from "../../components/entity-picker";
 import { Button, Card, ErrorNote, Loading, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";
@@ -153,7 +154,9 @@ export default function ActionScreen() {
                 <Tag>{a.tag}</Tag>
                 <StatusPill status={a.status} />
               </View>
-              <Text className="text-[17px] font-semibold text-foreground">{a.modelName}</Text>
+              <Text className="text-[17px] font-semibold text-foreground">
+                {formatAssetModel(a) || "Untagged tool"}
+              </Text>
               <Text className="text-[13px] text-muted-foreground">
                 {a.custodianName ? `Held by ${a.custodianName}` : "In the yard"}
               </Text>

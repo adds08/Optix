@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowRight, CheckCircle2, UserMinus } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Handshake, UserMinus } from "lucide-react";
+import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { isFieldRole } from "@/components/sti/nav-config";
@@ -31,10 +32,31 @@ export default function HomePage() {
   const clearance = trpc.dashboard.clearanceQueue.useQuery();
   const approvals = trpc.dashboard.pendingApprovals.useQuery();
   const activity = trpc.dashboard.recentActivity.useQuery();
+  const capitalJobs = trpc.report.capitalByProject.useQuery();
+  const capitalShop = trpc.report.capitalByDepartment.useQuery();
+  const idleReport = trpc.report.idle.useQuery();
 
   const k = kpis.data;
+
+  /*
+    "Awaiting approval" and "Awaiting verification" are different questions and
+    different answers: may this happen, versus this already happened, is the
+    record right. They share one query (the pendingApprovals procedure already
+    returns both) and split on the client here — no backend change for a card.
+  */
+  const all = approvals.data ?? [];
+  const holds = all.filter((a) => a.status === "pending_approval");
+  const borrows = all.filter((a) => a.status === "pending_verification");
+
+  /* `attention` sums the FULL approvals list, holds and borrows together. The
+     empty state it decides is only honest when a borrow that has not been
+     verified still keeps it off the screen. */
   const attention =
-    (overdue.data?.length ?? 0) + (clearance.data?.length ?? 0) + (approvals.data?.length ?? 0);
+    (overdue.data?.length ?? 0) + (clearance.data?.length ?? 0) + all.length;
+
+  const capitalOnJobs = (capitalJobs.data ?? []).reduce((s, r) => s + Number(r.capitalValue), 0);
+  const capitalInShop = (capitalShop.data ?? []).reduce((s, r) => s + Number(r.capitalValue), 0);
+  const idleCount = idleReport.data?.length ?? 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -56,10 +78,10 @@ export default function HomePage() {
           <EmptyState
             icon={CheckCircle2}
             title="Nothing is waiting"
-            description="No overdue loans, no clearance queue, and no approvals pending. The yard is square."
+            description="No overdue loans, no clearance queue, and no approvals or hand-offs pending. The yard is square."
           />
         ) : (
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-4">
             <AttentionCard
               tone="crit"
               icon={AlertTriangle}
@@ -104,15 +126,33 @@ export default function HomePage() {
               tone="warn"
               icon={AlertTriangle}
               title="Awaiting approval"
-              count={approvals.data?.length ?? 0}
-              href="/custody"
+              count={holds.length}
+              href="/inbox"
               empty="No hand-off is waiting on a signature."
             >
-              {(approvals.data ?? []).slice(0, 4).map((p) => (
+              {holds.slice(0, 4).map((p) => (
                 <Row
                   key={p.id}
                   left={<Tag>{p.assetTag}</Tag>}
                   mid={`${p.type} · ${p.custodianName ?? "—"}`}
+                  right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
+                />
+              ))}
+            </AttentionCard>
+
+            <AttentionCard
+              tone="warn"
+              icon={Handshake}
+              title="Loans to verify"
+              count={borrows.length}
+              href="/inbox"
+              empty="No foreman hand-off is waiting to be checked."
+            >
+              {borrows.slice(0, 4).map((p) => (
+                <Row
+                  key={p.id}
+                  left={<Tag>{p.assetTag}</Tag>}
+                  mid={`${p.fromName ?? "Somebody"} → ${p.custodianName ?? "—"}`}
                   right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
                 />
               ))}
@@ -130,7 +170,34 @@ export default function HomePage() {
           <Metric label="In maintenance" value={num(k?.inMaintenance)} loading={kpis.isLoading} tone={k?.inMaintenance ? "warn" : "default"} />
           <Metric label="Lost" value={num(k?.lost)} loading={kpis.isLoading} tone={k?.lost ? "crit" : "ok"} hint="unaccounted for" />
           <Metric label="Fleet value" value={money(k?.fleetValue)} loading={kpis.isLoading} hint="acquisition cost" />
+          <Metric label="Capital on jobs" value={money(capitalOnJobs)} loading={capitalJobs.isLoading} hint="charged to projects" />
+          <Metric label="Capital in the shop" value={money(capitalInShop)} loading={capitalShop.isLoading} hint="charged to departments" />
           <Metric label="Reserved" value={num(k?.reserved)} loading={kpis.isLoading} />
+          {/* Honest placeholder: the maintenance module has no tables yet, so
+              zero is the only true answer. Rendering the tile anyway keeps the
+              dashboard's shape stable while the module is being built. */}
+          <Metric
+            label="Scheduled maintenance"
+            value={num(k?.scheduledMaint)}
+            loading={kpis.isLoading}
+            hint="maintenance module not built yet"
+          />
+          <Metric
+            label="Missing serials"
+            value={num(k?.missingSerial)}
+            loading={kpis.isLoading}
+            tone={k?.missingSerial ? "warn" : "ok"}
+            hint="serialized tools that cannot be identified if stolen"
+          />
+          <Link href="/reports/idle" className="block transition-opacity hover:opacity-80">
+            <Metric
+              label="Idle tools"
+              value={num(idleCount)}
+              loading={idleReport.isLoading}
+              tone={idleCount ? "warn" : "ok"}
+              hint="sitting available — see the Idle report"
+            />
+          </Link>
           <Metric label="Terminated staff" value={num(k?.terminatedCount)} loading={kpis.isLoading} />
           <Metric label="Held by terminated" value={num(k?.clearanceCount)} loading={kpis.isLoading} tone={k?.clearanceCount ? "crit" : "ok"} />
         </div>
@@ -157,7 +224,7 @@ export default function HomePage() {
                 </span>
                 <Tag>{a.assetTag}</Tag>
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                  {a.note ?? a.assetModel}
+                  {a.note ?? formatAssetModel({ make: a.assetMake, modelNumber: a.assetModelNumber, description: a.assetDescription }) ?? "Untagged tool"}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground">{dateTime(a.occurredAt)}</span>
               </li>

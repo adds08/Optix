@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome } from "@stinventory/domain";
+import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { homeCustodianId, moveCustody } from "../custody.js";
@@ -16,7 +17,9 @@ export const transferRouter = router({
         id: schema.transfer.id,
         assetId: schema.transfer.assetId,
         tag: schema.asset.tag,
-        modelName: schema.asset.modelName,
+        make: schema.asset.make,
+        modelNumber: schema.asset.modelNumber,
+        description: schema.asset.description,
         fromCustodianId: schema.transfer.fromCustodianId,
         toCustodianId: schema.transfer.toCustodianId,
         reason: schema.transfer.reason,
@@ -26,7 +29,10 @@ export const transferRouter = router({
       })
       .from(schema.transfer)
       .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
-      .where(eq(schema.transfer.tenantId, tid));
+      .where(eq(schema.transfer.tenantId, tid))
+      .then((rows) =>
+        rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })),
+      );
   }),
 
   create: requirePermission("transfer.create")

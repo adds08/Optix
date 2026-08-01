@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import {
   IMPORT_SPECS,
+  formatAssetModel,
   type ImportColumn,
   type ImportEntity,
   type ImportRefTarget,
@@ -136,7 +137,11 @@ function checkCell(col: ImportColumn, raw: string, refs: RefIndex): { value?: un
       return { value: iso };
     }
     case "enum": {
-      const lower = v.toLowerCase();
+      /* The yard's own vocabulary is folded onto ours before matching — a
+         trailer sheet says USED where the register means good, and widening
+         ASSET_CONDITIONS to carry "used" would make it a distinct condition
+         nothing downstream knows the meaning of. Keys are lowercase. */
+      const lower = col.valueAliases?.[v.toLowerCase()] ?? v.toLowerCase();
       const match = col.values?.find((o) => o.toLowerCase() === lower);
       if (!match) return { error: `must be one of: ${col.values?.join(", ")}` };
       return { value: match };
@@ -304,6 +309,7 @@ async function insertOne(
   values: Record<string, unknown>,
 ): Promise<string | null> {
   if (entity === "asset") {
+    const label = formatAssetModel(values) || "Untagged tool";
     const [row] = await tx
       .insert(schema.asset)
       .values({
@@ -331,7 +337,7 @@ async function insertOne(
         locationId: (values.locationId as string) ?? null,
       },
       refType: "manual",
-      note: `Asset ${row.tag} imported`,
+      note: `Asset ${label} imported`,
     });
     return row.id;
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin } from "lucide-react";
+import { Download, MapPin } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
 import { Tag, humanize } from "@/components/sti/status";
@@ -13,6 +13,8 @@ import { RowActions } from "@/components/sti/row-actions";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
 import { ContainerCustodyForm } from "@/components/container-custody-form";
+import { downloadCsv } from "@/lib/csv";
+import { exportAssetsToSpec } from "@/lib/export-assets";
 import { relative } from "@/lib/format";
 
 /*
@@ -66,6 +68,34 @@ export default function LocationsPage() {
 
   const movable = locs.filter((l) => l.type === "vehicle");
   const fixed = locs.filter((l) => l.type !== "vehicle");
+
+  /*
+    One trailer's sheet, in the importer's own columns.
+    The trailer sheets start with a title block — the trailer number, the
+    foreman, the project — and the importer's header detection already knows
+    how to skip it, so the export mirrors the source format exactly.
+  */
+  const exportLocation = (name: string, locationId: string | null) => {
+    const rows = (assets.data ?? [])
+      .filter((a) => a.locationId === locationId)
+      .map((r) => ({
+        tag: r.tag,
+        make: r.make,
+        modelNumber: r.modelNumber,
+        description: r.description,
+        categoryName: r.categoryName,
+        serialNumber: r.serialNumber,
+        quantity: r.quantity,
+        acquisitionCost: r.acquisitionCost,
+        acquisitionDate: r.acquisitionDate,
+        warrantyExpiresOn: r.warrantyExpiresOn,
+        condition: r.condition,
+        otherRef: r.otherRef ?? null,
+        locationName: r.locationName,
+        owningProjectName: r.owningProjectName,
+      }));
+    downloadCsv(`stinventory-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`, exportAssetsToSpec(rows, name));
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -141,25 +171,36 @@ export default function LocationsPage() {
                           /* Warehouses and project sites are places, not things
                              anyone carries — only containers get handed over. */
                           extra={
-                            l.type === "warehouse" || l.type === "project_site" ? null : (
-                              <Can perm="location.manage">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    setHanding({
-                                      id: l.id,
-                                      name: l.name,
-                                      custodianId: l.custodianEmployeeId,
-                                      custodianName: l.custodianName,
-                                      toolCount: countByLocation.get(l.id) ?? 0,
-                                    })
-                                  }
-                                >
-                                  {l.custodianEmployeeId ? "Change" : "Hand over"}
-                                </Button>
-                              </Can>
-                            )
+                            <>
+                              {l.type === "warehouse" || l.type === "project_site" ? null : (
+                                <Can perm="location.manage">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      setHanding({
+                                        id: l.id,
+                                        name: l.name,
+                                        custodianId: l.custodianEmployeeId,
+                                        custodianName: l.custodianName,
+                                        toolCount: countByLocation.get(l.id) ?? 0,
+                                      })
+                                    }
+                                  >
+                                    {l.custodianEmployeeId ? "Change" : "Hand over"}
+                                  </Button>
+                                </Can>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => exportLocation(l.name, l.id)}
+                                title="Download this location's tools in the import format"
+                              >
+                                <Download className="size-3.5" aria-hidden />
+                                Export
+                              </Button>
+                            </>
                           }
                           onEdit={() =>
                             setEditingLoc({
@@ -220,24 +261,36 @@ export default function LocationsPage() {
                             perm="vehicle.manage"
                             label={v.unit}
                             extra={
-                              <Can perm="location.manage">
+                              <>
+                                <Can perm="location.manage">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={!v.locationId}
+                                    onClick={() =>
+                                      setHanding({
+                                        id: v.locationId!,
+                                        name: v.unit,
+                                        custodianId: v.foremanEmployeeId,
+                                        custodianName: v.foremanName,
+                                        toolCount: v.locationId ? (countByLocation.get(v.locationId) ?? 0) : 0,
+                                      })
+                                    }
+                                  >
+                                    {v.foremanEmployeeId ? "Change" : "Hand over"}
+                                  </Button>
+                                </Can>
                                 <Button
                                   size="sm"
                                   variant="outline"
                                   disabled={!v.locationId}
-                                  onClick={() =>
-                                    setHanding({
-                                      id: v.locationId!,
-                                      name: v.unit,
-                                      custodianId: v.foremanEmployeeId,
-                                      custodianName: v.foremanName,
-                                      toolCount: v.locationId ? (countByLocation.get(v.locationId) ?? 0) : 0,
-                                    })
-                                  }
+                                  onClick={() => exportLocation(v.unit, v.locationId)}
+                                  title="Download this vehicle's tools in the import format"
                                 >
-                                  {v.foremanEmployeeId ? "Change" : "Hand over"}
+                                  <Download className="size-3.5" aria-hidden />
+                                  Export
                                 </Button>
-                              </Can>
+                              </>
                             }
                             onEdit={() =>
                               setEditingVeh({

@@ -3,6 +3,7 @@
 export * from "./identity";
 export * from "./catalog";
 export * from "./project";
+export * from "./department";
 export * from "./location";
 export * from "./employee";
 export * from "./asset";

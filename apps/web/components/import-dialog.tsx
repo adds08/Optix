@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Download, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { IMPORT_SPECS, templateRows, type ImportEntity } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { downloadCsv, parseCsv } from "@/lib/csv";
+import { downloadCsv, parseCsvRows, rowsToObjects } from "@/lib/csv";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,45 +72,68 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
     },
   });
 
-  function onFile(file: File) {
+  /*
+    The yard keeps its records in Excel, and asking somebody to "save as CSV
+    first" is the kind of instruction that quietly kills adoption. `.xlsx` and
+    `.xls` are read with SheetJS and fed through the same header-normalising
+    path the CSV reader uses, so the spec never learns what format the file was.
+
+    `header: 1` returns positional rows (matching the CSV path exactly);
+    `raw: false` makes dates come back as the displayed strings rather than
+    Excel serial numbers; `defval: ""` keeps blank cells as empty strings.
+  */
+  async function onFile(file: File) {
     setParseError("");
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const { headers, rawHeaders, rows } = parseCsv(String(reader.result ?? ""));
-        if (!rows.length) {
-          setParseError("That file has a header but no rows.");
-          setParsed(null);
-          return;
-        }
-        /* Matched against the normalised headers, so "SERIAL #" satisfies
-           "serial". The message quotes the file's own header line back, because
-           the useful question when this fails is "what did it see", and the
-           spec names alone left the user comparing a list to a column they
-           could plainly see in their spreadsheet. */
-        const missing = spec.columns
-          .filter((c) => c.required && !headers.includes(c.header))
-          .map((c) => c.header);
-        if (missing.length) {
-          setParseError(
-            `Missing required column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}. ` +
-              `The file's columns are: ${rawHeaders.join(", ")}.`,
-          );
-          setParsed(null);
-          return;
-        }
-        setParsed({ rows, filename: file.name });
-      } catch {
-        setParseError("That file could not be read as CSV.");
+    try {
+      const isSheet = /\.(xlsx|xls)$/i.test(file.name);
+      const matrix = isSheet
+        ? await sheetToMatrix(file)
+        : parseCsvRows(await file.text());
+
+      /* Header detection needs the spec's headers to recognise a header row
+         below a title block — the trailer sheets lead with the trailer number,
+         the foreman's name and the project before any column headers. */
+      const known = new Set(spec.columns.map((c) => c.header));
+      const { headers, rawHeaders, rows } = rowsToObjects(matrix, known);
+      if (!rows.length) {
+        setParseError("That file has a header but no rows.");
         setParsed(null);
+        return;
       }
-    };
-    reader.readAsText(file);
+      /* Matched against the normalised headers, so "SERIAL #" satisfies
+         "serial". The message quotes the file's own header line back, because
+         the useful question when this fails is "what did it see", and the
+         spec names alone left the user comparing a list to a column they
+         could plainly see in their spreadsheet. */
+      const missing = spec.columns
+        .filter((c) => c.required && !headers.includes(c.header))
+        .map((c) => c.header);
+      if (missing.length) {
+        setParseError(
+          `Missing required column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}. ` +
+            `The file's columns are: ${rawHeaders.join(", ")}.`,
+        );
+        setParsed(null);
+        return;
+      }
+      setParsed({ rows, filename: file.name });
+    } catch {
+      setParseError("That file could not be read.");
+      setParsed(null);
+    }
   }
 
   const summary = preview.data?.summary;
   const rows = preview.data?.rows ?? [];
   const clean = !!summary && summary.bad === 0 && summary.total > 0;
+
+  /* Rows with neither a tag nor a serial cannot be deduplicated at all —
+     re-importing the same sheet will create duplicates of those rows. Say so
+     before commit rather than after. */
+  const noIdentity =
+    entity === "asset" && preview.data
+      ? preview.data.rows.filter((r) => !r.values.tag && !r.values.serial)
+      : [];
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -132,7 +156,7 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
             </Button>
             <Button variant="outline" size="sm" onClick={() => fileInput.current?.click()}>
               <Upload className="size-4" aria-hidden />
-              {parsed ? "Choose another file" : "Choose CSV"}
+              {parsed ? "Choose another file" : "Choose file"}
             </Button>
             {parsed ? (
               <span className="text-sm text-muted-foreground">
@@ -142,7 +166,7 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
             <input
               ref={fileInput}
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,text/csv,.xlsx,.xls"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -174,6 +198,14 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
               {summary.bad
                 ? `${summary.bad} of ${summary.total} rows need fixing. Nothing will be imported until they are clean.`
                 : `All ${summary.total} rows look good.`}
+            </div>
+          ) : null}
+
+          {noIdentity.length ? (
+            <div className="rounded-md border border-warn/40 bg-warn-bg px-3 py-2 text-sm text-warn">
+              {noIdentity.length} row{noIdentity.length === 1 ? "" : "s"} {noIdentity.length === 1 ? "has" : "have"}{" "}
+              neither a tag nor a serial number, so it cannot be recognised on a re-import — running
+              this file again would create a duplicate of {noIdentity.length === 1 ? "it" : "each one"}.
             </div>
           ) : null}
 
@@ -240,10 +272,24 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
   );
 }
 
+/* The first worksheet of a workbook, as a string[][] matching the CSV path. */
+async function sheetToMatrix(file: File): Promise<string[][]> {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array" });
+  const first = wb.SheetNames[0];
+  const sheet = first ? wb.Sheets[first] : undefined;
+  if (!sheet) throw new Error("That workbook has no sheets.");
+  const rows = XLSX.utils.sheet_to_json<string[]>(sheet, {
+    header: 1,
+    raw: false,
+    defval: "",
+  });
+  return rows.map((r) => (Array.isArray(r) ? r.map((c) => String(c ?? "")) : []));
+}
+
 /* Shown before a file is chosen: what the template expects, so nobody has to
    open the CSV to find out which columns are mandatory. */
-function ColumnGuide({ entity }: { entity: ImportEntity }) {
-  const spec = IMPORT_SPECS[entity];
+function ColumnGuide({ entity }: { entity: ImportEntity }) {  const spec = IMPORT_SPECS[entity];
   return (
     <div className="rounded-md border">
       <table className="w-full text-sm">

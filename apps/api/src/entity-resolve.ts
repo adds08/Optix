@@ -1,6 +1,7 @@
 import type { Database } from "@stinventory/db";
 import * as schema from "@stinventory/db/schema";
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, ilike, inArray, or } from "drizzle-orm";
+import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 
 export type EntityMatch = { type: "asset" | "employee" | "project" | "vehicle" | "location"; id: string; label: string };
 
@@ -16,7 +17,7 @@ function searchTokens(text: string): string[] {
 }
 
 // Try to match a single entity from raw text. Searches by tag first (asset/vehicle),
-// then by token match on name/externalId/modelName.
+// then by token match on name/externalId/model fields.
 export async function matchEntity(
   db: Database,
   tid: string,
@@ -27,7 +28,7 @@ export async function matchEntity(
     const a = await db.query.asset.findFirst({
       where: and(eq(schema.asset.tag, tag), eq(schema.asset.tenantId, tid)),
     });
-    if (a) return { type: "asset", id: a.id, label: `${a.tag} (${a.modelName})` };
+    if (a) return { type: "asset", id: a.id, label: `${a.tag} (${formatAssetModel(a)})` };
 
     const v = await db.query.vehicle.findFirst({
       where: and(eq(schema.vehicle.unit, tag), eq(schema.vehicle.tenantId, tid)),
@@ -56,10 +57,19 @@ export async function matchEntity(
     });
     if (loc) return { type: "location", id: loc.id, label: loc.name };
 
+    /* A token can hit any of the three columns — "the Bosch" should match on
+       brand, which a single ilike against the old blob could not. */
     const asset = await db.query.asset.findFirst({
-      where: and(eq(schema.asset.tenantId, tid), ilike(schema.asset.modelName, `%${token}%`)),
+      where: and(
+        eq(schema.asset.tenantId, tid),
+        or(
+          ilike(schema.asset.make, `%${token}%`),
+          ilike(schema.asset.modelNumber, `%${token}%`),
+          ilike(schema.asset.description, `%${token}%`),
+        ),
+      ),
     });
-    if (asset) return { type: "asset", id: asset.id, label: `${asset.tag} (${asset.modelName})` };
+    if (asset) return { type: "asset", id: asset.id, label: `${asset.tag} (${formatAssetModel(asset)})` };
   }
   return null;
 }
@@ -69,8 +79,8 @@ export async function resolveEngineAssets(
   db: Database,
   tid: string,
   hints: { label: string; raw: string }[],
-): Promise<{ id: string; label: string; tag: string }[]> {
-  const results: { id: string; label: string; tag: string }[] = [];
+): Promise<{ id: string; label: string; tag: string | null }[]> {
+  const results: { id: string; label: string; tag: string | null }[] = [];
   for (const h of hints) {
     const m = await matchEntity(db, tid, `${h.label} ${h.raw}`);
     if (m && m.type === "asset") {
@@ -81,7 +91,10 @@ export async function resolveEngineAssets(
   return results;
 }
 
-// Resolve a custodian/employee hint. Filters to active foremen.
+// Resolve a custodian/employee hint. Filters to active custodians — foremen
+// and mechanics; a mechanic named in a chat message failing to resolve was the
+// whole feature silently dead for the shop until the role list stopped being a
+// hardcoded "foreman".
 export async function resolveCustodian(
   db: Database,
   tid: string,
@@ -93,7 +106,7 @@ export async function resolveCustodian(
     const emp = await db.query.employee.findFirst({
       where: and(
         eq(schema.employee.tenantId, tid),
-        eq(schema.employee.role, "foreman"),
+        inArray(schema.employee.role, [...CUSTODIAN_ROLES]),
         eq(schema.employee.employmentStatus, "active"),
         or(ilike(schema.employee.name, `%${token}%`), ilike(schema.employee.externalId, token)),
       ),

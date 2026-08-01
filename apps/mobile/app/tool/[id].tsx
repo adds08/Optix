@@ -2,6 +2,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
 import { Card, Empty, ErrorNote, Loading, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";
 
@@ -43,7 +44,9 @@ export default function ToolDetailScreen() {
                 <Tag>{a.tag}</Tag>
                 <StatusPill status={a.status} />
               </View>
-              <Text className="text-[24px] font-bold leading-7 text-foreground">{a.modelName}</Text>
+              <Text className="text-[24px] font-bold leading-7 text-foreground">
+                {formatAssetModel(a) || "Untagged tool"}
+              </Text>
               {a.serialNumber ? (
                 <Text className="font-mono text-[13px] text-muted-foreground">
                   Serial {a.serialNumber}

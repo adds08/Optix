@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome, type CustodyOutcome } from "@stinventory/domain";
-import { DEFAULT_HIGH_VALUE_THRESHOLD, type Permission } from "@stinventory/types";
+import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel, type Permission } from "@stinventory/types";
 import {
   ACTION_DEPARTMENTS,
   ACTION_PERMISSIONS,
@@ -26,11 +26,16 @@ import { closeActiveCustody, moveCustody } from "./custody.js";
 */
 
 /* A tool the model heard about but the register has never seen. Deliberately
-   thin: tag and model are the two things somebody actually says out loud, and
-   the rest is filled in on the confirm card or left blank. */
+   thin: tag plus something descriptive are the two things somebody actually
+   says out loud, and the rest is filled in on the confirm card or left blank.
+   The tag is optional — a tool is only tagged once a label is physically on
+   it — but the tool has to be describable, so at least one of make or
+   description is required (see docs/12-model-field-split.md). */
 export type AssetDraft = {
   tag?: string;
-  modelName?: string;
+  make?: string;
+  modelNumber?: string;
+  description?: string;
   categoryName?: string;
   serialNumber?: string;
   acquisitionCost?: string;
@@ -446,9 +451,12 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
 
   Writes the same pair `asset.create` does — the row plus its opening `tag`
   event — so a tool that entered by conversation is indistinguishable in the
-  ledger from one typed into the form or loaded from a spreadsheet. The tag is
-  the one field worth refusing over: a register keyed on a blank identifier is
-  worse than no row at all.
+  ledger from one typed into the form or loaded from a spreadsheet.
+
+  The validation mirrors the intake gate in apps/api/src/messaging-worker.ts:
+  a registration is complete with a tag and something descriptive, and a tag is
+  optional entirely. A tool with neither a tag nor a description is nothing at
+  all, which is the one case worth refusing over.
 */
 async function applyIntake(
   db: any,
@@ -459,22 +467,31 @@ async function applyIntake(
 ): Promise<ApplyResult> {
   const draft = action.draft ?? {};
   const tag = draft.tag?.trim();
-  const modelName = draft.modelName?.trim();
+  const make = draft.make?.trim();
+  const modelNumber = draft.modelNumber?.trim();
+  const description = draft.description?.trim();
 
-  if (!tag) throw new Error("A new tool needs a tag before it can be registered");
-  if (!modelName) throw new Error("A new tool needs a model name before it can be registered");
+  if (!tag && !make && !description) {
+    throw new Error("A new tool needs a tag or something it is — a make or a description — before it can be registered");
+  }
 
-  const clash = await db.query.asset.findFirst({
-    where: and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.tag, tag)),
-  });
-  if (clash) throw new Error(`${tag} is already in the register`);
+  if (tag) {
+    const clash = await db.query.asset.findFirst({
+      where: and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.tag, tag)),
+    });
+    if (clash) throw new Error(`${tag} is already in the register`);
+  }
+
+  const label = formatAssetModel({ make, modelNumber, description }) || "Untagged tool";
 
   const [row] = await db
     .insert(schema.asset)
     .values({
       tenantId,
-      tag,
-      modelName,
+      tag: tag || null,
+      make: make || null,
+      modelNumber: modelNumber || null,
+      description: description || null,
       categoryName: draft.categoryName?.trim() || null,
       serialNumber: draft.serialNumber?.trim() || null,
       acquisitionCost: draft.acquisitionCost?.trim() || null,
@@ -503,7 +520,7 @@ async function applyIntake(
       },
       refType: refMessageId ? "message" : "manual",
       refId: refMessageId ?? null,
-      note: action.note || `Asset ${row.tag} registered from a message`,
+      note: action.note || `Asset ${label} registered from a message`,
     })
     .returning();
 
@@ -556,7 +573,7 @@ export async function requestChatAction(db: any, opts: ApplyOptions): Promise<Re
   const draft = action.draft ?? {};
   const subject = aboutExisting
     ? named.map((a) => a.tag).join(", ")
-    : [draft.tag, draft.modelName].filter(Boolean).join(" ") || "unspecified tool";
+    : [draft.tag, formatAssetModel(draft)].filter(Boolean).join(" ") || "unspecified tool";
 
   const department = ACTION_DEPARTMENTS[action.type] ?? "Equipment Admin";
   const heading = REQUEST_TITLES[action.type] ?? "Action requested";

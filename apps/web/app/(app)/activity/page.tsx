@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Activity, ArrowRight } from "lucide-react";
+import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { Tag } from "@/components/sti/status";
@@ -98,7 +99,9 @@ export default function ActivityPage() {
                   <Link href={`/tools/${e.assetId}`}>
                     <Tag>{e.tag}</Tag>
                   </Link>
-                  <span className="text-sm text-muted-foreground">{e.modelName}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatAssetModel(e) || "Untagged tool"}
+                  </span>
                   {/* "transfer … via transfer" said nothing twice. The ref type
                       only earns its place when it is not just the event again. */}
                   {e.refType && e.refType !== e.eventType ? (

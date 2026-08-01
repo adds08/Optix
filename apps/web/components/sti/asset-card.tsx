@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Wrench } from "lucide-react";
+import { formatAssetModel } from "@stinventory/types";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { FlagBadges, isHighValue } from "@/components/sti/flags";
 import { money } from "@/lib/format";
@@ -28,8 +29,10 @@ import { cn } from "@/lib/utils";
 
 export type AssetCardRow = {
   id: string;
-  tag: string;
-  modelName: string;
+  tag: string | null;
+  make?: string | null;
+  modelNumber?: string | null;
+  description?: string | null;
   categoryName?: string | null;
   status?: string | null;
   acquisitionCost?: string | number | null;
@@ -70,7 +73,9 @@ export function AssetCard({ row, actions }: { row: AssetCardRow; actions?: React
             <Tag>{row.tag}</Tag>
             {row.categoryName ? <span className="ml-1.5 normal-case">{row.categoryName}</span> : null}
           </span>
-          <span className="text-sm font-medium leading-snug">{row.modelName}</span>
+          <span className="text-sm font-medium leading-snug">
+            {formatAssetModel(row) || "Untagged tool"}
+          </span>
           <FlagBadges asset={row} />
 
           <div className="mt-auto flex items-end justify-between gap-2 pt-2">

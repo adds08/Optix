@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome, isOverdueLoan } from "@stinventory/domain";
+import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { closeActiveCustody } from "../custody.js";
@@ -15,7 +16,9 @@ export const assignmentRouter = router({
         id: schema.assignment.id,
         assetId: schema.assignment.assetId,
         tag: schema.asset.tag,
-        modelName: schema.asset.modelName,
+        make: schema.asset.make,
+        modelNumber: schema.asset.modelNumber,
+        description: schema.asset.description,
         custodianId: schema.assignment.custodianId,
         custodianName: schema.employee.name,
         custodianExternalId: schema.employee.externalId,
@@ -37,6 +40,7 @@ export const assignmentRouter = router({
     const today = new Date().toISOString().slice(0, 10);
     return rows.map((r) => ({
       ...r,
+      modelName: formatAssetModel(r),
       overdue: isOverdueLoan({ type: r.type as "permanent" | "temporary", status: r.status, expectedEndDate: r.expectedEnd, today }),
     }));
   }),

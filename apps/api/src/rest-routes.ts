@@ -4,6 +4,7 @@ import { resolveSession } from "@stinventory/auth";
 import * as s from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import type { ResolvedSession } from "@stinventory/auth";
+import { formatAssetModel } from "@stinventory/types";
 
 type AppContext = { Variables: { session: ResolvedSession } };
 
@@ -56,7 +57,9 @@ export function mountRestRoutes(app: Hono, db: Database) {
     const rows = await db.select({
       id: s.assignment.id,
       tag: s.asset.tag,
-      modelName: s.asset.modelName,
+      make: s.asset.make,
+      modelNumber: s.asset.modelNumber,
+      description: s.asset.description,
       custodianName: s.employee.name,
       expectedEnd: s.assignment.expectedEndDate,
       daysOverdue: sql<number>`GREATEST(0, CURRENT_DATE - ${s.assignment.expectedEndDate}::date)::int`,
@@ -69,7 +72,7 @@ export function mountRestRoutes(app: Hono, db: Database) {
         eq(s.assignment.type, "temporary"),
         sql`${s.assignment.expectedEndDate} < CURRENT_DATE`,
       ));
-    return c.json(rows);
+    return c.json(rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   });
 
   // Recent activity
@@ -78,7 +81,9 @@ export function mountRestRoutes(app: Hono, db: Database) {
       id: s.transaction.id,
       eventType: s.transaction.eventType,
       tag: s.asset.tag,
-      modelName: s.asset.modelName,
+      make: s.asset.make,
+      modelNumber: s.asset.modelNumber,
+      description: s.asset.description,
       note: s.transaction.note,
       occurredAt: s.transaction.occurredAt,
     }).from(s.transaction)
@@ -86,7 +91,7 @@ export function mountRestRoutes(app: Hono, db: Database) {
       .where(eq(s.transaction.tenantId, tid(c)))
       .orderBy(desc(s.transaction.occurredAt))
       .limit(20);
-    return c.json(rows);
+    return c.json(rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   });
 
   // HR Clearance queue
@@ -94,7 +99,9 @@ export function mountRestRoutes(app: Hono, db: Database) {
     const rows = await db.select({
       assetId: s.asset.id,
       tag: s.asset.tag,
-      modelName: s.asset.modelName,
+      make: s.asset.make,
+      modelNumber: s.asset.modelNumber,
+      description: s.asset.description,
     }).from(s.asset)
       .innerJoin(s.employee, eq(s.asset.currentCustodianId, s.employee.id))
       .where(and(
@@ -102,7 +109,7 @@ export function mountRestRoutes(app: Hono, db: Database) {
         eq(s.employee.employmentStatus, "terminated"),
         ne(s.asset.currentStatus, "available"),
       ));
-    return c.json(rows);
+    return c.json(rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   });
 
   // Pending approvals
@@ -112,7 +119,9 @@ export function mountRestRoutes(app: Hono, db: Database) {
       id: s.assignment.id,
       type: sql<string>`'assignment'`.as("type"),
       assetTag: s.asset.tag,
-      assetModel: s.asset.modelName,
+      make: s.asset.make,
+      modelNumber: s.asset.modelNumber,
+      description: s.asset.description,
       custodianName: s.employee.name,
       status: s.assignment.status,
     }).from(s.assignment)
@@ -123,7 +132,9 @@ export function mountRestRoutes(app: Hono, db: Database) {
       id: s.transfer.id,
       type: sql<string>`'transfer'`.as("type"),
       assetTag: s.asset.tag,
-      assetModel: s.asset.modelName,
+      make: s.asset.make,
+      modelNumber: s.asset.modelNumber,
+      description: s.asset.description,
       custodianName: s.employee.name,
       status: s.transfer.status,
     }).from(s.transfer)
@@ -132,7 +143,11 @@ export function mountRestRoutes(app: Hono, db: Database) {
       /* Borrows belong in the desk's queue too — they are the larger half of it
          now, since a foreman's hand-off no longer settles itself. */
       .where(and(eq(s.transfer.tenantId, tenantId), inArray(s.transfer.status, ["pending_approval", "pending_verification"])));
-    return c.json([...assignments, ...transfers]);
+    const withModel = (r: { make: string | null; modelNumber: string | null; description: string | null }) => ({
+      ...r,
+      assetModel: formatAssetModel(r),
+    });
+    return c.json([...assignments.map(withModel), ...transfers.map(withModel)]);
   });
 
   // Approvals
@@ -156,14 +171,18 @@ export function mountRestRoutes(app: Hono, db: Database) {
     if (search) {
       conditions.push(or(
         ilike(s.asset.tag, `%${search}%`),
-        ilike(s.asset.modelName, `%${search}%`),
+        ilike(s.asset.make, `%${search}%`),
+        ilike(s.asset.modelNumber, `%${search}%`),
+        ilike(s.asset.description, `%${search}%`),
+        ilike(s.asset.serialNumber, `%${search}%`),
       )!);
     }
     if (status && status !== "all") {
       conditions.push(eq(s.asset.currentStatus, status));
     }
     const rows = await db.select({
-      id: s.asset.id, tag: s.asset.tag, modelName: s.asset.modelName,
+      id: s.asset.id, tag: s.asset.tag,
+      make: s.asset.make, modelNumber: s.asset.modelNumber, description: s.asset.description,
       categoryName: s.asset.categoryName, status: s.asset.currentStatus,
       condition: s.asset.condition, acquisitionCost: s.asset.acquisitionCost,
       custodianId: s.asset.currentCustodianId,
@@ -176,7 +195,7 @@ export function mountRestRoutes(app: Hono, db: Database) {
       .leftJoin(s.location, eq(s.asset.currentLocationId, s.location.id))
       .where(and(...conditions))
       .orderBy(s.asset.tag);
-    return c.json(rows);
+    return c.json(rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   });
 
   rest.post("/api/assets", async (c) => {
@@ -196,7 +215,8 @@ export function mountRestRoutes(app: Hono, db: Database) {
   rest.get("/api/assignments", async (c) => {
     const rows = await db.select({
       id: s.assignment.id, assetId: s.assignment.assetId,
-      tag: s.asset.tag, modelName: s.asset.modelName,
+      tag: s.asset.tag,
+      make: s.asset.make, modelNumber: s.asset.modelNumber, description: s.asset.description,
       custodianName: s.employee.name,
       projectName: s.project.name,
       type: s.assignment.type, startDate: s.assignment.startDate,
@@ -208,7 +228,7 @@ export function mountRestRoutes(app: Hono, db: Database) {
       .leftJoin(s.project, eq(s.assignment.projectId, s.project.id))
       .where(eq(s.assignment.tenantId, tid(c)))
       .orderBy(desc(s.assignment.startDate));
-    return c.json(rows);
+    return c.json(rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   });
 
   rest.post("/api/assignments", async (c) => {
@@ -273,14 +293,15 @@ export function mountRestRoutes(app: Hono, db: Database) {
     const limit = parseInt(c.req.query("limit") ?? "100");
     const rows = await db.select({
       id: s.transaction.id, eventType: s.transaction.eventType,
-      tag: s.asset.tag, modelName: s.asset.modelName,
+      tag: s.asset.tag,
+      make: s.asset.make, modelNumber: s.asset.modelNumber, description: s.asset.description,
       note: s.transaction.note, occurredAt: s.transaction.occurredAt,
     }).from(s.transaction)
       .leftJoin(s.asset, eq(s.transaction.assetId, s.asset.id))
       .where(eq(s.transaction.tenantId, tid(c)))
       .orderBy(desc(s.transaction.occurredAt))
       .limit(limit);
-    return c.json(rows);
+    return c.json(rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   });
 
   // Verification

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import { MENTION_KINDS, type ChatMention } from "@stinventory/types";
+import { MENTION_KINDS, formatAssetModel, type ChatMention } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { TRPCError } from "@trpc/server";
@@ -131,7 +131,9 @@ export const messagingRouter = router({
             .select({
               id: schema.asset.id,
               tag: schema.asset.tag,
-              modelName: schema.asset.modelName,
+              make: schema.asset.make,
+              modelNumber: schema.asset.modelNumber,
+              description: schema.asset.description,
               status: schema.asset.currentStatus,
               holderName: schema.employee.name,
             })
@@ -146,7 +148,9 @@ export const messagingRouter = router({
             .where(and(eq(schema.employee.tenantId, tid), inArray(schema.employee.id, custodianIds)))
         : [];
 
-      const assetById = new Map(assets.map((a) => [a.id, a]));
+      const assetById = new Map(
+        assets.map((a) => [a.id, { ...a, modelName: formatAssetModel(a) }]),
+      );
       const custodianById = new Map(custodians.map((c) => [c.id, c.name]));
 
       const withCards = items.map((m, i) => {
@@ -355,7 +359,9 @@ export const messagingRouter = router({
         draft: z
           .object({
             tag: z.string().max(60).optional(),
-            modelName: z.string().max(200).optional(),
+            make: z.string().max(80).optional(),
+            modelNumber: z.string().max(80).optional(),
+            description: z.string().max(200).optional(),
             categoryName: z.string().max(120).optional(),
             serialNumber: z.string().max(120).optional(),
             acquisitionCost: z.string().max(20).optional(),

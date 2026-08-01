@@ -4,6 +4,7 @@ import { assetModel } from "./catalog";
 import { project } from "./project";
 import { location } from "./location";
 import { employee } from "./employee";
+import { department } from "./department";
 
 // The asset register — small tools are the first-class entity.
 // `current_*` columns are the PROJECTION (denormalized from `transactions`); never the
@@ -13,9 +14,30 @@ export const asset = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    tag: text("tag").notNull(),
+    /*
+      A tag is a physical label on the tool, not an id the system assigns. Null
+      means nobody has labelled it yet — a normal state for anything imported from
+      the yard's own sheets. See docs/17-optional-tags.md.
+    */
+    tag: text("tag"),
     modelId: uuid("model_id").references(() => assetModel.id, { onDelete: "set null" }),
-    modelName: text("model_name").notNull(), // denormalized for fast register reads
+    /*
+      Vestigial. Nothing reads or writes through `asset_model` / `manufacturer` /
+      `asset.modelId` — only the seed populates them and no router, intent or UI
+      joins back. They look like an obvious duplicate of the flat make/model
+      columns below; leave the normalisation for its own change. See
+      docs/12-model-field-split.md.
+    */
+    /* What the tool is, in the four columns Urban's own sheets use. Replaces the
+       single `model_name` blob — see docs/12-model-field-split.md. */
+    make: text("make"),
+    modelNumber: text("model_number"),
+    description: text("description"),
+    /* The unlabelled trailing column on the trailer sheets: a secondary equipment
+       number ("PC-08", "QS-602", "106"). Free text because the yard's numbering is
+       not ours to constrain. Note this is NOT the sheets' "OTHER" column, which
+       holds NEW/USED and maps to `condition` — see docs/13-excel-round-trip.md. */
+    otherRef: text("other_ref"),
     categoryName: text("category_name"), // denormalized
     serialNumber: text("serial_number"),
     isSerialized: boolean("is_serialized").notNull().default(true),
@@ -23,6 +45,10 @@ export const asset = pgTable(
     acquisitionCost: decimal("acquisition_cost", { precision: 14, scale: 2 }),
     acquisitionDate: date("acquisition_date"),
     owningProjectId: uuid("owning_project_id").references(() => project.id, { onDelete: "set null" }),
+    /* Which kind of thing pays for this tool. Set at registration and meant to
+       stay put, like owningProjectId — see docs/11-department-cost-targets.md. */
+    costTarget: text("cost_target").notNull().default("project"), // 'project' | 'department'
+    owningDepartmentId: uuid("owning_department_id").references(() => department.id, { onDelete: "restrict" }),
     warrantyExpiresOn: date("warranty_expires_on"),
     /*
       Object key, not a URL.

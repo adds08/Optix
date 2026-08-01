@@ -3,6 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "../../lib/trpc";
 import { useAuth } from "../../lib/auth";
 import { Card, Empty, ErrorNote, Loading, ScreenTitle, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";
@@ -108,7 +109,7 @@ export default function MyToolsScreen() {
                         )}
                       </View>
                       <Text className="text-[17px] font-semibold leading-6 text-foreground">
-                        {t.modelName}
+                        {formatAssetModel(t) || "Untagged tool"}
                       </Text>
                       <View className="flex-row flex-wrap gap-x-4 gap-y-1">
                         {t.currentProjectName ? (

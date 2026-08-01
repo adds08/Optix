@@ -94,11 +94,21 @@ export function StatusPill({
   );
 }
 
-/* A tool tag — always monospace, always the same, so the eye can lock onto it. */
+/* A tool tag — always monospace, always the same, so the eye can lock onto it.
+   An untagged tool is a normal state, not missing data — it is a tool nobody
+   has put a label on yet. Rendering an empty pill would read as a bug, and
+   rendering nothing would leave the row with no left-hand column at all. */
 export function Tag({ children, className }: { children: React.ReactNode; className?: string }) {
+  const empty = children === null || children === undefined || children === "";
   return (
-    <span className={cn("tag-num rounded-sm bg-muted px-1.5 py-0.5 text-foreground", className)}>
-      {children}
+    <span
+      className={cn(
+        "tag-num rounded-sm px-1.5 py-0.5",
+        empty ? "bg-transparent text-muted-foreground italic" : "bg-muted text-foreground",
+        className,
+      )}
+    >
+      {empty ? "no tag" : children}
     </span>
   );
 }

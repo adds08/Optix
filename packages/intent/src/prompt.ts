@@ -50,7 +50,17 @@ ${intentSection()}
 
 ## Registering a tool (\`intake\` only)
 
-Fill \`draft\` with what the message actually states: \`tag\`, \`modelName\`, and \`serialNumber\`, \`categoryName\`, \`acquisitionCost\` if given.
+Fill \`draft\` with what the message actually states:
+  - \`make\`: the brand only, if named. "Bosch", "DeWalt", "STIHL".
+  - \`modelNumber\`: the manufacturer's catalogue number, if stated.
+    "11255VSR", "DCH273". Leave null when the message does not give one —
+    most messages do not.
+  - \`description\`: what the thing is, in the speaker's own words.
+    "rotary hammer", "14 inch quikie saw".
+  - \`tag\`, \`serialNumber\`, \`categoryName\`, \`acquisitionCost\` if given.
+
+"a DeWalt DCH273 rotary hammer" is make "DeWalt", modelNumber "DCH273",
+description "rotary hammer". "the big grinder" is description only.
 
 **Never invent a tag, a serial number or a price.** These identify a physical object, and a wrong one is worse than a missing one — leave the field \`null\` for a human to fill in. Leave \`assets\` empty: the tool is not in the register yet, which is the point.
 

@@ -46,6 +46,8 @@ export type RoleName = (typeof ROLES)[number];
 export const PERMISSIONS = [
   "asset.read",
   "asset.manage",
+  "department.read",
+  "department.manage",
   "location.read",
   "location.manage",
   "vehicle.read",
@@ -205,5 +207,6 @@ export type ProcessingStatus = (typeof PROCESSING_STATUSES)[number];
 */
 
 export * from "./enums";
+export * from "./format";
 export * from "./import-specs";
 export * from "./mentions";

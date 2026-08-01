@@ -4,6 +4,7 @@ import { dashboardRouter } from "./routers/dashboard.js";
 import { assetRouter } from "./routers/asset.js";
 import { categoryRouter } from "./routers/category.js";
 import { projectRouter, employeeRouter } from "./routers/project.js";
+import { departmentRouter } from "./routers/department.js";
 import { locationRouter, vehicleRouter } from "./routers/location.js";
 import { assignmentRouter } from "./routers/assignment.js";
 import { transferRouter } from "./routers/transfer.js";
@@ -25,6 +26,7 @@ export const appRouter = router({
   asset: assetRouter,
   category: categoryRouter,
   project: projectRouter,
+  department: departmentRouter,
   employee: employeeRouter,
   location: locationRouter,
   vehicle: vehicleRouter,

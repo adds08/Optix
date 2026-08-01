@@ -25,11 +25,20 @@ export const EMPLOYEE_ROLES = [
   "pm",
   "equipment_admin",
   "warehouse",
+  "mechanic",      // NEW
   "procurement",
   "hr",
   "finance",
 ] as const;
 export type EmployeeRole = (typeof EMPLOYEE_ROLES)[number];
+
+export const COST_TARGETS = ["project", "department"] as const;
+export type CostTarget = (typeof COST_TARGETS)[number];
+
+/* Roles that can hold a tool. Foremen carry them to jobs; mechanics keep them
+   in the shop. Every custodian picker reads this rather than testing for
+   "foreman" itself — three of them had drifted apart before it existed. */
+export const CUSTODIAN_ROLES = ["foreman", "mechanic"] as const;
 export const EMPLOYMENT_STATUSES = ["active", "terminated", "on_leave"] as const;
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
 export const PROJECT_STATUSES = ["awarded", "active", "closing", "complete"] as const;

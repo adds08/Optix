@@ -33,10 +33,26 @@ describe("extractJson", () => {
 });
 
 describe("normalizeDraft", () => {
-  it("keeps what was actually stated", () => {
-    expect(normalizeDraft({ tag: "UIC-1099", modelName: "DeWalt DCH273" })).toEqual({
+  it("keeps what was actually stated across the three model fields", () => {
+    expect(normalizeDraft({ tag: "UIC-1099", make: "DeWalt", modelNumber: "DCH273", description: "rotary hammer" })).toEqual({
       tag: "UIC-1099",
-      modelName: "DeWalt DCH273",
+      make: "DeWalt",
+      modelNumber: "DCH273",
+      description: "rotary hammer",
+      serialNumber: null,
+      categoryName: null,
+      acquisitionCost: null,
+    });
+  });
+
+  it("accepts a description-only draft", () => {
+    /* A tool described with no brand and no catalogue number is the ordinary
+       case for a yard sheet, not a gap — see docs/12-model-field-split.md. */
+    expect(normalizeDraft({ description: "the big grinder" })).toEqual({
+      tag: null,
+      make: null,
+      modelNumber: null,
+      description: "the big grinder",
       serialNumber: null,
       categoryName: null,
       acquisitionCost: null,
@@ -45,14 +61,17 @@ describe("normalizeDraft", () => {
 
   it("flattens every way a model says 'not stated'", () => {
     /* Without this, "N/A" is written into the register as a serial number and
-       the tool is findable by searching for N/A. */
+       the tool is findable by searching for N/A. Small models emit the same
+       noise in every draft field, not just one. */
     for (const v of ["", "  ", "null", "N/A", "unknown", "-", "TBD", "none"]) {
       expect(normalizeDraft({ serialNumber: v })).toBeNull();
+      expect(normalizeDraft({ make: v })).toBeNull();
+      expect(normalizeDraft({ description: v })).toBeNull();
     }
   });
 
   it("is null when nothing survived", () => {
-    expect(normalizeDraft({ tag: "unknown", modelName: "" })).toBeNull();
+    expect(normalizeDraft({ tag: "unknown", make: "", description: "" })).toBeNull();
     expect(normalizeDraft(null)).toBeNull();
     expect(normalizeDraft("a string")).toBeNull();
   });

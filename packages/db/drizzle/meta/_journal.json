@@ -36,6 +36,13 @@
       "when": 1785448709732,
       "tag": "0004_tense_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785600673737,
+      "tag": "0005_department_model_split",
+      "breakpoints": true
     }
   ]
 }
