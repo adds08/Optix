@@ -7,11 +7,18 @@ this:
 ```
 TE-006   ALEJANDRO CAPUCHINO            LONE STAR #22018
 
-DATE       QTY  DESCRIPTION                    MAKE     MODEL       SERIAL #    OTHER
+DATE       QTY  DESCRIPTION                    MAKE     MODEL       SERIAL #    OTHER   (unlabelled)
 1/17/2024   1   HAMMER DRILL EXTREME BULL DOG  BOSCH    11255VSR    331009023   NEW
-1/17/2024   1   4-1/2" ANGEL GRAINDER          BOSCH    GWS10-450P  329033250   NEW
-1/17/2024   1   ELECTRIC DRILL 1/2"            DEWALL   DW511       DKJM5J0     RETURN 1/19/24
+1/17/2024   1   ELECTRIC DRILL 1/2"            DEWALL   DW511       DKJM5J0     USED    RETURN 1/19/24
+1/24/2024   1   LEAF BLOWER                    STIHL    BG56C       539161106   NEW     106
+4/3/2024    1   Plate Compactor                WACKER   WP1550AW    10835754    USED    PC-08
+7/31/2024   1   QUIKIE SAW                     STIHL    TS-420      195116602   NEW     QS-602
 ```
+
+Note what `OTHER` actually contains: `NEW` and `USED`. It is the tool's
+condition, not a reference number. The equipment numbers — `PC-08`, `QS-602`,
+`106` — and the occasional status note like `RETURN 1/19/24` live in a ninth
+column with no header at all.
 
 Those sheets are the system of record until this replaces them, and they will
 keep being produced by people who are not going to stop using Excel. So the
@@ -112,18 +119,77 @@ In `packages/types/src/import-specs.ts`, replace the single `model` column in
   example: "DCH273", hint: "The manufacturer's number. Blank is fine." },
 ```
 
-and beside `serial`:
+`OTHER` maps to the existing `condition` column, not to `otherRef`. It holds
+`NEW` and `USED`, and `ASSET_CONDITIONS` is `new | good | fair | poor |
+damaged` — so `USED` needs folding onto `good`, which is what the yard means by
+it. Add that to the alias handling rather than widening the enum:
 
 ```ts
-{ key: "otherRef", header: "other", type: "text", example: "PC-08",
-  hint: "A second equipment number, if the yard keeps one." },
+{ key: "condition", header: "other", type: "enum", values: ASSET_CONDITIONS,
+  example: "new",
+  hint: "NEW or USED on the trailer sheets. USED is recorded as good." },
 ```
+
+The unlabelled ninth column is where `otherRef` comes from, and a column with no
+header cannot be matched by name. Two options, and the second is better:
+
+- Ask the yard to add an `OTHER REF` header to the sheets. Depends on people
+  changing a habit, which is the thing this document exists to avoid.
+- Have the parser name unlabelled trailing columns positionally —
+  `column_8`, `column_9` — and let the spec alias `column_8` to `otherRef` for
+  the asset entity. Ugly, and it is the only option that reads the file as it
+  actually exists.
+
+Either way `otherRef` is doing two jobs in that column: an equipment number
+(`PC-08`) and a status note (`RETURN 1/19/24`). Import both verbatim. A returned
+tool is a custody event, and text in a column will never trigger anything, but
+parsing English out of a spreadsheet cell is worse — the desk can clean those
+few rows by hand.
 
 `description` is the required one, not `make`. A sheet row can plausibly lack a
 brand — `"7-1/4\" WARM DRIVE CIRCLE SAW  SKILL SAW"` has the brand in the
 description already — but a row with no description is not a tool record. This
 matches the router rule in `docs/12-model-field-split.md`: at least one of make
 or description, with description the one the importer insists on.
+
+## The sheets have no asset tag
+
+This is the blocker, and it is not a code bug — it is a gap between what the
+register requires and what Urban actually records.
+
+`IMPORT_SPECS.asset` has `unique: ["tag", "serialNumber"]` and `tag` is
+`required: true`. Urban's sheets have no tag column. Running a real sheet
+through the fixed header matching gets as far as:
+
+```
+required in spec         : tag, model
+missing after normalising: tag
+```
+
+Every other column now resolves. `tag` cannot, because it is not in the file and
+never has been — the yard identifies a tool by its serial number and, for some
+categories, by the equipment number in the unlabelled column (`PC-08`).
+
+Three ways out, in order of preference:
+
+1. **Generate the tag on import.** The importer allocates the next `UIC-xxxx`
+   per tenant for any row without one, and the export writes it back, so the
+   sheet gains a tag column the first time it round-trips. This is the only
+   option where the yard has to change nothing and the register still gets the
+   stable identifier it needs, and it puts the tag on the physical tool via the
+   printed sheet.
+2. **Use the equipment number where one exists.** `PC-08` and `QS-602` are real
+   identifiers the yard already uses out loud. But most rows do not have one, so
+   this only ever solves part of the file.
+3. **Make `tag` optional and dedupe on `serialNumber` alone.** Cheapest, and it
+   gives up the thing that makes a tool findable when the serial plate is worn
+   off or was never recorded — three rows on the sample sheet have no serial
+   either.
+
+Take option 1. It needs a per-tenant counter — the same mechanism
+`docs/15-vendors-and-orders.md` proposes for order numbers, so build it once.
+
+Until this is decided, no real sheet imports, regardless of the header fix.
 
 ## Export
 

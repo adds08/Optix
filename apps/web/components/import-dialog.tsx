@@ -76,17 +76,25 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const { headers, rows } = parseCsv(String(reader.result ?? ""));
+        const { headers, rawHeaders, rows } = parseCsv(String(reader.result ?? ""));
         if (!rows.length) {
           setParseError("That file has a header but no rows.");
           setParsed(null);
           return;
         }
+        /* Matched against the normalised headers, so "SERIAL #" satisfies
+           "serial". The message quotes the file's own header line back, because
+           the useful question when this fails is "what did it see", and the
+           spec names alone left the user comparing a list to a column they
+           could plainly see in their spreadsheet. */
         const missing = spec.columns
           .filter((c) => c.required && !headers.includes(c.header))
           .map((c) => c.header);
         if (missing.length) {
-          setParseError(`Missing required column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);
+          setParseError(
+            `Missing required column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}. ` +
+              `The file's columns are: ${rawHeaders.join(", ")}.`,
+          );
           setParsed(null);
           return;
         }

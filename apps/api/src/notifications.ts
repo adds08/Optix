@@ -2,7 +2,7 @@
 // In MVP, detection runs on a scheduler interval; delivery is best-effort with a
 // console fallback when SMTP/Twilio credentials are absent.
 
-import { and, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, isNull, lte } from "drizzle-orm";
 import { isRentalOverdue, isRentalDueSoon } from "@stinventory/domain";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";

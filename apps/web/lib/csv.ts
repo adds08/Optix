@@ -84,13 +84,53 @@ export function parseCsvRows(text: string): string[][] {
   return rows.filter((r) => r.some((cell) => cell.trim() !== ""));
 }
 
-/** Parse into objects keyed by the header row. Unknown columns are kept — the
-    server ignores them, and dropping them here would hide a typo'd header. */
-export function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
-  const raw = parseCsvRows(text);
-  if (!raw.length) return { headers: [], rows: [] };
+/*
+  The same column under whatever name the sheet gave it.
 
-  const headers = raw[0]!.map((h) => h.trim());
+  Import specs declare lowercase headers — "serial", "quantity". The sheets this
+  has to swallow are kept by people, not generated from our template, and say
+  "SERIAL #", "Qty", "MODEL". Matching those exactly meant a real file was
+  rejected for missing columns the user could see in front of them, which is not
+  an error message anybody can act on.
+
+  Case and whitespace are handled by normalizeHeader itself; this table is only
+  for names that differ by more than that.
+*/
+const HEADER_ALIASES: Record<string, string> = {
+  "serial #": "serial",
+  "serial#": "serial",
+  "serial no": "serial",
+  "serial number": "serial",
+  qty: "quantity",
+  make: "make",
+  date: "purchased_on",
+  "purchase date": "purchased_on",
+  "purchased on": "purchased_on",
+  desc: "description",
+  cost: "cost",
+  "unit cost": "cost",
+};
+
+/** Fold a sheet's header onto the spec's name for it. Exported so the import
+    dialog can report what it actually matched. */
+export function normalizeHeader(h: string): string {
+  const k = h.trim().toLowerCase().replace(/\s+/g, " ");
+  return HEADER_ALIASES[k] ?? k;
+}
+
+/** Parse into objects keyed by the header row, normalised to spec names.
+    Unknown columns are kept — the server ignores them, and dropping them here
+    would hide a typo'd header. */
+export function parseCsv(text: string): {
+  headers: string[];
+  rawHeaders: string[];
+  rows: Record<string, string>[];
+} {
+  const raw = parseCsvRows(text);
+  if (!raw.length) return { headers: [], rawHeaders: [], rows: [] };
+
+  const rawHeaders = raw[0]!.map((h) => h.trim());
+  const headers = rawHeaders.map(normalizeHeader);
   const rows = raw.slice(1).map((cells) => {
     const obj: Record<string, string> = {};
     headers.forEach((h, i) => {
@@ -99,5 +139,5 @@ export function parseCsv(text: string): { headers: string[]; rows: Record<string
     return obj;
   });
 
-  return { headers, rows };
+  return { headers, rawHeaders, rows };
 }

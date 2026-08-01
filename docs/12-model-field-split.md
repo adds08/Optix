@@ -9,7 +9,7 @@ kept per foreman, exported from United Rentals and maintained by hand — have
 separate columns:
 
 ```
-DATE | QTY | DESCRIPTION | MAKE | MODEL | SERIAL # | OTHER
+DATE | QTY | DESCRIPTION | MAKE | MODEL | SERIAL # | OTHER | (unlabelled)
 ```
 
 Until the register speaks that shape, import cannot round-trip, export cannot
@@ -44,9 +44,10 @@ Four nullable columns on `asset`, in `packages/db/src/schema/asset.ts`:
 make: text("make"),
 modelNumber: text("model_number"),
 description: text("description"),
-/* The "OTHER" column on the trailer sheets: a secondary equipment number
-   ("PC-08", "QS-602"), not a note. Free text because the yard's numbering is
-   not ours to constrain. */
+/* The unlabelled trailing column on the trailer sheets: a secondary equipment
+   number ("PC-08", "QS-602", "106"). Free text because the yard's numbering is
+   not ours to constrain. Note this is NOT the sheets' "OTHER" column, which
+   holds NEW/USED and maps to `condition` — see docs/13-excel-round-trip.md. */
 otherRef: text("other_ref"),
 ```
 
@@ -64,21 +65,26 @@ unenterable.
 | MODEL | `modelNumber` | "11255VSR", "GWS10-450P". Often absent |
 | DESCRIPTION | `description` | "Hammer Drill Extreme Bull Dog" |
 | SERIAL # | `serialNumber` | Already exists, unchanged |
-| OTHER | `otherRef` | "PC-08", "QS-602", "106" |
+| OTHER | `condition` | Already exists. Holds NEW/USED, not a reference number |
+| (unlabelled) | `otherRef` | "PC-08", "QS-602", "106" |
 | QTY | `quantity` | Already exists |
 | DATE | `acquisitionDate` | Already exists |
+
+Read that table against the real sheet before trusting it. `OTHER` is the
+condition column — `NEW`, `USED` — and the equipment numbers sit in a further
+column with no header at all. Getting those two the wrong way round puts
+`PC-08` into a condition enum and `USED` into a reference field, and neither
+fails loudly.
 
 `otherRef` is specified here rather than in the import document because it is a
 column on `asset` and belongs in the same migration. Splitting it into a second
 migration would touch this table twice in a row for no benefit.
 
-One caution on OTHER: the real sheets use it for two different things — a
-secondary number (`PC-08`) and a status note (`RETURN 1/19/24`, in red). Only
-the first belongs in `otherRef`. A returned tool is a custody event, and putting
-"RETURN 1/19/24" in a text column means it will never appear in a report, never
-trigger anything, and never be searchable. Import should carry it into
-`otherRef` verbatim rather than trying to parse it, and the desk can clean those
-rows up afterwards — but do not build parsing for it.
+That unlabelled column is doing two jobs: a secondary number (`PC-08`) and a
+status note (`RETURN 1/19/24`, in red). Import both verbatim into `otherRef`. A
+returned tool is really a custody event, and text in a column will never appear
+in a report or trigger anything — but parsing English out of a spreadsheet cell
+is worse, and the desk can clean up the few rows that need it.
 
 ## Dropping `modelName`
 
@@ -129,8 +135,17 @@ vestigial and superseded, and leave the cleanup to its own change.
 Fifteen or so places currently render `modelName` directly. They should not each
 invent their own join.
 
-In `packages/frontend-shared/src/types.ts`, which both web and mobile already
-import:
+It goes in `packages/types` — specifically a new
+`packages/types/src/format.ts`, re-exported from `index.ts`.
+
+Not `packages/frontend-shared`, despite the name. That package is dead: nothing
+declares it as a dependency and nothing imports it anywhere in the repo. Both
+`apps/web` and `apps/mobile` depend on exactly two workspace packages,
+`@stinventory/types` and `@stinventory/api-contracts`, so a helper placed in
+`frontend-shared` would be unreachable without first wiring up a new dependency.
+Its `types.ts` row types are likewise unused and are not the shared contract
+they look like — do not update them as part of this work, and do not trust them
+as a description of what the apps render.
 
 ```ts
 /* One place that decides how the four columns read as a single line, so a
@@ -145,8 +160,14 @@ export function formatAssetModel(a: {
 }
 ```
 
-Most display sites become `formatAssetModel(row)`. The row types in that same
-file grow `make`, `modelNumber`, `description`, `otherRef`.
+Most display sites become `formatAssetModel(row)`. `apps/api` can import it too
+— it already depends on `@stinventory/types` — so `notifications.ts` and
+`rest-routes.ts` use the same function rather than their own join.
+
+The row shapes the apps actually render come from `@stinventory/api-contracts`
+via tRPC inference, not from a hand-written type, so they follow the routers
+automatically once the selects change. There is no separate row-type file to
+update.
 
 ## The two places needing real logic, not renames
 
@@ -258,8 +279,8 @@ Follow this order. The type errors from each step point at the next.
 
 1. **Schema** — four columns, drop `modelName`, migration with the crude
    backfill, rewrite `seed.ts`
-2. **`packages/frontend-shared/src/types.ts`** — row types plus
-   `formatAssetModel()`
+2. **`packages/types/src/format.ts`** (new) — `formatAssetModel()`, re-exported
+   from `packages/types/src/index.ts`
 3. **Intent** — `prompt.ts` guidance, `parse.ts` `AssetDraft` and
    `normalizeDraft`, `parse.test.ts`
 4. **`apply-action.ts`** — `AssetDraft` type, `applyIntake` validation and

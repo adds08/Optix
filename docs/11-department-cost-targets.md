@@ -180,7 +180,12 @@ Two new permissions in `packages/types/src/index.ts` `PERMISSIONS`:
 "department.manage",
 ```
 
-Grant both to `owner` and `equipment_admin` in `seed.ts`'s `ROLE_PERMS`.
+`seed.ts` needs no change for these. `ROLE_PERMS` gives `owner` and
+`equipment_admin` `[...PERMISSIONS]`, so anything added to that array reaches
+both automatically. Decide deliberately whether `warehouse` should get
+`department.read` — its grant is an explicit list, so it will not pick these up,
+and a warehouse clerk who cannot read departments will see blank cost targets on
+the register.
 
 ## Custodian pickers
 
@@ -337,7 +342,9 @@ the existing if/else chain in `apps/web/app/(app)/reports/[slug]/page.tsx`.
 3. `packages/types/src/enums.ts` — `mechanic`, `COST_TARGETS`, `CUSTODIAN_ROLES`
 4. `packages/types/src/index.ts` — two permissions
 5. `generate`, hand-add seed + backfill, `migrate`
-6. `packages/db/src/seed.ts` — department row, `ROLE_PERMS` grants, optionally a demo mechanic employee
+6. `packages/db/src/seed.ts` — seed the department row and a demo mechanic
+   employee. `ROLE_PERMS` needs no edit unless `warehouse` is to get
+   `department.read`
 7. `packages/api-contracts/src/routers/department.ts` (new) + root router
 8. `packages/api-contracts/src/routers/asset.ts` — inputs + superRefine
 9. `packages/api-contracts/src/routers/report.ts` — two queries

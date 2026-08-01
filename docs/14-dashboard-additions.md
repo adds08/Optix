@@ -132,13 +132,15 @@ No schema changes, no interaction with custody, no new permissions.
    card, adjust the existing card to take only `pending_approval`
 3. `home/page.tsx` — add the three `Metric` tiles: capital on jobs, capital in
    the shop, idle, missing serials
-4. Check the `attention === 0` empty-state condition still holds: it currently
-   sums overdue, clearance and approvals to decide whether to show "Nothing is
-   waiting", and it must include the borrow count or that empty state will lie
-   while loans sit unverified
+4. Leave the `attention` count summing the **full** `approvals.data`, not the
+   filtered `holds`
 
-Step 4 is the one that is easy to miss and produces a visible falsehood —
-"The yard is square" printed above an unread verification queue.
+Step 4 is the trap. `attention` decides whether to replace all three cards with
+the "Nothing is waiting / The yard is square" empty state, and it currently sums
+`overdue + clearance + approvals`. Because `pendingApprovals` already returns
+borrows alongside held requests, that total is correct as it stands. Rewiring it
+to the filtered `holds` while adding the new card would print "The yard is
+square" above an unread verification queue.
 
 ## Verification
 
