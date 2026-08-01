@@ -103,14 +103,16 @@
   --chart-4: oklch(0.525 0.163 28);
   --chart-5: oklch(0.545 0.012 245);
 
-  /* Sidebar reads as part of the page, not a dark slab bolted to its side. */
-  --sidebar: oklch(0.968 0.006 240);
-  --sidebar-foreground: oklch(0.30 0.016 245);
+  /* Sidebar is a panel, not part of the page: close enough in value to stay
+     light, different enough (darker, cooler) that the edge is obvious at a
+     glance. The page background is ~0.99; this sits ~0.94. */
+  --sidebar: oklch(0.94 0.015 234);
+  --sidebar-foreground: oklch(0.28 0.018 245);
   --sidebar-primary: oklch(0.505 0.093 227);
   --sidebar-primary-foreground: oklch(0.99 0.002 240);
-  --sidebar-accent: oklch(0.932 0.016 230);
+  --sidebar-accent: oklch(0.898 0.022 228);
   --sidebar-accent-foreground: oklch(0.31 0.055 227);
-  --sidebar-border: oklch(0.902 0.008 240);
+  --sidebar-border: oklch(0.87 0.014 236);
   --sidebar-ring: oklch(0.505 0.093 227);
 }
 
@@ -153,13 +155,13 @@
   --chart-4: oklch(0.688 0.135 28);
   --chart-5: oklch(0.665 0.012 245);
 
-  --sidebar: oklch(0.198 0.013 245);
+  --sidebar: oklch(0.16 0.017 240);
   --sidebar-foreground: oklch(0.885 0.008 240);
   --sidebar-primary: oklch(0.715 0.105 222);
   --sidebar-primary-foreground: oklch(0.172 0.012 245);
-  --sidebar-accent: oklch(0.272 0.028 228);
+  --sidebar-accent: oklch(0.245 0.032 226);
   --sidebar-accent-foreground: oklch(0.88 0.045 222);
-  --sidebar-border: oklch(0.288 0.015 245);
+  --sidebar-border: oklch(0.245 0.018 240);
   --sidebar-ring: oklch(0.715 0.105 222);
 }
 
