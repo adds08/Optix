@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowRight, CheckCircle2, Handshake, UserMinus } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
@@ -12,12 +13,24 @@ import { PageHeader, Metric, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { dateTime, money, num, relative } from "@/lib/format";
+import { FleetLegend } from "@/components/fleet-map-view";
 
 /*
   The desk dashboard answers one question first: what needs a person today.
   Counts come second. A dashboard that leads with totals and buries the six
   overdue loans is a dashboard people stop opening.
+
+  The fleet map is loaded client-side only (Leaflet touches the DOM on import),
+  so it comes in via dynamic — the dashboard stays fast on first paint and the
+  map fills in after.
 */
+const FleetMapPanel = dynamic(
+  () => import("@/components/fleet-map-view").then((m) => m.FleetMapView),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-80 w-full rounded-md" />,
+  },
+);
 export default function HomePage() {
   const router = useRouter();
   const { role } = usePermissions();
@@ -201,6 +214,21 @@ export default function HomePage() {
           <Metric label="Terminated staff" value={num(k?.terminatedCount)} loading={kpis.isLoading} />
           <Metric label="Held by terminated" value={num(k?.clearanceCount)} loading={kpis.isLoading} tone={k?.clearanceCount ? "crit" : "ok"} />
         </div>
+      </section>
+
+      {/* ---- fleet position ---- */}
+      {/* The fleet, right now, without leaving the dashboard. The map shows
+          trucks and trailers only; gang boxes, containers and yards have no
+          coordinates yet (see docs/18). */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">Fleet position</h2>
+          <Link href="/map" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+            Open fleet map <ArrowRight className="size-3.5" />
+          </Link>
+        </div>
+        <FleetMapPanel className="h-80" />
+        <FleetLegend />
       </section>
 
       {/* ---- activity ---- */}
