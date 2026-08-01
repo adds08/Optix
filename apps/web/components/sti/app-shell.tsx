@@ -32,10 +32,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const prefs = trpc.preferences.get.useQuery(undefined, { enabled: ready });
 
   /* Theme: hydrate dark mode from storage/preference, hydrate prefs from the
-     server row, then apply whenever either changes. */
+     server row, then apply whenever either changes.
+
+     The apply effect reads the STORE, not the query — the settings page
+     previews by writing the store, and an effect keyed on the query result
+     would never see those writes. The query only hydrates the store once. */
   const dark = useThemeStore((s) => s.dark);
   const setDark = useThemeStore((s) => s.setDark);
   const setPrefs = useThemeStore((s) => s.setPrefs);
+  const storePrefs = useThemeStore((s) => s.prefs);
 
   useEffect(() => {
     const saved = localStorage.getItem("sti-theme");
@@ -50,8 +55,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     /* Fall back to defaults before the preference row arrives, so the engine
        never flashes un-themed. */
-    applyTheme((prefs.data as ThemePrefs | undefined) ?? DEFAULT_PREFS, dark);
-  }, [prefs.data, dark]);
+    applyTheme(storePrefs ?? DEFAULT_PREFS, dark);
+  }, [storePrefs, dark]);
 
   useEffect(() => {
     if (me.isError) {
