@@ -20,9 +20,10 @@ import { FleetLegend } from "@/components/fleet-map-view";
   Counts come second. A dashboard that leads with totals and buries the six
   overdue loans is a dashboard people stop opening.
 
-  The fleet map is loaded client-side only (Leaflet touches the DOM on import),
-  so it comes in via dynamic — the dashboard stays fast on first paint and the
-  map fills in after.
+  The top row splits 60/40: the work queue on the left, the fleet map on the
+  right — the two things the desk actually looks at, side by side. The map is
+  loaded client-side only (Leaflet touches the DOM on import), so it comes in
+  via dynamic and fills in after first paint.
 */
 const FleetMapPanel = dynamic(
   () => import("@/components/fleet-map-view").then((m) => m.FleetMapView),
@@ -31,6 +32,7 @@ const FleetMapPanel = dynamic(
     loading: () => <Skeleton className="h-80 w-full rounded-md" />,
   },
 );
+
 export default function HomePage() {
   const router = useRouter();
   const { role } = usePermissions();
@@ -79,100 +81,116 @@ export default function HomePage() {
         description="Everything below is folded from the transaction log — the same source the reports read."
       />
 
-      {/* ---- needs attention, first ---- */}
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">Needs a person</h2>
+      {/* ---- what needs a person (60%) and where the fleet is (40%) ---- */}
+      <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
+        <section className="flex flex-col gap-3 lg:col-span-3">
+          <h2 className="text-sm font-medium">Needs a person</h2>
 
-        {overdue.isLoading || clearance.isLoading || approvals.isLoading ? (
-          <div className="grid gap-3 lg:grid-cols-3">
-            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-40" />)}
+          {overdue.isLoading || clearance.isLoading || approvals.isLoading ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-40" />)}
+            </div>
+          ) : attention === 0 ? (
+            <EmptyState
+              icon={CheckCircle2}
+              title="Nothing is waiting"
+              description="No overdue loans, no clearance queue, and no approvals or hand-offs pending. The yard is square."
+            />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <AttentionCard
+                tone="crit"
+                icon={AlertTriangle}
+                title="Overdue loans"
+                count={overdue.data?.length ?? 0}
+                href="/custody"
+                empty="No loan is past its due date."
+              >
+                {(overdue.data ?? []).slice(0, 4).map((o) => (
+                  <Row
+                    key={o.id}
+                    left={<Tag>{o.tag}</Tag>}
+                    mid={o.custodianName ?? "—"}
+                    right={
+                      <span className="text-crit tnum">
+                        {o.daysOverdue}d over
+                      </span>
+                    }
+                  />
+                ))}
+              </AttentionCard>
+
+              <AttentionCard
+                tone="crit"
+                icon={UserMinus}
+                title="HR clearance"
+                count={clearance.data?.length ?? 0}
+                href="/people"
+                empty="No terminated employee is still holding a tool."
+              >
+                {(clearance.data ?? []).slice(0, 4).map((c, i) => (
+                  <Row
+                    key={i}
+                    left={<Tag>{c.tag}</Tag>}
+                    mid={c.custodianName ?? "—"}
+                    right={<StatusPill status={c.status} />}
+                  />
+                ))}
+              </AttentionCard>
+
+              <AttentionCard
+                tone="warn"
+                icon={AlertTriangle}
+                title="Awaiting approval"
+                count={holds.length}
+                href="/inbox"
+                empty="No hand-off is waiting on a signature."
+              >
+                {holds.slice(0, 4).map((p) => (
+                  <Row
+                    key={p.id}
+                    left={<Tag>{p.assetTag}</Tag>}
+                    mid={`${p.type} · ${p.custodianName ?? "—"}`}
+                    right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
+                  />
+                ))}
+              </AttentionCard>
+
+              <AttentionCard
+                tone="warn"
+                icon={Handshake}
+                title="Loans to verify"
+                count={borrows.length}
+                href="/inbox"
+                empty="No foreman hand-off is waiting to be checked."
+              >
+                {borrows.slice(0, 4).map((p) => (
+                  <Row
+                    key={p.id}
+                    left={<Tag>{p.assetTag}</Tag>}
+                    mid={`${p.fromName ?? "Somebody"} → ${p.custodianName ?? "—"}`}
+                    right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
+                  />
+                ))}
+              </AttentionCard>
+            </div>
+          )}
+        </section>
+
+        {/* The fleet, right now, beside the work queue. The map shows trucks
+            and trailers with the small tools aboard them; gang boxes,
+            containers and yards have no coordinates yet (see docs/18). */}
+        <section className="flex flex-col gap-3 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium">Fleet position</h2>
+            <Link href="/map" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+              Open full map <ArrowRight className="size-3.5" />
+            </Link>
           </div>
-        ) : attention === 0 ? (
-          <EmptyState
-            icon={CheckCircle2}
-            title="Nothing is waiting"
-            description="No overdue loans, no clearance queue, and no approvals or hand-offs pending. The yard is square."
-          />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-4">
-            <AttentionCard
-              tone="crit"
-              icon={AlertTriangle}
-              title="Overdue loans"
-              count={overdue.data?.length ?? 0}
-              href="/custody"
-              empty="No loan is past its due date."
-            >
-              {(overdue.data ?? []).slice(0, 4).map((o) => (
-                <Row
-                  key={o.id}
-                  left={<Tag>{o.tag}</Tag>}
-                  mid={o.custodianName ?? "—"}
-                  right={
-                    <span className="text-crit tnum">
-                      {o.daysOverdue}d over
-                    </span>
-                  }
-                />
-              ))}
-            </AttentionCard>
-
-            <AttentionCard
-              tone="crit"
-              icon={UserMinus}
-              title="HR clearance"
-              count={clearance.data?.length ?? 0}
-              href="/people"
-              empty="No terminated employee is still holding a tool."
-            >
-              {(clearance.data ?? []).slice(0, 4).map((c, i) => (
-                <Row
-                  key={i}
-                  left={<Tag>{c.tag}</Tag>}
-                  mid={c.custodianName ?? "—"}
-                  right={<StatusPill status={c.status} />}
-                />
-              ))}
-            </AttentionCard>
-
-            <AttentionCard
-              tone="warn"
-              icon={AlertTriangle}
-              title="Awaiting approval"
-              count={holds.length}
-              href="/inbox"
-              empty="No hand-off is waiting on a signature."
-            >
-              {holds.slice(0, 4).map((p) => (
-                <Row
-                  key={p.id}
-                  left={<Tag>{p.assetTag}</Tag>}
-                  mid={`${p.type} · ${p.custodianName ?? "—"}`}
-                  right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
-                />
-              ))}
-            </AttentionCard>
-
-            <AttentionCard
-              tone="warn"
-              icon={Handshake}
-              title="Loans to verify"
-              count={borrows.length}
-              href="/inbox"
-              empty="No foreman hand-off is waiting to be checked."
-            >
-              {borrows.slice(0, 4).map((p) => (
-                <Row
-                  key={p.id}
-                  left={<Tag>{p.assetTag}</Tag>}
-                  mid={`${p.fromName ?? "Somebody"} → ${p.custodianName ?? "—"}`}
-                  right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
-                />
-              ))}
-            </AttentionCard>
-          </div>
-        )}
-      </section>
+          <FleetMapPanel className="h-80" />
+          <FleetLegend />
+        </section>
+      </div>
 
       {/* ---- the numbers ---- */}
       <section className="flex flex-col gap-3">
@@ -214,21 +232,6 @@ export default function HomePage() {
           <Metric label="Terminated staff" value={num(k?.terminatedCount)} loading={kpis.isLoading} />
           <Metric label="Held by terminated" value={num(k?.clearanceCount)} loading={kpis.isLoading} tone={k?.clearanceCount ? "crit" : "ok"} />
         </div>
-      </section>
-
-      {/* ---- fleet position ---- */}
-      {/* The fleet, right now, without leaving the dashboard. The map shows
-          trucks and trailers only; gang boxes, containers and yards have no
-          coordinates yet (see docs/18). */}
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Fleet position</h2>
-          <Link href="/map" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-            Open fleet map <ArrowRight className="size-3.5" />
-          </Link>
-        </div>
-        <FleetMapPanel className="h-80" />
-        <FleetLegend />
       </section>
 
       {/* ---- activity ---- */}

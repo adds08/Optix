@@ -65,7 +65,9 @@ export const DESK_NAV: NavGroup[] = [
         "Truck 12". No mileage, no maintenance schedules, no driver assignment.
       */
       { href: "/locations", label: "Locations", icon: MapPin, perm: "location.read" },
-      { href: "/map", label: "Fleet Map", icon: Radio, perm: "location.read" },
+      /* The map is the fleet — trucks and trailers — with the small tools
+         aboard them, which is why it is not called just a vehicle map. */
+      { href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read" },
       /*
         Rented kit is a separate register on purpose. Urban does not own it,
         it has a return date, and it is the only equipment on the system that

@@ -83,11 +83,6 @@ export function VehicleMap() {
             <p className="text-sm text-muted-foreground">Every vehicle has a position.</p>
           )}
         </div>
-
-        <p className="text-xs text-muted-foreground">
-          Trucks and trailers only. Gang boxes, containers and yards have no coordinates yet —
-          mapping those is the larger "every small tool on a map" phase.
-        </p>
       </aside>
     </div>
   );
