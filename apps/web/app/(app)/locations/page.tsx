@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Download, MapPin } from "lucide-react";
+import { Download, MapPin, Radio } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
-import { Tag, humanize } from "@/components/sti/status";
+import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
 import { LocationForm, type LocationEditable } from "@/components/location-form";
@@ -95,6 +95,26 @@ export default function LocationsPage() {
         owningProjectName: r.owningProjectName,
       }));
     downloadCsv(`stinventory-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`, exportAssetsToSpec(rows, name));
+  };
+
+  /*
+    A unit with a live tracker reads "Online"; one that reported and stopped
+    reads "Offline"; one that never reported reads "No signal". The last case
+    is a fault on a company truck and entirely normal on a foreman's own
+    personal-allowance truck — the pill copy says which, because a red "no
+    signal" on a truck that was never meant to have a tracker would send
+    somebody to the yard for nothing.
+  */
+  const gpsPill = (v: (typeof vehs)[number]) => {
+    if (v.status === "online") return <StatusPill status="online" label="Online" />;
+    if (v.status === "offline") return <StatusPill status="offline" label="Offline" />;
+    return v.ownershipType === "personal_allowance" ? (
+      <span className="text-xs text-muted-foreground" title="Personal-allowance truck — no tracker installed">
+        No tracker
+      </span>
+    ) : (
+      <StatusPill status="no_signal" label="No signal" />
+    );
   };
 
   return (
@@ -238,8 +258,8 @@ export default function LocationsPage() {
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      {["Unit", "Type", "Held by", "Project", "Last position", "Tools aboard", ""].map((h, i) => (
-                        <th key={h || "actions"} className={`label-xs px-4 py-2.5 ${i >= 5 ? "text-right" : "text-left"}`}>{h}</th>
+                      {["Unit", "Type", "Held by", "Project", "Last position", "GPS", "Tools aboard", ""].map((h, i) => (
+                        <th key={h || "actions"} className={`label-xs px-4 py-2.5 ${i >= 6 ? "text-right" : "text-left"}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -253,6 +273,7 @@ export default function LocationsPage() {
                         <td className="px-4 py-2.5 text-muted-foreground">
                           {v.gpsAt ? relative(v.gpsAt) : "no signal yet"}
                         </td>
+                        <td className="px-4 py-2.5 text-right">{gpsPill(v)}</td>
                         <td className="px-4 py-2.5 text-right tnum">
                           {v.locationId ? (countByLocation.get(v.locationId) ?? 0) : 0}
                         </td>

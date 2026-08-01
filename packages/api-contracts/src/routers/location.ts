@@ -2,6 +2,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
+import { vehicleStatus, type VehicleStatus } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
@@ -315,7 +316,7 @@ export const vehicleRouter = router({
       if (input?.projectId) conditions.push(eq(schema.vehicle.projectId, input.projectId));
       const payee = alias(schema.employee, "payee");
       const foreman = alias(schema.employee, "foreman");
-      return ctx.db
+      const rows = await ctx.db
         .select({
           id: schema.vehicle.id,
           vehicleType: schema.vehicle.vehicleType,
@@ -330,6 +331,7 @@ export const vehicleRouter = router({
           gpsLat: schema.vehicle.gpsLat,
           gpsLng: schema.vehicle.gpsLng,
           gpsAt: schema.vehicle.gpsAt,
+          gpsSource: schema.vehicle.gpsSource,
           projectId: schema.vehicle.projectId,
           projectName: schema.project.name,
           foremanEmployeeId: schema.vehicle.foremanEmployeeId,
@@ -343,6 +345,12 @@ export const vehicleRouter = router({
         .leftJoin(foreman, eq(schema.vehicle.foremanEmployeeId, foreman.id))
         .leftJoin(schema.location, eq(schema.vehicle.locationId, schema.location.id))
         .where(and(...conditions));
+      return rows.map((r) => ({
+        ...r,
+        /* Derived once, server-side, so the locations page and the map cannot
+           disagree about whether a unit is online. See @stinventory/types/gps. */
+        status: vehicleStatus(r.gpsAt) as VehicleStatus,
+      }));
     }),
 
   updateGps: requirePermission("vehicle.manage")

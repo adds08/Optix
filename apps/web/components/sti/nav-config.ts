@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   MapPin,
   MessageSquare,
+  Radio,
   Settings,
   Truck,
   Users,
@@ -64,6 +65,7 @@ export const DESK_NAV: NavGroup[] = [
         "Truck 12". No mileage, no maintenance schedules, no driver assignment.
       */
       { href: "/locations", label: "Locations", icon: MapPin, perm: "location.read" },
+      { href: "/map", label: "Fleet Map", icon: Radio, perm: "location.read" },
       /*
         Rented kit is a separate register on purpose. Urban does not own it,
         it has a return date, and it is the only equipment on the system that

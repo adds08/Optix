@@ -48,6 +48,10 @@ const ASSET_TONE: Record<string, Tone> = {
   completed: "ok",
   cancelled: "idle",
   in_progress: "info",
+  /* vehicle GPS liveness — see @stinventory/types/gps */
+  online: "ok",
+  offline: "warn",
+  no_signal: "idle",
   /* message processing */
   queued: "idle",
   processing: "info",
