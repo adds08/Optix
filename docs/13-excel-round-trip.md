@@ -182,12 +182,8 @@ or description, with description the one the importer insists on.
 
 ## The sheets have no asset tag
 
-This is the blocker, and it is not a code bug — it is a gap between what the
-register requires and what Urban actually records.
-
-`IMPORT_SPECS.asset` has `unique: ["tag", "serialNumber"]` and `tag` is
-`required: true`. Urban's sheets have no tag column. Running a real sheet
-through the fixed header matching gets as far as:
+`IMPORT_SPECS.asset` has `tag` as `required: true`. Urban's sheets have no tag
+column. Running a real sheet through the fixed header matching gets as far as:
 
 ```
 required in spec         : tag, model
@@ -198,26 +194,19 @@ Every other column now resolves. `tag` cannot, because it is not in the file and
 never has been — the yard identifies a tool by its serial number and, for some
 categories, by the equipment number in the unlabelled column (`PC-08`).
 
-Three ways out, in order of preference:
+**Resolved: tags become optional.** A tag is a physical label somebody puts on a
+tool, not an identity the system assigns, so it exists in the register only once
+that has happened. `docs/17-optional-tags.md` specifies it, including what
+identifies an untagged tool on screen and how one gets tagged later.
 
-1. **Generate the tag on import.** The importer allocates the next `UIC-xxxx`
-   per tenant for any row without one, and the export writes it back, so the
-   sheet gains a tag column the first time it round-trips. This is the only
-   option where the yard has to change nothing and the register still gets the
-   stable identifier it needs, and it puts the tag on the physical tool via the
-   printed sheet.
-2. **Use the equipment number where one exists.** `PC-08` and `QS-602` are real
-   identifiers the yard already uses out loud. But most rows do not have one, so
-   this only ever solves part of the file.
-3. **Make `tag` optional and dedupe on `serialNumber` alone.** Cheapest, and it
-   gives up the thing that makes a tool findable when the serial plate is worn
-   off or was never recorded — three rows on the sample sheet have no serial
-   either.
+An earlier draft of this document recommended generating a `UIC-xxxx` per row on
+import. **Do not build that.** A generated number that is not written on the
+tool is right in the register and absent in reality, and it makes the list of
+tools still needing labels impossible to produce.
 
-Take option 1. It needs a per-tenant counter — the same mechanism
-`docs/15-vendors-and-orders.md` proposes for order numbers, so build it once.
-
-Until this is decided, no real sheet imports, regardless of the header fix.
+The dedupe consequence is in doc 17 and is worth reading before importing
+anything twice: a row with neither a tag nor a serial cannot be matched against
+an existing row at all.
 
 ## Export
 

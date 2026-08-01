@@ -42,9 +42,12 @@ The audit was worth more than the writing. Six things were wrong or unknown:
 
 **Urban's sheets have no asset tag column, and `tag` is required *and* unique.**
 So no real sheet imports even with the header fix. This is not a code bug — it
-is a gap between what the register demands and what the yard records. Blocks the
-entire import path until decided; recommendation is to generate the tag on
-import, the only option where the yard changes nothing.
+is a gap between what the register demands and what the yard records.
+
+Resolved the same day: tags become optional, and generating them was rejected. A
+tag is a physical label somebody puts on a tool, not an id the system assigns —
+a generated number that is not written on the tool is right in the register and
+absent in reality. Specified in `docs/17-optional-tags.md`.
 
 **`OTHER` is the condition column** — `NEW`/`USED` — not a reference number. The
 equipment numbers (`PC-08`, `QS-602`, `106`) sit in a further column with **no

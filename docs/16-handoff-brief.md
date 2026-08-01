@@ -1,7 +1,7 @@
 # Handoff brief
 
-Everything below is context for an implementer picking up docs 11 to 14. Read
-this first, then the phase document for whatever you are building.
+Everything below is context for an implementer picking up docs 11 to 14 and 17.
+Read this first, then the phase document for whatever you are building.
 
 ## The repository
 
@@ -117,8 +117,12 @@ clean when you start, something is wrong with your environment, not the code.
 
 ## Read the phase document before writing anything
 
-Each of docs 11 to 14 names the exact files, gives the schema changes as Drizzle
-columns, and flags the specific places where a rename is not enough. Those flags
-are there because somebody already checked; they are not speculation.
+Each of docs 11 to 14 and 17 names the exact files, gives the schema changes as
+Drizzle columns, and flags the specific places where a rename is not enough.
+Those flags are there because somebody already checked; they are not
+speculation.
+
+Docs 12 and 17 both alter `asset`. Build them together and generate **one**
+migration, not two.
 
 Doc 15 is a roadmap, not a build order. Do not implement it.
