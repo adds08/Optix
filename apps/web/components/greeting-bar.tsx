@@ -62,8 +62,16 @@ export function GreetingBar({
   const Icon = h < 12 ? Sun : h < 17 ? Sun : Sunset;
 
   return (
-    <div className="relative overflow-hidden rounded-md border bg-gradient-to-r from-primary/15 via-accent/25 to-card p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    /* Not a card. The gradient is a wash that fades to transparent, so the
+       band blends INTO the flat page background instead of sitting on top of
+       it — no border, no radius, no box. It lives above the tabs, greeting
+       whoever opened the dashboard regardless of the view below. */
+    <div className="relative overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/12 via-accent/8 to-transparent"
+      />
+      <div className="relative flex flex-wrap items-center justify-between gap-3 py-5">
         <div className="flex items-center gap-3">
           <Icon className="size-6 text-warn" />
           <div className="flex flex-col leading-tight">

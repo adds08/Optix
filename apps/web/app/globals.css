@@ -227,4 +227,129 @@
     opacity: 0;
     animation: sti-draw-in 0.6s ease-out forwards;
   }
+
+  /* ---- Auth panel: the yard, drawn (docs/20, E) -------------------------
+
+     The line art draws itself on rather than fading in. Every shape in an
+     `.sti-ink` svg carries pathLength="1", which normalises its geometry to
+     a single unit — so one dash rule animates paths, rects, circles and
+     arcs alike. Nothing measures a path in JS, and editing a `d` attribute
+     never desynchronises a hand-tuned dash length.
+
+     The hidden start state is declared INSIDE the no-preference query on
+     purpose. Reduced-motion visitors must land on the finished drawing; a
+     dashoffset declared outside would leave them staring at a blank panel,
+     which is the usual way "respecting the preference" gets broken. */
+  @keyframes sti-ink {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes sti-spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes sti-bubble {
+    0%, 100% { transform: translateX(-2.6px); }
+    50% { transform: translateX(2.6px); }
+  }
+  @keyframes sti-tape-blade {
+    0%, 100% { transform: scaleX(0.35); }
+    42%, 64% { transform: scaleX(1); }
+  }
+  @keyframes sti-tape-hook {
+    0%, 100% { transform: translateX(-13px); }
+    42%, 64% { transform: translateX(0); }
+  }
+  /* The custody route. Dashes march toward the job site so the line reads as
+     a direction of travel rather than a decorative border. -24 is three whole
+     1+7 periods, so the loop restart is invisible. */
+  @keyframes sti-march {
+    to { stroke-dashoffset: -24; }
+  }
+  /* One tool's journey: the yard, a pause at the truck — the hand-off this
+     product exists to record — then the site. The pause is the point. */
+  @keyframes sti-travel {
+    0%   { offset-distance: 0%;   opacity: 0; }
+    6%   { offset-distance: 0%;   opacity: 1; }
+    38%  { offset-distance: 50%;  opacity: 1; }
+    52%  { offset-distance: 50%;  opacity: 1; }
+    86%  { offset-distance: 100%; opacity: 1; }
+    95%  { offset-distance: 100%; opacity: 0; }
+    100% { offset-distance: 100%; opacity: 0; }
+  }
+  /* Each station flares as the token reaches it — the receipt, not the move. */
+  @keyframes sti-arrive {
+    0%   { opacity: 0; transform: scale(0.75); }
+    14%  { opacity: 0.28; transform: scale(1); }
+    46%  { opacity: 0; transform: scale(1.5); }
+    100% { opacity: 0; transform: scale(1.5); }
+  }
+  /* A scanner crossing the sheet, rarely. Background-position rather than a
+     transform so the travel distance is a share of the panel, not of the
+     element — the panel's width is a browser-window question. */
+  @keyframes sti-sweep {
+    0%   { background-position: -34% 0; opacity: 0; }
+    12%  { opacity: 1; }
+    72%  { opacity: 1; }
+    100% { background-position: 134% 0; opacity: 0; }
+  }
+
+  /* The route is a fixed curve in the diagram's own viewBox units, so the
+     token's path is written once here and mirrored by the `d` in the markup.
+     Keep the two in step. */
+  .sti-token {
+    offset-path: path("M48 80 Q124 42 200 80 T352 80");
+    offset-rotate: 0deg;
+  }
+
+  /* Teeth and expansion slots are dashes on a circle, not a dozen placed
+     ticks: one element per ring. Static under reduced motion is fine — a
+     blade standing still is still recognisably a blade. */
+  .ink-blade { stroke-dasharray: 3.2 6.45; }
+  .ink-blade-slots { stroke-dasharray: 4 8.57; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .sti-ink > * {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: sti-ink 1.5s cubic-bezier(0.65, 0, 0.35, 1) var(--ink-delay, 0s) forwards;
+    }
+    .sti-ink > :nth-child(2) { animation-delay: calc(var(--ink-delay, 0s) + 0.09s); }
+    .sti-ink > :nth-child(3) { animation-delay: calc(var(--ink-delay, 0s) + 0.18s); }
+    .sti-ink > :nth-child(4) { animation-delay: calc(var(--ink-delay, 0s) + 0.27s); }
+    .sti-ink > :nth-child(n + 5) { animation-delay: calc(var(--ink-delay, 0s) + 0.36s); }
+
+    /* Shapes that keep moving after they are drawn declare both animations;
+       the second simply waits out the first. */
+    .sti-ink .ink-bubble {
+      transform-box: view-box;
+      animation:
+        sti-ink 1.5s ease-out var(--ink-delay, 0s) forwards,
+        sti-bubble 3.4s ease-in-out 1.7s infinite;
+    }
+    .sti-ink .ink-tape-blade {
+      transform-box: view-box;
+      transform-origin: 32px 33px;
+      animation:
+        sti-ink 1.5s ease-out var(--ink-delay, 0s) forwards,
+        sti-tape-blade 6s ease-in-out 1.7s infinite;
+    }
+    .sti-ink .ink-tape-hook {
+      transform-box: view-box;
+      animation:
+        sti-ink 1.5s ease-out var(--ink-delay, 0s) forwards,
+        sti-tape-hook 6s ease-in-out 1.7s infinite;
+    }
+    .sti-ink .ink-blade,
+    .sti-ink .ink-blade-slots {
+      transform-box: view-box;
+      transform-origin: 32px 32px;
+      animation: sti-spin 26s linear infinite;
+    }
+    .sti-ink .ink-blade-slots { animation-direction: reverse; }
+
+    .sti-float { animation: sti-float-y 6s ease-in-out var(--ink-delay, 0s) infinite; }
+    .sti-route { animation: sti-march 1.4s linear infinite; }
+    .sti-token { animation: sti-travel 9s cubic-bezier(0.5, 0, 0.5, 1) infinite; }
+    .sti-arrive { animation: sti-arrive 9s ease-out var(--arrive-delay, 0s) infinite; }
+    .sti-sweep { animation: sti-sweep 19s cubic-bezier(0.4, 0, 0.6, 1) 3s infinite; }
+  }
 }

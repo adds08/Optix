@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Menu, Moon, PanelLeftClose, Sun, X } from "lucide-react";
+import { Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -182,19 +182,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Collapse toggle — desk only; a phone drawer never collapses. */}
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-          title={collapsed ? "Expand" : "Collapse"}
-          className={cn(
-            "hidden items-center justify-center border-t border-sidebar-border py-2 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground lg:flex",
-          )}
-        >
-          <PanelLeftClose className={cn("size-4 transition-transform", collapsed && "rotate-180")} />
-        </button>
-
         <div className={cn("border-t border-sidebar-border p-3", collapsed && "px-2")}>
           {me.isLoading ? (
             <Skeleton className="h-9 w-full" />
@@ -238,6 +225,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="size-5" />
           </button>
+          {/* Collapse toggle. It lives in the header, not at the rail's foot:
+              the control belongs where the eye already is at the top of the
+              page, and buried under the nav list it was a thing you had to go
+              looking for. Desk only — a phone drawer never collapses. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+            title={collapsed ? "Expand navigation" : "Collapse navigation"}
+            className="-ml-1 hidden text-muted-foreground hover:text-foreground lg:inline-flex"
+          >
+            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </Button>
           {/* Page context — the register's own title still tells you where you
               are; the dashboard drops it in favour of its tabs (docs/20). */}
           <span className={cn("truncate text-sm font-medium", pathname === "/home" && "hidden")}>

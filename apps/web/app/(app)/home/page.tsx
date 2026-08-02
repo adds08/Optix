@@ -138,9 +138,18 @@ export default function HomePage() {
   const idleCount = idleReport.data?.length ?? 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-1">
+      {/* ---- the greeting + weather wash, above everything (docs/20, B2) ----
+          Not part of either tab: it is the top of the page, greeting whoever
+          opened the dashboard regardless of the view below. */}
+      <GreetingBar
+        firstName={me.data?.firstName ?? "there"}
+        isDefault={defaultTab === "fleet"}
+        onSetDefault={() => { touched.current = true; setDefaultTab("fleet"); }}
+      />
+
       {/* ---- tabs: the page's only header ---- */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 border-b pb-3">
         <div className="flex overflow-hidden rounded-md border" role="group" aria-label="Dashboard view">
           {([["fleet", "Fleet at a Glance"], ["command", "Command Center"]] as const).map(([key, label]) => (
             <button
@@ -177,12 +186,6 @@ export default function HomePage() {
       <div key={tab} className="flex flex-col gap-6 animate-draw-in motion-safe">
         {tab === "fleet" ? (
         <>
-          <GreetingBar
-            firstName={me.data?.firstName ?? "there"}
-            isDefault={defaultTab === "fleet"}
-            onSetDefault={() => { touched.current = true; setDefaultTab("fleet"); }}
-          />
-
           {/* ---- what needs a person (60%) and where the fleet is (40%) ---- */}
           <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
             <section className="flex flex-col gap-3 lg:col-span-3">
