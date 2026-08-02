@@ -92,7 +92,7 @@ function HardHat() {
 
 function Drill() {
   return (
-    <Ink className="size-12">
+    <Ink className="size-14">
       <rect pathLength={1} x="11" y="17" width="27" height="16" rx="5.5" />
       <path pathLength={1} d="M38 21.5h6.5a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H38" />
       <path pathLength={1} d="M46.5 25.5H57" />
@@ -106,7 +106,7 @@ function Drill() {
 /* The bubble drifts because a level nobody is holding still is a level. */
 function Level() {
   return (
-    <Ink className="size-12">
+    <Ink className="size-14">
       <rect pathLength={1} x="3" y="26" width="58" height="13" rx="2.5" />
       <path pathLength={1} d="M15 26v13M49 26v13" />
       <rect pathLength={1} x="24" y="29.5" width="16" height="6" rx="3" />
@@ -115,13 +115,20 @@ function Level() {
   );
 }
 
+/* The rim is one closed zig-zag — twelve teeth alternating r=21 at every 30°
+   with r=17 at the 15° between. Drawn as the plate's actual outline rather
+   than ticks laid over a circle, which is what stops it reading as a sun. It
+   mitres, so the teeth come to points instead of the panel's usual round cap. */
 function SawBlade() {
   return (
-    <Ink className="size-12">
-      <circle pathLength={1} cx="32" cy="32" r="18" />
-      <circle pathLength={1} cx="32" cy="32" r="5.5" />
-      <circle className="ink-blade" cx="32" cy="32" r="21.5" />
-      <circle className="ink-blade-slots" cx="32" cy="32" r="12" />
+    <Ink className="size-14">
+      <path
+        className="ink-blade"
+        strokeLinejoin="miter"
+        d="M53 32L48.42 36.4L50.19 42.5L44.02 44.02L42.5 50.19L36.4 48.42L32 53L27.6 48.42L21.5 50.19L19.98 44.02L13.81 42.5L15.58 36.4L11 32L15.58 27.6L13.81 21.5L19.98 19.98L21.5 13.81L27.6 15.58L32 11L36.4 15.58L42.5 13.81L44.02 19.98L50.19 21.5L48.42 27.6Z"
+      />
+      <circle pathLength={1} cx="32" cy="32" r="11" />
+      <circle pathLength={1} cx="32" cy="32" r="4" />
     </Ink>
   );
 }
@@ -129,12 +136,14 @@ function SawBlade() {
 /* Blade out, blade back — the one gesture everybody in a yard recognises. */
 function TapeMeasure() {
   return (
-    <Ink className="size-12">
-      <rect pathLength={1} x="8" y="24" width="24" height="24" rx="5" />
-      <circle pathLength={1} cx="20" cy="36" r="7" />
-      <circle pathLength={1} cx="20" cy="36" r="2" />
-      <path pathLength={1} className="ink-tape-blade" d="M32 33h20" />
-      <path pathLength={1} className="ink-tape-hook" d="M52 28.5v9" />
+    <Ink className="size-14">
+      <rect pathLength={1} x="9" y="22" width="24" height="24" rx="6" />
+      <path pathLength={1} d="M13 22v-4h6v4" />
+      <circle pathLength={1} cx="21" cy="34" r="6.5" />
+      <circle pathLength={1} cx="21" cy="34" r="1.8" />
+      <path pathLength={1} d="M33 30.5h3v6h-3" />
+      <path pathLength={1} className="ink-tape-blade" d="M36 33.5h17" />
+      <path pathLength={1} className="ink-tape-hook" d="M53 29.5v8" />
     </Ink>
   );
 }
@@ -143,7 +152,7 @@ function TapeMeasure() {
    centres — the rotation is 45°, so the arithmetic is in the transform. */
 function Wrench() {
   return (
-    <Ink className="size-12">
+    <Ink className="size-14">
       <circle pathLength={1} cx="18" cy="46" r="7.5" />
       <circle pathLength={1} cx="18" cy="46" r="3.4" />
       <path pathLength={1} d="M51.5 20.6A7.5 7.5 0 1 1 43.4 12.5" />
@@ -168,7 +177,7 @@ const STATIONS = [
 
 function CustodyRoute() {
   return (
-    <div className="relative w-full max-w-[520px]">
+    <div className="relative w-full max-w-[620px]">
       <svg viewBox="0 0 400 160" className="w-full" fill="none" aria-hidden>
         <path
           className="sti-route"
@@ -192,7 +201,7 @@ function CustodyRoute() {
           <div className="relative grid size-14 place-items-center rounded-lg border bg-card shadow-sm">
             <span
               aria-hidden
-              className="sti-arrive absolute -inset-1 rounded-xl bg-primary opacity-0"
+              className="sti-arrive absolute -inset-2 rounded-2xl bg-primary opacity-0 blur-[7px]"
               style={{ "--arrive-delay": s.arrive } as Vars}
             />
             <span className="relative">{s.icon}</span>
@@ -264,7 +273,7 @@ export function AuthPanel() {
           short viewport — the route carries the idea on its own. */}
       <div className="relative flex flex-col items-center gap-12 py-4">
         <CustodyRoute />
-        <div className="flex items-center justify-center gap-7 [@media(max-height:820px)]:hidden">
+        <div className="flex items-center justify-center gap-8 [@media(max-height:820px)]:hidden">
           {TOOLS.map((Tool, i) => (
             <div key={i} className="sti-float" style={{ "--ink-delay": `${1 + i * 0.14}s` } as Vars}>
               <Tool />
@@ -274,7 +283,7 @@ export function AuthPanel() {
       </div>
 
       <div className="relative flex flex-col gap-3">
-        <ol className="flex flex-col gap-1.5">
+        <ol className="flex max-w-[500px] flex-col gap-1.5">
           {LEDGER.map(([when, what], i) => (
             <li
               key={when}
