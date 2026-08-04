@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const assets = trpc.asset.list.useQuery({ status: "available" });
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
+  const vehicles = trpc.vehicle.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
   const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: role === "superintendent" });
   const me = trpc.identity.me.useQuery();
@@ -47,6 +48,19 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const [pending, setPending] = useState(false);
 
   useEffect(() => { setAssetId(preselectedAssetId ?? ""); }, [preselectedAssetId]);
+
+  /* Tools go where the foreman is: picking a custodian pre-fills the project
+     from their current job and their truck, since that is where the tool is
+     physically going. Both stay editable — this is a default, not a lock. */
+  const autoFilledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!custodianId || autoFilledFor.current === custodianId) return;
+    const emp = foremen.data?.find((e) => e.id === custodianId);
+    if (emp?.primaryProjectId) setProjectId(emp.primaryProjectId);
+    const truck = vehicles.data?.find((v) => v.vehicleType === "truck" && v.foremanEmployeeId === custodianId);
+    if (truck?.locationId) setLocationId(truck.locationId);
+    autoFilledFor.current = custodianId;
+  }, [custodianId, foremen.data, vehicles.data]);
 
   const submit = async () => {
     if (!assetId || !custodianId) return;

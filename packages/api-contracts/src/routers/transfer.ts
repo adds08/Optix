@@ -6,7 +6,7 @@ import { custodyOutcome } from "@stinventory/domain";
 import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { homeCustodianId, moveCustody } from "../custody.js";
+import { homeCustodianId, moveCustody, projectForCustodian } from "../custody.js";
 import { notifyCustodyDecision } from "../notify.js";
 
 export const transferRouter = router({
@@ -95,6 +95,10 @@ export const transferRouter = router({
 
       const status =
         outcome === "approve" ? "pending_approval" : outcome === "verify" ? "pending_verification" : "approved";
+      /* A hand-off sends the tool to the recipient's job, not the project the
+         form happened to be on. An explicit pick wins; a blank one means
+         "wherever the recipient works". */
+      const toProjectId = input.toProjectId ?? (await projectForCustodian(ctx.db, tid, input.toCustodianId, null));
       const [row] = await ctx.db
         .insert(schema.transfer)
         .values({
@@ -105,7 +109,7 @@ export const transferRouter = router({
           fromLocationId: asset.currentLocationId,
           toLocationId: input.toLocationId ?? null,
           fromProjectId: asset.currentProjectId,
-          toProjectId: input.toProjectId ?? null,
+          toProjectId,
           reason: input.reason,
           status,
           requestedBy: ctx.session.userId,
@@ -121,7 +125,7 @@ export const transferRouter = router({
           .set({
             currentCustodianId: input.toCustodianId,
             currentLocationId: input.toLocationId ?? asset.currentLocationId,
-            currentProjectId: input.toProjectId ?? asset.currentProjectId,
+            currentProjectId: toProjectId ?? asset.currentProjectId,
             updatedAt: new Date(),
           })
           .where(eq(schema.asset.id, input.assetId));
@@ -136,7 +140,7 @@ export const transferRouter = router({
           tenantId: tid,
           assetId: input.assetId,
           toCustodianId: input.toCustodianId,
-          projectId: input.toProjectId ?? asset.currentProjectId ?? null,
+          projectId: toProjectId ?? asset.currentProjectId ?? null,
           locationId: input.toLocationId ?? asset.currentLocationId ?? null,
           actorUserId: ctx.session.userId,
           type: isBorrow ? "temporary" : "permanent",
@@ -163,7 +167,7 @@ export const transferRouter = router({
           toState: {
             status: "assigned",
             custodianId: input.toCustodianId,
-            projectId: input.toProjectId ?? asset.currentProjectId ?? null,
+            projectId: toProjectId ?? asset.currentProjectId ?? null,
             locationId: input.toLocationId ?? asset.currentLocationId ?? null,
           },
           refType: "transfer",

@@ -13,6 +13,7 @@ export type VehicleEditable = {
   makeModel?: string | null;
   ownershipType?: string | null;
   projectId?: string | null;
+  attachedToVehicleId?: string | null;
 };
 
 /* Foreman is create-only: handing a truck over is `location.setCustodian`,
@@ -23,7 +24,9 @@ export function VehicleForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
   const projects = trpc.project.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
+  const vehicles = trpc.vehicle.list.useQuery();
   const foremanOptions = foremen.data?.filter((e) => e.role === "foreman" && e.employmentStatus === "active") ?? [];
+  const truckOptions = vehicles.data?.filter((v) => v.vehicleType === "truck") ?? [];
 
   const [vehicleType, setVehicleType] = useState<"truck" | "trailer">(
     (edit?.vehicleType as "truck" | "trailer") ?? "truck",
@@ -35,6 +38,7 @@ export function VehicleForm({ open, onClose, edit }: Props) {
     (edit?.ownershipType as "company_owned" | "personal_allowance") ?? "company_owned",
   );
   const [projectId, setProjectId] = useState(edit?.projectId ?? "");
+  const [attachedToVehicleId, setAttachedToVehicleId] = useState(edit?.attachedToVehicleId ?? "");
   const [foremanEmployeeId, setForemanEmployeeId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
@@ -51,6 +55,7 @@ export function VehicleForm({ open, onClose, edit }: Props) {
           makeModel: makeModel || null,
           ownershipType,
           projectId: projectId || null,
+          attachedToVehicleId: vehicleType === "trailer" ? (attachedToVehicleId || null) : undefined,
         });
       } else {
         await utils.client.vehicle.create.mutate({
@@ -58,6 +63,7 @@ export function VehicleForm({ open, onClose, edit }: Props) {
           makeModel: makeModel || undefined, ownershipType,
           projectId: projectId || undefined,
           foremanEmployeeId: foremanEmployeeId || undefined,
+          attachedToVehicleId: vehicleType === "trailer" ? (attachedToVehicleId || undefined) : undefined,
         });
       }
       utils.vehicle.list.invalidate();
@@ -120,6 +126,26 @@ export function VehicleForm({ open, onClose, edit }: Props) {
               {foremanOptions.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </div>
+          {/* Trailers only. This is how a superintendent tells the system which
+              truck a trailer is hitched to — the trailer then rides with that
+              truck's foreman, tools included. */}
+          {vehicleType === "trailer" ? (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Attached to truck</label>
+              <select value={attachedToVehicleId} onChange={(e) => setAttachedToVehicleId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                <option value="">Not hitched to a truck</option>
+                {truckOptions.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.unit}
+                    {t.foremanName ? ` — ${t.foremanName}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                The trailer and its tools follow the truck — hand the truck to a foreman and the trailer goes with it.
+              </p>
+            </div>
+          ) : null}
           {result && <p className="text-sm text-destructive">{result}</p>}
         </div>
         <DialogFooter>

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CUSTODIAN_ROLES } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
   const foremen = trpc.employee.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
+  const vehicles = trpc.vehicle.list.useQuery();
 
   let custodianOptions =
     foremen.data?.filter((e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active") ?? [];
@@ -32,6 +33,19 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
   /* Distinguishes "it worked but is waiting" from "it failed" — both used to
      render in the same red text. */
   const [pending, setPending] = useState(false);
+
+  /* Tools go where the foreman is: picking a recipient pre-fills the project
+     from their current job and their truck. Both stay editable — a default,
+     not a lock. */
+  const autoFilledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!toCustodianId || autoFilledFor.current === toCustodianId) return;
+    const emp = foremen.data?.find((e) => e.id === toCustodianId);
+    if (emp?.primaryProjectId) setToProjectId(emp.primaryProjectId);
+    const truck = vehicles.data?.find((v) => v.vehicleType === "truck" && v.foremanEmployeeId === toCustodianId);
+    if (truck?.locationId) setToLocationId(truck.locationId);
+    autoFilledFor.current = toCustodianId;
+  }, [toCustodianId, foremen.data, vehicles.data]);
 
   /*
     Close only when the tool actually moved.

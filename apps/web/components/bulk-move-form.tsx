@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CUSTODIAN_ROLES } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -39,6 +39,7 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
   const foremen = trpc.employee.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
+  const vehicles = trpc.vehicle.list.useQuery();
 
   let custodianOptions =
     foremen.data?.filter(
@@ -57,6 +58,19 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
   const [note, setNote] = useState("");
   const [result, setResult] = useState("");
   const [pending, setPending] = useState(false);
+
+  /* Tools go where the foreman is: picking a custodian pre-fills the project
+     from their current job and their truck. Both stay editable — a default,
+     not a lock. */
+  const autoFilledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!custodianId || autoFilledFor.current === custodianId) return;
+    const emp = foremen.data?.find((e) => e.id === custodianId);
+    if (emp?.primaryProjectId) setProjectId(emp.primaryProjectId);
+    const truck = vehicles.data?.find((v) => v.vehicleType === "truck" && v.foremanEmployeeId === custodianId);
+    if (truck?.locationId) setLocationId(truck.locationId);
+    autoFilledFor.current = custodianId;
+  }, [custodianId, foremen.data, vehicles.data]);
 
   const invalidate = () => {
     utils.transfer.list.invalidate();

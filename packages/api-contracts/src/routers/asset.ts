@@ -98,6 +98,10 @@ export const assetRouter = router({
           currentProjectName: currentProject.name,
           locationId: schema.asset.currentLocationId,
           locationName: schema.location.name,
+          /* A vehicle is a `location` of type vehicle — but the register groups
+             tools by truck vs trailer, which only the vehicle row knows. */
+          locationType: schema.location.type,
+          vehicleType: schema.vehicle.vehicleType,
           owningProjectId: schema.asset.owningProjectId,
           owningProjectName: owningProject.name,
           costTarget: schema.asset.costTarget,
@@ -108,6 +112,7 @@ export const assetRouter = router({
         .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
+        .leftJoin(schema.vehicle, eq(schema.vehicle.locationId, schema.location.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
         .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
         .where(and(...conditions));

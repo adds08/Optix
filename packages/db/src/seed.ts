@@ -383,6 +383,21 @@ async function main() {
   const locByKey: Record<string, string> = {};
   [...locSpecs, ...vehLocSpecs].forEach((l, i) => (locByKey[l.key] = allLocRows[i]!.id));
 
+  /* The hitch: a trailer's location points at its truck's location. Seeded so
+     the demo shows the relationship the system now models — a trailer moves
+     with the truck it is attached to. */
+  const hitches: Record<string, string> = {
+    "l-tr21": "l-t07",
+    "l-tr08": "l-truck12",
+    "l-tr33": "l-t15",
+  };
+  for (const [trailerKey, truckKey] of Object.entries(hitches)) {
+    await db
+      .update(location)
+      .set({ parentLocationId: locByKey[truckKey]! })
+      .where(eq(location.id, locByKey[trailerKey]!));
+  }
+
   // Vehicles (1:1 with vehicle locations). GPS seeded for the Dallas area.
   const vehSpecs = [
     { key: "v-t07", loc: "l-t07", vtype: "truck", unit: "TRU-001", plate: "TX 5521-BR", make: "RAM 2500", own: "personal_allowance", payee: "e-miguel", allow: "180.00", freq: "weekly", proj: "p-legacy", foreman: "e-miguel", lat: "32.7766", lng: "-96.7970" },

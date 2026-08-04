@@ -1,5 +1,5 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { vehicleStatus, type VehicleStatus } from "@stinventory/types";
@@ -20,6 +20,10 @@ import { moveCustody } from "../custody.js";
   `moveContents` is on by default because that is what physically happens: the
   tools are inside it. Turning it off is for the case where the container is
   changing hands empty, or the contents were already moved separately.
+
+  Handing a TRUCK to somebody also hands it to whatever trailers are hitched to
+  it (`location.parentLocationId`) — a trailer attached to a truck moves with
+  the truck, contents included.
 */
 export const containerCustodyInput = z.object({
   locationId: z.string().uuid(),
@@ -28,6 +32,118 @@ export const containerCustodyInput = z.object({
   moveContents: z.boolean().default(true),
   note: z.string().max(500).optional(),
 });
+
+/*
+  One container's worth of the hand-over: custodian (and the vehicle mirror),
+  then — when asked — the tools inside it, each through `moveCustody` plus its
+  own ledger entry. Shared by `setCustodian` (for the container and whatever is
+  hitched to it) and the vehicle editor (attaching a trailer to a truck that
+  already has a foreman).
+*/
+async function applyContainerCustody(opts: {
+  tx: any;
+  tid: string;
+  actorUserId: string;
+  locationId: string;
+  locationName: string;
+  custodianId: string | null;
+  custodianName: string | null;
+  moveContents: boolean;
+  note: string | null;
+}): Promise<number> {
+  const { tx, tid, actorUserId, locationId, locationName, custodianId, custodianName, moveContents, note } = opts;
+
+  await tx
+    .update(schema.location)
+    .set({ custodianEmployeeId: custodianId })
+    .where(eq(schema.location.id, locationId));
+
+  /* Keep the vehicle mirror in step. `location.custodianEmployeeId` is the
+     authoritative column, but the vehicle list and import still read
+     `vehicle.foremanEmployeeId`. */
+  await tx
+    .update(schema.vehicle)
+    .set({ foremanEmployeeId: custodianId, updatedAt: new Date() })
+    .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, locationId)));
+
+  if (!moveContents) return 0;
+
+  /* Everything sitting in this container. Lost and disposed tools stay put —
+     the record of where they went missing should not follow the trailer to its
+     next foreman. */
+  const contents = await tx
+    .select({
+      id: schema.asset.id,
+      tag: schema.asset.tag,
+      currentStatus: schema.asset.currentStatus,
+      currentCustodianId: schema.asset.currentCustodianId,
+      currentProjectId: schema.asset.currentProjectId,
+      currentLocationId: schema.asset.currentLocationId,
+    })
+    .from(schema.asset)
+    .where(
+      and(
+        eq(schema.asset.tenantId, tid),
+        eq(schema.asset.currentLocationId, locationId),
+        notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
+      ),
+    );
+
+  const moving = contents.filter((a: any) => a.currentCustodianId !== custodianId);
+  if (!moving.length) return 0;
+
+  const ids = moving.map((a: any) => a.id);
+
+  await tx
+    .update(schema.asset)
+    .set({
+      currentCustodianId: custodianId,
+      /* A container nobody carries holds tools nobody holds — they are back in
+         stock, not assigned. */
+      currentStatus: custodianId ? "assigned" : "available",
+      updatedAt: new Date(),
+    })
+    .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)));
+
+  /* Custody links follow, through the same helper every other custody writer
+     uses, so the one-active-link invariant holds here too. */
+  for (const a of moving) {
+    await moveCustody(tx, {
+      tenantId: tid,
+      assetId: a.id,
+      toCustodianId: custodianId,
+      projectId: a.currentProjectId,
+      locationId,
+      actorUserId,
+    });
+  }
+
+  await tx.insert(schema.transaction).values(
+    moving.map((a: any) => ({
+      tenantId: tid,
+      assetId: a.id,
+      eventType: "custodian_change",
+      actorId: actorUserId,
+      fromState: {
+        status: a.currentStatus,
+        custodianId: a.currentCustodianId,
+        projectId: a.currentProjectId,
+        locationId: a.currentLocationId,
+      },
+      toState: {
+        status: custodianId ? "assigned" : "available",
+        custodianId,
+        projectId: a.currentProjectId,
+        locationId,
+      },
+      refType: "location",
+      refId: locationId,
+      note,
+    })),
+  );
+
+  return moving.length;
+}
 
 export const locationCustodyRouter = {
   setCustodian: requirePermission("location.manage")
@@ -53,102 +169,48 @@ export const locationCustodyRouter = {
       }
 
       const result = await ctx.db.transaction(async (tx: any) => {
-        await tx
-          .update(schema.location)
-          .set({ custodianEmployeeId: input.custodianEmployeeId })
-          .where(eq(schema.location.id, input.locationId));
-
-        /* Keep the vehicle mirror in step. `location.custodianEmployeeId` is
-           the authoritative column, but the vehicle list and import still read
-           `vehicle.foremanEmployeeId`. */
-        await tx
-          .update(schema.vehicle)
-          .set({ foremanEmployeeId: input.custodianEmployeeId, updatedAt: new Date() })
-          .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, input.locationId)));
-
-        if (!input.moveContents) return { toolsMoved: 0 };
-
-        /* Everything sitting in this container. Lost and disposed tools stay
-           put — the record of where they went missing should not follow the
-           trailer to its next foreman. */
-        const contents = await tx
-          .select({
-            id: schema.asset.id,
-            tag: schema.asset.tag,
-            currentStatus: schema.asset.currentStatus,
-            currentCustodianId: schema.asset.currentCustodianId,
-            currentProjectId: schema.asset.currentProjectId,
-            currentLocationId: schema.asset.currentLocationId,
-          })
-          .from(schema.asset)
+        /* The container being handed over, plus anything hitched to it — a
+           trailer whose location points at this one. They move as one unit,
+           which is what a hitch means. */
+        const followers = await tx
+          .select({ id: schema.location.id, name: schema.location.name })
+          .from(schema.location)
           .where(
             and(
-              eq(schema.asset.tenantId, tid),
-              eq(schema.asset.currentLocationId, input.locationId),
-              notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
+              eq(schema.location.tenantId, tid),
+              or(
+                eq(schema.location.id, input.locationId),
+                eq(schema.location.parentLocationId, input.locationId),
+              ),
             ),
           );
 
-        const moving = contents.filter((a: any) => a.currentCustodianId !== input.custodianEmployeeId);
-        if (!moving.length) return { toolsMoved: 0 };
-
-        const ids = moving.map((a: any) => a.id);
-
-        await tx
-          .update(schema.asset)
-          .set({
-            currentCustodianId: input.custodianEmployeeId,
-            /* A container nobody carries holds tools nobody holds — they are
-               back in stock, not assigned. */
-            currentStatus: input.custodianEmployeeId ? "assigned" : "available",
-            updatedAt: new Date(),
-          })
-          .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)));
-
-        /* Custody links follow, through the same helper every other custody
-           writer uses, so the one-active-link invariant holds here too. */
-        for (const a of moving) {
-          await moveCustody(tx, {
-            tenantId: tid,
-            assetId: a.id,
-            toCustodianId: input.custodianEmployeeId,
-            projectId: a.currentProjectId,
-            locationId: input.locationId,
+        let toolsMoved = 0;
+        for (const f of followers) {
+          const isMain = f.id === input.locationId;
+          const note =
+            input.note ||
+            (custodianName
+              ? isMain
+                ? `Moved with ${loc.name} to ${custodianName}`
+                : `Moved with ${loc.name} to ${custodianName} (trailer follows)`
+              : isMain
+                ? `${loc.name} handed back — no custodian`
+                : `${loc.name} handed back — no custodian (trailer follows)`);
+          toolsMoved += await applyContainerCustody({
+            tx,
+            tid,
             actorUserId: ctx.session.userId,
+            locationId: f.id,
+            locationName: f.name,
+            custodianId: input.custodianEmployeeId,
+            custodianName,
+            moveContents: input.moveContents,
+            note,
           });
         }
 
-        const note =
-          input.note ||
-          (custodianName
-            ? `Moved with ${loc.name} to ${custodianName}`
-            : `${loc.name} handed back — no custodian`);
-
-        await tx.insert(schema.transaction).values(
-          moving.map((a: any) => ({
-            tenantId: tid,
-            assetId: a.id,
-            eventType: "custodian_change",
-            actorId: ctx.session.userId,
-            fromState: {
-              status: a.currentStatus,
-              custodianId: a.currentCustodianId,
-              projectId: a.currentProjectId,
-              locationId: a.currentLocationId,
-            },
-            toState: {
-              status: input.custodianEmployeeId ? "assigned" : "available",
-              custodianId: input.custodianEmployeeId,
-              projectId: a.currentProjectId,
-              locationId: input.locationId,
-            },
-            refType: "location",
-            refId: input.locationId,
-            note,
-          })),
-        );
-
-        return { toolsMoved: moving.length };
+        return { toolsMoved };
       });
 
       await logEvent(ctx, {
@@ -316,6 +378,7 @@ export const vehicleRouter = router({
       if (input?.projectId) conditions.push(eq(schema.vehicle.projectId, input.projectId));
       const payee = alias(schema.employee, "payee");
       const foreman = alias(schema.employee, "foreman");
+      const attached = alias(schema.vehicle, "attached");
       const rows = await ctx.db
         .select({
           id: schema.vehicle.id,
@@ -338,12 +401,17 @@ export const vehicleRouter = router({
           foremanName: foreman.name,
           locationId: schema.vehicle.locationId,
           locationName: schema.location.name,
+          /* A trailer hitched to a truck: the trailer's location points at the
+             truck's location, and this join turns that into "Truck 07". */
+          attachedToVehicleId: attached.id,
+          attachedToUnit: attached.unit,
         })
         .from(schema.vehicle)
         .leftJoin(payee, eq(schema.vehicle.payeeEmployeeId, payee.id))
         .leftJoin(schema.project, eq(schema.vehicle.projectId, schema.project.id))
         .leftJoin(foreman, eq(schema.vehicle.foremanEmployeeId, foreman.id))
         .leftJoin(schema.location, eq(schema.vehicle.locationId, schema.location.id))
+        .leftJoin(attached, eq(schema.location.parentLocationId, attached.locationId))
         .where(and(...conditions));
       return rows.map((r) => ({
         ...r,
@@ -390,10 +458,35 @@ export const vehicleRouter = router({
         allowanceFrequency: z.enum(["weekly", "monthly"]).optional(),
         projectId: z.string().uuid().optional(),
         foremanEmployeeId: z.string().uuid().optional(),
+        /* Trailers only: which truck this one is hitched to. */
+        attachedToVehicleId: z.string().uuid().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
+
+      /* A trailer attached to a truck rides with it: if the truck already has a
+         foreman, the trailer starts out in their custody. */
+      let attachedLocId: string | null = null;
+      let resolvedForeman = input.foremanEmployeeId ?? null;
+      if (input.attachedToVehicleId) {
+        if (input.vehicleType !== "trailer") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Only trailers can be attached to a truck." });
+        }
+        const truck = await ctx.db.query.vehicle.findFirst({
+          where: and(
+            eq(schema.vehicle.id, input.attachedToVehicleId),
+            eq(schema.vehicle.tenantId, tid),
+          ),
+        });
+        if (!truck) throw new TRPCError({ code: "NOT_FOUND", message: "No such truck in this tenant" });
+        if (truck.vehicleType !== "truck") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A trailer can only be attached to a truck." });
+        }
+        attachedLocId = truck.locationId;
+        resolvedForeman = input.foremanEmployeeId ?? truck.foremanEmployeeId ?? null;
+      }
+
       // Insert location row (type=vehicle) first since vehicle.locationId is NOT NULL.
       const [loc] = await ctx.db
         .insert(schema.location)
@@ -402,10 +495,11 @@ export const vehicleRouter = router({
           type: "vehicle",
           name: input.unit,
           projectId: input.projectId ?? null,
+          parentLocationId: attachedLocId,
           /* The location column is the authoritative one for "who holds this
              container"; vehicle.foremanEmployeeId is the older, vehicle-only
              version of the same fact. Set both until the callers move over. */
-          custodianEmployeeId: input.foremanEmployeeId ?? null,
+          custodianEmployeeId: resolvedForeman,
         })
         .returning();
       if (!loc) throw new Error("Failed to create vehicle location");
@@ -424,7 +518,7 @@ export const vehicleRouter = router({
           allowanceRate: input.allowanceRate ?? null,
           allowanceFrequency: input.allowanceFrequency ?? null,
           projectId: input.projectId ?? null,
-          foremanEmployeeId: input.foremanEmployeeId ?? null,
+          foremanEmployeeId: resolvedForeman,
         })
         .returning();
       if (row) await logEvent(ctx, { category: "vehicle", action: "create", entityType: "vehicle", entityId: row.id, entityLabel: row.unit });
@@ -443,11 +537,15 @@ export const vehicleRouter = router({
         allowanceRate: z.string().max(20).nullable().optional(),
         allowanceFrequency: z.enum(["weekly", "monthly"]).nullable().optional(),
         projectId: z.string().uuid().nullable().optional(),
+        /* Trailers only. This is how a superintendent tells the system "this
+           trailer is hitched to that truck" — the trailer then rides with the
+           truck's foreman, tools included. Null detaches it. */
+        attachedToVehicleId: z.string().uuid().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const { id, ...changes } = input;
+      const { id, attachedToVehicleId, ...changes } = input;
       const existing = await ctx.db.query.vehicle.findFirst({
         where: and(eq(schema.vehicle.id, id), eq(schema.vehicle.tenantId, tid)),
       });
@@ -463,32 +561,81 @@ export const vehicleRouter = router({
       }
 
       const patch = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
-      if (!Object.keys(patch).length) return existing;
+      if (!Object.keys(patch).length && attachedToVehicleId === undefined) return existing;
 
-      const [row] = await ctx.db
-        .update(schema.vehicle)
-        .set({ ...patch, updatedAt: new Date() })
-        .where(and(eq(schema.vehicle.id, id), eq(schema.vehicle.tenantId, tid)))
-        .returning();
+      const result = await ctx.db.transaction(async (tx: any) => {
+        if (Object.keys(patch).length) {
+          await tx
+            .update(schema.vehicle)
+            .set({ ...patch, updatedAt: new Date() })
+            .where(and(eq(schema.vehicle.id, id), eq(schema.vehicle.tenantId, tid)));
+        }
 
-      /* The location row is the vehicle under another name — a renamed unit
-         has to rename the place tools are recorded as being. */
-      if (patch.unit || patch.projectId !== undefined) {
-        await ctx.db
-          .update(schema.location)
-          .set({
-            ...(patch.unit ? { name: patch.unit as string } : {}),
-            ...(patch.projectId !== undefined ? { projectId: (patch.projectId as string) ?? null } : {}),
-          })
-          .where(eq(schema.location.id, existing.locationId));
-      }
+        /* The location row is the vehicle under another name — a renamed unit
+           has to rename the place tools are recorded as being. */
+        if (patch.unit || patch.projectId !== undefined) {
+          await tx
+            .update(schema.location)
+            .set({
+              ...(patch.unit ? { name: patch.unit as string } : {}),
+              ...(patch.projectId !== undefined ? { projectId: (patch.projectId as string) ?? null } : {}),
+            })
+            .where(eq(schema.location.id, existing.locationId));
+        }
+
+        /* The hitch: a trailer's location points at its truck's location. Only
+           trailers take one, and only trucks can be the other end. */
+        if (attachedToVehicleId !== undefined) {
+          if (existing.vehicleType !== "trailer") {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Only trailers can be attached to a truck." });
+          }
+          let truck: (typeof existing) | null = null;
+          let parentLocId: string | null = null;
+          if (attachedToVehicleId) {
+            truck = await tx.query.vehicle.findFirst({
+              where: and(eq(schema.vehicle.id, attachedToVehicleId), eq(schema.vehicle.tenantId, tid)),
+            });
+            if (!truck || truck.vehicleType !== "truck") {
+              throw new TRPCError({ code: "BAD_REQUEST", message: "A trailer can only be attached to a truck in this tenant." });
+            }
+            parentLocId = truck.locationId;
+          }
+          await tx
+            .update(schema.location)
+            .set({ parentLocationId: parentLocId })
+            .where(eq(schema.location.id, existing.locationId));
+
+          /* Attaching to a truck that already has a foreman puts the trailer in
+             that foreman's custody on the spot — tools inside follow, each with
+             its own ledger entry. A truck with nobody assigned keeps the
+             trailer's current custodian. */
+          if (truck?.foremanEmployeeId) {
+            const emp = await tx.query.employee.findFirst({
+              where: and(eq(schema.employee.id, truck.foremanEmployeeId), eq(schema.employee.tenantId, tid)),
+            });
+            await applyContainerCustody({
+              tx,
+              tid,
+              actorUserId: ctx.session.userId,
+              locationId: existing.locationId,
+              locationName: existing.unit,
+              custodianId: truck.foremanEmployeeId,
+              custodianName: emp?.name ?? null,
+              moveContents: true,
+              note: `Attached to ${truck.unit}`,
+            });
+          }
+        }
+
+        return patch;
+      });
 
       await logEvent(ctx, {
         category: "vehicle", action: "update", entityType: "vehicle",
-        entityId: id, entityLabel: row?.unit ?? existing.unit,
-        details: { changed: Object.keys(patch) },
+        entityId: id, entityLabel: existing.unit,
+        details: { changed: Object.keys(result), attachedToVehicleId: attachedToVehicleId ?? null },
       });
-      return row;
+      return existing;
     }),
 
   delete: requirePermission("vehicle.manage")

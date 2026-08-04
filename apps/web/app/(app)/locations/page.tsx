@@ -258,8 +258,8 @@ export default function LocationsPage() {
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      {["Unit", "Type", "Held by", "Project", "Last position", "GPS", "Tools aboard", ""].map((h, i) => (
-                        <th key={h || "actions"} className={`label-xs px-4 py-2.5 ${i >= 6 ? "text-right" : "text-left"}`}>{h}</th>
+                      {["Unit", "Type", "Held by", "Attached to", "Project", "Last position", "GPS", "Tools aboard", ""].map((h, i) => (
+                        <th key={h || "actions"} className={`label-xs px-4 py-2.5 ${i >= 7 ? "text-right" : "text-left"}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -269,6 +269,9 @@ export default function LocationsPage() {
                         <td className="px-4 py-2.5"><Tag>{v.unit}</Tag></td>
                         <td className="px-4 py-2.5 capitalize">{v.vehicleType}</td>
                         <td className="px-4 py-2.5">{v.foremanName ?? "—"}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground">
+                          {v.attachedToUnit ? <Tag>{v.attachedToUnit}</Tag> : "—"}
+                        </td>
                         <td className="px-4 py-2.5">{v.projectName ?? "—"}</td>
                         <td className="px-4 py-2.5 text-muted-foreground">
                           {v.gpsAt ? relative(v.gpsAt) : "no signal yet"}
@@ -322,6 +325,7 @@ export default function LocationsPage() {
                                 makeModel: v.makeModel,
                                 ownershipType: v.ownershipType,
                                 projectId: v.projectId,
+                                attachedToVehicleId: v.attachedToVehicleId,
                               })
                             }
                             onDelete={() => removeVeh.mutate({ id: v.id })}

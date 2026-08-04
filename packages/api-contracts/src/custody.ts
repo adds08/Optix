@@ -112,3 +112,24 @@ export async function moveCustody(db: any, move: CustodyMove): Promise<{ closedI
 
   return { closedIds, openedId: row?.id ?? null };
 }
+
+/*
+  The job a tool goes to when it is handed to somebody: that person's current
+  job. Tools follow the foreman, not the site — so a form that lets the project
+  be typed in independently of the person is how a tool ends up booked to a job
+  its holder never worked. Every custody writer defaults here; a caller that
+  explicitly passes a project still wins.
+*/
+export async function projectForCustodian(
+  db: any,
+  tenantId: string,
+  custodianId: string | null | undefined,
+  fallback: string | null,
+): Promise<string | null> {
+  if (!custodianId) return fallback;
+  const emp = await db.query.employee.findFirst({
+    where: and(eq(schema.employee.id, custodianId), eq(schema.employee.tenantId, tenantId)),
+    columns: { primaryProjectId: true },
+  });
+  return emp?.primaryProjectId ?? fallback;
+}

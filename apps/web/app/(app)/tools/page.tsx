@@ -68,6 +68,11 @@ export default function ToolsPage() {
   const [status, setStatus] = useState<string>("all");
   const [flags, setFlags] = useState<Set<FlagKey>>(new Set());
   const [mode, setMode] = useState<"cards" | "table">("cards");
+  /* The United-Rentals move: scope the whole register to one job first. When a
+     project is picked, every facet count and every list below is within it. */
+  const [project, setProject] = useState("all");
+  /* Group the register by how the crew actually thinks about tools. */
+  const [groupBy, setGroupBy] = useState<"none" | "foreman" | "project" | "truck" | "trailer">("none");
   /* The tool being edited, if any. */
   const [editing, setEditing] = useState<AssetEditable | null>(null);
   const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
@@ -124,6 +129,12 @@ export default function ToolsPage() {
   const list = trpc.asset.list.useQuery();
   const all = useMemo(() => list.data ?? [], [list.data]);
 
+  /* Job scope first: the register is "everything" or "one project". */
+  const scoped = useMemo(() => {
+    if (project === "all") return all;
+    return all.filter((r) => r.currentProjectId === project);
+  }, [all, project]);
+
   const matches = useMemo(() => {
     /* `skip` lifts one filter so a facet can count its own options. */
     return (r: (typeof all)[number], skip?: "category" | "status" | "flags") => {
@@ -143,8 +154,54 @@ export default function ToolsPage() {
 
   /* Facets only — the table view's search is the DataTable's own; the cards
      view applies `matchesText` here. */
-  const filtered = useMemo(() => all.filter((r) => matches(r)), [all, matches]);
+  const filtered = useMemo(() => scoped.filter((r) => matches(r)), [scoped, matches]);
   const cards = useMemo(() => filtered.filter((r) => matchesText(r, q)), [filtered, q]);
+
+  /* Distinct projects for the scope dropdown, from whatever is in the register. */
+  const projectOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const r of all) {
+      if (r.currentProjectId && r.currentProjectName) byId.set(r.currentProjectId, r.currentProjectName);
+    }
+    return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [all]);
+
+  /* Grouped view: cards, but sectioned by the dimension the user picked. */
+  const groups = useMemo(() => {
+    if (groupBy === "none") return null;
+    const byKey = new Map<string, { key: string; label: string; rows: (typeof all)[number][] }>();
+    for (const r of cards) {
+      let key = "other";
+      let label = "Not on a truck";
+      if (groupBy === "foreman") {
+        key = r.custodianId ?? "yard";
+        label = r.custodianName ?? "In the yard";
+      } else if (groupBy === "project") {
+        key = r.currentProjectId ?? "none";
+        label = r.currentProjectName ?? "No project";
+      } else if (groupBy === "truck") {
+        if (r.vehicleType === "truck") {
+          key = r.locationId ?? "none";
+          label = r.locationName ?? "Unknown truck";
+        } else {
+          key = "not-truck";
+          label = "Not on a truck";
+        }
+      } else if (groupBy === "trailer") {
+        if (r.vehicleType === "trailer") {
+          key = r.locationId ?? "none";
+          label = r.locationName ?? "Unknown trailer";
+        } else {
+          key = "not-trailer";
+          label = "Not on a trailer";
+        }
+      }
+      const g = byKey.get(key);
+      if (g) g.rows.push(r);
+      else byKey.set(key, { key, label, rows: [r] });
+    }
+    return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [cards, groupBy]);
 
   /* Selection, keyed by asset id so it survives the cards/table switch and
      the table's own pagination. */
@@ -270,12 +327,12 @@ export default function ToolsPage() {
   );
 
   const countBy = {
-    category: (c: string) => all.filter((r) => (r.categoryName ?? "") === c && matches(r, "category")).length,
-    anyCategory: () => all.filter((r) => matches(r, "category")).length,
-    status: (s: string) => all.filter((r) => r.status === s && matches(r, "status")).length,
-    anyStatus: () => all.filter((r) => matches(r, "status")).length,
+    category: (c: string) => scoped.filter((r) => (r.categoryName ?? "") === c && matches(r, "category")).length,
+    anyCategory: () => scoped.filter((r) => matches(r, "category")).length,
+    status: (s: string) => scoped.filter((r) => r.status === s && matches(r, "status")).length,
+    anyStatus: () => scoped.filter((r) => matches(r, "status")).length,
     flag: (f: FlagKey) =>
-      all.filter((r) => flagged(r, f) && matches(r, "flags")).length,
+      scoped.filter((r) => flagged(r, f) && matches(r, "flags")).length,
   };
 
   const toggleFlag = (f: FlagKey) =>
@@ -429,8 +486,8 @@ export default function ToolsPage() {
       />
 
       <div className="flex flex-col gap-3">
-        {/* One toolbar for both views: search, the filter sheet (the former
-            facet rail), and the cards/table toggle. */}
+        {/* One toolbar for both views: job scope, search, the filter sheet
+            (the former facet rail), and the cards/table toggle. */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[200px] max-w-sm flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -442,6 +499,19 @@ export default function ToolsPage() {
               aria-label="Search tools"
             />
           </div>
+          {/* Scope the whole register to one job first — the United Rentals
+              move. Everything below (facets, groups, exports) is within it. */}
+          <select
+            value={project}
+            onChange={(e) => setProject(e.target.value)}
+            aria-label="Filter by project"
+            className="flex h-8 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <option value="all">All projects</option>
+            {projectOptions.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
           <FilterSheet
             title="Filter the register"
             activeCount={filterCount}
@@ -452,29 +522,47 @@ export default function ToolsPage() {
           </FilterSheet>
           <span className="text-sm text-muted-foreground">
             <span className="tnum font-medium text-foreground">{cards.length}</span>
-            {cards.length !== all.length ? <> of <span className="tnum">{all.length}</span></> : null} tools
+            {cards.length !== scoped.length ? <> of <span className="tnum">{scoped.length}</span></> : null} tools
           </span>
-          <div className={cn("ml-auto flex overflow-hidden rounded-sm border")} role="group" aria-label="View mode">
-            {([["cards", "Cards", LayoutGrid], ["table", "Table", Rows3]] as const).map(([k, label, Icon]) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setMode(k)}
-                aria-pressed={mode === k}
-                /* A segmented control, not a call to action. Which view you
-                   are in is minor state; a filled brand button gave it more
-                   weight than the tools it was showing. */
-                className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-colors",
-                  mode === k
-                    ? "bg-muted font-medium text-foreground"
-                    : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )}
-              >
-                <Icon className="size-3.5" aria-hidden />
-                {label}
-              </button>
-            ))}
+          <div className="ml-auto flex items-center gap-2">
+            {/* Group the register by how the crew actually thinks about tools:
+                the foreman carrying them, the job, or the truck/trailer they
+                ride in. Grouping renders cards in sections with a per-group
+                select, so "move this whole trailer" is a few clicks. */}
+            <select
+              value={groupBy}
+              onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
+              aria-label="Group tools by"
+              className="flex h-8 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <option value="none">No grouping</option>
+              <option value="foreman">Group by foreman</option>
+              <option value="project">Group by project</option>
+              <option value="truck">Group by truck</option>
+              <option value="trailer">Group by trailer</option>
+            </select>
+            <div className="flex overflow-hidden rounded-sm border" role="group" aria-label="View mode">
+              {([["cards", "Cards", LayoutGrid], ["table", "Table", Rows3]] as const).map(([k, label, Icon]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setMode(k)}
+                  aria-pressed={mode === k}
+                  /* A segmented control, not a call to action. Which view you
+                     are in is minor state; a filled brand button gave it more
+                     weight than the tools it was showing. */
+                  className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-colors",
+                    mode === k
+                      ? "bg-muted font-medium text-foreground"
+                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  <Icon className="size-3.5" aria-hidden />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -529,6 +617,59 @@ export default function ToolsPage() {
                 : "Import the existing fleet, or register the first tool to start the custody chain."
             }
           />
+        ) : groups ? (
+          /* Grouped cards: sections headed by the dimension the user picked.
+             Each header carries a "Select group" that pulls the whole section
+             into the bulk bar, so moving an entire trailer's contents is a
+             few clicks. */
+          <div className="flex flex-col gap-6">
+            {groups.map((g) => {
+              const allSelected = g.rows.every((r) => selectedIds.has(r.id));
+              const someSelected = g.rows.some((r) => selectedIds.has(r.id));
+              return (
+                <section key={g.key} className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 border-b pb-1.5">
+                    <h3 className="text-sm font-semibold">
+                      {g.label}
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">{g.rows.length}</span>
+                    </h3>
+                    <div className="ml-auto flex items-center gap-1.5">
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                        <input
+                          type="checkbox"
+                          role="checkbox"
+                          checked={allSelected}
+                          onChange={() => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              for (const r of g.rows) {
+                                if (allSelected) next.delete(r.id);
+                                else next.add(r.id);
+                              }
+                              return next;
+                            });
+                          }}
+                          className="size-3.5 accent-primary"
+                        />
+                        {someSelected && !allSelected ? "Some selected" : "Select"}
+                      </label>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                    {g.rows.map((r) => (
+                      <AssetCard
+                        key={r.id}
+                        row={{ ...r, photoUrl: photoUrl(r.photoKey) }}
+                        actions={menuFor(r)}
+                        selected={selectedIds.has(r.id)}
+                        onSelectChange={(on) => toggleSelected(r.id, on)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
         ) : mode === "cards" ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {cards.map((r) => (

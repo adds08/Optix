@@ -5,7 +5,7 @@ import { custodyOutcome, isOverdueLoan } from "@stinventory/domain";
 import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { closeActiveCustody } from "../custody.js";
+import { closeActiveCustody, projectForCustodian } from "../custody.js";
 import { notifyCustodyDecision } from "../notify.js";
 
 export const assignmentRouter = router({
@@ -81,6 +81,11 @@ export const assignmentRouter = router({
 
       const status = needsApproval ? "pending_approval" : "active";
 
+      /* Handing a tool to somebody sends it to their job, not to whichever
+         project the form happened to be on. Explicitly picking a project still
+         wins; leaving it blank now means "wherever the custodian works". */
+      const projectId = input.projectId ?? (await projectForCustodian(ctx.db, tid, input.custodianId, null));
+
       /* One active link per tool. Assigning something that is already out used
          to leave both rows active, so the tool showed up in two people's
          custody at once. A row waiting on approval changes nothing yet, so the
@@ -93,7 +98,7 @@ export const assignmentRouter = router({
           tenantId: tid,
           assetId: input.assetId,
           custodianId: input.custodianId,
-          projectId: input.projectId ?? null,
+          projectId,
           locationId: input.locationId ?? null,
           type,
           startDate: new Date().toISOString().slice(0, 10),
@@ -109,7 +114,7 @@ export const assignmentRouter = router({
           .set({
             currentStatus: "assigned",
             currentCustodianId: input.custodianId,
-            currentProjectId: input.projectId ?? asset.currentProjectId,
+            currentProjectId: projectId ?? asset.currentProjectId,
             currentLocationId: input.locationId ?? asset.currentLocationId,
             updatedAt: new Date(),
           })
@@ -128,7 +133,7 @@ export const assignmentRouter = router({
           toState: {
             status: "assigned",
             custodianId: input.custodianId,
-            projectId: input.projectId ?? asset.currentProjectId ?? null,
+            projectId: projectId ?? asset.currentProjectId ?? null,
             locationId: input.locationId ?? asset.currentLocationId ?? null,
           },
           refType: "assignment",

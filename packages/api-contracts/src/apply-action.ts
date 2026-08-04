@@ -9,7 +9,7 @@ import {
   CUSTODY_INTENTS,
   REQUEST_TITLES,
 } from "@stinventory/intent";
-import { closeActiveCustody, moveCustody } from "./custody.js";
+import { closeActiveCustody, moveCustody, projectForCustodian } from "./custody.js";
 
 /*
   The single place a chat-derived intent becomes real state.
@@ -185,6 +185,12 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
           );
         }
 
+        /* Handing a tool to somebody sends it to their job. The chat rarely
+           resolves a project, so the fallback is the recipient's current one. */
+        const toProjectId =
+          action.projectId ??
+          (await projectForCustodian(db, tenantId, toCustodianId, asset.currentProjectId));
+
         const [transferRow] = await db
           .insert(schema.transfer)
           .values({
@@ -198,7 +204,7 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
                row meaningless. */
             toLocationId: toLocationId ?? asset.currentLocationId,
             fromProjectId: asset.currentProjectId,
-            toProjectId: action.projectId ?? asset.currentProjectId,
+            toProjectId,
             reason: "handoff",
             status: outcome === "approve" ? "pending_approval" : "pending_verification",
             requestedBy: actorUserId,
@@ -213,7 +219,7 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
           continue;
         }
 
-        const borrowProjectId = action.projectId ?? asset.currentProjectId ?? null;
+        const borrowProjectId = toProjectId ?? asset.currentProjectId ?? null;
         const borrowLocationId = toLocationId ?? asset.currentLocationId ?? null;
         await moveCustody(db, {
           tenantId,
@@ -281,15 +287,18 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
       case "assign": {
         if (!action.custodianId) throw new Error("Assign needs a custodian");
         /* Assigning a tool that is already out closes the previous link first,
-           or the tool ends up in two people's custody at once. */
+           or the tool ends up in two people's custody at once. The project
+           defaults to the custodian's current job when the action says nothing. */
         await closeActiveCustody(db, tenantId, assetId);
+        const assignProjectId =
+          action.projectId ?? (await projectForCustodian(db, tenantId, action.custodianId, asset.currentProjectId));
         const [assignment] = await db
           .insert(schema.assignment)
           .values({
             tenantId,
             assetId,
             custodianId: action.custodianId,
-            projectId: action.projectId ?? asset.currentProjectId ?? null,
+            projectId: assignProjectId,
             locationId: action.locationId ?? asset.currentLocationId ?? null,
             type: "permanent",
             startDate: new Date().toISOString().slice(0, 10),
@@ -300,7 +309,7 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
         after = {
           status: "assigned",
           custodianId: action.custodianId,
-          projectId: action.projectId ?? asset.currentProjectId ?? null,
+          projectId: assignProjectId,
           locationId: action.locationId ?? asset.currentLocationId ?? null,
         };
         eventType = "assign";
@@ -316,6 +325,9 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
         }
         // Close any assignment the previous holder had.
         await closeActiveCustody(db, tenantId, assetId);
+        const transferProjectId =
+          action.projectId ??
+          (await projectForCustodian(db, tenantId, action.custodianId, asset.currentProjectId));
         const [transfer] = await db
           .insert(schema.transfer)
           .values({
@@ -326,7 +338,7 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
             fromLocationId: asset.currentLocationId,
             toLocationId: action.locationId ?? asset.currentLocationId,
             fromProjectId: asset.currentProjectId,
-            toProjectId: action.projectId ?? asset.currentProjectId,
+            toProjectId: transferProjectId,
             reason: "reallocation",
             status: "completed",
             requestedBy: actorUserId,
@@ -340,7 +352,7 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
             tenantId,
             assetId,
             custodianId: action.custodianId,
-            projectId: action.projectId ?? asset.currentProjectId ?? null,
+            projectId: transferProjectId,
             locationId: action.locationId ?? asset.currentLocationId ?? null,
             type: "permanent",
             startDate: new Date().toISOString().slice(0, 10),
@@ -351,7 +363,7 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
         after = {
           status: "assigned",
           custodianId: action.custodianId ?? asset.currentCustodianId,
-          projectId: action.projectId ?? asset.currentProjectId,
+          projectId: transferProjectId,
           locationId: action.locationId ?? asset.currentLocationId,
         };
         eventType = "transfer";

@@ -288,6 +288,12 @@ export const employeeRouter = router({
         /* Off only for a correction — posting somebody retroactively where
            their tools already moved by hand. */
         moveTools: z.boolean().default(true),
+        /* On by default the other way: a foreman's trucks, and the trailers
+           hitched to them, go to the new job with the tools — the tools
+           physically live in them. A superintendent who wants the foreman to
+           leave the trailer (and its tools) behind on the old site turns this
+           on; the trucks still follow, because the foreman drives them. */
+        leaveContainers: z.boolean().default(false),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -338,7 +344,7 @@ export const employeeRouter = router({
           .set({ primaryProjectId: input.projectId })
           .where(eq(schema.employee.id, input.employeeId));
 
-        if (!input.moveTools) return { postingId: posting?.id ?? null, toolsMoved: 0 };
+        if (!input.moveTools) return { postingId: posting?.id ?? null, toolsMoved: 0, containersMoved: 0 };
 
         /* Lost and disposed tools stay where the record says they were lost.
            Dragging them onto the new job would quietly rewrite where a police
@@ -361,56 +367,138 @@ export const employeeRouter = router({
             ),
           );
 
-        const moving = held.filter((a: any) => a.currentProjectId !== input.projectId);
-        if (!moving.length) return { postingId: posting?.id ?? null, toolsMoved: 0 };
+        /* The foreman's trucks follow, and the trailers hitched to them — a
+           trailer attached to the truck rides with it. Tools are usually in
+           the trailer, so "the truck goes to the new job" has to take them
+           along or every tool on the old site would stay booked to a job
+           nobody is running. */
+        const vehicles = await tx
+          .select({
+            id: schema.vehicle.id,
+            vehicleType: schema.vehicle.vehicleType,
+            locationId: schema.vehicle.locationId,
+          })
+          .from(schema.vehicle)
+          .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.foremanEmployeeId, input.employeeId)));
 
-        const ids = moving.map((a: any) => a.id);
+        const truckLocIds = vehicles.filter((v: any) => v.vehicleType === "truck").map((v: any) => v.locationId);
+        const containerLocIds = new Set<string>(truckLocIds);
+        if (!input.leaveContainers) {
+          const trailerLocIds = vehicles.filter((v: any) => v.vehicleType === "trailer").map((v: any) => v.locationId);
+          if (trailerLocIds.length) {
+            const trailerLocs = await tx
+              .select({
+                id: schema.location.id,
+                parentLocationId: schema.location.parentLocationId,
+              })
+              .from(schema.location)
+              .where(and(eq(schema.location.tenantId, tid), inArray(schema.location.id, trailerLocIds)));
+            for (const t of trailerLocs) {
+              /* Only trailers actually hitched to one of the foreman's trucks
+                 ride along — a trailer attached to somebody else's truck stays
+                 with that truck. */
+              if (t.parentLocationId && truckLocIds.includes(t.parentLocationId)) {
+                containerLocIds.add(t.id);
+              }
+            }
+          }
+        }
 
-        await tx
-          .update(schema.asset)
-          .set({ currentProjectId: input.projectId, updatedAt: new Date() })
-          .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)));
+        const aboard = containerLocIds.size
+          ? await tx
+              .select({
+                id: schema.asset.id,
+                tag: schema.asset.tag,
+                currentStatus: schema.asset.currentStatus,
+                currentCustodianId: schema.asset.currentCustodianId,
+                currentProjectId: schema.asset.currentProjectId,
+                currentLocationId: schema.asset.currentLocationId,
+              })
+              .from(schema.asset)
+              .where(
+                and(
+                  eq(schema.asset.tenantId, tid),
+                  inArray(schema.asset.currentLocationId, [...containerLocIds]),
+                  notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
+                ),
+              )
+          : [];
 
-        /* Open custody links carry the project too, so the custody screen does
-           not keep showing the job they just left. */
-        await tx
-          .update(schema.assignment)
-          .set({ projectId: input.projectId, updatedAt: new Date() })
-          .where(
-            and(
-              eq(schema.assignment.tenantId, tid),
-              eq(schema.assignment.status, "active"),
-              inArray(schema.assignment.assetId, ids),
-            ),
+        /* One tool, one entry: something the foreman holds directly and is
+           also aboard a following truck is not moved twice. */
+        const byId = new Map<string, any>();
+        for (const a of held) byId.set(a.id, a);
+        for (const a of aboard) byId.set(a.id, a);
+        const moving = [...byId.values()].filter((a: any) => a.currentProjectId !== input.projectId);
+
+        let toolsMoved = 0;
+        if (moving.length) {
+          const ids = moving.map((a: any) => a.id);
+
+          await tx
+            .update(schema.asset)
+            .set({ currentProjectId: input.projectId, updatedAt: new Date() })
+            .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)));
+
+          /* Open custody links carry the project too, so the custody screen
+             does not keep showing the job they just left. */
+          await tx
+            .update(schema.assignment)
+            .set({ projectId: input.projectId, updatedAt: new Date() })
+            .where(
+              and(
+                eq(schema.assignment.tenantId, tid),
+                eq(schema.assignment.status, "active"),
+                inArray(schema.assignment.assetId, ids),
+              ),
+            );
+
+          await tx.insert(schema.transaction).values(
+            moving.map((a: any) => ({
+              tenantId: tid,
+              assetId: a.id,
+              eventType: "project_change",
+              actorId: ctx.session.userId,
+              fromState: {
+                status: a.currentStatus,
+                custodianId: a.currentCustodianId,
+                projectId: a.currentProjectId,
+                locationId: a.currentLocationId,
+              },
+              /* Complete snapshot — the fold is last-snapshot-wins, so a partial
+                 toState would blank out custody and location. */
+              toState: {
+                status: a.currentStatus,
+                custodianId: a.currentCustodianId,
+                projectId: input.projectId,
+                locationId: a.currentLocationId,
+              },
+              refType: "employee_project_assignment",
+              refId: posting?.id ?? null,
+              note: `Moved with ${person.name} to ${proj.name}`,
+            })),
           );
+          toolsMoved = moving.length;
+        }
 
-        await tx.insert(schema.transaction).values(
-          moving.map((a: any) => ({
-            tenantId: tid,
-            assetId: a.id,
-            eventType: "project_change",
-            actorId: ctx.session.userId,
-            fromState: {
-              status: a.currentStatus,
-              custodianId: a.currentCustodianId,
-              projectId: a.currentProjectId,
-              locationId: a.currentLocationId,
-            },
-            /* Complete snapshot — the fold is last-snapshot-wins, so a partial
-               toState would blank out custody and location. */
-            toState: {
-              status: a.currentStatus,
-              custodianId: a.currentCustodianId,
-              projectId: input.projectId,
-              locationId: a.currentLocationId,
-            },
-            refType: "employee_project_assignment",
-            refId: posting?.id ?? null,
-            note: `Moved with ${person.name} to ${proj.name}`,
-          })),
-        );
+        /* The containers themselves re-home to the new job so the locations
+           page and the register agree about where the truck works. */
+        let containersMoved = 0;
+        if (containerLocIds.size) {
+          await tx
+            .update(schema.location)
+            .set({ projectId: input.projectId })
+            .where(and(eq(schema.location.tenantId, tid), inArray(schema.location.id, [...containerLocIds])));
+          await tx
+            .update(schema.vehicle)
+            .set({ projectId: input.projectId, updatedAt: new Date() })
+            .where(
+              and(eq(schema.vehicle.tenantId, tid), inArray(schema.vehicle.locationId, [...containerLocIds])),
+            );
+          containersMoved = containerLocIds.size;
+        }
 
-        return { postingId: posting?.id ?? null, toolsMoved: moving.length };
+        return { postingId: posting?.id ?? null, toolsMoved, containersMoved };
       });
 
       await logEvent(ctx, {
@@ -425,6 +513,7 @@ export const employeeRouter = router({
           fromProjectId: person.primaryProjectId,
           startedOn,
           toolsMoved: result.toolsMoved,
+          containersMoved: result.containersMoved,
         },
       });
 

@@ -36,6 +36,7 @@ export function PostingForm({
   const [startedOn, setStartedOn] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState("");
   const [moveTools, setMoveTools] = useState(true);
+  const [leaveContainers, setLeaveContainers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
 
@@ -54,11 +55,14 @@ export function PostingForm({
         startedOn,
         note: note || undefined,
         moveTools,
+        leaveContainers,
       });
       utils.employee.get.invalidate({ id: employeeId });
       utils.employee.postings.invalidate({ employeeId });
       utils.employee.list.invalidate();
       utils.asset.list.invalidate();
+      utils.vehicle.list.invalidate();
+      utils.location.list.invalidate();
       utils.report.byProject.invalidate();
       utils.report.byForeman.invalidate();
       onClose();
@@ -108,6 +112,26 @@ export function PostingForm({
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 Tools travel with the foreman. Untick only to correct history where the tools
                 were already moved separately. Who paid for each tool does not change either way.
+              </span>
+            </span>
+          </label>
+
+          {/* The superintendent's call: a foreman switching jobs usually takes
+              their truck, trailer and tools in one move. When they have to
+              leave the trailer (and its tools) behind on the old site, the
+              truck still follows them. */}
+          <label className="flex items-start gap-2.5 rounded-md border p-3">
+            <input
+              type="checkbox"
+              checked={leaveContainers}
+              onChange={(e) => setLeaveContainers(e.target.checked)}
+              className="mt-0.5 size-4"
+            />
+            <span className="text-sm">
+              Leave the trailers (and the tools in them) behind
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Their truck still moves with them. Tick this when the tools stay on the old
+                site and the foreman picks up a fresh trailer at the new job.
               </span>
             </span>
           </label>
