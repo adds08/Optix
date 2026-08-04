@@ -149,6 +149,7 @@ export default function RentalsPage() {
         ),
     }),
     col<OnRentRow>({
+      id: "off-rent",
       header: "",
       enableHiding: false,
       cell: (r) => (

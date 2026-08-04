@@ -182,6 +182,7 @@ export default function ToolsPage() {
         cell: (r) => r.owningDepartmentName ?? r.owningProjectName ?? <span className="text-muted-foreground">—</span>,
       }),
       col<Row>({
+        id: "actions",
         header: "",
         enableHiding: false,
         cell: (r) => (

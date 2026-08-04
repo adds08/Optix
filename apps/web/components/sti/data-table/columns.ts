@@ -11,6 +11,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 export function col<T>(
   opts: {
     header: string;
+    id?: string;
     accessorFn?: (row: T) => string | number | null | undefined;
     cell?: (row: T) => React.ReactNode;
     numeric?: boolean;
@@ -19,8 +20,9 @@ export function col<T>(
     enableHiding?: boolean;
   },
 ): ColumnDef<T> {
+  const id = opts.id ?? (opts.header || `col_${Math.random().toString(36).slice(2, 8)}`);
   return {
-    id: opts.header,
+    id,
     header: opts.header,
     accessorFn: opts.accessorFn,
     cell: opts.cell ? (info) => opts.cell!(info.row.original as T) : undefined,
