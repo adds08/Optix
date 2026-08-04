@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Boxes, Download, LayoutGrid, Rows3, Search } from "lucide-react";
+import { Boxes, Download, Search } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
@@ -10,12 +10,12 @@ import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/s
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { FacetGroup, FacetRow, ClearFacets, FilterPills } from "@/components/sti/facets";
 import { FlagBadges, isHighValue, warrantyFlag } from "@/components/sti/flags";
-import { AssetCard } from "@/components/sti/asset-card";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
 import { AssetForm, type AssetEditable } from "@/components/asset-form";
 import { ToolMenu } from "@/components/tool-menu";
 import { BulkMoveForm } from "@/components/bulk-move-form";
+import { SavedFilters } from "@/components/saved-filters";
 import { usePermissions } from "@/components/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,7 @@ import { col } from "@/components/sti/data-table/columns";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { downloadCsv } from "@/lib/csv";
 import { exportAssetsToSpec } from "@/lib/export-assets";
-import { money, photoUrl } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { money } from "@/lib/format";
 
 const STATUSES = ["available", "assigned", "in_maintenance", "reserved", "lost"] as const;
 type FlagKey = "high_value" | "warranty" | "no_project";
@@ -44,13 +43,6 @@ function flagged(r: { currentProjectId?: string | null }, f: FlagKey): boolean {
   return !r.currentProjectId;
 }
 
-function matchesText(r: { tag: string | null; make: string | null; modelNumber: string | null; description: string | null; serialNumber: string | null }, q: string): boolean {
-  const needle = q.trim().toLowerCase();
-  if (!needle) return true;
-  return [r.tag, r.make, r.modelNumber, r.description, r.serialNumber]
-    .some((v) => v?.toLowerCase().includes(needle));
-}
-
 /*
   Only search is sent to the API. Category, status and flags are applied here
   on the client, because the facet counts have to be computed from the unfiltered
@@ -67,33 +59,17 @@ export default function ToolsPage() {
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState<string>("all");
   const [flags, setFlags] = useState<Set<FlagKey>>(new Set());
-  const [mode, setMode] = useState<"cards" | "table">("cards");
   /* The United-Rentals move: scope the whole register to one job first. When a
      project is picked, every facet count and every list below is within it. */
   const [project, setProject] = useState("all");
-  /* Group the register by how the crew actually thinks about tools. */
-  const [groupBy, setGroupBy] = useState<"none" | "foreman" | "project" | "truck" | "trailer">("none");
   /* The tool being edited, if any. */
   const [editing, setEditing] = useState<AssetEditable | null>(null);
-  const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
-  /* Bulk selection — a Set of asset ids, shared between the cards and table
-     views, driving the Move / Return action bar. */
+  /* Bulk selection — drives the Move / Return action bar. */
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const utils = trpc.useUtils();
   const { has } = usePermissions();
-
-  const remove = trpc.asset.delete.useMutation({
-    onSuccess: () => {
-      setFailed(null);
-      utils.asset.list.invalidate();
-      utils.dashboard.kpis.invalidate();
-    },
-    /* The router refuses anything carrying history and says what to do
-       instead. That sentence is the useful part — show it on the row. */
-    onError: (e, vars) => setFailed({ id: vars.id, message: e.message }),
-  });
 
   /* One mutation for a bulk return; the form owns the bulk move. */
   const returnBulk = trpc.action.submit.useMutation({
@@ -152,10 +128,9 @@ export default function ToolsPage() {
     };
   }, [category, status, flags]);
 
-  /* Facets only — the table view's search is the DataTable's own; the cards
-     view applies `matchesText` here. */
+  /* The table view applies the structured filters here and its own search
+     inside the DataTable. */
   const filtered = useMemo(() => scoped.filter((r) => matches(r)), [scoped, matches]);
-  const cards = useMemo(() => filtered.filter((r) => matchesText(r, q)), [filtered, q]);
 
   /* Distinct projects for the scope dropdown, from whatever is in the register. */
   const projectOptions = useMemo(() => {
@@ -166,56 +141,11 @@ export default function ToolsPage() {
     return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [all]);
 
-  /* Grouped view: cards, but sectioned by the dimension the user picked. */
-  const groups = useMemo(() => {
-    if (groupBy === "none") return null;
-    const byKey = new Map<string, { key: string; label: string; rows: (typeof all)[number][] }>();
-    for (const r of cards) {
-      let key = "other";
-      let label = "Not on a truck";
-      if (groupBy === "foreman") {
-        key = r.custodianId ?? "yard";
-        label = r.custodianName ?? "In the yard";
-      } else if (groupBy === "project") {
-        key = r.currentProjectId ?? "none";
-        label = r.currentProjectName ?? "No project";
-      } else if (groupBy === "truck") {
-        if (r.vehicleType === "truck") {
-          key = r.locationId ?? "none";
-          label = r.locationName ?? "Unknown truck";
-        } else {
-          key = "not-truck";
-          label = "Not on a truck";
-        }
-      } else if (groupBy === "trailer") {
-        if (r.vehicleType === "trailer") {
-          key = r.locationId ?? "none";
-          label = r.locationName ?? "Unknown trailer";
-        } else {
-          key = "not-trailer";
-          label = "Not on a trailer";
-        }
-      }
-      const g = byKey.get(key);
-      if (g) g.rows.push(r);
-      else byKey.set(key, { key, label, rows: [r] });
-    }
-    return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
-  }, [cards, groupBy]);
-
-  /* Selection, keyed by asset id so it survives the cards/table switch and
-     the table's own pagination. */
+  /* Selection, keyed by asset id so it survives the table's own pagination. */
   const selectionRecord = useMemo(
     () => Object.fromEntries([...selectedIds].map((id) => [id, true])),
     [selectedIds],
   );
-  const toggleSelected = (id: string, on: boolean) =>
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
   const selectedLabels = useMemo(() => {
     const out: Record<string, string> = {};
     for (const r of all) {
@@ -405,16 +335,20 @@ export default function ToolsPage() {
     owningDepartmentId: r.owningDepartmentId,
   });
 
-  const menuFor = (r: (typeof all)[number]) => (
-    <ToolMenu
-      assetId={r.id}
-      assetTag={r.tag ?? "Untagged tool"}
-      heldBySomeone={!!r.custodianId}
-      onEdit={() => setEditing(editableFrom(r))}
-      onDelete={() => remove.mutate({ id: r.id })}
-      deleting={remove.isPending && failed?.id !== r.id}
-    />
+  /* The shape a saved view round-trips: plain values, JSON-serialisable. */
+  const registerCurrent = useMemo(
+    () => ({ project, category, status, flags: [...flags] }),
+    [project, category, status, flags],
   );
+  const applySaved = (f: Record<string, unknown>) => {
+    setProject(typeof f.project === "string" ? f.project : "all");
+    setCategory(typeof f.category === "string" ? f.category : "all");
+    setStatus(typeof f.status === "string" ? f.status : "all");
+    const savedFlags = Array.isArray(f.flags)
+      ? (f.flags as unknown[]).filter((x): x is FlagKey => typeof x === "string" && x in FLAG_LABELS)
+      : [];
+    setFlags(new Set(savedFlags));
+  };
 
   const facetControls = (
     <>
@@ -486,8 +420,8 @@ export default function ToolsPage() {
       />
 
       <div className="flex flex-col gap-3">
-        {/* One toolbar for both views: job scope, search, the filter sheet
-            (the former facet rail), and the cards/table toggle. */}
+        {/* One toolbar: job scope, search, the filter sheet (the former facet
+            rail), and the saved-view menu. */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[200px] max-w-sm flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -500,7 +434,7 @@ export default function ToolsPage() {
             />
           </div>
           {/* Scope the whole register to one job first — the United Rentals
-              move. Everything below (facets, groups, exports) is within it. */}
+              move. Everything below (facets, exports) is within it. */}
           <select
             value={project}
             onChange={(e) => setProject(e.target.value)}
@@ -521,48 +455,17 @@ export default function ToolsPage() {
             {facetControls}
           </FilterSheet>
           <span className="text-sm text-muted-foreground">
-            <span className="tnum font-medium text-foreground">{cards.length}</span>
-            {cards.length !== scoped.length ? <> of <span className="tnum">{scoped.length}</span></> : null} tools
+            <span className="tnum font-medium text-foreground">{filtered.length}</span>
+            {filtered.length !== scoped.length ? <> of <span className="tnum">{scoped.length}</span></> : null} tools
           </span>
-          <div className="ml-auto flex items-center gap-2">
-            {/* Group the register by how the crew actually thinks about tools:
-                the foreman carrying them, the job, or the truck/trailer they
-                ride in. Grouping renders cards in sections with a per-group
-                select, so "move this whole trailer" is a few clicks. */}
-            <select
-              value={groupBy}
-              onChange={(e) => setGroupBy(e.target.value as typeof groupBy)}
-              aria-label="Group tools by"
-              className="flex h-8 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="none">No grouping</option>
-              <option value="foreman">Group by foreman</option>
-              <option value="project">Group by project</option>
-              <option value="truck">Group by truck</option>
-              <option value="trailer">Group by trailer</option>
-            </select>
-            <div className="flex overflow-hidden rounded-sm border" role="group" aria-label="View mode">
-              {([["cards", "Cards", LayoutGrid], ["table", "Table", Rows3]] as const).map(([k, label, Icon]) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setMode(k)}
-                  aria-pressed={mode === k}
-                  /* A segmented control, not a call to action. Which view you
-                     are in is minor state; a filled brand button gave it more
-                     weight than the tools it was showing. */
-                  className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 text-xs transition-colors",
-                    mode === k
-                      ? "bg-muted font-medium text-foreground"
-                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  <Icon className="size-3.5" aria-hidden />
-                  {label}
-                </button>
-              ))}
-            </div>
+          <div className="ml-auto">
+            <SavedFilters
+              storageKey="tool-register"
+              current={registerCurrent}
+              onApply={applySaved}
+              hasActive={filtering}
+              onClear={clearAll}
+            />
           </div>
         </div>
 
@@ -607,81 +510,16 @@ export default function ToolsPage() {
           <TableSkeleton cols={6} />
         ) : list.isError ? (
           <ErrorNote message="The tool register could not be loaded. Check that the API is running, then reload." />
-        ) : !cards.length ? (
+        ) : !filtered.length ? (
           <EmptyState
             icon={Boxes}
-            title={q || filtering ? "No tools match" : "No tools registered yet"}
+            title={filtering ? "No tools match" : "No tools registered yet"}
             description={
-              q || filtering
+              filtering
                 ? "Try a different search, or clear a filter in the sheet."
                 : "Import the existing fleet, or register the first tool to start the custody chain."
             }
           />
-        ) : groups ? (
-          /* Grouped cards: sections headed by the dimension the user picked.
-             Each header carries a "Select group" that pulls the whole section
-             into the bulk bar, so moving an entire trailer's contents is a
-             few clicks. */
-          <div className="flex flex-col gap-6">
-            {groups.map((g) => {
-              const allSelected = g.rows.every((r) => selectedIds.has(r.id));
-              const someSelected = g.rows.some((r) => selectedIds.has(r.id));
-              return (
-                <section key={g.key} className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2 border-b pb-1.5">
-                    <h3 className="text-sm font-semibold">
-                      {g.label}
-                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">{g.rows.length}</span>
-                    </h3>
-                    <div className="ml-auto flex items-center gap-1.5">
-                      <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                        <input
-                          type="checkbox"
-                          role="checkbox"
-                          checked={allSelected}
-                          onChange={() => {
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              for (const r of g.rows) {
-                                if (allSelected) next.delete(r.id);
-                                else next.add(r.id);
-                              }
-                              return next;
-                            });
-                          }}
-                          className="size-3.5 accent-primary"
-                        />
-                        {someSelected && !allSelected ? "Some selected" : "Select"}
-                      </label>
-                    </div>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {g.rows.map((r) => (
-                      <AssetCard
-                        key={r.id}
-                        row={{ ...r, photoUrl: photoUrl(r.photoKey) }}
-                        actions={menuFor(r)}
-                        selected={selectedIds.has(r.id)}
-                        onSelectChange={(on) => toggleSelected(r.id, on)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        ) : mode === "cards" ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {cards.map((r) => (
-              <AssetCard
-                key={r.id}
-                row={{ ...r, photoUrl: photoUrl(r.photoKey) }}
-                actions={menuFor(r)}
-                selected={selectedIds.has(r.id)}
-                onSelectChange={(on) => toggleSelected(r.id, on)}
-              />
-            ))}
-          </div>
         ) : (
           <DataTable<Row>
             mode="client"

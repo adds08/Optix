@@ -3,6 +3,7 @@ import {
   Activity,
   BarChart3,
   Boxes,
+  Building2,
   HardHat,
   Inbox,
   LayoutDashboard,
@@ -60,6 +61,9 @@ export const DESK_NAV: NavGroup[] = [
       /* One card per foreman: truck, hitched trailer, job site, and the tools
          in the back — the "who is where, driving what, holding what" answer. */
       { href: "/foremen", label: "Foremen", icon: HardHat, perm: "employee.read" },
+      /* The same accordion view, but grouped by job site — one card per
+         project, expanded to see the tools working it. */
+      { href: "/jobsites", label: "Tools by Jobsite", icon: Building2, perm: "asset.read" },
       { href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read" },
       /*
         Trucks and trailers are NOT a fleet to manage — they are locations that
