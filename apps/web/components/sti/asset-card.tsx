@@ -43,19 +43,49 @@ export type AssetCardRow = {
   photoUrl?: string | null;
 };
 
-export function AssetCard({ row, actions }: { row: AssetCardRow; actions?: React.ReactNode }) {
+export function AssetCard({
+  row,
+  actions,
+  selected,
+  onSelectChange,
+}: {
+  row: AssetCardRow;
+  actions?: React.ReactNode;
+  /* Bulk selection: when `onSelectChange` is provided the card shows a
+     checkbox and a selection ring. The label sits outside the Link so
+     clicking it never navigates. */
+  selected?: boolean;
+  onSelectChange?: (on: boolean) => void;
+}) {
   const heavy = isHighValue(row);
   return (
     <div
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-md border bg-card transition-colors hover:border-foreground/20",
         heavy && "border-l-2 border-l-primary/60",
+        selected && "ring-2 ring-primary",
       )}
     >
       {/* Always drawn. This was `opacity-0 group-hover:opacity-100`, which is
           not a gesture on a touch screen and, on the desk, hid the actions
           until the pointer happened to be over the right card. */}
       {actions ? <div className="absolute right-1.5 top-1.5 z-10">{actions}</div> : null}
+
+      {onSelectChange ? (
+        <label
+          className="absolute left-2 top-2 z-10 flex size-7 cursor-pointer items-center justify-center rounded-md border border-input bg-card/90 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          onClick={(e) => e.stopPropagation()}
+          aria-label={selected ? "Remove from selection" : "Add to selection"}
+        >
+          <input
+            type="checkbox"
+            role="checkbox"
+            checked={!!selected}
+            onChange={(e) => onSelectChange(e.target.checked)}
+            className="size-4 accent-primary"
+          />
+        </label>
+      ) : null}
 
       <Link href={`/tools/${row.id}`} className="flex flex-1 flex-col">
         <div className="flex h-24 shrink-0 items-center justify-center border-b bg-muted/30">

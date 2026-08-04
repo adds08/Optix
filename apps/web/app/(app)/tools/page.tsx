@@ -15,6 +15,8 @@ import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
 import { AssetForm, type AssetEditable } from "@/components/asset-form";
 import { ToolMenu } from "@/components/tool-menu";
+import { BulkMoveForm } from "@/components/bulk-move-form";
+import { usePermissions } from "@/components/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataTable } from "@/components/sti/data-table/data-table";
@@ -69,7 +71,13 @@ export default function ToolsPage() {
   /* The tool being edited, if any. */
   const [editing, setEditing] = useState<AssetEditable | null>(null);
   const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
+  /* Bulk selection — a Set of asset ids, shared between the cards and table
+     views, driving the Move / Return action bar. */
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
   const utils = trpc.useUtils();
+  const { has } = usePermissions();
 
   const remove = trpc.asset.delete.useMutation({
     onSuccess: () => {
@@ -81,6 +89,37 @@ export default function ToolsPage() {
        instead. That sentence is the useful part — show it on the row. */
     onError: (e, vars) => setFailed({ id: vars.id, message: e.message }),
   });
+
+  /* One mutation for a bulk return; the form owns the bulk move. */
+  const returnBulk = trpc.action.submit.useMutation({
+    onSuccess: () => {
+      utils.asset.list.invalidate();
+      utils.assignment.list.invalidate();
+      utils.transfer.list.invalidate();
+      utils.dashboard.kpis.invalidate();
+      utils.dashboard.pendingApprovals.invalidate();
+      utils.dashboard.recentActivity.invalidate();
+    },
+  });
+
+  /* `action.submit` chunks at 50, so a bigger selection is returned in
+     sequential batches. Each tool writes its own `return` transaction. */
+  const bulkReturn = async () => {
+    const ids = [...selectedIds];
+    setBulkError(null);
+    try {
+      for (let i = 0; i < ids.length; i += 50) {
+        await returnBulk.mutateAsync({
+          type: "return",
+          assetIds: ids.slice(i, i + 50),
+          note: "Returned in bulk from the register",
+        });
+      }
+      setSelectedIds(new Set());
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : "Could not return those tools. Try again.");
+    }
+  };
 
   const list = trpc.asset.list.useQuery();
   const all = useMemo(() => list.data ?? [], [list.data]);
@@ -106,6 +145,27 @@ export default function ToolsPage() {
      view applies `matchesText` here. */
   const filtered = useMemo(() => all.filter((r) => matches(r)), [all, matches]);
   const cards = useMemo(() => filtered.filter((r) => matchesText(r, q)), [filtered, q]);
+
+  /* Selection, keyed by asset id so it survives the cards/table switch and
+     the table's own pagination. */
+  const selectionRecord = useMemo(
+    () => Object.fromEntries([...selectedIds].map((id) => [id, true])),
+    [selectedIds],
+  );
+  const toggleSelected = (id: string, on: boolean) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  const selectedLabels = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const r of all) {
+      if (selectedIds.has(r.id)) out[r.id] = r.tag ?? formatAssetModel(r) ?? "Untagged tool";
+    }
+    return out;
+  }, [all, selectedIds]);
 
   type Row = (typeof all)[number];
 
@@ -343,6 +403,15 @@ export default function ToolsPage() {
   return (
     <div className="flex flex-col gap-6">
       {editing ? <AssetForm open onClose={() => setEditing(null)} edit={editing} /> : null}
+      {bulkOpen ? (
+        <BulkMoveForm
+          open
+          onClose={() => setBulkOpen(false)}
+          assetIds={[...selectedIds]}
+          assetLabels={selectedLabels}
+          onApplied={() => setSelectedIds(new Set())}
+        />
+      ) : null}
       <PageHeader
         eyebrow="Equipment"
         title="Tool Register"
@@ -411,6 +480,41 @@ export default function ToolsPage() {
 
         <FilterPills pills={pills} />
 
+        {/* Bulk action bar — appears only once something is selected. The move
+            goes through the same `action.submit` executor as the chat path, so
+            every tool writes its own transaction and the high-value approval
+            gate still applies per tool. */}
+        {selectedIds.size > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+            <span className="text-sm font-medium">
+              {selectedIds.size} tool{selectedIds.size === 1 ? "" : "s"} selected
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              {has("transfer.create") ? (
+                <Button size="sm" onClick={() => { setBulkError(null); setBulkOpen(true); }}>
+                  Move…
+                </Button>
+              ) : null}
+              {has("assignment.create") ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={bulkReturn}
+                  disabled={returnBulk.isPending}
+                >
+                  {returnBulk.isPending ? "Returning…" : "Return to yard"}
+                </Button>
+              ) : null}
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                Clear
+              </Button>
+            </div>
+            {bulkError ? (
+              <p className="w-full text-xs text-destructive">{bulkError}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         {list.isLoading ? (
           <TableSkeleton cols={6} />
         ) : list.isError ? (
@@ -428,7 +532,13 @@ export default function ToolsPage() {
         ) : mode === "cards" ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {cards.map((r) => (
-              <AssetCard key={r.id} row={{ ...r, photoUrl: photoUrl(r.photoKey) }} actions={menuFor(r)} />
+              <AssetCard
+                key={r.id}
+                row={{ ...r, photoUrl: photoUrl(r.photoKey) }}
+                actions={menuFor(r)}
+                selected={selectedIds.has(r.id)}
+                onSelectChange={(on) => toggleSelected(r.id, on)}
+              />
             ))}
           </div>
         ) : (
@@ -442,6 +552,9 @@ export default function ToolsPage() {
             onSearchChange={setQ}
             showToolbar={false}
             columnVisibilityInitial={initialHidden}
+            enableSelection
+            selection={selectionRecord}
+            onSelectionChange={(sel) => setSelectedIds(new Set(Object.keys(sel)))}
             emptyTitle="No tools match"
             emptyDescription="Try a different search, or clear a filter in the sheet."
           />

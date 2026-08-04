@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -10,17 +10,20 @@ import {
   Search,
 } from "lucide-react";
 import {
-  ColumnDef,
-  ColumnFiltersState,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-  type PaginationState,
-  type SortingState,
-  type VisibilityState,
   flexRender,
+} from "@tanstack/react-table";
+import type {
+  ColumnDef,
+  ColumnFiltersState,
+  PaginationState,
+  RowSelectionState,
+  SortingState,
+  VisibilityState,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -97,6 +100,12 @@ type Props<T> = {
   showToolbar?: boolean;
   /* Columns that start hidden (keyed by column id). */
   columnVisibilityInitial?: Record<string, boolean>;
+  /* Row selection. When enabled the table prepends a checkbox column and the
+     parent owns the selection (keyed by `rowId`), so the page can run bulk
+     actions across rows and views. */
+  enableSelection?: boolean;
+  selection?: RowSelectionState;
+  onSelectionChange?: (sel: RowSelectionState) => void;
   emptyTitle?: string;
   emptyDescription?: string;
   filename?: string;
@@ -122,6 +131,9 @@ export function DataTable<T>({
   onSearchChange,
   showToolbar = true,
   columnVisibilityInitial,
+  enableSelection = false,
+  selection,
+  onSelectionChange,
   emptyTitle = "Nothing to show",
   emptyDescription,
   filename,
@@ -151,6 +163,64 @@ export function DataTable<T>({
     return filterPredicate ? rows.filter(filterPredicate) : rows;
   }, [server, rows, filterPredicate]);
 
+  const toggleOne = (id: string, on: boolean) => {
+    if (!onSelectionChange) return;
+    const next = { ...(selection ?? {}) };
+    if (on) next[id] = true;
+    else delete next[id];
+    onSelectionChange(next);
+  };
+
+  /* Header checkbox — toggles every row that is currently filtered in, not
+     just the page, since the whole point of selecting is a bulk action. */
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  const selectionColumn: ColumnDef<T> = useMemo(
+    () => ({
+      id: "__select",
+      header: ({ table }) => {
+        const filtered = table.getFilteredRowModel().rows;
+        const allSelected = filtered.length > 0 && filtered.every((r) => r.getIsSelected());
+        return (
+          <input
+            ref={selectAllRef}
+            type="checkbox"
+            role="checkbox"
+            aria-label="Select all filtered tools"
+            checked={allSelected}
+            onChange={() => {
+              const next = { ...(selection ?? {}) };
+              if (allSelected) {
+                for (const r of filtered) delete next[r.id];
+              } else {
+                for (const r of filtered) next[r.id] = true;
+              }
+              onSelectionChange?.(next);
+            }}
+            className="size-4 accent-primary"
+          />
+        );
+      },
+      cell: ({ row }) => (
+        <input
+          type="checkbox"
+          role="checkbox"
+          aria-label="Select this tool"
+          checked={row.getIsSelected()}
+          onChange={(e) => toggleOne(row.id, e.target.checked)}
+          className="size-4 accent-primary"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 36,
+    }),
+    [enableSelection, selection, onSelectionChange],
+  );
+
+  /* The selection column sits in front of the page's columns only when the
+     parent asked for selection. */
+  const activeColumns = enableSelection ? [selectionColumn, ...columns] : columns;
+
   /* Server mode: sorting/paging are controlled from the page's state, and the
      search text travels with it. */
   const tableState = server
@@ -176,10 +246,23 @@ export function DataTable<T>({
 
   const table = useReactTable({
     data: scopedRows,
-    columns,
-    state: { ...tableState, columnFilters, columnVisibility: visibility },
+    columns: activeColumns,
+    state: {
+      ...tableState,
+      columnFilters,
+      columnVisibility: visibility,
+      ...(enableSelection ? { rowSelection: selection ?? {} } : {}),
+    },
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setVisibility,
+    getRowId: rowId,
+    enableRowSelection: enableSelection ? true : undefined,
+    onRowSelectionChange: enableSelection
+      ? (updater) => {
+          const next = typeof updater === "function" ? updater(selection ?? {}) : updater;
+          onSelectionChange?.(next);
+        }
+      : undefined,
     manualPagination: server,
     manualSorting: server,
     manualFiltering: server,
@@ -211,6 +294,16 @@ export function DataTable<T>({
     getFilteredRowModel: server ? undefined : getFilteredRowModel(),
     getPaginationRowModel: server ? undefined : getPaginationRowModel(),
   });
+
+  /* Keep the header checkbox's indeterminate state in step with a partial
+     selection (a ref-set property, not a React prop). */
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    const filtered = table.getFilteredRowModel().rows;
+    const all = filtered.length > 0 && filtered.every((r) => r.getIsSelected());
+    const some = filtered.some((r) => r.getIsSelected());
+    selectAllRef.current.indeterminate = some && !all;
+  }, [table, selection]);
 
   const exportCsv = () => {
     const pageRows = table.getRowModel().rows.map((r) => r.original);
@@ -341,7 +434,7 @@ export function DataTable<T>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-40 text-center">
+                <TableCell colSpan={columns.length + (enableSelection ? 1 : 0)} className="h-40 text-center">
                   <EmptyState
                     title={searching ? "No rows match the search" : emptyTitle}
                     description={searching ? "Clear the search to see everything again." : emptyDescription}
