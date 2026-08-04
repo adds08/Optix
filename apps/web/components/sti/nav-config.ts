@@ -57,6 +57,9 @@ export const DESK_NAV: NavGroup[] = [
     label: "Equipment",
     items: [
       { href: "/tools", label: "Tool Register", icon: Boxes, perm: "asset.read" },
+      /* One card per foreman: truck, hitched trailer, job site, and the tools
+         in the back — the "who is where, driving what, holding what" answer. */
+      { href: "/foremen", label: "Foremen", icon: HardHat, perm: "employee.read" },
       { href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read" },
       /*
         Trucks and trailers are NOT a fleet to manage — they are locations that
