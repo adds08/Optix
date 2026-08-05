@@ -6,6 +6,7 @@ import { ArrowLeftRight, Wrench } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
+import { useJobScope } from "@/components/job-scope";
 import { shortDate, daysFrom, relative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +21,14 @@ export default function CustodyPage() {
   const assignments = trpc.assignment.list.useQuery();
   const transfers = trpc.transfer.list.useQuery();
 
-  const active = (assignments.data ?? []).filter((a) => a.status === "active" || a.status === "overdue");
+  /* System-wide project scope: a scoped user sees only custody on their jobs. */
+  const { projectIds: scopeProjects } = useJobScope();
+  const scoped = (a: { projectId?: string | null }) =>
+    !scopeProjects || (a.projectId ? scopeProjects.has(a.projectId) : false);
+
+  const active = (assignments.data ?? []).filter(
+    (a) => (a.status === "active" || a.status === "overdue") && scoped(a),
+  );
   const overdue = active.filter((a) => a.expectedEnd && (daysFrom(a.expectedEnd) ?? -1) > 0);
   const inFlight = (transfers.data ?? []).filter((t) => t.status !== "completed" && t.status !== "cancelled");
 
