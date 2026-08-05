@@ -47,6 +47,7 @@ export const projectGroupRouter = router({
         projectGroupId: schema.projectGroupProject.projectGroupId,
         projectId: schema.projectGroupProject.projectId,
         projectName: schema.project.name,
+        projectExternalId: schema.project.externalId,
       })
       .from(schema.projectGroupProject)
       .leftJoin(schema.project, eq(schema.projectGroupProject.projectId, schema.project.id))
@@ -64,7 +65,7 @@ export const projectGroupRouter = router({
       ...g,
       projects: memberships
         .filter((m) => m.projectGroupId === g.id)
-        .map((m) => ({ id: m.projectId, name: m.projectName ?? "Unknown" })),
+        .map((m) => ({ id: m.projectId, name: m.projectName ?? "Unknown", externalId: m.projectExternalId })),
     }));
   }),
 
