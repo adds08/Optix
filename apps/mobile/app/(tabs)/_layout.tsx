@@ -51,6 +51,13 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="notifications" size={24} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="desk"
+        options={{
+          title: "Desk",
+          tabBarIcon: ({ color }) => <Ionicons name="grid" size={24} color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

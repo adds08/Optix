@@ -4,9 +4,10 @@ import { useState } from "react";
 import { Truck } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { ImportButton } from "@/components/import-dialog";
+import { BottomToolbar } from "@/components/bottom-toolbar";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -169,13 +170,6 @@ export default function RentalsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Equipment"
-        title="Rented"
-        description="Equipment on hire from vendors. Urban does not own these — every day one stays out is billable."
-        actions={<ImportButton entity="rental" />}
-      />
-
       <div className="grid gap-3 sm:grid-cols-4">
         <Metric label="Lines still out" value={s?.onRentLines ?? 0} loading={summary.isLoading} />
         <Metric
@@ -286,6 +280,10 @@ export default function RentalsPage() {
           </table>
         </div>
       )}
+
+      <BottomToolbar>
+        <ImportButton entity="rental" />
+      </BottomToolbar>
     </div>
   );
 }

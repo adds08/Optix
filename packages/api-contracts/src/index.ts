@@ -19,6 +19,7 @@ import { actionRouter } from "./routers/action.js";
 import { importRouter } from "./routers/import.js";
 import { rentalRouter } from "./routers/rental.js";
 import { settingsRouter } from "./routers/settings.js";
+import { projectGroupRouter } from "./routers/projectGroup.js";
 import { preferencesRouter, THEME_NAMES, FONT_FAMILIES } from "./routers/preferences.js";
 export { llmConfigFor } from "./routers/settings.js";
 
@@ -46,6 +47,7 @@ export const appRouter = router({
   rental: rentalRouter,
   settings: settingsRouter,
   preferences: preferencesRouter,
+  projectGroup: projectGroupRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeftRight, Wrench } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { shortDate, daysFrom, relative } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -26,12 +26,6 @@ export default function CustodyPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Equipment"
-        title="Custody"
-        description="Who is holding what right now, and what is in motion between them."
-      />
-
       <div className="grid gap-3 sm:grid-cols-3">
         <Metric label="Tools out" value={active.length} loading={assignments.isLoading} hint="active assignments" />
         <Metric

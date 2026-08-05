@@ -4,6 +4,7 @@ import {
   BarChart3,
   Boxes,
   Building2,
+  FolderKanban,
   HardHat,
   Inbox,
   LayoutDashboard,
@@ -100,6 +101,8 @@ export const DESK_NAV: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: Inbox, perm: "assignment.read" },
       { href: "/people", label: "People", icon: Users, perm: "employee.read" },
       { href: "/projects", label: "Projects", icon: HardHat, perm: "project.read" },
+      /* The buckets that scope a superintendent or PM to their jobs. */
+      { href: "/job-groups", label: "Job Groups", icon: FolderKanban, perm: "project.manage" },
       { href: "/settings", label: "Settings", icon: Settings, perm: "config.manage" },
     ],
   },

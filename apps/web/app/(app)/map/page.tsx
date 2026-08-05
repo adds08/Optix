@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { PageHeader } from "@/components/sti/page";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /*
@@ -18,7 +17,6 @@ const VehicleMap = dynamic(() => import("@/components/vehicle-map").then((m) => 
 export default function MapPage() {
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader eyebrow="Equipment" title="Fleet & small tools map" />
       <VehicleMap />
     </div>
   );

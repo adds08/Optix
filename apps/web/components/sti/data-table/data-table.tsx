@@ -384,8 +384,8 @@ export function DataTable<T>({
       </div>
       ) : null}
 
-      {/* table */}
-      <div className="overflow-hidden rounded-md border">
+      {/* table — bounded scroll container so the header sticks (see globals) */}
+      <div className="sti-table-scroll overflow-auto rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (

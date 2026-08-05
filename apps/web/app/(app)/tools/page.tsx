@@ -6,7 +6,7 @@ import { Boxes, Download, Search } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { FacetGroup, FacetRow, ClearFacets, FilterPills } from "@/components/sti/facets";
 import { FlagBadges, isHighValue, warrantyFlag } from "@/components/sti/flags";
@@ -16,6 +16,8 @@ import { AssetForm, type AssetEditable } from "@/components/asset-form";
 import { ToolMenu } from "@/components/tool-menu";
 import { BulkMoveForm } from "@/components/bulk-move-form";
 import { SavedFilters } from "@/components/saved-filters";
+import { BottomToolbar } from "@/components/bottom-toolbar";
+import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -105,11 +107,17 @@ export default function ToolsPage() {
   const list = trpc.asset.list.useQuery();
   const all = useMemo(() => list.data ?? [], [list.data]);
 
-  /* Job scope first: the register is "everything" or "one project". */
+  /* Job scope first: the register is "everything" or "one project" — and for a
+     superintendent, always within the jobs their groups are assigned. */
+  const { projectIds: scopeProjects } = useJobScope();
   const scoped = useMemo(() => {
-    if (project === "all") return all;
-    return all.filter((r) => r.currentProjectId === project);
-  }, [all, project]);
+    let rows = all;
+    if (project !== "all") rows = rows.filter((r) => r.currentProjectId === project);
+    if (scopeProjects) {
+      rows = rows.filter((r) => (r.currentProjectId ? scopeProjects.has(r.currentProjectId) : false));
+    }
+    return rows;
+  }, [all, project, scopeProjects]);
 
   const matches = useMemo(() => {
     /* `skip` lifts one filter so a facet can count its own options. */
@@ -403,22 +411,6 @@ export default function ToolsPage() {
           onApplied={() => setSelectedIds(new Set())}
         />
       ) : null}
-      <PageHeader
-        eyebrow="Equipment"
-        title="Tool Register"
-        description="Every serialized tool and bulk line the company owns. Open one to see its full custody chain."
-        actions={
-          <>
-            <ImportButton entity="asset" />
-            <Button size="sm" variant="outline" onClick={exportAll} disabled={!all.length} title="Exports the register in the same columns the importer reads, so the file round-trips">
-              <Download className="size-4" aria-hidden />
-              Export
-            </Button>
-            <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />
-          </>
-        }
-      />
-
       <div className="flex flex-col gap-3">
         {/* One toolbar: job scope, search, the filter sheet (the former facet
             rail), and the saved-view menu. */}
@@ -539,6 +531,21 @@ export default function ToolsPage() {
           />
         )}
       </div>
+
+      <BottomToolbar>
+        <ImportButton entity="asset" />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={exportAll}
+          disabled={!all.length}
+          title="Exports the register in the same columns the importer reads, so the file round-trips"
+        >
+          <Download className="size-4" aria-hidden />
+          Export
+        </Button>
+        <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />
+      </BottomToolbar>
     </div>
   );
 }

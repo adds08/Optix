@@ -5,10 +5,11 @@ import { useState } from "react";
 import { UserMinus, Users } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
+import { BottomToolbar } from "@/components/bottom-toolbar";
 import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
 import { PostingForm } from "@/components/posting-form";
 import { RowActions } from "@/components/sti/row-actions";
@@ -50,18 +51,6 @@ export default function PeoplePage() {
           currentProjectId={moving.projectId}
         />
       ) : null}
-      <PageHeader
-        eyebrow="Operations"
-        title="People"
-        description="Who can hold custody, and what they are still holding."
-        actions={
-          <>
-            <ImportButton entity="employee" />
-            <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
-          </>
-        }
-      />
-
       <div className="grid gap-3 sm:grid-cols-3">
         <Metric label="Active" value={rows.filter((e) => e.employmentStatus === "active").length} loading={employees.isLoading} />
         <Metric label="Terminated" value={terminated.length} loading={employees.isLoading} tone={terminated.length ? "warn" : "default"} />
@@ -185,6 +174,11 @@ export default function PeoplePage() {
           </TableWrap>
         )}
       </section>
+
+      <BottomToolbar>
+        <ImportButton entity="employee" />
+        <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
+      </BottomToolbar>
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { PageHeader } from "@/components/sti/page";
 import { money, num } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -59,12 +58,6 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        compact
-        eyebrow="Insight"
-        title="Reports & logs"
-      />
-
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Report group">
         <GroupChip active={group === "all"} onClick={() => setGroup("all")}>All</GroupChip>
         {groups.map((g) => (

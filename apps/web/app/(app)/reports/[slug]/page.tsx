@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, Metric } from "@/components/sti/page";
 import { ReportTable, type Col } from "@/components/sti/report-table";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { money, num } from "@/lib/format";
@@ -55,8 +55,6 @@ export default function ReportPage({ params }: { params: Promise<{ slug: string 
   return (
     <div className="flex flex-col gap-6">
       {back}
-      <PageHeader eyebrow={meta.group} title={meta.title} description={meta.description} />
-
       {active?.isLoading ? (
         <TableSkeleton />
       ) : active?.isError ? (

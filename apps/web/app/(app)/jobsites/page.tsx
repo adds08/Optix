@@ -5,12 +5,13 @@ import { useMemo, useState } from "react";
 import { Boxes, ChevronDown, HardHat, MapPin, Search } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { FilterPills } from "@/components/sti/facets";
 import { ToolIcon } from "@/components/sti/tool-icon";
 import { SavedFilters } from "@/components/saved-filters";
 import { JobsiteActivity } from "@/components/jobsite-activity";
+import { useJobScope } from "@/components/job-scope";
 import { Input } from "@/components/ui/input";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -121,10 +122,14 @@ export default function JobsitesPage() {
   };
 
   /* One group per project (plus the yard), each with the tools that pass the
-     filters, and the numbers a card needs to read at a glance. */
+     filters, and the numbers a card needs to read at a glance. A scoped user
+     only sees the jobs in their groups — and not the yard either, since those
+     tools belong to jobs they cannot see. */
+  const { projectIds: scopeProjects } = useJobScope();
   const groups = useMemo(() => {
     const byId = new Map<string, Group>();
     for (const p of projects.data ?? []) {
+      if (scopeProjects && !scopeProjects.has(p.id)) continue;
       byId.set(p.id, {
         id: p.id,
         name: p.name,
@@ -152,7 +157,7 @@ export default function JobsitesPage() {
       g.tools.push(a);
     }
     const cards = [...byId.values()].filter((g) => g.tools.length > 0).sort((a, b) => a.name.localeCompare(b.name));
-    if (yard.tools.length) cards.push(yard);
+    if (yard.tools.length && !scopeProjects) cards.push(yard);
 
     for (const g of cards) {
       g.tools.sort((a, b) => (a.tag ?? "").localeCompare(b.tag ?? ""));
@@ -173,7 +178,7 @@ export default function JobsitesPage() {
         .map(([name, count]) => ({ name, count }));
     }
     return cards;
-  }, [assets.data, projects.data, filters.foreman, filters.category, filters.status, filters.q]);
+  }, [assets.data, projects.data, scopeProjects, filters.foreman, filters.category, filters.status, filters.q]);
 
   const totalTools = groups.reduce((n, g) => n + g.tools.length, 0);
   const totalValue = groups.reduce((n, g) => n + g.value, 0);
@@ -203,12 +208,6 @@ export default function JobsitesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Equipment"
-        title="Tools by Jobsite"
-        description="One card per job site — who is there, what is working it, and what just moved."
-      />
-
       {assets.isLoading || projects.isLoading ? (
         <TableSkeleton cols={4} />
       ) : assets.isError || projects.isError ? (

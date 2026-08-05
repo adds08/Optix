@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { Download, MapPin, Radio } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
+import { BottomToolbar } from "@/components/bottom-toolbar";
 import { LocationForm, type LocationEditable } from "@/components/location-form";
 import { VehicleForm, type VehicleEditable } from "@/components/vehicle-form";
 import { RowActions } from "@/components/sti/row-actions";
@@ -132,20 +133,6 @@ export default function LocationsPage() {
           toolCount={handing.toolCount}
         />
       ) : null}
-      <PageHeader
-        eyebrow="Equipment"
-        title="Locations"
-        description="Every place a tool can be — yards, containers, gang boxes, and the trucks and trailers that carry them around."
-        actions={
-          <>
-            <ImportButton entity="location" />
-            <ImportButton entity="vehicle" />
-            <CreateAction perm="location.manage" label="New location" Form={LocationForm} />
-            <CreateAction perm="vehicle.manage" label="New vehicle" Form={VehicleForm} />
-          </>
-        }
-      />
-
       <div className="grid gap-3 sm:grid-cols-3">
         <Metric label="Fixed locations" value={fixed.length} loading={locations.isLoading} hint="yards, containers, gang boxes" />
         <Metric label="On wheels" value={movable.length} loading={locations.isLoading} hint="trucks and trailers" />
@@ -342,6 +329,13 @@ export default function LocationsPage() {
           </section>
         </>
       )}
+
+      <BottomToolbar>
+        <ImportButton entity="location" />
+        <ImportButton entity="vehicle" />
+        <CreateAction perm="location.manage" label="New location" Form={LocationForm} />
+        <CreateAction perm="vehicle.manage" label="New vehicle" Form={VehicleForm} />
+      </BottomToolbar>
     </div>
   );
 }

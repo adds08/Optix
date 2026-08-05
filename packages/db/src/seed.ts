@@ -286,6 +286,56 @@ async function main() {
   }
   console.log(`[seed] ${userRows.length} users, ${employeeRows.length} employees`);
 
+  // ---- Job Groups: buckets that scope a superintendent/PM to their jobs ----
+  // The equipment desk creates these; here they come pre-made so the demo shows
+  // the sidebar job selector working. Carlos (superintendent) belongs to both
+  // groups — he sees Dallas and Houston. Yard Desk belongs only to Dallas, so
+  // that account demonstrates a scoped view. Owner/Admin have no assignments
+  // and therefore see the whole tenant.
+  const groupSpecs = [
+    {
+      key: "g-dallas",
+      name: "Dallas — Legacy West & Trinity",
+      description: "High-rise interiors (Carlos's group)",
+      projects: ["p-legacy", "p-trinity"],
+      users: ["super.carlos@stinventory.local", "warehouse@stinventory.local"],
+    },
+    {
+      key: "g-houston",
+      name: "Houston — GPK",
+      description: "GPK campus works",
+      projects: ["p-gpk"],
+      users: ["super.carlos@stinventory.local"],
+    },
+  ];
+  for (const g of groupSpecs) {
+    const [groupRow] = await db
+      .insert(schema.projectGroup)
+      .values({ tenantId: tid, name: g.name, description: g.description })
+      .returning();
+    if (!groupRow) continue;
+    if (g.projects.length) {
+      await db.insert(schema.projectGroupProject).values(
+        g.projects.map((pk) => ({
+          tenantId: tid,
+          projectGroupId: groupRow.id,
+          projectId: projectByKey[pk]!,
+        })),
+      );
+    }
+    for (const email of g.users) {
+      const u = userByEmail[email];
+      if (u) {
+        await db.insert(schema.projectGroupUser).values({
+          tenantId: tid,
+          projectGroupId: groupRow.id,
+          userId: u.id,
+        });
+      }
+    }
+  }
+  console.log(`[seed] ${groupSpecs.length} job groups`);
+
   // ---- Catalog: categories, manufacturers, models ----
   const catSpecs = ["Power Tools", "Power Equipment", "Hand Tools", "Survey", "Concrete", "Access", "Safety"];
   const catRows = await db

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { clearSession, logout } from "@/lib/auth";
-import { PageHeader, TableSkeleton, ErrorNote } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote } from "@/components/sti/page";
 import { Button } from "@/components/ui/button";
 
 /*
@@ -35,8 +35,6 @@ export default function ProfilePage() {
         <ArrowLeft className="size-4" />
         Dashboard
       </Link>
-
-      <PageHeader eyebrow="Account" title="User profile" />
 
       {me.isLoading ? (
         <TableSkeleton cols={2} />

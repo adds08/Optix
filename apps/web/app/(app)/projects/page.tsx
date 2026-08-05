@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { HardHat } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, TableWrap } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
+import { BottomToolbar } from "@/components/bottom-toolbar";
 import { ProjectForm, type ProjectEditable } from "@/components/project-form";
+import { useJobScope } from "@/components/job-scope";
 import { RowActions } from "@/components/sti/row-actions";
 import { shortDate } from "@/lib/format";
 
@@ -32,23 +34,15 @@ export default function ProjectsPage() {
   });
 
   const projects = trpc.project.list.useQuery();
-  const rows = projects.data ?? [];
+  /* A scoped user only sees the jobs in their groups. */
+  const { projectIds: scopeProjects } = useJobScope();
+  const rows = (projects.data ?? []).filter((p) =>
+    scopeProjects ? scopeProjects.has(p.id) : true,
+  );
 
   return (
     <div className="flex flex-col gap-6">
       {editing ? <ProjectForm open onClose={() => setEditing(null)} edit={editing} /> : null}
-      <PageHeader
-        eyebrow="Operations"
-        title="Projects"
-        description="Every project tools can be charged to, and the cost code each one reports under."
-        actions={
-          <>
-            <ImportButton entity="project" />
-            <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />
-          </>
-        }
-      />
-
       {projects.isLoading ? (
         <TableSkeleton />
       ) : projects.isError ? (
@@ -115,6 +109,11 @@ export default function ProjectsPage() {
           </table>
         </TableWrap>
       )}
+
+      <BottomToolbar>
+        <ImportButton entity="project" />
+        <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />
+      </BottomToolbar>
     </div>
   );
 }

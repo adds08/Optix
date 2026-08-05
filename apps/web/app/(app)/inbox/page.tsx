@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, CheckCircle2, CircleAlert, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
-import { PageHeader, Metric, EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
+import { Metric, EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
 import { dateTime, relative } from "@/lib/format";
@@ -55,7 +55,6 @@ export default function InboxPage() {
   if (!isDesk) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader eyebrow="Alerts" title="For you" description="Decisions and escalations aimed at your account." />
         {alerts.isLoading ? (
           <TableSkeleton cols={2} />
         ) : !unread.length ? (
@@ -89,12 +88,6 @@ export default function InboxPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Desk"
-        title="Inbox"
-        description="What needs a person, classified by whether the system knows how to act on it."
-      />
-
       <div className="grid gap-3 sm:grid-cols-3">
         <Metric
           label="Recognized"

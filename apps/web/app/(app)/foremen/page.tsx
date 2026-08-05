@@ -5,9 +5,10 @@ import { useMemo } from "react";
 import { ChevronDown, HardHat, MapPin, Truck, Wrench } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { ToolIcon } from "@/components/sti/tool-icon";
+import { useJobScope } from "@/components/job-scope";
 import { money } from "@/lib/format";
 
 /*
@@ -36,6 +37,7 @@ type AssetRow = {
   custodianId?: string | null;
   locationId?: string | null;
   locationName?: string | null;
+  currentProjectId?: string | null;
 };
 
 export default function ForemenPage() {
@@ -48,6 +50,9 @@ export default function ForemenPage() {
     () => new Map((projects.data ?? []).map((p) => [p.id, p])),
     [projects.data],
   );
+
+  /* A scoped user sees only the tools on their jobs. */
+  const { projectIds: scopeProjects } = useJobScope();
 
   const cards = useMemo(() => {
     const vehs = vehicles.data ?? [];
@@ -78,7 +83,8 @@ export default function ForemenPage() {
 
       const held = tools.filter(
         (a: AssetRow) =>
-          a.custodianId === f.id || (a.locationId ? containerLocIds.has(a.locationId) : false),
+          (a.custodianId === f.id || (a.locationId ? containerLocIds.has(a.locationId) : false)) &&
+          (!scopeProjects || (a.currentProjectId ? scopeProjects.has(a.currentProjectId) : false)),
       );
       held.sort((a, b) => (a.tag ?? "").localeCompare(b.tag ?? ""));
 
@@ -95,18 +101,12 @@ export default function ForemenPage() {
         held,
       };
     });
-  }, [employees.data, vehicles.data, assets.data, projectById]);
+  }, [employees.data, vehicles.data, assets.data, projectById, scopeProjects]);
 
   const totalTools = cards.reduce((n, c) => n + c.held.length, 0);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Equipment"
-        title="Foremen"
-        description="Who is on which job, what they are driving, and what is in the back."
-      />
-
       {employees.isLoading || vehicles.isLoading || assets.isLoading ? (
         <TableSkeleton cols={4} />
       ) : employees.isError || vehicles.isError || assets.isError ? (

@@ -20,7 +20,7 @@ import {
 import type { ColumnDef } from "@tanstack/react-table";
 import { CUSTODIAN_ROLES, DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { FacetGroup, FacetRow, ClearFacets, FilterPills } from "@/components/sti/facets";
 import { FlagBadges, isHighValue, warrantyFlag } from "@/components/sti/flags";
@@ -36,6 +36,8 @@ import { VehicleForm, type VehicleEditable } from "@/components/vehicle-form";
 import { PostingForm } from "@/components/posting-form";
 import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
 import { SavedFilters } from "@/components/saved-filters";
+import { BottomToolbar } from "@/components/bottom-toolbar";
+import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,10 +160,15 @@ export default function DeskPage() {
   }, [all]);
 
   /* ---------- Tools filter + table ---------- */
+  const { projectIds: scopeProjects } = useJobScope();
   const scoped = useMemo(() => {
-    if (project === "all") return all;
-    return all.filter((r) => r.currentProjectId === project);
-  }, [all, project]);
+    let rows = all;
+    if (project !== "all") rows = rows.filter((r) => r.currentProjectId === project);
+    if (scopeProjects) {
+      rows = rows.filter((r) => (r.currentProjectId ? scopeProjects.has(r.currentProjectId) : false));
+    }
+    return rows;
+  }, [all, project, scopeProjects]);
 
   const matches = useMemo(() => {
     return (r: (typeof all)[number], skip?: "category" | "status" | "flags") => {
@@ -554,22 +561,6 @@ export default function DeskPage() {
       ) : null}
       {editingEmp ? <EmployeeForm open onClose={() => setEditingEmp(null)} edit={editingEmp} /> : null}
 
-      <PageHeader
-        eyebrow="Operations"
-        title="Desk"
-        description="Everything on one page — tools, trucks, trailers, foremen. Change anything from here."
-        actions={
-          <>
-            <ImportButton entity="asset" />
-            <Button size="sm" variant="outline" onClick={exportAll} disabled={!all.length}>
-              <Download className="size-4" aria-hidden />
-              Export
-            </Button>
-            <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />
-          </>
-        }
-      />
-
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Tools registered" value={all.length} loading={list.isLoading} />
         <Metric label="Out with foremen" value={outWithSomeone} loading={list.isLoading} />
@@ -828,6 +819,15 @@ export default function DeskPage() {
           )}
         </div>
       ) : null}
+
+      <BottomToolbar>
+        <ImportButton entity="asset" />
+        <Button size="sm" variant="outline" onClick={exportAll} disabled={!all.length}>
+          <Download className="size-4" aria-hidden />
+          Export
+        </Button>
+        <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />
+      </BottomToolbar>
     </div>
   );
 }

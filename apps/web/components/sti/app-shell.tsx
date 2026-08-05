@@ -17,6 +17,7 @@ import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
 import { allItems, isFieldRole, navFor } from "./nav-config";
+import { JobGroupSelector } from "@/components/job-group-selector";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -138,6 +139,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
+        {/* The job scope selector — shadcn-account-selector pattern. Lives at
+            the top of the nav so the first thing a scoped superintendent sees
+            is which jobs they are looking at. */}
+        <JobGroupSelector />
+
         <nav className={cn("flex-1 overflow-y-auto py-4", collapsed ? "px-2" : "px-3")}>
           {groups.map((g) => {
             const visible = g.items.filter((n) => !n.perm || perms.includes(n.perm));
@@ -258,7 +264,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className={cn("mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8 lg:py-8")}>
+        <main className={cn("mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8 lg:py-8", "pb-24")}>
           {children}
         </main>
       </div>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, TriangleAlert } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, ErrorNote, TableSkeleton } from "@/components/sti/page";
+import { ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppearanceSettings } from "@/components/appearance-settings";
@@ -102,12 +102,6 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Operations"
-        title="Settings"
-        description="Configuration that belongs to the equipment desk rather than to a deployment."
-      />
-
       {/* ---- LLM ---- */}
       <section className="flex flex-col gap-4 rounded-md border bg-card p-5">
         <div className="flex flex-col gap-1">

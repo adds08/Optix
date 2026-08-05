@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
-import { PageHeader } from "@/components/sti/page";
 import { DataTable, type DataTableServerState } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 import { Tag } from "@/components/sti/status";
@@ -88,8 +87,6 @@ export default function AuditTrailPage() {
         <ArrowLeft className="size-4" />
         All reports
       </Link>
-
-      <PageHeader compact title="Audit trail" />
 
       <MovementsWidget />
 
