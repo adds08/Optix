@@ -3,7 +3,6 @@ import {
   BarChart3,
   Boxes,
   Building2,
-  FolderKanban,
   HardHat,
   Inbox,
   LayoutDashboard,
@@ -95,8 +94,6 @@ export const DESK_NAV: NavGroup[] = [
       { href: "/people", label: "People", icon: Users, perm: "employee.read" },
       /* A job and a project are the same thing — the job ID is the cost code. */
       { href: "/projects", label: "Projects / Jobs", icon: HardHat, perm: "project.read" },
-      /* The buckets that scope a superintendent or PM to their jobs. */
-      { href: "/job-groups", label: "Job Groups", icon: FolderKanban, perm: "project.manage" },
       { href: "/settings", label: "Settings", icon: Settings, perm: "config.manage" },
     ],
   },

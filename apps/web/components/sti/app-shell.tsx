@@ -2,35 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import Link from "next/link";
-import { Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, X } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationCenter } from "@/components/notification-center";
 import { UserMenu } from "@/components/user-menu";
 import { GlobalSearch } from "@/components/global-search";
 import { WorkingBar } from "@/components/working-bar";
-import { ProjectSwitcher } from "@/components/project-switcher";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
-import { allItems, isFieldRole, navFor } from "./nav-config";
+import { allItems, isFieldRole } from "./nav-config";
 
 /*
-  The app shell — the pre-dashboard-01 custom layout: a fixed rail with the
-  brand and the system-wide job selector at its head, the role's navigation,
-  and the content area with a sticky top bar. No shadcn sidebar skeleton.
+  The app shell on the shadcn sidebar-07 skeleton.
 
-  There is deliberately no identity block at the rail's foot: the top bar's
-  account menu owns profile and sign out.
+  SidebarProvider owns the rail (collapse-to-icons, phone sheet, persisted
+  state). The rail carries the system-wide job selector at its head, the
+  role's navigation, and the expandable Job Groups column. The inset holds
+  the sticky top bar (page label, search, notifications, theme, account) and
+  the page itself.
 */
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(false);
 
   /* Guard: no session, no app. Runs before any query fires. */
@@ -41,17 +41,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const me = trpc.identity.me.useQuery(undefined, { enabled: ready, retry: false });
   const prefs = trpc.preferences.get.useQuery(undefined, { enabled: ready });
-  /* Sidebar badge — the queue count the bell shows, mirrored on the nav row so
-     "there is something in the inbox" survives a glance at the rail. */
+  /* Sidebar badge — the queue count the bell shows, mirrored on the nav row. */
   const notif = trpc.dashboard.notifications.useQuery(undefined, { enabled: ready, refetchInterval: 15_000 });
   const inboxCount = notif.data?.unread ?? 0;
 
-  /* Theme: hydrate dark mode from storage/preference, hydrate prefs from the
-     server row, then apply whenever either changes.
-
-     The apply effect reads the STORE, not the query — the settings page
-     previews by writing the store, and an effect keyed on the query result
-     would never see those writes. The query only hydrates the store once. */
+  /* Theme: hydrate dark mode + prefs, then apply on change (the store, not
+     the query, drives the apply — see the effect notes below). */
   const dark = useThemeStore((s) => s.dark);
   const setDark = useThemeStore((s) => s.setDark);
   const setPrefs = useThemeStore((s) => s.setPrefs);
@@ -68,8 +63,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [prefs.data, setPrefs]);
 
   useEffect(() => {
-    /* Fall back to defaults before the preference row arrives, so the engine
-       never flashes un-themed. */
     applyTheme(storePrefs ?? DEFAULT_PREFS, dark);
   }, [storePrefs, dark]);
 
@@ -80,30 +73,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [me.isError, router]);
 
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
   const role = me.data?.role ?? null;
   const perms = me.data?.permissions ?? [];
-  const groups = navFor(role);
   const field = isFieldRole(role);
   const current = allItems(role).find((n) => pathname === n.href || pathname.startsWith(n.href + "/"));
-
-  /* Collapsible rail (docs/20, A2): a desk person on a 1400px layout gains
-     ~180px of table width by folding the labels away. Desktop-only state —
-     a phone drawer is always expanded. */
-  const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => {
-    if (window.innerWidth < 1024) return;
-    setCollapsed(localStorage.getItem("sti-sidebar") === "collapsed");
-  }, []);
-  const toggleCollapsed = () => {
-    setCollapsed((c) => {
-      localStorage.setItem("sti-sidebar", c ? "expanded" : "collapsed");
-      return !c;
-    });
-  };
+  const userName = `${me.data?.firstName ?? ""} ${me.data?.lastName ?? ""}`.trim();
 
   async function onLogout() {
     try {
@@ -117,121 +91,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!ready) return null;
 
   return (
-    <div className="flex min-h-svh bg-background">
+    <SidebarProvider>
       <WorkingBar />
-      {/* ---- rail ---- */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col border-r bg-sidebar text-sidebar-foreground",
-          "transition-[width,transform] duration-200 lg:translate-x-0",
-          collapsed ? "w-16" : "w-[248px]",
-          open ? "translate-x-0" : "-translate-x-full",
-        )}
-      >
-        <div className={cn("flex h-14 items-center border-b border-sidebar-border", collapsed ? "justify-center px-2" : "justify-between px-4")}>
-          <Link href={field ? "/my-tools" : "/home"} className="flex items-center gap-2" title="STInventory">
-            <span className="grid size-6 shrink-0 place-items-center rounded-sm bg-sidebar-primary text-[11px] font-bold text-sidebar-primary-foreground">
-              ST
-            </span>
-            <span className={cn("text-sm font-semibold tracking-tight", collapsed && "hidden")}>
-              STInventory
-            </span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="lg:hidden"
-            aria-label="Close navigation"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        {/* The system-wide job selector — at the very top of the rail, always
-            visible: Show All, the job groups, and every job under them. */}
-        <ProjectSwitcher collapsed={collapsed} />
-
-        <nav className={cn("flex-1 overflow-y-auto py-4", collapsed ? "px-2" : "px-3")}>
-          {groups.map((g) => {
-            const visible = g.items.filter((n) => !n.perm || perms.includes(n.perm));
-            if (!visible.length) return null;
-            return (
-              <div key={g.label} className={cn("flex flex-col gap-1", !collapsed && "mb-5")}>
-                <span className={cn("label-xs px-2 pb-1", collapsed && "sr-only")}>{g.label}</span>
-                {visible.map((n) => {
-                  const active = pathname === n.href || pathname.startsWith(n.href + "/");
-                  return (
-                    <Link
-                      key={n.href}
-                      href={n.href}
-                      aria-current={active ? "page" : undefined}
-                      title={collapsed ? n.label : undefined}
-                      className={cn(
-                        "relative flex items-center gap-2.5 rounded-md text-sm transition-colors",
-                        collapsed ? "justify-center px-0 py-2.5" : "px-2 py-2",
-                        field && "py-3 text-[0.95rem]",
-                        active
-                          ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                      )}
-                    >
-                      <n.icon className="size-4 shrink-0" />
-                      <span className={cn("truncate", collapsed && "hidden")}>{n.label}</span>
-                      {n.href === "/inbox" && inboxCount > 0 ? (
-                        <span
-                          className={cn(
-                            "tnum ml-auto shrink-0 rounded-full bg-crit px-1.5 py-0.5 text-[10px] font-semibold leading-3 text-white",
-                            collapsed && "absolute right-1 top-1 ml-0",
-                          )}
-                        >
-                          {inboxCount > 99 ? "99+" : inboxCount}
-                        </span>
-                      ) : null}
-                    </Link>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </nav>
-      </aside>
-
-      {open ? (
-        <button
-          type="button"
-          aria-label="Close navigation overlay"
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-30 bg-foreground/20 lg:hidden"
-        />
-      ) : null}
-
-      {/* ---- content ---- */}
-      <div className={cn("flex min-w-0 flex-1 flex-col", collapsed ? "lg:pl-16" : "lg:pl-[248px]")}>
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur lg:px-8">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="lg:hidden"
-            aria-label="Open navigation"
-          >
-            <Menu className="size-5" />
-          </button>
-          {/* Collapse toggle. It lives in the header, not at the rail's foot:
-              the control belongs where the eye already is at the top of the
-              page, and buried under the nav list it was a thing you had to go
-              looking for. Desk only — a phone drawer never collapses. */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
-            title={collapsed ? "Expand navigation" : "Collapse navigation"}
-            className="-ml-1 hidden text-muted-foreground hover:text-foreground lg:inline-flex"
-          >
-            {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-          </Button>
-          {/* Page context — the register's own title still tells you where you
-              are; the dashboard drops it in favour of its tabs (docs/20). */}
+      <AppSidebar
+        userRole={role}
+        permissions={perms}
+        inboxCount={inboxCount}
+        variant="inset"
+      />
+      <SidebarInset>
+        {/* Sticky top bar — page context, search, notifications, account. */}
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur lg:px-6">
+          <SidebarTrigger className="-ml-1" />
           <span className={cn("truncate text-sm font-medium", pathname === "/home" && "hidden")}>
             {current?.label ?? "STInventory"}
           </span>
@@ -240,20 +111,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <NotificationCenter />
             <ThemeToggle />
             {me.data ? (
-              <UserMenu
-                name={`${me.data.firstName} ${me.data.lastName}`}
-                role={me.data.role}
-                onSignOut={onLogout}
-              />
+              <UserMenu name={userName} role={me.data.role} onSignOut={onLogout} />
             ) : null}
           </div>
         </header>
 
-        <main className={cn("mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8 lg:py-8", "pb-24")}>
+        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 pb-24 lg:px-8 lg:py-8">
           {children}
         </main>
-      </div>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
