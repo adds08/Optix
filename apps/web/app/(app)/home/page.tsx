@@ -24,6 +24,7 @@ import {
 import { dateTime, money, num, relative } from "@/lib/format";
 import { FleetLegend } from "@/components/fleet-map-view";
 import { GreetingBar } from "@/components/greeting-bar";
+import { MovementChart } from "@/components/movement-chart";
 import { useThemeStore } from "@/lib/themes/store";
 import {
   CapitalSplitWidget,
@@ -331,6 +332,11 @@ export default function HomePage() {
               <Metric label="Terminated staff" value={num(k?.terminatedCount)} loading={kpis.isLoading} />
               <Metric label="Held by terminated" value={num(k?.clearanceCount)} loading={kpis.isLoading} tone={k?.clearanceCount ? "crit" : "ok"} />
             </div>
+          </section>
+
+          {/* ---- the movement chart (dashboard-01 slot), above the ledger ---- */}
+          <section className="flex flex-col gap-3">
+            <MovementChart />
           </section>
 
           {/* ---- the ledger strip, at the bottom (docs/20, B2) ---- */}
