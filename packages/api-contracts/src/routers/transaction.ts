@@ -7,20 +7,23 @@ import { protectedProcedure, router } from "../trpc.js";
 export const transactionRouter = router({
   // Append-only event feed. Pass `assetId` to get one tool's custody chain —
   // that chain IS the audit trail, so nothing here is filtered or redacted.
+  // Pass `projectId` to get the activity of every tool currently working that
+  // site — the live jobsite feed.
   list: protectedProcedure
     .input(
       z
         .object({
           limit: z.number().int().min(1).max(200).default(50),
           assetId: z.string().uuid().optional(),
+          projectId: z.string().uuid().optional(),
         })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const where = input?.assetId
-        ? and(eq(schema.transaction.tenantId, tid), eq(schema.transaction.assetId, input.assetId))
-        : eq(schema.transaction.tenantId, tid);
+      const where = [eq(schema.transaction.tenantId, tid)];
+      if (input?.assetId) where.push(eq(schema.transaction.assetId, input.assetId));
+      if (input?.projectId) where.push(eq(schema.asset.currentProjectId, input.projectId));
 
       return ctx.db
         .select({
@@ -59,7 +62,7 @@ export const transactionRouter = router({
         .from(schema.transaction)
         .innerJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
         .leftJoin(schema.user, eq(schema.transaction.actorId, schema.user.id))
-        .where(where)
+        .where(and(...where))
         .orderBy(sql`${schema.transaction.occurredAt} DESC, ${schema.transaction.id} DESC`)
         .limit(input?.limit ?? 50);
     }),
