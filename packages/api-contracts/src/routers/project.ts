@@ -151,6 +151,7 @@ export const employeeRouter = router({
         terminatedAt: schema.employee.terminatedAt,
         primaryProjectId: schema.employee.primaryProjectId,
         primaryProjectName: schema.project.name,
+        primaryProjectExternalId: schema.project.externalId,
         reportsToEmployeeId: schema.employee.reportsToEmployeeId,
         reportsToName: reportsTo.name,
       })

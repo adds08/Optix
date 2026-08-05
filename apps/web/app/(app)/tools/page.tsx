@@ -26,7 +26,7 @@ import { col } from "@/components/sti/data-table/columns";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { downloadCsv } from "@/lib/csv";
 import { exportAssetsToSpec } from "@/lib/export-assets";
-import { money } from "@/lib/format";
+import { money, idName } from "@/lib/format";
 
 const STATUSES = ["available", "assigned", "in_maintenance", "reserved", "lost"] as const;
 type FlagKey = "high_value" | "warranty" | "no_project";
@@ -207,7 +207,11 @@ export default function ToolsPage() {
       col<Row>({
         header: "Project",
         accessorFn: (r) => r.currentProjectName ?? "",
-        cell: (r) => r.currentProjectName ?? <span className="text-muted-foreground">—</span>,
+        cell: (r) => (
+          <span className="text-muted-foreground">
+            {r.currentProjectName ? idName(r.currentProjectExternalId, r.currentProjectName) : "—"}
+          </span>
+        ),
       }),
       col<Row>({
         header: "Cost",

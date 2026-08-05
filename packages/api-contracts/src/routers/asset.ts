@@ -96,6 +96,7 @@ export const assetRouter = router({
           custodianExternalId: schema.employee.externalId,
           currentProjectId: schema.asset.currentProjectId,
           currentProjectName: currentProject.name,
+          currentProjectExternalId: currentProject.externalId,
           locationId: schema.asset.currentLocationId,
           locationName: schema.location.name,
           /* A vehicle is a `location` of type vehicle — but the register groups
@@ -150,6 +151,7 @@ export const assetRouter = router({
           custodianExternalId: schema.employee.externalId,
           currentProjectId: schema.asset.currentProjectId,
           currentProjectName: currentProject.name,
+          currentProjectExternalId: currentProject.externalId,
           locationId: schema.asset.currentLocationId,
           locationName: schema.location.name,
           owningProjectId: schema.asset.owningProjectId,

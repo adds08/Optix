@@ -55,6 +55,18 @@ export function daysFrom(v: string | Date | null | undefined): number | null {
   return Math.floor((Date.now() - d.getTime()) / 86_400_000);
 }
 
+/*
+  Entity identifiers everywhere read as "<ID> - <Entity name>" — the job ID is
+  shown beside the project name, the foreman's ID beside their name, and so
+  on. The ID is the stable key people actually know ("PRJ-001", "5519"), so it
+  leads.
+*/
+export function idName(id: string | null | undefined, name: string | null | undefined): string {
+  if (!id) return name ?? "—";
+  if (!name) return id;
+  return `${id} - ${name}`;
+}
+
 export function relative(v: string | Date | null | undefined): string {
   const days = daysFrom(v);
   if (days === null) return "—";

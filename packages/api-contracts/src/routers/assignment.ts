@@ -24,6 +24,7 @@ export const assignmentRouter = router({
         custodianExternalId: schema.employee.externalId,
         projectId: schema.assignment.projectId,
         projectName: schema.project.name,
+        projectExternalId: schema.project.externalId,
         locationId: schema.assignment.locationId,
         locationName: schema.location.name,
         type: schema.assignment.type,

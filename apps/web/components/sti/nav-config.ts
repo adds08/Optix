@@ -1,6 +1,5 @@
 import type { Permission } from "@stinventory/types";
 import {
-  Activity,
   BarChart3,
   Boxes,
   Building2,
@@ -8,7 +7,6 @@ import {
   HardHat,
   Inbox,
   LayoutDashboard,
-  ListChecks,
   MapPin,
   MessageSquare,
   Radio,
@@ -54,20 +52,15 @@ export const FIELD_NAV: NavGroup[] = [
 export const DESK_NAV: NavGroup[] = [
   {
     label: "Overview",
-    items: [
-      { href: "/home", label: "Dashboard", icon: LayoutDashboard },
-      /* The one-page desk: tools, trucks & trailers, foremen — every operation
-         without leaving the screen. */
-      { href: "/desk", label: "Desk", icon: ListChecks, perm: "asset.read" },
-    ],
+    items: [{ href: "/home", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
     label: "Equipment",
     items: [
       { href: "/tools", label: "Tool Register", icon: Boxes, perm: "asset.read" },
-      /* One card per foreman: truck, hitched trailer, job site, and the tools
-         in the back — the "who is where, driving what, holding what" answer. */
-      { href: "/foremen", label: "Foremen", icon: HardHat, perm: "employee.read" },
+      /* One card per foreman: job site, truck, hitched trailer, and the tools
+         in the back — who is where, driving what, holding what. */
+      { href: "/foremen", label: "Jobsite by Foreman", icon: HardHat, perm: "employee.read" },
       /* The same accordion view, but grouped by job site — one card per
          project, expanded to see the tools working it. */
       { href: "/jobsites", label: "Tools by Jobsite", icon: Building2, perm: "asset.read" },
@@ -100,7 +93,8 @@ export const DESK_NAV: NavGroup[] = [
     items: [
       { href: "/inbox", label: "Inbox", icon: Inbox, perm: "assignment.read" },
       { href: "/people", label: "People", icon: Users, perm: "employee.read" },
-      { href: "/projects", label: "Projects", icon: HardHat, perm: "project.read" },
+      /* A job and a project are the same thing — the job ID is the cost code. */
+      { href: "/projects", label: "Projects / Jobs", icon: HardHat, perm: "project.read" },
       /* The buckets that scope a superintendent or PM to their jobs. */
       { href: "/job-groups", label: "Job Groups", icon: FolderKanban, perm: "project.manage" },
       { href: "/settings", label: "Settings", icon: Settings, perm: "config.manage" },

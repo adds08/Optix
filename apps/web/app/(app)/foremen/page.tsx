@@ -9,7 +9,7 @@ import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { ToolIcon } from "@/components/sti/tool-icon";
 import { useJobScope } from "@/components/job-scope";
-import { money } from "@/lib/format";
+import { money, idName } from "@/lib/format";
 
 /*
   One card per foreman — the answer to "who is on which job, what are they
@@ -93,6 +93,7 @@ export default function ForemenPage() {
       return {
         id: f.id,
         name: f.name,
+        externalId: f.externalId,
         role: f.role,
         projectName: f.primaryProjectName,
         projectExternalId: proj?.externalId ?? null,
@@ -142,7 +143,9 @@ export default function ForemenPage() {
                         .toUpperCase()}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{c.name}</span>
+                      <span className="block truncate text-sm font-medium">
+                        {idName(c.externalId, c.name)}
+                      </span>
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <MapPin className="size-3" aria-hidden />
                         {c.projectName ?? "No job assigned"}

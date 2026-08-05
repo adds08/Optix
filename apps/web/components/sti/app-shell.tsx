@@ -98,8 +98,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         userRole={role}
         permissions={perms}
         inboxCount={inboxCount}
-        userName={userName || "STInventory"}
-        onSignOut={onLogout}
         variant="inset"
       />
       <SidebarInset>

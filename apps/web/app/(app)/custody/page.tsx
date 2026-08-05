@@ -7,7 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { useJobScope } from "@/components/job-scope";
-import { shortDate, daysFrom, relative } from "@/lib/format";
+import { shortDate, daysFrom, relative, idName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*
@@ -94,7 +94,9 @@ export default function CustodyPage() {
                       </td>
                       <td className="px-4 py-2.5 font-medium">{a.modelName}</td>
                       <td className="px-4 py-2.5">{a.custodianName ?? "—"}</td>
-                      <td className="px-4 py-2.5">{a.projectName ?? "—"}</td>
+                      <td className="px-4 py-2.5">
+                        {a.projectName ? idName(a.projectExternalId, a.projectName) : "—"}
+                      </td>
                       <td className="px-4 py-2.5">{a.locationName ?? "—"}</td>
                       <td className="px-4 py-2.5 capitalize">{a.type}</td>
                       <td className="px-4 py-2.5">

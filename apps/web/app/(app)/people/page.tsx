@@ -15,7 +15,7 @@ import { PostingForm } from "@/components/posting-form";
 import { RowActions } from "@/components/sti/row-actions";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
-import { money } from "@/lib/format";
+import { money, idName } from "@/lib/format";
 
 export default function PeoplePage() {
   const [editing, setEditing] = useState<EmployeeEditable | null>(null);
@@ -124,11 +124,15 @@ export default function PeoplePage() {
                     <tr key={e.id} className="border-b last:border-0 hover:bg-muted/40">
                       <td className="px-4 py-2.5 font-medium">
                         <Link href={`/people/${e.id}`} className="hover:underline">
-                          {e.name}
+                          {idName(e.externalId, e.name)}
                         </Link>
                       </td>
                       <td className="px-4 py-2.5">{humanize(e.role)}</td>
-                      <td className="px-4 py-2.5">{e.primaryProjectName ?? "—"}</td>
+                      <td className="px-4 py-2.5">
+                        {e.primaryProjectName
+                          ? idName(e.primaryProjectExternalId, e.primaryProjectName)
+                          : "—"}
+                      </td>
                       <td className="px-4 py-2.5"><StatusPill status={e.employmentStatus} /></td>
                       <td className="px-4 py-2.5 text-right tnum">{f ? Number(f.assetCount) : 0}</td>
                       <td className="px-4 py-2.5 text-right tnum">{f ? money(f.totalValue) : "—"}</td>

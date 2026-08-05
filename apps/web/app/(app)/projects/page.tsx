@@ -8,6 +8,7 @@ import { StatusPill, Tag } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
 import { BottomToolbar } from "@/components/bottom-toolbar";
+import { idName } from "@/lib/format";
 import { ProjectForm, type ProjectEditable } from "@/components/project-form";
 import { useJobScope } from "@/components/job-scope";
 import { RowActions } from "@/components/sti/row-actions";
@@ -58,8 +59,8 @@ export default function ProjectsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left">
-                <th className="px-4 py-2.5 font-medium">Project</th>
-                <th className="px-4 py-2.5 font-medium">Cost code</th>
+                <th className="px-4 py-2.5 font-medium">Job</th>
+                <th className="px-4 py-2.5 font-medium">Job ID</th>
                 <th className="px-4 py-2.5 font-medium">Site</th>
                 <th className="px-4 py-2.5 font-medium">Cost center</th>
                 <th className="px-4 py-2.5 font-medium">Started</th>
@@ -70,7 +71,7 @@ export default function ProjectsPage() {
             <tbody>
               {rows.map((p) => (
                 <tr key={p.id} className="border-b last:border-0 hover:bg-muted/40">
-                  <td className="px-4 py-2.5 font-medium">{p.name}</td>
+                  <td className="px-4 py-2.5 font-medium">{idName(p.externalId, p.name)}</td>
                   <td className="px-4 py-2.5">
                     {p.externalId ? <Tag>{p.externalId}</Tag> : <Muted />}
                   </td>
