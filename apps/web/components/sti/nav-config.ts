@@ -7,6 +7,7 @@ import {
   HardHat,
   Inbox,
   LayoutDashboard,
+  ListChecks,
   MapPin,
   MessageSquare,
   Radio,
@@ -52,7 +53,12 @@ export const FIELD_NAV: NavGroup[] = [
 export const DESK_NAV: NavGroup[] = [
   {
     label: "Overview",
-    items: [{ href: "/home", label: "Dashboard", icon: LayoutDashboard }],
+    items: [
+      { href: "/home", label: "Dashboard", icon: LayoutDashboard },
+      /* The one-page desk: tools, trucks & trailers, foremen — every operation
+         without leaving the screen. */
+      { href: "/desk", label: "Desk", icon: ListChecks, perm: "asset.read" },
+    ],
   },
   {
     label: "Equipment",
