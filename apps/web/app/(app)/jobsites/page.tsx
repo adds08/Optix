@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Boxes, ChevronDown, MapPin, Search } from "lucide-react";
+import { Boxes, ChevronDown, HardHat, MapPin, Search } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { FilterPills } from "@/components/sti/facets";
+import { ToolIcon } from "@/components/sti/tool-icon";
 import { SavedFilters } from "@/components/saved-filters";
 import { Input } from "@/components/ui/input";
 import { money } from "@/lib/format";
@@ -256,9 +257,13 @@ export default function JobsitesPage() {
                             ) : null}
                           </span>
                           {g.foremen.length ? (
-                            <span className="mt-0.5 flex flex-wrap gap-1">
+                            <span className="mt-0.5 flex flex-wrap gap-1.5">
                               {g.foremen.slice(0, 4).map((n) => (
-                                <span key={n} className="text-xs text-muted-foreground">
+                                <span
+                                  key={n}
+                                  className="flex items-center gap-1 rounded-full bg-muted/60 px-1.5 py-0.5 text-xs text-muted-foreground"
+                                >
+                                  <HardHat className="size-3 text-muted-foreground/70" aria-hidden />
                                   {n}
                                 </span>
                               ))}
@@ -307,8 +312,15 @@ export default function JobsitesPage() {
                                   </Link>
                                 </td>
                                 <td className="px-4 py-2">
-                                  <Link href={`/tools/${a.id}`} className="font-medium hover:underline">
-                                    {formatAssetModel(a) || "No description"}
+                                  <Link
+                                    href={`/tools/${a.id}`}
+                                    className="flex items-center gap-2 font-medium hover:underline"
+                                  >
+                                    <ToolIcon
+                                      category={a.categoryName}
+                                      className="size-4 shrink-0 text-muted-foreground"
+                                    />
+                                    <span>{formatAssetModel(a) || "No description"}</span>
                                   </Link>
                                 </td>
                                 <td className="px-4 py-2">

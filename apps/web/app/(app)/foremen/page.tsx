@@ -7,6 +7,7 @@ import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
+import { ToolIcon } from "@/components/sti/tool-icon";
 import { money } from "@/lib/format";
 
 /*
@@ -29,6 +30,7 @@ type AssetRow = {
   make?: string | null;
   modelNumber?: string | null;
   description?: string | null;
+  categoryName?: string | null;
   status?: string | null;
   acquisitionCost?: string | null;
   custodianId?: string | null;
@@ -176,6 +178,11 @@ export default function ForemenPage() {
                     <span className="rounded-md border bg-muted/50 px-2 py-0.5 text-xs">
                       <span className="tnum font-semibold text-foreground">{c.held.length}</span>{" "}
                       tool{c.held.length === 1 ? "" : "s"}
+                      {c.held.some((a) => a.acquisitionCost) ? (
+                        <span className="ml-1.5 tnum text-muted-foreground">
+                          · {money(c.held.reduce((n, a) => n + (Number(a.acquisitionCost) || 0), 0))}
+                        </span>
+                      ) : null}
                     </span>
                     <ChevronDown
                       className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
@@ -209,8 +216,15 @@ export default function ForemenPage() {
                                 </Link>
                               </td>
                               <td className="px-4 py-2">
-                                <Link href={`/tools/${a.id}`} className="font-medium hover:underline">
-                                  {formatAssetModel(a) || "No description"}
+                                <Link
+                                  href={`/tools/${a.id}`}
+                                  className="flex items-center gap-2 font-medium hover:underline"
+                                >
+                                  <ToolIcon
+                                    category={a.categoryName}
+                                    className="size-4 shrink-0 text-muted-foreground"
+                                  />
+                                  <span>{formatAssetModel(a) || "No description"}</span>
                                 </Link>
                               </td>
                               <td className="px-4 py-2">
