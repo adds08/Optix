@@ -24,7 +24,6 @@ const DEMO = [
   { email: "owner@stinventory.local", who: "Owner — full access" },
   { email: "admin@stinventory.local", who: "Karen Osei — Equipment Admin" },
   { email: "warehouse@stinventory.local", who: "Yard Desk — Warehouse" },
-  { email: "foreman.miguel@stinventory.local", who: "Miguel Torres — Foreman (field layout)" },
 ];
 
 export default function LoginPage() {

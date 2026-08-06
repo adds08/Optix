@@ -100,7 +100,13 @@ make ENV=local seed    # load sample data
 | owner@stinventory.local | Owner — full access |
 | admin@stinventory.local | Karen Osei — Equipment Admin |
 | warehouse@stinventory.local | Yard Desk — Warehouse |
-| foreman.miguel@stinventory.local | Miguel Torres — Foreman |
+
+The seed (packages/db/src/seed.ts) loads the fleet from
+`packages/db/src/seed-data.ts`, generated from `docs/data/TOOL LIST BY NAME.xlsx`
+via `docs/data/generate_app_seed.py` (39 foremen, 16 projects, 29 trailers,
+754 tools). Raw extraction lives in `docs/data/seed_from_tools_list.json`;
+anything a human must review before trusting it is in
+`docs/data/reconciliation_report.json`.
 
 ## 7. What's built
 

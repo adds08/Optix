@@ -342,12 +342,15 @@ for d in detail:
     if same_person(te_f, sh_f):
         conflicts["merged_name_variants"].append({
             "trailer_id": d["trailer"], "sheet": d["sheet"],
-            "te_name": te_f, "sheet_name": sh_f, "resolution": "merged (spelling variant)",
+            "te_name": te_f, "sheet_name": sh_f,
+            "severity": "info",
+            "resolution": "merged (spelling variant)",
         })
     else:
         conflicts["foreman_mismatches"].append({
             "trailer_id": d["trailer"], "sheet": d["sheet"],
             "te_name": te_f, "sheet_name": sh_f,
+            "severity": "conflict",
             "resolution": "unresolved - TE primary used; verify which is current",
         })
 
@@ -363,13 +366,15 @@ for d in detail:
             "trailer_id": d["trailer"], "sheet": d["sheet"],
             "te_project": te_proj, "te_job": te_job,
             "sheet_project": sh_proj, "sheet_job": sh_job,
-            "resolution": "unresolved - TE primary used",
+            "severity": "conflict",
+            "resolution": "unresolved - TE primary used; different job numbers",
         })
     elif (te_job or sh_job) and te_job == sh_job and norm_key(te_proj or "") != norm_key(sh_proj or ""):
         conflicts["project_mismatches"].append({
             "trailer_id": d["trailer"], "sheet": d["sheet"],
             "te_project": te_proj, "te_job": te_job,
             "sheet_project": sh_proj, "sheet_job": sh_job,
+            "severity": "info",
             "resolution": "same job number, different spelling - merged by job",
         })
 

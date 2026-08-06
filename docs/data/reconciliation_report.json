@@ -2,26 +2,20 @@
   "purpose": "Human review queue for docs/data/seed_from_tools_list.json. Nothing here is auto-resolved silently - every entry needs a human decision before the seed is trusted.",
   "summary": {
     "unmatched_projects": 0,
-    "foreman_mismatches": 4,
+    "foreman_mismatches": 3,
     "project_mismatches": 16,
     "trailer_anomalies": 12,
-    "merged_name_variants": 0,
+    "merged_name_variants": 1,
     "unresolved_name_variants": 1
   },
   "unmatched_projects": [],
   "foreman_mismatches": [
     {
-      "trailer_id": "TE-007",
-      "sheet": "TE-007",
-      "te_name": "Jobani Abarca",
-      "sheet_name": "JOVANI ABARCA",
-      "resolution": "unresolved - TE primary used; verify which is current"
-    },
-    {
       "trailer_id": "TE-021",
       "sheet": "TE-021",
       "te_name": "GABRIEL VILLAREAL",
       "sheet_name": "Jose Danery",
+      "severity": "conflict",
       "resolution": "unresolved - TE primary used; verify which is current"
     },
     {
@@ -29,6 +23,7 @@
       "sheet": "TE-023",
       "te_name": "RAFAEL JAIMES",
       "sheet_name": "RAFAEL JIMENEZ",
+      "severity": "conflict",
       "resolution": "unresolved - TE primary used; verify which is current"
     },
     {
@@ -36,6 +31,7 @@
       "sheet": "TE-025",
       "te_name": "JOSE RICO",
       "sheet_name": "FLORIBERTO LOZA SR.",
+      "severity": "conflict",
       "resolution": "unresolved - TE primary used; verify which is current"
     }
   ],
@@ -47,6 +43,7 @@
       "te_job": "22018",
       "sheet_project": "LONE STAR",
       "sheet_job": "22018",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -56,7 +53,8 @@
       "te_job": "24002",
       "sheet_project": "LITTLE HELM",
       "sheet_job": "23009",
-      "resolution": "unresolved - TE primary used"
+      "severity": "conflict",
+      "resolution": "unresolved - TE primary used; different job numbers"
     },
     {
       "trailer_id": "TE-009",
@@ -65,6 +63,7 @@
       "te_job": "22018",
       "sheet_project": "LONSTAR",
       "sheet_job": "22018",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -74,6 +73,7 @@
       "te_job": "23004",
       "sheet_project": "COLONY",
       "sheet_job": "23004",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -83,6 +83,7 @@
       "te_job": "24003",
       "sheet_project": "PLANO",
       "sheet_job": "24003",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -92,6 +93,7 @@
       "te_job": "24007",
       "sheet_project": null,
       "sheet_job": "24007",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -101,6 +103,7 @@
       "te_job": "22018",
       "sheet_project": "LONSTAR",
       "sheet_job": "22018",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -110,6 +113,7 @@
       "te_job": "24007",
       "sheet_project": null,
       "sheet_job": "24007",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -119,6 +123,7 @@
       "te_job": "23010",
       "sheet_project": "BELL, TX",
       "sheet_job": "23010",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -128,6 +133,7 @@
       "te_job": "23004",
       "sheet_project": "COLONY",
       "sheet_job": "23004",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -137,7 +143,8 @@
       "te_job": null,
       "sheet_project": "LONE STAR",
       "sheet_job": "22018",
-      "resolution": "unresolved - TE primary used"
+      "severity": "conflict",
+      "resolution": "unresolved - TE primary used; different job numbers"
     },
     {
       "trailer_id": "TE-026",
@@ -146,6 +153,7 @@
       "te_job": "23009",
       "sheet_project": "Little Elm",
       "sheet_job": "23009",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -155,7 +163,8 @@
       "te_job": null,
       "sheet_project": "LONE STAR",
       "sheet_job": "22018",
-      "resolution": "unresolved - TE primary used"
+      "severity": "conflict",
+      "resolution": "unresolved - TE primary used; different job numbers"
     },
     {
       "trailer_id": "TE-033",
@@ -164,6 +173,7 @@
       "te_job": "22018",
       "sheet_project": "LONE STAR",
       "sheet_job": "22018",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     },
     {
@@ -173,7 +183,8 @@
       "te_job": null,
       "sheet_project": null,
       "sheet_job": "22018",
-      "resolution": "unresolved - TE primary used"
+      "severity": "conflict",
+      "resolution": "unresolved - TE primary used; different job numbers"
     },
     {
       "trailer_id": "TE-035",
@@ -182,6 +193,7 @@
       "te_job": "23009",
       "sheet_project": null,
       "sheet_job": "23009",
+      "severity": "info",
       "resolution": "same job number, different spelling - merged by job"
     }
   ],
@@ -275,7 +287,16 @@
       "note": "trailer id present in TE but no foreman, no status, no detail sheet"
     }
   ],
-  "merged_name_variants": [],
+  "merged_name_variants": [
+    {
+      "trailer_id": "TE-007",
+      "sheet": "TE-007",
+      "te_name": "Jobani Abarca",
+      "sheet_name": "JOVANI ABARCA",
+      "severity": "info",
+      "resolution": "merged (spelling variant)"
+    }
+  ],
   "unresolved_name_variants": [
     {
       "name_a": "RAFAEL JAIMES",
@@ -290,5 +311,5 @@
     "TE primary sheet is authoritative for trailer->foreman->project; TE-* detail sheets fill gaps and their tools attach to the sheet foreman.",
     "Duplicated TE rows (blank repeats of TE-029/030/031/033) were discarded; a populated row was never overwritten by a blank one."
   ],
-  "generated_at": "2026-08-06T12:54:49.927676+00:00"
+  "generated_at": "2026-08-06T12:55:29.481395+00:00"
 }
