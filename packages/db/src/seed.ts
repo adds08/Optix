@@ -18,6 +18,7 @@ import {
   notification,
   permission,
   project,
+  projectTeamMember,
   role,
   rolePermission,
   tenant,
@@ -49,6 +50,7 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "vehicle.read",
     "vehicle.manage",
     "project.read",
+    "project.manage",
     "employee.read",
     "assignment.read",
     "assignment.create",
@@ -58,15 +60,31 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "report.read",
     "notification.read",
     "notification.manage",
+    /* The equipment department sits at the same tier as admins for who gets
+       put on a project (docs: project.team.assign hierarchy) — and it keeps
+       project.manage so the yard desk sees every job, the way admins do. */
+    "project.team.read",
+    "project.assign.pm",
+    "project.assign.superintendent",
+    "project.assign.foreman",
   ],
   superintendent: [
     "asset.read", "location.read", "vehicle.read", "project.read", "employee.read",
     "assignment.read", "assignment.create", "assignment.approve",
     "transfer.read", "transfer.create", "transfer.approve",
     "report.read", "notification.read",
+    /* Superintendents put foremen on their projects. */
+    "project.team.read",
+    "project.assign.foreman",
   ],
   procurement: ["asset.read", "project.read", "employee.read", "report.read"],
-  project_manager: ["asset.read", "project.read", "project.manage", "employee.read", "report.read"],
+  project_manager: [
+    "asset.read", "project.read", "project.manage", "employee.read", "report.read",
+    /* PMs assign superintendents and foremen to their projects. */
+    "project.team.read",
+    "project.assign.superintendent",
+    "project.assign.foreman",
+  ],
   foreman: [
     "asset.read",
     "location.read",
@@ -79,6 +97,8 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "transfer.create",
     "report.read",
     "notification.read",
+    /* A foreman can see who else is on the project they work. */
+    "project.team.read",
   ],
   hr: ["employee.read", "employee.manage", "notification.read", "report.read"],
   finance: ["asset.read", "project.read", "report.read", "audit.read"],
@@ -96,6 +116,7 @@ async function main() {
     await db.delete(vehicle);
     await db.delete(location);
     await db.delete(employeeProjectAssignment); // before employees — it points at them
+    await db.delete(projectTeamMember); // before employees and projects — it points at both
     await db.delete(employee);
     await db.delete(project);
     await db.delete(warehouse);
@@ -200,6 +221,9 @@ async function main() {
     { key: "e-sofia", extId: "5592", name: "Sofia Ramirez", role: "foreman", primary: "p-gpk", status: "active", email: "sofia.ramirez@urban.local", phone: "214-555-0112", reportsTo: null },
     { key: "e-james", extId: "3308", name: "James Whitaker", role: "foreman", primary: "p-uptown", status: "terminated", email: "james.whitaker@urban.local", phone: "214-555-0113", reportsTo: null },
     { key: "e-karen", extId: "0199", name: "Karen Osei", role: "equipment_admin", primary: null, status: "active", email: "karen.osei@urban.local", phone: "214-555-0100", reportsTo: null },
+    /* A project manager for the hierarchy demo — runs Legacy West + Trinity,
+       and assigns their superintendents and foremen. */
+    { key: "e-priya", extId: "6641", name: "Priya Sharma", role: "pm", primary: null, status: "active", email: "priya.sharma@urban.local", phone: "214-555-0177", reportsTo: null },
     { key: "e-yard", extId: "7712", name: "Yard Desk", role: "warehouse", primary: null, status: "active", email: "yard@urban.local", phone: "214-555-0199", reportsTo: null },
     /* Shop staff: a custodian who can hold tools but is not on any job. The
        tools they hold get charged to Repair & Maintenance. */
@@ -257,11 +281,38 @@ async function main() {
     })),
   );
 
+  // ---- Project team roster ----
+  // The role-based "who runs this job" table behind the Tools by Jobsite hub
+  // and the server-side project scope. A foreman row here means that foreman
+  // is working that project — which is why Miguel's row sits on Legacy West
+  // and Dwayne's on Trinity, matching their postings above.
+  const teamSpecs = [
+    { emp: "e-priya", proj: "p-legacy", role: "pm", from: "2026-01-06", note: "Runs Legacy West" },
+    { emp: "e-priya", proj: "p-trinity", role: "pm", from: "2026-03-02", note: "Runs Trinity Bridge" },
+    { emp: "e-carlos", proj: "p-legacy", role: "superintendent", from: "2026-01-06", note: "Field lead" },
+    { emp: "e-carlos", proj: "p-trinity", role: "superintendent", from: "2026-05-18", note: "Also covers Trinity" },
+    { emp: "e-miguel", proj: "p-legacy", role: "foreman", from: "2026-01-06", note: "Working Legacy West" },
+    { emp: "e-dwayne", proj: "p-trinity", role: "foreman", from: "2026-05-18", note: "Moved with his trailer" },
+    { emp: "e-sofia", proj: "p-gpk", role: "foreman", from: "2026-02-02", note: "Working GPK" },
+  ];
+  await db.insert(projectTeamMember).values(
+    teamSpecs.map((s) => ({
+      tenantId: tid,
+      projectId: projectByKey[s.proj]!,
+      employeeId: empByKey[s.emp]!,
+      role: s.role,
+      startedOn: s.from,
+      note: s.note,
+    })),
+  );
+  console.log(`[seed] ${teamSpecs.length} project team members`);
+
   // ---- Login users ----
   const passwordHash = await bcrypt.hash("stinventory-demo", 10);
   const userSpecs = [
     { email: "owner@stinventory.local", first: "Demo", last: "Owner", role: "owner", employeeKey: null },
     { email: "admin@stinventory.local", first: "Karen", last: "Osei", role: "equipment_admin", employeeKey: "e-karen" },
+    { email: "pm.priya@stinventory.local", first: "Priya", last: "Sharma", role: "project_manager", employeeKey: "e-priya" },
     { email: "warehouse@stinventory.local", first: "Yard", last: "Desk", role: "warehouse", employeeKey: "e-yard" },
     { email: "foreman.miguel@stinventory.local", first: "Miguel", last: "Torres", role: "foreman", employeeKey: "e-miguel" },
     { email: "super.carlos@stinventory.local", first: "Carlos", last: "Mendez", role: "superintendent", employeeKey: "e-carlos" },

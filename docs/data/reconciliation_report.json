@@ -1,0 +1,294 @@
+{
+  "purpose": "Human review queue for docs/data/seed_from_tools_list.json. Nothing here is auto-resolved silently - every entry needs a human decision before the seed is trusted.",
+  "summary": {
+    "unmatched_projects": 0,
+    "foreman_mismatches": 4,
+    "project_mismatches": 16,
+    "trailer_anomalies": 12,
+    "merged_name_variants": 0,
+    "unresolved_name_variants": 1
+  },
+  "unmatched_projects": [],
+  "foreman_mismatches": [
+    {
+      "trailer_id": "TE-007",
+      "sheet": "TE-007",
+      "te_name": "Jobani Abarca",
+      "sheet_name": "JOVANI ABARCA",
+      "resolution": "unresolved - TE primary used; verify which is current"
+    },
+    {
+      "trailer_id": "TE-021",
+      "sheet": "TE-021",
+      "te_name": "GABRIEL VILLAREAL",
+      "sheet_name": "Jose Danery",
+      "resolution": "unresolved - TE primary used; verify which is current"
+    },
+    {
+      "trailer_id": "TE-023",
+      "sheet": "TE-023",
+      "te_name": "RAFAEL JAIMES",
+      "sheet_name": "RAFAEL JIMENEZ",
+      "resolution": "unresolved - TE primary used; verify which is current"
+    },
+    {
+      "trailer_id": "TE-025",
+      "sheet": "TE-025",
+      "te_name": "JOSE RICO",
+      "sheet_name": "FLORIBERTO LOZA SR.",
+      "resolution": "unresolved - TE primary used; verify which is current"
+    }
+  ],
+  "project_mismatches": [
+    {
+      "trailer_id": "TE-006",
+      "sheet": "TE-006",
+      "te_project": "LONSAR",
+      "te_job": "22018",
+      "sheet_project": "LONE STAR",
+      "sheet_job": "22018",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-007",
+      "sheet": "TE-007",
+      "te_project": "YARD",
+      "te_job": "24002",
+      "sheet_project": "LITTLE HELM",
+      "sheet_job": "23009",
+      "resolution": "unresolved - TE primary used"
+    },
+    {
+      "trailer_id": "TE-009",
+      "sheet": "TE-009",
+      "te_project": "LONSAR",
+      "te_job": "22018",
+      "sheet_project": "LONSTAR",
+      "sheet_job": "22018",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-010",
+      "sheet": "TE-010",
+      "te_project": "COLONY PHASE 12",
+      "te_job": "23004",
+      "sheet_project": "COLONY",
+      "sheet_job": "23004",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-012",
+      "sheet": "TE-012",
+      "te_project": "PLANO ARTERIAL RENEWAL-2",
+      "te_job": "24003",
+      "sheet_project": "PLANO",
+      "sheet_job": "24003",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-014",
+      "sheet": "TE-014",
+      "te_project": "AUSTIN LANE",
+      "te_job": "24007",
+      "sheet_project": null,
+      "sheet_job": "24007",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-016",
+      "sheet": "TE-016",
+      "te_project": "LONSAR",
+      "te_job": "22018",
+      "sheet_project": "LONSTAR",
+      "sheet_job": "22018",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-019",
+      "sheet": "TE-019",
+      "te_project": "AUSTIN LANE",
+      "te_job": "24007",
+      "sheet_project": null,
+      "sheet_job": "24007",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-022",
+      "sheet": "TE-022",
+      "te_project": "BELL",
+      "te_job": "23010",
+      "sheet_project": "BELL, TX",
+      "sheet_job": "23010",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-024",
+      "sheet": "TE-024",
+      "te_project": "COLONY PHASE 12 RE",
+      "te_job": "23004",
+      "sheet_project": "COLONY",
+      "sheet_job": "23004",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-025",
+      "sheet": "TE-025",
+      "te_project": null,
+      "te_job": null,
+      "sheet_project": "LONE STAR",
+      "sheet_job": "22018",
+      "resolution": "unresolved - TE primary used"
+    },
+    {
+      "trailer_id": "TE-026",
+      "sheet": "TE-026",
+      "te_project": "LITTE ELM",
+      "te_job": "23009",
+      "sheet_project": "Little Elm",
+      "sheet_job": "23009",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-032",
+      "sheet": "TE-032",
+      "te_project": null,
+      "te_job": null,
+      "sheet_project": "LONE STAR",
+      "sheet_job": "22018",
+      "resolution": "unresolved - TE primary used"
+    },
+    {
+      "trailer_id": "TE-033",
+      "sheet": "TE-033",
+      "te_project": "LONSAR",
+      "te_job": "22018",
+      "sheet_project": "LONE STAR",
+      "sheet_job": "22018",
+      "resolution": "same job number, different spelling - merged by job"
+    },
+    {
+      "trailer_id": "TE-034",
+      "sheet": "TE-034",
+      "te_project": null,
+      "te_job": null,
+      "sheet_project": null,
+      "sheet_job": "22018",
+      "resolution": "unresolved - TE primary used"
+    },
+    {
+      "trailer_id": "TE-035",
+      "sheet": "Te-035",
+      "te_project": "Little Elm",
+      "te_job": "23009",
+      "sheet_project": null,
+      "sheet_job": "23009",
+      "resolution": "same job number, different spelling - merged by job"
+    }
+  ],
+  "trailer_anomalies": [
+    {
+      "trailer_id": "TE-001",
+      "kind": "no_foreman",
+      "te_foreman": "",
+      "te_status": "DAMAGE",
+      "sheet_foreman": null,
+      "note": "trailer flagged in source (damage/repair/use note); no foreman assigned"
+    },
+    {
+      "trailer_id": "TE-002",
+      "kind": "no_foreman",
+      "te_foreman": "",
+      "te_status": "STRUCTURE- CONCRETE POURING",
+      "sheet_foreman": null,
+      "note": "trailer flagged in source (damage/repair/use note); no foreman assigned"
+    },
+    {
+      "trailer_id": "TE-003",
+      "kind": "no_foreman",
+      "te_foreman": "",
+      "te_status": "DAMAGE",
+      "sheet_foreman": null,
+      "note": "trailer flagged in source (damage/repair/use note); no foreman assigned"
+    },
+    {
+      "trailer_id": "TE-004",
+      "kind": "no_foreman",
+      "te_foreman": "",
+      "te_status": "NEED REAPAIRS",
+      "sheet_foreman": null,
+      "note": "trailer flagged in source (damage/repair/use note); no foreman assigned"
+    },
+    {
+      "trailer_id": "TE-005",
+      "kind": "no_foreman",
+      "te_foreman": "",
+      "te_status": "DAMAGE",
+      "sheet_foreman": null,
+      "note": "trailer flagged in source (damage/repair/use note); no foreman assigned"
+    },
+    {
+      "trailer_id": "TE-031",
+      "kind": "empty_entry",
+      "te_foreman": null,
+      "note": "trailer id present in TE but no foreman, no status, no detail sheet"
+    },
+    {
+      "trailer_id": "TE-032",
+      "kind": "sheet_only",
+      "te_foreman": null,
+      "sheet_foreman": "FELICIANO VALENCIA",
+      "sheet_project": "Lone Star",
+      "sheet_job": "22018",
+      "note": "no TE row; trailer + foreman taken from TE-* detail sheet"
+    },
+    {
+      "trailer_id": "TE-034",
+      "kind": "sheet_only",
+      "te_foreman": null,
+      "sheet_foreman": "Yoxel Perez",
+      "sheet_project": "Lone Star",
+      "sheet_job": "22018",
+      "note": "no TE row; trailer + foreman taken from TE-* detail sheet"
+    },
+    {
+      "trailer_id": "TE-037",
+      "kind": "empty_entry",
+      "te_foreman": null,
+      "note": "trailer id present in TE but no foreman, no status, no detail sheet"
+    },
+    {
+      "trailer_id": "TE-038",
+      "kind": "empty_entry",
+      "te_foreman": null,
+      "note": "trailer id present in TE but no foreman, no status, no detail sheet"
+    },
+    {
+      "trailer_id": "TE-039",
+      "kind": "empty_entry",
+      "te_foreman": null,
+      "note": "trailer id present in TE but no foreman, no status, no detail sheet"
+    },
+    {
+      "trailer_id": "TE-040",
+      "kind": "empty_entry",
+      "te_foreman": null,
+      "note": "trailer id present in TE but no foreman, no status, no detail sheet"
+    }
+  ],
+  "merged_name_variants": [],
+  "unresolved_name_variants": [
+    {
+      "name_a": "RAFAEL JAIMES",
+      "id_a": "FM-017",
+      "name_b": "RAFAEL JIMENEZ",
+      "id_b": "FM-037",
+      "surname_similarity": 0.615,
+      "note": "same first name and near-matching surname - likely the same person, verify before merging"
+    }
+  ],
+  "notes": [
+    "TE primary sheet is authoritative for trailer->foreman->project; TE-* detail sheets fill gaps and their tools attach to the sheet foreman.",
+    "Duplicated TE rows (blank repeats of TE-029/030/031/033) were discarded; a populated row was never overwritten by a blank one."
+  ],
+  "generated_at": "2026-08-06T12:54:49.927676+00:00"
+}

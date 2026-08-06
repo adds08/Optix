@@ -54,6 +54,15 @@ export const PERMISSIONS = [
   "vehicle.manage",
   "project.read",
   "project.manage",
+  /* Who may be placed on a project's team, by target role. The hierarchy is
+     enforced server-side in project.team.assign: pm needs the pm permission,
+     superintendent the pm-or-superintendent tier, foreman any of them (plus
+     the equipment department). Keep the matrix here so the seed and the
+     router agree. */
+  "project.team.read",
+  "project.assign.pm",
+  "project.assign.superintendent",
+  "project.assign.foreman",
   "employee.read",
   "employee.manage",
   "assignment.read",

@@ -7,12 +7,15 @@ import { trpc } from "@/lib/trpc";
   Job scope — the jobs the signed-in user is looking at, system-wide.
 
   The sidebar's job selector at the top of the rail drives it. Three levels:
-    - Show All      — nothing restricted (projectIds: null, everything passes)
+    - Show All      — everything the server lets this user see
     - a job group   — the jobs in that group
     - one job       — just that project
 
-  Users with job-group assignments are additionally confined to their groups'
-  jobs even under Show All; a user with no assignments sees every project.
+  What the user may see at all is decided server-side (visibleProjectScope on
+  project.list): owners and the equipment department see every project; a
+  scoped user sees the union of their job groups and the projects their
+  project_team_member row names. The client filter below only narrows a list
+  the API already scoped — it cannot widen it.
   Every page reads `projectIds` through `useJobScope()` and filters client-side,
   so the selection applies everywhere at once.
 */

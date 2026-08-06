@@ -91,7 +91,10 @@ export const FONT_FAMILIES = {
 
 export type FontFamilyName = keyof typeof FONT_FAMILIES;
 
-export const FONT_SCALES = ["0.9", "1.0", "1.1", "1.2"] as const;
+/* 0.9–1.4: from condensed for dense screens to extra large for poorer
+   eyesight. The whole app is rem-based, so these really scale — the settings
+   page previews each step immediately. */
+export const FONT_SCALES = ["0.9", "1.0", "1.1", "1.2", "1.3", "1.4"] as const;
 
 export type Density = "comfortable" | "compact";
 

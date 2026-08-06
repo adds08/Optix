@@ -1,22 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, ChevronDown, EllipsisVertical, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye } from "lucide-react";
+import { ChevronDown, EllipsisVertical, MapPin, Plus, Search, Truck, Container, HardHat, TriangleAlert, EyeOff, Eye } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
-import { usePermissions } from "@/components/use-permissions";
 import { TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
+import { StatusPill } from "@/components/sti/status";
 import { JobsiteActivity } from "@/components/jobsite-activity";
-import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
+import { CrewCard, type Crew, type Rig } from "@/components/jobsite-crew-card";
 import { RigPicker, type PickerRequest } from "@/components/rig-picker";
-import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assign-dialog";
-import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
-import { Highlight } from "@/components/highlight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { rigOf } from "@/lib/rig";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -39,21 +35,26 @@ import { cn } from "@/lib/utils";
     trailer     = vehicle.list where attachedToVehicleId = that truck
     hand a rig  = location.setCustodian (tools + hitched trailer follow)
     hitch       = vehicle.update { attachedToVehicleId }
-    move a crew = projectTeam.assign (the same move employee.assignToProject
-                  makes: posting, primary project, roster, truck, hitched
-                  trailer and the tools aboard all follow)
 */
 
-const YARD = "__yard";
-const NOJOB = "__nojob";
-
-/* Every header gets its own subtle color so the page reads as sections, not a
-   wall of identical strips: jobs are primary-tinted, the yard muted, and the
-   project-less people accent-tinted. */
-const CARD_TINT: Record<string, string> = {
-  [YARD]: "bg-muted/30",
-  [NOJOB]: "bg-accent/30",
+type ToolRow = {
+  id: string;
+  tag: string | null;
+  serialNumber: string | null;
+  make: string | null;
+  modelNumber: string | null;
+  description: string | null;
+  categoryName: string | null;
+  status: string | null;
+  acquisitionCost: string | null;
+  currentCustodianId?: string | null;
+  custodianName?: string | null;
+  currentProjectId?: string | null;
+  currentLocationId?: string | null;
+  locationName?: string | null;
 };
+
+const YARD = "__yard";
 
 export default function JobsitesPage() {
   const employees = trpc.employee.list.useQuery();
@@ -61,20 +62,6 @@ export default function JobsitesPage() {
   const projects = trpc.project.list.useQuery();
   const vehicles = trpc.vehicle.list.useQuery();
   const utils = trpc.useUtils();
-  const { has } = usePermissions();
-
-  /* What this viewer may actually drive. The picker actions are each backed
-     by a server permission — a foreman browsing the yard must not see buttons
-     that can only fail, nor the tenant-wide vehicle list behind them. */
-  const canAssignCrew = has("project.assign.foreman");
-  const canManageRig = has("vehicle.manage") || has("location.manage");
-  const canDrive = canAssignCrew || canManageRig;
-  /* Handing a loose tool to a foreman is assignment.create — held by more
-     people than the rig controls, so it gates the loose-tool selection. */
-  const canAssignTools = has("assignment.create");
-  /* The per-tool ⋯ menu (return / hand over / status) needs any of the custody
-     or manage permissions to be worth showing. */
-  const canActTools = has("assignment.create") || has("transfer.create") || has("asset.manage");
 
   const { projectIds: scope } = useJobScope();
 
@@ -86,13 +73,7 @@ export default function JobsitesPage() {
   const [onlyGaps, setOnlyGaps] = useState(false);
   const [openJobs, setOpenJobs] = useState<Record<string, boolean>>({});
   const [openCrews, setOpenCrews] = useState<Record<string, boolean>>({});
-  /* Everything is expanded by default; this flips the default for cards AND
-     crew tool tables at once, and per-item toggles still override it. */
-  const [collapseAll, setCollapseAll] = useState(false);
   const [picker, setPicker] = useState<PickerRequest | null>(null);
-  const [assign, setAssign] = useState<CrewAssignRequest | null>(null);
-  /* Loose tools ticked on a card's "nobody holding" section, per card. */
-  const [selectedLoose, setSelectedLoose] = useState<Record<string, Set<string>>>({});
   const [showActivity, setShowActivity] = useState(true);
 
   const anyFilter = !!(q.trim() || jobFilter || foremanFilter || statusFilter || onlyGaps);
@@ -104,9 +85,6 @@ export default function JobsitesPage() {
     setOnlyGaps(false);
   };
 
-  /* The foreman picker wants active custodians; crew DISPLAY must resolve any
-     holder — including terminated staff, who are exactly the people whose
-     crews the HR-clearance workflow cares about. */
   const foremen = useMemo(
     () =>
       (employees.data ?? []).filter(
@@ -116,7 +94,19 @@ export default function JobsitesPage() {
       ),
     [employees.data],
   );
-  const allCustodians = employees.data ?? [];
+
+  /* A foreman's rig: their truck, and the trailer hitched to that truck. */
+  const rigOf = useMemo(() => {
+    const list = vehicles.data ?? [];
+    return (foremanId: string | null | undefined): Rig => {
+      if (!foremanId) return { truck: null, trailer: null };
+      const truck = list.find((v) => v.vehicleType === "truck" && v.foremanEmployeeId === foremanId) ?? null;
+      const trailer = truck
+        ? list.find((v) => v.vehicleType === "trailer" && v.attachedToVehicleId === truck.id) ?? null
+        : null;
+      return { truck, trailer };
+    };
+  }, [vehicles.data]);
 
   const hit = (text: string) => !q.trim() || text.toLowerCase().includes(q.trim().toLowerCase());
 
@@ -133,7 +123,6 @@ export default function JobsitesPage() {
       toolCount: number;
       value: number;
       gaps: string[];
-      tint: string;
     }[] = [];
 
     const forProject = (projectId: string | null) =>
@@ -143,16 +132,16 @@ export default function JobsitesPage() {
       const rows = forProject(projectId);
       const byForeman = new Map<string, ToolRow[]>();
       for (const t of rows) {
-        if (!t.custodianId) continue;
-        const arr = byForeman.get(t.custodianId) ?? [];
+        if (!t.currentCustodianId) continue;
+        const arr = byForeman.get(t.currentCustodianId) ?? [];
         arr.push(t);
-        byForeman.set(t.custodianId, arr);
+        byForeman.set(t.currentCustodianId, arr);
       }
       const crews: Crew[] = [];
       byForeman.forEach((crewTools, foremanId) => {
         if (foremanFilter && foremanId !== foremanFilter) return;
-        const person = allCustodians.find((f) => f.id === foremanId);
-        const rig = rigOf(foremanId, vehicles.data ?? []);
+        const person = foremen.find((f) => f.id === foremanId);
+        const rig = rigOf(foremanId);
         const rigText = `${person?.name ?? ""} ${rig.truck?.unit ?? ""} ${rig.truck?.makeModel ?? ""} ${rig.trailer?.unit ?? ""}`;
         const visible = crewTools.filter(
           (t) =>
@@ -162,14 +151,13 @@ export default function JobsitesPage() {
         crews.push({
           id: `${projectId}:${foremanId}`,
           foremanId,
-          foremanExternalId: person?.externalId ?? null,
           foremanName: person?.name ?? "Unknown",
           foremanRole: person?.role ?? "",
           rig,
           tools: visible,
           /* One foreman, several jobs: the same rig shows on each of their cards. */
           otherJobs: new Set(
-            tools.filter((t) => t.custodianId === foremanId && t.currentProjectId && t.currentProjectId !== projectId).map((t) => t.currentProjectId),
+            tools.filter((t) => t.currentCustodianId === foremanId && t.currentProjectId && t.currentProjectId !== projectId).map((t) => t.currentProjectId),
           ).size,
         });
       });
@@ -183,7 +171,7 @@ export default function JobsitesPage() {
       const crews = buildCrews(p.id, jobHit);
       const loose = forProject(p.id).filter(
         (t) =>
-          !t.custodianId &&
+          !t.currentCustodianId &&
           !foremanFilter &&
           (jobHit || hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`)) &&
           (!statusFilter || t.status === statusFilter),
@@ -194,48 +182,12 @@ export default function JobsitesPage() {
         loose.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0);
       const noTruck = crews.filter((c) => !c.rig.truck).length;
       const gaps = crews.length === 0 ? ["no crew"] : noTruck ? [`${noTruck} crew${noTruck === 1 ? "" : "s"} without a truck`] : [];
-      out.push({ id: p.id, name: p.name, code: p.externalId, isJob: true, crews, loose, toolCount, value, gaps, tint: "bg-primary/5" });
+      out.push({ id: p.id, name: p.name, code: p.externalId, isJob: true, crews, loose, toolCount, value, gaps });
     }
 
-    if (!scope && !foremanFilter && (!jobFilter || jobFilter === YARD || jobFilter === NOJOB)) {
-      /*
-        The default group: foremen not assigned to any project — pinned at the
-        bottom of the list, always. A foreman with no primary project lives
-        here — even holding nothing, because this is where you go to hand them
-        tools. Their crew is their held tools that are not booked to a job.
-        The rig follows the person, so a project-less foreman's truck and
-        trailer show here too.
-      */
-      const noJobCrews: Crew[] = [];
-      for (const f of foremen) {
-        if (f.primaryProjectId) continue;
-        const crewTools = forProject(null).filter((t) => t.custodianId === f.id);
-        const rig = rigOf(f.id, vehicles.data ?? []);
-        const visible = crewTools.filter(
-          (t) =>
-            hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`) &&
-            (!statusFilter || t.status === statusFilter),
-        );
-        noJobCrews.push({
-          id: `${NOJOB}:${f.id}`,
-          foremanId: f.id,
-          foremanExternalId: f.externalId ?? null,
-          foremanName: f.name ?? "Unknown",
-          foremanRole: f.role ?? "",
-          rig,
-          tools: visible,
-          otherJobs: 0,
-        });
-      }
-      noJobCrews.sort((a, b) => a.foremanName.localeCompare(b.foremanName));
-
-      /* Same rule as the job cards: a tool a person holds is not "loose", even
-         in the yard — Dave's shop tools are held, just not booked to a job. */
+    if (!scope && (!jobFilter || jobFilter === YARD) && !foremanFilter) {
       const yardTools = forProject(null).filter(
-        (t) =>
-          !t.custodianId &&
-          hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} yard`) &&
-          (!statusFilter || t.status === statusFilter),
+        (t) => hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} yard`) && (!statusFilter || t.status === statusFilter),
       );
       out.push({
         id: YARD,
@@ -247,37 +199,16 @@ export default function JobsitesPage() {
         toolCount: yardTools.length,
         value: yardTools.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0),
         gaps: [],
-        tint: CARD_TINT[YARD] ?? "",
-      });
-
-      /* The not-assigned group comes last, even when it is empty — it is the
-         permanent home for project-less foremen, not a section that comes and
-         goes with the current roster. */
-      const noJobToolCount = noJobCrews.reduce((n, c) => n + c.tools.length, 0);
-      out.push({
-        id: NOJOB,
-        name: "Not assigned to any project",
-        code: null,
-        isJob: false,
-        crews: noJobCrews,
-        loose: [],
-        toolCount: noJobToolCount,
-        value: noJobCrews.reduce((n, c) => n + c.tools.reduce((m, t) => m + (Number(t.acquisitionCost) || 0), 0), 0),
-        gaps: [],
-        tint: CARD_TINT[NOJOB] ?? "",
       });
     }
 
     return out.filter((c) => {
-      /* The not-assigned group is pinned at the bottom permanently — it must
-         survive filters that prune everything else. */
-      if (c.id === NOJOB) return true;
       if (onlyGaps && !c.gaps.length) return false;
       /* A card filtered down to nothing is noise, not information. */
       if (anyFilter && c.toolCount === 0 && c.crews.length === 0) return false;
       return true;
     });
-  }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, scope, q, jobFilter, foremanFilter, statusFilter, onlyGaps, anyFilter]);
+  }, [assets.data, projects.data, foremen, rigOf, scope, q, jobFilter, foremanFilter, statusFilter, onlyGaps, anyFilter]);
 
   const shownTools = cards.reduce((n, c) => n + c.toolCount, 0);
   const shownCrews = cards.reduce((n, c) => n + c.crews.length, 0);
@@ -294,14 +225,6 @@ export default function JobsitesPage() {
   return (
     <div className="flex flex-col gap-4">
       <RigPicker request={picker} onClose={() => setPicker(null)} onDone={invalidate} foremen={foremen} vehicles={vehicles.data ?? []} projects={projects.data ?? []} />
-      <CrewAssignDialog
-        request={assign}
-        onClose={() => setAssign(null)}
-        onDone={() => {
-          setSelectedLoose({});
-          invalidate();
-        }}
-      />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Crews on jobs" value={shownCrews} hint="one foreman and their rig, per job" />
@@ -310,7 +233,7 @@ export default function JobsitesPage() {
         <Metric label="Crews without a truck" value={crewsWithoutTruck} tone={crewsWithoutTruck ? "warn" : "ok"} hint="cannot haul their tools" />
       </div>
 
-      <div className={cn("grid gap-4", showActivity && "lg:grid-cols-[minmax(0,1fr)_320px]")}>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-3">
           {/* ---- one filter bar: search hits every noun in the list ---- */}
           <section className="flex flex-col gap-2 rounded-md border bg-card p-3">
@@ -330,7 +253,6 @@ export default function JobsitesPage() {
                   <option key={p.id} value={p.id}>{p.externalId ? `${p.externalId} · ${p.name}` : p.name}</option>
                 ))}
                 <option value={YARD}>URB-YARD · Equipment Yard</option>
-                <option value={NOJOB}>Not assigned to any project</option>
               </Select>
               <Select value={foremanFilter} onChange={setForemanFilter} label="All foremen">
                 {foremen.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -355,22 +277,6 @@ export default function JobsitesPage() {
                 </Button>
               ) : null}
               <div className="ml-auto flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCollapseAll((v) => !v)}
-                  title={collapseAll ? "Expand every card and tool table" : "Collapse every card and tool table"}
-                >
-                  {collapseAll ? (
-                    <>
-                      <Eye className="size-3.5" /> Expand all
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="size-3.5 rotate-180" /> Collapse all
-                    </>
-                  )}
-                </Button>
                 {!showActivity ? (
                   <Button variant="outline" size="sm" onClick={() => setShowActivity(true)}>
                     <Eye className="size-3.5" /> Show activity
@@ -381,24 +287,19 @@ export default function JobsitesPage() {
           </section>
 
           {!cards.length ? (
-            <EmptyState icon={Building2} title="Nothing matches those filters" description="Clear a filter, or search for a different unit." />
+            <EmptyState icon={MapPin} title="Nothing matches those filters" description="Clear a filter, or search for a different unit." />
           ) : null}
 
           {cards.map((card) => {
-            const open = collapseAll ? (openJobs[card.id] ?? false) : (openJobs[card.id] ?? true);
-            /* Each card kind has its own icon: jobs are sites, the yard is the
-               warehouse, the project-less people are a crew waiting for work. */
-            const CardIcon = card.id === NOJOB ? Users : card.id === YARD ? Warehouse : Building2;
+            const open = openJobs[card.id] ?? true;
             return (
               <section key={card.id} className="overflow-visible rounded-md border bg-card">
-                <header className={cn("flex flex-wrap items-center gap-3 px-3 py-2.5", card.tint)}>
-                  <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", card.isJob ? "bg-accent text-primary" : "bg-muted/70 text-muted-foreground")}>
-                    <CardIcon className="size-4.5" aria-hidden />
+                <header className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+                  <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", card.isJob ? "bg-accent text-primary" : "bg-muted text-muted-foreground")}>
+                    <MapPin className="size-4.5" aria-hidden />
                   </span>
                   <span className="flex min-w-40 flex-1 flex-wrap items-center gap-2">
-                    <span className="text-[15px] font-semibold">
-                      <Highlight text={card.name} q={q} />
-                    </span>
+                    <span className="text-[15px] font-semibold">{card.name}</span>
                     {card.code ? <span className="rounded border bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{card.code}</span> : null}
                     <span className="text-sm text-muted-foreground">
                       {card.isJob ? (card.crews.length ? `${card.crews.length} crew${card.crews.length === 1 ? "" : "s"}` : "no crew yet") : "between jobs"}
@@ -416,7 +317,7 @@ export default function JobsitesPage() {
                       </span>
                       <span className="tnum mt-0.5 block text-[11px] text-muted-foreground">{money(card.value)}</span>
                     </span>
-                    {card.isJob && canAssignCrew ? (
+                    {card.isJob ? (
                       <Button variant="outline" size="sm" className="border-dashed text-primary" onClick={() => setPicker({ kind: "crew", projectId: card.id })}>
                         <Plus className="size-3.5" /> Add crew
                       </Button>
@@ -428,7 +329,7 @@ export default function JobsitesPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
-                        {card.isJob && canAssignCrew ? (
+                        {card.isJob ? (
                           <DropdownMenuItem onSelect={() => setPicker({ kind: "crew", projectId: card.id })}>Add a foreman and rig</DropdownMenuItem>
                         ) : null}
                         <DropdownMenuItem onSelect={() => setOpenJobs((o) => ({ ...o, [card.id]: !open }))}>
@@ -444,27 +345,18 @@ export default function JobsitesPage() {
 
                 {open ? (
                   <div className="flex flex-col gap-2.5 border-t bg-muted/25 p-3">
-                    {card.crews.map((crew, i) => (
+                    {card.crews.map((crew) => (
                       <CrewCard
                         key={crew.id}
                         crew={crew}
-                        expanded={collapseAll ? (openCrews[crew.id] ?? false) : (openCrews[crew.id] ?? true)}
-                        onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(collapseAll ? (o[crew.id] ?? false) : (o[crew.id] ?? true)) }))}
+                        expanded={openCrews[crew.id] ?? false}
+                        onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(o[crew.id] ?? false) }))}
                         onPick={setPicker}
-                        onAddTools={
-                          canAssignTools
-                            ? () => setAssign({ mode: "pickTools", foremanId: crew.foremanId, foremanName: crew.foremanName })
-                            : undefined
-                        }
-                        canManage={canDrive}
-                        canAct={canActTools}
-                        striped={i % 2 === 1}
-                        highlight={q}
                         projectId={card.id}
                       />
                     ))}
 
-                    {card.isJob && !card.crews.length && canAssignCrew ? (
+                    {card.isJob && !card.crews.length ? (
                       <button
                         type="button"
                         onClick={() => setPicker({ kind: "crew", projectId: card.id })}
@@ -474,33 +366,15 @@ export default function JobsitesPage() {
                       </button>
                     ) : null}
 
-                    {card.id === NOJOB && !card.crews.length ? (
-                      <p className="rounded-md border border-dashed bg-card px-4 py-3 text-sm text-muted-foreground">
-                        Every foreman is on a project right now — this group holds whoever is between jobs.
-                      </p>
-                    ) : null}
                     {card.loose.length ? (
-                      <LooseSection
-                        isJob={card.isJob}
-                        rows={card.loose}
-                        selected={selectedLoose[card.id] ?? new Set<string>()}
-                        canAssign={canAssignTools}
-                        canAct={canActTools}
-                        highlight={q}
-                        onToggle={(assetId) =>
-                          setSelectedLoose((m) => {
-                            const cur = m[card.id] ?? new Set<string>();
-                            const next = new Set(cur);
-                            if (next.has(assetId)) next.delete(assetId);
-                            else next.add(assetId);
-                            return { ...m, [card.id]: next };
-                          })
-                        }
-                        onAssign={() =>
-                          setAssign({ mode: "pickForeman", assetIds: [...(selectedLoose[card.id] ?? [])] })
-                        }
-                        onClear={() => setSelectedLoose((m) => ({ ...m, [card.id]: new Set<string>() }))}
-                      />
+                      <div className="overflow-hidden rounded-md border bg-card">
+                        <div className="flex items-center gap-2 border-b px-3 py-2 text-xs font-semibold">
+                          <MapPin className="size-3.5 text-muted-foreground" aria-hidden />
+                          {card.isJob ? "On site, nobody holding" : "Waiting in the yard"}
+                          <span className="tnum font-normal text-muted-foreground">{card.loose.length}</span>
+                        </div>
+                        <ToolTable rows={card.loose} showWhere />
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
@@ -511,10 +385,18 @@ export default function JobsitesPage() {
 
         {showActivity ? (
           <aside className="h-fit lg:sticky lg:top-4">
-            <JobsiteActivity
-              projectOptions={(projects.data ?? []).map((p) => ({ id: p.id, name: p.name }))}
-              onHide={() => setShowActivity(false)}
-            />
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="icon"
+                className="absolute right-2 top-2 z-10 size-7"
+                aria-label="Hide activity panel"
+                onClick={() => setShowActivity(false)}
+              >
+                <EyeOff className="size-3.5" />
+              </Button>
+              <JobsiteActivity projectOptions={(projects.data ?? []).map((p) => ({ id: p.id, name: p.name }))} />
+            </div>
           </aside>
         ) : null}
       </div>
@@ -524,6 +406,34 @@ export default function JobsitesPage() {
 
 /* Serial / ID · Tool name · Status · Value. No "rides on" column: the row
    already sits under the rig it rides in. */
+export function ToolTable({ rows, showWhere }: { rows: ToolRow[]; showWhere?: boolean }) {
+  return (
+    <table className="w-full border-collapse text-sm">
+      <thead>
+        <tr className="border-b bg-muted/40">
+          <th className="label-xs w-32 px-3 py-1.5 text-left">Serial / ID</th>
+          <th className="label-xs px-3 py-1.5 text-left">Tool name</th>
+          <th className="label-xs w-36 px-3 py-1.5 text-left">Status</th>
+          <th className="label-xs w-24 px-3 py-1.5 text-right">Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((t) => (
+          <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30">
+            <td className="px-3 py-2 font-mono text-[13px] text-muted-foreground">{t.tag ?? t.serialNumber ?? "Untagged"}</td>
+            <td className="px-3 py-2">
+              <span className="font-medium">{formatAssetModel(t) || "No description"}</span>
+              {showWhere && t.locationName ? <span className="block text-xs text-muted-foreground">{t.locationName}</span> : null}
+            </td>
+            <td className="px-3 py-2"><StatusPill status={t.status} /></td>
+            <td className="tnum px-3 py-2 text-right text-muted-foreground">{money(t.acquisitionCost)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function Select({ value, onChange, label, children }: { value: string; onChange: (v: string) => void; label: string; children: React.ReactNode }) {
   return (
     <select
@@ -538,79 +448,5 @@ function Select({ value, onChange, label, children }: { value: string; onChange:
       <option value="">{label}</option>
       {children}
     </select>
-  );
-}
-
-/*
-  The "On site, nobody holding" / "Waiting in the yard" block.
-
-  The header carries a subtle tint so each section reads as its own thing (the
-  confusing part of the old layout was every header looking identical). When
-  the viewer may hand tools out (`assignment.create`), each row gets a checkbox
-  and the header shows how many are ticked with an "Assign to foreman…" action
-  — the tools move to wherever the chosen foreman works.
-*/
-function LooseSection({
-  isJob,
-  rows,
-  selected,
-  canAssign,
-  canAct,
-  highlight,
-  onToggle,
-  onAssign,
-  onClear,
-}: {
-  isJob: boolean;
-  rows: ToolRow[];
-  selected: Set<string>;
-  canAssign: boolean;
-  canAct: boolean;
-  highlight: string;
-  onToggle: (assetId: string) => void;
-  onAssign: () => void;
-  onClear: () => void;
-}) {
-  const n = selected.size;
-  const SectionIcon = isJob ? PackageOpen : Package;
-  return (
-    /* The whole block takes its own tint so unassigned tools read differently
-       from the foreman crew cards around them. */
-    <div className={cn("overflow-hidden rounded-md border", isJob ? "border-primary/15 bg-primary/5" : "border-muted/60 bg-muted/10")}>
-      <div
-        className={cn(
-          "flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs font-semibold",
-          isJob ? "border-primary/15 bg-primary/10" : "border-muted/60 bg-muted/30",
-        )}
-      >
-        <SectionIcon className="size-3.5 text-muted-foreground" aria-hidden />
-        {isJob ? "On site, nobody holding" : "Waiting in the yard"}
-        <span className="tnum font-normal text-muted-foreground">{rows.length}</span>
-        {canAssign ? (
-          <span className="ml-auto flex items-center gap-1.5">
-            {n > 0 ? (
-              <>
-                <span className="tnum text-primary">{n} selected</span>
-                <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={onAssign}>
-                  Assign to foreman…
-                </Button>
-                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={onClear}>
-                  Clear
-                </Button>
-              </>
-            ) : null}
-          </span>
-        ) : null}
-      </div>
-      <ToolTable
-        rows={rows}
-        showWhere
-        selectable={canAssign}
-        selectedIds={selected}
-        onToggle={onToggle}
-        highlight={highlight}
-        actions={canAct}
-      />
-    </div>
   );
 }

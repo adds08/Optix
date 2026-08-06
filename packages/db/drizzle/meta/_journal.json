@@ -57,6 +57,20 @@
       "when": 1785943800386,
       "tag": "0007_chilly_bucky",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785964456992,
+      "tag": "0008_spotty_mandrill",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785966528152,
+      "tag": "0009_backfill_team_rows",
+      "breakpoints": true
     }
   ]
 }

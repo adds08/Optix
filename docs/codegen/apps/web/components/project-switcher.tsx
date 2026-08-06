@@ -11,7 +11,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { idName, jobSearchText } from "@/lib/format";
+import { idName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*
@@ -63,13 +63,6 @@ export function ProjectSwitcher() {
     retry: false,
   });
 
-  /* The pencil must not open the edit modal until the full row (with users)
-     has actually loaded: `all` only fires while the popover is open, so on the
-     first open of a session its data can still be undefined. Editing then
-     would start the modal with an empty userIds and a save would run the
-     full-replacement setUsers([]), silently wiping the group's members. */
-  const canEditGroup = has("project.manage") && all.isSuccess && !!all.data;
-
   const showAll = !selectedGroup && !selectedProject;
   const label = selectedProject
     ? idName(
@@ -95,7 +88,7 @@ export function ProjectSwitcher() {
     const source = pane?.kind === "all" ? projects : paneGroup?.projects ?? [];
     const q = jobQuery.trim().toLowerCase();
     if (!q) return source;
-    return source.filter((p) => jobSearchText(p).includes(q));
+    return source.filter((p) => `${p.externalId ?? ""} ${p.name}`.toLowerCase().includes(q));
   }, [pane, paneGroup, projects, jobQuery]);
 
   const close = () => {
@@ -130,7 +123,7 @@ export function ProjectSwitcher() {
     close();
   };
   const openEdit = () => {
-    if (!paneGroup || !all.data) return;
+    if (!paneGroup) return;
     const full = (all.data ?? []).find((g) => g.id === paneGroup.id);
     setEditing({
       id: paneGroup.id,
@@ -267,7 +260,7 @@ export function ProjectSwitcher() {
                   ) : null}
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold">{paneTitle}</span>
                   <span className="tnum text-xs text-muted-foreground">{paneTotal}</span>
-                  {paneGroup && canEditGroup ? (
+                  {paneGroup && has("project.manage") ? (
                     <Button
                       variant="outline"
                       size="icon"
@@ -306,7 +299,7 @@ export function ProjectSwitcher() {
                   </p>
                   {paneJobs.length === 0 ? (
                     <p className="px-2 text-sm text-muted-foreground">
-                      {jobQuery ? `No jobs match "${jobQuery}".` : "No jobs in this group yet."}
+                      {jobQuery ? `No jobs match “${jobQuery}”.` : "No jobs in this group yet."}
                     </p>
                   ) : (
                     paneJobs.map((p) => (

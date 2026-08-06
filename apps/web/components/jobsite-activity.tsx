@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Activity,
   ArrowLeftRight,
+  EyeOff,
   MapPin,
   Pencil,
   Tag as TagIcon,
@@ -56,8 +57,10 @@ function timeAgo(v: string | Date): string {
 
 export function JobsiteActivity({
   projectOptions,
+  onHide,
 }: {
   projectOptions: { id: string; name: string }[];
+  onHide?: () => void;
 }) {
   const [projectId, setProjectId] = useState("");
 
@@ -72,12 +75,12 @@ export function JobsiteActivity({
 
   return (
     <section className="flex flex-col overflow-hidden rounded-md border bg-card">
-      <header className="flex items-center gap-2 border-b px-3 py-2.5">
+      <header className="flex items-center gap-2 border-b bg-primary/5 px-3 py-2.5">
         <span className="relative flex size-2">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-ok opacity-60" />
           <span className="relative inline-flex size-2 rounded-full bg-ok" />
         </span>
-        <h2 className="text-sm font-semibold">Jobsite activity</h2>
+        <h2 className="text-sm font-semibold">Activity</h2>
         <select
           value={projectId}
           onChange={(e) => setProjectId(e.target.value)}
@@ -89,6 +92,17 @@ export function JobsiteActivity({
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
+        {onHide ? (
+          <button
+            type="button"
+            onClick={onHide}
+            aria-label="Hide activity panel"
+            title="Hide activity"
+            className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          >
+            <EyeOff className="size-3.5" />
+          </button>
+        ) : null}
       </header>
 
       <div className="max-h-[28rem] overflow-y-auto">

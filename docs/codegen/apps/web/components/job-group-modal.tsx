@@ -6,7 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { idName, jobSearchText } from "@/lib/format";
+import { idName } from "@/lib/format";
 
 /*
   Create or edit a job group — the modal behind "Create new group" in the job
@@ -64,7 +64,7 @@ export function JobGroupModal({
   const shownProjects = useMemo(() => {
     const q = jobQuery.trim().toLowerCase();
     if (!q) return allProjects;
-    return allProjects.filter((p) => jobSearchText(p).includes(q));
+    return allProjects.filter((p) => `${p.externalId ?? ""} ${p.name}`.toLowerCase().includes(q));
   }, [allProjects, jobQuery]);
 
   const shownUsers = useMemo(() => {
@@ -161,7 +161,7 @@ export function JobGroupModal({
               </div>
               <div className="max-h-52 overflow-y-auto">
                 {shownProjects.length === 0 ? (
-                  <p className="px-3 py-2 text-sm text-muted-foreground">No jobs match "{jobQuery}".</p>
+                  <p className="px-3 py-2 text-sm text-muted-foreground">No jobs match “{jobQuery}”.</p>
                 ) : (
                   shownProjects.map((p) => (
                     <label

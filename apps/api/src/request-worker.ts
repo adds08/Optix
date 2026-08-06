@@ -48,13 +48,15 @@ export type RequestSweepResult = {
   unstuck: number;
   announced: number;
   escalated: number;
+  proposalsChased: number;
 };
 
 export async function sweepRequests(db: Database): Promise<RequestSweepResult> {
   const [requeued, unstuck] = await Promise.all([requeueFailed(db), unstickProcessing(db)]);
   const announced = await announceNewRequests(db);
   const escalated = await escalateAgingRequests(db);
-  return { requeued, unstuck, announced, escalated };
+  const proposalsChased = await escalateStaleProposals(db);
+  return { requeued, unstuck, announced, escalated, proposalsChased };
 }
 
 /*
@@ -242,5 +244,77 @@ async function escalateAgingRequests(db: Database): Promise<number> {
   }
 
   if (created) log.info("[request-worker] escalated aging requests", { count: created });
+  return created;
+}
+
+/*
+  Proposals waiting on a person still deserve to be chased.
+
+  ADR-4 means custody always waits for a human, so this never confirms a
+  proposal itself — but an `action_proposed` message nobody answers is a
+  hand-off the sender believes already happened. Tasks above get escalated;
+  proposals previously got nothing, so a proposal could sit open for weeks
+  while the sender's tool never moved. Same widening interval as tasks, but
+  the first recipient is the person who raised it, with the desk as backup.
+*/
+const MAX_PROPOSAL_CHASES = 4;
+
+async function escalateStaleProposals(db: Database): Promise<number> {
+  const now = Date.now();
+  const firstDue = new Date(now - FIRST_CHASE_MS);
+  const repeatDue = new Date(now - REPEAT_CHASE_MS);
+
+  const stale = await db
+    .select({
+      id: schema.message.id,
+      tenantId: schema.message.tenantId,
+      authorEmployeeId: schema.message.authorEmployeeId,
+      escalationCount: schema.message.escalationCount,
+    })
+    .from(schema.message)
+    .where(
+      and(
+        eq(schema.message.processingStatus, "action_proposed"),
+        isNull(schema.message.handledAt),
+        lt(schema.message.escalationCount, MAX_PROPOSAL_CHASES),
+        or(
+          and(eq(schema.message.escalationCount, 0), lt(schema.message.createdAt, firstDue)),
+          and(sql`${schema.message.escalationCount} > 0`, lt(schema.message.lastEscalatedAt, repeatDue)),
+        ),
+      ),
+    )
+    .limit(50);
+
+  let created = 0;
+  for (const m of stale) {
+    const desk = await deskFor(db, m.tenantId);
+    const recipients = new Set<string>();
+    if (m.authorEmployeeId) recipients.add(m.authorEmployeeId);
+    for (const d of desk) recipients.add(d);
+
+    for (const employeeId of recipients) {
+      await createNotification(db, {
+        tenantId: m.tenantId,
+        recipientEmployeeId: employeeId,
+        type: "request_pending",
+        refType: "message",
+        refId: m.id,
+        title: "Proposal still waiting",
+        body: "A hand-off proposal is waiting on Confirm or Dismiss. Unanswered proposals are how a tool the sender thinks is moving never moves.",
+      });
+      created++;
+    }
+
+    await db
+      .update(schema.message)
+      .set({
+        escalationCount: m.escalationCount + 1,
+        lastEscalatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.message.id, m.id));
+  }
+
+  if (created) log.info("[request-worker] chased stale proposals", { count: created });
   return created;
 }

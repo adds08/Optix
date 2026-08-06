@@ -7,8 +7,17 @@ RUN corepack enable && corepack prepare pnpm@9.11.0 --activate
 WORKDIR /workspace
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json turbo.json .npmrc ./
+# One package.json per workspace member the dev image needs before install, so
+# pnpm can link the workspace. If a new workspace package is added, its
+# package.json must be listed here too — @stinventory/intent was once missing,
+# and the API crashed at boot with ERR_MODULE_NOT_FOUND.
+# NOTE: docker-compose.yml mounts anonymous node_modules volumes that persist
+# across rebuilds. After changing this list (or any dependency), refresh them
+# once with `make ENV=local reset` (or `docker compose down -v`) or the stale
+# install keeps crashing on boot.
 COPY packages/db/package.json packages/db/
 COPY packages/domain/package.json packages/domain/
+COPY packages/intent/package.json packages/intent/
 COPY packages/api-contracts/package.json packages/api-contracts/
 COPY packages/auth/package.json packages/auth/
 COPY packages/env/package.json packages/env/

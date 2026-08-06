@@ -116,6 +116,17 @@ make ENV=local seed    # load sample data
   tool in that person's custody to the new project with a `project_change` event each.
   Surfaced at `/people/[id]`. Containers (`location.custodianEmployeeId`) name who carries
   them, so a gang box or trailer has a holder the same way a tool does.
+- **Project teams (people/roles module, first cut)** — `project_team_member` holds who runs
+  and works each job (`pm` | `superintendent` | `foreman`, one current row per
+  project+person+role, partial-unique enforced). Assignment hierarchy in
+  `project.team.assign`: PMs by admins/equipment-dept, superintendents by the above + PMs,
+  foremen by the above + superintendents. **A foreman linked to a project IS working it** —
+  the assignment runs the same `moveEmployeeToProject` engine as `employee.assignToProject`,
+  so posting, primary project, tools and trucks follow. `project.list` is **scoped
+  server-side** (`visibleProjectScope`): `project.manage` holders see everything; everyone
+  else only the union of their job groups and their team rows. Tools by Jobsite (`/jobsites`)
+  is the control hub for this: job ID · name headers, assignable foreman/PM/super chips,
+  editable truck/trailer rows, and "Add Truck / Add Trailer".
 - **Dashboard** — KPIs, overdue loans, HR clearance queue, pending approvals, activity feed
 - **Conversational layer** — chat → LLM intent parse → entity resolution → proposed custody
   action → confirm. Plus tasks extracted from chat and an admin verification queue.
@@ -238,22 +249,34 @@ make ENV=local seed    # load sample data
   `assertProductionSafe` refuses to boot production with the example secret or a plain-http
   origin. The seed refuses to run with `NODE_ENV=production`.
 
-## 13. Known defects (verified 2026-07-26, not yet fixed)
+## 13. Known defects (verified 2026-08-06)
 
-Read these before trusting a demo:
+Items 1, 4 and 6 below are **resolved** and kept for the record; 2, 3 and 5 remain:
 
-1. **`make dev` fails** — `Makefile` `dev` and `mobile` targets build Flutter from
-   `apps/desktop`, which does not exist (ADR-3 dropped Flutter). Use `make ENV=local up`.
+1. ~~`make dev` fails~~ — **resolved**: the `dev`/`mobile` targets no longer reference
+   `apps/desktop` (the file dropped the Flutter build); `make ENV=local up` is still the
+   path. AGENTS.md §13 was stale on this.
 2. **Two API surfaces** — `apps/api/src/rest-routes.ts` duplicates the tRPC routers. Per
    ADR-2 the routers win; fix bugs there.
 3. **`packages/notifications/` is an empty directory.**
-4. **The manual action path skips the high-value approval rule** — `action.submit` routes
-   through `applyChatAction`, which does apply `requiresCustodyApproval`, but `action.submit`
-   itself does not consult `tenantSettings` before deciding. Noted in `routers/action.ts`.
+4. ~~The manual action path skips the high-value approval rule~~ — **resolved**: verified
+   against the code on 2026-08-06 — `action.submit` → `applyChatAction` applies
+   `outcomeFor` (which reads `tenantSettings.highValueThreshold`) per asset for
+   assign/transfer, so the gate fires. The AGENTS.md note was stale.
 5. **The login rate limiter is in-memory** — two API instances give an attacker twice the
    budget. Single-instance only until it moves to Redis. See `apps/api/src/rate-limit.ts`.
-6. **`action_proposed` chat messages never expire** — nothing chases a proposal nobody
-   confirms, unlike tasks, which the request worker escalates.
+6. ~~`action_proposed` chat messages never expire~~ — **resolved**: `request-worker.ts`
+   `escalateStaleProposals` chases unanswered proposals on the same widening interval as
+   tasks (first after 1h, then daily, max 4), notifying the sender and the desk. `message`
+   gained `escalation_count` / `last_escalated_at` (migration 0008).
+
+Also fixed 2026-08-06 (from the job-selector codegen review): job-group ticks no longer
+drop rapid consecutive changes (optimistic cache + pending guard on `/job-groups`), the
+group-edit pencil is disabled until `projectGroup.list` resolves (was able to silently
+wipe a group's users on first open), the job-search haystack now derives from `idName()`
+via `jobSearchText()` (was duplicated 3× and disagreed with the displayed label), and the
+unused `ui/collapsible.tsx` was deleted.
+
 
 Fixed since the last pass: chat `repair`/`lost` confirmations now write (they used to mark
 the message done and change nothing); chat-confirmed custody now honours the approval gate;

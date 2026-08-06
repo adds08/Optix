@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ProjectSwitcher } from "@/components/project-switcher";
-import { JobGroupsNav } from "@/components/job-groups-nav";
 import {
   Sidebar,
   SidebarContent,
@@ -22,8 +21,7 @@ import { navFor, type NavGroup } from "@/components/sti/nav-config";
   The app sidebar on the shadcn sidebar-07 skeleton:
 
     header — the system-wide job selector
-    content — the role's navigation, then the expandable Job Groups column
-              (the "other column": groups, create/edit modal)
+    content — the role's navigation
     no footer — identity lives in the top bar's account menu
 
   Collapses to icons on a desk layout and folds into a sheet on a phone.
@@ -73,9 +71,6 @@ export function AppSidebar({
             </SidebarGroup>
           );
         })}
-
-        {/* The expandable Job Groups column. */}
-        <JobGroupsNav />
       </SidebarContent>
 
       <SidebarRail />

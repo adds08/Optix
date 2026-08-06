@@ -7,7 +7,7 @@ import { EmptyState, ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { JobGroupModal, type JobGroupEditable } from "@/components/job-group-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { idName, jobSearchText } from "@/lib/format";
+import { idName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*
@@ -37,36 +37,7 @@ export default function JobGroupsPage() {
     utils.projectGroup.list.invalidate();
     utils.projectGroup.mine.invalidate();
   };
-
-  /*
-    One tick = one write, and the write must not eat the tick before it.
-
-    `setProjects` replaces the whole membership, and the checkbox reads the
-    server snapshot. Ticking two jobs quickly used to compute both replacements
-    from the same pre-mutation snapshot, so the second silently undid the first
-    until the refetch landed. The optimistic cache update makes the very next
-    tick read the state the previous tick wrote, and the `isPending` guard keeps
-    a second write from firing while the first is still in flight — ticks
-    compose instead of overwriting.
-  */
-  const setProjects = trpc.projectGroup.setProjects.useMutation({
-    onMutate: async ({ id, projectIds }) => {
-      await utils.projectGroup.list.cancel();
-      const prev = utils.projectGroup.list.getData();
-      utils.projectGroup.list.setData(undefined, (old) =>
-        (old ?? []).map((g) =>
-          g.id === id
-            ? { ...g, projects: projectIds.map((pid) => ({ id: pid, name: "" })) }
-            : g,
-        ),
-      );
-      return { prev };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) utils.projectGroup.list.setData(undefined, ctx.prev);
-    },
-    onSettled: () => invalidate(),
-  });
+  const setProjects = trpc.projectGroup.setProjects.useMutation({ onSuccess: invalidate });
 
   const rows = groups.data ?? [];
   const group = rows.find((g) => g.id === selected) ?? null;
@@ -75,11 +46,13 @@ export default function JobGroupsPage() {
   const shown = useMemo(() => {
     const q = jobQuery.trim().toLowerCase();
     if (!q) return allProjects;
-    return allProjects.filter((p) => jobSearchText(p).includes(q));
+    return allProjects.filter((p) => `${p.externalId ?? ""} ${p.name}`.toLowerCase().includes(q));
   }, [allProjects, jobQuery]);
 
+  /* One tick = one write. The membership lives on the server, so the pane never
+     holds a half-saved draft the user has to remember to commit. */
   const toggleJob = (projectId: string) => {
-    if (!group || setProjects.isPending) return;
+    if (!group) return;
     const has = group.projects.some((p) => p.id === projectId);
     const next = has
       ? group.projects.filter((p) => p.id !== projectId).map((p) => p.id)
@@ -182,14 +155,13 @@ export default function JobGroupsPage() {
                       type="checkbox"
                       checked={group.projects.some((x) => x.id === p.id)}
                       onChange={() => toggleJob(p.id)}
-                      disabled={setProjects.isPending}
-                      className="size-4 accent-primary disabled:opacity-50"
+                      className="size-4 accent-primary"
                     />
                     <span className="min-w-0 flex-1 truncate">{idName(p.externalId, p.name)}</span>
                   </label>
                 ))}
                 {shown.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-muted-foreground">No jobs match "{jobQuery}".</p>
+                  <p className="px-4 py-3 text-sm text-muted-foreground">No jobs match “{jobQuery}”.</p>
                 ) : null}
               </div>
             </>

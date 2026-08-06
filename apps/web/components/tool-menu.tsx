@@ -3,19 +3,24 @@
 import { useState } from "react";
 import {
   ArrowLeftRight,
+  BadgeCheck,
   CornerUpLeft,
   Ellipsis,
   Loader2,
   Pencil,
   StickyNote,
+  Tag as TagIcon,
   Trash2,
   UserPlus,
+  Wrench,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { AssignForm } from "@/components/assign-form";
 import { TransferForm } from "@/components/transfer-form";
 import { ReportForm } from "@/components/report-form";
+import { Button } from "@/components/ui/button";
+import { humanize } from "@/components/sti/status";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 /*
   Everything you can do to one tool, behind one always-visible control.
@@ -52,7 +58,7 @@ export function ToolMenu({
   onDelete?: () => void;
   deleting?: boolean;
 }) {
-  const [open, setOpen] = useState<"assign" | "transfer" | "report" | null>(null);
+  const [open, setOpen] = useState<"assign" | "transfer" | "report" | "status" | null>(null);
   const [confirming, setConfirming] = useState(false);
   const { has } = usePermissions();
   const utils = trpc.useUtils();
@@ -66,6 +72,7 @@ export function ToolMenu({
   };
 
   const submit = trpc.action.submit.useMutation({ onSuccess: invalidate });
+  const setStatus = trpc.asset.setStatus.useMutation({ onSuccess: invalidate });
 
   const close = () => {
     setOpen(null);
@@ -134,6 +141,16 @@ export function ToolMenu({
             Add a note
           </DropdownMenuItem>
 
+          {canManage ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setOpen("status")}>
+                <TagIcon />
+                Change status
+              </DropdownMenuItem>
+            </>
+          ) : null}
+
           {canManage && (onEdit || onDelete) ? <DropdownMenuSeparator /> : null}
 
           {canManage && onEdit ? (
@@ -180,6 +197,41 @@ export function ToolMenu({
       ) : null}
       {open === "report" ? (
         <ReportForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+      ) : null}
+
+      {/* Change status — a held tool is never "available" (that means unheld in
+         the yard; freeing it is Return instead), so the option only appears
+         for tools nobody is holding. */}
+      {open === "status" ? (
+        <Dialog open onOpenChange={(o) => !o && setOpen(null)}>
+          <DialogContent className="sm:max-w-xs">
+            <DialogHeader>
+              <DialogTitle>Change status of {assetTag}</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 gap-1.5">
+              {(heldBySomeone ? ["reserved", "in_maintenance", "lost"] : ["available", "reserved", "in_maintenance", "lost"]).map(
+                (s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    disabled={setStatus.isPending}
+                    onClick={() => {
+                      setStatus.mutate({ id: assetId, status: s });
+                      setOpen(null);
+                    }}
+                    className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-left text-sm hover:bg-accent disabled:opacity-50"
+                  >
+                    {s === "in_maintenance" ? <Wrench className="size-4 text-warn" /> : s === "lost" ? <Trash2 className="size-4 text-crit" /> : s === "reserved" ? <BadgeCheck className="size-4 text-ok" /> : <TagIcon className="size-4 text-muted-foreground" />}
+                    <span className="font-medium">{humanize(s)}</span>
+                  </button>
+                ),
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(null)}>Cancel</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       ) : null}
     </>
   );

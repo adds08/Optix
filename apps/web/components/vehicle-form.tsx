@@ -17,10 +17,12 @@ export type VehicleEditable = {
 };
 
 /* Foreman is create-only: handing a truck over is `location.setCustodian`,
-   which takes the tools aboard with it. */
-type Props = { open: boolean; onClose: () => void; edit?: VehicleEditable };
+   which takes the tools aboard with it. `presetProjectId` is how the Tools by
+   Jobsite hub's "Add Truck / Add Trailer" opens the form already pointed at
+   the job the card represents. */
+type Props = { open: boolean; onClose: () => void; edit?: VehicleEditable; presetProjectId?: string | null };
 
-export function VehicleForm({ open, onClose, edit }: Props) {
+export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
   const utils = trpc.useUtils();
   const projects = trpc.project.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
@@ -37,7 +39,7 @@ export function VehicleForm({ open, onClose, edit }: Props) {
   const [ownershipType, setOwnershipType] = useState<"company_owned" | "personal_allowance">(
     (edit?.ownershipType as "company_owned" | "personal_allowance") ?? "company_owned",
   );
-  const [projectId, setProjectId] = useState(edit?.projectId ?? "");
+  const [projectId, setProjectId] = useState(edit?.projectId ?? presetProjectId ?? "");
   const [attachedToVehicleId, setAttachedToVehicleId] = useState(edit?.attachedToVehicleId ?? "");
   const [foremanEmployeeId, setForemanEmployeeId] = useState("");
   const [submitting, setSubmitting] = useState(false);

@@ -67,6 +67,17 @@ export function idName(id: string | null | undefined, name: string | null | unde
   return `${id} - ${name}`;
 }
 
+/*
+  The one haystack every job search filters against. Derived from `idName`
+  rather than re-joined as `${externalId} ${name}`, so searching the exact
+  label a user sees on screen ("URB-2401 - Legacy West…") always matches —
+  the three inline copies that used to hand-build the string drifted apart
+  from the display format (see the job-selector codegen review).
+*/
+export function jobSearchText(p: { externalId?: string | null; name?: string | null }): string {
+  return idName(p.externalId, p.name).toLowerCase();
+}
+
 export function relative(v: string | Date | null | undefined): string {
   const days = daysFrom(v);
   if (days === null) return "—";

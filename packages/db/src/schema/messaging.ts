@@ -50,6 +50,13 @@ export const message = pgTable(
        because the parser was unreachable is retryable; one that has failed
        repeatedly is a job for the desk, not an infinite loop. */
     attempts: integer("attempts").notNull().default(0),
+    /* How many times the request worker has chased an `action_proposed`
+       message that nobody confirmed. Proposals are not tasks — they are the
+       sender's hand-off sitting open — so they get chased like tasks are, or
+       a tool the sender believes is on its way never moves (see the request
+       worker's escalateStaleProposals). */
+    escalationCount: integer("escalation_count").notNull().default(0),
+    lastEscalatedAt: timestamp("last_escalated_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

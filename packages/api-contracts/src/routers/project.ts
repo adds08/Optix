@@ -1,13 +1,30 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
+import { visibleProjectScope } from "../scope.js";
+import { moveEmployeeToProject } from "../project-assign.js";
 
 export const projectRouter = router({
+  /*
+    The job list, filtered server-side to what the caller may see.
+
+    `visibleProjectScope` is the one gate: owners and the equipment department
+    (project.manage) see every job; everyone else sees the union of their job
+    groups and the projects their team row names. This is what stops a foreman
+    typing a URL from reading every job in the tenant — the decision happens
+    here, not in the client.
+  */
   list: protectedProcedure.query(async ({ ctx }) => {
+    const scope = await visibleProjectScope(ctx.db, ctx.session);
+    const conds = [eq(schema.project.tenantId, ctx.session.tenantId)];
+    if (scope.restrict) {
+      if (scope.ids.size === 0) return [];
+      conds.push(inArray(schema.project.id, [...scope.ids]));
+    }
     return ctx.db
       .select({
         id: schema.project.id,
@@ -20,7 +37,7 @@ export const projectRouter = router({
         endDate: schema.project.endDate,
       })
       .from(schema.project)
-      .where(eq(schema.project.tenantId, ctx.session.tenantId));
+      .where(and(...conds));
   }),
 
   create: requirePermission("project.manage")
@@ -297,209 +314,25 @@ export const employeeRouter = router({
         leaveContainers: z.boolean().default(false),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const tid = ctx.session.tenantId;
-      const startedOn = input.startedOn ?? new Date().toISOString().slice(0, 10);
-
-      const [person] = await ctx.db
-        .select({ id: schema.employee.id, name: schema.employee.name, primaryProjectId: schema.employee.primaryProjectId })
-        .from(schema.employee)
-        .where(and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)));
-      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
-
-      const [proj] = await ctx.db
-        .select({ id: schema.project.id, name: schema.project.name })
-        .from(schema.project)
-        .where(and(eq(schema.project.id, input.projectId), eq(schema.project.tenantId, tid)));
-      if (!proj) throw new TRPCError({ code: "NOT_FOUND", message: "No such project in this tenant" });
-
-      const result = await ctx.db.transaction(async (tx: any) => {
-        /* Close whatever is open. Ending on the same day the next posting
-           starts keeps the history contiguous — a gap would read as time the
-           person was on no job at all. */
-        await tx
-          .update(schema.employeeProjectAssignment)
-          .set({ endedOn: startedOn })
-          .where(
-            and(
-              eq(schema.employeeProjectAssignment.tenantId, tid),
-              eq(schema.employeeProjectAssignment.employeeId, input.employeeId),
-              isNull(schema.employeeProjectAssignment.endedOn),
-            ),
-          );
-
-        const [posting] = await tx
-          .insert(schema.employeeProjectAssignment)
-          .values({
-            tenantId: tid,
-            employeeId: input.employeeId,
-            projectId: input.projectId,
-            startedOn,
-            assignedByUserId: ctx.session.userId,
-            note: input.note ?? null,
-          })
-          .returning();
-
-        await tx
-          .update(schema.employee)
-          .set({ primaryProjectId: input.projectId })
-          .where(eq(schema.employee.id, input.employeeId));
-
-        if (!input.moveTools) return { postingId: posting?.id ?? null, toolsMoved: 0, containersMoved: 0 };
-
-        /* Lost and disposed tools stay where the record says they were lost.
-           Dragging them onto the new job would quietly rewrite where a police
-           report has to point. */
-        const held = await tx
-          .select({
-            id: schema.asset.id,
-            tag: schema.asset.tag,
-            currentStatus: schema.asset.currentStatus,
-            currentCustodianId: schema.asset.currentCustodianId,
-            currentProjectId: schema.asset.currentProjectId,
-            currentLocationId: schema.asset.currentLocationId,
-          })
-          .from(schema.asset)
-          .where(
-            and(
-              eq(schema.asset.tenantId, tid),
-              eq(schema.asset.currentCustodianId, input.employeeId),
-              notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
-            ),
-          );
-
-        /* The foreman's trucks follow, and the trailers hitched to them — a
-           trailer attached to the truck rides with it. Tools are usually in
-           the trailer, so "the truck goes to the new job" has to take them
-           along or every tool on the old site would stay booked to a job
-           nobody is running. */
-        const vehicles = await tx
-          .select({
-            id: schema.vehicle.id,
-            vehicleType: schema.vehicle.vehicleType,
-            locationId: schema.vehicle.locationId,
-          })
-          .from(schema.vehicle)
-          .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.foremanEmployeeId, input.employeeId)));
-
-        const truckLocIds = vehicles.filter((v: any) => v.vehicleType === "truck").map((v: any) => v.locationId);
-        const containerLocIds = new Set<string>(truckLocIds);
-        if (!input.leaveContainers) {
-          const trailerLocIds = vehicles.filter((v: any) => v.vehicleType === "trailer").map((v: any) => v.locationId);
-          if (trailerLocIds.length) {
-            const trailerLocs = await tx
-              .select({
-                id: schema.location.id,
-                parentLocationId: schema.location.parentLocationId,
-              })
-              .from(schema.location)
-              .where(and(eq(schema.location.tenantId, tid), inArray(schema.location.id, trailerLocIds)));
-            for (const t of trailerLocs) {
-              /* Only trailers actually hitched to one of the foreman's trucks
-                 ride along — a trailer attached to somebody else's truck stays
-                 with that truck. */
-              if (t.parentLocationId && truckLocIds.includes(t.parentLocationId)) {
-                containerLocIds.add(t.id);
-              }
-            }
-          }
-        }
-
-        const aboard = containerLocIds.size
-          ? await tx
-              .select({
-                id: schema.asset.id,
-                tag: schema.asset.tag,
-                currentStatus: schema.asset.currentStatus,
-                currentCustodianId: schema.asset.currentCustodianId,
-                currentProjectId: schema.asset.currentProjectId,
-                currentLocationId: schema.asset.currentLocationId,
-              })
-              .from(schema.asset)
-              .where(
-                and(
-                  eq(schema.asset.tenantId, tid),
-                  inArray(schema.asset.currentLocationId, [...containerLocIds]),
-                  notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
-                ),
-              )
-          : [];
-
-        /* One tool, one entry: something the foreman holds directly and is
-           also aboard a following truck is not moved twice. */
-        const byId = new Map<string, any>();
-        for (const a of held) byId.set(a.id, a);
-        for (const a of aboard) byId.set(a.id, a);
-        const moving = [...byId.values()].filter((a: any) => a.currentProjectId !== input.projectId);
-
-        let toolsMoved = 0;
-        if (moving.length) {
-          const ids = moving.map((a: any) => a.id);
-
-          await tx
-            .update(schema.asset)
-            .set({ currentProjectId: input.projectId, updatedAt: new Date() })
-            .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)));
-
-          /* Open custody links carry the project too, so the custody screen
-             does not keep showing the job they just left. */
-          await tx
-            .update(schema.assignment)
-            .set({ projectId: input.projectId, updatedAt: new Date() })
-            .where(
-              and(
-                eq(schema.assignment.tenantId, tid),
-                eq(schema.assignment.status, "active"),
-                inArray(schema.assignment.assetId, ids),
-              ),
-            );
-
-          await tx.insert(schema.transaction).values(
-            moving.map((a: any) => ({
-              tenantId: tid,
-              assetId: a.id,
-              eventType: "project_change",
-              actorId: ctx.session.userId,
-              fromState: {
-                status: a.currentStatus,
-                custodianId: a.currentCustodianId,
-                projectId: a.currentProjectId,
-                locationId: a.currentLocationId,
-              },
-              /* Complete snapshot — the fold is last-snapshot-wins, so a partial
-                 toState would blank out custody and location. */
-              toState: {
-                status: a.currentStatus,
-                custodianId: a.currentCustodianId,
-                projectId: input.projectId,
-                locationId: a.currentLocationId,
-              },
-              refType: "employee_project_assignment",
-              refId: posting?.id ?? null,
-              note: `Moved with ${person.name} to ${proj.name}`,
-            })),
-          );
-          toolsMoved = moving.length;
-        }
-
-        /* The containers themselves re-home to the new job so the locations
-           page and the register agree about where the truck works. */
-        let containersMoved = 0;
-        if (containerLocIds.size) {
-          await tx
-            .update(schema.location)
-            .set({ projectId: input.projectId })
-            .where(and(eq(schema.location.tenantId, tid), inArray(schema.location.id, [...containerLocIds])));
-          await tx
-            .update(schema.vehicle)
-            .set({ projectId: input.projectId, updatedAt: new Date() })
-            .where(
-              and(eq(schema.vehicle.tenantId, tid), inArray(schema.vehicle.locationId, [...containerLocIds])),
-            );
-          containersMoved = containerLocIds.size;
-        }
-
-        return { postingId: posting?.id ?? null, toolsMoved, containersMoved };
+        .mutation(async ({ ctx, input }) => {
+      /*
+        Everything is one transaction in the shared engine (project-assign.ts):
+        close the posting, open the next, catch up primaryProjectId, move the
+        tools and the trucks/trailers that carry them, and keep the person's
+        project_team_member row in lockstep. This used to live here; it moved
+        so project.team.assign can perform the same move for a foreman without
+        the two paths drifting.
+      */
+      const result = await moveEmployeeToProject(ctx.db, {
+        tenantId: ctx.session.tenantId,
+        employeeId: input.employeeId,
+        projectId: input.projectId,
+        actorUserId: ctx.session.userId,
+        startedOn: input.startedOn,
+        note: input.note,
+        moveTools: input.moveTools,
+        leaveContainers: input.leaveContainers,
+        role: "auto",
       });
 
       await logEvent(ctx, {
@@ -507,18 +340,23 @@ export const employeeRouter = router({
         action: "employee.assignToProject",
         entityType: "employee",
         entityId: input.employeeId,
-        entityLabel: person.name,
+        entityLabel: result.employeeName,
         details: {
           projectId: input.projectId,
-          projectName: proj.name,
-          fromProjectId: person.primaryProjectId,
-          startedOn,
+          projectName: result.projectName,
+          startedOn: input.startedOn,
           toolsMoved: result.toolsMoved,
           containersMoved: result.containersMoved,
         },
       });
 
-      return { ok: true, ...result, projectName: proj.name };
+      return {
+        ok: true,
+        postingId: result.postingId,
+        toolsMoved: result.toolsMoved,
+        containersMoved: result.containersMoved,
+        projectName: result.projectName,
+      };
     }),
 
   update: requirePermission("employee.manage")
