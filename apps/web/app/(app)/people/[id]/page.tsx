@@ -1,16 +1,19 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Boxes, HardHat } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState, TableWrap } from "@/components/sti/page";
+import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
 import { PostingForm } from "@/components/posting-form";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DataTable } from "@/components/sti/data-table/data-table";
+import { col } from "@/components/sti/data-table/columns";
 import { money, shortDate } from "@/lib/format";
 
 /*
@@ -32,6 +35,32 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
   const p = person.data;
   const tools = held.data ?? [];
   const value = tools.reduce((sum, t) => sum + Number(t.acquisitionCost ?? 0), 0);
+
+  type ToolRow = (typeof tools)[number];
+  type PostingRow = NonNullable<(typeof postings.data)>[number];
+
+  const HELD_COLUMNS: ColumnDef<ToolRow>[] = useMemo(
+    () => [
+      col<ToolRow>({ header: "Tag", accessorFn: (t) => t.tag ?? "", width: "7rem", cell: (t) => <Link href={`/tools/${t.id}`} className="hover:underline"><Tag>{t.tag}</Tag></Link> }),
+      col<ToolRow>({ header: "Model", accessorFn: (t) => formatAssetModel(t), cell: (t) => <span className="font-medium">{formatAssetModel(t) || "Untagged tool"}</span> }),
+      col<ToolRow>({ header: "On project", accessorFn: (t) => t.currentProjectName ?? "", cell: (t) => t.currentProjectName ?? "—" }),
+      col<ToolRow>({ header: "Charged to", accessorFn: (t) => t.owningDepartmentName ?? t.owningProjectName ?? "", cell: (t) => <span className="text-muted-foreground">{t.owningDepartmentName ?? t.owningProjectName ?? "—"}</span> }),
+      col<ToolRow>({ header: "Status", accessorFn: (t) => t.status, width: "8rem", cell: (t) => <StatusPill status={t.status} /> }),
+      col<ToolRow>({ header: "Value", accessorFn: (t) => Number(t.acquisitionCost ?? 0), numeric: true, width: "7rem", cell: (t) => <span className="tnum">{money(t.acquisitionCost)}</span> }),
+    ],
+    [],
+  );
+
+  const POSTING_COLUMNS: ColumnDef<PostingRow>[] = useMemo(
+    () => [
+      col<PostingRow>({ header: "Project", accessorFn: (r) => r.projectName ?? "", cell: (r) => <span className="font-medium">{r.projectName ?? "—"}</span> }),
+      col<PostingRow>({ header: "Cost code", accessorFn: (r) => r.projectExternalId ?? "", width: "7rem", cell: (r) => (r.projectExternalId ? <Tag>{r.projectExternalId}</Tag> : "—") }),
+      col<PostingRow>({ header: "From", accessorFn: (r) => r.startedOn ?? "", width: "8rem", cell: (r) => shortDate(r.startedOn) }),
+      col<PostingRow>({ header: "To", accessorFn: (r) => r.endedOn ?? "", width: "8rem", cell: (r) => (r.endedOn ? shortDate(r.endedOn) : <span className="text-ok">current</span>) }),
+      col<PostingRow>({ header: "Note", accessorFn: (r) => r.note ?? "", cell: (r) => <span className="text-muted-foreground">{r.note ?? "—"}</span> }),
+    ],
+    [],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -122,36 +151,13 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
             ) : !tools.length ? (
               <EmptyState icon={Boxes} title="Holding nothing" description="No tool in the register names this person as custodian." />
             ) : (
-              <TableWrap>
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      {["Tag", "Model", "On project", "Charged to", "Status", "Value"].map((h, i) => (
-                        <th key={h} className={`label-xs px-4 py-2.5 ${i === 5 ? "text-right" : "text-left"}`}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tools.map((t) => (
-                      <tr key={t.id} className="border-b last:border-0 hover:bg-muted/40">
-                        <td className="px-4 py-2.5">
-                          <Link href={`/tools/${t.id}`} className="hover:underline">
-                            <Tag>{t.tag}</Tag>
-                          </Link>
-                        </td>
-                        <td className="px-4 py-2.5 font-medium">{formatAssetModel(t) || "Untagged tool"}</td>
-                        <td className="px-4 py-2.5">{t.currentProjectName ?? "—"}</td>
-                        {/* Who paid. Unchanged by every move on this page. */}
-                        <td className="px-4 py-2.5 text-muted-foreground">
-                          {t.owningDepartmentName ?? t.owningProjectName ?? "—"}
-                        </td>
-                        <td className="px-4 py-2.5"><StatusPill status={t.status} /></td>
-                        <td className="px-4 py-2.5 text-right tnum">{money(t.acquisitionCost)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </TableWrap>
+              <DataTable<ToolRow>
+                mode="client"
+                columns={HELD_COLUMNS}
+                rows={tools}
+                rowId={(t) => t.id}
+                searchPlaceholder="Search their tools…"
+              />
             )}
           </section>
 
@@ -174,30 +180,13 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
                 description="Their job history starts the first time they are moved through this screen."
               />
             ) : (
-              <TableWrap>
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      {["Project", "Cost code", "From", "To", "Note"].map((h) => (
-                        <th key={h} className="label-xs px-4 py-2.5 text-left">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {postings.data.map((row) => (
-                      <tr key={row.id} className="border-b last:border-0 hover:bg-muted/40">
-                        <td className="px-4 py-2.5 font-medium">{row.projectName ?? "—"}</td>
-                        <td className="px-4 py-2.5">{row.projectExternalId ? <Tag>{row.projectExternalId}</Tag> : "—"}</td>
-                        <td className="px-4 py-2.5">{shortDate(row.startedOn)}</td>
-                        <td className="px-4 py-2.5">
-                          {row.endedOn ? shortDate(row.endedOn) : <span className="text-ok">current</span>}
-                        </td>
-                        <td className="px-4 py-2.5 text-muted-foreground">{row.note ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </TableWrap>
+              <DataTable<PostingRow>
+                mode="client"
+                columns={POSTING_COLUMNS}
+                rows={postings.data}
+                rowId={(r) => r.id}
+                searchPlaceholder="Search job history…"
+              />
             )}
           </section>
         </>

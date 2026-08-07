@@ -6,11 +6,9 @@ import {
   HardHat,
   Inbox,
   LayoutDashboard,
-  MapPin,
   MessageSquare,
   Radio,
   Settings,
-  Truck,
   Users,
   Wrench,
 } from "lucide-react";
@@ -56,31 +54,13 @@ export const DESK_NAV: NavGroup[] = [
   {
     label: "Equipment",
     items: [
-      { href: "/tools", label: "Tool Register", icon: Boxes, perm: "asset.read" },
-      /* One card per foreman: job site, truck, hitched trailer, and the tools
-         in the back — who is where, driving what, holding what. */
-      { href: "/foremen", label: "Jobsite by Foreman", icon: HardHat, perm: "employee.read" },
-      /* The same accordion view, but grouped by job site — one card per
-         project, expanded to see the tools working it. */
+      /* The control hub: one card per job, with crews (foreman + truck/trailer)
+         and the tools working it. */
       { href: "/jobsites", label: "Tools by Jobsite", icon: Building2, perm: "asset.read" },
       { href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read" },
-      /*
-        Trucks and trailers are NOT a fleet to manage — they are locations that
-        move, carrying small tools around. They belong here beside warehouses,
-        site containers and gang boxes, answering "where is UIC-1012?" with
-        "Truck 12". No mileage, no maintenance schedules, no driver assignment.
-      */
-      { href: "/locations", label: "Locations", icon: MapPin, perm: "location.read" },
       /* The map is the fleet — trucks and trailers — with the small tools
          aboard them, which is why it is not called just a vehicle map. */
       { href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read" },
-      /*
-        Rented kit is a separate register on purpose. Urban does not own it,
-        it has a return date, and it is the only equipment on the system that
-        costs money simply by existing — merging it into the tool register
-        would bury that.
-      */
-      { href: "/rentals", label: "Rented", icon: Truck, perm: "rental.read" },
     ],
   },
   {
@@ -88,8 +68,9 @@ export const DESK_NAV: NavGroup[] = [
     items: [{ href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read" }],
   },
   {
-    label: "Operations",
+    label: "Entity",
     items: [
+      { href: "/tools", label: "Tool Register", icon: Boxes, perm: "asset.read" },
       { href: "/inbox", label: "Inbox", icon: Inbox, perm: "assignment.read" },
       { href: "/people", label: "People", icon: Users, perm: "employee.read" },
       /* A job and a project are the same thing — the job ID is the cost code. */

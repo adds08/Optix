@@ -16,6 +16,8 @@ import { Highlight } from "@/components/highlight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { SearchSelect } from "@/components/ui/search-select";
+import { humanize } from "@/components/sti/status";
 import { rigOf } from "@/lib/rig";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -304,7 +306,7 @@ export default function JobsitesPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Crews on jobs" value={shownCrews} hint="one foreman and their rig, per job" />
+        <Metric label="Crews on jobs" value={shownCrews} hint="one foreman and their truck & trailer, per job" />
         <Metric label="Tools out" value={shownTools} hint={`across ${cards.length} cards`} />
         <Metric label="Fleet value out" value={money(cards.reduce((n, c) => n + c.value, 0))} hint="acquisition cost" />
         <Metric label="Crews without a truck" value={crewsWithoutTruck} tone={crewsWithoutTruck ? "warn" : "ok"} hint="cannot haul their tools" />
@@ -325,24 +327,42 @@ export default function JobsitesPage() {
                   aria-label="Search the jobsite list"
                 />
               </div>
-              <Select value={jobFilter} onChange={setJobFilter} label="All jobs">
-                {(projects.data ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>{p.externalId ? `${p.externalId} · ${p.name}` : p.name}</option>
-                ))}
-                <option value={YARD}>URB-YARD · Equipment Yard</option>
-                <option value={NOJOB}>Not assigned to any project</option>
-              </Select>
-              <Select value={foremanFilter} onChange={setForemanFilter} label="All foremen">
-                {foremen.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </Select>
-              <Select value={statusFilter} onChange={setStatusFilter} label="Any status">
-                <option value="assigned">Assigned</option>
-                <option value="available">Available</option>
-                <option value="in_maintenance">In maintenance</option>
-                <option value="lost">Lost</option>
-              </Select>
+              <SearchSelect
+                value={jobFilter}
+                onChange={setJobFilter}
+                placeholder="All jobs"
+                widthClass="w-56"
+                options={[
+                  ...(projects.data ?? []).map((p) => ({
+                    value: p.id,
+                    label: p.externalId ? `${p.externalId} · ${p.name}` : p.name,
+                  })),
+                  { value: YARD, label: "URB-YARD · Equipment Yard" },
+                  { value: NOJOB, label: "Not assigned to any project" },
+                ]}
+              />
+              <SearchSelect
+                value={foremanFilter}
+                onChange={setForemanFilter}
+                placeholder="All foremen"
+                widthClass="w-48"
+                options={foremen.map((f) => ({
+                  value: f.id,
+                  label: f.externalId ? `${f.externalId} · ${f.name}` : f.name,
+                }))}
+              />
+              <SearchSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                placeholder="Any status"
+                widthClass="w-44"
+                options={["assigned", "available", "in_maintenance", "lost"].map((s) => ({
+                  value: s,
+                  label: humanize(s),
+                }))}
+              />
               <Button variant={onlyGaps ? "secondary" : "outline"} size="sm" onClick={() => setOnlyGaps((v) => !v)}>
-                <TriangleAlert className="size-3.5" /> Needs a rig
+                <TriangleAlert className="size-3.5" /> No truck or trailer
               </Button>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -429,7 +449,7 @@ export default function JobsitesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
                         {card.isJob && canAssignCrew ? (
-                          <DropdownMenuItem onSelect={() => setPicker({ kind: "crew", projectId: card.id })}>Add a foreman and rig</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setPicker({ kind: "crew", projectId: card.id })}>Add a foreman and truck/trailer</DropdownMenuItem>
                         ) : null}
                         <DropdownMenuItem onSelect={() => setOpenJobs((o) => ({ ...o, [card.id]: !open }))}>
                           {open ? "Collapse" : "Expand"}
@@ -470,7 +490,7 @@ export default function JobsitesPage() {
                         onClick={() => setPicker({ kind: "crew", projectId: card.id })}
                         className="rounded-md border border-dashed bg-card p-4 text-left text-sm font-medium text-primary"
                       >
-                        No crew on this job yet — add a foreman and their rig.
+                        No crew on this job yet — add a foreman with a truck or trailer.
                       </button>
                     ) : null}
 
@@ -519,25 +539,6 @@ export default function JobsitesPage() {
         ) : null}
       </div>
     </div>
-  );
-}
-
-/* Serial / ID · Tool name · Status · Value. No "rides on" column: the row
-   already sits under the rig it rides in. */
-function Select({ value, onChange, label, children }: { value: string; onChange: (v: string) => void; label: string; children: React.ReactNode }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label={label}
-      className={cn(
-        "h-8 max-w-44 rounded-md border border-input bg-transparent px-2 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-        value && "border-primary/40 bg-accent text-accent-foreground",
-      )}
-    >
-      <option value="">{label}</option>
-      {children}
-    </select>
   );
 }
 

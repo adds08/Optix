@@ -215,8 +215,12 @@ export async function moveEmployeeToProject(
       .from(schema.vehicle)
       .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.foremanEmployeeId, employeeId)));
 
+    /* The rig follows the person: every truck AND every directly-held trailer
+       (a trailer assigned to them without a truck) travels with them, plus any
+       trailer hitched to one of those trucks. */
+    const heldLocIds = vehicles.map((v: any) => v.locationId); // foremanEmployeeId = employee
     const truckLocIds = vehicles.filter((v: any) => v.vehicleType === "truck").map((v: any) => v.locationId);
-    const containerLocIds = new Set<string>(truckLocIds);
+    const containerLocIds = new Set<string>(heldLocIds);
     if (!leaveContainers) {
       const trailerLocIds = vehicles.filter((v: any) => v.vehicleType === "trailer").map((v: any) => v.locationId);
       if (trailerLocIds.length) {

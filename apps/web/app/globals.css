@@ -366,16 +366,13 @@
    sticks within it (top: 0) rather than trying to track the page scroll —
    no overlap with the app header or the bottom action toolbar, no offset math. */
 .sti-table-scroll {
-  max-height: 70vh;
-  overflow: auto;
+  /* Horizontal only: wide tables scroll inside the box, but a table never gets
+     its own vertical scrollbar. Rows flow with the page (bounded by pagination),
+     so every table scrolls the same way — no nested scrollbox that fights the
+     page scroll on some pages and not others. */
+  overflow-x: auto;
   overscroll-behavior: contain;
-}
-.sti-table-scroll thead {
-  position: sticky;
-  top: 0;
-  z-index: 5;
 }
 .sti-table-scroll thead th {
   background: var(--muted);
-  box-shadow: inset 0 -1px 0 var(--border);
 }

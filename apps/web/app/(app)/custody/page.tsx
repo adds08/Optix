@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeftRight, Wrench } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { useJobScope } from "@/components/job-scope";
+import { DataTable } from "@/components/sti/data-table/data-table";
+import { col } from "@/components/sti/data-table/columns";
 import { shortDate, daysFrom, relative, idName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +34,55 @@ export default function CustodyPage() {
   );
   const overdue = active.filter((a) => a.expectedEnd && (daysFrom(a.expectedEnd) ?? -1) > 0);
   const inFlight = (transfers.data ?? []).filter((t) => t.status !== "completed" && t.status !== "cancelled");
+
+  type HeldRow = (typeof active)[number];
+  type TransferRow = NonNullable<(typeof transfers.data)>[number];
+
+  const HELD_COLUMNS: ColumnDef<HeldRow>[] = useMemo(
+    () => [
+      col<HeldRow>({ header: "Tag", accessorFn: (a) => a.tag ?? "", width: "6rem", cell: (a) => <Link href={`/tools/${a.assetId}`}><Tag>{a.tag}</Tag></Link> }),
+      col<HeldRow>({ header: "Model", accessorFn: (a) => a.modelName ?? "", cell: (a) => <span className="font-medium">{a.modelName}</span> }),
+      col<HeldRow>({ header: "Held by", accessorFn: (a) => a.custodianName ?? "", cell: (a) => a.custodianName ?? "—" }),
+      col<HeldRow>({ header: "Project", accessorFn: (a) => a.projectName ?? "", cell: (a) => (a.projectName ? idName(a.projectExternalId, a.projectName) : "—") }),
+      col<HeldRow>({ header: "Rig", accessorFn: (a) => a.locationName ?? "", cell: (a) => a.locationName ?? "—" }),
+      col<HeldRow>({ header: "Type", accessorFn: (a) => a.type, width: "6rem", cell: (a) => <span className="capitalize">{a.type}</span> }),
+      col<HeldRow>({
+        header: "Due",
+        accessorFn: (a) => a.expectedEnd ?? "",
+        width: "8rem",
+        cell: (a) => {
+          const late = a.expectedEnd ? (daysFrom(a.expectedEnd) ?? -1) > 0 : false;
+          return a.expectedEnd ? (
+            <span className={cn(late && "font-medium text-crit")}>
+              {shortDate(a.expectedEnd)}
+              {late ? <span className="block text-xs">{relative(a.expectedEnd)}</span> : null}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          );
+        },
+      }),
+      col<HeldRow>({
+        header: "Status",
+        accessorFn: (a) => a.status,
+        width: "8rem",
+        cell: (a) => <StatusPill status={(a.expectedEnd ? (daysFrom(a.expectedEnd) ?? -1) > 0 : false) ? "overdue" : a.status} />,
+      }),
+    ],
+    [],
+  );
+
+  const MOVING_COLUMNS: ColumnDef<TransferRow>[] = useMemo(
+    () => [
+      col<TransferRow>({ header: "Tag", accessorFn: (t) => t.tag ?? "", width: "6rem", cell: (t) => <Link href={`/tools/${t.assetId}`}><Tag>{t.tag}</Tag></Link> }),
+      col<TransferRow>({ header: "Model", accessorFn: (t) => t.modelName ?? "", cell: (t) => <span className="font-medium">{t.modelName}</span> }),
+      col<TransferRow>({ header: "Reason", accessorFn: (t) => String(t.reason ?? "").replace(/_/g, " "), cell: (t) => <span className="capitalize">{String(t.reason).replace(/_/g, " ")}</span> }),
+      col<TransferRow>({ header: "Status", accessorFn: (t) => t.status, width: "9rem", cell: (t) => <StatusPill status={t.status} /> }),
+      col<TransferRow>({ header: "Requested", accessorFn: (t) => (t.createdAt ? t.createdAt.toISOString() : ""), width: "8rem", cell: (t) => <span className="text-muted-foreground">{shortDate(t.createdAt)}</span> }),
+      col<TransferRow>({ header: "Completed", accessorFn: (t) => (t.completedAt ? t.completedAt.toISOString() : ""), width: "8rem", cell: (t) => <span className="text-muted-foreground">{t.completedAt ? shortDate(t.completedAt) : "—"}</span> }),
+    ],
+    [],
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -75,49 +127,13 @@ export default function CustodyPage() {
         ) : !active.length ? (
           <EmptyState icon={Wrench} title="No tool is currently out" description="Everything is in the yard." />
         ) : (
-          <TableWrap>
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  {["Tag", "Model", "Held by", "Project", "Location", "Type", "Due", "Status"].map((h) => (
-                    <th key={h} className="label-xs px-4 py-2.5 text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {active.map((a) => {
-                  const late = a.expectedEnd ? (daysFrom(a.expectedEnd) ?? -1) > 0 : false;
-                  return (
-                    <tr key={a.id} className={cn("border-b last:border-0 hover:bg-muted/40", late && "bg-crit-bg/40")}>
-                      <td className="px-4 py-2.5">
-                        <Link href={`/tools/${a.assetId}`}><Tag>{a.tag}</Tag></Link>
-                      </td>
-                      <td className="px-4 py-2.5 font-medium">{a.modelName}</td>
-                      <td className="px-4 py-2.5">{a.custodianName ?? "—"}</td>
-                      <td className="px-4 py-2.5">
-                        {a.projectName ? idName(a.projectExternalId, a.projectName) : "—"}
-                      </td>
-                      <td className="px-4 py-2.5">{a.locationName ?? "—"}</td>
-                      <td className="px-4 py-2.5 capitalize">{a.type}</td>
-                      <td className="px-4 py-2.5">
-                        {a.expectedEnd ? (
-                          <span className={cn(late && "font-medium text-crit")}>
-                            {shortDate(a.expectedEnd)}
-                            {late ? <span className="block text-xs">{relative(a.expectedEnd)}</span> : null}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <StatusPill status={late ? "overdue" : a.status} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </TableWrap>
+          <DataTable<HeldRow>
+            mode="client"
+            columns={HELD_COLUMNS}
+            rows={active}
+            rowId={(a) => a.id}
+            searchPlaceholder="Search held tools…"
+          />
         )
       ) : transfers.isLoading ? (
         <TableSkeleton cols={5} />
@@ -126,33 +142,13 @@ export default function CustodyPage() {
       ) : !transfers.data?.length ? (
         <EmptyState icon={ArrowLeftRight} title="No transfers recorded" />
       ) : (
-        <TableWrap>
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                {["Tag", "Model", "Reason", "Status", "Requested", "Completed"].map((h) => (
-                  <th key={h} className="label-xs px-4 py-2.5 text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {transfers.data.map((t) => (
-                <tr key={t.id} className="border-b last:border-0 hover:bg-muted/40">
-                  <td className="px-4 py-2.5">
-                    <Link href={`/tools/${t.assetId}`}><Tag>{t.tag}</Tag></Link>
-                  </td>
-                  <td className="px-4 py-2.5 font-medium">{t.modelName}</td>
-                  <td className="px-4 py-2.5 capitalize">{String(t.reason).replace(/_/g, " ")}</td>
-                  <td className="px-4 py-2.5"><StatusPill status={t.status} /></td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{shortDate(t.createdAt)}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
-                    {t.completedAt ? shortDate(t.completedAt) : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableWrap>
+        <DataTable<TransferRow>
+          mode="client"
+          columns={MOVING_COLUMNS}
+          rows={transfers.data}
+          rowId={(t) => t.id}
+          searchPlaceholder="Search transfers…"
+        />
       )}
     </div>
   );

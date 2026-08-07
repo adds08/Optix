@@ -133,12 +133,12 @@ export function CrewCard({
             />
           ) : !canManage ? (
             <span className="text-xs text-muted-foreground">no trailer</span>
-          ) : rig.truck ? (
-            <Button variant="outline" size="sm" className="h-6.5 border-dashed px-2 text-xs text-primary" onClick={() => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck!.id })}>
+          ) : (
+            /* A trailer does not need a truck: assigning one hands it straight
+               to the foreman (the picker takes it off any truck it rides). */
+            <Button variant="outline" size="sm" className="h-6.5 border-dashed px-2 text-xs text-primary" onClick={() => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id })}>
               <Plus className="size-3" /> Trailer
             </Button>
-          ) : (
-            <span className="rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground">Trailer needs a truck</span>
           )}
         </span>
 
@@ -159,11 +159,8 @@ export function CrewCard({
                 <DropdownMenuItem onSelect={() => onPick({ kind: "truck", foremanId: crew.foremanId })}>
                   {rig.truck ? "Change truck" : "Assign truck"}
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={!rig.truck}
-                  onSelect={() => rig.truck && onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck.id })}
-                >
-                  {rig.trailer ? "Change trailer" : "Hitch a trailer"}
+                <DropdownMenuItem onSelect={() => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id })}>
+                  {rig.trailer ? "Change trailer" : rig.truck ? "Hitch a trailer" : "Assign a trailer"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => onPick({ kind: "move", foremanId: crew.foremanId, projectId })}>

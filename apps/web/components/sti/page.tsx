@@ -113,12 +113,12 @@ export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: nu
   );
 }
 
-/* Wide content scrolls inside its own container — the page body never
-   scrolls sideways — and long tables scroll vertically under a sticky
-   header (see `.sti-table-scroll` in globals.css). */
+/* Wide content scrolls horizontally inside its own container — the page body
+   never scrolls sideways. Tables flow with the page (bounded by pagination),
+   never in their own vertical scrollbox. */
 export function TableWrap({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("sti-table-scroll w-full overflow-auto rounded-md border bg-card", className)}>{children}</div>
+    <div className={cn("sti-table-scroll w-full overflow-x-auto rounded-md border bg-card", className)}>{children}</div>
   );
 }
 

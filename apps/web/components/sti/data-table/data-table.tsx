@@ -384,19 +384,27 @@ export function DataTable<T>({
       </div>
       ) : null}
 
-      {/* table — bounded scroll container so the header sticks (see globals) */}
-      <div className="sti-table-scroll overflow-auto rounded-md border">
-        <Table>
+      {/* table — bounded scroll container so the header sticks (see globals).
+          table-fixed makes columns honor their `width` and fill the container;
+          columns without a width share the leftover, and long text wraps
+          instead of blowing the layout out. */}
+      <div className="sti-table-scroll overflow-x-auto rounded-md border">
+        <Table className="w-full table-fixed min-w-[720px]">
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="bg-muted/50 hover:bg-muted/50">
                 {hg.headers.map((h) => {
-                  const numeric = (h.column.columnDef.meta as { numeric?: boolean } | undefined)?.numeric;
+                  const meta = (h.column.columnDef.meta as { numeric?: boolean; width?: string } | undefined) ?? {};
+                  const numeric = meta.numeric;
                   const canSort = h.column.getCanSort();
                   const sorted = h.column.getIsSorted();
                   const Icon = !sorted ? ChevronsUpDown : sorted === "asc" ? ArrowUp : ArrowDown;
                   return (
-                    <TableHead key={h.id} className={cn("p-0", numeric && "text-right")}>
+                    <TableHead
+                      key={h.id}
+                      className={cn("p-0", numeric && "text-right")}
+                      style={meta.width ? { width: meta.width } : undefined}
+                    >
                       <button
                         type="button"
                         disabled={!canSort}
@@ -423,9 +431,16 @@ export function DataTable<T>({
               rowsOut.map((r) => (
                 <TableRow key={rowId(r.original)}>
                   {r.getVisibleCells().map((c) => {
-                    const numeric = (c.column.columnDef.meta as { numeric?: boolean } | undefined)?.numeric;
+                    const meta = (c.column.columnDef.meta as { numeric?: boolean; width?: string } | undefined) ?? {};
                     return (
-                      <TableCell key={c.id} className={cn(numeric && "text-right tnum")}>
+                      <TableCell
+                        key={c.id}
+                        className={cn(meta.numeric && "text-right tnum")}
+                        style={{
+                          width: meta.width,
+                          whiteSpace: meta.numeric ? "nowrap" : "normal",
+                        }}
+                      >
                         {flexRender(c.column.columnDef.cell, c.getContext())}
                       </TableCell>
                     );

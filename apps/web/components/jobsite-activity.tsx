@@ -16,6 +16,7 @@ import {
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { Tag } from "@/components/sti/status";
+import { SearchSelect } from "@/components/ui/search-select";
 import { cn } from "@/lib/utils";
 
 /*
@@ -81,17 +82,13 @@ export function JobsiteActivity({
           <span className="relative inline-flex size-2 rounded-full bg-ok" />
         </span>
         <h2 className="text-sm font-semibold">Activity</h2>
-        <select
+        <SearchSelect
           value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          aria-label="Watch a specific jobsite"
-          className="ml-auto h-7 max-w-40 rounded-md border border-input bg-transparent px-1.5 text-xs transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <option value="">All sites</option>
-          {projectOptions.map((p) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
+          onChange={setProjectId}
+          placeholder="All sites"
+          widthClass="ml-auto w-40"
+          options={projectOptions.map((p) => ({ value: p.id, label: p.name }))}
+        />
         {onHide ? (
           <button
             type="button"

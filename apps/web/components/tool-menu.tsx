@@ -59,7 +59,9 @@ export function ToolMenu({
   deleting?: boolean;
 }) {
   const [open, setOpen] = useState<"assign" | "transfer" | "report" | "status" | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  /* Armed confirmation — "Return to the yard" and "Delete" both need a second
+     deliberate click. */
+  const [confirming, setConfirming] = useState<"return" | "delete" | null>(null);
   const { has } = usePermissions();
   const utils = trpc.useUtils();
 
@@ -87,9 +89,9 @@ export function ToolMenu({
     <>
       <DropdownMenu
         onOpenChange={(o) => {
-          /* Reset the delete confirmation whenever the menu closes, so it never
+          /* Reset any armed confirmation whenever the menu closes, so it never
              reopens already armed. */
-          if (!o) setConfirming(false);
+          if (!o) setConfirming(null);
         }}
       >
         <DropdownMenuTrigger
@@ -121,12 +123,27 @@ export function ToolMenu({
                 </DropdownMenuItem>
               ) : null}
               {canCustody ? (
-                <DropdownMenuItem
-                  onSelect={() => submit.mutate({ type: "return", assetIds: [assetId] })}
-                >
-                  <CornerUpLeft />
-                  Return to the yard
-                </DropdownMenuItem>
+                confirming === "return" ? (
+                  <DropdownMenuItem
+                    variant="danger"
+                    onSelect={() => submit.mutate({ type: "return", assetIds: [assetId] })}
+                  >
+                    <CornerUpLeft />
+                    Really return {assetTag} to the yard?
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      /* Keep the menu open so the confirmation replaces this
+                         row rather than closing first. */
+                      e.preventDefault();
+                      setConfirming("return");
+                    }}
+                  >
+                    <CornerUpLeft />
+                    Return to the yard
+                  </DropdownMenuItem>
+                )
               ) : null}
             </>
           ) : canCustody ? (
@@ -161,7 +178,7 @@ export function ToolMenu({
           ) : null}
 
           {canManage && onDelete ? (
-            confirming ? (
+            confirming === "delete" ? (
               <DropdownMenuItem variant="danger" onSelect={onDelete}>
                 <Trash2 />
                 Really delete {assetTag}?
@@ -173,7 +190,7 @@ export function ToolMenu({
                   /* Keep the menu open so the confirmation replaces this row
                      rather than appearing after a second click somewhere else. */
                   e.preventDefault();
-                  setConfirming(true);
+                  setConfirming("delete");
                 }}
               >
                 <Trash2 />

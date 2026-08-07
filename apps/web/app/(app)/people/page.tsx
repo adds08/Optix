@@ -1,20 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { UserMinus, Users } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote, EmptyState, TableWrap, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
-import { BottomToolbar } from "@/components/bottom-toolbar";
 import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
 import { PostingForm } from "@/components/posting-form";
 import { RowActions } from "@/components/sti/row-actions";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/sti/data-table/data-table";
+import { col } from "@/components/sti/data-table/columns";
 import { money, idName } from "@/lib/format";
 
 export default function PeoplePage() {
@@ -39,6 +41,84 @@ export default function PeoplePage() {
   const held = new Map((byForeman.data ?? []).map((f) => [f.employeeId, f]));
   const terminated = rows.filter((e) => e.employmentStatus === "terminated");
 
+  type EmployeeRow = (typeof rows)[number];
+  type ClearanceRow = NonNullable<(typeof clearance.data)>[number];
+
+  const CLEARANCE_COLUMNS: ColumnDef<ClearanceRow>[] = useMemo(
+    () => [
+      col<ClearanceRow>({ header: "Tag", accessorFn: (c) => c.tag ?? "", cell: (c) => <Tag>{c.tag}</Tag> }),
+      col<ClearanceRow>({ header: "Model", accessorFn: (c) => formatAssetModel(c), cell: (c) => <span className="font-medium">{formatAssetModel(c) || "Untagged tool"}</span> }),
+      col<ClearanceRow>({ header: "Last custodian", accessorFn: (c) => c.custodianName ?? "", cell: (c) => c.custodianName ?? "—" }),
+      col<ClearanceRow>({ header: "Status", accessorFn: (c) => c.status ?? "", width: "8rem", cell: (c) => <StatusPill status={c.status} /> }),
+      col<ClearanceRow>({ header: "Value", accessorFn: (c) => Number(c.cost ?? 0), numeric: true, width: "7rem", cell: (c) => <span className="tnum">{money(c.cost)}</span> }),
+    ],
+    [],
+  );
+
+  const EVERYONE_COLUMNS: ColumnDef<EmployeeRow>[] = useMemo(
+    () => [
+      col<EmployeeRow>({
+        header: "Name",
+        accessorFn: (e) => idName(e.externalId, e.name),
+        cell: (e) => (
+          <Link href={`/people/${e.id}`} className="font-medium hover:underline">
+            {idName(e.externalId, e.name)}
+          </Link>
+        ),
+      }),
+      col<EmployeeRow>({ header: "Role", accessorFn: (e) => e.role, width: "8rem", cell: (e) => humanize(e.role) }),
+      col<EmployeeRow>({
+        header: "Primary project",
+        accessorFn: (e) => e.primaryProjectName ?? "",
+        cell: (e) => (e.primaryProjectName ? idName(e.primaryProjectExternalId, e.primaryProjectName) : "—"),
+      }),
+      col<EmployeeRow>({ header: "Status", accessorFn: (e) => e.employmentStatus, width: "7rem", cell: (e) => <StatusPill status={e.employmentStatus} /> }),
+      col<EmployeeRow>({ header: "Tools held", accessorFn: (e) => Number(held.get(e.id)?.assetCount ?? 0), numeric: true, width: "6rem", cell: (e) => <span className="tnum">{held.get(e.id) ? Number(held.get(e.id)!.assetCount) : 0}</span> }),
+      col<EmployeeRow>({ header: "Value held", accessorFn: (e) => Number(held.get(e.id)?.totalValue ?? 0), numeric: true, width: "7rem", cell: (e) => <span className="tnum">{held.get(e.id) ? money(held.get(e.id)!.totalValue) : "—"}</span> }),
+      col<EmployeeRow>({
+        id: "actions",
+        header: "",
+        sortable: false,
+        width: "9rem",
+        cell: (e) => (
+          <RowActions
+            perm="employee.manage"
+            label={e.name}
+            /* Moving somebody to a job is its own action, not an edit — it
+               takes their tools with them. */
+            extra={
+              <Can perm="employee.manage">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setMoving({ id: e.id, name: e.name, projectId: e.primaryProjectId })}
+                >
+                  Move project
+                </Button>
+              </Can>
+            }
+            onEdit={() =>
+              setEditing({
+                id: e.id,
+                name: e.name,
+                role: e.role,
+                email: e.email,
+                phone: e.phone,
+                externalId: e.externalId,
+                employmentStatus: e.employmentStatus,
+                reportsToEmployeeId: e.reportsToEmployeeId,
+              })
+            }
+            onDelete={() => remove.mutate({ id: e.id })}
+            deleting={remove.isPending}
+            error={failed?.id === e.id ? failed.message : null}
+          />
+        ),
+      }),
+    ],
+    [held, remove.isPending, failed],
+  );
+
   return (
     <div className="flex flex-col gap-6">
       {editing ? <EmployeeForm open onClose={() => setEditing(null)} edit={editing} /> : null}
@@ -51,6 +131,14 @@ export default function PeoplePage() {
           currentProjectId={moving.projectId}
         />
       ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-lg font-semibold">People</h1>
+        <div className="ml-auto flex items-center gap-2">
+          <ImportButton entity="employee" />
+          <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
+        </div>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-3">
         <Metric label="Active" value={rows.filter((e) => e.employmentStatus === "active").length} loading={employees.isLoading} />
         <Metric label="Terminated" value={terminated.length} loading={employees.isLoading} tone={terminated.length ? "warn" : "default"} />
@@ -70,28 +158,14 @@ export default function PeoplePage() {
             <UserMinus className="size-4 text-crit" />
             <h2 className="text-sm font-medium">HR clearance queue</h2>
           </div>
-          <TableWrap className="border-crit/40">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b bg-crit-bg/60">
-                  {["Tag", "Model", "Last custodian", "Status", "Value"].map((h) => (
-                    <th key={h} className="label-xs px-4 py-2.5 text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {clearance.data.map((c, i) => (
-                  <tr key={i} className="border-b last:border-0">
-                    <td className="px-4 py-2.5"><Tag>{c.tag}</Tag></td>
-                    <td className="px-4 py-2.5 font-medium">{formatAssetModel(c) || "Untagged tool"}</td>
-                    <td className="px-4 py-2.5">{c.custodianName ?? "—"}</td>
-                    <td className="px-4 py-2.5"><StatusPill status={c.status} /></td>
-                    <td className="px-4 py-2.5 tnum">{money(c.cost)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableWrap>
+          <DataTable<ClearanceRow>
+            mode="client"
+            columns={CLEARANCE_COLUMNS}
+            rows={clearance.data}
+            rowId={(c) => c.tag ?? `${c.modelNumber ?? "tool"}-${Math.random()}`}
+            searchPlaceholder="Search the clearance queue…"
+            filename="hr-clearance-queue"
+          />
           <p className="text-sm text-muted-foreground">
             Each of these must be returned, transferred, or marked lost before offboarding is
             signed off. The blocking gate itself is specified but not yet built.
@@ -108,81 +182,15 @@ export default function PeoplePage() {
         ) : !rows.length ? (
           <EmptyState icon={Users} title="No people on file" />
         ) : (
-          <TableWrap>
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  {["Name", "Role", "Primary project", "Status", "Tools held", "Value held", ""].map((h, i) => (
-                    <th key={h || "actions"} className={`label-xs px-4 py-2.5 ${i > 3 ? "text-right" : "text-left"}`}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((e) => {
-                  const f = held.get(e.id);
-                  return (
-                    <tr key={e.id} className="border-b last:border-0 hover:bg-muted/40">
-                      <td className="px-4 py-2.5 font-medium">
-                        <Link href={`/people/${e.id}`} className="hover:underline">
-                          {idName(e.externalId, e.name)}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2.5">{humanize(e.role)}</td>
-                      <td className="px-4 py-2.5">
-                        {e.primaryProjectName
-                          ? idName(e.primaryProjectExternalId, e.primaryProjectName)
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-2.5"><StatusPill status={e.employmentStatus} /></td>
-                      <td className="px-4 py-2.5 text-right tnum">{f ? Number(f.assetCount) : 0}</td>
-                      <td className="px-4 py-2.5 text-right tnum">{f ? money(f.totalValue) : "—"}</td>
-                      <td className="px-4 py-2.5">
-                        <RowActions
-                          perm="employee.manage"
-                          label={e.name}
-                          /* Moving somebody to a job is its own action, not an
-                             edit — it takes their tools with them. */
-                          extra={
-                            <Can perm="employee.manage">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setMoving({ id: e.id, name: e.name, projectId: e.primaryProjectId })}
-                              >
-                                Move project
-                              </Button>
-                            </Can>
-                          }
-                          onEdit={() =>
-                            setEditing({
-                              id: e.id,
-                              name: e.name,
-                              role: e.role,
-                              email: e.email,
-                              phone: e.phone,
-                              externalId: e.externalId,
-                              employmentStatus: e.employmentStatus,
-                              reportsToEmployeeId: e.reportsToEmployeeId,
-                            })
-                          }
-                          onDelete={() => remove.mutate({ id: e.id })}
-                          deleting={remove.isPending}
-                          error={failed?.id === e.id ? failed.message : null}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </TableWrap>
+          <DataTable<EmployeeRow>
+            mode="client"
+            columns={EVERYONE_COLUMNS}
+            rows={rows}
+            rowId={(e) => e.id}
+            searchPlaceholder="Search people…"
+          />
         )}
       </section>
-
-      <BottomToolbar>
-        <ImportButton entity="employee" />
-        <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
-      </BottomToolbar>
     </div>
   );
 }

@@ -16,8 +16,11 @@ import { cn } from "@/lib/utils";
 
     truck    location.setCustodian { locationId: truck.locationId, custodianEmployeeId }
              (the hitched trailer and every tool aboard follow — see location.ts)
-    trailer  vehicle.update { id: trailer.id, attachedToVehicleId: truck.id }
-             (attaching to a truck that has a foreman moves custody on the spot)
+    trailer  with a truck:  vehicle.update { attachedToVehicleId }
+             without one:   the trailer is given DIRECTLY to the foreman —
+                            location.setCustodian on the trailer (and it is
+                            unhitched first if it rode another truck). A trailer
+                            does not need a truck to belong to a crew.
     crew     projectTeam.assign { projectId, employeeId, role: "foreman" }
     move     same call with the new projectId
 
@@ -25,8 +28,11 @@ import { cn } from "@/lib/utils";
   employee.assignToProject performs — so a foreman added to a job is actually
   POSTED there: their posting and primary project change, the roster row keeps
   in lockstep, and the truck, the hitched trailer and every tool aboard move
-  together. Plain vehicle/placeVehicle relabeling would move the truck but
-  leave the trailer, its tools, and the person behind.
+  together.
+
+  Every row action is confirmed before it runs — assigning, detaching, re-
+  hitching, taking over or moving all stop at the same dialog, because a
+  custody move is not the kind of thing a stray click should commit.
 
   Search filters what is listed, never the selection, and each row says where
   the unit is right now so "assigning moves it" is never a surprise.
@@ -81,10 +87,10 @@ export function RigPicker({
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  /* A unit currently with someone else needs an explicit "take it over"
-     confirm before the move runs — the server removes it from the previous
-     holder in the same transaction, but the desk decides that out loud. */
-  const [takeover, setTakeover] = useState<{ title: string; body: string; run: () => void } | null>(null);
+  /* Every picker action stops here first. The copy states what will actually
+     happen — assigning, detaching, re-hitching, taking over or moving — and
+     the desk commits it out loud instead of by stray click. */
+  const [confirm, setConfirm] = useState<{ title: string; body: string; action: string; run: () => void } | null>(null);
 
   const setCustodian = trpc.location.setCustodian.useMutation();
   const updateVehicle = trpc.vehicle.update.useMutation();
@@ -108,6 +114,10 @@ export function RigPicker({
     setBusy(false);
   };
 
+  const ask = (title: string, body: string, action: string, run: () => void) => setConfirm({ title, body, action, run });
+
+  const foremanNameOf = (id: string) => foremen.find((f) => f.id === id)?.name ?? "this foreman";
+
   const rows = useMemo((): PickerRow[] => {
     if (!request) return [];
     const needle = q.trim().toLowerCase();
@@ -117,15 +127,21 @@ export function RigPicker({
       return foremen.filter((f) => match(`${f.externalId ?? ""} ${f.name} ${f.role}`)).map((f) => {
         const rig = rigOf(f.id, vehicles);
         const onJob = rig.truck?.projectId === request.projectId;
+        const proj = projects.find((p) => p.id === request.projectId);
         return {
           key: f.id,
           title: f.externalId ? `${f.externalId} · ${f.name}` : f.name,
           meta: `${rig.truck ? rig.truck.unit : "no truck"}${rig.trailer ? ` + ${rig.trailer.unit}` : ""} · ${f.role}`,
           selected: !!onJob,
-          disabled: !rig.truck,
-          hint: rig.truck ? undefined : "Give them a truck first — the rig is what moves to a job.",
+          disabled: !rig.truck && !rig.trailer,
+          hint: rig.truck || rig.trailer ? undefined : "Give them a truck or a trailer first — those are what move to a job.",
           onSelect: () =>
-            run(() => assignForeman.mutateAsync({ projectId: request.projectId, employeeId: f.id, role: "foreman" })),
+            ask(
+              `Add ${f.name} to ${proj?.name ?? "this job"}?`,
+              `${f.name} is posted to this project: their posting and primary project move, and their truck, trailer and the tools aboard follow.`,
+              "Add crew",
+              () => run(() => assignForeman.mutateAsync({ projectId: request.projectId, employeeId: f.id, role: "foreman" })),
+            ),
         };
       });
     }
@@ -134,31 +150,43 @@ export function RigPicker({
       return vehicles.filter((v) => v.vehicleType === "truck" && match(`${v.unit} ${v.makeModel ?? ""}`)).map((v) => {
         const theirs = v.foremanEmployeeId === request.foremanId;
         const takenFrom = !theirs && v.foremanEmployeeId ? v.foremanName : null;
+        const foreman = foremanNameOf(request.foremanId);
+        const apply = (custodian: string | null) =>
+          run(() =>
+            setCustodian.mutateAsync({
+              locationId: v.locationId,
+              custodianEmployeeId: custodian,
+              moveContents: true,
+            }),
+          );
         return {
           key: v.id,
           title: `${v.unit}${v.makeModel ? ` · ${v.makeModel}` : ""}`,
           meta: theirs ? "Their truck" : takenFrom ? `With ${takenFrom} — taking it moves it` : "In the yard, free",
           selected: theirs,
           onSelect: () => {
-            const apply = () =>
-              run(() =>
-                setCustodian.mutateAsync({
-                  locationId: v.locationId,
-                  custodianEmployeeId: theirs ? null : request.foremanId,
-                  moveContents: true,
-                }),
+            if (theirs) {
+              /* Deassign: this is taking the truck OFF the foreman. */
+              ask(
+                `Detach ${v.unit} from ${foreman}?`,
+                `${v.unit} is currently ${foreman}'s truck. Detaching returns it to the yard — the hitched trailer and every tool aboard come off with it.`,
+                "Detach",
+                () => apply(null),
               );
-            /* A truck with another foreman is not silently taken: it is
-               removed from them first, with the hitched trailer and the tools
-               aboard going along. */
-            if (takenFrom) {
-              setTakeover({
-                title: `Take ${v.unit} from ${takenFrom}?`,
-                body: `${v.unit} is currently with ${takenFrom}. Taking it removes it from them first — the hitched trailer and every tool aboard go with it.`,
-                run: apply,
-              });
+            } else if (takenFrom) {
+              ask(
+                `Take ${v.unit} from ${takenFrom}?`,
+                `${v.unit} is currently with ${takenFrom}. Taking it removes it from them first — the hitched trailer and every tool aboard go to ${foreman}.`,
+                "Take it over",
+                () => apply(request.foremanId),
+              );
             } else {
-              apply();
+              ask(
+                `Assign ${v.unit} to ${foreman}?`,
+                `${foreman} becomes the holder — the hitched trailer and every tool aboard follow them.`,
+                "Assign",
+                () => apply(request.foremanId),
+              );
             }
           },
         };
@@ -167,31 +195,95 @@ export function RigPicker({
 
     if (request.kind === "trailer") {
       return vehicles.filter((v) => v.vehicleType === "trailer" && match(`${v.unit} ${v.makeModel ?? ""}`)).map((v) => {
-        const here = v.attachedToVehicleId === request.truckId;
+        const here = request.truckId ? v.attachedToVehicleId === request.truckId : false;
         const rehitchFrom = !here && v.attachedToVehicleId ? v.attachedToUnit : null;
+        const foreman = foremanNameOf(request.foremanId);
+        const heldByOther = !here && v.foremanEmployeeId && v.foremanEmployeeId !== request.foremanId;
+        const applyHitch = (truckId: string | null) =>
+          run(() => updateVehicle.mutateAsync({ id: v.id, attachedToVehicleId: truckId }));
+        const applyDirect = () =>
+          run(async () => {
+            /* Give the trailer to the foreman directly: unhitch it from any
+               truck first (a trailer cannot ride two trucks), then hand the
+               trailer itself over — its tools follow. */
+            if (v.attachedToVehicleId) {
+              await updateVehicle.mutateAsync({ id: v.id, attachedToVehicleId: null });
+            }
+            await setCustodian.mutateAsync({
+              locationId: v.locationId,
+              custodianEmployeeId: request.foremanId,
+              moveContents: true,
+            });
+          });
+
+        if (!request.truckId) {
+          /* No truck on this crew: the trailer is assigned straight to the
+             foreman — this is the flexibility the field needs. */
+          const theirTrailer = v.foremanEmployeeId === request.foremanId;
+          return {
+            key: v.id,
+            title: `${v.unit}${v.makeModel ? ` · ${v.makeModel}` : ""}`,
+            meta: theirTrailer
+              ? "Their trailer"
+              : rehitchFrom
+                ? `Hitched to ${rehitchFrom} — giving it to ${foreman} takes it off that truck`
+                : "Unhitched, in the yard",
+            selected: theirTrailer,
+            onSelect: () => {
+              if (theirTrailer) {
+                ask(
+                  `Take ${v.unit} off ${foreman}?`,
+                  `${v.unit} is currently ${foreman}'s trailer. Detaching returns it to the yard — the tools aboard come off with it.`,
+                  "Detach",
+                  () => run(() => setCustodian.mutateAsync({ locationId: v.locationId, custodianEmployeeId: null, moveContents: true })),
+                );
+              } else if (rehitchFrom) {
+                ask(
+                  `Give ${v.unit} to ${foreman}?`,
+                  `${v.unit} is hitched to ${rehitchFrom}. Giving it to ${foreman} takes it off that truck first and hands it to them — the tools aboard follow.`,
+                  "Give it over",
+                  applyDirect,
+                );
+              } else {
+                ask(
+                  `Give ${v.unit} to ${foreman}?`,
+                  `${foreman} becomes the holder of ${v.unit} — no truck needed, the tools aboard follow.`,
+                  "Give it over",
+                  applyDirect,
+                );
+              }
+            },
+          };
+        }
+
         return {
           key: v.id,
           title: `${v.unit}${v.makeModel ? ` · ${v.makeModel}` : ""}`,
           meta: here ? "Hitched here" : rehitchFrom ? `Hitched to ${rehitchFrom} — re-hitching moves it` : "Unhitched, in the yard",
           selected: here,
           onSelect: () => {
-            const apply = () =>
-              run(() =>
-                updateVehicle.mutateAsync({
-                  id: v.id,
-                  attachedToVehicleId: here ? null : request.truckId ?? null,
-                }),
+            if (here) {
+              const truck = vehicles.find((x) => x.id === request.truckId);
+              ask(
+                `Unhitch ${v.unit} from ${truck?.unit ?? "the truck"}?`,
+                `${v.unit} comes off that truck and returns to the yard.`,
+                "Unhitch",
+                () => applyHitch(null),
               );
-            /* A trailer hitched to another truck cannot serve two trucks: it is
-               taken off the first before being hitched to the second. */
-            if (rehitchFrom) {
-              setTakeover({
-                title: `Re-hitch ${v.unit} from ${rehitchFrom}?`,
-                body: `${v.unit} is currently hitched to ${rehitchFrom}. Re-hitching takes it off that truck first — if the new truck has a foreman, the trailer and its tools move to them.`,
-                run: apply,
-              });
+            } else if (rehitchFrom) {
+              ask(
+                `Re-hitch ${v.unit} from ${rehitchFrom}?`,
+                `${v.unit} is currently hitched to ${rehitchFrom}. Re-hitching takes it off that truck first — if the new truck has a foreman, the trailer and its tools move to them.`,
+                "Re-hitch",
+                () => applyHitch(request.truckId ?? null),
+              );
             } else {
-              apply();
+              ask(
+                `Hitch ${v.unit} to ${vehicles.find((x) => x.id === request.truckId)?.unit ?? "the truck"}?`,
+                `${v.unit} is hitched to the truck — if it has a foreman, the trailer and its tools move to them.`,
+                "Hitch",
+                () => applyHitch(request.truckId ?? null),
+              );
             }
           },
         };
@@ -205,9 +297,14 @@ export function RigPicker({
       title: p.name,
       meta: p.externalId ?? "",
       selected: rig.truck?.projectId === p.id,
-      disabled: !rig.truck,
+      disabled: !rig.truck && !rig.trailer,
       onSelect: () =>
-        run(() => assignForeman.mutateAsync({ projectId: p.id, employeeId: request.foremanId, role: "foreman" })),
+        ask(
+          `Move ${foremanNameOf(request.foremanId)} to ${p.name}?`,
+          `Their posting and primary project change, and the truck, trailer and the tools aboard travel with them.`,
+          "Move",
+          () => run(() => assignForeman.mutateAsync({ projectId: p.id, employeeId: request.foremanId, role: "foreman" })),
+        ),
     }));
   }, [request, q, foremen, vehicles, projects]);
 
@@ -227,12 +324,14 @@ export function RigPicker({
     },
     trailer: {
       title: `Trailer for ${foremanName}`,
-      note: "One trailer, hitched to their truck. The small tools ride in it.",
+      note: "truckId" in request && request.truckId
+        ? "Hitch a trailer to this crew's truck — the small tools ride in it."
+        : "A trailer can be given straight to this foreman — no truck needed. The tools aboard follow.",
       placeholder: "Search unit or model…",
     },
     move: {
       title: `Move ${foremanName} to another job`,
-      note: "The rig and everything in it travels with them.",
+      note: "Their truck, trailer and the tools aboard travel with them.",
       placeholder: "Search jobs…",
     },
   }[request.kind];
@@ -288,24 +387,24 @@ export function RigPicker({
       </DialogContent>
       </Dialog>
 
-      {/* The "this unit is with someone else" confirm, on top of the picker. */}
-      <Dialog open={!!takeover} onOpenChange={(o) => !o && setTakeover(null)}>
+      {/* Every picker action confirms here first. */}
+      <Dialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{takeover?.title}</DialogTitle>
+            <DialogTitle>{confirm?.title}</DialogTitle>
           </DialogHeader>
-          <p className="-mt-2 text-sm text-muted-foreground">{takeover?.body}</p>
+          <p className="-mt-2 text-sm text-muted-foreground">{confirm?.body}</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTakeover(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setConfirm(null)}>Cancel</Button>
             <Button
               disabled={busy}
               onClick={() => {
-                const t = takeover;
-                setTakeover(null);
-                t?.run();
+                const c = confirm;
+                setConfirm(null);
+                c?.run();
               }}
             >
-              Take it over
+              {confirm?.action ?? "Continue"}
             </Button>
           </DialogFooter>
         </DialogContent>

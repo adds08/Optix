@@ -16,11 +16,11 @@ import { AssetForm, type AssetEditable } from "@/components/asset-form";
 import { ToolMenu } from "@/components/tool-menu";
 import { BulkMoveForm } from "@/components/bulk-move-form";
 import { SavedFilters } from "@/components/saved-filters";
-import { BottomToolbar } from "@/components/bottom-toolbar";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchSelect } from "@/components/ui/search-select";
 import { DataTable } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
@@ -431,17 +431,13 @@ export default function ToolsPage() {
           </div>
           {/* Scope the whole register to one job first — the United Rentals
               move. Everything below (facets, exports) is within it. */}
-          <select
-            value={project}
-            onChange={(e) => setProject(e.target.value)}
-            aria-label="Filter by project"
-            className="flex h-8 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            <option value="all">All projects</option>
-            {projectOptions.map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
-            ))}
-          </select>
+          <SearchSelect
+            value={project === "all" ? "" : project}
+            onChange={(v) => setProject(v === "" ? "all" : v)}
+            placeholder="All projects"
+            widthClass="w-56"
+            options={projectOptions.map(([id, name]) => ({ value: id, label: name }))}
+          />
           <FilterSheet
             title="Filter the register"
             activeCount={filterCount}
@@ -454,7 +450,19 @@ export default function ToolsPage() {
             <span className="tnum font-medium text-foreground">{filtered.length}</span>
             {filtered.length !== scoped.length ? <> of <span className="tnum">{scoped.length}</span></> : null} tools
           </span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <ImportButton entity="asset" />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportAll}
+              disabled={!all.length}
+              title="Exports the register in the same columns the importer reads, so the file round-trips"
+            >
+              <Download className="size-4" aria-hidden />
+              Export
+            </Button>
+            <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />
             <SavedFilters
               storageKey="tool-register"
               current={registerCurrent}
@@ -535,21 +543,6 @@ export default function ToolsPage() {
           />
         )}
       </div>
-
-      <BottomToolbar>
-        <ImportButton entity="asset" />
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={exportAll}
-          disabled={!all.length}
-          title="Exports the register in the same columns the importer reads, so the file round-trips"
-        >
-          <Download className="size-4" aria-hidden />
-          Export
-        </Button>
-        <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />
-      </BottomToolbar>
     </div>
   );
 }

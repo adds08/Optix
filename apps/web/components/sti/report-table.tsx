@@ -114,7 +114,7 @@ export function ReportTable<T extends Record<string, unknown>>({
         />
       ) : (
         <TableWrap>
-          <table className="w-full border-collapse text-sm">
+          <div className="overflow-x-auto"><table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
                 {cols.map((c) => {
@@ -157,7 +157,7 @@ export function ReportTable<T extends Record<string, unknown>>({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </TableWrap>
       )}
     </div>

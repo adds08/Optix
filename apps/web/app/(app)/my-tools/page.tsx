@@ -5,7 +5,6 @@ import { AlertTriangle, MessageSquare, Wrench } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
-import { BottomToolbar } from "@/components/bottom-toolbar";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
 
@@ -26,11 +25,21 @@ export default function MyToolsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-sm text-muted-foreground">
-        {rows.length
-          ? `You are holding ${rows.length} tool${rows.length === 1 ? "" : "s"}.`
-          : "Nothing in your custody right now."}
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm text-muted-foreground">
+          {rows.length
+            ? `You are holding ${rows.length} tool${rows.length === 1 ? "" : "s"}.`
+            : "Nothing in your custody right now."}
+        </p>
+        <div className="ml-auto">
+          <Link href="/chat">
+            <Button size="sm">
+              <MessageSquare className="size-4" />
+              Hand something off
+            </Button>
+          </Link>
+        </div>
+      </div>
 
       {overdueIds.size > 0 ? (
         <div className="flex items-center gap-2 rounded-md border border-crit/40 bg-crit-bg px-4 py-3 text-sm text-crit">
@@ -82,15 +91,6 @@ export default function MyToolsPage() {
           ))}
         </ul>
       )}
-
-      <BottomToolbar>
-        <Link href="/chat">
-          <Button>
-            <MessageSquare className="size-4" />
-            Hand something off
-          </Button>
-        </Link>
-      </BottomToolbar>
     </div>
   );
 }

@@ -122,6 +122,10 @@ export function CrewAssignDialog({
     setBusy(false);
   };
 
+  /* Every hand-off confirms first — a batch of tools leaving the yard for a
+     person is not a stray-click decision. */
+  const [confirm, setConfirm] = useState<{ title: string; body: string; assetIds: string[]; custodianId: string; foremanName: string } | null>(null);
+
   /* All hooks run before any return — `request` may be null, in which case the
      memo yields nothing and the dialog renders null below. */
   const needle = q.trim().toLowerCase();
@@ -144,7 +148,14 @@ export function CrewAssignDialog({
             meta: truck
               ? `${f.primaryProjectName ?? "Not assigned to a project"} · rig ${truck.unit}`
               : f.primaryProjectName ?? "Not assigned to a project",
-            onSelect: () => giveTo(request.assetIds, f.id),
+            onSelect: () =>
+              setConfirm({
+                title: `Hand ${request.assetIds.length} tool${request.assetIds.length === 1 ? "" : "s"} to ${f.name}?`,
+                body: `The tool${request.assetIds.length === 1 ? " goes" : "s go"} where ${f.name} works — ${f.primaryProjectName ?? "they are not on a project right now"}.`,
+                assetIds: request.assetIds,
+                custodianId: f.id,
+                foremanName: f.name,
+              }),
           };
         });
     }
@@ -169,11 +180,12 @@ export function CrewAssignDialog({
       : "Only tools nobody is holding are listed. A picked tool moves to this foreman's job.";
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open onOpenChange={(o) => !o && onClose()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
         <p className="-mt-2 text-sm text-muted-foreground">{note}</p>
 
         <div className="overflow-hidden rounded-md border">
@@ -250,7 +262,15 @@ export function CrewAssignDialog({
           {request.mode === "pickTools" ? (
             <Button
               disabled={busy || picked.size === 0}
-              onClick={() => giveTo([...picked], request.foremanId)}
+              onClick={() =>
+                setConfirm({
+                  title: `Give ${picked.size} tool${picked.size === 1 ? "" : "s"} to ${crewName}?`,
+                  body: `The tool${picked.size === 1 ? " goes" : "s go"} into ${crewName}'s custody and to their job.`,
+                  assetIds: [...picked],
+                  custodianId: request.foremanId,
+                  foremanName: crewName,
+                })
+              }
             >
               {busy ? "Handing over…" : `Give ${picked.size || "…"} tool${picked.size === 1 ? "" : "s"} to ${crewName}`}
             </Button>
@@ -259,5 +279,29 @@ export function CrewAssignDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Every hand-off confirms here first. */}
+    <Dialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{confirm?.title}</DialogTitle>
+        </DialogHeader>
+        <p className="-mt-2 text-sm text-muted-foreground">{confirm?.body}</p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setConfirm(null)}>Cancel</Button>
+          <Button
+            disabled={busy}
+            onClick={() => {
+              const c = confirm;
+              setConfirm(null);
+              if (c) giveTo(c.assetIds, c.custodianId);
+            }}
+          >
+            {busy ? "Handing over…" : `Yes, hand to ${confirm?.foremanName ?? "them"}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

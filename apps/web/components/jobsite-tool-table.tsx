@@ -72,7 +72,7 @@ export function ToolTable({
 
   return (
     <div>
-      <table className="w-full border-collapse text-sm">
+      <div className="overflow-x-auto"><table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b bg-accent/35 text-foreground">
             {selectable ? <th className="w-8 px-3 py-1.5" aria-hidden /> : null}
@@ -127,7 +127,7 @@ export function ToolTable({
             </tr>
           ) : null}
         </tbody>
-      </table>
+      </table></div>
       {rows.length > TOOL_LIMIT ? (
         <button
           type="button"
