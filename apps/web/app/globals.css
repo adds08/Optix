@@ -172,9 +172,20 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "cv02", "cv03", "cv04";
+    /* The rubber-band at the end of a scroll must not expose the canvas behind
+       the app — that flash of the wrong colour is what reads as the layout
+       "breaking" when you scroll hard. */
+    overscroll-behavior: none;
   }
   html {
-    @apply font-sans;
+    @apply font-sans bg-background;
+  }
+  /* The shell sizes itself to the viewport, so both boxes need a height to
+     size against. Neither is given `overflow: hidden` here: the signed-out
+     pages still scroll the document, and only the app shell locks it. */
+  html,
+  body {
+    height: 100%;
   }
   /* Digits that sit in columns must line up. */
   table, .tnum {
@@ -359,6 +370,19 @@
     .sti-arrive { animation: sti-arrive 9s ease-out var(--arrive-delay, 0s) infinite; }
     .sti-sweep { animation: sti-sweep 19s cubic-bezier(0.4, 0, 0.6, 1) 3s infinite; }
   }
+}
+
+/* The app's one scroll region: the page body under the top bar.
+
+   `scrollbar-gutter: stable` reserves the track whether or not the current
+   page overflows, so navigating between a short page and a long one does not
+   shift the content sideways by the scrollbar's width. `overscroll-contain`
+   keeps a scroll that reaches the end from chaining out to the document,
+   which is what used to drag the whole shell and its background with it. */
+.sti-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 /* Sticky table headers — the column context stays visible while a long table

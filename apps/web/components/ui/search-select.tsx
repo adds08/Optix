@@ -33,7 +33,10 @@ export function SearchSelect({
   placeholder: string;
   options: SearchSelectOption[];
   className?: string;
-  /* Tailwind width for the trigger + panel, e.g. "w-48". */
+  /* Tailwind width for the TRIGGER only, e.g. "w-48" — the filter bar wants
+     buttons that keep their size as the selection changes. The panel is not
+     bound to it: an option list squeezed into a 12rem button is how
+     "URB-1042 · Northgate Drive Reconstruction" becomes "URB-1042 · Nor…". */
   widthClass?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -60,13 +63,19 @@ export function SearchSelect({
             widthClass,
             className,
           )}
+          title={selected ? selected.label : placeholder}
         >
           <span className="truncate">{selected ? selected.label : placeholder}</span>
           <ChevronsUpDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className={cn("p-0", widthClass)}>
-        <div className="flex h-9 items-center gap-2 border-b px-3">
+      {/* The panel sizes to its longest option, never narrower than the button
+          it hangs off and never wider than the viewport can hold. */}
+      <PopoverContent
+        align="start"
+        className="w-auto min-w-(--radix-popover-trigger-width) max-w-[min(28rem,calc(100vw-2rem))] p-0"
+      >
+        <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2.5">
           <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           <Input
             value={q}
@@ -75,7 +84,7 @@ export function SearchSelect({
             className="h-auto border-0 p-0 shadow-none focus-visible:ring-0"
           />
         </div>
-        <div className="max-h-64 overflow-y-auto p-1">
+        <div className="max-h-72 overflow-y-auto overscroll-contain p-1">
           {filtered.length === 0 ? (
             <p className="px-2 py-3 text-sm text-muted-foreground">No matches for “{q}”.</p>
           ) : (
@@ -90,8 +99,9 @@ export function SearchSelect({
                     setOpen(false);
                     setQ("");
                   }}
+                  title={o.label}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent",
+                    "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-accent",
                     on && "bg-accent text-accent-foreground",
                   )}
                 >

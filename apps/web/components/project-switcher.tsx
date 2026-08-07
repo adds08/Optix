@@ -165,17 +165,30 @@ export function ProjectSwitcher() {
           }}
         >
           <PopoverTrigger asChild>
-            <SidebarMenuButton size="lg" className="data-[slot=sidebar-menu-button]:p-2!">
-              <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <FolderKanban className="size-4" aria-hidden />
+            {/* One line, not two. The scope's name is the long string in this
+                rail — giving it the full width and pushing the count into a
+                badge is the difference between "URB-1042 · Northgate Drive
+                Recon…" and something you can actually read. */}
+            <SidebarMenuButton
+              className="h-10 gap-2 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
+              title={`${label} — ${count} job${count === 1 ? "" : "s"}`}
+            >
+              <div className="grid size-6 shrink-0 place-items-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                <FolderKanban className="size-3.5" aria-hidden />
               </div>
-              <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{label}</span>
-                <span className="truncate text-xs text-sidebar-foreground/60">
-                  {count} job{count === 1 ? "" : "s"}
-                </span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4 shrink-0 text-sidebar-foreground/50" aria-hidden />
+              {/* Collapsed to icons the button is a 32px square: everything
+                  but the folder mark has to leave, or the shrink-0 trailing
+                  bits win the squeeze and the icon is what gets clipped. */}
+              <span className="min-w-0 flex-1 truncate text-left font-semibold group-data-[collapsible=icon]:hidden">
+                {label}
+              </span>
+              <span className="tnum shrink-0 rounded bg-sidebar-accent px-1.5 py-0.5 text-[11px] font-medium text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden">
+                {count}
+              </span>
+              <ChevronsUpDown
+                className="size-4 shrink-0 text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden"
+                aria-hidden
+              />
             </SidebarMenuButton>
           </PopoverTrigger>
 
@@ -184,8 +197,8 @@ export function ProjectSwitcher() {
           >
             {/* ---------- left pane: the scopes ---------- */}
             {(!isMobile || !paneOpen) && (
-              <div className={cn("flex min-w-0 flex-col", isMobile ? "flex-1" : "w-68")}>
-                <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
+              <div className={cn("flex min-w-0 flex-col", isMobile ? "flex-1" : "w-60")}>
+                <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2.5">
                   <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
                   <Input
                     value={groupQuery}
@@ -255,10 +268,12 @@ export function ProjectSwitcher() {
               </div>
             )}
 
-            {/* ---------- right pane: the jobs in that scope ---------- */}
+            {/* ---------- right pane: the jobs in that scope ----------
+                Wider than the scope pane: this is where the full
+                "code · job name" has to be legible without an ellipsis. */}
             {paneOpen ? (
-              <div className={cn("flex min-w-0 flex-col", isMobile ? "flex-1" : "w-72 border-l")}>
-                <div className="flex h-10 shrink-0 items-center gap-2 border-b pl-3 pr-1">
+              <div className={cn("flex min-w-0 flex-col", isMobile ? "flex-1" : "w-88 border-l")}>
+                <div className="flex h-9 shrink-0 items-center gap-2 border-b pl-2.5 pr-1">
                   {isMobile ? (
                     <Button variant="ghost" size="sm" className="-ml-2 h-8 px-2" onClick={() => openPane(null)}>
                       <ChevronRight className="size-4 rotate-180" aria-hidden />
@@ -281,7 +296,7 @@ export function ProjectSwitcher() {
                   ) : null}
                 </div>
 
-                <div className="flex h-9.5 shrink-0 items-center gap-2 border-b px-3">
+                <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2.5">
                   <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
                   <Input
                     value={jobQuery}
@@ -310,7 +325,12 @@ export function ProjectSwitcher() {
                     </p>
                   ) : (
                     paneJobs.map((p) => (
-                      <Row key={p.id} active={selectedProject === p.id} onClick={() => pickJob(p.id)}>
+                      <Row
+                        key={p.id}
+                        active={selectedProject === p.id}
+                        onClick={() => pickJob(p.id)}
+                        title={idName(p.externalId, p.name)}
+                      >
                         <span className="truncate">{idName(p.externalId, p.name)}</span>
                       </Row>
                     ))
@@ -332,18 +352,21 @@ function Row({
   highlighted,
   onClick,
   trailing,
+  title,
   children,
 }: {
   active?: boolean;
   highlighted?: boolean;
   onClick: () => void;
   trailing?: React.ReactNode;
+  title?: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={title}
       className={cn(
         "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-accent hover:text-accent-foreground",
         (active || highlighted) && "bg-accent text-accent-foreground",

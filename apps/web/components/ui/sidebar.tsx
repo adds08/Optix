@@ -27,7 +27,10 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem"
+/* 17rem, not shadcn's 16: job labels here are "URB-1042 · Northgate Drive
+   Reconstruction", and the extra rem is the difference between reading one
+   and reading an ellipsis. */
+const SIDEBAR_WIDTH = "17rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
@@ -229,7 +232,10 @@ function Sidebar({
       <div
         data-slot="sidebar-container"
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
+          /* dvh, not svh: the rail is a fixed column in a shell that fills the
+             visible viewport, so it has to track the mobile toolbars the same
+             way the shell does or it ends short of the content beside it. */
+          "fixed inset-y-0 z-10 hidden h-dvh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
           side === "left"
             ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
             : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -309,7 +315,11 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       data-slot="sidebar-inset"
       className={cn(
-        "relative flex w-full flex-1 flex-col bg-background",
+        /* min-w-0 is load-bearing: as a flex child its automatic minimum is
+           its content's width, so one wide table would push the whole column
+           past the viewport and take the top bar with it. Overflow is owned by
+           the scroll region inside, never by this box. */
+        "relative flex w-full min-w-0 flex-1 flex-col overflow-hidden bg-background",
         "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
         className
       )}

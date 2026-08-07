@@ -13,7 +13,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { navFor, type NavGroup } from "@/components/sti/nav-config";
 
@@ -41,12 +40,14 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      {/* h-14 and a border, matching the top bar exactly: the job selector and
+          the page title sit on the same baseline and the two borders read as
+          one rule across the shell instead of a step. */}
+      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border p-2">
         <ProjectSwitcher />
-        <SidebarSeparator />
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="overscroll-contain pb-2">
         {groups.map((g: NavGroup) => {
           const visible = g.items.filter((n) => !n.perm || permissions.includes(n.perm));
           if (!visible.length) return null;

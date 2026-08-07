@@ -21,14 +21,41 @@ import { allItems, isFieldRole } from "./nav-config";
 /*
   The app shell on the shadcn sidebar-07 skeleton.
 
+  The frame is the viewport. The shell is exactly one screen tall and does not
+  scroll; inside it, the rail and the content column are two full-height
+  columns, and the ONLY thing that scrolls is the page region under the top
+  bar. That is the whole layout contract, and it is what the earlier
+  document-scrolling version could not hold: with the page scrolling the
+  document, a `sticky` top bar rode up over the shell's own margin and the
+  sidebar-coloured canvas showed through behind it, so the header, the page
+  and the background all appeared to come apart on the way down.
+
+  Consequences worth knowing before changing anything here:
+
+    - the top bar is a plain flex row, not `sticky`. It cannot desynchronise
+      from the content because it is never in the same scroll box.
+    - a dialog opening no longer shifts the page. Radix locks the document's
+      scroll, and the document has none to lock.
+    - `sticky top-*` inside a page still works — it resolves against the
+      scroll region, so page-level sticky asides need no header offset.
+    - anything that wants to fill the screen should size against its parent
+      (`h-full`), not against `vh`, which does not know about the top bar.
+
   SidebarProvider owns the rail (collapse-to-icons, phone sheet, persisted
-  state). The rail carries the system-wide job selector at its head, the
-  role's navigation, and the expandable Job Groups column. The inset holds
-  the sticky top bar (page label, search, notifications, theme, account) and
-  the page itself.
+  state). The rail carries the system-wide job selector at its head and the
+  role's navigation; the top bar carries page context, search, notifications,
+  theme and the account menu.
 */
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  defaultSidebarOpen = true,
+  children,
+}: {
+  /* Read from the sidebar cookie on the server so a collapsed rail renders
+     collapsed instead of expanding and then snapping shut on hydration. */
+  defaultSidebarOpen?: boolean;
+  children: React.ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
@@ -91,18 +118,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!ready) return null;
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={defaultSidebarOpen} className="h-dvh overflow-hidden">
       <WorkingBar />
-      <AppSidebar
-        userRole={role}
-        permissions={perms}
-        inboxCount={inboxCount}
-        variant="inset"
-      />
+      <AppSidebar userRole={role} permissions={perms} inboxCount={inboxCount} />
       <SidebarInset>
-        {/* Sticky top bar — page context, search, notifications, account. */}
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur lg:px-6">
-          <SidebarTrigger className="-ml-1" />
+        {/* Top bar — page context, search, notifications, account. h-14 is
+            shared with the rail's header so the two bottom borders meet as a
+            single line across the shell. */}
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
+          <SidebarTrigger className="-ml-1.5" />
           <span className={cn("truncate text-sm font-medium", pathname === "/home" && "hidden")}>
             {current?.label ?? "STInventory"}
           </span>
@@ -116,9 +140,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8 lg:py-8">
-          {children}
-        </main>
+        {/* The one scroll region. min-h-0 lets it actually shrink to the space
+            the header leaves — without it a flex child refuses to go below its
+            content height and the overflow escapes to the document again. */}
+        <div className="sti-scroll min-h-0 flex-1">
+          <div className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8">
+            {children}
+          </div>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
