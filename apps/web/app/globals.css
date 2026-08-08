@@ -372,6 +372,74 @@
   }
 }
 
+/* ---- The yard's own vocabulary ------------------------------------------
+
+   The auth panel is drawn like a jobsite (docs/20, E) and then the app behind
+   it looks like any other admin console. These are the four marks that carry
+   that language inside the app without turning it into a theme park: hazard
+   striping, drawing-grid paper, a stamped plate, and a ruled divider.
+
+   All four are built from theme tokens, so they follow every palette and both
+   modes. None of them carries meaning on its own — hazard striping goes on
+   things that are genuinely blocked, never on a heading that wants attention.
+   That restraint is the whole difference between a construction language and
+   costume. */
+
+/* Diagonal hazard striping. Reserved for states that mean STOP: a tool written
+   off, a clearance queue blocking somebody's offboarding. Uses --warn so it
+   re-seats on every theme's paper rather than being a fixed yellow. */
+.sti-hazard {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--warn) 0 0.5rem,
+    color-mix(in oklch, var(--warn) 25%, var(--card)) 0.5rem 1rem
+  );
+}
+/* The same stripe at low strength, for a band along the edge of a card rather
+   than a full fill — the fill is too loud for anything but a banner. */
+.sti-hazard-edge {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in oklch, var(--warn) 70%, transparent) 0 0.375rem,
+    transparent 0.375rem 0.75rem
+  );
+}
+
+/* Drawing-grid paper. A 0.5rem minor grid under a 2.5rem major one, at the
+   strength of a hairline — enough to read as gridded paper behind an empty
+   state, not enough to compete with a single row of text. */
+.sti-grid-paper {
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to right, color-mix(in oklch, var(--border) 28%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--border) 28%, transparent) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem, 2.5rem 2.5rem, 0.5rem 0.5rem, 0.5rem 0.5rem;
+}
+
+/* A stamped asset plate — the engraved tag riveted to the tool, not a chip in
+   a web app. Inset rather than raised, because the number is struck INTO the
+   metal. */
+.sti-plate {
+  background: color-mix(in oklch, var(--muted) 80%, var(--card));
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--border) 90%, transparent),
+    inset 0 -1px 0 color-mix(in oklch, var(--card) 80%, transparent);
+}
+
+/* A ruled divider: a survey rod rather than a hairline. Ticks every 0.5rem
+   with a taller one every 2.5rem, so a section break reads as a measurement. */
+.sti-tick-rule {
+  height: 0.5rem;
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to right, color-mix(in oklch, var(--border) 60%, transparent) 1px, transparent 1px);
+  background-size: 2.5rem 0.5rem, 0.5rem 0.25rem;
+  background-position: bottom left, bottom left;
+  background-repeat: repeat-x;
+  border-bottom: 1px solid var(--border);
+}
+
 /* The app's one scroll region: the page body under the top bar.
 
    `scrollbar-gutter: stable` reserves the track whether or not the current
@@ -395,7 +463,14 @@
      so every table scrolls the same way — no nested scrollbox that fights the
      page scroll on some pages and not others. */
   overflow-x: auto;
-  overscroll-behavior: contain;
+  /* X only. `overflow-x: auto` makes this box a scroll container on BOTH axes
+     (the spec computes the other axis's `visible` to `auto`), and a scroll
+     container with `overscroll-behavior: contain` swallows wheel events on an
+     axis it cannot scroll instead of chaining them to the page. That is why
+     the page froze whenever the pointer sat over a table. Containing X alone
+     still stops a sideways trackpad swipe from triggering browser back-nav,
+     while the vertical wheel chains out to `.sti-scroll` as it should. */
+  overscroll-behavior-x: contain;
 }
 .sti-table-scroll thead th {
   background: var(--muted);

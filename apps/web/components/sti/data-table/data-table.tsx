@@ -109,6 +109,12 @@ type Props<T> = {
   emptyTitle?: string;
   emptyDescription?: string;
   filename?: string;
+  /* How wide the table insists on being before the wrapper scrolls it
+     sideways. `table-fixed` shares whatever is left over between the columns
+     that declare no width, so a register with ten columns in a 900px box
+     crushes every one of them equally — including the name column somebody
+     actually reads. Registers with many columns should raise this. */
+  minWidth?: string;
 };
 
 export function DataTable<T>({
@@ -137,6 +143,7 @@ export function DataTable<T>({
   emptyTitle = "Nothing to show",
   emptyDescription,
   filename,
+  minWidth = "720px",
 }: Props<T>) {
   const server = mode === "server";
 
@@ -212,7 +219,10 @@ export function DataTable<T>({
       ),
       enableSorting: false,
       enableHiding: false,
-      size: 36,
+      /* `meta.width`, not TanStack's `size` — the renderer below reads meta.
+         With size alone this column declared nothing, so it took an equal
+         share of the table alongside the real columns. */
+      meta: { width: "2.75rem" },
     }),
     [enableSelection, selection, onSelectionChange],
   );
@@ -389,7 +399,7 @@ export function DataTable<T>({
           columns without a width share the leftover, and long text wraps
           instead of blowing the layout out. */}
       <div className="sti-table-scroll overflow-x-auto rounded-md border">
-        <Table className="w-full table-fixed min-w-[720px]">
+        <Table className="w-full table-fixed" style={{ minWidth }}>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="bg-muted/50 hover:bg-muted/50">
@@ -435,7 +445,13 @@ export function DataTable<T>({
                     return (
                       <TableCell
                         key={c.id}
-                        className={cn(meta.numeric && "text-right tnum")}
+                        /* Clipped, so a column whose content outgrows its
+                           declared width truncates inside its own box instead
+                           of painting over the cell beside it — which is how an
+                           undersized actions column ended up sitting on top of
+                           the status pill. Radix menus portal out, so the row
+                           dropdowns are unaffected. */
+                        className={cn("overflow-hidden", meta.numeric && "text-right tnum")}
                         style={{
                           width: meta.width,
                           whiteSpace: meta.numeric ? "nowrap" : "normal",

@@ -12,7 +12,22 @@ import { protectedProcedure, router } from "../trpc.js";
   or a clean default, and the client hydrates from there.
 */
 
-export const THEME_NAMES = ["drafting-ink", "field-amber", "concrete"] as const;
+/* Must stay in step with the catalog in the web app's `lib/themes/themes.ts`
+   — this enum is what stops an unknown theme reaching the preferences row. */
+export const THEME_NAMES = [
+  "drafting-ink",
+  "field-amber",
+  "concrete",
+  "blueprint",
+  "forest",
+  "clay",
+  "graphite",
+  "high-contrast",
+  "site-green",
+  "site-cream",
+  "site-slate",
+  "hi-vis",
+] as const;
 export const FONT_FAMILIES = ["system", "serif", "mono"] as const;
 
 const prefsInput = z.object({
@@ -35,7 +50,7 @@ export const preferencesRouter = router({
     });
     if (!row) {
       return {
-        themeName: "drafting-ink" as const,
+        themeName: "forest" as const,
         fontFamily: "system" as const,
         fontScale: "1.0",
         density: "comfortable" as const,

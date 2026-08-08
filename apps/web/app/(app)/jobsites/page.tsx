@@ -6,8 +6,10 @@ import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
-import { TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
-import { JobsiteActivity } from "@/components/jobsite-activity";
+import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
+import { FilterPills, FilterField } from "@/components/sti/facets";
+import { isHighValue } from "@/components/sti/flags";
 import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
 import { RigPicker, type PickerRequest } from "@/components/rig-picker";
 import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assign-dialog";
@@ -85,7 +87,13 @@ export default function JobsitesPage() {
   const [jobFilter, setJobFilter] = useState("");
   const [foremanFilter, setForemanFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [onlyGaps, setOnlyGaps] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [highValueOnly, setHighValueOnly] = useState(false);
+  /* Was a single "no truck or trailer" toggle, which answered neither question
+     on its own: a crew with no truck cannot haul anything, a crew with no
+     trailer can still carry tools in the bed. They are different problems and
+     the desk chases them separately. */
+  const [gapFilter, setGapFilter] = useState<"" | "no_crew" | "no_truck" | "no_trailer">("");
   const [openJobs, setOpenJobs] = useState<Record<string, boolean>>({});
   const [openCrews, setOpenCrews] = useState<Record<string, boolean>>({});
   /* Everything is expanded by default; this flips the default for cards AND
@@ -95,16 +103,30 @@ export default function JobsitesPage() {
   const [assign, setAssign] = useState<CrewAssignRequest | null>(null);
   /* Loose tools ticked on a card's "nobody holding" section, per card. */
   const [selectedLoose, setSelectedLoose] = useState<Record<string, Set<string>>>({});
-  const [showActivity, setShowActivity] = useState(true);
 
-  const anyFilter = !!(q.trim() || jobFilter || foremanFilter || statusFilter || onlyGaps);
+  const anyFilter = !!(
+    q.trim() ||
+    jobFilter ||
+    foremanFilter ||
+    statusFilter ||
+    categoryFilter ||
+    highValueOnly ||
+    gapFilter
+  );
   const clearFilters = () => {
     setQ("");
     setJobFilter("");
     setForemanFilter("");
     setStatusFilter("");
-    setOnlyGaps(false);
+    setCategoryFilter("");
+    setHighValueOnly(false);
+    setGapFilter("");
   };
+  /* Everything narrowing the card list except the free-text search, which has
+     its own box in the bar. */
+  const sheetFilterCount = [jobFilter, foremanFilter, statusFilter, categoryFilter, gapFilter].filter(
+    Boolean,
+  ).length + (highValueOnly ? 1 : 0);
 
   /* The foreman picker wants active custodians; crew DISPLAY must resolve any
      holder — including terminated staff, who are exactly the people whose
@@ -121,6 +143,14 @@ export default function JobsitesPage() {
   const allCustodians = employees.data ?? [];
 
   const hit = (text: string) => !q.trim() || text.toLowerCase().includes(q.trim().toLowerCase());
+
+  /* Every tool-level filter in one predicate. The status check used to be
+     repeated inline at each of the four places tools are gathered (crew, loose,
+     yard, project-less), which is three chances to forget the next filter. */
+  const toolOk = (t: ToolRow) =>
+    (!statusFilter || t.status === statusFilter) &&
+    (!categoryFilter || (t.categoryName ?? "") === categoryFilter) &&
+    (!highValueOnly || isHighValue(t));
 
   /* ---- jobs → crews → tools ---- */
   const cards = useMemo(() => {
@@ -159,7 +189,7 @@ export default function JobsitesPage() {
         const visible = crewTools.filter(
           (t) =>
             (jobHit || hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} ${rigText}`)) &&
-            (!statusFilter || t.status === statusFilter),
+            toolOk(t),
         );
         crews.push({
           id: `${projectId}:${foremanId}`,
@@ -188,7 +218,7 @@ export default function JobsitesPage() {
           !t.custodianId &&
           !foremanFilter &&
           (jobHit || hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`)) &&
-          (!statusFilter || t.status === statusFilter),
+          toolOk(t),
       );
       const toolCount = crews.reduce((n, c) => n + c.tools.length, 0) + loose.length;
       const value =
@@ -216,7 +246,7 @@ export default function JobsitesPage() {
         const visible = crewTools.filter(
           (t) =>
             hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`) &&
-            (!statusFilter || t.status === statusFilter),
+            toolOk(t),
         );
         noJobCrews.push({
           id: `${NOJOB}:${f.id}`,
@@ -237,7 +267,7 @@ export default function JobsitesPage() {
         (t) =>
           !t.custodianId &&
           hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} yard`) &&
-          (!statusFilter || t.status === statusFilter),
+          toolOk(t),
       );
       out.push({
         id: YARD,
@@ -274,12 +304,22 @@ export default function JobsitesPage() {
       /* The not-assigned group is pinned at the bottom permanently — it must
          survive filters that prune everything else. */
       if (c.id === NOJOB) return true;
-      if (onlyGaps && !c.gaps.length) return false;
+      if (gapFilter === "no_crew" && c.crews.length) return false;
+      if (gapFilter === "no_truck" && !c.crews.some((x) => !x.rig.truck)) return false;
+      if (gapFilter === "no_trailer" && !c.crews.some((x) => !x.rig.trailer)) return false;
       /* A card filtered down to nothing is noise, not information. */
       if (anyFilter && c.toolCount === 0 && c.crews.length === 0) return false;
       return true;
     });
-  }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, scope, q, jobFilter, foremanFilter, statusFilter, onlyGaps, anyFilter]);
+  }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, scope, q, jobFilter, foremanFilter, statusFilter, categoryFilter, highValueOnly, gapFilter, anyFilter]);
+
+  /* Categories actually present in the register, so the filter never offers a
+     choice that returns nothing. */
+  const categoryOptions = useMemo(
+    () =>
+      [...new Set((assets.data ?? []).map((a) => a.categoryName).filter((c): c is string => !!c))].sort(),
+    [assets.data],
+  );
 
   const shownTools = cards.reduce((n, c) => n + c.toolCount, 0);
   const shownCrews = cards.reduce((n, c) => n + c.crews.length, 0);
@@ -305,17 +345,14 @@ export default function JobsitesPage() {
         }}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Crews on jobs" value={shownCrews} hint="one foreman and their truck & trailer, per job" />
-        <Metric label="Tools out" value={shownTools} hint={`across ${cards.length} cards`} />
-        <Metric label="Fleet value out" value={money(cards.reduce((n, c) => n + c.value, 0))} hint="acquisition cost" />
-        <Metric label="Crews without a truck" value={crewsWithoutTruck} tone={crewsWithoutTruck ? "warn" : "ok"} hint="cannot haul their tools" />
-      </div>
-
-      <div className={cn("grid gap-4", showActivity && "lg:grid-cols-[minmax(0,1fr)_320px]")}>
-        <div className="flex min-w-0 flex-col gap-3">
+      <div className="flex min-w-0 flex-col gap-3">
           {/* ---- one filter bar: search hits every noun in the list ---- */}
           <section className="flex flex-col gap-2 rounded-md border bg-card p-3">
+            {/* Search stays on the bar because it is the one control used on
+                every visit. The other six live in the sheet — as loose
+                dropdowns they wrapped to one per line the moment the window
+                narrowed, turning the filter bar into a column taller than the
+                first card. */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative min-w-56 flex-1">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -327,48 +364,155 @@ export default function JobsitesPage() {
                   aria-label="Search the jobsite list"
                 />
               </div>
-              <SearchSelect
-                value={jobFilter}
-                onChange={setJobFilter}
-                placeholder="All jobs"
-                widthClass="w-56"
-                options={[
-                  ...(projects.data ?? []).map((p) => ({
-                    value: p.id,
-                    label: p.externalId ? `${p.externalId} · ${p.name}` : p.name,
-                  })),
-                  { value: YARD, label: "URB-YARD · Equipment Yard" },
-                  { value: NOJOB, label: "Not assigned to any project" },
-                ]}
-              />
-              <SearchSelect
-                value={foremanFilter}
-                onChange={setForemanFilter}
-                placeholder="All foremen"
-                widthClass="w-48"
-                options={foremen.map((f) => ({
-                  value: f.id,
-                  label: f.externalId ? `${f.externalId} · ${f.name}` : f.name,
-                }))}
-              />
-              <SearchSelect
-                value={statusFilter}
-                onChange={setStatusFilter}
-                placeholder="Any status"
-                widthClass="w-44"
-                options={["assigned", "available", "in_maintenance", "lost"].map((s) => ({
-                  value: s,
-                  label: humanize(s),
-                }))}
-              />
-              <Button variant={onlyGaps ? "secondary" : "outline"} size="sm" onClick={() => setOnlyGaps((v) => !v)}>
-                <TriangleAlert className="size-3.5" /> No truck or trailer
-              </Button>
+              <FilterSheet
+                title="Filter jobsites"
+                activeCount={sheetFilterCount}
+                onApply={() => {}}
+                onClear={clearFilters}
+              >
+                <FilterField label="Job">
+                  <SearchSelect
+                    value={jobFilter}
+                    onChange={setJobFilter}
+                    placeholder="All jobs"
+                    widthClass="w-full"
+                    options={[
+                      ...(projects.data ?? []).map((p) => ({
+                        value: p.id,
+                        label: p.externalId ? `${p.externalId} · ${p.name}` : p.name,
+                      })),
+                      { value: YARD, label: "URB-YARD · Equipment Yard" },
+                      { value: NOJOB, label: "Not assigned to any project" },
+                    ]}
+                  />
+                </FilterField>
+                <FilterField label="Foreman">
+                  <SearchSelect
+                    value={foremanFilter}
+                    onChange={setForemanFilter}
+                    placeholder="All foremen"
+                    widthClass="w-full"
+                    options={foremen.map((f) => ({
+                      value: f.id,
+                      label: f.externalId ? `${f.externalId} · ${f.name}` : f.name,
+                    }))}
+                  />
+                </FilterField>
+                <FilterField label="Tool status">
+                  <SearchSelect
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    placeholder="Any status"
+                    widthClass="w-full"
+                    options={["assigned", "available", "in_maintenance", "lost"].map((s) => ({
+                      value: s,
+                      label: humanize(s),
+                    }))}
+                  />
+                </FilterField>
+                <FilterField label="Tool category">
+                  <SearchSelect
+                    value={categoryFilter}
+                    onChange={setCategoryFilter}
+                    placeholder="Any category"
+                    widthClass="w-full"
+                    options={categoryOptions.map((c) => ({ value: c, label: c }))}
+                  />
+                </FilterField>
+                <FilterField label="Rig gap">
+                  <SearchSelect
+                    value={gapFilter}
+                    onChange={(v) => setGapFilter(v as typeof gapFilter)}
+                    placeholder="Any rig"
+                    widthClass="w-full"
+                    options={[
+                      { value: "no_crew", label: "Job with no crew" },
+                      { value: "no_truck", label: "Crew without a truck" },
+                      { value: "no_trailer", label: "Crew without a trailer" },
+                    ]}
+                  />
+                </FilterField>
+                <Button
+                  variant={highValueOnly ? "secondary" : "outline"}
+                  size="sm"
+                  className="justify-start"
+                  onClick={() => setHighValueOnly((v) => !v)}
+                  aria-pressed={highValueOnly}
+                >
+                  <TriangleAlert className="size-3.5" /> High-value tools only
+                </Button>
+              </FilterSheet>
             </div>
+
+            {/* What is currently narrowing the list, each removable on its own —
+                otherwise a filter set in the sheet is invisible once it closes. */}
+            <FilterPills
+              pills={[
+                ...(jobFilter
+                  ? [{
+                      key: "job",
+                      label:
+                        jobFilter === YARD
+                          ? "Equipment Yard"
+                          : jobFilter === NOJOB
+                            ? "Not assigned"
+                            : (projects.data ?? []).find((p) => p.id === jobFilter)?.name ?? "Job",
+                      onRemove: () => setJobFilter(""),
+                    }]
+                  : []),
+                ...(foremanFilter
+                  ? [{
+                      key: "foreman",
+                      label: foremen.find((f) => f.id === foremanFilter)?.name ?? "Foreman",
+                      onRemove: () => setForemanFilter(""),
+                    }]
+                  : []),
+                ...(statusFilter
+                  ? [{ key: "status", label: humanize(statusFilter), onRemove: () => setStatusFilter("") }]
+                  : []),
+                ...(categoryFilter
+                  ? [{ key: "category", label: categoryFilter, onRemove: () => setCategoryFilter("") }]
+                  : []),
+                ...(gapFilter
+                  ? [{
+                      key: "gap",
+                      label:
+                        gapFilter === "no_crew"
+                          ? "No crew"
+                          : gapFilter === "no_truck"
+                            ? "No truck"
+                            : "No trailer",
+                      onRemove: () => setGapFilter(""),
+                    }]
+                  : []),
+                ...(highValueOnly
+                  ? [{ key: "high", label: "High value", onRemove: () => setHighValueOnly(false) }]
+                  : []),
+              ]}
+            />
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              {/* The whole card-row summary in one line — the numbers that used
+                  to sit in metric cards above, where they only pushed the cards
+                  themselves below the fold. */}
               <span className="tnum">
                 {shownTools} tool{shownTools === 1 ? "" : "s"} · {shownCrews} crew{shownCrews === 1 ? "" : "s"} · {cards.length} card{cards.length === 1 ? "" : "s"}
               </span>
+              {/* The count is also the way in: seeing that eleven crews cannot
+                  haul anything and then having to open the sheet to find them
+                  is a dead end where a link belongs. */}
+              {crewsWithoutTruck ? (
+                <button
+                  type="button"
+                  onClick={() => setGapFilter(gapFilter === "no_truck" ? "" : "no_truck")}
+                  aria-pressed={gapFilter === "no_truck"}
+                  className={cn(
+                    "tnum rounded-full px-2 py-0.5 font-medium text-warn transition-colors hover:bg-warn-bg",
+                    gapFilter === "no_truck" && "bg-warn-bg",
+                  )}
+                >
+                  {crewsWithoutTruck} without a truck
+                </button>
+              ) : null}
               {anyFilter ? (
                 <Button variant="ghost" size="sm" className="h-6 rounded-full px-2 text-primary" onClick={clearFilters}>
                   Clear filters
@@ -391,11 +535,6 @@ export default function JobsitesPage() {
                     </>
                   )}
                 </Button>
-                {!showActivity ? (
-                  <Button variant="outline" size="sm" onClick={() => setShowActivity(true)}>
-                    <Eye className="size-3.5" /> Show activity
-                  </Button>
-                ) : null}
               </div>
             </div>
           </section>
@@ -527,16 +666,6 @@ export default function JobsitesPage() {
               </section>
             );
           })}
-        </div>
-
-        {showActivity ? (
-          <aside className="h-fit lg:sticky lg:top-4">
-            <JobsiteActivity
-              projectOptions={(projects.data ?? []).map((p) => ({ id: p.id, name: p.name }))}
-              onHide={() => setShowActivity(false)}
-            />
-          </aside>
-        ) : null}
       </div>
     </div>
   );

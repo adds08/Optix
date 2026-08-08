@@ -100,7 +100,7 @@ export const userPreferences = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    themeName: text("theme_name").notNull().default("drafting-ink"),
+    themeName: text("theme_name").notNull().default("forest"),
     fontFamily: text("font_family").notNull().default("system"),
     fontScale: text("font_scale").notNull().default("1.0"),
     density: text("density").notNull().default("comfortable"),

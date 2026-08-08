@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GridPanel } from "@/components/sti/construction";
 
 /* Page scaffolding shared by every screen, so headers and empty states
    never drift apart between pages. */
@@ -11,12 +12,17 @@ export function PageHeader({
   title,
   description,
   actions,
+  icon: Icon,
   compact = false,
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
   actions?: React.ReactNode;
+  /* Names the subject of the page — the tool's category, the report's shape.
+     Decorative by construction: the title beside it already says the same
+     thing, so it is hidden from assistive tech rather than labelled. */
+  icon?: React.ComponentType<{ className?: string }>;
   /* One-line header for pages whose context lives elsewhere (tabs, tables).
      Saves the vertical space the big title+description block takes on pages
      that do not need to announce themselves (docs/20, A3). */
@@ -25,19 +31,32 @@ export function PageHeader({
   if (compact) {
     return (
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-base font-semibold tracking-tight">{title}</h1>
+        <h1 className="flex items-center gap-2 text-base font-semibold tracking-tight">
+          {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" /> : null}
+          {title}
+        </h1>
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </header>
     );
   }
   return (
     <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-5">
-      <div className="flex min-w-0 flex-col gap-1.5">
-        {eyebrow ? <span className="label-xs">{eyebrow}</span> : null}
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
-        {description ? (
-          <p className="max-w-[62ch] text-sm text-muted-foreground text-pretty">{description}</p>
+      <div className="flex min-w-0 items-start gap-3">
+        {Icon ? (
+          <span
+            aria-hidden
+            className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-primary/15 bg-accent text-accent-foreground"
+          >
+            <Icon className="size-[1.125rem]" />
+          </span>
         ) : null}
+        <div className="flex min-w-0 flex-col gap-1.5">
+          {eyebrow ? <span className="label-xs">{eyebrow}</span> : null}
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
+          {description ? (
+            <p className="max-w-[62ch] text-sm text-muted-foreground text-pretty">{description}</p>
+          ) : null}
+        </div>
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </header>
@@ -51,18 +70,42 @@ export function Metric({
   hint,
   tone,
   loading,
+  icon: Icon,
 }: {
   label: string;
   value: React.ReactNode;
   hint?: string;
   tone?: "default" | "warn" | "crit" | "ok";
   loading?: boolean;
+  icon?: React.ComponentType<{ className?: string }>;
 }) {
   const accent =
     tone === "warn" ? "text-warn" : tone === "crit" ? "text-crit" : tone === "ok" ? "text-ok" : "text-foreground";
+  /* The rail is the whole reason a wall of these is scannable: a grid of
+     fourteen identical white boxes has no entry point, and tone here is
+     already a status word (warn/crit/ok), not decoration. A card with nothing
+     wrong gets no rail at all, so the coloured ones are the exception. */
+  const rail =
+    tone === "warn"
+      ? "before:bg-warn"
+      : tone === "crit"
+        ? "before:bg-crit"
+        : tone === "ok"
+          ? "before:bg-ok"
+          : "before:bg-transparent";
   return (
-    <div className="metric-card flex flex-col gap-1 rounded-md border bg-card p-4">
-      <span className="label-xs">{label}</span>
+    <div
+      className={cn(
+        "metric-card relative flex flex-col gap-1 overflow-hidden rounded-md border bg-card p-4",
+        "transition-colors hover:border-foreground/20",
+        "before:absolute before:inset-y-0 before:left-0 before:w-[3px]",
+        rail,
+      )}
+    >
+      <span className="flex items-center gap-1.5">
+        {Icon ? <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /> : null}
+        <span className="label-xs">{label}</span>
+      </span>
       {loading ? (
         <Skeleton className="h-8 w-20" />
       ) : (
@@ -86,16 +129,32 @@ export function EmptyState({
   icon?: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-md border border-dashed bg-card/40 px-6 py-14 text-center">
-      {Icon ? <Icon className="size-6 text-muted-foreground" /> : null}
-      <div className="flex flex-col gap-1">
-        <p className="font-medium">{title}</p>
-        {description ? (
-          <p className="mx-auto max-w-[46ch] text-sm text-muted-foreground text-pretty">{description}</p>
+    /* Grid paper, not a plain dashed panel: an empty register is a drawing
+       nobody has made yet, not a page that failed to load. GridPanel owns
+       the border/background/fade; the flex column here is the same layout
+       the plain panel used, just one level deeper inside it. */
+    <GridPanel className="px-6 py-14">
+      <div className="flex flex-col items-center gap-3 text-center">
+        {/* The glyph sits in a tinted disc rather than floating bare on the
+            grid — a lone grey icon still reads as a page that failed to
+            load even with texture behind it. */}
+        {Icon ? (
+          <span
+            aria-hidden
+            className="flex size-11 items-center justify-center rounded-full bg-accent text-accent-foreground"
+          >
+            <Icon className="size-5" />
+          </span>
         ) : null}
+        <div className="flex flex-col gap-1">
+          <p className="font-medium">{title}</p>
+          {description ? (
+            <p className="mx-auto max-w-[46ch] text-sm text-muted-foreground text-pretty">{description}</p>
+          ) : null}
+        </div>
+        {action}
       </div>
-      {action}
-    </div>
+    </GridPanel>
   );
 }
 

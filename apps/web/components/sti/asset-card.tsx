@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Wrench } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { StatusPill, Tag } from "@/components/sti/status";
+import { ToolIcon } from "@/components/sti/tool-icon";
 import { FlagBadges, isHighValue } from "@/components/sti/flags";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -94,7 +94,10 @@ export function AssetCard({
                here would only repeat them to a screen reader. */
             <img src={row.photoUrl} alt="" className="size-full object-contain" loading="lazy" />
           ) : (
-            <Wrench className="size-7 text-muted-foreground/30" aria-hidden />
+            /* The category's own glyph, not a generic wrench: on a board of
+               photo-less tools the placeholder is the only thing distinguishing
+               a grinder from a ladder. */
+            <ToolIcon category={row.categoryName} className="size-7 text-muted-foreground/35" />
           )}
         </div>
 

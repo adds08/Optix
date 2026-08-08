@@ -85,7 +85,10 @@ export default function ProjectsPage() {
         id: "actions",
         header: "",
         sortable: false,
-        width: "3rem",
+        /* Edit + delete, and the wider "Keep / Delete" pair once the delete
+           confirmation opens. At 3rem the buttons overflowed the cell and their
+           opaque backgrounds covered the status pill next door. */
+        width: "10rem",
         cell: (p) => (
           <RowActions
             perm="project.manage"
@@ -116,7 +119,10 @@ export default function ProjectsPage() {
     <div className="flex flex-col gap-6">
       {editing ? <ProjectForm open onClose={() => setEditing(null)} edit={editing} /> : null}
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-lg font-semibold">Projects / Jobs</h1>
+        <h1 className="flex items-center gap-2 text-lg font-semibold">
+          <HardHat className="size-4 text-muted-foreground" aria-hidden />
+          Projects / Jobs
+        </h1>
         <div className="ml-auto flex items-center gap-2">
           <ImportButton entity="project" />
           <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />

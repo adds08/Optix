@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { UserMinus, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { HazardBand } from "@/components/sti/construction";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
@@ -39,7 +40,6 @@ export default function PeoplePage() {
 
   const rows = employees.data ?? [];
   const held = new Map((byForeman.data ?? []).map((f) => [f.employeeId, f]));
-  const terminated = rows.filter((e) => e.employmentStatus === "terminated");
 
   type EmployeeRow = (typeof rows)[number];
   type ClearanceRow = NonNullable<(typeof clearance.data)>[number];
@@ -79,7 +79,9 @@ export default function PeoplePage() {
         id: "actions",
         header: "",
         sortable: false,
-        width: "9rem",
+        /* Move project + Edit + delete — three controls, not the two the 9rem
+           here was sized for. */
+        width: "14rem",
         cell: (e) => (
           <RowActions
             perm="employee.manage"
@@ -132,32 +134,27 @@ export default function PeoplePage() {
         />
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-lg font-semibold">People</h1>
+        <h1 className="flex items-center gap-2 text-lg font-semibold">
+          <Users className="size-4 text-muted-foreground" aria-hidden />
+          People
+        </h1>
         <div className="ml-auto flex items-center gap-2">
           <ImportButton entity="employee" />
           <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Active" value={rows.filter((e) => e.employmentStatus === "active").length} loading={employees.isLoading} />
-        <Metric label="Terminated" value={terminated.length} loading={employees.isLoading} tone={terminated.length ? "warn" : "default"} />
-        <Metric
-          label="Held by terminated staff"
-          value={clearance.data?.length ?? 0}
-          loading={clearance.isLoading}
-          tone={clearance.data?.length ? "crit" : "ok"}
-          hint="blocks offboarding sign-off"
-        />
-      </div>
-
-      {/* Clearance first — it's the thing with a deadline attached. */}
+      {/* Clearance first — it's the thing with a deadline attached. The
+          hazard band is what "blocks offboarding" actually means: not an
+          error, a condition that keeps blocking until somebody acts. */}
       {clearance.data?.length ? (
         <section className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <UserMinus className="size-4 text-crit" />
-            <h2 className="text-sm font-medium">HR clearance queue</h2>
-          </div>
+          <HazardBand title="Blocks offboarding">
+            {clearance.data.length} tool{clearance.data.length === 1 ? "" : "s"} worth{" "}
+            {money(clearance.data.reduce((n, c) => n + Number(c.cost ?? 0), 0))} must be returned,
+            transferred, or marked lost before offboarding is signed off. The blocking gate itself
+            is specified but not yet built.
+          </HazardBand>
           <DataTable<ClearanceRow>
             mode="client"
             columns={CLEARANCE_COLUMNS}
@@ -166,10 +163,6 @@ export default function PeoplePage() {
             searchPlaceholder="Search the clearance queue…"
             filename="hr-clearance-queue"
           />
-          <p className="text-sm text-muted-foreground">
-            Each of these must be returned, transferred, or marked lost before offboarding is
-            signed off. The blocking gate itself is specified but not yet built.
-          </p>
         </section>
       ) : null}
 

@@ -5,8 +5,8 @@ import { Check } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { useThemeStore } from "@/lib/themes/store";
-import { applyTheme } from "@/lib/themes/apply-theme";
 import {
+  DEFAULT_PREFS,
   FONT_SCALES,
   THEMES,
   type Density,
@@ -28,10 +28,9 @@ import { cn } from "@/lib/utils";
 export function AppearanceSettings() {
   const utils = trpc.useUtils();
   const prefs = trpc.preferences.get.useQuery();
-  const dark = useThemeStore((s) => s.dark);
   const setPrefs = useThemeStore((s) => s.setPrefs);
 
-  const [themeName, setThemeName] = useState<ThemeName>("drafting-ink");
+  const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_PREFS.themeName);
   const [fontFamily, setFontFamily] = useState<FontFamilyName>("system");
   const [fontScale, setFontScale] = useState("1.0");
   const [density, setDensity] = useState<Density>("comfortable");
@@ -57,9 +56,24 @@ export function AppearanceSettings() {
     onError: (e) => setError(e.message),
   });
 
-  /* Preview applies immediately; Save persists. */
-  const current = (): ThemePrefs => ({ themeName, fontFamily, fontScale, density, dashboard: { widgets: {} } });
-  const preview = () => setPrefs(current());
+  /*
+    Preview applies immediately; Save persists.
+
+    The override argument is not optional decoration. `preview()` used to be
+    called straight after `setThemeName(name)` and read `themeName` out of the
+    render that was still on screen — React had not re-rendered yet — so every
+    click previewed the PREVIOUS selection and the theme appeared to lag one
+    step behind, or not to change at all on the first click.
+  */
+  const current = (over: Partial<ThemePrefs> = {}): ThemePrefs => ({
+    themeName,
+    fontFamily,
+    fontScale,
+    density,
+    dashboard: { widgets: {} },
+    ...over,
+  });
+  const preview = (over: Partial<ThemePrefs> = {}) => setPrefs(current(over));
   const onSave = () => {
     setPrefs(current());
     save.mutate(current());
@@ -77,7 +91,7 @@ export function AppearanceSettings() {
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Theme</label>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {(Object.keys(THEMES) as ThemeName[]).map((name) => {
             const t = THEMES[name];
             const active = themeName === name;
@@ -85,7 +99,7 @@ export function AppearanceSettings() {
               <button
                 key={name}
                 type="button"
-                onClick={() => { setThemeName(name); preview(); }}
+                onClick={() => { setThemeName(name); preview({ themeName: name }); }}
                 aria-pressed={active}
                 className={cn(
                   "flex flex-col gap-2 rounded-md border p-3 text-left transition-colors",
@@ -111,7 +125,7 @@ export function AppearanceSettings() {
           <select
             id="app-font"
             value={fontFamily}
-            onChange={(e) => { setFontFamily(e.target.value as FontFamilyName); preview(); }}
+            onChange={(e) => { const v = e.target.value as FontFamilyName; setFontFamily(v); preview({ fontFamily: v }); }}
             className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <option value="system">System</option>
@@ -125,7 +139,7 @@ export function AppearanceSettings() {
           <select
             id="app-scale"
             value={fontScale}
-            onChange={(e) => { setFontScale(e.target.value); preview(); }}
+            onChange={(e) => { const v = e.target.value; setFontScale(v); preview({ fontScale: v }); }}
             className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             {FONT_SCALES.map((s) => (
@@ -142,7 +156,7 @@ export function AppearanceSettings() {
             <button
               key={d}
               type="button"
-              onClick={() => { setDensity(d); preview(); }}
+              onClick={() => { setDensity(d); preview({ density: d }); }}
               aria-pressed={density === d}
               className={cn(
                 "rounded-sm px-3 py-1.5 text-sm capitalize transition-colors",

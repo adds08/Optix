@@ -1,5 +1,6 @@
 import type { Permission } from "@stinventory/types";
 import {
+  Activity,
   BarChart3,
   Boxes,
   Building2,
@@ -65,7 +66,10 @@ export const DESK_NAV: NavGroup[] = [
   },
   {
     label: "Insight",
-    items: [{ href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read" }],
+    items: [
+      { href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read" },
+      { href: "/activity", label: "Activity", icon: Activity, perm: "asset.read" },
+    ],
   },
   {
     label: "Entity",

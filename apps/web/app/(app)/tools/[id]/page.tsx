@@ -7,6 +7,8 @@ import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
+import { Plate } from "@/components/sti/construction";
+import { toolCategoryIcon } from "@/components/sti/tool-icon";
 import { AssetActions } from "@/components/asset-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -89,11 +91,17 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
       ) : (
         <>
           <PageHeader
+            icon={toolCategoryIcon(a.categoryName)}
             eyebrow={a.categoryName ?? "Equipment"}
             title={formatAssetModel(a) || "Untagged tool"}
             description={a.serialNumber ? `Serial ${a.serialNumber}` : undefined}
             actions={
               <div className="flex flex-wrap items-center gap-3">
+                {/* The tag is the subject here, not one field in a grid of
+                    eight — struck into a plate, not printed in a table
+                    cell. Untagged tools get the "add tag" panel below
+                    instead; nothing to stamp yet. */}
+                {a.tag ? <Plate>{a.tag}</Plate> : null}
                 <AssetActions
                   assetId={id}
                   assetTag={a.tag ?? "Untagged tool"}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, CheckCircle2, CircleAlert, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
-import { Metric, EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
+import { EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
 import { dateTime, relative } from "@/lib/format";
@@ -88,24 +88,8 @@ export default function InboxPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Metric
-          label="Recognized"
-          value={c?.recognized.length ?? 0}
-          loading={classified.isLoading}
-          tone={c?.recognized.length ? "warn" : "ok"}
-          hint="one click to settle"
-        />
-        <Metric
-          label="Unrecognized"
-          value={c?.unrecognized.length ?? 0}
-          loading={classified.isLoading}
-          tone={c?.unrecognized.length ? "warn" : "default"}
-          hint="need a human or a retry"
-        />
-        <Metric label="Completed" value={c?.completed.length ?? 0} loading={classified.isLoading} hint="recent history" />
-      </div>
-
+      {/* No metric row: the three buckets are the page, and each heading below
+          carries its own count. Cards on top only delayed the first item. */}
       {classified.isLoading ? (
         <TableSkeleton cols={3} />
       ) : classified.isError ? (
@@ -116,7 +100,9 @@ export default function InboxPage() {
           <section className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Sparkles className="size-4 text-warn" />
-              <h2 className="text-sm font-medium">Recognized tasks</h2>
+              <h2 className="text-sm font-medium">
+                Recognized tasks <span className="tnum text-muted-foreground">{c?.recognized.length ?? 0}</span>
+              </h2>
             </div>
             {!c?.recognized.length ? (
               <EmptyState title="Nothing actionable" description="No request or hand-off is waiting to be settled." />
@@ -161,7 +147,9 @@ export default function InboxPage() {
           <section className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <CircleAlert className="size-4 text-warn" />
-              <h2 className="text-sm font-medium">Unrecognized</h2>
+              <h2 className="text-sm font-medium">
+                Unrecognized <span className="tnum text-muted-foreground">{c?.unrecognized.length ?? 0}</span>
+              </h2>
             </div>
             {!c?.unrecognized.length ? (
               <EmptyState title="Everything is understood" description="No item is stuck without a binding." />
@@ -196,7 +184,9 @@ export default function InboxPage() {
 
           {/* ---- completed: history ---- */}
           <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-medium">Completed</h2>
+            <h2 className="text-sm font-medium">
+              Completed <span className="tnum text-muted-foreground">{c?.completed.length ?? 0}</span>
+            </h2>
             {!c?.completed.length ? (
               <EmptyState title="No history yet" />
             ) : (

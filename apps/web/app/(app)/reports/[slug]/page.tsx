@@ -7,9 +7,10 @@ import { ArrowLeft } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton, ErrorNote, Metric } from "@/components/sti/page";
+import { TitleBlock } from "@/components/sti/construction";
 import { ReportTable, type Col } from "@/components/sti/report-table";
 import { StatusPill, Tag } from "@/components/sti/status";
-import { money, num } from "@/lib/format";
+import { money, num, shortDate } from "@/lib/format";
 import { reportBySlug } from "../registry";
 
 export default function ReportPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -60,10 +61,26 @@ export default function ReportPage({ params }: { params: Promise<{ slug: string 
       ) : active?.isError ? (
         <ErrorNote message="This report could not be loaded. Check that the API is running, then reload." />
       ) : (
-        <Body
-          slug={slug}
-          data={{ register, byProject, byForeman, byMechanic, idle, lost, capital, capitalDept, needsTag }}
-        />
+        <>
+          {/* Reports are the moat, and they get printed and filed against a
+              job — this page had no visible title at all before, just the
+              "All reports" link. A title block makes a report read as a
+              document of record instead of a table that lost its context
+              the moment it was exported. */}
+          <TitleBlock
+            title={meta.title}
+            subtitle={meta.description}
+            fields={[
+              { label: "Group", value: meta.group },
+              { label: "Rows", value: num(active?.data?.length ?? 0) },
+              { label: "Generated", value: shortDate(new Date()) },
+            ]}
+          />
+          <Body
+            slug={slug}
+            data={{ register, byProject, byForeman, byMechanic, idle, lost, capital, capitalDept, needsTag }}
+          />
+        </>
       )}
     </div>
   );

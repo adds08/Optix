@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeftRight, Wrench } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote, EmptyState, Metric } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { useJobScope } from "@/components/job-scope";
 import { DataTable } from "@/components/sti/data-table/data-table";
@@ -86,37 +86,34 @@ export default function CustodyPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label="Tools out" value={active.length} loading={assignments.isLoading} hint="active assignments" />
-        <Metric
-          label="Overdue"
-          value={overdue.length}
-          loading={assignments.isLoading}
-          tone={overdue.length ? "crit" : "ok"}
-          hint="past expected return"
-        />
-        <Metric label="In motion" value={inFlight.length} loading={transfers.isLoading} hint="transfers not yet completed" />
-      </div>
-
-      <div className="flex gap-1" role="tablist">
-        {([["held", "Held", active.length], ["moving", "Moving", transfers.data?.length ?? 0]] as const).map(
-          ([k, label, n]) => (
-            <button
-              key={k}
-              role="tab"
-              aria-selected={tab === k}
-              onClick={() => setTab(k)}
-              className={cn(
-                "rounded-sm border px-3 py-1.5 text-sm transition-colors",
-                tab === k
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              )}
-            >
-              {label} <span className="tnum opacity-75">{n}</span>
-            </button>
-          ),
-        )}
+      {/* Counts ride on the tabs and an overdue assignment is already red in its
+          own row, so there is no card row here repeating both back. Overdue and
+          in-motion get one line of text because neither is a tab of its own. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex gap-1" role="tablist">
+          {([["held", "Held", active.length], ["moving", "Moving", transfers.data?.length ?? 0]] as const).map(
+            ([k, label, n]) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={tab === k}
+                onClick={() => setTab(k)}
+                className={cn(
+                  "rounded-sm border px-3 py-1.5 text-sm transition-colors",
+                  tab === k
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                )}
+              >
+                {label} <span className="tnum opacity-75">{n}</span>
+              </button>
+            ),
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          <span className={cn("tnum", overdue.length && "font-medium text-crit")}>{overdue.length}</span> overdue ·{" "}
+          <span className="tnum">{inFlight.length}</span> in motion
+        </p>
       </div>
 
       {tab === "held" ? (

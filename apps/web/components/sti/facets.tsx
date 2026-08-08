@@ -97,6 +97,18 @@ export function ClearFacets({ onClick }: { onClick: () => void }) {
   );
 }
 
+/* One labelled control inside a filter sheet. A bare dropdown reading "Any
+   status" is fine on a bar where the neighbours give it context; stacked in a
+   sheet, six of them need to say what each one is. */
+export function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="label-xs">{label}</span>
+      {children}
+    </label>
+  );
+}
+
 /* The chips above the results that say what is currently narrowing them. Each
    one removes exactly its own filter — the rail tells you what you *can* pick,
    these tell you what you *did*. */

@@ -8,6 +8,7 @@ import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/typ
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
+import { ToolIcon } from "@/components/sti/tool-icon";
 import { FacetGroup, FacetRow, ClearFacets, FilterPills } from "@/components/sti/facets";
 import { FlagBadges, isHighValue, warrantyFlag } from "@/components/sti/flags";
 import { CreateAction } from "@/components/sti/create-action";
@@ -169,6 +170,7 @@ export default function ToolsPage() {
       col<Row>({
         header: "Tag",
         accessorFn: (r) => r.tag ?? "",
+        width: "6.5rem",
         cell: (r) => (
           <Link href={`/tools/${r.id}`} className="hover:underline">
             <Tag>{r.tag}</Tag>
@@ -178,35 +180,58 @@ export default function ToolsPage() {
       col<Row>({
         header: "Tool",
         accessorFn: (r) => formatAssetModel(r),
+        /* The category icon rides on the name, not in its own column: a register
+           of 400 rows is a wall of text, and the glyph is what lets someone find
+           the drills without reading a single word. */
+        /* The glyph only earns its place when the row HAS a category. Falling
+           back to a wrench for uncategorised tools drew the same icon down the
+           whole column — 754 identical marks carrying no information, which is
+           worse than none. The space is held either way so the names still
+           start on one line. */
         cell: (r) => (
-          <Link href={`/tools/${r.id}`} className="font-medium hover:underline">
-            {formatAssetModel(r) || "Untagged tool"}
+          <Link href={`/tools/${r.id}`} className="group/tool flex items-center gap-2">
+            {r.categoryName ? (
+              <ToolIcon
+                category={r.categoryName}
+                className="size-4 shrink-0 text-muted-foreground transition-colors group-hover/tool:text-primary"
+              />
+            ) : (
+              <span aria-hidden className="size-4 shrink-0" />
+            )}
+            <span className="truncate font-medium group-hover/tool:underline">
+              {formatAssetModel(r) || "Untagged tool"}
+            </span>
           </Link>
         ),
       }),
       col<Row>({
         header: "Category",
         accessorFn: (r) => r.categoryName ?? "",
+        width: "8rem",
         cell: (r) => r.categoryName ?? <span className="text-muted-foreground">—</span>,
       }),
       col<Row>({
         header: "Status",
         accessorFn: (r) => r.status,
+        width: "8.5rem",
         cell: (r) => <StatusPill status={r.status} />,
       }),
       col<Row>({
         header: "Holder",
         accessorFn: (r) => r.custodianName ?? "",
+        width: "10.5rem",
         cell: (r) => r.custodianName ?? <span className="text-muted-foreground">In the yard</span>,
       }),
       col<Row>({
         header: "Where",
         accessorFn: (r) => r.locationName ?? "",
+        width: "7rem",
         cell: (r) => r.locationName ?? <span className="text-muted-foreground">—</span>,
       }),
       col<Row>({
         header: "Project",
         accessorFn: (r) => r.currentProjectName ?? "",
+        width: "11rem",
         cell: (r) => (
           <span className="text-muted-foreground">
             {r.currentProjectName ? idName(r.currentProjectExternalId, r.currentProjectName) : "—"}
@@ -217,6 +242,7 @@ export default function ToolsPage() {
         header: "Cost",
         accessorFn: (r) => Number(r.acquisitionCost ?? 0),
         numeric: true,
+        width: "6.5rem",
         cell: (r) => (
           <span className={isHighValue(r) ? "font-semibold" : "text-muted-foreground"}>
             {money(r.acquisitionCost)}
@@ -226,11 +252,13 @@ export default function ToolsPage() {
       col<Row>({
         header: "Flags",
         sortable: false,
+        width: "8rem",
         cell: (r) => <FlagBadges asset={r} />,
       }),
       col<Row>({
         header: "Serial",
         accessorFn: (r) => r.serialNumber ?? "",
+        width: "9rem",
         cell: (r) => (
           <span className="font-mono text-xs text-muted-foreground">{r.serialNumber ?? "—"}</span>
         ),
@@ -238,12 +266,14 @@ export default function ToolsPage() {
       col<Row>({
         header: "Charged to",
         accessorFn: (r) => r.owningDepartmentName ?? r.owningProjectName ?? "",
+        width: "10rem",
         cell: (r) => r.owningDepartmentName ?? r.owningProjectName ?? <span className="text-muted-foreground">—</span>,
       }),
       col<Row>({
         id: "actions",
         header: "",
         enableHiding: false,
+        width: "3.5rem",
         cell: (r) => (
           <ToolMenu
             assetId={r.id}
@@ -530,6 +560,10 @@ export default function ToolsPage() {
             columns={TABLE_COLUMNS}
             rows={filtered}
             rowId={(r) => r.id}
+            /* The register carries the most columns of any table here. Below
+               this the name column gets squeezed to nothing, so the wrapper
+               scrolls sideways instead. */
+            minWidth="1240px"
             filterPredicate={matches}
             searchValue={q}
             onSearchChange={setQ}

@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +39,10 @@ export function AppSidebar({
   inboxCount: number;
 }) {
   const groups = navFor(userRole);
+  const pathname = usePathname();
+  /* A nav row is current for its own page and everything under it, so a tool's
+     detail page keeps Tool Register lit rather than leaving the rail blank. */
+  const isCurrent = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -55,19 +61,41 @@ export function AppSidebar({
             <SidebarGroup key={g.label}>
               <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
               <SidebarMenu>
-                {visible.map((n) => (
-                  <SidebarMenuItem key={n.href}>
-                    <SidebarMenuButton asChild tooltip={n.label}>
-                      <Link href={n.href}>
-                        <n.icon className="size-4 shrink-0" />
-                        <span className="truncate">{n.label}</span>
-                        {n.href === "/inbox" && inboxCount > 0 ? (
-                          <SidebarMenuBadge>{inboxCount > 99 ? "99+" : inboxCount}</SidebarMenuBadge>
-                        ) : null}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {visible.map((n) => {
+                  const active = isCurrent(n.href);
+                  return (
+                    <SidebarMenuItem key={n.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active}
+                        tooltip={n.label}
+                        /* The accent fill alone is a weak signal at this value
+                           range; the marker on the leading edge is what the eye
+                           actually finds, and it survives the icon-only rail. */
+                        className={cn(
+                          "relative transition-colors before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px]",
+                          "before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary before:transition-opacity",
+                          active ? "before:opacity-100" : "before:opacity-0",
+                        )}
+                      >
+                        <Link href={n.href}>
+                          <n.icon
+                            className={cn(
+                              "size-4 shrink-0 transition-colors",
+                              active
+                                ? "text-sidebar-primary"
+                                : "text-sidebar-foreground/55 group-hover/menu-item:text-sidebar-accent-foreground",
+                            )}
+                          />
+                          <span className="truncate">{n.label}</span>
+                          {n.href === "/inbox" && inboxCount > 0 ? (
+                            <SidebarMenuBadge>{inboxCount > 99 ? "99+" : inboxCount}</SidebarMenuBadge>
+                          ) : null}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroup>
           );

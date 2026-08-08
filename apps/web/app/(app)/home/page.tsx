@@ -4,7 +4,25 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowRight, CheckCircle2, Handshake, SlidersHorizontal, Star, UserMinus } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  BookmarkCheck,
+  Boxes,
+  CalendarClock,
+  CheckCircle2,
+  HardHat,
+  Handshake,
+  Hourglass,
+  PackageCheck,
+  ScanBarcode,
+  SearchX,
+  SlidersHorizontal,
+  Star,
+  UserMinus,
+  Warehouse,
+  Wrench,
+} from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
@@ -26,6 +44,7 @@ import { FleetLegend } from "@/components/fleet-map-view";
 import { GreetingBar } from "@/components/greeting-bar";
 import { MovementChart } from "@/components/movement-chart";
 import { useThemeStore } from "@/lib/themes/store";
+import { DEFAULT_PREFS } from "@/lib/themes/themes";
 import {
   CapitalSplitWidget,
   InboxStatusWidget,
@@ -96,13 +115,12 @@ export default function HomePage() {
   }, [prefs]);
 
   const setDefaultTab = (t: Tab) => {
-    const base = prefs ?? {
-      themeName: "drafting-ink" as const,
-      fontFamily: "system" as const,
-      fontScale: "1.0",
-      density: "comfortable" as const,
-      dashboard: { widgets: {} },
-    };
+    /* DEFAULT_PREFS, not a locally duplicated literal — this write path used
+       to hardcode "drafting-ink" here, so a star-click or widget toggle that
+       landed before the prefs query resolved would silently persist that
+       theme over whatever the user had actually chosen. One shared default
+       means this can't drift from the app's real default again. */
+    const base = prefs ?? DEFAULT_PREFS;
     const next = { ...base, dashboard: { ...base.dashboard, defaultTab: t } };
     setPrefs(next);
     utils.client.preferences.set.mutate(next);
@@ -110,13 +128,7 @@ export default function HomePage() {
 
   const visible = widgetVisibility(prefs);
   const toggleWidget = (id: WidgetId, on: boolean) => {
-    const base = prefs ?? {
-      themeName: "drafting-ink" as const,
-      fontFamily: "system" as const,
-      fontScale: "1.0",
-      density: "comfortable" as const,
-      dashboard: { widgets: {} },
-    };
+    const base = prefs ?? DEFAULT_PREFS; /* see setDefaultTab above */
     const next = { ...base, dashboard: { ...base.dashboard, widgets: { ...visible, [id]: on } } };
     setPrefs(next);
     utils.client.preferences.set.mutate(next);
@@ -299,21 +311,23 @@ export default function HomePage() {
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-medium">Fleet at a glance</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Metric label="Available" value={num(k?.available)} loading={kpis.isLoading} hint="ready to issue" />
-              <Metric label="Assigned" value={num(k?.assigned)} loading={kpis.isLoading} hint="out with a custodian" />
-              <Metric label="In maintenance" value={num(k?.inMaintenance)} loading={kpis.isLoading} tone={k?.inMaintenance ? "warn" : "default"} />
-              <Metric label="Lost" value={num(k?.lost)} loading={kpis.isLoading} tone={k?.lost ? "crit" : "ok"} hint="unaccounted for" />
-              <Metric label="Fleet value" value={money(k?.fleetValue)} loading={kpis.isLoading} hint="acquisition cost" />
-              <Metric label="Capital on jobs" value={money(capitalOnJobs)} loading={capitalJobs.isLoading} hint="charged to projects" />
-              <Metric label="Capital in the shop" value={money(capitalInShop)} loading={capitalShop.isLoading} hint="charged to departments" />
-              <Metric label="Reserved" value={num(k?.reserved)} loading={kpis.isLoading} />
+              <Metric icon={PackageCheck} label="Available" value={num(k?.available)} loading={kpis.isLoading} hint="ready to issue" />
+              <Metric icon={Handshake} label="Assigned" value={num(k?.assigned)} loading={kpis.isLoading} hint="out with a custodian" />
+              <Metric icon={Wrench} label="In maintenance" value={num(k?.inMaintenance)} loading={kpis.isLoading} tone={k?.inMaintenance ? "warn" : "default"} />
+              <Metric icon={SearchX} label="Lost" value={num(k?.lost)} loading={kpis.isLoading} tone={k?.lost ? "crit" : "ok"} hint="unaccounted for" />
+              <Metric icon={Boxes} label="Fleet value" value={money(k?.fleetValue)} loading={kpis.isLoading} hint="acquisition cost" />
+              <Metric icon={HardHat} label="Capital on jobs" value={money(capitalOnJobs)} loading={capitalJobs.isLoading} hint="charged to projects" />
+              <Metric icon={Warehouse} label="Capital in the shop" value={money(capitalInShop)} loading={capitalShop.isLoading} hint="charged to departments" />
+              <Metric icon={BookmarkCheck} label="Reserved" value={num(k?.reserved)} loading={kpis.isLoading} />
               <Metric
+                icon={CalendarClock}
                 label="Scheduled maintenance"
                 value={num(k?.scheduledMaint)}
                 loading={kpis.isLoading}
                 hint="maintenance module not built yet"
               />
               <Metric
+                icon={ScanBarcode}
                 label="Missing serials"
                 value={num(k?.missingSerial)}
                 loading={kpis.isLoading}
@@ -322,6 +336,7 @@ export default function HomePage() {
               />
               <Link href="/reports/idle" className="block transition-opacity hover:opacity-80">
                 <Metric
+                  icon={Hourglass}
                   label="Idle tools"
                   value={num(idleCount)}
                   loading={idleReport.isLoading}
@@ -329,8 +344,8 @@ export default function HomePage() {
                   hint="sitting available — see the Idle report"
                 />
               </Link>
-              <Metric label="Terminated staff" value={num(k?.terminatedCount)} loading={kpis.isLoading} />
-              <Metric label="Held by terminated" value={num(k?.clearanceCount)} loading={kpis.isLoading} tone={k?.clearanceCount ? "crit" : "ok"} />
+              <Metric icon={UserMinus} label="Terminated staff" value={num(k?.terminatedCount)} loading={kpis.isLoading} />
+              <Metric icon={AlertTriangle} label="Held by terminated" value={num(k?.clearanceCount)} loading={kpis.isLoading} tone={k?.clearanceCount ? "crit" : "ok"} />
             </div>
           </section>
 
