@@ -95,7 +95,6 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
     try {
       let applied = 0;
       let awaitingApproval = 0;
-      let awaitingVerification = 0;
       let requested = false;
       for (let i = 0; i < assetIds.length; i += MAX_BULK) {
         const res = await mutation.mutateAsync({
@@ -108,7 +107,6 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
         });
         applied += res.applied;
         awaitingApproval += res.awaitingApproval;
-        awaitingVerification += res.awaitingVerification;
         if (res.taskId) requested = true;
       }
 
@@ -118,13 +116,8 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
       } else if (awaitingApproval > 0) {
         setPending(true);
         setResult(
-          `${awaitingApproval} tool${awaitingApproval === 1 ? "" : "s"} above the value that needs a second signature — they stay where they are until approved in the Inbox.` +
+          `${awaitingApproval} tool${awaitingApproval === 1 ? "" : "s"} above the value that needs a second signature — they stay where they are until approved.` +
             (applied > 0 ? ` ${applied} moved now.` : ""),
-        );
-      } else if (awaitingVerification > 0) {
-        setPending(true);
-        setResult(
-          "Recorded as loans — the tools moved and are in front of the equipment desk, who will confirm them.",
         );
       } else {
         onApplied?.();

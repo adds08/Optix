@@ -23,22 +23,13 @@ export default function MyToolsScreen() {
     { custodianId: employeeId },
     { enabled: !!employeeId },
   );
-  /* Same scope as the list it badges. Unscoped, this returned the whole
-     tenant's overdue loans for anyone who is not a foreman — harmless here only
-     because it is intersected with the reader's own tools, which is a fragile
-     reason for two queries on one screen to disagree about whose data it is. */
-  const overdue = trpc.dashboard.overdueLoans.useQuery(
-    { employeeId },
-    { enabled: !!employeeId },
-  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([tools.refetch(), overdue.refetch()]);
+    await tools.refetch();
     setRefreshing(false);
-  }, [tools, overdue]);
+  }, [tools]);
 
-  const overdueIds = new Set((overdue.data ?? []).map((o) => o.assetId));
   const rows = tools.data ?? [];
 
   async function onSignOut() {
@@ -73,16 +64,6 @@ export default function MyToolsScreen() {
           </Pressable>
         </View>
 
-        {overdueIds.size > 0 ? (
-          <View className="flex-row items-center gap-2 rounded-md border border-crit bg-crit-bg px-4 py-3">
-            <Ionicons name="alert-circle" size={18} color="#9B3B27" />
-            <Text className="flex-1 text-[14px] leading-5 text-crit">
-              {overdueIds.size} of your tools {overdueIds.size === 1 ? "is" : "are"} past its due
-              date. Return or hand them over.
-            </Text>
-          </View>
-        ) : null}
-
         {tools.isLoading || me.isLoading ? (
           <Loading label="Getting your tools…" />
         ) : tools.isError ? (
@@ -101,15 +82,11 @@ export default function MyToolsScreen() {
               <AnimatedRow key={t.id}>
                 <Link href={{ pathname: "/tool/[id]", params: { id: t.id } }} asChild>
                   <Pressable accessibilityRole="button">
-                    <Card className={overdueIds.has(t.id) ? "border-crit" : ""}>
+                    <Card>
                       <View className="gap-2">
                         <View className="flex-row items-center justify-between gap-3">
                           <Tag>{t.tag}</Tag>
-                          {overdueIds.has(t.id) ? (
-                            <StatusPill status="overdue" label="Overdue" />
-                          ) : (
-                            <StatusPill status={t.status} />
-                          )}
+                          <StatusPill status={t.status} />
                         </View>
                         <Text className="text-[17px] font-semibold leading-6 text-foreground">
                           {formatAssetModel(t) || "Untagged tool"}

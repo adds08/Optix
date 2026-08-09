@@ -100,7 +100,6 @@ export type ApplyResult = {
   /* Applied as borrows and put in front of the equipment desk. The register DID
      move for these — counted apart from `applied` so the chat reply can say
      "recorded, the desk will confirm" rather than claiming it is settled. */
-  awaitingVerification: number;
 };
 
 /*
@@ -113,13 +112,11 @@ async function outcomeFor(
   db: any,
   tenantId: string,
   asset: { acquisitionCost: string | null },
-  permissions: Set<string>,
 ): Promise<CustodyOutcome> {
   const settings = await db.query.tenantSettings.findFirst({
     where: eq(schema.tenantSettings.tenantId, tenantId),
   });
   return custodyOutcome({
-    actorCanApprove: permissions.has("transfer.approve"),
     assetCost: asset.acquisitionCost != null ? Number(asset.acquisitionCost) : null,
     highValueThreshold: settings?.highValueThreshold ?? DEFAULT_HIGH_VALUE_THRESHOLD,
   });
@@ -152,7 +149,6 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
   const transactionIds: string[] = [];
   let applied = 0;
   let awaitingApproval = 0;
-  let awaitingVerification = 0;
 
   for (const assetId of assetIds) {
     const asset = await db.query.asset.findFirst({
@@ -162,9 +158,9 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
 
     /* Custody moves get the rule applied before anything is written. */
     if (action.type === "assign" || action.type === "transfer") {
-      const outcome = await outcomeFor(db, tenantId, asset, permissions as Set<string>);
+      const outcome = await outcomeFor(db, tenantId, asset);
 
-      if (outcome !== "auto") {
+      if (outcome === "approve") {
         /*
           A hand-off the desk will look at has to name where it is going, or
           acting on it does nothing and refusing it means nothing.
@@ -206,66 +202,14 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
             fromProjectId: asset.currentProjectId,
             toProjectId,
             reason: "handoff",
-            status: outcome === "approve" ? "pending_approval" : "pending_verification",
+            status: "pending_approval",
             requestedBy: actorUserId,
           })
           .returning();
 
-        /* `approve` withholds the move entirely. `verify` is a foreman telling
-           the desk where his tool went — the tool has already gone, so the
-           register follows it now, as a borrow, and the desk sees the row. */
-        if (outcome === "approve") {
-          awaitingApproval++;
-          continue;
-        }
-
-        const borrowProjectId = toProjectId ?? asset.currentProjectId ?? null;
-        const borrowLocationId = toLocationId ?? asset.currentLocationId ?? null;
-        await moveCustody(db, {
-          tenantId,
-          assetId,
-          toCustodianId,
-          projectId: borrowProjectId,
-          locationId: borrowLocationId,
-          actorUserId,
-          type: "temporary",
-        });
-        await db
-          .update(schema.asset)
-          .set({
-            currentCustodianId: toCustodianId,
-            currentStatus: "assigned",
-            currentProjectId: borrowProjectId,
-            currentLocationId: borrowLocationId,
-            updatedAt: new Date(),
-          })
-          .where(eq(schema.asset.id, assetId));
-        const [borrowTx] = await db
-          .insert(schema.transaction)
-          .values({
-            tenantId,
-            assetId,
-            eventType: "transfer",
-            actorId: actorUserId,
-            fromState: {
-              status: asset.currentStatus,
-              custodianId: asset.currentCustodianId,
-              projectId: asset.currentProjectId,
-              locationId: asset.currentLocationId,
-            },
-            toState: {
-              status: "assigned",
-              custodianId: toCustodianId,
-              projectId: borrowProjectId,
-              locationId: borrowLocationId,
-            },
-            refType: "transfer",
-            refId: transferRow?.id ?? null,
-            note: action.note ?? "Lent, awaiting equipment desk",
-          })
-          .returning();
-        if (borrowTx?.id) transactionIds.push(borrowTx.id);
-        awaitingVerification++;
+        /* Withheld: the register does not move until a second person signs it
+           off in the desk queue. The row above is what they act on. */
+        if (transferRow) awaitingApproval++;
         continue;
       }
     }
@@ -300,7 +244,6 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
             custodianId: action.custodianId,
             projectId: assignProjectId,
             locationId: action.locationId ?? asset.currentLocationId ?? null,
-            type: "permanent",
             startDate: new Date().toISOString().slice(0, 10),
             status: "active",
             approvedBy: actorUserId,
@@ -354,7 +297,6 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
             custodianId: action.custodianId,
             projectId: transferProjectId,
             locationId: action.locationId ?? asset.currentLocationId ?? null,
-            type: "permanent",
             startDate: new Date().toISOString().slice(0, 10),
             status: "active",
             approvedBy: actorUserId,
@@ -452,10 +394,10 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
   /* Parking everything for approval is a success, not a failure — the hand-off
      was recorded, it just needs a second signature. A borrow is more clearly a
      success: the register moved. Only a run that touched nothing is an error. */
-  if (applied === 0 && awaitingApproval === 0 && awaitingVerification === 0) {
+  if (applied === 0 && awaitingApproval === 0) {
     throw new Error("No matching assets in this tenant");
   }
-  return { transactionIds, applied, awaitingApproval, awaitingVerification };
+  return { transactionIds, applied, awaitingApproval };
 }
 
 /*
@@ -536,7 +478,7 @@ async function applyIntake(
     })
     .returning();
 
-  return { transactionIds: tx ? [String(tx.id)] : [], applied: 1, awaitingApproval: 0, awaitingVerification: 0 };
+  return { transactionIds: tx ? [String(tx.id)] : [], applied: 1, awaitingApproval: 0 };
 }
 
 /* Which desk owns the follow-up, and what the approval card is headed. Both

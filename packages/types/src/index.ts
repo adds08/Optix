@@ -75,8 +75,6 @@ export const PERMISSIONS = [
   /* Rented equipment. Separate from asset.* because the people who decide what
      Urban buys are not always the people who can call a pump off rent, and the
      cost of getting the second one wrong is a daily invoice. */
-  "rental.read",
-  "rental.manage",
   "notification.read",
   "notification.manage",
   "config.manage",
@@ -178,8 +176,6 @@ export const NOTIFICATION_TYPES = [
   "custody_discrepancy",
   /* A rented line past its end date and still on rent. Unlike an overdue owned
      tool, this one is costing money every day it stays open. */
-  "rental_overdue",
-  "rental_due_soon",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

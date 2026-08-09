@@ -19,14 +19,13 @@ import { relative } from "@/lib/format";
 */
 
 const QUEUE_LABELS: { key: keyof ReturnType<typeof queuesOf>; label: string; href: string }[] = [
-  { key: "overdue", label: "Overdue loans", href: "/custody" },
   { key: "approvals", label: "Approvals & hand-offs", href: "/inbox" },
   { key: "tasks", label: "Open tasks", href: "/inbox" },
   { key: "messages", label: "Unresolved messages", href: "/inbox" },
   { key: "clearance", label: "HR clearance", href: "/people" },
 ];
 
-function queuesOf(n: { queues: { overdue: number; approvals: number; tasks: number; messages: number; clearance: number } }) {
+function queuesOf(n: { queues: { approvals: number; tasks: number; messages: number; clearance: number } }) {
   return n.queues;
 }
 
@@ -42,7 +41,7 @@ export function NotificationCenter() {
   const n = bell.data;
   const queues = n ? queuesOf(n) : null;
   const queueTotal = queues
-    ? queues.overdue + queues.approvals + queues.tasks + queues.messages + queues.clearance
+    ? queues.approvals + queues.tasks + queues.messages + queues.clearance
     : 0;
 
   return (

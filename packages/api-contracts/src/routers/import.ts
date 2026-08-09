@@ -29,7 +29,7 @@ import { logEvent } from "../audit.js";
   feedback, but `commit` trusts none of it.
 */
 
-const ENTITIES = ["asset", "employee", "project", "location", "vehicle", "rental"] as const;
+const ENTITIES = ["asset", "employee", "project", "location", "vehicle"] as const;
 
 export type RowError = { column: string; message: string };
 
@@ -222,10 +222,6 @@ function requirePerm(session: { permissions: ReadonlySet<any> }, spec: ImportSpe
 const inputShape = z.object({
   entity: z.enum(ENTITIES),
   rows: z.array(z.record(z.string(), z.string())).min(1).max(5000),
-  /* Rentals only: which vendor this export came from. The file says what was
-     rented but never who from — it was downloaded from their portal, so from
-     the file's point of view that is obvious. */
-  vendorName: z.string().max(200).optional(),
 });
 
 export const importRouter = router({
@@ -271,12 +267,6 @@ export const importRouter = router({
     }
 
     const created = await ctx.db.transaction(async (tx: any) => {
-      /* Rentals are the one import where a row is not a record. Contract
-         fields repeat across every line, so the rows have to be grouped back
-         into orders before anything is written. */
-      if (entity === "rental") {
-        return insertRentalRows(tx, tid, ctx.session.userId, rows.map((r) => r.resolved), input.vendorName);
-      }
       const ids: string[] = [];
       for (const row of rows) {
         const id = await insertOne(tx, tid, ctx.session.userId, entity, row.resolved);
@@ -287,7 +277,7 @@ export const importRouter = router({
 
     await logEvent(ctx, {
       category:
-        entity === "asset" || entity === "rental"
+        entity === "asset"
           ? "asset"
           : entity === "employee"
             ? "assignment"
@@ -397,130 +387,3 @@ async function insertOne(
 }
 
 
-/* The vendor's own words for an order type, mapped onto ours. */
-const ORDER_TYPE_MAP: Record<string, { orderType: string; orderStatus: string; lineStatus: string }> = {
-  Quote: { orderType: "quote", orderStatus: "quoted", lineStatus: "quoted" },
-  "Open Contract": { orderType: "open_contract", orderStatus: "on_rent", lineStatus: "on_rent" },
-  "Closed Contract": { orderType: "closed_contract", orderStatus: "closed", lineStatus: "returned" },
-};
-
-/*
-  Group flat vendor rows back into orders and lines.
-
-  Re-importing the same export must not duplicate anything, because the way
-  this file gets used is "download it again on Monday". Orders are matched on
-  (vendor, contract number) and updated; lines are matched on (order, cat class,
-  item name) so a re-import moves an Open Contract to Closed rather than
-  creating a second copy of it.
-*/
-async function insertRentalRows(
-  tx: any,
-  tenantId: string,
-  actorUserId: string,
-  rows: Record<string, unknown>[],
-  vendorName?: string,
-): Promise<string[]> {
-  const name = (vendorName ?? "United Rentals").trim();
-
-  let [vend] = await tx
-    .select({ id: schema.vendor.id })
-    .from(schema.vendor)
-    .where(and(eq(schema.vendor.tenantId, tenantId), eq(schema.vendor.name, name)))
-    .limit(1);
-  if (!vend) {
-    [vend] = await tx
-      .insert(schema.vendor)
-      .values({ tenantId, name })
-      .returning({ id: schema.vendor.id });
-  }
-  const vendorId = vend!.id;
-
-  const touched: string[] = [];
-
-  for (const r of rows) {
-    const externalNumber = String(r.externalNumber ?? "").trim();
-    if (!externalNumber) continue;
-
-    const mapped = ORDER_TYPE_MAP[String(r.orderType ?? "")] ?? {
-      orderType: "quote",
-      orderStatus: "quoted",
-      lineStatus: "quoted",
-    };
-
-    let [order] = await tx
-      .select({ id: schema.rentalOrder.id })
-      .from(schema.rentalOrder)
-      .where(
-        and(
-          eq(schema.rentalOrder.tenantId, tenantId),
-          eq(schema.rentalOrder.vendorId, vendorId),
-          eq(schema.rentalOrder.externalNumber, externalNumber),
-        ),
-      )
-      .limit(1);
-
-    const header = {
-      orderType: mapped.orderType,
-      status: mapped.orderStatus,
-      jobsiteLabel: (r.jobsiteLabel as string) ?? null,
-      orderedByLabel: (r.orderedByLabel as string) ?? null,
-      startDate: (r.startDate as string) ?? null,
-      endDate: (r.endDate as string) ?? null,
-      updatedAt: new Date(),
-    };
-
-    if (order) {
-      /* Deliberately does NOT touch projectId — somebody linked that by hand
-         and a re-import must not undo it. */
-      await tx.update(schema.rentalOrder).set(header).where(eq(schema.rentalOrder.id, order.id));
-    } else {
-      [order] = await tx
-        .insert(schema.rentalOrder)
-        .values({ tenantId, vendorId, externalNumber, createdBy: actorUserId, ...header })
-        .returning({ id: schema.rentalOrder.id });
-      touched.push(order!.id);
-    }
-
-    const itemName = String(r.itemName ?? "").trim();
-    const catClass = (r.catClass as string) ?? null;
-
-    const [existingLine] = await tx
-      .select({ id: schema.rentalLine.id, status: schema.rentalLine.status })
-      .from(schema.rentalLine)
-      .where(
-        and(
-          eq(schema.rentalLine.tenantId, tenantId),
-          eq(schema.rentalLine.orderId, order!.id),
-          eq(schema.rentalLine.itemName, itemName),
-          catClass ? eq(schema.rentalLine.catClass, catClass) : isNull(schema.rentalLine.catClass),
-        ),
-      )
-      .limit(1);
-
-    const line = {
-      catClass,
-      itemName,
-      quantity: (r.quantity as number) ?? 1,
-      startDate: (r.startDate as string) ?? null,
-      endDate: (r.endDate as string) ?? null,
-      status: mapped.lineStatus,
-      notes: (r.notes as string) ?? null,
-      updatedAt: new Date(),
-    };
-
-    if (existingLine) {
-      /* A line somebody already called off rent stays off rent, even if the
-         vendor's export still shows the contract open — the yard's word about
-         its own kit beats a stale download. */
-      const keepReturned = existingLine.status === "returned";
-      await tx
-        .update(schema.rentalLine)
-        .set(keepReturned ? { ...line, status: "returned" } : line)
-        .where(eq(schema.rentalLine.id, existingLine.id));
-    } else {
-      await tx.insert(schema.rentalLine).values({ tenantId, orderId: order!.id, ...line });
-    }
-  }
-
-  return touched;
-}

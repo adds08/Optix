@@ -1,0 +1,2 @@
+ALTER TABLE "asset" ADD COLUMN "asset_number" bigint NOT NULL GENERATED ALWAYS AS IDENTITY (sequence name "asset_asset_number_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "asset_number_idx" ON "asset" USING btree ("asset_number");

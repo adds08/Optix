@@ -76,6 +76,7 @@ export const assetRouter = router({
       const rows = await ctx.db
         .select({
           id: schema.asset.id,
+          assetNumber: schema.asset.assetNumber,
           tag: schema.asset.tag,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,
@@ -132,6 +133,7 @@ export const assetRouter = router({
       const [row] = await ctx.db
         .select({
           id: schema.asset.id,
+          assetNumber: schema.asset.assetNumber,
           tag: schema.asset.tag,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,

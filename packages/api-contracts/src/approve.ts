@@ -137,9 +137,8 @@ export async function confirmMessageAction(
 ): Promise<{
   ok: boolean;
   applied: number;
-  outcome: "applied" | "borrowed" | "awaiting_approval" | "requested";
+  outcome: "applied" | "awaiting_approval" | "requested";
   awaitingApproval: number;
-  awaitingVerification: number;
   transactionIds: string[];
   taskId: string | null;
 }> {
@@ -173,13 +172,11 @@ export async function confirmMessageAction(
   let transactionIds: string[] = [];
   let taskId: string | null = null;
   let awaitingApproval = 0;
-  let awaitingVerification = 0;
 
   if (allowed) {
     const res = await applyChatAction(ctx.db, opts);
     transactionIds = res.transactionIds;
     awaitingApproval = res.awaitingApproval;
-    awaitingVerification = res.awaitingVerification;
   } else {
     const res = await requestChatAction(ctx.db, opts);
     transactionIds = res.transactionIds;
@@ -199,9 +196,7 @@ export async function confirmMessageAction(
     ? ("requested" as const)
     : awaitingApproval > 0
       ? ("awaiting_approval" as const)
-      : awaitingVerification > 0
-        ? ("borrowed" as const)
-        : ("applied" as const);
+      : ("applied" as const);
 
   /* A borrow DID move the register, so it is executed, not requested — the
      desk still has to look at it, but the tool is where the message said it
@@ -210,7 +205,7 @@ export async function confirmMessageAction(
     .update(schema.message)
     .set({
       processingStatus:
-        outcome === "applied" || outcome === "borrowed" ? "action_executed" : "action_requested",
+        outcome === "applied" ? "action_executed" : "action_requested",
       executedTransactionIds: transactionIds,
       handledByUserId: ctx.session!.userId,
       handledAt: new Date(),
@@ -231,7 +226,6 @@ export async function confirmMessageAction(
     applied: allowed ? 1 : 0,
     outcome,
     awaitingApproval,
-    awaitingVerification,
     transactionIds,
     taskId,
   };

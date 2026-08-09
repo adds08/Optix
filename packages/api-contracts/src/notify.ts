@@ -101,8 +101,6 @@ export type DeskPending = {
   refId: string;
   assetTag: string | null;
   assetLabel: string;
-  /** `approve` withholds the move; `verify` means it already happened. */
-  kind: "approve" | "verify";
   /** Employee id of whoever raised it, so they are not told about themselves. */
   actorEmployeeId?: string | null;
   /** Who it is going to, when that reads better than the tool alone. */
@@ -127,12 +125,10 @@ export async function notifyDeskPending(db: any, d: DeskPending): Promise<number
   if (!desk.length) return 0;
 
   const what = d.assetTag ? `${d.assetTag} — ${d.assetLabel}` : d.assetLabel;
-  const title =
-    d.kind === "approve" ? `Waiting for approval: ${what}` : `Recorded, needs checking: ${what}`;
-  const body =
-    d.kind === "approve"
-      ? `This one is held until somebody signs it off${d.toName ? `, then it goes to ${d.toName}` : ""}. The tool has not moved.`
-      : `The tool is already with ${d.toName ?? "the new holder"} and still belongs to whoever owned it. Confirm the record, or reject it to send the tool home.`;
+  const title = `Waiting for approval: ${what}`;
+  const body = `This one is held until somebody signs it off${
+    d.toName ? `, then it goes to ${d.toName}` : ""
+  }. The tool has not moved.`;
 
   for (const person of desk) {
     await db.insert(schema.notification).values({

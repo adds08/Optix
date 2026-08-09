@@ -30,9 +30,8 @@ export default function CustodyPage() {
     !scopeProjects || (a.projectId ? scopeProjects.has(a.projectId) : false);
 
   const active = (assignments.data ?? []).filter(
-    (a) => (a.status === "active" || a.status === "overdue") && scoped(a),
+    (a) => a.status === "active" && scoped(a),
   );
-  const overdue = active.filter((a) => a.expectedEnd && (daysFrom(a.expectedEnd) ?? -1) > 0);
   const inFlight = (transfers.data ?? []).filter((t) => t.status !== "completed" && t.status !== "cancelled");
 
   type HeldRow = (typeof active)[number];
@@ -45,28 +44,17 @@ export default function CustodyPage() {
       col<HeldRow>({ header: "Held by", accessorFn: (a) => a.custodianName ?? "", cell: (a) => a.custodianName ?? "—" }),
       col<HeldRow>({ header: "Project", accessorFn: (a) => a.projectName ?? "", cell: (a) => (a.projectName ? idName(a.projectExternalId, a.projectName) : "—") }),
       col<HeldRow>({ header: "Rig", accessorFn: (a) => a.locationName ?? "", cell: (a) => a.locationName ?? "—" }),
-      col<HeldRow>({ header: "Type", accessorFn: (a) => a.type, width: "6rem", cell: (a) => <span className="capitalize">{a.type}</span> }),
       col<HeldRow>({
-        header: "Due",
-        accessorFn: (a) => a.expectedEnd ?? "",
+        header: "Since",
+        accessorFn: (a) => a.startDate ?? "",
         width: "8rem",
-        cell: (a) => {
-          const late = a.expectedEnd ? (daysFrom(a.expectedEnd) ?? -1) > 0 : false;
-          return a.expectedEnd ? (
-            <span className={cn(late && "font-medium text-crit")}>
-              {shortDate(a.expectedEnd)}
-              {late ? <span className="block text-xs">{relative(a.expectedEnd)}</span> : null}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          );
-        },
+        cell: (a) => (a.startDate ? <span className="text-muted-foreground">{shortDate(a.startDate)}</span> : "—"),
       }),
       col<HeldRow>({
         header: "Status",
         accessorFn: (a) => a.status,
         width: "8rem",
-        cell: (a) => <StatusPill status={(a.expectedEnd ? (daysFrom(a.expectedEnd) ?? -1) > 0 : false) ? "overdue" : a.status} />,
+        cell: (a) => <StatusPill status={a.status} />,
       }),
     ],
     [],
@@ -86,9 +74,9 @@ export default function CustodyPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Counts ride on the tabs and an overdue assignment is already red in its
-          own row, so there is no card row here repeating both back. Overdue and
-          in-motion get one line of text because neither is a tab of its own. */}
+      {/* Counts ride on the tabs, so there is no card row here repeating them
+          back. In-motion gets one line of text because it is not a tab of its
+          own. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex gap-1" role="tablist">
           {([["held", "Held", active.length], ["moving", "Moving", transfers.data?.length ?? 0]] as const).map(
@@ -111,7 +99,6 @@ export default function CustodyPage() {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          <span className={cn("tnum", overdue.length && "font-medium text-crit")}>{overdue.length}</span> overdue ·{" "}
           <span className="tnum">{inFlight.length}</span> in motion
         </p>
       </div>

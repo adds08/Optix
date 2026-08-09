@@ -9,7 +9,7 @@ import { createDb } from "@stinventory/db";
 import { resolveSession, login, logout } from "@stinventory/auth";
 import { serverEnv } from "@stinventory/env";
 import { createLogger } from "@stinventory/logger";
-import { detectOverdueLoans, detectRentalsDue, deliverPendingNotifications } from "./notifications.js";
+import { deliverPendingNotifications } from "./notifications.js";
 import { processQueuedMessages } from "./messaging-worker.js";
 import { clearRateLimit, clientIp, rateLimit } from "./rate-limit.js";
 import { isAllowedImage, MAX_PHOTO_BYTES, storageFor } from "./storage.js";
@@ -258,17 +258,15 @@ serve({ fetch: app.fetch, port }, (info) => {
   log.info(`apps/api listening on :${info.port}`);
 });
 
-// Notification scheduler: runs every 60 seconds. Detection + delivery.
+/* Notification delivery, every 60 seconds. This used to also detect overdue
+   loans and rentals due; both went with the borrow and rental models on
+   2026-08-09, so what is left is pushing what other code has already written. */
 const SCAN_INTERVAL_MS = 60_000;
 setInterval(async () => {
   try {
-    const n = await detectOverdueLoans(db);
-    if (n > 0) log.info(`[notifications] detected ${n} new overdue loans`);
-    const r = await detectRentalsDue(db);
-    if (r > 0) log.info(`[notifications] raised ${r} rental due/overdue alerts`);
     await deliverPendingNotifications(db, env);
   } catch (err) {
-    log.error("[notifications] scan failed", { err: String(err) });
+    log.error("[notifications] delivery failed", { err: String(err) });
   }
 }, SCAN_INTERVAL_MS);
 log.info(`[notifications] scheduler started (every ${SCAN_INTERVAL_MS / 1000}s)`);

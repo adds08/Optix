@@ -51,30 +51,6 @@ export function mountRestRoutes(app: Hono, db: Database) {
     return c.json({ assigned, available, inMaintenance: inMaint, reserved, lost, fleetValue: `${fleetValue}` });
   });
 
-  // Overdue loans
-  rest.get("/api/dashboard/overdue-loans", async (c) => {
-    const tenantId = tid(c);
-    const rows = await db.select({
-      id: s.assignment.id,
-      tag: s.asset.tag,
-      make: s.asset.make,
-      modelNumber: s.asset.modelNumber,
-      description: s.asset.description,
-      custodianName: s.employee.name,
-      expectedEnd: s.assignment.expectedEndDate,
-      daysOverdue: sql<number>`GREATEST(0, CURRENT_DATE - ${s.assignment.expectedEndDate}::date)::int`,
-    }).from(s.assignment)
-      .innerJoin(s.asset, eq(s.assignment.assetId, s.asset.id))
-      .innerJoin(s.employee, eq(s.assignment.custodianId, s.employee.id))
-      .where(and(
-        eq(s.assignment.tenantId, tenantId),
-        eq(s.assignment.status, "active"),
-        eq(s.assignment.type, "temporary"),
-        sql`${s.assignment.expectedEndDate} < CURRENT_DATE`,
-      ));
-    return c.json(rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
-  });
-
   // Recent activity
   rest.get("/api/dashboard/recent-activity", async (c) => {
     const rows = await db.select({
@@ -219,9 +195,7 @@ export function mountRestRoutes(app: Hono, db: Database) {
       make: s.asset.make, modelNumber: s.asset.modelNumber, description: s.asset.description,
       custodianName: s.employee.name,
       projectName: s.project.name,
-      type: s.assignment.type, startDate: s.assignment.startDate,
-      expectedEnd: s.assignment.expectedEndDate, status: s.assignment.status,
-      overdue: sql<boolean>`CASE WHEN ${s.assignment.type} = 'temporary' AND ${s.assignment.status} = 'active' AND ${s.assignment.expectedEndDate} < CURRENT_DATE THEN true ELSE false END`.as("overdue"),
+      startDate: s.assignment.startDate, status: s.assignment.status,
     }).from(s.assignment)
       .innerJoin(s.asset, eq(s.assignment.assetId, s.asset.id))
       .innerJoin(s.employee, eq(s.assignment.custodianId, s.employee.id))

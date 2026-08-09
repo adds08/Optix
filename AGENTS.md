@@ -28,7 +28,8 @@ it can later fold in as Mark 85's Equipment module or ship as a satellite SaaS.
 | **Tools follow the foreman** | Small tools live with the person, not the site. When a foreman changes job, `currentProjectId` on everything they hold moves with them; `owningProjectId` never does. |
 | **Reports-first** | Each module ships its reports before its edit UI. Reports are the moat. |
 | **Multi-tenant-ready** | Every row carries `tenant_id` from commit one. RLS stays off until the second tenant is real. |
-| **Owned ≠ rented** | `asset` is what Urban owns. Rented kit lives in `rental_*` and never enters the register — mixing them corrupts what the fleet is worth. |
+| **Owned only** | `asset` is what Urban owns. Rented equipment was modelled here and removed on 2026-08-09 — STInventory tracks small tools Urban owns, nothing hired. |
+| **The desk moves tools** | Issuing and reassigning is the equipment department's job. Foremen hold tools and read the register; they do not transfer between themselves. |
 
 ## 3. Current pain (why this exists)
 
@@ -37,7 +38,6 @@ WhatsApp threads buried under other messages. The result:
 - No one knows where a given tool is at any moment.
 - Foremen on multiple projects cannot report which tools are on which site.
 - HR offboarding (termination) has no clearance workflow — ex-employees walk away holding assets.
-- Temporary loans have no due-date enforcement — tools go overdue silently.
 - Procurement is reactive: "buy another one" when the first cannot be found.
 
 ## 4. Tech stack
@@ -112,7 +112,8 @@ anything a human must review before trusting it is in
   status / flags, each count computed with its own filter lifted), cards-or-table toggle,
   and value weight so a $33k total station does not read like a $260 drill.
   See `HANDOFF.md` for why the filtering is client-side.
-- **Assignments** — custody links, temporary loans, overdue detection, approval gate
+- **Assignments** — custody links and the high-value approval gate. Every link is simply
+  custody: there is no loan, no due date and no overdue state (removed 2026-08-09)
 - **Transfers** — hand-off reporting, high-value + cross-person approval
 - **Vehicles** — trucks/trailers as moving tracking locations (GPS + ownership)
 - **Job postings** — `employee_project_assignment` records which job a person was on and
@@ -131,7 +132,8 @@ anything a human must review before trusting it is in
   else only the union of their job groups and their team rows. Tools by Jobsite (`/jobsites`)
   is the control hub for this: job ID · name headers, assignable foreman/PM/super chips,
   editable truck/trailer rows, and "Add Truck / Add Trailer".
-- **Dashboard** — KPIs, overdue loans, HR clearance queue, pending approvals, activity feed
+- **Dashboard** — KPIs, HR clearance queue, pending approvals, activity feed. No money
+  figures: fleet value and capital moved to reports on 2026-08-09
 - **Conversational layer** — chat → LLM intent parse → entity resolution → proposed custody
   action → confirm. Plus tasks extracted from chat and an admin verification queue.
   Full spec: `docs/07-conversational-layer.md`
@@ -166,18 +168,10 @@ anything a human must review before trusting it is in
   `processing` rows, announces new requests to the desk and chases aging ones on a widening
   interval. **It never approves anything** — auto-applying after a timeout would be a way to
   obtain a permission by waiting.
-- **Rented equipment** — `vendor` / `rental_order` / `rental_line`, deliberately NOT rows in
-  `asset`: Urban does not own these, they have a return date, and they cost money by simply
-  existing. The vendor's CSV export imports as-is (`rental` import spec uses United Rentals'
-  own headers, MM/DD/YYYY dates, one row per line item grouped into orders by contract
-  number) and re-importing is idempotent. `rental.onRent` is the report that pays for it:
-  what is still out, soonest due first, overdue at the top. `rental.offRent` is the one write
-  that stops money leaving. **No cost figures anywhere** — the export carries no rates, so
-  anything shown would be invented; the fields exist for when rates arrive. Surfaced at
-  `/rentals`.
-- **Notification engine** — overdue detection, SLA timers, email/SMS provider interface.
-  `detectRentalsDue` raises `rental_due_soon` (7 days out) and `rental_overdue` to the
-  equipment desk rather than the field, since a foreman cannot end a hire contract.
+- **Notification engine** — in-app alerts plus an email/SMS provider interface that is still
+  a console stub. `notifyDeskPending` tells the approver role when a transfer or assignment
+  is held for signature; `notifyCustodyDecision` closes the loop on approve/decline. Overdue
+  and rental detection were removed on 2026-08-09 with the loan and rental models.
 - **Event-sourced core** — append-only `transaction`; rebuild guarantee; audit trail is free
 - **Reports** — `assetRegister`, `byProject`, `byForeman`, `idle`, `lost`,
   `capitalByProject`, all six with pages under `/reports` driven by

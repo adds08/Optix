@@ -4,6 +4,33 @@ All notable changes to STInventory are documented in this file.
 
 ## Unreleased
 
+### Removed: rented equipment, loans, and foreman-to-foreman hand-offs
+
+Three things the system modelled that Urban does not do.
+
+**Rented equipment is gone.** STInventory tracks the small tools Urban owns. Hire
+contracts, vendors and their return dates are a different problem and are no longer
+part of this system.
+
+**Loans are gone.** A tool issued to somebody is simply in their custody — there is
+no due date, nothing falls overdue, and no screen chases a return. Every overdue
+banner, alert and report went with it.
+
+**Only the equipment desk moves tools.** A foreman can see what he is holding; he can
+no longer transfer a tool to another foreman or assign one to himself. Issuing and
+reassigning is the equipment department's job, which is how the yard already works.
+The one approval left is by value: a tool above the high-value threshold still needs
+a second administrator to sign it off.
+
+### Changed: the dashboard no longer reports money
+
+Fleet value and shop capital are off the desk dashboard, along with the capital
+split chart on the Command Center. They are totals of what tools cost, which is a
+question finance asks rather than one the yard acts on between jobs. All three
+remain as reports — capital by project, capital by department, and the capital
+split chart — so nothing was lost, it moved to where that question belongs.
+"Capital on jobs" stayed: what a job is holding matters when it closes out.
+
 ### Fixed: a failed screen no longer blanks the app
 
 A render error anywhere in the app used to unmount everything and leave a white
@@ -33,6 +60,10 @@ is actually in, and missing records are reported as missing rather than as a fau
 app. They described a shared layer that was never built and had misled earlier work.
 
 ### Added: rented equipment
+
+> Superseded within the same unreleased cycle — see "Removed: rented equipment, loans,
+> and foreman-to-foreman hand-offs" above. This entry is kept because the work was done
+> and the reasoning is worth reading; none of it ships.
 
 Urban rents from United Rentals; the system only knew about tools Urban owns. New
 `vendor` / `rental_order` / `rental_line` tables, deliberately **not** rows in `asset` — the

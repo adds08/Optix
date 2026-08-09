@@ -6,9 +6,24 @@ import { custodyOutcome } from "@stinventory/domain";
 import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { homeCustodianId, moveCustody, projectForCustodian } from "../custody.js";
+import { moveCustody, projectForCustodian } from "../custody.js";
 import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 
+/*
+  Moving a tool from one custodian to another.
+
+  This is the equipment desk's operation and nobody else's. `transfer.create`
+  requires `transfer.create`, which only the desk-side roles hold — a foreman
+  can see what he is holding and nothing more.
+
+  There used to be a third path here: a foreman's hand-off became a `borrow`,
+  applied immediately as temporary custody with the permanent owner untouched,
+  and the desk confirmed or rejected it afterwards through `transfer.verify`.
+  Urban does not work that way. Tools are issued and reassigned by the yard, so
+  the borrow, the `pending_verification` state and the verify step are gone —
+  see the 2026-08-09 changelog. Two outcomes remain: apply it, or hold it for a
+  second signature because of what it is worth.
+*/
 export const transferRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
@@ -30,9 +45,7 @@ export const transferRouter = router({
       .from(schema.transfer)
       .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
       .where(eq(schema.transfer.tenantId, tid))
-      .then((rows) =>
-        rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })),
-      );
+      .then((rows) => rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   }),
 
   create: requirePermission("transfer.create")
@@ -44,12 +57,6 @@ export const transferRouter = router({
         toProjectId: z.string().uuid().optional(),
         reason: z.string().default("reallocation"),
         note: z.string().optional(),
-        /* Only meaningful on a borrow, and optional there. A foreman who knows
-           when the tool is coming back can say so and it becomes an overdue
-           loan if it does not; one who does not know says nothing and the desk
-           closes it out. Requiring a date on every hand-off would put a form
-           field between a foreman and telling us where his tool went. */
-        expectedEndDate: z.string().date().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -84,21 +91,16 @@ export const transferRouter = router({
 
       const settings = await ctx.db.query.tenantSettings.findFirst({ where: eq(schema.tenantSettings.tenantId, tid) });
       const outcome = custodyOutcome({
-        actorCanApprove: ctx.session.permissions.has("transfer.approve"),
         assetCost: asset.acquisitionCost ? Number(asset.acquisitionCost) : null,
         highValueThreshold: settings?.highValueThreshold ?? null,
       });
-      /* `verify` still writes the move — it is a borrow the desk is being told
-         about, not one it is being asked to permit. Only `approve` withholds it. */
-      const applyNow = outcome !== "approve";
-      const isBorrow = outcome === "verify";
+      const applyNow = outcome === "auto";
 
-      const status =
-        outcome === "approve" ? "pending_approval" : outcome === "verify" ? "pending_verification" : "approved";
       /* A hand-off sends the tool to the recipient's job, not the project the
          form happened to be on. An explicit pick wins; a blank one means
          "wherever the recipient works". */
       const toProjectId = input.toProjectId ?? (await projectForCustodian(ctx.db, tid, input.toCustodianId, null));
+
       const [row] = await ctx.db
         .insert(schema.transfer)
         .values({
@@ -111,11 +113,9 @@ export const transferRouter = router({
           fromProjectId: asset.currentProjectId,
           toProjectId,
           reason: input.reason,
-          status,
+          status: applyNow ? "approved" : "pending_approval",
           requestedBy: ctx.session.userId,
-          /* A borrow is not approved by the person who raised it. It is applied
-             and then shown to the desk, so this stays null until they verify. */
-          approvedBy: applyNow && !isBorrow ? ctx.session.userId : null,
+          approvedBy: applyNow ? ctx.session.userId : null,
         })
         .returning();
 
@@ -123,6 +123,7 @@ export const transferRouter = router({
         await ctx.db
           .update(schema.asset)
           .set({
+            currentStatus: "assigned",
             currentCustodianId: input.toCustodianId,
             currentLocationId: input.toLocationId ?? asset.currentLocationId,
             currentProjectId: toProjectId ?? asset.currentProjectId,
@@ -131,11 +132,7 @@ export const transferRouter = router({
           .where(eq(schema.asset.id, input.assetId));
         /* Close the link the previous holder had and open the new one. Without
            this the register shows the new holder while the custody screen still
-           shows the old — see packages/api-contracts/src/custody.ts.
-
-           `temporary` on a borrow is the whole point: the tool has moved and the
-           register says so, but ownership has not, and homeCustodianId() can
-           still read the permanent owner back out of the history. */
+           shows the old — see packages/api-contracts/src/custody.ts. */
         await moveCustody(ctx.db, {
           tenantId: tid,
           assetId: input.assetId,
@@ -143,27 +140,25 @@ export const transferRouter = router({
           projectId: toProjectId ?? asset.currentProjectId ?? null,
           locationId: input.toLocationId ?? asset.currentLocationId ?? null,
           actorUserId: ctx.session.userId,
-          type: isBorrow ? "temporary" : "permanent",
-          expectedEndDate: isBorrow ? input.expectedEndDate ?? null : null,
         });
-        /* A borrow is not finished when it is recorded — the desk has still to
-           look at it, and `completed` would drop it out of their queue. */
-        if (!isBorrow) {
-          await ctx.db
-            .update(schema.transfer)
-            .set({ status: "completed", completedAt: new Date() })
-            .where(eq(schema.transfer.id, row.id));
-        }
+        await ctx.db
+          .update(schema.transfer)
+          .set({ status: "completed", completedAt: new Date() })
+          .where(eq(schema.transfer.id, row.id));
         await ctx.db.insert(schema.transaction).values({
           tenantId: tid,
           assetId: input.assetId,
           eventType: "transfer",
           actorId: ctx.session.userId,
-          fromState: { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId },
+          fromState: {
+            status: asset.currentStatus,
+            custodianId: asset.currentCustodianId,
+            projectId: asset.currentProjectId,
+            locationId: asset.currentLocationId,
+          },
           /* Mirrors the asset update above, which already fell back to the
-             current values. The ledger did not, so the two disagreed — and this
-             is now the common path rather than the rare one, because an
-             ordinary hand-off no longer waits for approval. */
+             current values. The ledger did not, so the two disagreed — and
+             replaying the ledger blanked whatever the snapshot omitted. */
           toState: {
             status: "assigned",
             custodianId: input.toCustodianId,
@@ -172,15 +167,13 @@ export const transferRouter = router({
           },
           refType: "transfer",
           refId: row.id,
-          note: input.note ?? (isBorrow ? "Lent, awaiting equipment desk" : "Transfer completed"),
+          note: input.note ?? "Transfer completed",
         });
       }
-      /* Put it in front of the desk. Until this existed the queue filled up
-         silently and the only thing that surfaced a held hand-off was somebody
-         opening the dashboard. Never allowed to fail the transfer: the tool has
-         already moved (or deliberately has not), and neither outcome should be
-         undone because a notification insert went wrong. */
-      if (row && outcome !== "auto") {
+
+      /* Put a held transfer in front of the desk. Until this existed the queue
+         filled up silently. Never allowed to fail the transfer itself. */
+      if (row && !applyNow) {
         try {
           const toEmp = await ctx.db.query.employee.findFirst({
             where: and(eq(schema.employee.id, input.toCustodianId), eq(schema.employee.tenantId, tid)),
@@ -193,7 +186,6 @@ export const transferRouter = router({
             refId: row.id,
             assetTag: asset.tag,
             assetLabel: formatAssetModel(asset) || "a tool",
-            kind: outcome === "approve" ? "approve" : "verify",
             actorEmployeeId: ctx.session.employeeId ?? null,
             toName: toEmp?.name ?? null,
           });
@@ -203,7 +195,15 @@ export const transferRouter = router({
         }
       }
 
-      if (row) await logEvent(ctx, { category: "transfer", action: "create", entityType: "transfer", entityId: row.id, details: { outcome } });
+      if (row) {
+        await logEvent(ctx, {
+          category: "transfer",
+          action: "create",
+          entityType: "transfer",
+          entityId: row.id,
+          details: { outcome },
+        });
+      }
       return { transfer: row, outcome };
     }),
 
@@ -214,17 +214,8 @@ export const transferRouter = router({
         where: and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, ctx.session.tenantId)),
       });
       if (!tr) throw new TRPCError({ code: "NOT_FOUND", message: "That transfer no longer exists." });
-      /* Approving is for hand-offs that were withheld. A borrow was already
-         applied and needs `verify` — running it through here would open a
-         second custody link for a tool that has not moved again. */
       if (tr.status !== "pending_approval") {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message:
-            tr.status === "pending_verification"
-              ? "This is a recorded borrow, not a held request. Verify it instead."
-              : `This transfer is already ${tr.status}.`,
-        });
+        throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${tr.status}.` });
       }
 
       /*
@@ -252,6 +243,7 @@ export const transferRouter = router({
       await ctx.db
         .update(schema.asset)
         .set({
+          currentStatus: "assigned",
           currentCustodianId: tr.toCustodianId,
           currentLocationId: toLocationId,
           currentProjectId: toProjectId,
@@ -288,9 +280,7 @@ export const transferRouter = router({
       });
 
       /* Close the loop. Whoever asked for this hand-off, and whoever is now
-         holding the tool, both need to hear that it went through. The asset was
-         already read above, before the update, which is also the state the
-         notification should describe. */
+         holding the tool, both need to hear that it went through. */
       await notifyCustodyDecision(ctx.db, {
         tenantId: ctx.session.tenantId,
         requestedByUserId: tr.requestedBy,
@@ -312,110 +302,10 @@ export const transferRouter = router({
       return { ok: true };
     }),
 
-  /*
-    The desk's half of a borrow.
-
-    A foreman's hand-off is already recorded — the tool moved and the register
-    says so. What the desk does here is confirm they have seen it, and decide
-    whether it stays a borrow or becomes ownership. Nothing about the tool's
-    location changes either way; only who it belongs to can.
-
-    This is the step that was missing entirely. Without it a foreman's hand-off
-    either wrote permanent ownership with nobody looking, or would have had to
-    block in a queue while the tool was already in someone else's truck.
-  */
-  verify: requirePermission("transfer.approve")
-    .input(
-      z.object({
-        id: z.string().uuid(),
-        /* Off by default: the desk acknowledging a borrow is the common case,
-           and handing over ownership should be the deliberate one. */
-        makePermanent: z.boolean().default(false),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const tid = ctx.session.tenantId;
-      const tr = await ctx.db.query.transfer.findFirst({
-        where: and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, tid)),
-      });
-      if (!tr) throw new TRPCError({ code: "NOT_FOUND", message: "That transfer no longer exists." });
-      if (tr.status !== "pending_verification") {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `This transfer is ${tr.status}, not a borrow awaiting verification.`,
-        });
-      }
-
-      const asset = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, tid)),
-      });
-
-      await ctx.db
-        .update(schema.transfer)
-        .set({ status: "completed", approvedBy: ctx.session.userId, completedAt: new Date(), updatedAt: new Date() })
-        .where(eq(schema.transfer.id, tr.id));
-
-      /* Granting ownership replaces the temporary link with a permanent one for
-         the same holder. The tool does not move — homeCustodianId() simply
-         starts answering with the new person. */
-      if (input.makePermanent) {
-        await moveCustody(ctx.db, {
-          tenantId: tid,
-          assetId: tr.assetId,
-          toCustodianId: tr.toCustodianId,
-          projectId: tr.toProjectId ?? asset?.currentProjectId ?? null,
-          locationId: tr.toLocationId ?? asset?.currentLocationId ?? null,
-          actorUserId: ctx.session.userId,
-          type: "permanent",
-        });
-        await ctx.db.insert(schema.transaction).values({
-          tenantId: tid,
-          assetId: tr.assetId,
-          eventType: "assign",
-          actorId: ctx.session.userId,
-          fromState: asset
-            ? {
-                status: asset.currentStatus,
-                custodianId: asset.currentCustodianId,
-                projectId: asset.currentProjectId,
-                locationId: asset.currentLocationId,
-              }
-            : null,
-          toState: {
-            status: "assigned",
-            custodianId: tr.toCustodianId,
-            projectId: tr.toProjectId ?? asset?.currentProjectId ?? null,
-            locationId: tr.toLocationId ?? asset?.currentLocationId ?? null,
-          },
-          refType: "transfer",
-          refId: tr.id,
-          note: "Ownership granted by the equipment desk",
-        });
-      }
-
-      await notifyCustodyDecision(ctx.db, {
-        tenantId: tid,
-        requestedByUserId: tr.requestedBy,
-        toCustodianId: tr.toCustodianId,
-        fromCustodianId: tr.fromCustodianId,
-        refType: "transfer",
-        refId: tr.id,
-        assetTag: asset?.tag ?? "a tool",
-        approved: true,
-      });
-
-      await logEvent(ctx, {
-        category: "transfer",
-        action: input.makePermanent ? "verify_permanent" : "verify",
-        entityType: "transfer",
-        entityId: tr.id,
-        entityLabel: asset?.tag ?? null,
-      });
-      return { ok: true, madePermanent: input.makePermanent };
-    }),
-
-  /* The other half of the gate. Cancelling records that a hand-off was put up
-     and refused, which deleting the row would not. */
+  /* The other half of the gate. Declining records that a hand-off was put up
+     and refused, which deleting the row would not. Nothing has moved — a held
+     transfer never touched the register — so this only has to be written down
+     and told to the person who asked. */
   decline: requirePermission("transfer.approve")
     .input(z.object({ id: z.string().uuid(), reason: z.string().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {
@@ -424,8 +314,7 @@ export const transferRouter = router({
         where: and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, tid)),
       });
       if (!tr) throw new TRPCError({ code: "NOT_FOUND", message: "That transfer no longer exists." });
-      const wasBorrow = tr.status === "pending_verification";
-      if (tr.status !== "pending_approval" && !wasBorrow) {
+      if (tr.status !== "pending_approval") {
         throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${tr.status}.` });
       }
 
@@ -436,79 +325,33 @@ export const transferRouter = router({
 
       const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, tr.assetId) });
 
-      /*
-        Refusing a borrow is not the same as refusing a held request.
-
-        A held request never moved the tool, so declining it only needs
-        recording. A borrow already moved it, so the desk saying "no, that is
-        wrong" has to put the tool back where it belongs — otherwise the
-        register keeps showing a holder the desk has explicitly rejected.
-
-        Home is the last permanent owner, not `fromCustodianId`: the tool may
-        have been lent on twice before anyone looked at the queue, and walking
-        it back one hop would leave it with a middleman who is not its owner.
-      */
-      if (wasBorrow) {
-        const homeId = await homeCustodianId(ctx.db, tid, tr.assetId);
-        await moveCustody(ctx.db, {
-          tenantId: tid,
-          assetId: tr.assetId,
-          toCustodianId: homeId,
-          projectId: tr.fromProjectId ?? asset?.currentProjectId ?? null,
-          locationId: tr.fromLocationId ?? asset?.currentLocationId ?? null,
-          actorUserId: ctx.session.userId,
-          type: "permanent",
-          closeAs: "returned",
-        });
-        await ctx.db
-          .update(schema.asset)
-          .set({
-            currentCustodianId: homeId,
-            currentStatus: homeId ? "assigned" : "available",
-            currentProjectId: tr.fromProjectId ?? asset?.currentProjectId ?? null,
-            currentLocationId: tr.fromLocationId ?? asset?.currentLocationId ?? null,
-            updatedAt: new Date(),
-          })
-          .where(eq(schema.asset.id, tr.assetId));
-      }
-
-      /* The refusal belongs in the tool's history either way, since "why is this
-         still with Miguel?" is answered here. */
+      /* The refusal belongs in the tool's history, since "why is this still
+         with Miguel?" is answered here. The state does not change, so both
+         snapshots are the same — what this records is that somebody asked and
+         was told no. */
       if (asset) {
-        const before = {
+        const state = {
           status: asset.currentStatus,
           custodianId: asset.currentCustodianId,
           projectId: asset.currentProjectId,
           locationId: asset.currentLocationId,
         };
-        const homeId = wasBorrow ? await homeCustodianId(ctx.db, tid, tr.assetId) : null;
         await ctx.db.insert(schema.transaction).values({
           tenantId: tid,
           assetId: tr.assetId,
-          eventType: wasBorrow ? "return" : "status_change",
+          eventType: "status_change",
           actorId: ctx.session.userId,
-          fromState: before,
-          toState: wasBorrow
-            ? {
-                status: homeId ? "assigned" : "available",
-                custodianId: homeId,
-                projectId: tr.fromProjectId ?? asset.currentProjectId,
-                locationId: tr.fromLocationId ?? asset.currentLocationId,
-              }
-            : before,
+          fromState: state,
+          toState: state,
           refType: "transfer",
           refId: tr.id,
-          note: input.reason
-            ? `${wasBorrow ? "Borrow rejected, tool returned" : "Transfer declined"} — ${input.reason}`
-            : wasBorrow
-              ? "Borrow rejected, tool returned"
-              : "Transfer declined",
+          note: input.reason ? `Transfer declined — ${input.reason}` : "Transfer declined",
         });
       }
 
-      /* The refusal is the half that was missing entirely: a declined hand-off
-         used to end at the database row, so the foreman who asked for it never
-         found out, and the tool "not going back" looked like a bug. */
+      /* A declined hand-off used to end at the database row, so the person who
+         asked for it never found out and the tool "not moving" looked like a
+         bug. */
       await notifyCustodyDecision(ctx.db, {
         tenantId: tid,
         requestedByUserId: tr.requestedBy,

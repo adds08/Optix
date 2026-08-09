@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import { custodyOutcome, isOverdueLoan } from "@stinventory/domain";
+import { custodyOutcome } from "@stinventory/domain";
 import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
@@ -28,9 +28,7 @@ export const assignmentRouter = router({
         projectExternalId: schema.project.externalId,
         locationId: schema.assignment.locationId,
         locationName: schema.location.name,
-        type: schema.assignment.type,
         startDate: schema.assignment.startDate,
-        expectedEnd: schema.assignment.expectedEndDate,
         status: schema.assignment.status,
       })
       .from(schema.assignment)
@@ -39,12 +37,7 @@ export const assignmentRouter = router({
       .leftJoin(schema.project, eq(schema.assignment.projectId, schema.project.id))
       .leftJoin(schema.location, eq(schema.assignment.locationId, schema.location.id))
       .where(eq(schema.assignment.tenantId, tid));
-    const today = new Date().toISOString().slice(0, 10);
-    return rows.map((r) => ({
-      ...r,
-      modelName: formatAssetModel(r),
-      overdue: isOverdueLoan({ type: r.type as "permanent" | "temporary", status: r.status, expectedEndDate: r.expectedEnd, today }),
-    }));
+    return rows.map((r) => ({ ...r, modelName: formatAssetModel(r) }));
   }),
 
   create: requirePermission("assignment.create")
@@ -54,8 +47,6 @@ export const assignmentRouter = router({
         custodianId: z.string().uuid(),
         projectId: z.string().uuid().optional(),
         locationId: z.string().uuid().optional(),
-        type: z.enum(["permanent", "temporary"]).default("permanent"),
-        expectedEnd: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -69,18 +60,10 @@ export const assignmentRouter = router({
         where: eq(schema.tenantSettings.tenantId, tid),
       });
       const outcome = custodyOutcome({
-        actorCanApprove: ctx.session.permissions.has("assignment.approve"),
         assetCost: asset.acquisitionCost ? Number(asset.acquisitionCost) : null,
         highValueThreshold: settings?.highValueThreshold ?? null,
       });
       const needsApproval = outcome === "approve";
-
-      /* `type` is the caller's to choose only if the caller may grant ownership.
-         A foreman handing a tool out is lending it however the form is filled
-         in — permanent custody is the equipment desk's to give, and this input
-         was the last way round that. */
-      const type = outcome === "verify" ? "temporary" : input.type;
-
       const status = needsApproval ? "pending_approval" : "active";
 
       /* Handing a tool to somebody sends it to their job, not to whichever
@@ -102,9 +85,7 @@ export const assignmentRouter = router({
           custodianId: input.custodianId,
           projectId,
           locationId: input.locationId ?? null,
-          type,
           startDate: new Date().toISOString().slice(0, 10),
-          expectedEndDate: input.expectedEnd ?? null,
           status,
           approvedBy: needsApproval ? null : ctx.session.userId,
         })
@@ -159,7 +140,6 @@ export const assignmentRouter = router({
             refId: row.id,
             assetTag: asset.tag,
             assetLabel: formatAssetModel(asset) || "a tool",
-            kind: "approve",
             actorEmployeeId: ctx.session.employeeId ?? null,
             toName: toEmp?.name ?? null,
           });

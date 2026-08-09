@@ -1,4 +1,4 @@
-import { boolean, date, decimal, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, decimal, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant, user } from "./identity";
 import { assetModel } from "./catalog";
 import { project } from "./project";
@@ -14,6 +14,20 @@ export const asset = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    /*
+      The register's own reference number — every asset gets one, stamped by
+      the database at insert time (mirrors how `transaction`/`event_log` mint
+      their ids), never entered or editable. This exists because `id` is a
+      uuid nobody reads off a screen, and `tag` is deliberately the opposite of
+      reliable: a physical label that may never have been stuck on the tool at
+      all. Reverifying the real source data (docs/data, 2026-08) confirmed
+      Urban's own sheets carry no tool-ID column anywhere — every "TOOL-0001"
+      style value that predates this column was invented at seed time, not a
+      real label. `assetNumber` is what a report or a screen can always point
+      to; `tag` and `serialNumber` stay exactly what they were — optional,
+      physical, never generated.
+    */
+    assetNumber: bigint("asset_number", { mode: "number" }).notNull().generatedAlwaysAsIdentity(),
     /*
       A tag is a physical label on the tool, not an id the system assigns. Null
       means nobody has labelled it yet — a normal state for anything imported from
@@ -70,6 +84,7 @@ export const asset = pgTable(
   },
   (t) => ({
     tenantIdx: index("asset_tenant_idx").on(t.tenantId),
+    assetNumberIdx: index("asset_number_idx").on(t.assetNumber),
     tagIdx: index("asset_tag_idx").on(t.tag),
     custodianIdx: index("asset_custodian_idx").on(t.currentCustodianId),
     projectIdx: index("asset_project_idx").on(t.currentProjectId),
@@ -77,7 +92,15 @@ export const asset = pgTable(
   }),
 );
 
-// Active custody link. At most one row per serialized asset with status = active|pending_approval.
+/*
+  Active custody link. At most one row per serialized asset with
+  status = active|pending_approval.
+
+  `type` (permanent|temporary) and `expectedEndDate` were dropped on 2026-08-09
+  along with the borrow model: every link is now simply custody, because tools
+  are issued and reassigned by the equipment desk rather than lent between
+  foremen. Nothing falls due, so nothing goes overdue.
+*/
 export const assignment = pgTable(
   "assignment",
   {
@@ -87,10 +110,8 @@ export const assignment = pgTable(
     custodianId: uuid("custodian_id").notNull().references(() => employee.id, { onDelete: "restrict" }),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
     locationId: uuid("location_id").references(() => location.id, { onDelete: "set null" }),
-    type: text("type").notNull().default("permanent"), // permanent | temporary
     startDate: date("start_date").notNull(),
-    expectedEndDate: date("expected_end_date"), // temporary loans require it
-    status: text("status").notNull().default("active"), // active | returned | transferred | overdue | pending_approval
+    status: text("status").notNull().default("active"), // active | returned | transferred | pending_approval
     approvedBy: uuid("approved_by").references(() => user.id, { onDelete: "set null" }),
     returnedAt: timestamp("returned_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -119,7 +140,7 @@ export const transfer = pgTable(
     fromProjectId: uuid("from_project_id").references(() => project.id, { onDelete: "set null" }),
     toProjectId: uuid("to_project_id").references(() => project.id, { onDelete: "set null" }),
     reason: text("reason").notNull().default("reallocation"), // TransferReason
-    status: text("status").notNull().default("pending_approval"), // pending_approval | approved | in_transit | completed | cancelled
+    status: text("status").notNull().default("pending_approval"), // pending_approval | approved | completed | cancelled
     requestedBy: uuid("requested_by").notNull().references(() => user.id, { onDelete: "restrict" }),
     approvedBy: uuid("approved_by").references(() => user.id, { onDelete: "set null" }),
     completedAt: timestamp("completed_at", { withTimezone: true }),

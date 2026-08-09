@@ -64,7 +64,6 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "employee.read",
     "assignment.read",
     "assignment.create",
-    "rental.read",
     "transfer.read",
     "transfer.create",
     "report.read",
@@ -95,6 +94,11 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "project.assign.superintendent",
     "project.assign.foreman",
   ],
+  /* Read-only on custody by design. Tools are issued and reassigned by the
+     equipment desk; a foreman sees what he is holding and what is coming, and
+     tells the desk through chat or a request when something needs to move. He
+     used to hold assignment.create and transfer.create, which is what made a
+     foreman-to-foreman borrow possible — see the 2026-08-09 changelog. */
   foreman: [
     "asset.read",
     "location.read",
@@ -102,9 +106,7 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "project.read",
     "employee.read",
     "assignment.read",
-    "assignment.create",
     "transfer.read",
-    "transfer.create",
     "report.read",
     "notification.read",
     /* A foreman can see who else is on the project they work. */
@@ -392,9 +394,7 @@ async function main() {
       custodianId: empByKey[s.cust]!,
       projectId: s.proj ? projectByKey[s.proj]! : null,
       locationId: locByKey[s.loc]!,
-      type: s.type,
       startDate: s.start,
-      expectedEndDate: s.end,
       status: "active",
       approvedBy: adminId,
     })),

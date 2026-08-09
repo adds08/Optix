@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, MessageSquare, Wrench } from "lucide-react";
+import { MessageSquare, Wrench } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
@@ -18,9 +18,7 @@ export default function MyToolsPage() {
   const employeeId = me.data?.employeeId ?? undefined;
 
   const tools = trpc.asset.list.useQuery({ custodianId: employeeId }, { enabled: !!employeeId });
-  const overdue = trpc.dashboard.overdueLoans.useQuery();
 
-  const overdueIds = new Set((overdue.data ?? []).map((o) => o.assetId));
   const rows = tools.data ?? [];
 
   return (
@@ -40,14 +38,6 @@ export default function MyToolsPage() {
           </Link>
         </div>
       </div>
-
-      {overdueIds.size > 0 ? (
-        <div className="flex items-center gap-2 rounded-md border border-crit/40 bg-crit-bg px-4 py-3 text-sm text-crit">
-          <AlertTriangle className="size-4 shrink-0" />
-          {overdueIds.size} of your tools {overdueIds.size === 1 ? "is" : "are"} past the return
-          date. Hand them over or bring them back.
-        </div>
-      ) : null}
 
       {me.isLoading || tools.isLoading ? (
         <TableSkeleton rows={4} cols={3} />
@@ -70,17 +60,11 @@ export default function MyToolsPage() {
             <li key={t.id}>
               <Link
                 href={`/tools/${t.id}`}
-                className={`flex flex-col gap-2 rounded-md border bg-card p-4 transition-colors hover:border-primary/40 ${
-                  overdueIds.has(t.id) ? "border-crit/50" : ""
-                }`}
+                className="flex flex-col gap-2 rounded-md border bg-card p-4 transition-colors hover:border-primary/40"
               >
                 <div className="flex items-center justify-between gap-2">
                   <Tag>{t.tag}</Tag>
-                  {overdueIds.has(t.id) ? (
-                    <StatusPill status="overdue" label="Overdue" />
-                  ) : (
-                    <StatusPill status={t.status} />
-                  )}
+                  <StatusPill status={t.status} />
                 </div>
                 <span className="font-medium">{formatAssetModel(t) || "Untagged tool"}</span>
                 <span className="text-sm text-muted-foreground">

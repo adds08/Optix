@@ -32,9 +32,16 @@ import { cn } from "@/lib/utils";
   weather moved out into the compact GreetingBar on the Fleet tab.
 */
 
+/*
+  `capital` is deliberately absent. The Capital split widget still exists and is
+  still a report at /reports/charts/capital-split — it was taken off the Command
+  Center because project-versus-department acquisition cost is a finance
+  question, not something the desk acts on between jobs. `widgetVisibility`
+  iterates this list, so a stored preference still carrying `capital: true` is
+  ignored rather than needing a migration.
+*/
 export const WIDGET_DEFS = [
   { id: "inbox", label: "Inbox status" },
-  { id: "capital", label: "Capital split" },
   { id: "status", label: "Fleet by status" },
   { id: "movements", label: "Movement rate" },
   { id: "greeting", label: "Greeting" },
@@ -45,7 +52,6 @@ export type WidgetId = (typeof WIDGET_DEFS)[number]["id"];
 
 const DEFAULT_VISIBLE: Record<WidgetId, boolean> = {
   inbox: true,
-  capital: true,
   status: true,
   movements: true,
   greeting: true,
