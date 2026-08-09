@@ -66,12 +66,10 @@ packages/
                    vehicle, report, messaging, entity, task, …)
   auth/            Lucia-style session + tenant-scoped RBAC
   db/              Drizzle schema + seed (Postgres)
-  design-system/   Shared tokens (colors, spacing, radii, typography) + tailwind preset
   domain/          Event-sourcing fold + custody rules (pure)
   intent/          Intent catalog, generated LLM prompt, parser — the one place
                    an intent is declared; see docs/08-custom-intents.md
   env/             Zod-validated env loader
-  frontend-shared/ Cross-client auth + API helpers (REST client — retired under ADR-2)
   logger/          pino logger
   types/           Branded IDs, enums, permissions
   config-eslint/   Shared ESLint flat config
@@ -242,9 +240,12 @@ anything a human must review before trusting it is in
   after a schema change, commit the SQL, `make migrate` to apply. The API container migrates
   on boot and refuses to serve if it fails. `push` is renamed `push-dangerous` — it diffs a
   live database and applies with no review and no record.
-- **Tests.** 59, in `packages/domain` (custody rules + the event-fold rebuild guarantee),
-  `packages/types` (the @ parser) and `packages/api-contracts` (the permission map).
+- **Tests.** 139 across 9 files, in `packages/domain` (custody rules + the event-fold
+  rebuild guarantee), `packages/intent` (the parser), `packages/types` (the @ parser),
+  `packages/api-contracts` (the permission map) and `packages/auth` (secret encryption).
   `pnpm test`. The fold tests pin the partial-`toState` bug that shipped twice.
+  All of them are pure-function unit tests — `apps/api` and `apps/web` have no `test`
+  script, so nothing exercises a router, a database or a rendered screen.
 - **Production images.** `docker/Dockerfile.{api,web}` + `docker-compose.prod.yml`.
   The API is bundled with esbuild (`apps/api/build.mjs`) because every workspace package
   exports raw `.ts` — `tsc && node dist/index.js` never worked. Web uses Next standalone.
@@ -264,7 +265,10 @@ Items 1, 4 and 6 below are **resolved** and kept for the record; 2, 3 and 5 rema
    path. AGENTS.md §13 was stale on this.
 2. **Two API surfaces** — `apps/api/src/rest-routes.ts` duplicates the tRPC routers. Per
    ADR-2 the routers win; fix bugs there.
-3. **`packages/notifications/` is an empty directory.**
+3. ~~`packages/notifications/` is an empty directory~~ — **resolved** 2026-08-09: removed,
+   along with `packages/design-system` and `packages/frontend-shared`. All three were
+   unimported by either app; the latter two are the ones ADR-3 anticipated would serve
+   both clients, which never happened.
 4. ~~The manual action path skips the high-value approval rule~~ — **resolved**: verified
    against the code on 2026-08-06 — `action.submit` → `applyChatAction` applies
    `outcomeFor` (which reads `tenantSettings.highValueThreshold`) per asset for

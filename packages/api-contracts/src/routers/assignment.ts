@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
@@ -6,7 +7,7 @@ import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { closeActiveCustody, projectForCustodian } from "../custody.js";
-import { notifyCustodyDecision } from "../notify.js";
+import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 
 export const assignmentRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -62,7 +63,7 @@ export const assignmentRouter = router({
       const asset = await ctx.db.query.asset.findFirst({
         where: and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)),
       });
-      if (!asset) throw new Error("Asset not found");
+      if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "That tool is not in the register." });
 
       const settings = await ctx.db.query.tenantSettings.findFirst({
         where: eq(schema.tenantSettings.tenantId, tid),
@@ -142,6 +143,32 @@ export const assignmentRouter = router({
           note: `Assigned to foreman`,
         });
       }
+      /* Same reason as the transfer path: a held assignment used to reach the
+         desk only if somebody opened the dashboard and read a count. Best
+         effort — the assignment stands whether or not the alert was written. */
+      if (row && needsApproval) {
+        try {
+          const toEmp = await ctx.db.query.employee.findFirst({
+            where: and(eq(schema.employee.id, input.custodianId), eq(schema.employee.tenantId, tid)),
+            columns: { name: true },
+          });
+          await notifyDeskPending(ctx.db, {
+            tenantId: tid,
+            approverRole: settings?.custodyApproverRole ?? null,
+            refType: "assignment",
+            refId: row.id,
+            assetTag: asset.tag,
+            assetLabel: formatAssetModel(asset) || "a tool",
+            kind: "approve",
+            actorEmployeeId: ctx.session.employeeId ?? null,
+            toName: toEmp?.name ?? null,
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[notify] desk pending failed", err);
+        }
+      }
+
       if (row) await logEvent(ctx, { category: "assignment", action: "create", entityType: "assignment", entityId: row.id, details: { needsApproval } });
       return { assignment: row, needsApproval };
     }),
@@ -152,7 +179,7 @@ export const assignmentRouter = router({
       const a = await ctx.db.query.assignment.findFirst({
         where: and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)),
       });
-      if (!a) throw new Error("Assignment not found");
+      if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "That assignment no longer exists." });
       await ctx.db
         .update(schema.assignment)
         .set({ status: "active", approvedBy: ctx.session.userId, updatedAt: new Date() })
@@ -199,9 +226,9 @@ export const assignmentRouter = router({
       const a = await ctx.db.query.assignment.findFirst({
         where: and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, tid)),
       });
-      if (!a) throw new Error("Assignment not found");
+      if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "That assignment no longer exists." });
       if (a.status !== "pending_approval") {
-        throw new Error(`This assignment is already ${a.status}`);
+        throw new TRPCError({ code: "CONFLICT", message: `This assignment is already .` });
       }
 
       await ctx.db
@@ -237,7 +264,7 @@ export const assignmentRouter = router({
       const a = await ctx.db.query.assignment.findFirst({
         where: and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)),
       });
-      if (!a) throw new Error("Assignment not found");
+      if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "That assignment no longer exists." });
       await ctx.db
         .update(schema.assignment)
         .set({ status: "returned", returnedAt: new Date(), updatedAt: new Date() })

@@ -11,7 +11,7 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 ## Contents
 
 | File | What it is |
-|---|---|---|
+|---|---|
 | `docs/00-executive-summary.md` | **Start here for leadership context** — one-page distilled pitch |
 | `docs/01-plan.md` | Master planning & functional spec — vision, entities, lifecycle, custody model, scenarios, procurement, reports, modules, roadmap |
 | `docs/03-data-model.md` | Detailed schema; event-sourced core (transactions = source of truth, everything else a projection) |
@@ -33,6 +33,12 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 | `docs/18-vehicle-tracking-and-map.md` | **Built** — online/offline from GPS freshness, the fleet map, and the personal-allowance "no tracker" nuance |
 | `docs/19-command-center-and-modernization.md` | **Built** — DataTable + filter sheet, top-nav notification center, intelligent inbox, dashboard widgets + theme engine, mobile motion |
 | `docs/20-dashboard-chat-auth-redesign.md` | **Built** — global search, collapsible rail, dashboard tabs + weather bar, reports consolidation, chat two-pane, auth redesign, motion |
+| `docs/KILO_DELIVERY_ASSESSMENT.md` | **Status report, not a spec** — where the build actually stands against the eight delivery areas, with a gap list, sizing and phases. Assessed 2026-08-09 |
+| `docs/DELIVERY_ASSESSMENT_VERIFICATION.md` | Re-check of every citation and count in the assessment; the corrections it lists have since been applied |
+| `docs/DELIVERY_ASSESSMENT_RECONCILIATION.md` | Why the assessment and its verification disagreed, and the authoritative numbers |
+| `docs/changelogs/` | What actually shipped, one file per body of work — see its README for how specs, changelogs and release notes relate |
+| `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
+| `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
 
 ## Remote localhost (docs/20, G)
 
@@ -47,9 +53,6 @@ make tunnel                       # prints a public https URL
 
 The tunnel carries only the web page; the browser's API calls go straight to
 `http://localhost:4100`, so `NEXT_PUBLIC_API_URL` stays unchanged.
-| `docs/changelogs/` | What actually shipped, one file per body of work — see its README for how specs, changelogs and release notes relate |
-| `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
-| `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
 
 ## Live deployment
 
@@ -243,11 +246,9 @@ STInventory/
 │   │                    vehicle, report, messaging, entity, task, …)
 │   ├── auth/            Lucia-style session + tenant-scoped RBAC
 │   ├── db/              Drizzle schema + seed (Postgres)
-│   ├── design-system/   Shared tokens + tailwind preset
 │   ├── domain/          Event-sourcing fold + custody rules (pure)
 │   ├── intent/          Intent catalog + generated LLM prompt + parser (pure + fetch)
 │   ├── env/             Zod-validated env loader
-│   ├── frontend-shared/ Cross-client auth + API helpers
 │   ├── logger/          pino logger
 │   ├── types/           Branded IDs, enums, permissions
 │   ├── config-eslint/   Shared ESLint flat config

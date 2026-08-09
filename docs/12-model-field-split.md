@@ -139,14 +139,11 @@ invent their own join.
 It goes in `packages/types` — specifically a new
 `packages/types/src/format.ts`, re-exported from `index.ts`.
 
-Not `packages/frontend-shared`, despite the name. That package is dead: nothing
-declares it as a dependency and nothing imports it anywhere in the repo. Both
-`apps/web` and `apps/mobile` depend on exactly two workspace packages,
-`@stinventory/types` and `@stinventory/api-contracts`, so a helper placed in
-`frontend-shared` would be unreachable without first wiring up a new dependency.
-Its `types.ts` row types are likewise unused and are not the shared contract
-they look like — do not update them as part of this work, and do not trust them
-as a description of what the apps render.
+Not `packages/frontend-shared`, despite the name. That package was dead — nothing
+declared it as a dependency and nothing imported it anywhere in the repo — and it
+was **deleted on 2026-08-09** along with `packages/design-system`. Both `apps/web`
+and `apps/mobile` depend on exactly two workspace packages, `@stinventory/types`
+and `@stinventory/api-contracts`, which is why shared helpers go in the former.
 
 ```ts
 /* One place that decides how the four columns read as a single line, so a

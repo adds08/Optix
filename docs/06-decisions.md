@@ -79,6 +79,14 @@ whose main mobile job is scan, confirm, and submit, that is a poor trade.
 - `packages/design-system` (tokens) and `packages/frontend-shared` exist to serve both
   clients; they only pay off under this decision.
 
+> **Follow-up, 2026-08-09.** That last consequence did not hold. Neither package was ever
+> imported by `apps/web` or `apps/mobile` — the two clients share only
+> `@stinventory/api-contracts` and `@stinventory/types` — so both were deleted. The
+> decision itself stands; only the prediction about how the sharing would be structured
+> was wrong. Share logic (as `packages/domain` does), not tokens or components: the web
+> app is Radix + Tailwind v4 and the field app is NativeWind + Tailwind v3, so there is no
+> component layer for them to hold in common.
+
 ---
 
 ## ADR-4 — Chat-first intent capture

@@ -7,7 +7,7 @@ import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { homeCustodianId, moveCustody, projectForCustodian } from "../custody.js";
-import { notifyCustodyDecision } from "../notify.js";
+import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 
 export const transferRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -57,7 +57,7 @@ export const transferRouter = router({
       const asset = await ctx.db.query.asset.findFirst({
         where: and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)),
       });
-      if (!asset) throw new Error("Asset not found");
+      if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "That tool is not in the register." });
 
       /*
         One open hand-off per tool.
@@ -175,6 +175,34 @@ export const transferRouter = router({
           note: input.note ?? (isBorrow ? "Lent, awaiting equipment desk" : "Transfer completed"),
         });
       }
+      /* Put it in front of the desk. Until this existed the queue filled up
+         silently and the only thing that surfaced a held hand-off was somebody
+         opening the dashboard. Never allowed to fail the transfer: the tool has
+         already moved (or deliberately has not), and neither outcome should be
+         undone because a notification insert went wrong. */
+      if (row && outcome !== "auto") {
+        try {
+          const toEmp = await ctx.db.query.employee.findFirst({
+            where: and(eq(schema.employee.id, input.toCustodianId), eq(schema.employee.tenantId, tid)),
+            columns: { name: true },
+          });
+          await notifyDeskPending(ctx.db, {
+            tenantId: tid,
+            approverRole: settings?.custodyApproverRole ?? null,
+            refType: "transfer",
+            refId: row.id,
+            assetTag: asset.tag,
+            assetLabel: formatAssetModel(asset) || "a tool",
+            kind: outcome === "approve" ? "approve" : "verify",
+            actorEmployeeId: ctx.session.employeeId ?? null,
+            toName: toEmp?.name ?? null,
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[notify] desk pending failed", err);
+        }
+      }
+
       if (row) await logEvent(ctx, { category: "transfer", action: "create", entityType: "transfer", entityId: row.id, details: { outcome } });
       return { transfer: row, outcome };
     }),
@@ -185,16 +213,18 @@ export const transferRouter = router({
       const tr = await ctx.db.query.transfer.findFirst({
         where: and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, ctx.session.tenantId)),
       });
-      if (!tr) throw new Error("Transfer not found");
+      if (!tr) throw new TRPCError({ code: "NOT_FOUND", message: "That transfer no longer exists." });
       /* Approving is for hand-offs that were withheld. A borrow was already
          applied and needs `verify` — running it through here would open a
          second custody link for a tool that has not moved again. */
       if (tr.status !== "pending_approval") {
-        throw new Error(
-          tr.status === "pending_verification"
-            ? "This is a recorded borrow, not a held request. Verify it instead."
-            : `This transfer is already ${tr.status}`,
-        );
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            tr.status === "pending_verification"
+              ? "This is a recorded borrow, not a held request. Verify it instead."
+              : `This transfer is already ${tr.status}.`,
+        });
       }
 
       /*
@@ -308,9 +338,12 @@ export const transferRouter = router({
       const tr = await ctx.db.query.transfer.findFirst({
         where: and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, tid)),
       });
-      if (!tr) throw new Error("Transfer not found");
+      if (!tr) throw new TRPCError({ code: "NOT_FOUND", message: "That transfer no longer exists." });
       if (tr.status !== "pending_verification") {
-        throw new Error(`This transfer is ${tr.status}, not a borrow awaiting verification`);
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `This transfer is ${tr.status}, not a borrow awaiting verification.`,
+        });
       }
 
       const asset = await ctx.db.query.asset.findFirst({
@@ -390,10 +423,10 @@ export const transferRouter = router({
       const tr = await ctx.db.query.transfer.findFirst({
         where: and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, tid)),
       });
-      if (!tr) throw new Error("Transfer not found");
+      if (!tr) throw new TRPCError({ code: "NOT_FOUND", message: "That transfer no longer exists." });
       const wasBorrow = tr.status === "pending_verification";
       if (tr.status !== "pending_approval" && !wasBorrow) {
-        throw new Error(`This transfer is already ${tr.status}`);
+        throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${tr.status}.` });
       }
 
       await ctx.db

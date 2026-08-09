@@ -37,12 +37,13 @@ jobs:
       - name: Test
         run: pnpm test
 
-      # Lint last: it currently fails on pre-existing `any` usage in apps/api,
-      # so it reports without blocking. Drop `continue-on-error` once that is
-      # cleaned up — leaving it here permanently makes the step decorative.
+      # Lint blocks as of 2026-08-09. It was `continue-on-error` because it used
+      # to fail on pre-existing `any` usage in apps/api; it no longer does —
+      # `pnpm lint` exits 0, with 9 warnings and no errors. Warnings stay
+      # non-blocking deliberately (no `--max-warnings`), so this catches new
+      # errors without turning the existing backlog into a merge gate.
       - name: Lint
         run: pnpm lint
-        continue-on-error: true
 
   build:
     name: production images

@@ -27,7 +27,7 @@ install. Everything is vanilla HTML/CSS/JS; sample data lives in `data.js`.
 
 ## Visual system
 
-Colors are pulled from `packages/design-system/tokens/colors.ts` (neutral gray scale,
+Colors are pulled from `apps/web/app/globals.css` (neutral gray scale,
 near-black sidebar, purple `sidebar-primary` accent) so this prototype stays a truthful
 preview of the production Next.js app rather than its own one-off palette. Only the
 *layout/interaction* patterns are borrowed from United Rentals' site; the color system is

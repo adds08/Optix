@@ -24,9 +24,13 @@ packages/intent Chat message -> intent parsing, LLM prompt, catalog
 packages/auth   Sessions, bcrypt, AES-GCM secret encryption
 ```
 
-`packages/frontend-shared` exists and is **dead** — nothing depends on it and
-nothing imports it. Do not put shared code there and do not trust its types as a
-description of anything. It misled a previous pass.
+`packages/frontend-shared` and `packages/design-system` were **deleted on 2026-08-09** —
+nothing had ever imported either one, and their types described an architecture that was
+never built. They misled at least two previous passes, which is why they are named here
+rather than quietly removed. The two clients share `@stinventory/api-contracts` and
+`@stinventory/types`, and nothing else. If you need to share more, share *logic* the way
+`packages/domain` does; there is no common component layer between Radix/Tailwind v4 on
+the web and NativeWind/Tailwind v3 on mobile.
 
 ## The one idea you must hold
 
