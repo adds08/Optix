@@ -30,7 +30,7 @@ import { closeActiveCustody, moveCustody, projectForCustodian } from "./custody.
    says out loud, and the rest is filled in on the confirm card or left blank.
    The tag is optional — a tool is only tagged once a label is physically on
    it — but the tool has to be describable, so at least one of make or
-   description is required (see docs/12-model-field-split.md). */
+   description is required (see docs/built/12-model-field-split.md). */
 export type AssetDraft = {
   tag?: string;
   make?: string;

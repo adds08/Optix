@@ -1,6 +1,6 @@
 # Vehicle GPS tracking: online/offline status, the fleet map, and the "No tracker" nuance
 
-Implements `docs/18-vehicle-tracking-and-map.md`. One derived value, one status
+Implements `docs/built/18-vehicle-tracking-and-map.md`. One derived value, one status
 column, one map — no schema change, no migration.
 
 ## What shipped

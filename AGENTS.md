@@ -212,11 +212,16 @@ anything a human must review before trusting it is in
 
 | File | Purpose |
 |---|---|
-| `docs/00-executive-summary.md` | **Start here for leadership context** — one-page distilled pitch |
-| `docs/01-plan.md` | Master planning & functional spec — vision, entities, lifecycle, custody model, operational scenarios, procurement, reports, modules, roadmap |
+| `docs/workings/SYSTEM_PLAN.md` | **Start here before building** — what the system is, what exists, what is being built. Verify claims against the repo before acting |
+| `docs/workings/RELEASE_1_SPRINT_PLAN.md` | The delivery plan — Sprint 1 ships 24 Aug 2026: epics, stories, points, mechanisms, cases. Jira import files sit beside it |
+| `docs/initialPlan.md` | Urban's original brief in their own words — the requirements every spec traces back to |
+| `design/README.md` | The two UI concept screens and what to take from each. Neither is an implementation target |
+| `docs/archive/` | Superseded status reports. If one disagrees with SYSTEM_PLAN.md, SYSTEM_PLAN.md wins |
+| `docs/archive/00-executive-summary.md` | **Start here for leadership context** — one-page distilled pitch |
+| `docs/archive/01-plan.md` | Master planning & functional spec — vision, entities, lifecycle, custody model, operational scenarios, procurement, reports, modules, roadmap |
 | `docs/02-saas-architecture.md` | Multi-tenant productization path, tenancy model, convergence options with Mark 85 |
 | `docs/03-data-model.md` | Detailed schema; event-sourced core design; projection logic; rebuild guarantee |
-| `docs/04-diagrams.md` | Mermaid diagrams: ERD, lifecycle state machine, custody flows, procurement BPMN, deployment, SaaS multi-tenancy, event fold |
+| `docs/archive/04-diagrams.md` | Mermaid diagrams: ERD, lifecycle state machine, custody flows, procurement BPMN, deployment, SaaS multi-tenancy, event fold |
 | `docs/05-build-proposal.md` | Bodhi Labs scope, team, hours, pricing, delivery plan, handoff — plus the delivery-status addendum |
 | `docs/06-decisions.md` | Architecture decision records (ADR-1..6) — read before changing the API surface, the mobile stack, or the event model |
 | `docs/07-conversational-layer.md` | The chat → intent → custody-action subsystem, its state machine, and its known gaps |

@@ -41,14 +41,14 @@ Four nullable columns on `asset`, in `packages/db/src/schema/asset.ts`:
 
 ```ts
 /* What the tool is, in the four columns Urban's own sheets use. Replaces the
-   single `model_name` blob — see docs/12-model-field-split.md. */
+   single `model_name` blob — see docs/built/12-model-field-split.md. */
 make: text("make"),
 modelNumber: text("model_number"),
 description: text("description"),
 /* The unlabelled trailing column on the trailer sheets: a secondary equipment
    number ("PC-08", "QS-602", "106"). Free text because the yard's numbering is
    not ours to constrain. Note this is NOT the sheets' "OTHER" column, which
-   holds NEW/USED and maps to `condition` — see docs/13-excel-round-trip.md. */
+   holds NEW/USED and maps to `condition` — see docs/built/13-excel-round-trip.md. */
 otherRef: text("other_ref"),
 ```
 
@@ -199,7 +199,7 @@ one. That is acceptable: the existing match is already a loose substring `ilike`
 and a foreman saying "the Bosch" should match on brand, which today it cannot.
 
 The same file's `resolveCustodian` also needs the `CUSTODIAN_ROLES` widening from
-`docs/11-department-cost-targets.md`. Both changes are in one function's
+`docs/built/11-department-cost-targets.md`. Both changes are in one function's
 neighbourhood; do them together.
 
 ### The intake gate
@@ -298,7 +298,7 @@ Follow this order. The type errors from each step point at the next.
 8. **`apps/mobile`** — four display sites: `(tabs)/index.tsx`,
    `(tabs)/alerts.tsx`, `tool/[id].tsx`, `action/[type].tsx`
 9. **`packages/types/src/import-specs.ts`** — see
-   `docs/13-excel-round-trip.md`
+   `docs/built/13-excel-round-trip.md`
 10. Full `pnpm typecheck` and `pnpm test`
 
 ### Notes on specific sites

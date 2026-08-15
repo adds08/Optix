@@ -32,7 +32,7 @@ That distinction decides everything below:
 | Safe to invent | Yes — nobody reads it | No — it must match the tool |
 
 This supersedes the "generate the tag on import" recommendation in
-`docs/13-excel-round-trip.md`, which is now wrong — do not build it.
+`docs/built/13-excel-round-trip.md`, which is now wrong — do not build it.
 
 ## Why the system must not invent a tag
 
@@ -62,7 +62,7 @@ One change in `packages/db/src/schema/asset.ts`:
 ```ts
 /* A tag is a physical label on the tool, not an id the system assigns. Null
    means nobody has labelled it yet — a normal state for anything imported from
-   the yard's own sheets. See docs/17-optional-tags.md. */
+   the yard's own sheets. See docs/built/17-optional-tags.md. */
 tag: text("tag"),
 ```
 
@@ -70,7 +70,7 @@ Note `asset_tag_idx` is a **plain index, not unique** — tag uniqueness has
 always been enforced in application code, never by the database. That does not
 change here, and it is why this migration is small.
 
-Fold this into the same migration as `docs/12-model-field-split.md`; both alter
+Fold this into the same migration as `docs/built/12-model-field-split.md`; both alter
 `asset` and there is no reason to touch it twice.
 
 ```sql
@@ -189,7 +189,7 @@ an untagged tool, which is correct, because a foreman cannot say a tag that is
 not written on anything.
 
 Untagged tools remain reachable in chat through the fuzzy match on
-make/model/description added by `docs/12-model-field-split.md`, and by serial.
+make/model/description added by `docs/built/12-model-field-split.md`, and by serial.
 
 The intake path in `apply-action.ts` currently throws if a draft has no tag.
 That should relax to match the new rule: a registration with a description and

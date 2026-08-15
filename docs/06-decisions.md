@@ -156,3 +156,67 @@ tenant data rather than a constant in code keeps the rule tunable per customer.
 - Chat-confirmed actions currently bypass the gate: `messaging.confirmAction` writes
   assignments with `status: "active"` and transfers with `status: "completed"` directly. This
   is an inconsistency to resolve, not an intended exemption.
+
+---
+
+## ADR-7 — "Blocky" replaces the shadcn visual layer; the primitives stay
+
+**Status:** Accepted (provisional — the layout is agreed, the palette is not)
+**Date:** 2026-08-15 · **Concept:** `design/claude-design/Tools by Jobsite Blocky.dc.html`
+
+**Decision.** The product's visual language becomes Blocky: 3–4px radius, JetBrains Mono for
+every numeral, 8–10px row density, a coloured left edge bar for state, zebra-striped tables,
+and bare coloured status text instead of badge components. The shadcn *look* is dropped.
+
+**The Radix primitives underneath shadcn are kept.** Dialog, popover, combobox, dropdown and
+the rest keep their behaviour: focus traps, keyboard navigation, ARIA wiring.
+
+**Rationale.** These screens are yard manifests, not marketing surfaces. Rounded cards and
+proportional numerals make a column of tag numbers and counts harder to scan, which is the
+one job the screen has. Blocky is a set of decisions about density and typography; it says
+nothing about component behaviour, so there is nothing in it that requires dropping Radix.
+
+Rebuilding the primitives by hand would cost weeks and would regress accessibility that
+works today — paying that price to change a border radius is not a trade worth making. If
+the intent was ever to remove Radix as well, that is a separate decision needing its own record.
+
+**Consequences.**
+- Blocky lands as **tokens plus restyled primitives** (STI-1001), then existing surfaces
+  migrate (STI-1002). New UI is built in Blocky from the start, so the dashboard is not
+  built twice.
+- The concept's hex palette is **not** adopted verbatim. It must be expressed in the oklch
+  token system in `apps/web/app/globals.css`, so light/dark and the reserved status hues
+  (`--ok`, `--warn`, `--crit`, `--idle`) keep working. This is the unconfirmed half.
+- The field app (NativeWind) does not automatically follow. ADR-3's follow-up already
+  established the two clients share logic, not components.
+
+---
+
+## ADR-8 — Foundation integration is read-only ODBC, not a file drop
+
+**Status:** Accepted · **Date:** 2026-08-15 · **Supersedes:** the "nightly CSV drop vs live
+API" open question in `docs/workings/SYSTEM_PLAN.md` §8.2
+
+**Decision.** Foundation is reached over its **ODBC database layer**. Urban already runs a
+PHP sync against it; that script is the reference for table and column mapping. STInventory
+reads Foundation directly — projects, phases, cost codes and users — rather than consuming
+an exported file.
+
+**Rationale.** ODBC removes the export step entirely, which removes the class of failure
+where a load runs against a stale file. It also makes ongoing sync a scheduling problem
+rather than an integration problem, because the same query serves the one-time load and
+every later refresh.
+
+**Consequences.**
+- **Read-only, always.** STInventory never writes to Foundation. Foundation is authoritative
+  for the entities it owns; the flow is one-directional until someone decides otherwise.
+- The connection needs credentials and a service account, and **the PHP script's auth is the
+  open item** — it is the thing standing between this decision and a working sync.
+- The identity rules in STI-201 do not change. `external_ref(foundation, type, native_id)`
+  is still how a row is matched, whatever the transport.
+- Because the transport is a live query rather than a file, **ongoing sync is now days of
+  work rather than weeks**, which is what the file-drop-versus-API question was sizing.
+  Release 1 still ships the one-time load; scheduled sync becomes cheap enough to pull
+  forward if wanted.
+- Whether the existing PHP is kept as a sidecar or ported into the monorepo is deferred.
+  Not urgent: it changes who runs the sync, not what the sync means.

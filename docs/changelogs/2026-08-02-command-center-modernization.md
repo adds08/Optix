@@ -1,6 +1,6 @@
 # Command center and modernization: DataTable, top nav, intelligent inbox, dashboard + themes, mobile motion
 
-Implements `docs/19-command-center-and-modernization.md` in one migration
+Implements `docs/built/19-command-center-and-modernization.md` in one migration
 (`0006`) and one deploy. Five phases, all shipped together because they share
 one surface (the desk) and one migration.
 

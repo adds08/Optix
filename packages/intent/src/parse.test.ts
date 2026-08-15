@@ -47,7 +47,7 @@ describe("normalizeDraft", () => {
 
   it("accepts a description-only draft", () => {
     /* A tool described with no brand and no catalogue number is the ordinary
-       case for a yard sheet, not a gap — see docs/12-model-field-split.md. */
+       case for a yard sheet, not a gap — see docs/built/12-model-field-split.md. */
     expect(normalizeDraft({ description: "the big grinder" })).toEqual({
       tag: null,
       make: null,

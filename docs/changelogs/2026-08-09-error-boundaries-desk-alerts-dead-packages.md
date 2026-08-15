@@ -1,6 +1,6 @@
 # Error boundaries, the desk gets told, and three packages that were never imported
 
-Housekeeping after a delivery assessment (`docs/KILO_DELIVERY_ASSESSMENT.md`)
+Housekeeping after a delivery assessment (`docs/archive/KILO_DELIVERY_ASSESSMENT.md`)
 went looking for what is actually wired up. Three of its gap items were small
 enough to close in the same pass, and the audit turned up a set of files
 describing an architecture that does not exist.

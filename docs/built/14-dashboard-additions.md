@@ -57,7 +57,7 @@ for it unless a nav badge later needs the count server-side.
 
 ## Spend by department against project
 
-`docs/11-department-cost-targets.md` adds a second kind of cost target. The
+`docs/built/11-department-cost-targets.md` adds a second kind of cost target. The
 moment a mechanic's tools are charged to Repair & Maintenance, the existing
 "Fleet value" number stops telling the whole story — it is one total with no
 split, and the question the owner will ask is how much of the fleet is carried
@@ -88,7 +88,7 @@ tools has either over-bought or lost track, and either is worth seeing daily.
 This one is new, and it is the data-quality number that matters most given where
 the data comes from.
 
-The trailer sheets in `docs/13-excel-round-trip.md` have a SERIAL # column that
+The trailer sheets in `docs/built/13-excel-round-trip.md` have a SERIAL # column that
 is sometimes blank — look at the real sheet and the Skill Saw and both Quikie
 Saws have no serial. A serialized tool with no serial number cannot be
 identified after it is stolen, cannot be matched against a police report, and

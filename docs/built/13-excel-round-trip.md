@@ -28,7 +28,7 @@ Three things stand between here and that: the import spec describes different
 columns, the header matching is case-sensitive and will reject `MAKE`, and there
 is no export that round-trips.
 
-This depends on `docs/12-model-field-split.md` — the `make`/`modelNumber`/
+This depends on `docs/built/12-model-field-split.md` — the `make`/`modelNumber`/
 `description`/`otherRef` columns must exist first.
 
 ## What that sheet actually is
@@ -177,7 +177,7 @@ few rows by hand.
 `description` is the required one, not `make`. A sheet row can plausibly lack a
 brand — `"7-1/4\" WARM DRIVE CIRCLE SAW  SKILL SAW"` has the brand in the
 description already — but a row with no description is not a tool record. This
-matches the router rule in `docs/12-model-field-split.md`: at least one of make
+matches the router rule in `docs/built/12-model-field-split.md`: at least one of make
 or description, with description the one the importer insists on.
 
 ## The sheets have no asset tag
@@ -196,7 +196,7 @@ categories, by the equipment number in the unlabelled column (`PC-08`).
 
 **Resolved: tags become optional.** A tag is a physical label somebody puts on a
 tool, not an identity the system assigns, so it exists in the register only once
-that has happened. `docs/17-optional-tags.md` specifies it, including what
+that has happened. `docs/built/17-optional-tags.md` specifies it, including what
 identifies an untagged tool on screen and how one gets tagged later.
 
 An earlier draft of this document recommended generating a `UIC-xxxx` per row on

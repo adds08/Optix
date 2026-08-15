@@ -91,7 +91,7 @@ Two columns on `asset` in `packages/db/src/schema/asset.ts`, beside
 
 ```ts
 /* Which kind of thing pays for this tool. Set at registration and meant to
-   stay put, like owningProjectId — see docs/11-department-cost-targets.md. */
+   stay put, like owningProjectId — see docs/built/11-department-cost-targets.md. */
 costTarget: text("cost_target").notNull().default("project"), // 'project' | 'department'
 owningDepartmentId: uuid("owning_department_id").references(() => department.id, { onDelete: "restrict" }),
 ```

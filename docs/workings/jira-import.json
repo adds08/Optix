@@ -1,0 +1,1512 @@
+{
+  "generatedFrom": "docs/workings/RELEASE_1_SPRINT_PLAN.md",
+  "release": "Release 1",
+  "targetDate": "2026-08-24",
+  "totalPoints": 275,
+  "totalEstimateHours": 772,
+  "note": "Jira is time-tracked: Original Estimate ships, story points do not. Sprint travels as a label because the importer requires numeric sprint ids.",
+  "sprints": [
+    {
+      "id": "S1",
+      "name": "S1 Release 1 - by 24 Aug 2026",
+      "label": "sprint-1",
+      "points": 58,
+      "estimateHours": 160,
+      "estimateDays": 20,
+      "stories": [
+        "STI-001",
+        "STI-002",
+        "STI-005",
+        "STI-101",
+        "STI-301",
+        "STI-303",
+        "STI-501",
+        "STI-502",
+        "STI-503",
+        "STI-801"
+      ]
+    },
+    {
+      "id": "S1-stretch",
+      "name": "S1 stretch - only if S1 lands early",
+      "label": "sprint-1-stretch",
+      "points": 11,
+      "estimateHours": 32,
+      "estimateDays": 4,
+      "stories": [
+        "STI-003",
+        "STI-004",
+        "STI-504"
+      ]
+    },
+    {
+      "id": "S2",
+      "name": "S2 Dashboard - permissions and scoping",
+      "label": "sprint-2",
+      "points": 60,
+      "estimateHours": 164,
+      "estimateDays": 20.5,
+      "stories": [
+        "STI-701",
+        "STI-802",
+        "STI-804",
+        "STI-901",
+        "STI-902",
+        "STI-903",
+        "STI-904",
+        "STI-905",
+        "STI-1001"
+      ]
+    },
+    {
+      "id": "S3",
+      "name": "S3 Roles - org structure and Blocky migration",
+      "label": "sprint-3",
+      "points": 70,
+      "estimateHours": 196,
+      "estimateDays": 24.5,
+      "stories": [
+        "STI-102",
+        "STI-401",
+        "STI-402",
+        "STI-403",
+        "STI-404",
+        "STI-405",
+        "STI-702",
+        "STI-703",
+        "STI-803",
+        "STI-805",
+        "STI-1002"
+      ]
+    },
+    {
+      "id": "S4",
+      "name": "S4 Foundation - PO and entity management",
+      "label": "sprint-4",
+      "points": 76,
+      "estimateHours": 220,
+      "estimateDays": 27.5,
+      "stories": [
+        "STI-103",
+        "STI-104",
+        "STI-105",
+        "STI-106",
+        "STI-201",
+        "STI-202",
+        "STI-203",
+        "STI-204",
+        "STI-205",
+        "STI-302",
+        "STI-304",
+        "STI-505",
+        "STI-601",
+        "STI-602",
+        "STI-603"
+      ]
+    }
+  ],
+  "epics": [
+    {
+      "key": "STI-000",
+      "name": "E0 Custody integrity",
+      "priority": "Highest",
+      "points": 21,
+      "estimateHours": 64,
+      "description": "Not one of the eleven deliverables, and non-negotiable anyway. Every deliverable reads custody state, and four defects currently make that state untrustworthy. Building reporting on top of them multiplies the error.",
+      "stories": [
+        {
+          "key": "STI-001",
+          "summary": "Make custody writes atomic",
+          "points": 5,
+          "priority": "Highest",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "custody",
+            "data-integrity"
+          ],
+          "mechanism": "Custody executes three consecutive unwrapped statements: close the old assignment, open the new one, append the ledger event. A failure between any two leaves register and ledger permanently and silently disagreeing. Import already does this correctly inside a transaction; custody does not. Wrap it, take a row lock (SELECT ... FOR UPDATE) so concurrent writers cannot interleave, and validate the transition against the pure rules in packages/domain before writing anything.",
+          "acceptanceCriteria": [
+            "Every caller routes through one function: assignment.create, transfer.create, transfer.approve, the chat executor, and the import commit",
+            "An injected failure at each of the three write points leaves the database unchanged",
+            "The ledger event carries a COMPLETE to_state. foldAssetState is last-snapshot-wins, not field-wise; a partial snapshot silently erases fields. This bug has shipped twice",
+            "Notification dispatch happens after commit; a failing notifier must not roll back custody"
+          ],
+          "cases": [
+            "Two desk operators assign the same tool simultaneously: one wins, one gets a clean conflict error, no duplicate active row",
+            "Asset has no active assignment (first issue from the yard): current is null and the transition validator accepts it"
+          ],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-002",
+          "summary": "Enforce one active assignment per asset at the database",
+          "points": 5,
+          "priority": "Highest",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "custody",
+            "data-integrity",
+            "migration"
+          ],
+          "mechanism": "The invariant is stated in three documents and enforced nowhere. Duplicates already exist in live data, so the index cannot simply be added: the backfill must choose a survivor first. CREATE UNIQUE INDEX CONCURRENTLY assignment_one_active_uq ON assignment (asset_id) WHERE status = 'active'.",
+          "acceptanceCriteria": [
+            "The duplicate report is produced and reviewed WITH the Equipment department before any row is touched. Which of two active assignments survives is a per-tool judgement about where the tool physically is. It is not a script and must not be automated",
+            "Each correction is written as a compensating ledger event, never an UPDATE or DELETE on history",
+            "The index exists and a second active insert fails at the database, not in application code",
+            "CONCURRENTLY, so the migration does not lock the table"
+          ],
+          "cases": [
+            "Backfill finds a tool nobody can locate: it becomes 'lost', a real state, rather than being force-assigned to whoever appears first in the table"
+          ],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-003",
+          "summary": "Make the ledger append-only at the database",
+          "points": 3,
+          "priority": "High",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S1-stretch",
+          "sprintName": "S1 stretch - only if S1 lands early",
+          "sprintLabel": "sprint-1-stretch",
+          "labels": [
+            "custody",
+            "data-integrity"
+          ],
+          "mechanism": "Append-only is currently a code comment. Revoke the grants so it becomes a property of the database: REVOKE UPDATE, DELETE ON transaction FROM app_role.",
+          "acceptanceCriteria": [
+            "Application UPDATE/DELETE against transaction fails",
+            "Migrations run under a role that still holds DDL rights",
+            "A rejected write surfaces as a typed error, not a 500"
+          ],
+          "cases": [],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-004",
+          "summary": "Scheduled projection reconciliation",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S1-stretch",
+          "sprintName": "S1 stretch - only if S1 lands early",
+          "sprintLabel": "sprint-1-stretch",
+          "labels": [
+            "custody",
+            "data-integrity"
+          ],
+          "mechanism": "Invariant 4 says folding the ledger from the beginning reproduces the current register exactly. Nothing proves it. A scheduled job folds every asset and compares against the projection.",
+          "acceptanceCriteria": [
+            "Runs nightly",
+            "A non-empty result raises a desk alert naming the divergent assets",
+            "The job is read-only. It reports drift and never silently repairs it, because a silent repair destroys the evidence of the bug that caused the drift"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-001"
+          ]
+        },
+        {
+          "key": "STI-005",
+          "summary": "Commit outstanding migrations and fail CI on drift",
+          "points": 3,
+          "priority": "Highest",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "ci",
+            "migration"
+          ],
+          "mechanism": "Two migrations are uncommitted, so production may not match main. CI should have caught it. This is free and should be done on day 1.",
+          "acceptanceCriteria": [
+            "Outstanding migrations committed",
+            "Deployed schema verified against main",
+            "CI job fails when drizzle generate produces a non-empty diff"
+          ],
+          "cases": [],
+          "dependsOn": []
+        }
+      ]
+    },
+    {
+      "key": "STI-100",
+      "name": "E1 Entity and user administration",
+      "priority": "Highest",
+      "points": 34,
+      "estimateHours": 96,
+      "description": "Deliverable 1. Master-data CRUD largely exists. User administration does not exist at all, and four of the ten declared roles cannot log in. That is the epic.",
+      "stories": [
+        {
+          "key": "STI-101",
+          "summary": "User administration",
+          "points": 8,
+          "priority": "Highest",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "deliverable-1",
+            "identity"
+          ],
+          "mechanism": "There is no screen for creating a user, granting a role, deactivating someone or resetting a password. Every account today came from the seed. Build CRUD over the existing user / role / user_role tables.",
+          "acceptanceCriteria": [
+            "Create user (email, employee link, role), assign and revoke roles, deactivate, reset password",
+            "Deactivation ends sessions immediately. A deactivated user with a live token is a departed employee still holding access",
+            "Deactivating a user who holds tools is refused, and the error names STI-402 as the path. Custody must land somewhere before access is removed",
+            "Password reset issues a single-use expiring token; bcrypt cost 12 matching login",
+            "Every action writes an audit event with the acting user"
+          ],
+          "cases": [
+            "The last owner account cannot be deactivated or stripped of its role: a tenant with no administrator is unrecoverable",
+            "Email already in use: typed field error, not a constraint violation surfacing as a 500"
+          ],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-102",
+          "summary": "Add the missing login roles",
+          "points": 5,
+          "priority": "Highest",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-1",
+            "identity",
+            "rbac"
+          ],
+          "mechanism": "ROLES declares ten but ROLE_PERMS covers only some, so the rest cannot log in usefully. Urban has now resolved the three open definitions, recorded in docs/workings/PERMISSION_MATRIX.md: an ENGINEER is a PM with a different operational purpose and an identical relationship to small tools, so it takes the project_manager permission set and exists separately only so the two can diverge later without a migration. A MECHANIC is an Equipment department employee who holds and uses tools like a foreman, but for repair rather than construction, and whose tools charge to the DEPARTMENT rather than a project. ADMIN resolves to three distinct roles: System Administrator (the developers who build this system), Equipment Administrator (owns the tools programme) and Office Administrator (operations and accounts).",
+          "acceptanceCriteria": [
+            "Every role in ROLES has an explicit permission set; no role falls through to empty",
+            "engineer is added, taking the project_manager permission set and the assets.view.project scope",
+            "mechanic is added as a login role, holding assets.view.own and repair actions. Its cost target defaults to department, not project — the schema already supports this (docs/built/11-department-cost-targets.md), so only the default needs wiring",
+            "system_administrator, office_administrator and equipment_administrator are DISTINCT roles. No procedure branches on the name 'admin'",
+            "seed.ts ROLE_PERMS matches docs/workings/PERMISSION_MATRIX.md exactly"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-801"
+          ]
+        },
+        {
+          "key": "STI-103",
+          "summary": "Equipment entity management: trucks and trailers",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-1",
+            "fleet"
+          ],
+          "mechanism": "Trucks and trailers are vehicle rows 1:1 with a location row. CRUD exists but the desk cannot see fleet-wide state or find an unassigned unit. Scope boundary: these are moving locations for tools, NOT a fleet module. No maintenance schedules, mileage or fuel.",
+          "acceptanceCriteria": [
+            "List and filter by type, ownership (company_owned | personal_allowance) and assignment status",
+            "'Unassigned' is a first-class filter: it is what the desk actually searches for",
+            "Personal vehicles are visually distinct everywhere; they are not Urban property and behave differently on departure",
+            "Deleting a vehicle carrying history is refused, naming the status change to use instead"
+          ],
+          "cases": [],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-104",
+          "summary": "Small tools entity management hardening",
+          "points": 5,
+          "priority": "Medium",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-1"
+          ],
+          "mechanism": "Bulk operations and delete safety on the tool register.",
+          "acceptanceCriteria": [
+            "Bulk edit of category and department across a selection",
+            "tag remains optional and is never generated. A tag is a physical label, not an identity; asset.id is identity",
+            "Delete refuses anything with history"
+          ],
+          "cases": [],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-105",
+          "summary": "Project entity management",
+          "points": 3,
+          "priority": "Medium",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-1"
+          ],
+          "mechanism": "Project CRUD with lifecycle guards.",
+          "acceptanceCriteria": [
+            "Job ID and name shown together everywhere via idName()",
+            "Status transitions awarded -> active -> closing -> complete",
+            "A project with active assignments cannot be completed without naming where the tools go"
+          ],
+          "cases": [],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-106",
+          "summary": "Entity management integration test harness",
+          "points": 8,
+          "priority": "High",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "testing"
+          ],
+          "mechanism": "apps/api and apps/web have no test script. Every existing test is a pure-function unit test, so nothing exercises a router, a database or a screen. This story builds the first integration layer; later epics extend it.",
+          "acceptanceCriteria": [
+            "Router-level integration tests against a real Postgres for every entity mutation in this epic",
+            "pnpm test runs them in CI",
+            "Tenant isolation asserted on every list procedure"
+          ],
+          "cases": [],
+          "dependsOn": []
+        }
+      ]
+    },
+    {
+      "key": "STI-200",
+      "name": "E2 Foundation identity and load",
+      "priority": "High",
+      "points": 26,
+      "estimateHours": 76,
+      "description": "Deliverables 2 and 8. Deliverable 8 is not a separate feature: it is the identity rule that makes the Foundation load safe, so the two are one epic.",
+      "stories": [
+        {
+          "key": "STI-201",
+          "summary": "External reference model",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-2",
+            "deliverable-8",
+            "foundation",
+            "migration"
+          ],
+          "mechanism": "external_id today is a nullable NON-UNIQUE text column on exactly two tables (project, employee). It cannot prevent a duplicate, cannot say which system a value came from, and cannot record when it was last confirmed. Three entry paths must converge on one identity rule: synced from Foundation (external_ref is authoritative), imported from spreadsheet (matched on natural key, adopts a ref later), added by hand (no ref until a sync adopts it).",
+          "acceptanceCriteria": [
+            "external_system, external_id, source and last_synced_at on project, employee, cost code and phase",
+            "Uniqueness enforced per (tenant, system, type, native_id), partial so hand-entered rows with no ref are unconstrained",
+            "Fields owned by Foundation become read-only in the UI once an external_ref exists, so a local edit cannot diverge and then be silently overwritten by the next sync"
+          ],
+          "cases": [],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-202",
+          "summary": "Idempotent Foundation load",
+          "points": 8,
+          "priority": "High",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-2",
+            "deliverable-8",
+            "foundation"
+          ],
+          "mechanism": "Re-running a load must update, never duplicate. Unmatched rows are surfaced for a human, never dropped: a dropped row is silent data loss nobody discovers until a report is wrong. Match on external_ref first, then fuzzy-match on name plus job number to adopt pre-existing hand-entered rows.",
+          "acceptanceCriteria": [
+            "Loads projects, phases, cost codes and users over the ODBC connection from STI-205",
+            "Running the same export twice produces zero creates on the second pass. This is the headline test",
+            "Every unmatched row appears in the report with a stated reason",
+            "The whole load is one transaction: a partial load is worse than none",
+            "Reuses the existing preview -> commit shape in routers/import.ts, which already does typed validation, dedup and transactional commit well. Because the transport is a live query rather than a file (ADR-8), the same code path serves the one-time load and every later refresh"
+          ],
+          "cases": [
+            "Foundation renames a project: matched on external_ref, name updated, no duplicate",
+            "Two Foundation rows carry the same native_id: the load aborts and names both. Do not guess",
+            "A hand-entered project fuzzy-matches a Foundation row: adopted, and the adoption is recorded as a ledger event so it can be audited later"
+          ],
+          "dependsOn": [
+            "STI-201"
+          ]
+        },
+        {
+          "key": "STI-203",
+          "summary": "Load preview and report screen",
+          "points": 5,
+          "priority": "Medium",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-2",
+            "foundation"
+          ],
+          "mechanism": "The load must be inspectable before it commits, and its unmatched rows must be resolvable without a developer.",
+          "acceptanceCriteria": [
+            "Dry-run preview showing created / updated / unmatched before commit",
+            "Unmatched rows are individually resolvable: adopt, skip, or create new",
+            "The report is downloadable"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-202"
+          ]
+        },
+        {
+          "key": "STI-204",
+          "summary": "Foundation load tests",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-2",
+            "testing"
+          ],
+          "mechanism": "Idempotency is asserted, not assumed.",
+          "acceptanceCriteria": [
+            "Fixture-driven coverage: fresh load, re-run, renamed entity, conflicting ref, adoption path"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-202"
+          ]
+        },
+        {
+          "key": "STI-205",
+          "summary": "Foundation ODBC connection and field mapping",
+          "points": 3,
+          "priority": "High",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-2",
+            "foundation",
+            "adr-8"
+          ],
+          "mechanism": "ADR-8: Foundation is reached over its ODBC database layer, not a file drop. Urban already runs a PHP sync against it, and that script is the reference for table and column mapping. Stand up a read-only connection and write the mapping down. Whether the PHP is kept as a sidecar or ported into the monorepo is deferred — it changes who runs the sync, not what the sync means.",
+          "acceptanceCriteria": [
+            "Read-only ODBC connection from a service account. STInventory NEVER writes to Foundation",
+            "Credentials handled as secrets, never in the repo. The PHP script's auth is the open item standing between this and a working sync — resolve it here",
+            "Field mapping written down: Foundation table and column to STInventory entity and field, for projects, phases, cost codes and users",
+            "Connection failure is a loud, typed error, never a silent empty result set — an empty sync that looks successful would mark every entity as unmatched"
+          ],
+          "cases": [
+            "Foundation is unreachable at sync time: the load aborts and reports, leaving prior data intact"
+          ],
+          "dependsOn": []
+        }
+      ]
+    },
+    {
+      "key": "STI-300",
+      "name": "E3 Alerts and assignment gaps",
+      "priority": "High",
+      "points": 21,
+      "estimateHours": 60,
+      "description": "Deliverable 3. The notification table and in-app centre exist; delivery is a console.log that then marks the row delivered. Critical-gap detection does not exist.",
+      "stories": [
+        {
+          "key": "STI-301",
+          "summary": "Gap detection engine",
+          "points": 8,
+          "priority": "High",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "deliverable-3",
+            "alerts"
+          ],
+          "mechanism": "A scheduled pass over the current projection, expressed as independent rules so a new check is a new rule and not a new job. Rules cover: foreman with no truck, foreman with no trailer, project with no foreman, project with no PM, tool out with no custodian, assignment not confirmed in 30 days.",
+          "acceptanceCriteria": [
+            "Alerts are idempotent by (rule, subject). Re-running the pass does not multiply alerts. This is the failure mode that makes people stop reading them",
+            "An alert self-clears when the condition resolves. Nobody dismisses a gap manually",
+            "Severity drives placement: crit on the desk and dashboard, warn in the alert list, info in the digest only",
+            "Adding a rule requires no change to the scheduler"
+          ],
+          "cases": [
+            "A foreman with no truck who is also on no project: one alert, not two, and the project rule does not fire for an unassigned person",
+            "A project completes with open gaps: alerts resolve on completion rather than lingering"
+          ],
+          "dependsOn": [
+            "STI-501"
+          ]
+        },
+        {
+          "key": "STI-302",
+          "summary": "Real notification delivery",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-3",
+            "alerts"
+          ],
+          "mechanism": "Replace the console stub with a provider interface that has at least one working implementation. Mark delivered_at from the provider's response, not optimistically before the call. The current stub is worse than no delivery because the record claims success.",
+          "acceptanceCriteria": [
+            "Email delivery works against a real provider",
+            "Failures are retried with backoff and surfaced after N attempts",
+            "delivered_at reflects reality",
+            "Per-tenant enable flags (email_enabled, sms_enabled) are honoured",
+            "SMS may remain an unimplemented interface if Urban has no provider yet, but it must fail loudly rather than log and claim success"
+          ],
+          "cases": [],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-303",
+          "summary": "Desk alert surface",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "deliverable-3",
+            "alerts",
+            "ui"
+          ],
+          "mechanism": "Critical alerts need one place that the Equipment desk actually looks at.",
+          "acceptanceCriteria": [
+            "Critical alerts appear on the desk grouped by severity then project",
+            "Each alert names its subject and links to the screen that resolves it",
+            "The count is visible in the nav badge"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-301"
+          ]
+        },
+        {
+          "key": "STI-304",
+          "summary": "Alert preferences",
+          "points": 3,
+          "priority": "Low",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-3",
+            "alerts"
+          ],
+          "mechanism": "Per-user control over non-critical noise.",
+          "acceptanceCriteria": [
+            "Per-user, per-rule opt-out for warn and info",
+            "crit cannot be muted. The point of a critical alert is that it is not optional"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-301"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "STI-400",
+      "name": "E4 Org structure and departure",
+      "priority": "High",
+      "points": 34,
+      "estimateHours": 92,
+      "description": "Deliverable 4. project_team_member and the assignment hierarchy already work. Missing: the departure path, and a management view built for the Equipment department.",
+      "stories": [
+        {
+          "key": "STI-401",
+          "summary": "Equipment department management view",
+          "points": 8,
+          "priority": "Highest",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-4",
+            "ui"
+          ],
+          "mechanism": "One screen where the Equipment department assigns foremen to projects and rigs (truck plus trailer) to foremen. /jobsites is the closest existing surface. The interaction model comes from the Blocky concept in design/README.md: the gap is the affordance. A crew with no truck renders a clickable '+ truck' chip where the value would be, opening an inline picker of unassigned vehicles. No modal, no navigation.",
+          "acceptanceCriteria": [
+            "Job -> crew -> tools, three levels, on one page. Jobs open by default, crews closed",
+            "Assign and unassign foreman, truck and trailer inline; every change writes a ledger event",
+            "The vehicle picker offers only genuinely unassigned units",
+            "'Needs vehicle' filter, because that is the department's morning question"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-501"
+          ]
+        },
+        {
+          "key": "STI-402",
+          "summary": "Departure reassignment",
+          "points": 8,
+          "priority": "Highest",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-4",
+            "custody"
+          ],
+          "mechanism": "When a foreman leaves, everything they hold moves in ONE auditable action, not tool by tool. The successor comes from the reporting chain by default (superintendent, then PM). Personal vehicles are never reassigned: they are not Urban property and they leave with the person.",
+          "acceptanceCriteria": [
+            "One transaction. Partial reassignment is the failure this replaces",
+            "Successor defaults to superintendent, then PM; if neither exists the action stops and demands an explicit choice rather than guessing",
+            "Personal vehicles are skipped AND listed in the result so the desk knows what walked",
+            "A preview shows exactly what will move, before it moves",
+            "Ends the leaver's sessions"
+          ],
+          "cases": [
+            "The successor is themselves inactive: refused, with a named alternative",
+            "Leaver holds a trailer containing tools: the trailer moves and its contents follow, which is what physically happens",
+            "Leaver holds nothing: succeeds quietly and still deactivates the account"
+          ],
+          "dependsOn": [
+            "STI-001",
+            "STI-101"
+          ]
+        },
+        {
+          "key": "STI-403",
+          "summary": "PM and superintendent management views",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-4",
+            "ui"
+          ],
+          "mechanism": "The project side of the org structure, scoped by permission rather than by role name.",
+          "acceptanceCriteria": [
+            "A PM sees their projects, teams and rigs and can assign superintendents and foremen within the existing hierarchy",
+            "A superintendent sees their crews and can assign foremen",
+            "Both are scoped by permission (STI-802), not by role name"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-802"
+          ]
+        },
+        {
+          "key": "STI-404",
+          "summary": "Temporary assignment on departure",
+          "points": 5,
+          "priority": "Medium",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-4",
+            "custody"
+          ],
+          "mechanism": "The specific case Urban named: a foreman is dismissed and custody goes temporarily to their superintendent, then to the PM if there is no superintendent.",
+          "acceptanceCriteria": [
+            "A reassignment can be flagged temporary with a review date",
+            "Temporary holdings appear on the desk as an open item",
+            "A temporary holding older than the SLA raises a warn alert"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-402"
+          ]
+        },
+        {
+          "key": "STI-405",
+          "summary": "Org structure and departure tests",
+          "points": 8,
+          "priority": "High",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-4",
+            "testing"
+          ],
+          "mechanism": "Departure has more branches than any other flow in the system and each one loses tools if it is wrong.",
+          "acceptanceCriteria": [
+            "Integration coverage for the full assignment hierarchy",
+            "Every departure branch: with and without successor, personal vs company vehicle, trailer with contents, inactive successor"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-402"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "STI-500",
+      "name": "E5 Custody context and rig model",
+      "priority": "Highest",
+      "points": 29,
+      "estimateHours": 80,
+      "description": "Deliverables 6 and 7, and the schema blocker for four other epics. Backtracking tool to trailer to truck is impossible today: assignment carries one nullable location_id and cannot hold a truck and a trailer at once.",
+      "stories": [
+        {
+          "key": "STI-501",
+          "summary": "Truck and trailer as first-class assignment fields",
+          "points": 8,
+          "priority": "Highest",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "deliverable-6",
+            "deliverable-7",
+            "migration",
+            "blocker"
+          ],
+          "mechanism": "Split assignment.location_id into independently nullable truck_id and trailer_id. Both are recordable at once because both are true at once: a tool sits in a trailer that is towed by a truck. THE MIGRATION RISK IS THE FOLD, NOT THE COLUMNS. Ledger snapshots are historical and must never be rewritten, so foldAssetState has to handle the old single-location_id shape and the new one, forever. Blocks STI-301, STI-401, STI-503.",
+          "acceptanceCriteria": [
+            "Both columns exist, independently nullable, independently recordable",
+            "Every reader of location_id is migrated. Grep for it; leave none",
+            "The fold reads old and new snapshot shapes; a test pins an old-shape event replaying correctly",
+            "Backfill maps existing location_id to whichever column matches the row's vehicle_type",
+            "Company vs personal truck is visible wherever a truck is shown, because that distinction drives STI-402"
+          ],
+          "cases": [
+            "A snapshot predating this change folds without loss",
+            "A tool on a truck with no trailer, and a tool in a trailer parked in the yard with no truck: both are legal states and both render"
+          ],
+          "dependsOn": [
+            "STI-001"
+          ]
+        },
+        {
+          "key": "STI-502",
+          "summary": "Rig model: truck, trailer and foreman",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "deliverable-7",
+            "migration"
+          ],
+          "mechanism": "Deliverable 7's redundancy point. A rig is one truck, one trailer, one foreman. Rather than storing that triple on every tool, store the rig once and derive tool -> trailer through the holder. The governing rule for this epic: store what varies independently, derive what does not.",
+          "acceptanceCriteria": [
+            "A partial unique index enforces one active truck and one active trailer per foreman",
+            "The assignment's explicit trailer_id OVERRIDES the derived rig value. A tool can be somewhere other than its holder's usual trailer and the record must be able to say so",
+            "Changing a foreman's rig does NOT rewrite historical assignments. History records where a tool was, not where it would be today"
+          ],
+          "cases": [
+            "Foreman swaps trailers mid-job: new assignments pick up the new trailer, closed ones keep the old. This is the difference between a ledger and a spreadsheet",
+            "Two foremen sharing one truck: refused by the index, with an error naming the current holder"
+          ],
+          "dependsOn": [
+            "STI-501"
+          ]
+        },
+        {
+          "key": "STI-503",
+          "summary": "Backtrack view: tool to trailer, truck, project and PO",
+          "points": 8,
+          "priority": "Highest",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "deliverable-6",
+            "ui"
+          ],
+          "mechanism": "Deliverable 6, finally answerable. From any tool, resolve the full custody context (holder, project, truck, trailer, PO, since) and its complete history. Derived values fall back through the holder's rig when the assignment does not name them explicitly.",
+          "acceptanceCriteria": [
+            "Reachable from the tool detail page and from every table row that shows a tool",
+            "Shows current context AND full history: each prior holder, project, truck and trailer, with dates",
+            "Derived values are visually marked as derived, so nobody mistakes an inference for a record",
+            "Works in reverse: from a trailer, list every tool currently in it"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-501",
+            "STI-502"
+          ]
+        },
+        {
+          "key": "STI-504",
+          "summary": "Drop the redundant custodian mirror",
+          "points": 3,
+          "priority": "Medium",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S1-stretch",
+          "sprintName": "S1 stretch - only if S1 lands early",
+          "sprintLabel": "sprint-1-stretch",
+          "labels": [
+            "deliverable-7",
+            "migration"
+          ],
+          "mechanism": "vehicle.foreman_employee_id mirrors location.custodian_employee_id for the same physical thing. The schema comment already admits the location column is authoritative and the mirror exists only because three screens read it. Two writers, one truth: they will drift.",
+          "acceptanceCriteria": [
+            "One authoritative column",
+            "Readers migrated",
+            "The other column dropped in the same migration"
+          ],
+          "cases": [],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-505",
+          "summary": "Custody context tests",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-6",
+            "testing"
+          ],
+          "mechanism": "The fold is the highest-consequence pure function in the system and this epic changes its input shape.",
+          "acceptanceCriteria": [
+            "Fold tests across both snapshot shapes",
+            "Rig uniqueness enforced",
+            "Explicit trailer_id overrides derived rig value",
+            "Backtrack correctness over a multi-hop history"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-503"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "STI-600",
+      "name": "E6 Purchase order attachments",
+      "priority": "Medium",
+      "points": 16,
+      "estimateHours": 44,
+      "description": "Deliverable 5, deliberately small. File attachments and a searchable PO number. This is NOT procurement: no requisition, approval chain, vendor workflow or receipt.",
+      "stories": [
+        {
+          "key": "STI-601",
+          "summary": "Attachment model and storage",
+          "points": 8,
+          "priority": "Medium",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-5",
+            "migration"
+          ],
+          "mechanism": "A polymorphic attachment hanging off a project, a foreman or a tool, carrying an optional indexed po_number so the backtrack view can reach it. Scope discipline: this is NOT procurement. No requisition, approval chain, vendor workflow or receipt. Resist every temptation to grow it.",
+          "acceptanceCriteria": [
+            "Upload, list, download and delete (soft: an attachment is evidence)",
+            "Type and size limits enforced server-side; PDF and common image types",
+            "Storage keys are opaque and non-guessable; downloads are authorised per request, never served from a public path",
+            "Filenames are sanitised; the original is preserved for display only",
+            "Every upload and delete writes an audit event"
+          ],
+          "cases": [
+            "The same PO number on several attachments across projects is legal, and searching the number returns all of them",
+            "Upload arriving after the subject is deleted is rejected cleanly"
+          ],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-602",
+          "summary": "Attachment UI",
+          "points": 5,
+          "priority": "Medium",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-5",
+            "ui"
+          ],
+          "mechanism": "The attachment panel wherever a PO might be filed.",
+          "acceptanceCriteria": [
+            "An attachments panel on project, foreman and tool detail",
+            "Drag-and-drop with visible progress",
+            "PO number is an editable field on the row"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-601"
+          ]
+        },
+        {
+          "key": "STI-603",
+          "summary": "PO number search and backtrack link",
+          "points": 3,
+          "priority": "Medium",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S4",
+          "sprintName": "S4 Foundation - PO and entity management",
+          "sprintLabel": "sprint-4",
+          "labels": [
+            "deliverable-5",
+            "deliverable-6"
+          ],
+          "mechanism": "The PO number is the handle that makes an attachment findable rather than merely stored.",
+          "acceptanceCriteria": [
+            "PO number is searchable from global search and returns tools, projects and foremen",
+            "The STI-503 backtrack view shows the PO when one exists"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-601",
+            "STI-503"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "STI-700",
+      "name": "E7 Project scoping",
+      "priority": "High",
+      "points": 13,
+      "estimateHours": 40,
+      "description": "Deliverable 10. project_group and visibleProjectScope exist. This epic extends scoping to every remaining procedure and makes the switcher consistent.",
+      "stories": [
+        {
+          "key": "STI-701",
+          "summary": "Scope every list procedure",
+          "points": 5,
+          "priority": "Highest",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S2",
+          "sprintName": "S2 Dashboard - permissions and scoping",
+          "sprintLabel": "sprint-2",
+          "labels": [
+            "deliverable-10",
+            "security"
+          ],
+          "mechanism": "project.list is scoped server-side, but the KPI dashboard and several reports ignore project scoping entirely, so a PM currently sees fleet-wide numbers.",
+          "acceptanceCriteria": [
+            "Every list and report procedure applies visibleProjectScope",
+            "Authorisation is applied to the query BEFORE execution, never as a post-filter over results",
+            "A test asserts a PM cannot retrieve another project's tools through any procedure"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-802"
+          ]
+        },
+        {
+          "key": "STI-702",
+          "summary": "Project and group switcher consistency",
+          "points": 3,
+          "priority": "Medium",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-10",
+            "ui"
+          ],
+          "mechanism": "One switcher, one selected scope, honoured everywhere.",
+          "acceptanceCriteria": [
+            "One switcher, one selected scope, respected by every screen including reports and the dashboard",
+            "The selection survives navigation and reload"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-701"
+          ]
+        },
+        {
+          "key": "STI-703",
+          "summary": "Scoping matrix tests",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-10",
+            "testing",
+            "security"
+          ],
+          "mechanism": "This is the test that catches a cross-tenant leak before a second tenant exists.",
+          "acceptanceCriteria": [
+            "A matrix test: for each role and each scope, assert exactly which projects are visible through every list procedure"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-701"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "STI-800",
+      "name": "E8 Permissions and role surfaces",
+      "priority": "Highest",
+      "points": 26,
+      "estimateHours": 76,
+      "description": "Deliverable 11. Runs through every screen. The permission matrix is the critical path for four other epics.",
+      "stories": [
+        {
+          "key": "STI-801",
+          "summary": "Agree the permission matrix with Urban",
+          "points": 3,
+          "priority": "Highest",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S1",
+          "sprintName": "S1 Release 1 - by 24 Aug 2026",
+          "sprintLabel": "sprint-1",
+          "labels": [
+            "deliverable-11",
+            "rbac",
+            "blocker",
+            "decision"
+          ],
+          "mechanism": "THIS IS A MEETING AND IT IS THE CRITICAL PATH. Book it for working day 2. STI-102, STI-403, STI-701 and STI-802 are all blocked on the output. Escalate on day 3 if it has not happened.",
+          "acceptanceCriteria": [
+            "A written matrix: every role against every permission, signed off by Urban",
+            "Resolves the three 'admin' identities separately: System, Office and Equipment Administrator",
+            "ANSWERS WHAT AN ENGINEER MAY DO. The role appears in Urban's requirements and nowhere in the codebase, and nobody has yet defined it",
+            "Confirms whether mechanics log in or only hold tools. Holding custody and having an account are different things"
+          ],
+          "cases": [],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-802",
+          "summary": "Replace role-name branching with permission checks",
+          "points": 8,
+          "priority": "Highest",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S2",
+          "sprintName": "S2 Dashboard - permissions and scoping",
+          "sprintLabel": "sprint-2",
+          "labels": [
+            "deliverable-11",
+            "rbac",
+            "security"
+          ],
+          "mechanism": "The rule is already written in AGENTS.md and is not held everywhere. Scope resolution should read has_permission(actor, 'assets.view.all' | '.project' | '.crew' | '.own') and fall through in that order, never comparing role names.",
+          "acceptanceCriteria": [
+            "No actor.role == '...' comparison survives in routers or components. Grep is the test",
+            "New scope permissions (assets.view.all, .project, .crew, .own) are added and seeded",
+            "Adding a role requires no code change"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-801"
+          ]
+        },
+        {
+          "key": "STI-803",
+          "summary": "Role-shaped navigation",
+          "points": 5,
+          "priority": "Medium",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-11",
+            "rbac",
+            "ui"
+          ],
+          "mechanism": "nav-config.ts has two shapes, FIELD_NAV and DESK_NAV, and is explicit that this is deliberate: two shapes of navigation, not one list with items hidden. A PM falls through to DESK_NAV and gets the equipment administrator's surface. Whether the PM gets a THIRD shape is an open design question (see design/README.md); default to project scoping doing the work unless Urban says otherwise.",
+          "acceptanceCriteria": [
+            "Navigation is composed from permissions",
+            "A user never sees a link they cannot open"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-802"
+          ]
+        },
+        {
+          "key": "STI-804",
+          "summary": "RBAC matrix test",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S2",
+          "sprintName": "S2 Dashboard - permissions and scoping",
+          "sprintLabel": "sprint-2",
+          "labels": [
+            "deliverable-11",
+            "rbac",
+            "testing"
+          ],
+          "mechanism": "The matrix and the test must not be able to drift apart.",
+          "acceptanceCriteria": [
+            "For every role and every procedure, assert allowed or denied",
+            "Generated from the STI-801 matrix so the test and the document cannot drift"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-801",
+            "STI-802"
+          ]
+        },
+        {
+          "key": "STI-805",
+          "summary": "Permission-aware UI affordances",
+          "points": 5,
+          "priority": "Medium",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "deliverable-11",
+            "rbac",
+            "ui"
+          ],
+          "mechanism": "Actions a user cannot perform should be absent rather than present-and-failing.",
+          "acceptanceCriteria": [
+            "Actions the user cannot perform are absent, not present-and-failing",
+            "Server-side authorisation is unconditional regardless of what the UI renders. A hidden button is a usability affordance, never a security control"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-802"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "STI-900",
+      "name": "E9 Dashboard tabs and generated views",
+      "priority": "Highest",
+      "points": 34,
+      "estimateHours": 92,
+      "description": "Deliverable 9, the largest piece of new product. Tabs become data rather than an enum, panels are declared in a registry, and a PM can generate a view in words. Promoted to Sprint 2 on Urban's call.",
+      "stories": [
+        {
+          "key": "STI-901",
+          "summary": "Custom dashboard tabs",
+          "points": 8,
+          "priority": "Medium",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S2",
+          "sprintName": "S2 Dashboard - permissions and scoping",
+          "sprintLabel": "sprint-2",
+          "labels": [
+            "deliverable-9",
+            "dashboard",
+            "migration"
+          ],
+          "mechanism": "Today user_preferences.dashboard holds { widgets, defaultTab } where defaultTab is one of two hard-coded values. Tabs become data: a DashboardTab row per user with name, position, is_default and an ordered list of panels.",
+          "acceptanceCriteria": [
+            "Create, rename, reorder and delete tabs; choose a default",
+            "Per-user, per-tenant persistence",
+            "Deleting the last tab is refused",
+            "Reorder is optimistic with a pending guard. The job-group tick bug, where rapid consecutive changes were dropped, is the precedent to avoid"
+          ],
+          "cases": [],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-902",
+          "summary": "Panel registry",
+          "points": 5,
+          "priority": "Medium",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S2",
+          "sprintName": "S2 Dashboard - permissions and scoping",
+          "sprintLabel": "sprint-2",
+          "labels": [
+            "deliverable-9",
+            "dashboard"
+          ],
+          "mechanism": "Panels are declared, not hard-coded per role, so Release 2 adds panels without touching role logic. Each registry entry pairs a panel id with the permission that gates it.",
+          "acceptanceCriteria": [
+            "A panel the user lacks permission for is not rendered AND not fetched",
+            "Adding a panel is one registry entry"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-802"
+          ]
+        },
+        {
+          "key": "STI-903",
+          "summary": "Generated views from natural language",
+          "points": 13,
+          "priority": "Medium",
+          "estimateHours": 32,
+          "estimateSeconds": 115200,
+          "originalEstimate": "32h",
+          "sprint": "S2",
+          "sprintName": "S2 Dashboard - permissions and scoping",
+          "sprintLabel": "sprint-2",
+          "labels": [
+            "deliverable-9",
+            "dashboard",
+            "llm",
+            "security"
+          ],
+          "mechanism": "A PM describes the view they want and the system assembles it from the panel registry. packages/intent already parses natural language, so this extends built work rather than starting a capability. Parse intent, check it against the actor's visible scope, execute a scoped query, then select a panel and stream it. SPLIT THIS IF IT GROWS: 13 points is the ceiling.",
+          "acceptanceCriteria": [
+            "NON-NEGOTIABLE: the model chooses presentation, never scope. Authorisation is applied to the query before execution, never as a post-filter over results, and never delegated to the model",
+            "NON-NEGOTIABLE: the LLM never receives raw data it should not see and never emits an ID. It returns labels and spans; resolution to IDs happens server-side under tenant scope, exactly as entity-resolve.ts already does. A hallucinated ID is then impossible by construction",
+            "A generated view is savable as a tab panel",
+            "An out-of-scope request is refused without revealing that the entity exists",
+            "Failure is graceful: an unreachable parser degrades to the manual panel picker and does not break the dashboard"
+          ],
+          "cases": [
+            "'Show me tools on Trinity' from a PM not on Trinity: refused, and the refusal does not confirm Trinity exists",
+            "Parser returns malformed intent: validation error, no query runs",
+            "Ambiguous entity name: asks rather than guessing"
+          ],
+          "dependsOn": [
+            "STI-902",
+            "STI-701"
+          ]
+        },
+        {
+          "key": "STI-904",
+          "summary": "Dashboard scoping and default tab",
+          "points": 3,
+          "priority": "Medium",
+          "estimateHours": 8,
+          "estimateSeconds": 28800,
+          "originalEstimate": "8h",
+          "sprint": "S2",
+          "sprintName": "S2 Dashboard - permissions and scoping",
+          "sprintLabel": "sprint-2",
+          "labels": [
+            "deliverable-9",
+            "dashboard"
+          ],
+          "mechanism": "The dashboard must obey the same scope as everything else.",
+          "acceptanceCriteria": [
+            "Every panel honours the STI-701 project scope",
+            "The default tab loads on sign-in",
+            "The choice is per user"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-701",
+            "STI-901"
+          ]
+        },
+        {
+          "key": "STI-905",
+          "summary": "Generated-view scope tests",
+          "points": 5,
+          "priority": "High",
+          "estimateHours": 16,
+          "estimateSeconds": 57600,
+          "originalEstimate": "16h",
+          "sprint": "S2",
+          "sprintName": "S2 Dashboard - permissions and scoping",
+          "sprintLabel": "sprint-2",
+          "labels": [
+            "deliverable-9",
+            "testing",
+            "security"
+          ],
+          "mechanism": "The generated-view surface is the one place where a user's words influence a query, so scope enforcement is the whole test suite.",
+          "acceptanceCriteria": [
+            "For each role, assert that a generated query cannot reach out-of-scope data through any intent shape, including adversarial phrasing"
+          ],
+          "cases": [],
+          "dependsOn": [
+            "STI-903"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "STI-1000",
+      "name": "E10 Blocky design language",
+      "priority": "High",
+      "points": 21,
+      "estimateHours": 52,
+      "description": "ADR-7. The product's visual language becomes Blocky: 3-4px radius, monospace numerals, dense rows, coloured left edge bars, zebra tables, bare status text. The shadcn LOOK is dropped; the Radix primitives underneath it are kept, so accessibility and component behaviour are unaffected.",
+      "stories": [
+        {
+          "key": "STI-1001",
+          "summary": "Blocky tokens and restyled primitives",
+          "points": 8,
+          "priority": "High",
+          "estimateHours": 20,
+          "estimateSeconds": 72000,
+          "originalEstimate": "20h",
+          "sprint": "S2",
+          "sprintName": "S2 Dashboard - permissions and scoping",
+          "sprintLabel": "sprint-2",
+          "labels": [
+            "design-system",
+            "adr-7",
+            "ui"
+          ],
+          "mechanism": "ADR-7. Express Blocky in the existing oklch token system in apps/web/app/globals.css rather than adopting the concept's hex values, so light/dark and the reserved status hues (--ok, --warn, --crit, --idle) keep working. Then restyle the shared primitives: radius down to 3-4px, JetBrains Mono for every numeral, 8-10px row density, zebra table rows, bare coloured status text in place of badges, a 3px left edge bar for state. The Radix primitives underneath are NOT replaced.",
+          "acceptanceCriteria": [
+            "Blocky is defined as tokens; no component hard-codes a hex value",
+            "Light and dark both work; status hues stay reserved and never decorative",
+            "Radix behaviour is untouched: focus traps, keyboard navigation and ARIA on dialog, popover, combobox and dropdown all still pass",
+            "A single reference screen is converted end to end to prove the tokens before anything else migrates",
+            "Numerals are tabular so columns of tags and counts align"
+          ],
+          "cases": [
+            "A status colour that must survive both themes: verify against the oklch tokens, not the concept's hex",
+            "A component with no Blocky equivalent in the concept: derive it from the tokens rather than inventing a second style"
+          ],
+          "dependsOn": []
+        },
+        {
+          "key": "STI-1002",
+          "summary": "Migrate existing surfaces to Blocky",
+          "points": 13,
+          "priority": "Medium",
+          "estimateHours": 32,
+          "estimateSeconds": 115200,
+          "originalEstimate": "32h",
+          "sprint": "S3",
+          "sprintName": "S3 Roles - org structure and Blocky migration",
+          "sprintLabel": "sprint-3",
+          "labels": [
+            "design-system",
+            "adr-7",
+            "ui"
+          ],
+          "mechanism": "Convert the built screens to the new language, highest-traffic first: tool register, jobsites, people, reports, inbox, dashboard. New UI is built in Blocky from the start, so this story covers only what already exists. Split it if it grows past 13.",
+          "acceptanceCriteria": [
+            "Every screen uses the Blocky tokens; no screen mixes the two languages",
+            "No regression in behaviour: the story is a restyle, not a rewrite",
+            "The field app (NativeWind) is explicitly out of scope. ADR-3's follow-up established the two clients share logic, not components"
+          ],
+          "cases": [
+            "A screen whose density cannot survive the tighter rows: raise it in design review rather than keeping an exception in the code"
+          ],
+          "dependsOn": [
+            "STI-1001"
+          ]
+        }
+      ]
+    }
+  ]
+}

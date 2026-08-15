@@ -10,37 +10,19 @@ as Mark 85's Equipment module or ship as a satellite SaaS.
 
 ## Contents
 
-| File | What it is |
-|---|---|
-| `docs/00-executive-summary.md` | **Start here for leadership context** — one-page distilled pitch |
-| `docs/01-plan.md` | Master planning & functional spec — vision, entities, lifecycle, custody model, scenarios, procurement, reports, modules, roadmap |
-| `docs/03-data-model.md` | Detailed schema; event-sourced core (transactions = source of truth, everything else a projection) |
-| `docs/04-diagrams.md` | Mermaid: ERD, lifecycle state machine, custody + HR-offboarding + phase-change flows, procurement BPMN, deployment + SaaS multi-tenancy |
-| `docs/02-saas-architecture.md` | Multi-tenant productization path and how it aligns with the Mark 85 customer-zero → SaaS arc |
-| `docs/05-build-proposal.md` | Bodhi Labs build proposal — scope, team, hours, pricing, scope options, payment schedule, handoff, plus a delivery-status addendum |
-| `docs/06-decisions.md` | Architecture decision records (ADR-1..6) |
-| `docs/07-conversational-layer.md` | The chat → intent → custody-action subsystem |
-| `docs/08-custom-intents.md` | How to add an intent, and which of the two kinds you are adding |
-| `docs/09-vocabulary.md` | What the screens say and what they should say — user-visible strings only |
-| `docs/10-corpus-context.md` | How this repo relates to the rest of Urban's stack |
-| `docs/11-department-cost-targets.md` | **Built** — charging a tool to a department instead of a project, and the `mechanic` role |
-| `docs/12-model-field-split.md` | **Built** — splitting `asset.modelName` into make / model number / description |
-| `docs/13-excel-round-trip.md` | **Built** — importing and exporting the trailer sheets Urban already keeps |
-| `docs/14-dashboard-additions.md` | **Built** — the four things the desk dashboard cannot currently answer |
-| `docs/15-vendors-and-orders.md` | **Roadmap** — vendors, purchase orders, and linking a tool to where it came from |
-| `docs/16-handoff-brief.md` | Orientation for an implementer picking up the specs: architecture, conventions, what must not regress |
-| `docs/17-optional-tags.md` | **Built** — a tag is a physical label, not an assigned id; tools can exist untagged |
-| `docs/18-vehicle-tracking-and-map.md` | **Built** — online/offline from GPS freshness, the fleet map, and the personal-allowance "no tracker" nuance |
-| `docs/19-command-center-and-modernization.md` | **Built** — DataTable + filter sheet, top-nav notification center, intelligent inbox, dashboard widgets + theme engine, mobile motion |
-| `docs/20-dashboard-chat-auth-redesign.md` | **Built** — global search, collapsible rail, dashboard tabs + weather bar, reports consolidation, chat two-pane, auth redesign, motion |
-| `docs/KILO_DELIVERY_ASSESSMENT.md` | **Status report, not a spec** — where the build actually stands against the eight delivery areas, with a gap list, sizing and phases. Assessed 2026-08-09 |
-| `docs/DELIVERY_ASSESSMENT_VERIFICATION.md` | Re-check of every citation and count in the assessment; the corrections it lists have since been applied |
-| `docs/DELIVERY_ASSESSMENT_RECONCILIATION.md` | Why the assessment and its verification disagreed, and the authoritative numbers |
-| `docs/changelogs/` | What actually shipped, one file per body of work — see its README for how specs, changelogs and release notes relate |
-| `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
-| `apps/`, `packages/` | Production monorepo (Linkage MVP) — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
+**[`docs/README.md`](docs/README.md) is the documentation index.** The short version:
 
-## Remote localhost (docs/20, G)
+| Path | What it is |
+|---|---|
+| [`docs/workings/SYSTEM_PLAN.md`](docs/workings/SYSTEM_PLAN.md) | **Start here** — what the system is, what exists, what is being built, what comes next |
+| [`docs/workings/RELEASE_1_SPRINT_PLAN.md`](docs/workings/RELEASE_1_SPRINT_PLAN.md) | The delivery plan. Sprint 1 ships **24 Aug 2026**; Jira import files sit beside it |
+| [`docs/`](docs/) | Living specs — data model, ADRs, conversational layer, vocabulary. Plus `built/` (shipped), `archive/` (superseded), `changelogs/` (what landed) |
+| [`design/`](design/) | The two UI concept screens and the brief translating them for developers |
+| `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
+| `apps/`, `packages/` | Production monorepo — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
+
+
+## Remote localhost (docs/built/20, G)
 
 To test the local build from a phone or another machine before anything is
 pushed, expose the web dev server through a free quick tunnel:
@@ -231,7 +213,7 @@ Password: **`stinventory-demo`**
 
 Procurement (PR → PO → Receive) and Maintenance/Inspections have no tables and no code.
 Mobile is an Expo shell with no scan flows. Integrations are seams (`external_id`) only.
-See `docs/01-plan.md` §18 for the full roadmap and `AGENTS.md` §12 for known defects.
+See `docs/archive/01-plan.md` §18 for the full roadmap and `AGENTS.md` §12 for known defects.
 
 ### Monorepo layout
 
