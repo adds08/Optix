@@ -24,7 +24,9 @@ and singular (`asset`, `assignment`, `asset_model`). The catalog table is named
 
 # Part A — As-built schema
 
-26 tables across `packages/db/src/schema/`. Grouped by concern.
+Every table in `packages/db/src/schema/`, grouped by concern. The barrel at
+`schema/index.ts` is the authoritative list — this document narrates it and will lag it, so
+when the two disagree the schema wins.
 
 ## A1. Identity, tenancy & RBAC
 
@@ -177,19 +179,16 @@ does not compute or pay allowances.
 | start_date, end_date | date | |
 | cost_center | text | for charge-to-project |
 
-### project_phase
-| column | type | notes |
-|---|---|---|
-| id | uuid pk | |
-| project_id | fk project | |
-| name | text | WBS phase name |
-| sort_order | int | |
-| start_date, end_date | date | drives idle-tool detection |
+### project_phase — dropped
 
-> **Known defect.** `project_phase` has **no `tenant_id`**, breaking the mandatory
-> multi-tenant checklist item in `02-saas-architecture.md` §5. It is tenant-reachable only
-> through `project_id`. This must be fixed before a second tenant exists, because an RLS
-> policy cannot be written against this table as it stands.
+This table no longer exists. It was migrated everywhere and never held a row; FoundationSoft
+is the system of record for cost codes. The rationale is kept in place at
+`packages/db/src/schema/project.ts`: *"an empty table is not a head start, it is a guess that
+looks like a decision."*
+
+Idle-tool detection does not use phases — `isIdleAsset` is simply `status === "available"`
+(`packages/domain/src/rules.ts`). `phase_change` is likewise absent from `TRANSFER_REASONS`,
+deliberately: phases are project accounting, which small-tools custody does not carry.
 
 ### employee
 A person who can hold custody. Separate from the auth `user`.
@@ -431,12 +430,19 @@ disputes ("who lost this drill") answerable to the exact event.
 
 # Part B — Planned, not built
 
-None of the following exists in `packages/db/src/schema/`. There is no migration for any of
-it. Procurement and maintenance are the two largest unbuilt modules; see `01-plan.md` §18.
+Procurement (PR → PO → Receive) and maintenance/inspections are the two largest unbuilt
+modules; see `01-plan.md` §18. Nothing below has a migration.
+
+> **Exception — `vendor` is built.** A vendor table shipped as part of the rentals module
+> (`packages/db/src/schema/rental.ts`), alongside `rental_order` and `rental_line`. It is a
+> vendor-of-rented-equipment record, not the procurement supplier described below. Rented kit
+> is deliberately kept out of `asset`: the register's rules assume something Urban bought, so
+> mixing the two corrupts what the fleet is worth. If procurement is built, decide whether it
+> extends that table or adds its own rather than assuming this section is greenfield.
 
 ## B1. Procurement
 
-### vendors
+### vendors (procurement flavour — not built)
 | column | type | notes |
 |---|---|---|
 | id | pk | |

@@ -1,0 +1,128 @@
+---
+paths:
+  - "packages/api-contracts/**"
+  - "packages/domain/**"
+---
+
+# Custody and the ledger
+
+You are in the two packages that own the product's central invariants. Read this before
+changing anything here.
+
+## The ledger contract
+
+`transaction` is append-only and is the system of record. `asset.current_*` is a projection.
+
+**Every write must carry a complete `toState` snapshot.** `foldAssetState`
+(`packages/domain/src/fold.ts:5-12`) walks backwards and returns the first complete snapshot
+it finds — it *replaces*, it does not merge. So emitting `{status: "in_maintenance"}` alone
+does not mean "status changed"; it means *custodian, project and location are now undefined*,
+and a rebuild will blank them.
+
+This bug has shipped three times. `fold.test.ts:114-135` pins it. Every writer that got it
+wrong carries a scar-tissue comment — grep "Same fallbacks the asset update"
+(`assignment.ts` create), "What a return MEANS" (`assignment.ts` return, STI-113: the
+projection kept project and location while the ledger event nulled both), "Mirrors the
+asset update" (`transfer.ts`) and the rebuild comment in `routers/asset.ts`.
+Add one if you fix another.
+
+Ties break on row `id`, not just `occurred_at` — bulk writers insert many events sharing a
+timestamp (`location.ts`, `project-assign.ts`).
+
+**Since STI-106 there is one fold.** `asset.rebuild` and the reconciliation checker both call
+`foldAssetState` — the inline reimplementation is gone, so the tested code and the production
+code are now the same code rather than two implementations that happened to agree.
+
+Compare and repair are **separate actions**, deliberately:
+
+- `asset.verifyProjection` writes nothing. It reports divergence, and an **empty fold is a
+  divergence** — never soften that, it is precisely what STI-101 existed to make visible.
+- `asset.rebuild` repairs, and **skips** assets whose ledger carries no snapshot. `INITIAL_STATE`
+  is indistinguishable from "no evidence", and blanking a live row on no evidence would turn the
+  repair into the corruption.
+
+`sweepProjectionDivergence` (`apps/api/src/index.ts`) runs the check every 6 hours and at boot,
+raising a `custody_discrepancy` desk notification per divergence. It does not dedupe — a register
+that disagrees with the ledger should keep nagging.
+
+## The custody chokepoint
+
+**All custody writes go through `packages/api-contracts/src/custody.ts`. No exceptions.**
+Never insert or update an `assignment` row directly.
+
+There is **no database constraint** enforcing "one active assignment per asset" — that file is
+the only thing holding it. It exists because `assignment.create`, `transfer.create` and
+`transfer.approve` each opened custody without closing the previous link, so the register
+showed the new holder while the custody screen showed the old one, and every downstream reader
+(offboarding, capital-per-foreman, tools-follow-the-foreman) named someone who had given the
+tool away weeks earlier. Read the header comment at the top of `custody.ts`.
+
+- **Since STI-102, custody writes are transactional and row-locked.** `closeActiveCustody`
+  and `moveCustody` take a `Transaction` (exported by `@stinventory/db`) as their first
+  parameter — a raw `db` handle is a **compile error**, which is the enforcement: the old
+  `db: any` signatures are how bare unwrapped writes shipped. The caller owns the
+  transaction, because its projection update and ledger insert must commit or vanish with
+  the close+open; `custody.ts` never opens one of its own. Nesting on postgres.js produces
+  real savepoints, so threading the outer `tx` explicitly is the convention.
+- `closeActiveCustody` first takes `SELECT … FOR UPDATE` on the **asset row** — the
+  serialisation anchor, because it exists even when no assignment does — then locks the
+  active links. Two concurrent moves on one asset queue instead of both opening a link.
+  `src/custody.test.ts` pins this with a real race (it needs `DATABASE_URL`, which
+  `turbo.json` passes through to the `test` task; the tests skip without it).
+- **Never await anything network-shaped inside `db.transaction`** — postgres.js pins one
+  pool connection (`max: 10`) for the life of the transaction. Notifications, audit
+  `logEvent` and every LLM call stay outside; in `applyChatAction` the LLM parse has
+  already happened in the worker before the transaction opens.
+- `closeActiveCustody` updates **by predicate, not by id** — deliberate, because duplicate
+  active rows already exist in real data and closing only the first would strand the rest.
+  Also pinned by `custody.test.ts`.
+- `projectForCustodian` (bottom of `custody.ts`) defaults the project to the **recipient's**
+  primary project. A form that lets project be chosen independently of person is how a tool
+  gets booked to a job its holder never worked. It is read-only, so it alone accepts either
+  handle.
+- `assignment.approve` closes the prior link inside its transaction. `create` deliberately
+  skips the close while a row is `pending_approval` (nothing has taken effect yet), so
+  approval is the moment the previous holder's link closes — until STI-102 nothing closed
+  it, which left two active rows.
+
+## The custody gate
+
+`custodyOutcome` (`packages/domain/src/rules.ts`) asks **one** question — value:
+
+| Cost | Outcome | Effect |
+|---|---|---|
+| ≥ threshold | `approve` | **Nothing written** until a second signature. |
+| < threshold, or threshold null | `auto` | Applied as a permanent change. |
+
+A null threshold **disables the gate**: a tenant that has not said what "high value" means has
+not asked for one.
+
+> **There is no `verify` outcome, and no borrow.** Both were removed on 2026-08-09, along with
+> the second input ("does the actor hold the approve permission"). They modelled a foreman
+> handing a tool to another foreman — the tool moving immediately while ownership did not, with
+> the desk confirming afterwards. **Urban does not work that way**: tools are moved by the
+> equipment desk, and a foreman does not reassign one. Foremen no longer hold
+> `assignment.create` or `transfer.create` at all (`packages/db/src/seed.ts` — "read-only on
+> custody by design"), so no actor can reach this function without already holding the approve
+> permission, and the question had one answer.
+>
+> This stale three-outcome table misled ticket STI-105 into specifying a "borrow vs held"
+> control for a state that cannot occur. If you find a doc describing `verify`, `pending_verification`
+> or borrows as live behaviour, it is wrong — fix it. The 24-line rationale at the top of
+> `rules.ts` is the real documentation.
+
+`>=` not `>` is pinned (`rules.test.ts`). Null cost counts as 0, not "needs approval" —
+imported rows routinely have no price. Since STI-108 the seed carries an asset priced at
+exactly the threshold, so the boundary is exercisable from a clean database.
+
+Callers currently disagree on two details: which permission means "can approve"
+(`assignment.approve` vs `transfer.approve`) and the threshold fallback (`?? null` in the
+routers vs `?? DEFAULT_HIGH_VALUE_THRESHOLD` in `apply-action.ts`). Chat and the forms are
+supposed to agree exactly — if you touch this, make them.
+
+## Non-negotiables here
+
+- Tenant-scope every query: `eq(table.tenantId, tid)`. There is no RLS.
+- Permission on every mutating procedure — `requirePermission(...)` or a documented
+  `canApplyAction` check.
+- Tests. `domain` is pure with no fixtures; there is no excuse.

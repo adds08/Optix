@@ -1,0 +1,27 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(make ENV=local reset)",
+      "Bash(make ENV=local seed)",
+      "Bash(make ENV=local up)",
+      "Bash(make ENV=local down)",
+      "Bash(make ENV=local restart)",
+      "Bash(make ENV=local migrate)",
+      "Bash(make ENV=local generate)",
+      "Bash(make ENV=local test)",
+      "Bash(make ENV=local typecheck)",
+      "Bash(make ENV=local lint)",
+      "Bash(make ENV=local logs)",
+      "Bash(make ENV=local ps)"
+    ],
+    "deny": [
+      "Bash(make deploy)",
+      "Bash(make prod-shell)",
+      "Bash(make push-dangerous)",
+      "Bash(make ENV=local push-dangerous)"
+    ]
+  }
+}

@@ -44,3 +44,6 @@ __pycache__/
 field/
 # generated owner password, lives only on the droplet
 .admin-credential
+
+# Local explainers / scratch work — never committed
+scratch/
