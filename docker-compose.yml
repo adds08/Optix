@@ -78,6 +78,9 @@ services:
         condition: service_healthy
 
   web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
     image: stinventory-dev:latest
     container_name: stinventory-web
     working_dir: /workspace/apps/web
