@@ -121,6 +121,11 @@ export const EVENT_TYPES = [
   "project_change",
   "location_change",
   "status_change",
+  /* Synthesized opening snapshot, not a physical movement. Written once per asset
+     by migration 0013 (STI-101) because every ledger row before it carried a null
+     to_state, leaving foldAssetState nothing to fold. Timelines render it like any
+     other event; no writer should emit it at runtime. */
+  "projection_baseline",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 

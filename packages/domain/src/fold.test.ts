@@ -135,6 +135,68 @@ describe("foldAssetState", () => {
   });
 });
 
+/*
+  The STI-101 baseline contract.
+
+  Migration 0013_backfill_ledger_tostate writes one `projection_baseline` event
+  per asset because every ledger row before it carried a null toState — the fold
+  had nothing to fold and rebuild was a no-op on all existing data. These tests
+  pin the shape that SQL must emit; `baseline` below mirrors its
+  jsonb_build_object exactly, JSON round-trip included, since jsonb is what the
+  fold receives back from the database.
+*/
+describe("projection_baseline (STI-101 backfill)", () => {
+  /* An asset in the yard: unknown custodian and project are EXPLICIT nulls.
+     jsonb_build_object('custodianId', NULL) keeps the key; the migration relies
+     on that, because the fold replaces rather than merges — a missing key is not
+     "unchanged", it is undefined after the next rebuild. Shipped twice; see the
+     partial-snapshot test above. */
+  const baseline: AssetStateSnapshot = JSON.parse(
+    JSON.stringify({
+      status: "available",
+      custodianId: null,
+      projectId: null,
+      locationId: null,
+    }),
+  );
+
+  it("carries all four keys with explicit null, not a missing key", () => {
+    expect(Object.keys(baseline).sort()).toEqual(["custodianId", "locationId", "projectId", "status"]);
+    expect(baseline.custodianId).toBeNull();
+    expect(baseline.projectId).toBeNull();
+    expect(baseline.locationId).toBeNull();
+
+    const state = foldAssetState([ev("a1", "projection_baseline", "2025-01-06T07:59:59Z", baseline)]);
+    /* toBeNull, never toBeUndefined — undefined is the partial-snapshot bug. */
+    expect(state.custodianId).toBeNull();
+    expect(state.projectId).toBeNull();
+    expect(state.locationId).toBeNull();
+  });
+
+  it("wins the fold over the historical null-toState rows it compensates for", () => {
+    /* The seeded ledger's real shape: an `assign` row with no snapshot. The
+       baseline is the only complete snapshot, so it must be what the fold
+       returns even though the annotation row is newer. */
+    const state = foldAssetState([
+      ev("a1", "projection_baseline", "2025-01-06T07:59:59Z", baseline),
+      ev("a1", "assign", "2025-01-06T08:00:00Z", null),
+    ]);
+    expect(state).toEqual(baseline);
+  });
+
+  it("never masks genuine history — a later real event beats the baseline", () => {
+    /* Why the migration sets occurredAt strictly BEFORE the asset's earliest
+       event: the baseline's identity id is higher than every historical row's,
+       so on an occurredAt tie the id tiebreak would make it win. One second
+       earlier means any real snapshot, past or future, takes precedence. */
+    const state = foldAssetState([
+      ev("a1", "projection_baseline", "2025-01-06T07:59:59Z", baseline),
+      ev("a1", "assign", "2025-01-06T08:00:00Z", withMiguel),
+    ]);
+    expect(state).toEqual(withMiguel);
+  });
+});
+
 describe("foldAllAssets", () => {
   it("keeps each tool's chain separate", () => {
     const map = foldAllAssets([
