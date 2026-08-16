@@ -292,8 +292,10 @@ A movement record between two custody states.
 `packages/db/src/schema/event.ts`
 
 ### transaction
-Append-only. Nothing is ever updated or deleted. Every projection above is a fold over this
-table.
+Append-only. Nothing is ever updated or deleted — enforced by database triggers that block
+UPDATE, DELETE and TRUNCATE with SQLSTATE `0A000`
+(`packages/db/drizzle/0014_append_only_ledger.sql`, STI-104); corrections are compensating
+INSERTs. Every projection above is a fold over this table.
 | column | type | notes |
 |---|---|---|
 | id | bigint identity pk | monotonic |

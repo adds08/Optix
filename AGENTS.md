@@ -248,8 +248,11 @@ anything a human must review before trusting it is in
   the event-fold rebuild guarantee), `packages/intent` (the catalog and parser),
   `packages/types` (the @ parser), `packages/auth` (secret encryption) and
   `packages/api-contracts` (the permission map). The fold tests pin the partial-`toState` bug
-  that shipped twice. All of them are pure-function unit tests — `apps/api` and `apps/web`
-  have no `test` script, so nothing exercises a router, a database or a rendered screen.
+  that has shipped three times. Since Release 1 Phase 1, `packages/api-contracts` also runs
+  **integration tests against the real `DATABASE_URL`** — custody concurrency, the append-only
+  triggers, and a gate asserting the seeded ledger folds to its projection. `apps/api`,
+  `apps/web` and `apps/mobile` still have no `test` script, so nothing exercises a rendered
+  screen.
 - **Production images.** `docker/Dockerfile.{api,web}` + `docker-compose.prod.yml`.
   The API is bundled with esbuild (`apps/api/build.mjs`) because every workspace package
   exports raw `.ts` — `tsc && node dist/index.js` never worked. Web uses Next standalone.

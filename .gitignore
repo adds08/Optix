@@ -19,6 +19,17 @@ __pycache__/
 .playwright-mcp/
 .kilo/
 
+# Playwright / E2E run artefacts. Screenshots, traces and videos are evidence for
+# one run against one database state — they are stale the moment they are written,
+# and they are large. The QA *report* gets committed; the pixels never do.
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+e2e/.auth/
+**/*.webm
+**/trace.zip
+
 # stray screenshot / snapshot dumps at repo root
 /*.png
 /app-polished-*
