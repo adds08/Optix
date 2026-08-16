@@ -71,59 +71,67 @@ export const assignmentRouter = router({
          wins; leaving it blank now means "wherever the custodian works". */
       const projectId = input.projectId ?? (await projectForCustodian(ctx.db, tid, input.custodianId, null));
 
-      /* One active link per tool. Assigning something that is already out used
-         to leave both rows active, so the tool showed up in two people's
-         custody at once. A row waiting on approval changes nothing yet, so the
-         old link only closes when this one actually takes effect. */
-      if (!needsApproval) await closeActiveCustody(ctx.db, tid, input.assetId);
+      /* Close + open + projection + ledger commit or vanish together (STI-102).
+         These used to be bare consecutive writes, so a crash between any two
+         left the register and the ledger permanently disagreeing. The close
+         also takes the asset-row lock inside custody.ts, so two concurrent
+         assignments of the same tool serialise instead of both opening. */
+      const row = await ctx.db.transaction(async (tx) => {
+        /* One active link per tool. Assigning something that is already out used
+           to leave both rows active, so the tool showed up in two people's
+           custody at once. A row waiting on approval changes nothing yet, so the
+           old link only closes when this one actually takes effect. */
+        if (!needsApproval) await closeActiveCustody(tx, tid, input.assetId);
 
-      const [row] = await ctx.db
-        .insert(schema.assignment)
-        .values({
-          tenantId: tid,
-          assetId: input.assetId,
-          custodianId: input.custodianId,
-          projectId,
-          locationId: input.locationId ?? null,
-          startDate: new Date().toISOString().slice(0, 10),
-          status,
-          approvedBy: needsApproval ? null : ctx.session.userId,
-        })
-        .returning();
-      if (row && !needsApproval) {
-        // Apply projection immediately: update asset current_* and append transaction.
-        await ctx.db
-          .update(schema.asset)
-          .set({
-            currentStatus: "assigned",
-            currentCustodianId: input.custodianId,
-            currentProjectId: projectId ?? asset.currentProjectId,
-            currentLocationId: input.locationId ?? asset.currentLocationId,
-            updatedAt: new Date(),
-          })
-          .where(eq(schema.asset.id, input.assetId));
-        await ctx.db.insert(schema.transaction).values({
-          tenantId: tid,
-          assetId: input.assetId,
-          eventType: "assign",
-          actorId: ctx.session.userId,
-          fromState: { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId },
-          /* Same fallbacks the asset update two statements up uses. They were
-             `?? null` here, so the row said one thing and the ledger said
-             another: replaying the ledger blanked a project the register still
-             showed. Nothing surfaces that until somebody rebuilds, which is
-             exactly when it is least welcome. */
-          toState: {
-            status: "assigned",
+        const [created] = await tx
+          .insert(schema.assignment)
+          .values({
+            tenantId: tid,
+            assetId: input.assetId,
             custodianId: input.custodianId,
-            projectId: projectId ?? asset.currentProjectId ?? null,
-            locationId: input.locationId ?? asset.currentLocationId ?? null,
-          },
-          refType: "assignment",
-          refId: row.id,
-          note: `Assigned to foreman`,
-        });
-      }
+            projectId,
+            locationId: input.locationId ?? null,
+            startDate: new Date().toISOString().slice(0, 10),
+            status,
+            approvedBy: needsApproval ? null : ctx.session.userId,
+          })
+          .returning();
+        if (created && !needsApproval) {
+          // Apply projection immediately: update asset current_* and append transaction.
+          await tx
+            .update(schema.asset)
+            .set({
+              currentStatus: "assigned",
+              currentCustodianId: input.custodianId,
+              currentProjectId: projectId ?? asset.currentProjectId,
+              currentLocationId: input.locationId ?? asset.currentLocationId,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)));
+          await tx.insert(schema.transaction).values({
+            tenantId: tid,
+            assetId: input.assetId,
+            eventType: "assign",
+            actorId: ctx.session.userId,
+            fromState: { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId },
+            /* Same fallbacks the asset update two statements up uses. They were
+               `?? null` here, so the row said one thing and the ledger said
+               another: replaying the ledger blanked a project the register still
+               showed. Nothing surfaces that until somebody rebuilds, which is
+               exactly when it is least welcome. */
+            toState: {
+              status: "assigned",
+              custodianId: input.custodianId,
+              projectId: projectId ?? asset.currentProjectId ?? null,
+              locationId: input.locationId ?? asset.currentLocationId ?? null,
+            },
+            refType: "assignment",
+            refId: created.id,
+            note: `Assigned to foreman`,
+          });
+        }
+        return created;
+      });
       /* Same reason as the transfer path: a held assignment used to reach the
          desk only if somebody opened the dashboard and read a count. Best
          effort — the assignment stands whether or not the alert was written. */
@@ -160,29 +168,46 @@ export const assignmentRouter = router({
         where: and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)),
       });
       if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "That assignment no longer exists." });
-      await ctx.db
-        .update(schema.assignment)
-        .set({ status: "active", approvedBy: ctx.session.userId, updatedAt: new Date() })
-        .where(eq(schema.assignment.id, input.id));
-      await ctx.db
-        .update(schema.asset)
-        .set({
-          currentStatus: "assigned",
-          currentCustodianId: a.custodianId,
-          currentProjectId: a.projectId,
-          currentLocationId: a.locationId,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.asset.id, a.assetId));
-      await ctx.db.insert(schema.transaction).values({
-        tenantId: ctx.session.tenantId,
-        assetId: a.assetId,
-        eventType: "assign",
-        actorId: ctx.session.userId,
-        toState: { status: "assigned", custodianId: a.custodianId, projectId: a.projectId, locationId: a.locationId },
-        refType: "assignment",
-        refId: a.id,
-        note: "Assignment approved",
+      /* Only a pending row can take effect. Without this guard, approving an
+         already-active row would close it below and re-open it with a duplicate
+         ledger event — and it keeps a double-tapped Approve honest. */
+      if (a.status !== "pending_approval") {
+        throw new TRPCError({ code: "CONFLICT", message: `This assignment is already ${a.status}.` });
+      }
+      await ctx.db.transaction(async (tx) => {
+        /* Approval is the moment this link takes effect, so it is also the
+           moment the previous holder's link must close. `create` deliberately
+           skips the close while a row waits for approval — and nothing closed
+           it here, which is exactly how a tool ended up with two active
+           custodians after an approve. The row being approved is still
+           `pending_approval`, so the close cannot touch it. */
+        await closeActiveCustody(tx, ctx.session.tenantId, a.assetId);
+        await tx
+          .update(schema.assignment)
+          .set({ status: "active", approvedBy: ctx.session.userId, updatedAt: new Date() })
+          .where(and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)));
+        await tx
+          .update(schema.asset)
+          .set({
+            currentStatus: "assigned",
+            currentCustodianId: a.custodianId,
+            currentProjectId: a.projectId,
+            currentLocationId: a.locationId,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)));
+        await tx.insert(schema.transaction).values({
+          tenantId: ctx.session.tenantId,
+          assetId: a.assetId,
+          eventType: "assign",
+          actorId: ctx.session.userId,
+          // Complete snapshot: the fold replaces rather than merges, so all
+          // four keys must be present even when their value is null.
+          toState: { status: "assigned", custodianId: a.custodianId, projectId: a.projectId, locationId: a.locationId },
+          refType: "assignment",
+          refId: a.id,
+          note: "Assignment approved",
+        });
       });
 
       const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, a.assetId) });
@@ -211,10 +236,15 @@ export const assignmentRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `This assignment is already .` });
       }
 
-      await ctx.db
-        .update(schema.assignment)
-        .set({ status: "cancelled", approvedBy: ctx.session.userId, updatedAt: new Date() })
-        .where(eq(schema.assignment.id, input.id));
+      /* One write, but wrapped like its siblings (STI-102) so every custody
+         decision commits atomically and no future second write here can land
+         outside the transaction. */
+      await ctx.db.transaction(async (tx) => {
+        await tx
+          .update(schema.assignment)
+          .set({ status: "cancelled", approvedBy: ctx.session.userId, updatedAt: new Date() })
+          .where(and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, tid)));
+      });
 
       const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, a.assetId) });
       await notifyCustodyDecision(ctx.db, {
@@ -245,25 +275,56 @@ export const assignmentRouter = router({
         where: and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)),
       });
       if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "That assignment no longer exists." });
-      await ctx.db
-        .update(schema.assignment)
-        .set({ status: "returned", returnedAt: new Date(), updatedAt: new Date() })
-        .where(eq(schema.assignment.id, input.id));
       const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, a.assetId) });
-      await ctx.db
-        .update(schema.asset)
-        .set({ currentStatus: "available", currentCustodianId: null, updatedAt: new Date() })
-        .where(eq(schema.asset.id, a.assetId));
-      await ctx.db.insert(schema.transaction).values({
-        tenantId: ctx.session.tenantId,
-        assetId: a.assetId,
-        eventType: "return",
-        actorId: ctx.session.userId,
-        fromState: asset ? { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId } : null,
-        toState: { status: "available", custodianId: null, projectId: null, locationId: null },
-        refType: "assignment",
-        refId: a.id,
-        note: "Returned to warehouse",
+      /* Close + projection + ledger commit or vanish together (STI-102). A
+         crash after the close used to leave a tool that was nobody's custody
+         but still `assigned` in the register. */
+      /* What a return MEANS (STI-113): nobody holds the tool, so it is booked
+         to no job — the project comes from the custodian (projectForCustodian:
+         tools follow the person, not the site), and with no person there is no
+         project. Location is a physical fact independent of custody; this
+         procedure takes no location input, so the last recorded location stays
+         the best evidence of where the tool sits. The chat return in
+         apply-action.ts already says exactly this.
+
+         Same partial-snapshot bug the sibling writers carry scars for: this
+         one kept project and location on the asset row while nulling both in
+         the ledger event, so from the first real return the register and the
+         ledger disagreed — every sweep raised a custody_discrepancy and a
+         rebuild blanked both fields for good. One `next` object now feeds the
+         projection update AND the `toState`, so the two cannot drift apart. */
+      const next = {
+        status: "available",
+        custodianId: null,
+        projectId: null,
+        locationId: asset?.currentLocationId ?? null,
+      };
+      await ctx.db.transaction(async (tx) => {
+        await tx
+          .update(schema.assignment)
+          .set({ status: "returned", returnedAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)));
+        await tx
+          .update(schema.asset)
+          .set({
+            currentStatus: next.status,
+            currentCustodianId: next.custodianId,
+            currentProjectId: next.projectId,
+            currentLocationId: next.locationId,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)));
+        await tx.insert(schema.transaction).values({
+          tenantId: ctx.session.tenantId,
+          assetId: a.assetId,
+          eventType: "return",
+          actorId: ctx.session.userId,
+          fromState: asset ? { status: asset.currentStatus, custodianId: asset.currentCustodianId, projectId: asset.currentProjectId, locationId: asset.currentLocationId } : null,
+          toState: next,
+          refType: "assignment",
+          refId: a.id,
+          note: "Returned to warehouse",
+        });
       });
       return { ok: true };
     }),
