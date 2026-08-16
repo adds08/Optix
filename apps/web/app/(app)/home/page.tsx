@@ -229,7 +229,7 @@ export default function HomePage() {
                     icon={AlertTriangle}
                     title="Awaiting approval"
                     count={holds.length}
-                    href="/inbox"
+                    href="/custody?tab=queue"
                     empty="No hand-off is waiting on a signature."
                   >
                     {holds.slice(0, 4).map((p) => (
@@ -247,7 +247,7 @@ export default function HomePage() {
                     icon={Handshake}
                     title="Loans to verify"
                     count={borrows.length}
-                    href="/inbox"
+                    href="/custody?tab=queue"
                     empty="No foreman hand-off is waiting to be checked."
                   >
                     {borrows.slice(0, 4).map((p) => (

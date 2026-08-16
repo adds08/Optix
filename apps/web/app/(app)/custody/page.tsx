@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, Wrench } from "lucide-react";
+import { ArrowLeftRight, CheckCircle2, Wrench } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { useJobScope } from "@/components/job-scope";
+import { usePermissions } from "@/components/use-permissions";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 import { shortDate, daysFrom, relative, idName } from "@/lib/format";
@@ -17,12 +19,55 @@ import { cn } from "@/lib/utils";
   Assignments and transfers on one screen. Splitting them across two pages
   makes people navigate to answer a single question — "who has what, and
   what is moving" is one thought, not two.
+
+  The Approval queue tab is the desk's half of the custody gate
+  (`custodyOutcome`, packages/domain/src/rules.ts): a change worth the tenant's
+  threshold or more is parked as `pending_approval` and nothing is written until
+  someone signs it here. There is no verify control and no recipient
+  accept/reject — the borrow/`pending_verification` flow was removed on
+  2026-08-09 (see the rationale comments in routers/transfer.ts and rules.ts),
+  and SYSTEM_PLAN §3 is a verification model, not an acceptance model: the
+  receiving foreman is never asked to accept.
 */
 export default function CustodyPage() {
-  const [tab, setTab] = useState<"held" | "moving">("held");
+  const [tab, setTab] = useState<"held" | "moving" | "queue">("held");
+  /* Deep link from the home page's "Work the queue" cards. Read once on mount
+     instead of useSearchParams, which would force a Suspense boundary around an
+     otherwise self-contained client page. */
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "queue") setTab("queue");
+  }, []);
 
   const assignments = trpc.assignment.list.useQuery();
   const transfers = trpc.transfer.list.useQuery();
+  /* The same query the home-page count reads, so approving here and the count
+     dropping there are one invalidation, not two screens agreeing by luck. */
+  const approvals = trpc.dashboard.pendingApprovals.useQuery();
+
+  /* The two approve permissions are deliberately checked per row kind because
+     the backend checks them per procedure — assignment.approve gates
+     assignment rows, transfer.approve gates transfer rows. */
+  const { has } = usePermissions();
+  const canApprove = { assignment: has("assignment.approve"), transfer: has("transfer.approve") };
+
+  const utils = trpc.useUtils();
+  const [actionError, setActionError] = useState("");
+  /* On success the row leaves the queue because the queries refetch — the list
+     is never edited locally, the server stays the only source of truth. */
+  const acted = () => {
+    setActionError("");
+    utils.dashboard.pendingApprovals.invalidate();
+    utils.assignment.list.invalidate();
+    utils.transfer.list.invalidate();
+    utils.asset.list.invalidate();
+  };
+  const failed = (e: { message: string }) => setActionError(e.message);
+  const approveAssignment = trpc.assignment.approve.useMutation({ onSuccess: acted, onError: failed });
+  const declineAssignment = trpc.assignment.decline.useMutation({ onSuccess: acted, onError: failed });
+  const approveTransfer = trpc.transfer.approve.useMutation({ onSuccess: acted, onError: failed });
+  const declineTransfer = trpc.transfer.decline.useMutation({ onSuccess: acted, onError: failed });
+  const busy =
+    approveAssignment.isPending || declineAssignment.isPending || approveTransfer.isPending || declineTransfer.isPending;
 
   /* System-wide project scope: a scoped user sees only custody on their jobs. */
   const { projectIds: scopeProjects } = useJobScope();
@@ -36,6 +81,15 @@ export default function CustodyPage() {
 
   type HeldRow = (typeof active)[number];
   type TransferRow = NonNullable<(typeof transfers.data)>[number];
+  type QueueRow = NonNullable<(typeof approvals.data)>[number];
+
+  const queue = approvals.data ?? [];
+  /* pendingApprovals carries names but not asset ids; the two list queries
+     already on this page do, so the tag link is a lookup, not a new query. */
+  const assetIdFor = (r: QueueRow) =>
+    r.type === "assignment"
+      ? assignments.data?.find((a) => a.id === r.id)?.assetId
+      : transfers.data?.find((t) => t.id === r.id)?.assetId;
 
   const HELD_COLUMNS: ColumnDef<HeldRow>[] = useMemo(
     () => [
@@ -72,6 +126,71 @@ export default function CustodyPage() {
     [],
   );
 
+  /* Not memoised: the action cells close over permission and pending state,
+     and a stale closure here is a button that fires with old state. */
+  const QUEUE_COLUMNS: ColumnDef<QueueRow>[] = [
+    col<QueueRow>({
+      header: "Kind",
+      accessorFn: (r) => r.type,
+      width: "7rem",
+      cell: (r) => <span className="capitalize">{r.type}</span>,
+    }),
+    col<QueueRow>({
+      header: "Tag",
+      accessorFn: (r) => r.assetTag ?? "",
+      width: "6rem",
+      cell: (r) => {
+        const assetId = assetIdFor(r);
+        return assetId ? (
+          <Link href={`/tools/${assetId}`}><Tag>{r.assetTag}</Tag></Link>
+        ) : (
+          <Tag>{r.assetTag}</Tag>
+        );
+      },
+    }),
+    col<QueueRow>({ header: "Model", accessorFn: (r) => r.assetModel ?? "", cell: (r) => <span className="font-medium">{r.assetModel}</span> }),
+    col<QueueRow>({
+      header: "Proposed change",
+      accessorFn: (r) => r.custodianName ?? "",
+      cell: (r) =>
+        r.type === "transfer" ? (
+          <span>{r.fromName ?? "—"} → {r.custodianName ?? "—"}</span>
+        ) : (
+          <span>issue to {r.custodianName ?? "—"}</span>
+        ),
+    }),
+    col<QueueRow>({
+      header: "Requested",
+      accessorFn: (r) => (r.createdAt ? new Date(r.createdAt).toISOString() : ""),
+      width: "8rem",
+      cell: (r) => <span className="text-muted-foreground">{relative(r.createdAt)}</span>,
+    }),
+    col<QueueRow>({ header: "Status", accessorFn: (r) => r.status, width: "9rem", cell: (r) => <StatusPill status={r.status} /> }),
+    col<QueueRow>({
+      header: "",
+      id: "actions",
+      sortable: false,
+      width: "12rem",
+      cell: (r) => {
+        /* Gated per kind because the backend gates per procedure. A user
+           without the matching approve permission gets no controls at all —
+           the queue stays readable so the desk can still answer "what is
+           waiting", but only a signer can act. */
+        if (!canApprove[r.type as "assignment" | "transfer"]) return null;
+        const approve = () =>
+          r.type === "assignment" ? approveAssignment.mutate({ id: r.id }) : approveTransfer.mutate({ id: r.id });
+        const decline = () =>
+          r.type === "assignment" ? declineAssignment.mutate({ id: r.id }) : declineTransfer.mutate({ id: r.id });
+        return (
+          <div className="flex justify-end gap-2">
+            <Button size="sm" disabled={busy} onClick={approve}>Approve</Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={decline}>Decline</Button>
+          </div>
+        );
+      },
+    }),
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       {/* Counts ride on the tabs, so there is no card row here repeating them
@@ -79,7 +198,7 @@ export default function CustodyPage() {
           own. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex gap-1" role="tablist">
-          {([["held", "Held", active.length], ["moving", "Moving", transfers.data?.length ?? 0]] as const).map(
+          {([["held", "Held", active.length], ["moving", "Moving", transfers.data?.length ?? 0], ["queue", "Approval queue", queue.length]] as const).map(
             ([k, label, n]) => (
               <button
                 key={k}
@@ -119,20 +238,57 @@ export default function CustodyPage() {
             searchPlaceholder="Search held tools…"
           />
         )
-      ) : transfers.isLoading ? (
-        <TableSkeleton cols={5} />
-      ) : transfers.isError ? (
-        <ErrorNote message="Transfers could not be loaded." />
-      ) : !transfers.data?.length ? (
-        <EmptyState icon={ArrowLeftRight} title="No transfers recorded" />
+      ) : tab === "moving" ? (
+        transfers.isLoading ? (
+          <TableSkeleton cols={5} />
+        ) : transfers.isError ? (
+          <ErrorNote message="Transfers could not be loaded." />
+        ) : !transfers.data?.length ? (
+          <EmptyState icon={ArrowLeftRight} title="No transfers recorded" />
+        ) : (
+          <DataTable<TransferRow>
+            mode="client"
+            columns={MOVING_COLUMNS}
+            rows={transfers.data}
+            rowId={(t) => t.id}
+            searchPlaceholder="Search transfers…"
+          />
+        )
       ) : (
-        <DataTable<TransferRow>
-          mode="client"
-          columns={MOVING_COLUMNS}
-          rows={transfers.data}
-          rowId={(t) => t.id}
-          searchPlaceholder="Search transfers…"
-        />
+        <div className="flex flex-col gap-3">
+          {/* What a pending row *is* has to be said on the screen, not assumed:
+              a desk operator who thinks these already happened will sign them
+              as paperwork. Nothing in this queue has touched the register. */}
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Nothing here has happened yet. Each row is a proposed custody change — an{" "}
+            <span className="font-medium text-foreground">assignment</span> issues a tool to a custodian, a{" "}
+            <span className="font-medium text-foreground">transfer</span> moves it between custodians — parked because the
+            tool&apos;s value meets the approval threshold. <span className="font-medium text-foreground">Approve</span> is the
+            second signature: it commits the change and closes the previous holder&apos;s custody.{" "}
+            <span className="font-medium text-foreground">Decline</span> records the refusal and the tool stays exactly where
+            it is.
+          </p>
+          {actionError ? <ErrorNote message={actionError} /> : null}
+          {approvals.isLoading ? (
+            <TableSkeleton cols={6} />
+          ) : approvals.isError ? (
+            <ErrorNote message="The approval queue could not be loaded." />
+          ) : !queue.length ? (
+            <EmptyState
+              icon={CheckCircle2}
+              title="Nothing is waiting for a signature"
+              description="No custody change is parked for approval."
+            />
+          ) : (
+            <DataTable<QueueRow>
+              mode="client"
+              columns={QUEUE_COLUMNS}
+              rows={queue}
+              rowId={(r) => r.id}
+              searchPlaceholder="Search the queue…"
+            />
+          )}
+        </div>
       )}
     </div>
   );
