@@ -11,6 +11,7 @@ repository and in the changelogs.
 | File | What it is |
 |---|---|
 | `workings/SYSTEM_PLAN.md` | **Start here.** What the system is, what exists, what is being built, what comes next |
+| `workings/DESIGNER_BRIEF.md` | **Give to Claude Design before it designs.** Live pages, removed pages, existing components, design rules |
 | `workings/RELEASE_1_SPRINT_PLAN.md` | The delivery plan: eleven deliverables as epics, stories, points, mechanisms and cases. Sprint 1 ships 24 Aug 2026 |
 | `workings/jira-import.csv` · `.json` · `gen-jira.js` | The sprint plan as importable issues. Both files are generated — edit the plan, then run `node gen-jira.js .` |
 | `initialPlan.md` | Urban's original brief, in their own words. Every spec traces back to this |
