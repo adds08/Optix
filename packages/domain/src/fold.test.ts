@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldAllAssets, foldAssetState } from "./fold.js";
+import { foldAllAssets, foldAssetState, reconcileProjections } from "./fold.js";
 import { INITIAL_STATE, type AssetStateSnapshot, type EventEnvelope } from "./events.js";
 
 /*
@@ -194,6 +194,76 @@ describe("projection_baseline (STI-101 backfill)", () => {
       ev("a1", "assign", "2025-01-06T08:00:00Z", withMiguel),
     ]);
     expect(state).toEqual(withMiguel);
+  });
+});
+
+/*
+  The reconciliation check (STI-106).
+
+  `asset.rebuild` repairs; this compares. The point of the check is to raise the
+  signal a broken writer emits before anyone repairs it away, so a divergence
+  must name the asset, the folded state and the projected state — enough to
+  judge without opening psql.
+*/
+describe("reconcileProjections", () => {
+  const projectedAs = (assetId: string, s: AssetStateSnapshot, label?: string) => ({
+    assetId,
+    label,
+    ...s,
+  });
+
+  it("reports nothing when the register matches the fold", () => {
+    const events = [
+      ev("a1", "assign", "2026-02-01T09:00:00Z", withMiguel),
+      ev("a1", "transfer", "2026-03-01T09:00:00Z", withDwayne, withMiguel),
+    ];
+    expect(reconcileProjections([projectedAs("a1", withDwayne)], events)).toEqual([]);
+  });
+
+  it("flags a known-divergent pair, naming both states and the differing fields", () => {
+    /* The ledger says Miguel still holds it; the register says Dwayne does —
+       the shape a bypassing writer leaves behind. */
+    const events = [ev("a1", "assign", "2026-02-01T09:00:00Z", withMiguel)];
+    const report = reconcileProjections(
+      [projectedAs("a1", withDwayne, "#1 TL-0001")],
+      events,
+    );
+    expect(report).toHaveLength(1);
+    expect(report[0]!.assetId).toBe("a1");
+    expect(report[0]!.label).toBe("#1 TL-0001");
+    expect(report[0]!.folded).toEqual(withMiguel);
+    expect(report[0]!.projected).toEqual(withDwayne);
+    expect(report[0]!.fields.sort()).toEqual(["custodianId", "locationId", "projectId"]);
+  });
+
+  it("treats an empty fold as a divergence, never a pass", () => {
+    /* The pre-STI-101 shape: every ledger row carries a null toState, so the
+       fold returns INITIAL_STATE while the register shows a real holder. A
+       checker tolerant of this would have reported a clean bill on a database
+       whose entire safety net was a no-op — which is exactly what STI-101 had
+       to backfill away. Do not weaken this. */
+    const events = [ev("a1", "assign", "2026-02-01T09:00:00Z", null)];
+    const report = reconcileProjections([projectedAs("a1", withMiguel)], events);
+    expect(report).toHaveLength(1);
+    expect(report[0]!.folded).toEqual(INITIAL_STATE);
+    expect(report[0]!.projected).toEqual(withMiguel);
+  });
+
+  it("still checks an asset with no ledger rows at all", () => {
+    const report = reconcileProjections([projectedAs("a-orphan", withMiguel)], []);
+    expect(report).toHaveLength(1);
+    expect(report[0]!.folded).toEqual(INITIAL_STATE);
+  });
+
+  it("does not call missing-key-vs-null a divergence on its own", () => {
+    /* A stored partial snapshot rebuilds its missing keys to null, so if the
+       register already shows null the two agree operationally. The partial
+       snapshot bug still surfaces whenever the projection holds the value the
+       snapshot dropped — see the divergent-pair test above. */
+    const partial = { status: "available" } as unknown as AssetStateSnapshot;
+    const events = [ev("a1", "status_change", "2026-02-01T09:00:00Z", partial)];
+    const clean = { status: "available", custodianId: null, projectId: null, locationId: null };
+    expect(reconcileProjections([projectedAs("a1", clean)], events)).toEqual([]);
   });
 });
 

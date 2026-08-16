@@ -1,11 +1,12 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, eq, ilike, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import { protectedProcedure, requirePermission, router } from "../trpc.js";
+import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
 import { COST_TARGETS, formatAssetModel } from "@stinventory/types";
+import { foldAssetState, reconcileProjections, type EventEnvelope } from "@stinventory/domain";
 
 /* A tool needs to be describable, not catalogued. A brand with no catalogue
    number is completely ordinary ("Skill Saw" is a description, not a brand), so
@@ -331,16 +332,21 @@ export const assetRouter = router({
     }),
 
   /*
-    Remove a tool from the register.
+    Remove a tool from the register — which is to say: refuse to.
 
-    A tool with history is never deleted. Its transactions ARE the audit trail,
-    and dropping the row would take them with it (`on delete cascade`) — so a
-    tool that was assigned, lost and found would leave no trace it ever
-    existed. Those get `disposed` instead, which keeps the history and takes
-    them out of every active view.
+    A tool's transactions ARE the audit trail, and dropping the row would take
+    them with it (`on delete cascade`). This procedure used to allow a hard
+    delete for a row "typed in wrong five minutes ago" — exactly one ledger
+    event, the opening `tag` that every creation path writes (see `create`).
 
-    Hard delete stays available for the case it is actually for: a row typed in
-    wrong five minutes ago that has never been used.
+    Since STI-104 that path is unreachable by construction, not merely risky:
+    the ledger's append-only triggers (drizzle/0014_append_only_ledger.sql)
+    block the cascade DELETE of even that single event with SQLSTATE 0A000, so
+    every asset — all of which carry the `tag` event from birth — is
+    undeletable. Attempting it surfaced as a raw INTERNAL_SERVER_ERROR.
+    Deliberate product change: refuse cleanly with the disposal guidance
+    instead. Do NOT re-enable hard delete by disabling or excepting the
+    trigger — a cascade hole in the ledger defeats the control.
   */
   delete: requirePermission("asset.manage")
     .input(z.object({ id: z.string().uuid() }))
@@ -351,41 +357,11 @@ export const assetRouter = router({
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such tool in this tenant" });
 
-      if (existing.currentCustodianId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Someone is holding this tool. Return it first.",
-        });
-      }
-
-      /* The opening `tag` event is written by every creation path, so one
-         transaction means "never used" and more means real history. */
-      const events = await ctx.db
-        .select({ id: schema.transaction.id })
-        .from(schema.transaction)
-        .where(eq(schema.transaction.assetId, input.id))
-        .limit(2);
-
-      if (events.length > 1) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "This tool has history. Deleting it would delete its audit trail — mark it disposed instead.",
-        });
-      }
-
-      await ctx.db
-        .delete(schema.asset)
-        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, tid)));
-
-      await logEvent(ctx, {
-        category: "asset",
-        action: "delete",
-        entityType: "asset",
-        entityId: input.id,
-        entityLabel: existing.tag,
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "Tools are never deleted: the ledger is append-only and its events are the audit trail. Mark it disposed instead — that keeps the history and removes it from every active view.",
       });
-      return { ok: true };
     }),
 
   setStatus: requirePermission("asset.manage")
@@ -440,15 +416,39 @@ export const assetRouter = router({
       return row;
     }),
 
+  /*
+    The reconciliation check (STI-106): compares the register against a replay of
+    the ledger and REPORTS — it writes nothing. `rebuild` below repairs, and in
+    doing so destroys the only signal a broken writer emits: the register quietly
+    becomes right again and nobody learns which code path corrupted it. Keeping
+    the two as separate explicit actions is the point, not an inconvenience.
+  */
+  verifyProjection: requirePermission("asset.manage").query(async ({ ctx }) => {
+    const tid = ctx.session.tenantId;
+    const projected = (
+      await ctx.db
+        .select({
+          assetId: schema.asset.id,
+          assetNumber: schema.asset.assetNumber,
+          tag: schema.asset.tag,
+          status: schema.asset.currentStatus,
+          custodianId: schema.asset.currentCustodianId,
+          projectId: schema.asset.currentProjectId,
+          locationId: schema.asset.currentLocationId,
+        })
+        .from(schema.asset)
+        .where(eq(schema.asset.tenantId, tid))
+    ).map((a) => ({ ...a, label: a.tag ? `#${a.assetNumber} ${a.tag}` : `#${a.assetNumber}` }));
+    const events = await tenantLedger(ctx.db, tid);
+    const divergences = reconcileProjections(projected, events);
+    return { assetsChecked: projected.length, totalEvents: events.length, divergences };
+  }),
+
   rebuild: requirePermission("asset.manage").mutation(async ({ ctx }) => {
     // Rebuild all assets.current_* from the transaction log (rebuild guarantee).
     const tid = ctx.session.tenantId;
-    const events = await ctx.db
-      .select()
-      .from(schema.transaction)
-      .where(eq(schema.transaction.tenantId, tid))
-      .orderBy(sql`${schema.transaction.occurredAt} ASC, ${schema.transaction.id} ASC`);
-    const byAsset = new Map<string, (typeof events)[number][]>();
+    const events = await tenantLedger(ctx.db, tid);
+    const byAsset = new Map<string, EventEnvelope[]>();
     for (const e of events) {
       const list = byAsset.get(e.assetId);
       if (list) list.push(e);
@@ -456,28 +456,41 @@ export const assetRouter = router({
     }
     let updated = 0;
     for (const [assetId, list] of byAsset) {
-      let latest: (typeof events)[number] | null = null;
-      for (const e of list) if (e.toState) latest = e;
-      if (latest?.toState) {
-        const s = latest.toState as {
-          status?: string;
-          custodianId?: string | null;
-          projectId?: string | null;
-          locationId?: string | null;
-        };
-        await ctx.db
-          .update(schema.asset)
-          .set({
-            currentStatus: s.status ?? "available",
-            currentCustodianId: s.custodianId ?? null,
-            currentProjectId: s.projectId ?? null,
-            currentLocationId: s.locationId ?? null,
-            updatedAt: new Date(),
-          })
-          .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)));
-        updated++;
-      }
+      /* An asset whose ledger carries no complete snapshot is skipped, not
+         blanked: the fold's INITIAL_STATE answer is indistinguishable from "no
+         evidence", and overwriting a live register row on no evidence is how a
+         repair becomes the corruption. verifyProjection above deliberately does
+         NOT share this tolerance — there an empty fold is a divergence. */
+      if (!list.some((e) => e.toState)) continue;
+      /* The fold is the domain function, not a re-implementation. An inline
+         copy used to live here, and it merely happened to agree with the tested
+         `foldAssetState` — STI-106 made the production path and the tested path
+         the same code. */
+      const s = foldAssetState(list);
+      await ctx.db
+        .update(schema.asset)
+        .set({
+          currentStatus: s.status ?? "available",
+          currentCustodianId: s.custodianId ?? null,
+          currentProjectId: s.projectId ?? null,
+          currentLocationId: s.locationId ?? null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)));
+      updated++;
     }
     return { assetsRebuilt: updated, totalEvents: events.length };
   }),
 });
+
+/* The whole tenant ledger, typed as the envelopes the domain fold takes. The
+   jsonb columns come back `unknown`; the cast is the one place that unknown is
+   pinned to the snapshot shape both `foldAssetState` and `reconcileProjections`
+   consume. No ORDER BY — the fold sorts for itself (occurredAt, then id). */
+async function tenantLedger(db: Context["db"], tid: string): Promise<EventEnvelope[]> {
+  const rows = await db
+    .select()
+    .from(schema.transaction)
+    .where(eq(schema.transaction.tenantId, tid));
+  return rows as unknown as EventEnvelope[];
+}

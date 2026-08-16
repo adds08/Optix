@@ -3,7 +3,13 @@ export {
   type AssetStateSnapshot,
   type EventEnvelope,
 } from "./events.js";
-export { foldAssetState, foldAllAssets } from "./fold.js";
+export {
+  foldAssetState,
+  foldAllAssets,
+  reconcileProjections,
+  type ProjectedAssetState,
+  type ProjectionDivergence,
+} from "./fold.js";
 export {
   custodyOutcome,
   type CustodyOutcome,
