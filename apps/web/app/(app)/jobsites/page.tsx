@@ -14,6 +14,7 @@ import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
 import { RigPicker, type PickerRequest } from "@/components/rig-picker";
 import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assign-dialog";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
+import { JobsiteBlockyView } from "@/components/jobsite-blocky-view";
 import { Highlight } from "@/components/highlight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +67,11 @@ export default function JobsitesPage() {
   const vehicles = trpc.vehicle.list.useQuery();
   const utils = trpc.useUtils();
   const { has } = usePermissions();
+
+  /* Two renderings of the same yard, switchable for the client to compare:
+     "cards" is the long-running workhorse view; "blocky" is the concept
+     ported from design/claude-design/Tools by Jobsite Blocky.dc.html. */
+  const [view, setView] = useState<"cards" | "blocky">("cards");
 
   /* What this viewer may actually drive. The picker actions are each backed
      by a server permission — a foreman browsing the yard must not see buttons
@@ -346,7 +352,55 @@ export default function JobsitesPage() {
       />
 
       <div className="flex min-w-0 flex-col gap-3">
-          {/* ---- one filter bar: search hits every noun in the list ---- */}
+          {/* ---- view switcher: two renderings of the same yard ---- */}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {view === "cards"
+                ? "Cards view — the workhorse jobsite hub."
+                : "Blocky view — concept from design/claude-design, dark theme."}
+            </p>
+            <div className="flex rounded-md border bg-muted/40 p-0.5" role="tablist" aria-label="Jobsite view">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "cards"}
+                onClick={() => setView("cards")}
+                className={cn(
+                  "rounded px-3 py-1 text-xs font-medium transition-colors",
+                  view === "cards" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Cards
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "blocky"}
+                onClick={() => setView("blocky")}
+                className={cn(
+                  "rounded px-3 py-1 text-xs font-medium transition-colors",
+                  view === "blocky" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Blocky
+              </button>
+            </div>
+          </div>
+
+          {view === "blocky" ? (
+            <JobsiteBlockyView
+              assets={(assets.data ?? []) as ToolRow[]}
+              projects={projects.data ?? []}
+              vehicles={vehicles.data ?? []}
+              employees={employees.data ?? []}
+              foremen={foremen}
+              scope={scope}
+              canAssignCrew={canAssignCrew}
+              canManageRig={canManageRig}
+              onPick={setPicker}
+            />
+          ) : (
+          <>
           <section className="flex flex-col gap-2 rounded-md border bg-card p-3">
             {/* Search stays on the bar because it is the one control used on
                 every visit. The other six live in the sheet — as loose
@@ -666,6 +720,8 @@ export default function JobsitesPage() {
               </section>
             );
           })}
+          </>
+          )}
       </div>
     </div>
   );

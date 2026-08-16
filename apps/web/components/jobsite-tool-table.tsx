@@ -29,6 +29,8 @@ export type ToolRow = {
   categoryName: string | null;
   status: string | null;
   acquisitionCost: string | null;
+  /* asset.condition — new | good | fair | poor | damaged (see schema). */
+  condition?: string | null;
   /* asset.list names these `custodianId` / `locationId` (no current_ prefix). */
   custodianId?: string | null;
   custodianName?: string | null;
