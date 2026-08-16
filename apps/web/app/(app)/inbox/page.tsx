@@ -4,9 +4,11 @@ import { useState } from "react";
 import { Check, CheckCircle2, CircleAlert, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
+import { cn } from "@/lib/utils";
 import { EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
+import { PmDeskView } from "@/components/pm-desk-view";
 import { dateTime, relative } from "@/lib/format";
 
 /*
@@ -48,6 +50,11 @@ export default function InboxPage() {
 
   const [declining, setDeclining] = useState<{ id: string; title: string } | null>(null);
 
+  /* Two renderings of the desk, switchable for the client to compare:
+     "Inbox" is the long-running three-bucket work list; "Desk board" is the
+     PM Desk concept from design/claude-design/PM Desk.dc.html. */
+  const [view, setView] = useState<"inbox" | "desk">("inbox");
+
   const c = classified.data;
   const unread = [...(alerts.data ?? [])].filter((n) => !n.readAt);
 
@@ -88,6 +95,45 @@ export default function InboxPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* ---- view switcher ---- */}
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {view === "inbox"
+            ? "Inbox view — recognized / unrecognized / completed buckets."
+            : "Desk board view — PM Desk concept from design/claude-design, grouped by job."}
+        </p>
+        <div className="flex rounded-md border bg-muted/40 p-0.5" role="tablist" aria-label="Inbox view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "inbox"}
+            onClick={() => setView("inbox")}
+            className={cn(
+              "rounded px-3 py-1 text-xs font-medium transition-colors",
+              view === "inbox" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Inbox
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "desk"}
+            onClick={() => setView("desk")}
+            className={cn(
+              "rounded px-3 py-1 text-xs font-medium transition-colors",
+              view === "desk" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Desk board
+          </button>
+        </div>
+      </div>
+
+      {view === "desk" ? (
+        <PmDeskView />
+      ) : (
+      <>
       {/* No metric row: the three buckets are the page, and each heading below
           carries its own count. Cards on top only delayed the first item. */}
       {classified.isLoading ? (
@@ -202,6 +248,8 @@ export default function InboxPage() {
             )}
           </section>
         </div>
+      )}
+      </>
       )}
     </div>
   );
