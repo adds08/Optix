@@ -6,7 +6,9 @@ export {
 export {
   foldAssetState,
   foldAllAssets,
+  hasSnapshotEvidence,
   reconcileProjections,
+  type DivergenceKind,
   type ProjectedAssetState,
   type ProjectionDivergence,
 } from "./fold.js";

@@ -381,15 +381,50 @@ async function sweepProjectionDivergence() {
           eq(schema.employee.role, settings?.role ?? "equipment_admin"),
         ),
       );
-    const detail = divergences
-      .slice(0, 10)
-      .map(
-        (d) =>
-          `${d.label ?? d.assetId} (${d.fields.join(", ")}): ledger says ` +
-          `${d.folded.status}/${d.folded.custodianId ?? "no custodian"}, register shows ` +
-          `${d.projected.status}/${d.projected.custodianId ?? "no custodian"}`,
-      )
-      .join("; ");
+    /*
+      The body names which of two problems each tool has, because they need
+      opposite responses (STI-110). Before the kinds were distinguished, a
+      no-evidence divergence recurred here every six hours forever — rebuild
+      skips it by design, so nothing the alert suggested could clear it, and an
+      alert that keeps firing with no workable action is the shape people learn
+      to dismiss. A dismissed reconciliation alert is worse than none.
+    */
+    const stale = divergences.filter((d) => d.kind === "stale_projection");
+    const noEvidence = divergences.filter((d) => d.kind === "no_evidence");
+    const clip = (n: number) => (n > 10 ? ` — and ${n - 10} more` : "");
+    const parts: string[] = [];
+    if (stale.length) {
+      const detail = stale
+        .slice(0, 10)
+        .map(
+          (d) =>
+            `${d.label ?? d.assetId} (${d.fields.join(", ")}): ledger says ` +
+            `${d.folded.status}/${d.folded.custodianId ?? "no custodian"}, register shows ` +
+            `${d.projected.status}/${d.projected.custodianId ?? "no custodian"}`,
+        )
+        .join("; ");
+      parts.push(
+        `${stale.length} tool(s) where the register disagrees with the ledger: ${detail}${clip(stale.length)}. ` +
+          `Something wrote custody without the ledger; do not repair until it is diagnosed — then Rebuild fixes these.`,
+      );
+    }
+    if (noEvidence.length) {
+      const detail = noEvidence
+        .slice(0, 10)
+        .map(
+          (d) =>
+            `${d.label ?? d.assetId} (register shows ` +
+            `${d.projected.status}/${d.projected.custodianId ?? "no custodian"})`,
+        )
+        .join("; ");
+      parts.push(
+        `${noEvidence.length} tool(s) where the ledger has no evidence at all: ${detail}${clip(noEvidence.length)}. ` +
+          `Rebuild will skip these — repairing on no evidence would blank a live row. ` +
+          `To resolve one, record a real custody action for the tool through the app ` +
+          `(an assignment, transfer or status change writes a complete snapshot that becomes its baseline); ` +
+          `until then this alert repeats every six hours.`,
+      );
+    }
     for (const person of desk) {
       await createNotification(db, {
         tenantId: t.id,
@@ -397,9 +432,7 @@ async function sweepProjectionDivergence() {
         type: "custody_discrepancy",
         refType: "reconciliation",
         title: `Register out of step with the ledger: ${divergences.length} tool(s)`,
-        body: `Replaying the transaction log disagrees with the register. ${detail}${
-          divergences.length > 10 ? ` — and ${divergences.length - 10} more` : ""
-        }. Something wrote custody without the ledger; do not repair until it is diagnosed.`,
+        body: parts.join(" "),
       });
     }
   }

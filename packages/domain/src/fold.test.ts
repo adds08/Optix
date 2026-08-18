@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldAllAssets, foldAssetState, reconcileProjections } from "./fold.js";
+import { foldAllAssets, foldAssetState, hasSnapshotEvidence, reconcileProjections } from "./fold.js";
 import { INITIAL_STATE, type AssetStateSnapshot, type EventEnvelope } from "./events.js";
 
 /*
@@ -234,6 +234,9 @@ describe("reconcileProjections", () => {
     expect(report[0]!.folded).toEqual(withMiguel);
     expect(report[0]!.projected).toEqual(withDwayne);
     expect(report[0]!.fields.sort()).toEqual(["custodianId", "locationId", "projectId"]);
+    /* The ledger holds a snapshot, so this is the repairable kind: rebuild
+       fixes it once the bypassing writer is diagnosed (STI-110). */
+    expect(report[0]!.kind).toBe("stale_projection");
   });
 
   it("treats an empty fold as a divergence, never a pass", () => {
@@ -247,12 +250,30 @@ describe("reconcileProjections", () => {
     expect(report).toHaveLength(1);
     expect(report[0]!.folded).toEqual(INITIAL_STATE);
     expect(report[0]!.projected).toEqual(withMiguel);
+    /* And it is NAMED as the unrepairable kind (STI-110): rebuild skips a
+       snapshotless asset by design, so calling this `stale_projection` would
+       send the operator to a repair that silently does nothing — QA watched
+       exactly that happen before the kinds existed. */
+    expect(report[0]!.kind).toBe("no_evidence");
   });
 
   it("still checks an asset with no ledger rows at all", () => {
     const report = reconcileProjections([projectedAs("a-orphan", withMiguel)], []);
     expect(report).toHaveLength(1);
     expect(report[0]!.folded).toEqual(INITIAL_STATE);
+    expect(report[0]!.kind).toBe("no_evidence");
+  });
+
+  it("calls a partial-snapshot divergence stale_projection, because rebuild WILL act on it", () => {
+    /* A partial toState is evidence — broken evidence, but rebuild does not
+       skip it. Classifying it no_evidence would tell the operator repair
+       cannot help when in fact repair is exactly what surfaces the
+       partial-snapshot bug. */
+    const partial = { status: "in_maintenance" } as unknown as AssetStateSnapshot;
+    const events = [ev("a1", "repair_start", "2026-02-05T09:00:00Z", partial)];
+    const report = reconcileProjections([projectedAs("a1", withMiguel)], events);
+    expect(report).toHaveLength(1);
+    expect(report[0]!.kind).toBe("stale_projection");
   });
 
   it("does not call missing-key-vs-null a divergence on its own", () => {
@@ -266,6 +287,58 @@ describe("reconcileProjections", () => {
     expect(reconcileProjections([projectedAs("a1", clean)], events)).toEqual([]);
   });
 });
+
+/*
+  The never-repair rule (STI-110, inheriting STI-106's reasoning).
+
+  `asset.rebuild` skips an asset exactly when `hasSnapshotEvidence` is false,
+  and `reconcileProjections` names that same condition `no_evidence`. Because
+  both sides call this one predicate, "repair never touches the no-evidence
+  kind" is not two pieces of code that happen to agree — it is one function.
+  These tests pin the predicate; the router's skip is `!hasSnapshotEvidence`.
+*/
+describe("hasSnapshotEvidence", () => {
+  it("is false for an empty ledger and for annotation-only history", () => {
+    expect(hasSnapshotEvidence([])).toBe(false);
+    expect(
+      hasSnapshotEvidence([
+        ev("a1", "assign", "2026-02-01T09:00:00Z", null),
+        ev("a1", "status_change", "2026-02-02T09:00:00Z", null),
+      ]),
+    ).toBe(false);
+  });
+
+  it("is true once any event carries a snapshot — even a partial one", () => {
+    expect(hasSnapshotEvidence([ev("a1", "tag", "2026-01-01T09:00:00Z", yard)])).toBe(true);
+    /* Partial counts: rebuild acts on it (and in doing so surfaces the
+       partial-snapshot bug), so it must not be reported as unrepairable. */
+    const partial = { status: "in_maintenance" } as unknown as AssetStateSnapshot;
+    expect(hasSnapshotEvidence([ev("a1", "repair_start", "2026-02-05T09:00:00Z", partial)])).toBe(true);
+  });
+
+  it("partitions every divergence: no_evidence exactly when rebuild would skip", () => {
+    const withEvidence = [ev("a1", "assign", "2026-02-01T09:00:00Z", withMiguel)];
+    const withoutEvidence = [ev("a2", "assign", "2026-02-01T09:00:00Z", null)];
+    const report = reconcileProjections(
+      [projectedFor("a1", withDwayne), projectedFor("a2", withDwayne)],
+      [...withEvidence, ...withoutEvidence],
+    );
+    expect(report).toHaveLength(2);
+    for (const d of report) {
+      const events = d.assetId === "a1" ? withEvidence : withoutEvidence;
+      /* The router's skip condition is `!hasSnapshotEvidence(list)`; a kind of
+         `no_evidence` must coincide with it, or the alert would promise a
+         repair that silently no-ops (or warn off a repair that works). */
+      expect(d.kind === "no_evidence").toBe(!hasSnapshotEvidence(events));
+    }
+    expect(report.find((d) => d.assetId === "a1")!.kind).toBe("stale_projection");
+    expect(report.find((d) => d.assetId === "a2")!.kind).toBe("no_evidence");
+  });
+});
+
+function projectedFor(assetId: string, s: AssetStateSnapshot) {
+  return { assetId, ...s };
+}
 
 describe("foldAllAssets", () => {
   it("keeps each tool's chain separate", () => {

@@ -6,7 +6,7 @@ import { protectedProcedure, requirePermission, router, type Context } from "../
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
 import { COST_TARGETS, formatAssetModel } from "@stinventory/types";
-import { foldAssetState, reconcileProjections, type EventEnvelope } from "@stinventory/domain";
+import { foldAssetState, hasSnapshotEvidence, reconcileProjections, type EventEnvelope } from "@stinventory/domain";
 
 /* A tool needs to be describable, not catalogued. A brand with no catalogue
    number is completely ordinary ("Skill Saw" is a description, not a brand), so
@@ -455,13 +455,36 @@ export const assetRouter = router({
       else byAsset.set(e.assetId, [e]);
     }
     let updated = 0;
+    let skippedNoEvidence = 0;
+    /* Assets with NO ledger row at all never appear in `byAsset`, so the loop
+       below cannot see them and the skip count silently omitted exactly the
+       shape it exists to report. STI-101's backfill emptied the "has events but
+       none carry a snapshot" set by construction, so a zero-event asset is the
+       only no-evidence shape actually reachable today — a REST-created asset, or
+       an `asset.create` that failed between its two writes (STI-115/STI-116).
+       Counted here rather than in the loop, because there is nothing to loop
+       over. Found by QA on 2026-08-18: rebuild reported
+       `assetsSkippedNoEvidence: 0` with a no-evidence divergence open. */
+    const assetsWithNoEvents = await ctx.db
+      .select({ id: schema.asset.id })
+      .from(schema.asset)
+      .where(eq(schema.asset.tenantId, tid));
+    skippedNoEvidence += assetsWithNoEvents.filter((a) => !byAsset.has(a.id)).length;
     for (const [assetId, list] of byAsset) {
       /* An asset whose ledger carries no complete snapshot is skipped, not
          blanked: the fold's INITIAL_STATE answer is indistinguishable from "no
          evidence", and overwriting a live register row on no evidence is how a
          repair becomes the corruption. verifyProjection above deliberately does
-         NOT share this tolerance — there an empty fold is a divergence. */
-      if (!list.some((e) => e.toState)) continue;
+         NOT share this tolerance — there an empty fold is a divergence, of kind
+         `no_evidence` (STI-110): the same `hasSnapshotEvidence` predicate
+         drives both, so what rebuild refuses to touch is exactly what the
+         report names unrepairable. The skip count is returned because QA once
+         watched `{assetsRebuilt: 1}` come back with two divergences open and
+         had no way to tell the second was skipped rather than missed. */
+      if (!hasSnapshotEvidence(list)) {
+        skippedNoEvidence++;
+        continue;
+      }
       /* The fold is the domain function, not a re-implementation. An inline
          copy used to live here, and it merely happened to agree with the tested
          `foldAssetState` — STI-106 made the production path and the tested path
@@ -479,7 +502,7 @@ export const assetRouter = router({
         .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)));
       updated++;
     }
-    return { assetsRebuilt: updated, totalEvents: events.length };
+    return { assetsRebuilt: updated, assetsSkippedNoEvidence: skippedNoEvidence, totalEvents: events.length };
   }),
 });
 
