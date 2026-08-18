@@ -30,8 +30,11 @@ record. Do not reach for it because a migration is inconvenient.
 - **Enums are not Postgres enums.** Every status/type column is plain `text`; the vocabularies
   live in `packages/types`. The database will *not* stop you writing a value you forgot to
   add. Validate at the router edge with Zod, and use `z.enum(...)` rather than `z.string()`.
-- **`assignment` has no unique constraint.** "One active assignment per asset" is application
-  code only — see `.claude/rules/custody-and-ledger.md`.
+- **`assignment` carries one partial unique index**, `assignment_one_active_uq` on
+  `(asset_id) WHERE status = 'active'` (STI-103, migration `0015`). It blocks a *second active*
+  row and nothing else — `pending_approval` rows are uncovered, and rows written before the
+  index may still carry duplicates. Closing the previous row is still application code only —
+  see `.claude/rules/custody-and-ledger.md`.
 - **No RLS, no policies, no session tenant context.** Multi-tenancy is the correctness of
   every individual `WHERE` clause.
 - **No `relations()` are defined anywhere.** `db.query.X.findFirst` works because the schema

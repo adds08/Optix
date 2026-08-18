@@ -14,6 +14,14 @@ import * as schema from "@stinventory/db/schema";
   a foreman is carrying, which tools follow them to a new job) reads a person
   who gave the tool away weeks ago.
 
+  Since STI-103 this file is no longer the only enforcement: the partial unique
+  index `assignment_one_active_uq` (schema/asset.ts) makes a second active row a
+  database error. The index is the backstop, not the mechanism — it turns the
+  bug above into a loud failure instead of quiet corruption, but only this file
+  knows that opening custody means closing what was active first. A writer that
+  bypasses it now gets an exception rather than two custodians; it is still a
+  bypass, and still wrong.
+
   Every path that changes who holds a tool goes through here — and since
   STI-102, only ever inside a transaction. The `Transaction` parameter is a
   real type, not `any`: passing a raw `db` is a compile error, because a raw
@@ -62,9 +70,11 @@ export async function closeActiveCustody(
      close or re-open them between this read and the update below. */
   await tx.select({ id: schema.assignment.id }).from(schema.assignment).where(activeLinks).for("update");
 
-  /* Updated by predicate rather than by id: duplicates already exist in the
-     wild from the writers this helper replaces, and closing only the first one
-     found would leave the rest active forever. */
+  /* Updated by predicate rather than by id. The local database was verified
+     duplicate-free on 2026-08-16, and since STI-103 the partial unique index
+     blocks NEW duplicate actives — but rows written before the index existed
+     (production has not been checked) may still carry them, and closing only
+     the first one found would leave the rest active forever. */
   const closed = await tx
     .update(schema.assignment)
     .set({

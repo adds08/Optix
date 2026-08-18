@@ -116,9 +116,22 @@ describe.skipIf(!url)("custody writes are transactional and row-locked (STI-102)
   });
 
   it("closes every active duplicate, not just the first found", async () => {
-    /* Close-by-predicate is deliberate (see custody.ts): duplicate active rows
-       already exist in the wild, and closing only the first would strand the
-       rest active forever. Pinned here so a by-id "optimisation" fails loudly. */
+    /* Close-by-predicate is deliberate (see custody.ts): rows written before
+       the STI-103 unique index existed may carry duplicate actives, and closing
+       only the first would strand the rest active forever. Pinned here so a
+       by-id "optimisation" fails loudly.
+
+       Since STI-103 the database itself forbids the state this test needs —
+       two active rows for one asset trips `assignment_one_active_uq` at insert.
+       That does NOT make this test obsolete: the index only blocks NEW
+       duplicates, while closeActiveCustody must still clean up pre-index ones
+       (production data predating the constraint has not been verified clean).
+       A partial unique INDEX cannot be made DEFERRABLE — only unique
+       constraints can be deferred, and a constraint cannot carry a WHERE — so
+       the fabrication drops the index inside this transaction and recreates
+       it before commit. DDL is transactional in Postgres, so an abort restores
+       the index; recreating from pg_indexes' own indexdef keeps the test from
+       drifting out of sync with the migrated definition. */
     const assetId = await newAsset();
     const dup = {
       tenantId,
@@ -127,12 +140,48 @@ describe.skipIf(!url)("custody writes are transactional and row-locked (STI-102)
       startDate: new Date().toISOString().slice(0, 10),
       status: "active",
     };
-    // Bypasses custody.ts on purpose to fabricate the corrupt pre-existing state.
-    await db.insert(schema.assignment).values([dup, { ...dup, custodianId: empB }]);
 
-    const closed = await db.transaction((tx) => closeActiveCustody(tx, tenantId, assetId));
+    const closed = await db.transaction(async (tx) => {
+      const [idx] = await tx.execute(sql`select indexdef from pg_indexes where indexname = 'assignment_one_active_uq'`);
+      /* If the index has vanished, fail here rather than silently testing less. */
+      expect(idx?.indexdef).toBeTruthy();
+      await tx.execute(sql`drop index "assignment_one_active_uq"`);
+      // Bypasses custody.ts on purpose to fabricate the corrupt pre-index state.
+      await tx.insert(schema.assignment).values([dup, { ...dup, custodianId: empB }]);
+      const ids = await closeActiveCustody(tx, tenantId, assetId);
+      await tx.execute(sql.raw(String(idx!.indexdef)));
+      return ids;
+    });
     expect(closed).toHaveLength(2);
     expect(await activeLinks(assetId)).toHaveLength(0);
+  });
+
+  it("the database refuses a second active assignment for one asset (STI-103)", async () => {
+    const assetId = await newAsset();
+    await db.transaction((tx) =>
+      moveCustody(tx, { tenantId, assetId, toCustodianId: empA, projectId: null, locationId: null, actorUserId: null }),
+    );
+
+    /* Bypasses custody.ts the way every historical duplicate did — the point
+       of STI-103 is that the bypass now dies at the database instead of
+       quietly shipping two custodians. */
+    await expect(
+      db.insert(schema.assignment).values({
+        tenantId,
+        assetId,
+        custodianId: empB,
+        startDate: new Date().toISOString().slice(0, 10),
+        status: "active",
+      }),
+    ).rejects.toThrow(/assignment_one_active_uq/);
+
+    /* The index is partial: a closed row does not count against it, so a
+       returned tool can be reissued. */
+    await db.transaction((tx) =>
+      moveCustody(tx, { tenantId, assetId, toCustodianId: empB, projectId: null, locationId: null, actorUserId: null }),
+    );
+    expect(await activeLinks(assetId)).toHaveLength(1);
+    expect((await activeLinks(assetId))[0]!.custodianId).toBe(empB);
   });
 
   it("refuses a raw db handle at compile time", () => {

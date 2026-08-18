@@ -1,4 +1,5 @@
-import { bigint, boolean, date, decimal, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, decimal, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { tenant, user } from "./identity";
 import { assetModel } from "./catalog";
 import { project } from "./project";
@@ -122,6 +123,27 @@ export const assignment = pgTable(
     assetIdx: index("assignment_asset_idx").on(t.assetId),
     custodianIdx: index("assignment_custodian_idx").on(t.custodianId),
     statusIdx: index("assignment_status_idx").on(t.status),
+    /*
+      STI-103: the physical backstop for "at most one active assignment per
+      asset". Until this index, custody.ts was the only enforcement — a single
+      file, bypassed at least once (assignment.approve), which is how two
+      custodians for one tool shipped.
+
+      Keyed on (asset_id) alone, not (tenant_id, asset_id): asset_id is a uuid
+      already unique across tenants, so adding tenant_id would not change which
+      rows conflict — an asset belongs to exactly one tenant, so both keys have
+      identical uniqueness semantics. The narrower key is also the stronger
+      guard: a bug that stamps the wrong tenant_id on an assignment row still
+      cannot open a second active link for the asset. (Contrast ptm_one_active_uq,
+      where the business key is only unique per tenant.)
+
+      The predicate is a raw sql literal on purpose — drizzle-kit 0.28.1 turns
+      eq() inside a partial-index WHERE into a $1 placeholder, which fails at
+      migrate time with "there is no parameter $1". See docs/tickets/STACK-NOTES.md.
+    */
+    oneActiveUq: uniqueIndex("assignment_one_active_uq")
+      .on(t.assetId)
+      .where(sql`${t.status} = 'active'`),
   }),
 );
 
