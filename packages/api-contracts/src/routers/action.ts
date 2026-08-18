@@ -91,14 +91,12 @@ export const actionRouter = router({
       let taskId: string | null = null;
       let applied = 0;
       let awaitingApproval = 0;
-      let awaitingVerification = 0;
 
       if (allowed) {
         const res = await applyChatAction(ctx.db, opts);
         transactionIds = res.transactionIds;
         applied = res.applied;
         awaitingApproval = res.awaitingApproval;
-        awaitingVerification = res.awaitingVerification;
       } else {
         const res = await requestChatAction(ctx.db, opts);
         transactionIds = res.transactionIds;
@@ -123,9 +121,7 @@ export const actionRouter = router({
         ? ("requested" as const)
         : awaitingApproval > 0
           ? ("awaiting_approval" as const)
-          : awaitingVerification > 0
-            ? ("borrowed" as const)
-            : ("applied" as const);
+          : ("applied" as const);
 
       await logEvent(ctx, {
         category: "asset",
@@ -138,6 +134,6 @@ export const actionRouter = router({
         details: { type: input.type, assetIds: input.assetIds, transactionIds, taskId, outcome },
       });
 
-      return { ok: true, outcome, applied, awaitingApproval, awaitingVerification, transactionIds, taskId };
+      return { ok: true, outcome, applied, awaitingApproval, transactionIds, taskId };
     }),
 });

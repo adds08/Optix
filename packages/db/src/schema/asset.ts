@@ -1,4 +1,5 @@
-import { boolean, date, decimal, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, decimal, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { tenant, user } from "./identity";
 import { assetModel } from "./catalog";
 import { project } from "./project";
@@ -15,9 +16,23 @@ export const asset = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
     /*
+      The register's own reference number — every asset gets one, stamped by
+      the database at insert time (mirrors how `transaction`/`event_log` mint
+      their ids), never entered or editable. This exists because `id` is a
+      uuid nobody reads off a screen, and `tag` is deliberately the opposite of
+      reliable: a physical label that may never have been stuck on the tool at
+      all. Reverifying the real source data (docs/data, 2026-08) confirmed
+      Urban's own sheets carry no tool-ID column anywhere — every "TOOL-0001"
+      style value that predates this column was invented at seed time, not a
+      real label. `assetNumber` is what a report or a screen can always point
+      to; `tag` and `serialNumber` stay exactly what they were — optional,
+      physical, never generated.
+    */
+    assetNumber: bigint("asset_number", { mode: "number" }).notNull().generatedAlwaysAsIdentity(),
+    /*
       A tag is a physical label on the tool, not an id the system assigns. Null
       means nobody has labelled it yet — a normal state for anything imported from
-      the yard's own sheets. See docs/17-optional-tags.md.
+      the yard's own sheets. See docs/built/17-optional-tags.md.
     */
     tag: text("tag"),
     modelId: uuid("model_id").references(() => assetModel.id, { onDelete: "set null" }),
@@ -26,17 +41,17 @@ export const asset = pgTable(
       `asset.modelId` — only the seed populates them and no router, intent or UI
       joins back. They look like an obvious duplicate of the flat make/model
       columns below; leave the normalisation for its own change. See
-      docs/12-model-field-split.md.
+      docs/built/12-model-field-split.md.
     */
     /* What the tool is, in the four columns Urban's own sheets use. Replaces the
-       single `model_name` blob — see docs/12-model-field-split.md. */
+       single `model_name` blob — see docs/built/12-model-field-split.md. */
     make: text("make"),
     modelNumber: text("model_number"),
     description: text("description"),
     /* The unlabelled trailing column on the trailer sheets: a secondary equipment
        number ("PC-08", "QS-602", "106"). Free text because the yard's numbering is
        not ours to constrain. Note this is NOT the sheets' "OTHER" column, which
-       holds NEW/USED and maps to `condition` — see docs/13-excel-round-trip.md. */
+       holds NEW/USED and maps to `condition` — see docs/built/13-excel-round-trip.md. */
     otherRef: text("other_ref"),
     categoryName: text("category_name"), // denormalized
     serialNumber: text("serial_number"),
@@ -46,7 +61,7 @@ export const asset = pgTable(
     acquisitionDate: date("acquisition_date"),
     owningProjectId: uuid("owning_project_id").references(() => project.id, { onDelete: "set null" }),
     /* Which kind of thing pays for this tool. Set at registration and meant to
-       stay put, like owningProjectId — see docs/11-department-cost-targets.md. */
+       stay put, like owningProjectId — see docs/built/11-department-cost-targets.md. */
     costTarget: text("cost_target").notNull().default("project"), // 'project' | 'department'
     owningDepartmentId: uuid("owning_department_id").references(() => department.id, { onDelete: "restrict" }),
     warrantyExpiresOn: date("warranty_expires_on"),
@@ -70,6 +85,7 @@ export const asset = pgTable(
   },
   (t) => ({
     tenantIdx: index("asset_tenant_idx").on(t.tenantId),
+    assetNumberIdx: index("asset_number_idx").on(t.assetNumber),
     tagIdx: index("asset_tag_idx").on(t.tag),
     custodianIdx: index("asset_custodian_idx").on(t.currentCustodianId),
     projectIdx: index("asset_project_idx").on(t.currentProjectId),
@@ -77,7 +93,15 @@ export const asset = pgTable(
   }),
 );
 
-// Active custody link. At most one row per serialized asset with status = active|pending_approval.
+/*
+  Active custody link. At most one row per serialized asset with
+  status = active|pending_approval.
+
+  `type` (permanent|temporary) and `expectedEndDate` were dropped on 2026-08-09
+  along with the borrow model: every link is now simply custody, because tools
+  are issued and reassigned by the equipment desk rather than lent between
+  foremen. Nothing falls due, so nothing goes overdue.
+*/
 export const assignment = pgTable(
   "assignment",
   {
@@ -87,10 +111,8 @@ export const assignment = pgTable(
     custodianId: uuid("custodian_id").notNull().references(() => employee.id, { onDelete: "restrict" }),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
     locationId: uuid("location_id").references(() => location.id, { onDelete: "set null" }),
-    type: text("type").notNull().default("permanent"), // permanent | temporary
     startDate: date("start_date").notNull(),
-    expectedEndDate: date("expected_end_date"), // temporary loans require it
-    status: text("status").notNull().default("active"), // active | returned | transferred | overdue | pending_approval
+    status: text("status").notNull().default("active"), // active | returned | transferred | pending_approval
     approvedBy: uuid("approved_by").references(() => user.id, { onDelete: "set null" }),
     returnedAt: timestamp("returned_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -101,6 +123,27 @@ export const assignment = pgTable(
     assetIdx: index("assignment_asset_idx").on(t.assetId),
     custodianIdx: index("assignment_custodian_idx").on(t.custodianId),
     statusIdx: index("assignment_status_idx").on(t.status),
+    /*
+      STI-103: the physical backstop for "at most one active assignment per
+      asset". Until this index, custody.ts was the only enforcement — a single
+      file, bypassed at least once (assignment.approve), which is how two
+      custodians for one tool shipped.
+
+      Keyed on (asset_id) alone, not (tenant_id, asset_id): asset_id is a uuid
+      already unique across tenants, so adding tenant_id would not change which
+      rows conflict — an asset belongs to exactly one tenant, so both keys have
+      identical uniqueness semantics. The narrower key is also the stronger
+      guard: a bug that stamps the wrong tenant_id on an assignment row still
+      cannot open a second active link for the asset. (Contrast ptm_one_active_uq,
+      where the business key is only unique per tenant.)
+
+      The predicate is a raw sql literal on purpose — drizzle-kit 0.28.1 turns
+      eq() inside a partial-index WHERE into a $1 placeholder, which fails at
+      migrate time with "there is no parameter $1". See docs/tickets/STACK-NOTES.md.
+    */
+    oneActiveUq: uniqueIndex("assignment_one_active_uq")
+      .on(t.assetId)
+      .where(sql`${t.status} = 'active'`),
   }),
 );
 
@@ -119,7 +162,7 @@ export const transfer = pgTable(
     fromProjectId: uuid("from_project_id").references(() => project.id, { onDelete: "set null" }),
     toProjectId: uuid("to_project_id").references(() => project.id, { onDelete: "set null" }),
     reason: text("reason").notNull().default("reallocation"), // TransferReason
-    status: text("status").notNull().default("pending_approval"), // pending_approval | approved | in_transit | completed | cancelled
+    status: text("status").notNull().default("pending_approval"), // pending_approval | approved | completed | cancelled
     requestedBy: uuid("requested_by").notNull().references(() => user.id, { onDelete: "restrict" }),
     approvedBy: uuid("approved_by").references(() => user.id, { onDelete: "set null" }),
     completedAt: timestamp("completed_at", { withTimezone: true }),

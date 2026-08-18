@@ -18,7 +18,6 @@ import { taskRouter } from "./routers/task.js";
 import { inboxRouter } from "./routers/inbox.js";
 import { actionRouter } from "./routers/action.js";
 import { importRouter } from "./routers/import.js";
-import { rentalRouter } from "./routers/rental.js";
 import { settingsRouter } from "./routers/settings.js";
 import { projectGroupRouter } from "./routers/projectGroup.js";
 import { preferencesRouter, THEME_NAMES, FONT_FAMILIES } from "./routers/preferences.js";
@@ -46,7 +45,6 @@ export const appRouter = router({
   inbox: inboxRouter,
   action: actionRouter,
   import: importRouter,
-  rental: rentalRouter,
   settings: settingsRouter,
   preferences: preferencesRouter,
   projectGroup: projectGroupRouter,

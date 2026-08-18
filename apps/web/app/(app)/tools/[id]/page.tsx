@@ -13,7 +13,7 @@ import { AssetActions } from "@/components/asset-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { dateTime, money, relative, shortDate } from "@/lib/format";
+import { assetNumberDisplay, dateTime, money, relative, shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /* Which events deserve visual weight in the chain. */
@@ -97,6 +97,13 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
             description={a.serialNumber ? `Serial ${a.serialNumber}` : undefined}
             actions={
               <div className="flex flex-wrap items-center gap-3">
+                {/* The register's own number, unconditional — unlike the tag
+                    below, every tool has one. Muted rather than plated: this
+                    is the reliable id, not the physical label, and the two
+                    should never look like the same kind of fact. */}
+                <span className="tag-num text-sm text-muted-foreground" title="Register ID">
+                  {assetNumberDisplay(a.assetNumber)}
+                </span>
                 {/* The tag is the subject here, not one field in a grid of
                     eight — struck into a plate, not printed in a table
                     cell. Untagged tools get the "add tag" panel below

@@ -2,6 +2,11 @@
 
 > Concise reference for AI agents working on this codebase. Deeper planning lives in
 > `docs/*.md`; quick-start lives in `README.md`.
+>
+> **This file is a reference, not always-on context.** Claude Code loads `CLAUDE.md`
+> automatically and per-area rules from `.claude/rules/` when you touch that area; this file
+> is read on demand when you need the full domain model, the roadmap or the ADRs. Other agent
+> tools that read `AGENTS.md` natively still get everything here.
 
 ---
 
@@ -28,7 +33,8 @@ it can later fold in as Mark 85's Equipment module or ship as a satellite SaaS.
 | **Tools follow the foreman** | Small tools live with the person, not the site. When a foreman changes job, `currentProjectId` on everything they hold moves with them; `owningProjectId` never does. |
 | **Reports-first** | Each module ships its reports before its edit UI. Reports are the moat. |
 | **Multi-tenant-ready** | Every row carries `tenant_id` from commit one. RLS stays off until the second tenant is real. |
-| **Owned ≠ rented** | `asset` is what Urban owns. Rented kit lives in `rental_*` and never enters the register — mixing them corrupts what the fleet is worth. |
+| **Owned only** | `asset` is what Urban owns. Rented equipment was modelled here and removed on 2026-08-09 — STInventory tracks small tools Urban owns, nothing hired. |
+| **The desk moves tools** | Issuing and reassigning is the equipment department's job. Foremen hold tools and read the register; they do not transfer between themselves. |
 
 ## 3. Current pain (why this exists)
 
@@ -37,7 +43,6 @@ WhatsApp threads buried under other messages. The result:
 - No one knows where a given tool is at any moment.
 - Foremen on multiple projects cannot report which tools are on which site.
 - HR offboarding (termination) has no clearance workflow — ex-employees walk away holding assets.
-- Temporary loans have no due-date enforcement — tools go overdue silently.
 - Procurement is reactive: "buy another one" when the first cannot be found.
 
 ## 4. Tech stack
@@ -66,12 +71,10 @@ packages/
                    vehicle, report, messaging, entity, task, …)
   auth/            Lucia-style session + tenant-scoped RBAC
   db/              Drizzle schema + seed (Postgres)
-  design-system/   Shared tokens (colors, spacing, radii, typography) + tailwind preset
   domain/          Event-sourcing fold + custody rules (pure)
   intent/          Intent catalog, generated LLM prompt, parser — the one place
                    an intent is declared; see docs/08-custom-intents.md
   env/             Zod-validated env loader
-  frontend-shared/ Cross-client auth + API helpers (REST client — retired under ADR-2)
   logger/          pino logger
   types/           Branded IDs, enums, permissions
   config-eslint/   Shared ESLint flat config
@@ -114,7 +117,8 @@ anything a human must review before trusting it is in
   status / flags, each count computed with its own filter lifted), cards-or-table toggle,
   and value weight so a $33k total station does not read like a $260 drill.
   See `HANDOFF.md` for why the filtering is client-side.
-- **Assignments** — custody links, temporary loans, overdue detection, approval gate
+- **Assignments** — custody links and the high-value approval gate. Every link is simply
+  custody: there is no loan, no due date and no overdue state (removed 2026-08-09)
 - **Transfers** — hand-off reporting, high-value + cross-person approval
 - **Vehicles** — trucks/trailers as moving tracking locations (GPS + ownership)
 - **Job postings** — `employee_project_assignment` records which job a person was on and
@@ -133,7 +137,8 @@ anything a human must review before trusting it is in
   else only the union of their job groups and their team rows. Tools by Jobsite (`/jobsites`)
   is the control hub for this: job ID · name headers, assignable foreman/PM/super chips,
   editable truck/trailer rows, and "Add Truck / Add Trailer".
-- **Dashboard** — KPIs, overdue loans, HR clearance queue, pending approvals, activity feed
+- **Dashboard** — KPIs, HR clearance queue, pending approvals, activity feed. No money
+  figures: fleet value and capital moved to reports on 2026-08-09
 - **Conversational layer** — chat → LLM intent parse → entity resolution → proposed custody
   action → confirm. Plus tasks extracted from chat and an admin verification queue.
   Full spec: `docs/07-conversational-layer.md`
@@ -168,18 +173,10 @@ anything a human must review before trusting it is in
   `processing` rows, announces new requests to the desk and chases aging ones on a widening
   interval. **It never approves anything** — auto-applying after a timeout would be a way to
   obtain a permission by waiting.
-- **Rented equipment** — `vendor` / `rental_order` / `rental_line`, deliberately NOT rows in
-  `asset`: Urban does not own these, they have a return date, and they cost money by simply
-  existing. The vendor's CSV export imports as-is (`rental` import spec uses United Rentals'
-  own headers, MM/DD/YYYY dates, one row per line item grouped into orders by contract
-  number) and re-importing is idempotent. `rental.onRent` is the report that pays for it:
-  what is still out, soonest due first, overdue at the top. `rental.offRent` is the one write
-  that stops money leaving. **No cost figures anywhere** — the export carries no rates, so
-  anything shown would be invented; the fields exist for when rates arrive. Surfaced at
-  `/rentals`.
-- **Notification engine** — overdue detection, SLA timers, email/SMS provider interface.
-  `detectRentalsDue` raises `rental_due_soon` (7 days out) and `rental_overdue` to the
-  equipment desk rather than the field, since a foreman cannot end a hire contract.
+- **Notification engine** — in-app alerts plus an email/SMS provider interface that is still
+  a console stub. `notifyDeskPending` tells the approver role when a transfer or assignment
+  is held for signature; `notifyCustodyDecision` closes the loop on approve/decline. Overdue
+  and rental detection were removed on 2026-08-09 with the loan and rental models.
 - **Event-sourced core** — append-only `transaction`; rebuild guarantee; audit trail is free
 - **Reports** — `assetRegister`, `byProject`, `byForeman`, `idle`, `lost`,
   `capitalByProject`, all six with pages under `/reports` driven by
@@ -220,11 +217,16 @@ anything a human must review before trusting it is in
 
 | File | Purpose |
 |---|---|
-| `docs/00-executive-summary.md` | **Start here for leadership context** — one-page distilled pitch |
-| `docs/01-plan.md` | Master planning & functional spec — vision, entities, lifecycle, custody model, operational scenarios, procurement, reports, modules, roadmap |
+| `docs/workings/SYSTEM_PLAN.md` | **Start here before building** — what the system is, what exists, what is being built. Verify claims against the repo before acting |
+| `docs/workings/RELEASE_1_SPRINT_PLAN.md` | The delivery plan — Sprint 1 ships 24 Aug 2026: epics, stories, points, mechanisms, cases. Jira import files sit beside it |
+| `docs/initialPlan.md` | Urban's original brief in their own words — the requirements every spec traces back to |
+| `design/README.md` | The two UI concept screens and what to take from each. Neither is an implementation target |
+| `docs/archive/` | Superseded status reports. If one disagrees with SYSTEM_PLAN.md, SYSTEM_PLAN.md wins |
+| `docs/archive/00-executive-summary.md` | **Start here for leadership context** — one-page distilled pitch |
+| `docs/archive/01-plan.md` | Master planning & functional spec — vision, entities, lifecycle, custody model, operational scenarios, procurement, reports, modules, roadmap |
 | `docs/02-saas-architecture.md` | Multi-tenant productization path, tenancy model, convergence options with Mark 85 |
 | `docs/03-data-model.md` | Detailed schema; event-sourced core design; projection logic; rebuild guarantee |
-| `docs/04-diagrams.md` | Mermaid diagrams: ERD, lifecycle state machine, custody flows, procurement BPMN, deployment, SaaS multi-tenancy, event fold |
+| `docs/archive/04-diagrams.md` | Mermaid diagrams: ERD, lifecycle state machine, custody flows, procurement BPMN, deployment, SaaS multi-tenancy, event fold |
 | `docs/05-build-proposal.md` | Bodhi Labs scope, team, hours, pricing, delivery plan, handoff — plus the delivery-status addendum |
 | `docs/06-decisions.md` | Architecture decision records (ADR-1..6) — read before changing the API surface, the mobile stack, or the event model |
 | `docs/07-conversational-layer.md` | The chat → intent → custody-action subsystem, its state machine, and its known gaps |
@@ -242,9 +244,15 @@ anything a human must review before trusting it is in
   after a schema change, commit the SQL, `make migrate` to apply. The API container migrates
   on boot and refuses to serve if it fails. `push` is renamed `push-dangerous` — it diffs a
   live database and applies with no review and no record.
-- **Tests.** 59, in `packages/domain` (custody rules + the event-fold rebuild guarantee),
-  `packages/types` (the @ parser) and `packages/api-contracts` (the permission map).
-  `pnpm test`. The fold tests pin the partial-`toState` bug that shipped twice.
+- **Tests.** `pnpm test`. They live in the pure packages — `packages/domain` (custody rules +
+  the event-fold rebuild guarantee), `packages/intent` (the catalog and parser),
+  `packages/types` (the @ parser), `packages/auth` (secret encryption) and
+  `packages/api-contracts` (the permission map). The fold tests pin the partial-`toState` bug
+  that has shipped three times. Since Release 1 Phase 1, `packages/api-contracts` also runs
+  **integration tests against the real `DATABASE_URL`** — custody concurrency, the append-only
+  triggers, and a gate asserting the seeded ledger folds to its projection. `apps/api`,
+  `apps/web` and `apps/mobile` still have no `test` script, so nothing exercises a rendered
+  screen.
 - **Production images.** `docker/Dockerfile.{api,web}` + `docker-compose.prod.yml`.
   The API is bundled with esbuild (`apps/api/build.mjs`) because every workspace package
   exports raw `.ts` — `tsc && node dist/index.js` never worked. Web uses Next standalone.
@@ -264,7 +272,14 @@ Items 1, 4 and 6 below are **resolved** and kept for the record; 2, 3 and 5 rema
    path. AGENTS.md §13 was stale on this.
 2. **Two API surfaces** — `apps/api/src/rest-routes.ts` duplicates the tRPC routers. Per
    ADR-2 the routers win; fix bugs there.
-3. **`packages/notifications/` is an empty directory.**
+3. ~~`packages/notifications/` is an empty directory~~ — **resolved** 2026-08-09: removed,
+   along with `packages/design-system` and `packages/frontend-shared`. All three were
+   unimported by either app; the latter two are the ones ADR-3 anticipated would serve
+   both clients, which never happened.
+   The notification engine itself lives in `apps/api/src/notifications.ts`. Note its delivery
+   layer is still two `console.log` branches — there is no `nodemailer` or `twilio`
+   dependency, and the `SMTP_*`/`TWILIO_*` env vars beyond `SMTP_HOST` are read by nothing.
+   In-app is the only channel that actually works.
 4. ~~The manual action path skips the high-value approval rule~~ — **resolved**: verified
    against the code on 2026-08-06 — `action.submit` → `applyChatAction` applies
    `outcomeFor` (which reads `tenantSettings.highValueThreshold`) per asset for

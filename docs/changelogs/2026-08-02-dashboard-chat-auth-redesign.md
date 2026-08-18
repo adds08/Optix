@@ -1,6 +1,6 @@
 # Dashboard redesign, chat two-pane, auth panel, reports consolidation, motion, dev tunnel
 
-Implements `docs/20-dashboard-chat-auth-redesign.md` — no schema migration
+Implements `docs/built/20-dashboard-chat-auth-redesign.md` — no schema migration
 (the only data change widens the `user_preferences.dashboard` jsonb shape,
 validated in the router). One deploy.
 

@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import type { Database } from "@stinventory/db";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome, type CustodyOutcome } from "@stinventory/domain";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel, type Permission } from "@stinventory/types";
@@ -30,7 +31,7 @@ import { closeActiveCustody, moveCustody, projectForCustodian } from "./custody.
    says out loud, and the rest is filled in on the confirm card or left blank.
    The tag is optional — a tool is only tagged once a label is physically on
    it — but the tool has to be describable, so at least one of make or
-   description is required (see docs/12-model-field-split.md). */
+   description is required (see docs/built/12-model-field-split.md). */
 export type AssetDraft = {
   tag?: string;
   make?: string;
@@ -100,7 +101,6 @@ export type ApplyResult = {
   /* Applied as borrows and put in front of the equipment desk. The register DID
      move for these — counted apart from `applied` so the chat reply can say
      "recorded, the desk will confirm" rather than claiming it is settled. */
-  awaitingVerification: number;
 };
 
 /*
@@ -113,19 +113,20 @@ async function outcomeFor(
   db: any,
   tenantId: string,
   asset: { acquisitionCost: string | null },
-  permissions: Set<string>,
 ): Promise<CustodyOutcome> {
   const settings = await db.query.tenantSettings.findFirst({
     where: eq(schema.tenantSettings.tenantId, tenantId),
   });
   return custodyOutcome({
-    actorCanApprove: permissions.has("transfer.approve"),
     assetCost: asset.acquisitionCost != null ? Number(asset.acquisitionCost) : null,
     highValueThreshold: settings?.highValueThreshold ?? DEFAULT_HIGH_VALUE_THRESHOLD,
   });
 }
 
-export async function applyChatAction(db: any, opts: ApplyOptions): Promise<ApplyResult> {
+/* `db` is the RAW handle on purpose — this function opens the transaction
+   itself, one per asset, so a multi-asset action that fails partway keeps the
+   assets it already moved. Custody helpers only ever see the tx inside. */
+export async function applyChatAction(db: Database, opts: ApplyOptions): Promise<ApplyResult> {
   const { tenantId, actorUserId, permissions, action, refMessageId } = opts;
 
   if (!canApplyAction(action.type, permissions)) {
@@ -152,7 +153,6 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
   const transactionIds: string[] = [];
   let applied = 0;
   let awaitingApproval = 0;
-  let awaitingVerification = 0;
 
   for (const assetId of assetIds) {
     const asset = await db.query.asset.findFirst({
@@ -162,9 +162,9 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
 
     /* Custody moves get the rule applied before anything is written. */
     if (action.type === "assign" || action.type === "transfer") {
-      const outcome = await outcomeFor(db, tenantId, asset, permissions as Set<string>);
+      const outcome = await outcomeFor(db, tenantId, asset);
 
-      if (outcome !== "auto") {
+      if (outcome === "approve") {
         /*
           A hand-off the desk will look at has to name where it is going, or
           acting on it does nothing and refusing it means nothing.
@@ -184,6 +184,13 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
             "This hand-off names nobody to hand it to. Say who is taking it, or record it from Custody.",
           );
         }
+
+        /* `transfer.requested_by` is NOT NULL — a desk queue entry nobody
+           raised is unactionable. Only surfaced when `db: any` became a real
+           type (STI-102): the worker's no-session path can never reach here
+           because canApplyAction refuses custody intents to an empty
+           permission set, so an anonymous requester is a caller bug. */
+        if (!actorUserId) throw new Error("This hand-off has no identifiable requester");
 
         /* Handing a tool to somebody sends it to their job. The chat rarely
            resolves a project, so the fallback is the recipient's current one. */
@@ -206,66 +213,14 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
             fromProjectId: asset.currentProjectId,
             toProjectId,
             reason: "handoff",
-            status: outcome === "approve" ? "pending_approval" : "pending_verification",
+            status: "pending_approval",
             requestedBy: actorUserId,
           })
           .returning();
 
-        /* `approve` withholds the move entirely. `verify` is a foreman telling
-           the desk where his tool went — the tool has already gone, so the
-           register follows it now, as a borrow, and the desk sees the row. */
-        if (outcome === "approve") {
-          awaitingApproval++;
-          continue;
-        }
-
-        const borrowProjectId = toProjectId ?? asset.currentProjectId ?? null;
-        const borrowLocationId = toLocationId ?? asset.currentLocationId ?? null;
-        await moveCustody(db, {
-          tenantId,
-          assetId,
-          toCustodianId,
-          projectId: borrowProjectId,
-          locationId: borrowLocationId,
-          actorUserId,
-          type: "temporary",
-        });
-        await db
-          .update(schema.asset)
-          .set({
-            currentCustodianId: toCustodianId,
-            currentStatus: "assigned",
-            currentProjectId: borrowProjectId,
-            currentLocationId: borrowLocationId,
-            updatedAt: new Date(),
-          })
-          .where(eq(schema.asset.id, assetId));
-        const [borrowTx] = await db
-          .insert(schema.transaction)
-          .values({
-            tenantId,
-            assetId,
-            eventType: "transfer",
-            actorId: actorUserId,
-            fromState: {
-              status: asset.currentStatus,
-              custodianId: asset.currentCustodianId,
-              projectId: asset.currentProjectId,
-              locationId: asset.currentLocationId,
-            },
-            toState: {
-              status: "assigned",
-              custodianId: toCustodianId,
-              projectId: borrowProjectId,
-              locationId: borrowLocationId,
-            },
-            refType: "transfer",
-            refId: transferRow?.id ?? null,
-            note: action.note ?? "Lent, awaiting equipment desk",
-          })
-          .returning();
-        if (borrowTx?.id) transactionIds.push(borrowTx.id);
-        awaitingVerification++;
+        /* Withheld: the register does not move until a second person signs it
+           off in the desk queue. The row above is what they act on. */
+        if (transferRow) awaitingApproval++;
         continue;
       }
     }
@@ -277,185 +232,195 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
       locationId: asset.currentLocationId,
     };
 
-    let after = { ...before };
-    let eventType = "status_change";
-    let refType = "message";
-    let refId: string | null = refMessageId ?? null;
-    let note = action.note ?? "";
+    /* Custody + projection + ledger commit or vanish together (STI-102), and
+       the close inside custody.ts takes the asset-row lock so a chat move and
+       a form move on the same tool serialise instead of both opening a link.
+       Nothing network-shaped runs in here on purpose: postgres.js pins one
+       pool connection for the life of a transaction, and this is the chat
+       path — the LLM parse already happened, in the worker, before this call. */
+    const ledgerId = await db.transaction(async (tx) => {
+      let after = { ...before };
+      let eventType = "status_change";
+      let refType = "message";
+      let refId: string | null = refMessageId ?? null;
+      let note = action.note ?? "";
 
-    switch (action.type) {
-      case "assign": {
-        if (!action.custodianId) throw new Error("Assign needs a custodian");
-        /* Assigning a tool that is already out closes the previous link first,
-           or the tool ends up in two people's custody at once. The project
-           defaults to the custodian's current job when the action says nothing. */
-        await closeActiveCustody(db, tenantId, assetId);
-        const assignProjectId =
-          action.projectId ?? (await projectForCustodian(db, tenantId, action.custodianId, asset.currentProjectId));
-        const [assignment] = await db
-          .insert(schema.assignment)
-          .values({
-            tenantId,
-            assetId,
+      switch (action.type) {
+        case "assign": {
+          if (!action.custodianId) throw new Error("Assign needs a custodian");
+          /* Assigning a tool that is already out closes the previous link first,
+             or the tool ends up in two people's custody at once. The project
+             defaults to the custodian's current job when the action says nothing. */
+          await closeActiveCustody(tx, tenantId, assetId);
+          const assignProjectId =
+            action.projectId ?? (await projectForCustodian(tx, tenantId, action.custodianId, asset.currentProjectId));
+          const [assignment] = await tx
+            .insert(schema.assignment)
+            .values({
+              tenantId,
+              assetId,
+              custodianId: action.custodianId,
+              projectId: assignProjectId,
+              locationId: action.locationId ?? asset.currentLocationId ?? null,
+              startDate: new Date().toISOString().slice(0, 10),
+              status: "active",
+              approvedBy: actorUserId,
+            })
+            .returning();
+          after = {
+            status: "assigned",
             custodianId: action.custodianId,
             projectId: assignProjectId,
             locationId: action.locationId ?? asset.currentLocationId ?? null,
-            type: "permanent",
-            startDate: new Date().toISOString().slice(0, 10),
-            status: "active",
-            approvedBy: actorUserId,
-          })
-          .returning();
-        after = {
-          status: "assigned",
-          custodianId: action.custodianId,
-          projectId: assignProjectId,
-          locationId: action.locationId ?? asset.currentLocationId ?? null,
-        };
-        eventType = "assign";
-        refType = "assignment";
-        refId = assignment?.id ?? null;
-        note = note || "Assigned via chat";
-        break;
-      }
-
-      case "transfer": {
-        if (!action.custodianId && !action.locationId && !action.projectId) {
-          throw new Error("Transfer needs a destination");
+          };
+          eventType = "assign";
+          refType = "assignment";
+          refId = assignment?.id ?? null;
+          note = note || "Assigned via chat";
+          break;
         }
-        // Close any assignment the previous holder had.
-        await closeActiveCustody(db, tenantId, assetId);
-        const transferProjectId =
-          action.projectId ??
-          (await projectForCustodian(db, tenantId, action.custodianId, asset.currentProjectId));
-        const [transfer] = await db
-          .insert(schema.transfer)
-          .values({
-            tenantId,
-            assetId,
-            fromCustodianId: asset.currentCustodianId,
-            toCustodianId: action.custodianId ?? asset.currentCustodianId,
-            fromLocationId: asset.currentLocationId,
-            toLocationId: action.locationId ?? asset.currentLocationId,
-            fromProjectId: asset.currentProjectId,
-            toProjectId: transferProjectId,
-            reason: "reallocation",
-            status: "completed",
-            requestedBy: actorUserId,
-            approvedBy: actorUserId,
-            completedAt: new Date(),
-          })
-          .returning();
-        // A transfer with a new custodian opens their assignment.
-        if (action.custodianId) {
-          await db.insert(schema.assignment).values({
-            tenantId,
-            assetId,
-            custodianId: action.custodianId,
+
+        case "transfer": {
+          if (!action.custodianId && !action.locationId && !action.projectId) {
+            throw new Error("Transfer needs a destination");
+          }
+          /* Same NOT NULL constraint as the pending branch above: a transfer
+             row must name who moved it. */
+          if (!actorUserId) throw new Error("This hand-off has no identifiable requester");
+          // Close any assignment the previous holder had.
+          await closeActiveCustody(tx, tenantId, assetId);
+          const transferProjectId =
+            action.projectId ??
+            (await projectForCustodian(tx, tenantId, action.custodianId, asset.currentProjectId));
+          const [transfer] = await tx
+            .insert(schema.transfer)
+            .values({
+              tenantId,
+              assetId,
+              fromCustodianId: asset.currentCustodianId,
+              toCustodianId: action.custodianId ?? asset.currentCustodianId,
+              fromLocationId: asset.currentLocationId,
+              toLocationId: action.locationId ?? asset.currentLocationId,
+              fromProjectId: asset.currentProjectId,
+              toProjectId: transferProjectId,
+              reason: "reallocation",
+              status: "completed",
+              requestedBy: actorUserId,
+              approvedBy: actorUserId,
+              completedAt: new Date(),
+            })
+            .returning();
+          // A transfer with a new custodian opens their assignment.
+          if (action.custodianId) {
+            await tx.insert(schema.assignment).values({
+              tenantId,
+              assetId,
+              custodianId: action.custodianId,
+              projectId: transferProjectId,
+              locationId: action.locationId ?? asset.currentLocationId ?? null,
+              startDate: new Date().toISOString().slice(0, 10),
+              status: "active",
+              approvedBy: actorUserId,
+            });
+          }
+          after = {
+            status: "assigned",
+            custodianId: action.custodianId ?? asset.currentCustodianId,
             projectId: transferProjectId,
-            locationId: action.locationId ?? asset.currentLocationId ?? null,
-            type: "permanent",
-            startDate: new Date().toISOString().slice(0, 10),
-            status: "active",
-            approvedBy: actorUserId,
-          });
+            locationId: action.locationId ?? asset.currentLocationId,
+          };
+          eventType = "transfer";
+          refType = "transfer";
+          refId = transfer?.id ?? null;
+          note = note || "Transferred via chat";
+          break;
         }
-        after = {
-          status: "assigned",
-          custodianId: action.custodianId ?? asset.currentCustodianId,
-          projectId: transferProjectId,
-          locationId: action.locationId ?? asset.currentLocationId,
-        };
-        eventType = "transfer";
-        refType = "transfer";
-        refId = transfer?.id ?? null;
-        note = note || "Transferred via chat";
-        break;
+
+        case "return": {
+          const closed = await closeActiveCustody(tx, tenantId, assetId, "returned");
+          after = {
+            status: "available",
+            custodianId: null,
+            projectId: null,
+            locationId: action.locationId ?? asset.currentLocationId,
+          };
+          eventType = "return";
+          refType = "assignment";
+          refId = closed[0] ?? null;
+          note = note || "Returned via chat";
+          break;
+        }
+
+        /* Previously fell through every branch: marked done, wrote nothing. */
+        case "repair": {
+          await closeActiveCustody(tx, tenantId, assetId, "returned");
+          after = { ...before, status: "in_maintenance", custodianId: null };
+          eventType = "repair_start";
+          note = note || "Sent for repair via chat";
+          break;
+        }
+
+        /* Same class of bug: a tool reported lost stayed `available`. */
+        case "lost": {
+          after = { ...before, status: "lost" };
+          eventType = "lost";
+          note = note || "Reported missing via chat";
+          break;
+        }
+
+        case "report": {
+          // Annotation only — status and custody are untouched by design.
+          after = { ...before };
+          eventType = "status_change";
+          note = note || "Note from the field";
+          break;
+        }
+
+        default:
+          throw new Error(`Cannot apply unsupported action type: ${action.type}`);
       }
 
-      case "return": {
-        const closed = await closeActiveCustody(db, tenantId, assetId, "returned");
-        after = {
-          status: "available",
-          custodianId: null,
-          projectId: null,
-          locationId: action.locationId ?? asset.currentLocationId,
-        };
-        eventType = "return";
-        refType = "assignment";
-        refId = closed[0] ?? null;
-        note = note || "Returned via chat";
-        break;
-      }
+      await tx
+        .update(schema.asset)
+        .set({
+          currentStatus: after.status,
+          currentCustodianId: after.custodianId,
+          currentProjectId: after.projectId,
+          currentLocationId: after.locationId,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)));
 
-      /* Previously fell through every branch: marked done, wrote nothing. */
-      case "repair": {
-        await closeActiveCustody(db, tenantId, assetId, "returned");
-        after = { ...before, status: "in_maintenance", custodianId: null };
-        eventType = "repair_start";
-        note = note || "Sent for repair via chat";
-        break;
-      }
+      const [ledgerRow] = await tx
+        .insert(schema.transaction)
+        .values({
+          tenantId,
+          assetId,
+          eventType,
+          actorId: actorUserId,
+          fromState: before,
+          // The fold is last-snapshot-wins, so every writer must emit a COMPLETE
+          // to_state — a partial object replaces rather than merges.
+          toState: after,
+          refType,
+          refId,
+          note,
+        })
+        .returning();
+      return ledgerRow ? String(ledgerRow.id) : null;
+    });
 
-      /* Same class of bug: a tool reported lost stayed `available`. */
-      case "lost": {
-        after = { ...before, status: "lost" };
-        eventType = "lost";
-        note = note || "Reported missing via chat";
-        break;
-      }
-
-      case "report": {
-        // Annotation only — status and custody are untouched by design.
-        after = { ...before };
-        eventType = "status_change";
-        note = note || "Note from the field";
-        break;
-      }
-
-      default:
-        throw new Error(`Cannot apply unsupported action type: ${action.type}`);
-    }
-
-    await db
-      .update(schema.asset)
-      .set({
-        currentStatus: after.status,
-        currentCustodianId: after.custodianId,
-        currentProjectId: after.projectId,
-        currentLocationId: after.locationId,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.asset.id, assetId));
-
-    const [tx] = await db
-      .insert(schema.transaction)
-      .values({
-        tenantId,
-        assetId,
-        eventType,
-        actorId: actorUserId,
-        fromState: before,
-        // The fold is last-snapshot-wins, so every writer must emit a COMPLETE
-        // to_state — a partial object replaces rather than merges.
-        toState: after,
-        refType,
-        refId,
-        note,
-      })
-      .returning();
-
-    if (tx) transactionIds.push(String(tx.id));
+    if (ledgerId) transactionIds.push(ledgerId);
     applied++;
   }
 
   /* Parking everything for approval is a success, not a failure — the hand-off
      was recorded, it just needs a second signature. A borrow is more clearly a
      success: the register moved. Only a run that touched nothing is an error. */
-  if (applied === 0 && awaitingApproval === 0 && awaitingVerification === 0) {
+  if (applied === 0 && awaitingApproval === 0) {
     throw new Error("No matching assets in this tenant");
   }
-  return { transactionIds, applied, awaitingApproval, awaitingVerification };
+  return { transactionIds, applied, awaitingApproval };
 }
 
 /*
@@ -536,7 +501,7 @@ async function applyIntake(
     })
     .returning();
 
-  return { transactionIds: tx ? [String(tx.id)] : [], applied: 1, awaitingApproval: 0, awaitingVerification: 0 };
+  return { transactionIds: tx ? [String(tx.id)] : [], applied: 1, awaitingApproval: 0 };
 }
 
 /* Which desk owns the follow-up, and what the approval card is headed. Both

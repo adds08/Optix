@@ -9,9 +9,9 @@ import { ScreenFade } from "../../components/motion";
 export default function AlertsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
-  /* Alerts are pushed here by other people — a declined request, a tool going
-     overdue. Pull-to-refresh alone means an alert is only as timely as the
-     next time somebody thinks to check. */
+  /* Alerts are pushed here by other people — a declined request, a hand-off
+     the desk signed off. Pull-to-refresh alone means an alert is only as
+     timely as the next time somebody thinks to check. */
   const live = { refetchInterval: 30_000 };
 
   /*
@@ -20,17 +20,13 @@ export default function AlertsScreen() {
     This app is the foreman's tool; the desk works in the browser. So the scope
     is asked for explicitly rather than left to the server's default, which
     widens to the whole tenant for anyone who is not a foreman. Without it a
-    superintendent opening the app got the company's entire overdue list under a
-    heading that said "chasing you", with instructions to return tools they had
-    never touched. Self-scoping is what makes the copy below simply true.
+    superintendent opening the app got the company's entire queue under a
+    heading that said "chasing you", about tools they had never touched.
+    Self-scoping is what makes the copy below simply true.
   */
   const me = trpc.identity.me.useQuery();
   const myEmployeeId = me.data?.employeeId ?? undefined;
 
-  const overdue = trpc.dashboard.overdueLoans.useQuery(
-    { employeeId: myEmployeeId },
-    { ...live, enabled: !!myEmployeeId },
-  );
   const notifications = trpc.notification.list.useQuery(undefined, live);
   /* Read-only by design: the desk approves, the foreman needs to know it is
      sitting there. Especially outbound — a tool handed over in the yard is
@@ -47,14 +43,13 @@ export default function AlertsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([overdue.refetch(), notifications.refetch(), waiting.refetch()]);
+    await Promise.all([notifications.refetch(), waiting.refetch()]);
     setRefreshing(false);
-  }, [overdue, notifications, waiting]);
+  }, [notifications, waiting]);
 
-  const loans = overdue.data ?? [];
   const notes = (notifications.data ?? []).filter((n) => !n.readAt);
   const pending = waiting.data ?? [];
-  const nothing = !loans.length && !notes.length && !pending.length;
+  const nothing = !notes.length && !pending.length;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -68,54 +63,19 @@ export default function AlertsScreen() {
       >
         {/* "newest first" was wrong twice over: the list had no ordering at all,
             and on this screen the useful order is worst first, not newest. */}
-        <ScreenTitle title="Alerts" subtitle="Things chasing you, most overdue first." />
+        <ScreenTitle title="Alerts" subtitle="Things waiting on you, newest first." />
 
-        {overdue.isLoading || notifications.isLoading ? (
+        {notifications.isLoading ? (
           <Loading />
-        ) : overdue.isError ? (
+        ) : notifications.isError ? (
           <ErrorNote
             message="Could not reach the equipment system. Check your signal and try again."
             onRetry={onRefresh}
           />
         ) : nothing ? (
-          <Empty title="You're clear" body="No overdue tools and nothing waiting on you." />
+          <Empty title="You're clear" body="Nothing waiting on you." />
         ) : (
           <>
-            {loans.length ? (
-              <View className="gap-3">
-                <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Overdue tools
-                </Text>
-                {loans.map((o) => (
-                  <Card key={o.id} className="border-crit">
-                    <View className="gap-2">
-                      <View className="flex-row items-center justify-between">
-                        <Tag>{o.tag}</Tag>
-                        <View className="flex-row items-center gap-1">
-                          <Ionicons name="time" size={14} color="#9B3B27" />
-                          <Text className="text-[13px] font-semibold text-crit">
-                            {o.daysOverdue} day{o.daysOverdue === 1 ? "" : "s"} over
-                          </Text>
-                        </View>
-                      </View>
-                      <Text className="text-[16px] font-semibold text-foreground">{o.modelName}</Text>
-                      {/* Second person, and now accurate: the query above is
-                          scoped to the reader, so every row here is a tool they
-                          are personally holding. It used to say "Held by Sofia
-                          Ramirez. Return it to the yard..." to whoever opened
-                          the app, which for the desk was an instruction they
-                          could not carry out about a tool they had never
-                          touched. */}
-                      <Text className="text-[13px] leading-5 text-muted-foreground">
-                        Due back {o.expectedEnd ?? "on an unrecorded date"}. Return it to the yard,
-                        or hand it to someone else from the Hand Off tab.
-                      </Text>
-                    </View>
-                  </Card>
-                ))}
-              </View>
-            ) : null}
-
             {/*
               Sitting with the desk. No buttons: the desk approves, and a
               foreman does not hold transfer.approve. Showing it anyway is the

@@ -27,7 +27,7 @@ import { col } from "@/components/sti/data-table/columns";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { downloadCsv } from "@/lib/csv";
 import { exportAssetsToSpec } from "@/lib/export-assets";
-import { money, idName } from "@/lib/format";
+import { money, idName, assetNumberDisplay } from "@/lib/format";
 
 const STATUSES = ["available", "assigned", "in_maintenance", "reserved", "lost"] as const;
 type FlagKey = "high_value" | "warranty" | "no_project";
@@ -168,6 +168,19 @@ export default function ToolsPage() {
   const TABLE_COLUMNS: ColumnDef<Row>[] = useMemo(
     () => [
       col<Row>({
+        /* The register's own number — every row has one, unlike Tag below.
+           Leads the table because it is the one column guaranteed never to
+           read "no tag". */
+        header: "ID",
+        accessorFn: (r) => r.assetNumber,
+        width: "6rem",
+        cell: (r) => (
+          <Link href={`/tools/${r.id}`} className="tag-num hover:underline">
+            {assetNumberDisplay(r.assetNumber)}
+          </Link>
+        ),
+      }),
+      col<Row>({
         header: "Tag",
         accessorFn: (r) => r.tag ?? "",
         width: "6.5rem",
@@ -287,9 +300,12 @@ export default function ToolsPage() {
     [],
   );
 
-  /* Optional columns start hidden; the DataTable's Columns menu restores them. */
+  /* Optional columns start hidden; the DataTable's Columns menu restores them.
+     Serial used to be one of them — now shown by default, since a manufacturer
+     serial is real, verified data and the register should surface it wherever
+     it exists rather than bury it behind a menu. */
   const initialHidden = useMemo(
-    () => Object.fromEntries(["Flags", "Serial", "Charged to"].map((h) => [h, false])),
+    () => Object.fromEntries(["Flags", "Charged to"].map((h) => [h, false])),
     [],
   );
 
@@ -562,8 +578,10 @@ export default function ToolsPage() {
             rowId={(r) => r.id}
             /* The register carries the most columns of any table here. Below
                this the name column gets squeezed to nothing, so the wrapper
-               scrolls sideways instead. */
-            minWidth="1240px"
+               scrolls sideways instead. Bumped when ID and Serial joined the
+               default-visible set — same headroom rule, just two columns
+               wider now. */
+            minWidth="1460px"
             filterPredicate={matches}
             searchValue={q}
             onSearchChange={setQ}

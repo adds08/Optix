@@ -46,25 +46,3 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 /* Mirrors the values documented on asset.condition in the db schema. */
 export const ASSET_CONDITIONS = ["new", "good", "fair", "poor", "damaged"] as const;
 export type AssetCondition = (typeof ASSET_CONDITIONS)[number];
-
-/*
-  Rented equipment, which is a different animal from an owned asset.
-
-  The order types are United Rentals' own vocabulary because that is what
-  arrives in their export — a quote that was never taken up, a contract still
-  running, a contract closed out. Mapping them to invented names would only
-  make reconciling against the vendor's paperwork harder.
-*/
-export const RENTAL_ORDER_TYPES = ["quote", "open_contract", "closed_contract"] as const;
-export type RentalOrderType = (typeof RENTAL_ORDER_TYPES)[number];
-
-export const RENTAL_ORDER_STATUSES = ["quoted", "on_rent", "closed", "cancelled"] as const;
-export type RentalOrderStatus = (typeof RENTAL_ORDER_STATUSES)[number];
-
-/* A line is `on_rent` until somebody calls it off. `overdue` is derived, never
-   stored — see isRentalOverdue in @stinventory/domain. */
-export const RENTAL_LINE_STATUSES = ["quoted", "on_rent", "returned", "cancelled"] as const;
-export type RentalLineStatus = (typeof RENTAL_LINE_STATUSES)[number];
-
-export const RATE_UNITS = ["day", "week", "month"] as const;
-export type RateUnit = (typeof RATE_UNITS)[number];

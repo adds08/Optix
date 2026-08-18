@@ -1,7 +1,6 @@
 import { and, count, desc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import { byMostOverdue } from "@stinventory/domain";
 import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, router } from "../trpc.js";
 
@@ -24,11 +23,12 @@ export const dashboardRouter = router({
       byStatus("reserved"),
     ]);
 
-    const fleetValue = await ctx.db
-      .select({ total: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)` })
-      .from(schema.asset)
-      .where(eq(schema.asset.tenantId, tid))
-      .then((r) => r[0]?.total ?? "0");
+    /* There was a `fleetValue` here — one sum of every acquisition cost in the
+       tenant, computed on every dashboard load. Nothing displays it any more:
+       it is a finance figure, and the desk does not issue, chase or write off a
+       tool because of what the register totals. The same number is still
+       reachable as a report (capital by project, by department, and the split
+       chart), which is where somebody asking a financial question goes. */
 
     /* Serialized tools with no serial are the data-quality number that matters
        most: they cannot be identified after a theft, matched against a police
@@ -71,60 +71,10 @@ export const dashboardRouter = router({
       lost,
       reserved,
       scheduledMaint: 0,
-      fleetValue,
       clearanceCount,
       terminatedCount: terminated.length,
       missingSerial,
     };
-  }),
-
-  overdueLoans: protectedProcedure
-    .input(z.object({ employeeId: z.string().uuid().optional() }).optional())
-    .query(async ({ ctx, input }) => {
-      const tid = ctx.session.tenantId;
-      const scopedEmployeeId =
-        input?.employeeId ?? (ctx.session.roleName === "foreman" ? ctx.session.employeeId : undefined);
-      const conditions = [eq(schema.assignment.tenantId, tid)];
-      if (scopedEmployeeId) conditions.push(eq(schema.assignment.custodianId, scopedEmployeeId));
-      const rows = await ctx.db
-        .select({
-          id: schema.assignment.id,
-          assetId: schema.assignment.assetId,
-          tag: schema.asset.tag,
-          make: schema.asset.make,
-          modelNumber: schema.asset.modelNumber,
-          description: schema.asset.description,
-          custodianId: schema.assignment.custodianId,
-          custodianName: schema.employee.name,
-          custodianExternalId: schema.employee.externalId,
-          type: schema.assignment.type,
-          status: schema.assignment.status,
-          expectedEnd: schema.assignment.expectedEndDate,
-        })
-        .from(schema.assignment)
-        .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
-        .innerJoin(schema.employee, eq(schema.assignment.custodianId, schema.employee.id))
-        .where(and(...conditions));
-
-    const today = new Date().toISOString().slice(0, 10);
-    return rows
-      .filter((r) => r.type === "temporary" && r.status === "active" && r.expectedEnd && r.expectedEnd < today)
-      .map((r) => ({
-        id: r.id,
-        assetId: r.assetId,
-        /* An untagged tool sorts fine once the tag is a string; the sort only
-           needs it as a stable tie-break. */
-        tag: r.tag ?? "",
-        modelName: formatAssetModel(r),
-        /* Needed by the caller to tell "you are holding this" from "somebody
-           else is", which decides what the alert can sensibly ask for. */
-        custodianId: r.custodianId,
-        custodianName: r.custodianName,
-        custodianExternalId: r.custodianExternalId,
-        expectedEnd: r.expectedEnd,
-        daysOverdue: Math.round((new Date(today).getTime() - new Date(r.expectedEnd!).getTime()) / 86400000),
-      }))
-      .sort(byMostOverdue);
   }),
 
   recentActivity: protectedProcedure
@@ -335,8 +285,6 @@ export const dashboardRouter = router({
         assetModelNumber: schema.asset.modelNumber,
         assetDescription: schema.asset.description,
         custodianName: schema.employee.name,
-        /* The desk has to be able to tell the two apart before it acts: one is
-           "may this happen", the other is "this happened, is it right". */
         status: schema.transfer.status,
         fromName: sql<string | null>`(select name from employee where id = ${schema.transfer.fromCustodianId})`,
         createdAt: schema.transfer.createdAt,
@@ -344,12 +292,7 @@ export const dashboardRouter = router({
       .from(schema.transfer)
       .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
       .innerJoin(schema.employee, eq(schema.transfer.toCustodianId, schema.employee.id))
-      .where(
-        and(
-          eq(schema.transfer.tenantId, tid),
-          inArray(schema.transfer.status, ["pending_approval", "pending_verification"]),
-        ),
-      );
+      .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval")));
     return [...pendingAssignments, ...pendingTransfers]
       .map((r) => ({
         ...r,
@@ -376,7 +319,7 @@ export const dashboardRouter = router({
     const empId = ctx.session.employeeId;
     const today = new Date().toISOString().slice(0, 10);
 
-    const [alerts, overdue, approvals, tasks, messages, clearance] = await Promise.all([
+    const [alerts, approvals, tasks, messages, clearance] = await Promise.all([
       ctx.db
         .select({ id: schema.notification.id, title: schema.notification.title, body: schema.notification.body, createdAt: schema.notification.createdAt })
         .from(schema.notification)
@@ -389,18 +332,6 @@ export const dashboardRouter = router({
         )
         .orderBy(desc(schema.notification.createdAt))
         .limit(5),
-      ctx.db
-        .select({ c: count() })
-        .from(schema.assignment)
-        .where(
-          and(
-            eq(schema.assignment.tenantId, tid),
-            eq(schema.assignment.type, "temporary"),
-            eq(schema.assignment.status, "active"),
-            lt(schema.assignment.expectedEndDate, today),
-          ),
-        )
-        .then((r) => Number(r[0]?.c ?? 0)),
       (async () => {
         const [a, t] = await Promise.all([
           ctx.db
@@ -410,12 +341,7 @@ export const dashboardRouter = router({
           ctx.db
             .select({ c: count() })
             .from(schema.transfer)
-            .where(
-              and(
-                eq(schema.transfer.tenantId, tid),
-                inArray(schema.transfer.status, ["pending_approval", "pending_verification"]),
-              ),
-            ),
+            .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval"))),
         ]);
         return Number(a[0]?.c ?? 0) + Number(t[0]?.c ?? 0);
       })(),
@@ -460,8 +386,8 @@ export const dashboardRouter = router({
         body: a.body,
         createdAt: a.createdAt,
       })),
-      queues: { overdue, approvals, tasks, messages, clearance },
-      unread: alerts.length + overdue + approvals + tasks + messages + clearance,
+      queues: { approvals, tasks, messages, clearance },
+      unread: alerts.length + approvals + tasks + messages + clearance,
     };
   }),
 

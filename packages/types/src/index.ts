@@ -75,8 +75,6 @@ export const PERMISSIONS = [
   /* Rented equipment. Separate from asset.* because the people who decide what
      Urban buys are not always the people who can call a pump off rent, and the
      cost of getting the second one wrong is a daily invoice. */
-  "rental.read",
-  "rental.manage",
   "notification.read",
   "notification.manage",
   "config.manage",
@@ -123,6 +121,11 @@ export const EVENT_TYPES = [
   "project_change",
   "location_change",
   "status_change",
+  /* Synthesized opening snapshot, not a physical movement. Written once per asset
+     by migration 0013 (STI-101) because every ledger row before it carried a null
+     to_state, leaving foldAssetState nothing to fold. Timelines render it like any
+     other event; no writer should emit it at runtime. */
+  "projection_baseline",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
@@ -155,9 +158,10 @@ export type TransferReason = (typeof TRANSFER_REASONS)[number];
 
 export const TRANSFER_STATUSES = [
   "pending_approval",
-  /* Recorded and applied, but as a borrow: a foreman told the desk where his
-     tool went. Distinct from `pending_approval`, where nothing moved at all —
-     the desk is confirming a fact here, not permitting a change. */
+  /* HISTORICAL ONLY — no writer may produce this. The borrow/verify flow was
+     removed on 2026-08-09 (packages/domain/src/rules.ts: Urban's desk moves
+     tools; foremen do not reassign). The entry stays solely so a pre-removal
+     transfer row still carrying it renders in history. */
   "pending_verification",
   "approved",
   "in_transit",
@@ -178,8 +182,6 @@ export const NOTIFICATION_TYPES = [
   "custody_discrepancy",
   /* A rented line past its end date and still on rent. Unlike an overdue owned
      tool, this one is costing money every day it stays open. */
-  "rental_overdue",
-  "rental_due_soon",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

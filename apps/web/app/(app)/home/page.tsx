@@ -8,10 +8,8 @@ import {
   AlertTriangle,
   ArrowRight,
   BookmarkCheck,
-  Boxes,
   CalendarClock,
   CheckCircle2,
-  HardHat,
   Handshake,
   Hourglass,
   PackageCheck,
@@ -20,7 +18,6 @@ import {
   SlidersHorizontal,
   Star,
   UserMinus,
-  Warehouse,
   Wrench,
 } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
@@ -46,7 +43,6 @@ import { MovementChart } from "@/components/movement-chart";
 import { useThemeStore } from "@/lib/themes/store";
 import { DEFAULT_PREFS } from "@/lib/themes/themes";
 import {
-  CapitalSplitWidget,
   InboxStatusWidget,
   MovementsWidget,
   StatusWidget,
@@ -62,7 +58,7 @@ import { cn } from "@/lib/utils";
   Two tabs instead of one wall:
   - Fleet at a Glance — greeting+weather bar, the work queue beside the fleet
     map, the metrics, and the ledger strip at the bottom.
-  - Command Center — the widget grid (inbox status, capital, fleet shape,
+  - Command Center — the widget grid (inbox status, fleet shape,
     movement rate). No weather here; it lives on the Fleet bar only.
 
   The star sets which tab opens first; it persists in user_preferences, so the
@@ -92,12 +88,9 @@ export default function HomePage() {
   }, [role, router]);
 
   const kpis = trpc.dashboard.kpis.useQuery();
-  const overdue = trpc.dashboard.overdueLoans.useQuery();
   const clearance = trpc.dashboard.clearanceQueue.useQuery();
   const approvals = trpc.dashboard.pendingApprovals.useQuery();
   const activity = trpc.dashboard.recentActivity.useQuery();
-  const capitalJobs = trpc.report.capitalByProject.useQuery();
-  const capitalShop = trpc.report.capitalByDepartment.useQuery();
   const idleReport = trpc.report.idle.useQuery();
   const me = trpc.identity.me.useQuery();
 
@@ -136,18 +129,13 @@ export default function HomePage() {
 
   const k = kpis.data;
 
-  /* "Awaiting approval" and "Awaiting verification" are different questions —
-     may this happen, versus this happened, is the record right. They share one
-     query and split here. */
-  const all = approvals.data ?? [];
-  const holds = all.filter((a) => a.status === "pending_approval");
-  const borrows = all.filter((a) => a.status === "pending_verification");
+  /* Everything pendingApprovals returns is pending_approval — the verify flow
+     (and its "Loans to verify" card) was removed on 2026-08-09; the desk is
+     the only writer of movements now. */
+  const holds = approvals.data ?? [];
 
-  const attention =
-    (overdue.data?.length ?? 0) + (clearance.data?.length ?? 0) + all.length;
+  const attention = (clearance.data?.length ?? 0) + holds.length;
 
-  const capitalOnJobs = (capitalJobs.data ?? []).reduce((s, r) => s + Number(r.capitalValue), 0);
-  const capitalInShop = (capitalShop.data ?? []).reduce((s, r) => s + Number(r.capitalValue), 0);
   const idleCount = idleReport.data?.length ?? 0;
 
   return (
@@ -204,7 +192,7 @@ export default function HomePage() {
             <section className="flex flex-col gap-3 lg:col-span-3">
               <h2 className="text-sm font-medium">Needs a person</h2>
 
-              {overdue.isLoading || clearance.isLoading || approvals.isLoading ? (
+              {clearance.isLoading || approvals.isLoading ? (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-40" />)}
                 </div>
@@ -212,32 +200,10 @@ export default function HomePage() {
                 <EmptyState
                   icon={CheckCircle2}
                   title="Nothing is waiting"
-                  description="No overdue loans, no clearance queue, and no approvals or hand-offs pending. The yard is square."
+                  description="No clearance queue and nothing waiting for approval. The yard is square."
                 />
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <AttentionCard
-                    tone="crit"
-                    icon={AlertTriangle}
-                    title="Overdue loans"
-                    count={overdue.data?.length ?? 0}
-                    href="/custody"
-                    empty="No loan is past its due date."
-                  >
-                    {(overdue.data ?? []).slice(0, 4).map((o) => (
-                      <Row
-                        key={o.id}
-                        left={<Tag>{o.tag}</Tag>}
-                        mid={o.custodianName ?? "—"}
-                        right={
-                          <span className="text-crit tnum">
-                            {o.daysOverdue}d over
-                          </span>
-                        }
-                      />
-                    ))}
-                  </AttentionCard>
-
                   <AttentionCard
                     tone="crit"
                     icon={UserMinus}
@@ -261,7 +227,7 @@ export default function HomePage() {
                     icon={AlertTriangle}
                     title="Awaiting approval"
                     count={holds.length}
-                    href="/inbox"
+                    href="/custody?tab=queue"
                     empty="No hand-off is waiting on a signature."
                   >
                     {holds.slice(0, 4).map((p) => (
@@ -269,24 +235,6 @@ export default function HomePage() {
                         key={p.id}
                         left={<Tag>{p.assetTag}</Tag>}
                         mid={`${p.type} · ${p.custodianName ?? "—"}`}
-                        right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
-                      />
-                    ))}
-                  </AttentionCard>
-
-                  <AttentionCard
-                    tone="warn"
-                    icon={Handshake}
-                    title="Loans to verify"
-                    count={borrows.length}
-                    href="/inbox"
-                    empty="No foreman hand-off is waiting to be checked."
-                  >
-                    {borrows.slice(0, 4).map((p) => (
-                      <Row
-                        key={p.id}
-                        left={<Tag>{p.assetTag}</Tag>}
-                        mid={`${p.fromName ?? "Somebody"} → ${p.custodianName ?? "—"}`}
                         right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
                       />
                     ))}
@@ -315,9 +263,13 @@ export default function HomePage() {
               <Metric icon={Handshake} label="Assigned" value={num(k?.assigned)} loading={kpis.isLoading} hint="out with a custodian" />
               <Metric icon={Wrench} label="In maintenance" value={num(k?.inMaintenance)} loading={kpis.isLoading} tone={k?.inMaintenance ? "warn" : "default"} />
               <Metric icon={SearchX} label="Lost" value={num(k?.lost)} loading={kpis.isLoading} tone={k?.lost ? "crit" : "ok"} hint="unaccounted for" />
-              <Metric icon={Boxes} label="Fleet value" value={money(k?.fleetValue)} loading={kpis.isLoading} hint="acquisition cost" />
-              <Metric icon={HardHat} label="Capital on jobs" value={money(capitalOnJobs)} loading={capitalJobs.isLoading} hint="charged to projects" />
-              <Metric icon={Warehouse} label="Capital in the shop" value={money(capitalInShop)} loading={capitalShop.isLoading} hint="charged to departments" />
+              {/* Fleet value, capital on jobs and shop capital used to sit here.
+                  All three were sums of acquisition cost, which is not a number
+                  the desk acts on: nobody issues, chases or writes off a tool
+                  because of what the register totals. They remain as reports —
+                  capital by project, by department, and the split chart — which
+                  is where a financial question gets answered. This row is for
+                  the operational ones. */}
               <Metric icon={BookmarkCheck} label="Reserved" value={num(k?.reserved)} loading={kpis.isLoading} />
               <Metric
                 icon={CalendarClock}
@@ -418,7 +370,6 @@ export default function HomePage() {
                   before it, so the grid reads as one arrival (docs/20, F). */}
               {[
                 visible.inbox ? <InboxStatusWidget key="inbox" /> : null,
-                visible.capital ? <CapitalSplitWidget key="capital" /> : null,
                 visible.status ? <StatusWidget key="status" /> : null,
                 visible.movements ? <MovementsWidget key="movements" /> : null,
               ].map((w, i) =>

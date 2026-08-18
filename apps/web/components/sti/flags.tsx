@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
   "should I care about it".
 
   Only flags we can actually derive from asset.list are here. "Service due" is
-  deliberately absent: there is no maintenance table yet (docs/01-plan.md §18),
+  deliberately absent: there is no maintenance table yet (docs/archive/01-plan.md §18),
   so it would be a badge that never lights up.
 
   The threshold is the same constant the API uses to decide whether a custody

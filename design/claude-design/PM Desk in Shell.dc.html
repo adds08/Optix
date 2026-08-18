@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; height:100%; overflow:hidden; font-family:'Inter Tight',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  * { box-sizing:border-box; }
+  a { color:oklch(0.505 0.093 227); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  input { font-family:inherit; }
+  ::-webkit-scrollbar { width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb { background:rgba(128,140,152,.45); border-radius:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+</style>
+</helmet>
+
+<div style="{{ shellStyle }}">
+
+  <div style="{{ bodyRowStyle }}">
+
+  <!-- SIDEBAR -->
+  <div style="{{ sidebarStyle }}">
+    <div style="{{ sideBrandStyle }}">
+      <div style="{{ markStyle }}">SI</div>
+      <div style="{{ sideBrandTextStyle }}">STInventory</div>
+    </div>
+    <div style="{{ sideScrollStyle }}">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
+        <div style="{{ g.groupStyle }}">
+          <div style="{{ g.labelStyle }}">{{ g.label }}</div>
+          <sc-for list="{{ g.items }}" as="n" hint-placeholder-count="3">
+            <div style="{{ n.style }}">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="{{ n.iconStyle }}">
+                <sc-for list="{{ n.paths }}" as="p" hint-placeholder-count="2">
+                  <path d="{{ p }}"></path>
+                </sc-for>
+              </svg>
+              <span style="{{ n.labelStyle }}">{{ n.label }}</span>
+              <span style="{{ n.badgeStyle }}">{{ n.badge }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+    <div style="{{ sideFootStyle }}">
+      <div style="{{ sideRoleStyle }}">{{ navShape }}</div>
+      <div style="{{ sideRoleHintStyle }}">{{ navShapeHint }}</div>
+    </div>
+  </div>
+
+  <div style="{{ mainColStyle }}">
+
+  <!-- BAR 1 -->
+  <div style="{{ barStyle }}">
+    <div style="display:flex; align-items:center; gap:14px; padding:0 24px; height:58px; flex:none;">
+      <div>
+        <div style="{{ h1Style }}">Request Desk</div>
+        <div style="{{ subStyle }}">Every open request, every job, right now</div>
+      </div>
+
+      <div style="flex:1;"></div>
+
+      <div style="{{ searchStyle }}">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="{{ mutedIconStyle }}"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.8-3.8"></path></svg>
+        <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Search" style="{{ inputStyle }}">
+        <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+          <span onClick="{{ clearQuery }}" style="{{ clearStyle }}">×</span>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ askNarrow }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ toggleAskOverlay }}" style="{{ askOverlayBtnStyle }}">Ask</div>
+      </sc-if>
+      <div onClick="{{ openNew }}" style="{{ newBtnStyle }}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+        New request
+      </div>
+      <div onClick="{{ toggleTheme }}" style="{{ themeBtnStyle }}">{{ themeLabel }}</div>
+      <div style="{{ whoStyle }}">{{ who }}</div>
+    </div>
+  </div>
+
+  <!-- BAR 2 · STATUS BOARD -->
+  <div style="{{ boardStyle }}">
+    <sc-for list="{{ board }}" as="b" hint-placeholder-count="5">
+      <div onClick="{{ b.pick }}" style="{{ b.cellStyle }}">
+        <div style="{{ b.numStyle }}">{{ b.value }}</div>
+        <div style="{{ b.labelStyle }}">{{ b.label }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- BAR 3 · FILTERS -->
+  <div style="{{ filterBarStyle }}">
+    <div style="{{ chipGroupStyle }}">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+        <div onClick="{{ t.pick }}" style="{{ t.style }}">
+          <span style="{{ t.dotStyle }}"></span>{{ t.label }}<span style="{{ t.countStyle }}">{{ t.count }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="{{ dividerStyle }}"></div>
+    <div style="{{ chipGroupStyle }}">
+      <sc-for list="{{ depts }}" as="d" hint-placeholder-count="6">
+        <div onClick="{{ d.pick }}" style="{{ d.style }}">{{ d.label }}</div>
+      </sc-for>
+    </div>
+    <div style="flex:1;"></div>
+    <sc-if value="{{ filtered }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ resetAll }}" style="{{ resetStyle }}">Clear filters</div>
+    </sc-if>
+    <div style="{{ countStyle }}">{{ showingLabel }}</div>
+  </div>
+
+  <!-- MAIN -->
+  <div style="flex:1; min-height:0; display:flex;">
+
+    <!-- LEFT: JOBS -->
+    <div style="{{ listPaneStyle }}">
+      <sc-for list="{{ jobs }}" as="j" hint-placeholder-count="5">
+        <div style="{{ j.cardStyle }}">
+          <div onClick="{{ j.toggle }}" style="{{ j.headStyle }}">
+            <span style="{{ j.severityStyle }}"></span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="{{ j.caretStyle }}"><path d="M9 5l7 7-7 7"></path></svg>
+            <span style="{{ j.nameStyle }}">{{ j.name }}</span>
+            <span style="{{ j.codeStyle }}">{{ j.code }}</span>
+            <div style="flex:1;"></div>
+            <sc-if value="{{ j.stopped }}" hint-placeholder-val="{{ false }}">
+              <span style="{{ j.stopPillStyle }}">{{ j.stoppedLabel }}</span>
+            </sc-if>
+            <div style="{{ j.mixWrapStyle }}">
+              <sc-for list="{{ j.mix }}" as="m" hint-placeholder-count="4">
+                <span style="{{ m.style }}">{{ m.value }}</span>
+              </sc-for>
+            </div>
+            <span style="{{ j.totalStyle }}">{{ j.total }}</span>
+          </div>
+
+          <sc-if value="{{ j.open }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <sc-for list="{{ j.rows }}" as="r" hint-placeholder-count="4">
+                <div>
+                  <div onClick="{{ r.toggle }}" style="{{ r.rowStyle }}">
+                    <span style="{{ r.kindDotStyle }}"></span>
+                    <span style="{{ r.itemStyle }}">{{ r.item }}</span>
+                    <span style="{{ r.routeChipStyle }}">{{ r.routeChip }}</span>
+                    <span style="{{ r.byStyle }}">{{ r.by }}</span>
+                    <span style="{{ r.needStyle }}">{{ r.needBy }}</span>
+                    <span style="{{ r.ageStyle }}">{{ r.age }}</span>
+                    <span style="{{ r.statusStyle }}">{{ r.status }}</span>
+                  </div>
+                  <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="{{ r.detailStyle }}">
+                      <div style="flex:1; min-width:0;">
+                        <div style="{{ r.noteStyle }}">{{ r.note }}</div>
+                        <div style="display:flex; gap:8px; margin-top:12px;">
+                          <div style="{{ r.primaryStyle }}">{{ r.primaryAction }}</div>
+                          <div style="{{ r.ghostStyle }}">Pull from another job</div>
+                          <div style="{{ r.ghostStyle }}">Comment</div>
+                        </div>
+                      </div>
+                      <div style="width:220px; flex:none; display:flex; flex-direction:column; gap:8px;">
+                        <sc-for list="{{ r.meta }}" as="m" hint-placeholder-count="3">
+                          <div style="display:flex; gap:10px;">
+                            <span style="{{ m.labelStyle }}">{{ m.label }}</span>
+                            <span style="{{ m.valStyle }}">{{ m.value }}</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+
+      <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ emptyStyle }}">Nothing matches these filters.</div>
+      </sc-if>
+    </div>
+
+    <!-- RIGHT: ASK -->
+    <div style="{{ askPaneStyle }}">
+      <div style="{{ askHeadStyle }}">
+        <span style="{{ askTitleStyle }}">Ask the desk</span>
+        <span style="{{ askHintStyle }}">answers from the {{ totalOpen }} open requests</span>
+        <div style="flex:1;"></div>
+        <sc-if value="{{ askNarrow }}" hint-placeholder-val="{{ false }}">
+          <span onClick="{{ toggleAskOverlay }}" style="{{ closeXStyle }}">×</span>
+        </sc-if>
+      </div>
+
+      <div style="padding:14px 18px; flex:none;">
+        <div style="{{ askFieldStyle }}">
+          <input value="{{ ask }}" onChange="{{ onAsk }}" onKeyDown="{{ onAskKey }}" placeholder="What's stopping work today?" style="{{ askInputStyle }}">
+          <div onClick="{{ runAsk }}" style="{{ askGoStyle }}">Ask</div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;">
+          <sc-for list="{{ prompts }}" as="p" hint-placeholder-count="4">
+            <div onClick="{{ p.pick }}" style="{{ p.style }}">{{ p.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="{{ askBodyStyle }}">
+        <sc-if value="{{ hasAnswer }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:0 18px 20px;">
+            <div style="{{ answerTextStyle }}">{{ answerText }}</div>
+            <div style="{{ factGridStyle }}">
+              <sc-for list="{{ answerFacts }}" as="f" hint-placeholder-count="3">
+                <div style="{{ f.wrapStyle }}">
+                  <div style="{{ f.valStyle }}">{{ f.value }}</div>
+                  <div style="{{ f.labelStyle }}">{{ f.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="{{ viewHeadStyle }}">{{ answerScope }}</div>
+            <div style="{{ viewWrapStyle }}">
+              <sc-for list="{{ answerRows }}" as="r" hint-placeholder-count="4">
+                <div style="{{ r.wrapStyle }}">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="{{ r.kindDotStyle }}"></span>
+                    <span style="{{ r.itemStyle }}">{{ r.item }}</span>
+                    <span style="{{ r.ageStyle }}">{{ r.age }}</span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px; margin-top:4px; padding-left:16px;">
+                    <span style="{{ r.jobStyle }}">{{ r.job }}</span>
+                    <span style="{{ r.statusStyle }}">{{ r.status }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="{{ answerActionsStyle }}">
+              <div onClick="{{ applyAnswer }}" style="{{ applyStyle }}">Apply as filter</div>
+              <div onClick="{{ raiseFromAnswer }}" style="{{ raiseStyle }}">Raise a request from this</div>
+            </div>
+            <div style="{{ aiNoteStyle }}">{{ aiNote }}</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+  </div>
+
+  </div>
+  </div>
+
+  <!-- TOAST -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ toastStyle }}">
+      <span style="{{ toastDotStyle }}"></span>{{ toast }}
+    </div>
+  </sc-if>
+
+  <!-- NEW REQUEST DRAWER -->
+  <sc-if value="{{ newOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ scrimStyle }}">
+      <div onClick="{{ closeNew }}" style="flex:1;"></div>
+      <div style="{{ drawerStyle }}">
+
+        <div style="{{ drawerHeadStyle }}">
+          <div>
+            <div style="{{ drawerTitleStyle }}">New request</div>
+            <div style="{{ drawerSubStyle }}">Raised unassigned. A desk claims it — nothing here auto-approves.</div>
+          </div>
+          <div style="flex:1;"></div>
+          <span onClick="{{ closeNew }}" style="{{ closeXStyle }}">×</span>
+        </div>
+
+        <div style="{{ drawerBodyStyle }}">
+
+          <div style="{{ fieldStyle }}">
+            <div style="{{ fieldLabelStyle }}">JOB</div>
+            <div style="{{ pickRowStyle }}">
+              <sc-for list="{{ jobOptions }}" as="o" hint-placeholder-count="8">
+                <div onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="{{ fieldStyle }}">
+            <div style="{{ fieldLabelStyle }}">WHAT KIND OF REQUEST</div>
+            <div style="{{ pickRowStyle }}">
+              <sc-for list="{{ kindOptions }}" as="o" hint-placeholder-count="4">
+                <div onClick="{{ o.pick }}" style="{{ o.style }}"><span style="{{ o.dotStyle }}"></span>{{ o.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="{{ fieldStyle }}">
+            <div style="{{ fieldLabelStyle }}">WHAT DO YOU NEED</div>
+            <div style="display:flex; gap:8px;">
+              <input value="{{ dItem }}" onChange="{{ onItem }}" placeholder="e.g. Rough terrain forklift 8k 4wd" style="{{ textInputStyle }}">
+              <input value="{{ dQty }}" onChange="{{ onQty }}" placeholder="Qty" style="{{ qtyInputStyle }}">
+            </div>
+          </div>
+
+          <div style="display:flex; gap:12px;">
+            <div style="{{ fieldHalfStyle }}">
+              <div style="{{ fieldLabelStyle }}">NEEDED BY</div>
+              <div style="{{ pickRowStyle }}">
+                <sc-for list="{{ needOptions }}" as="o" hint-placeholder-count="4">
+                  <div onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="{{ fieldHalfStyle }}">
+              <div style="{{ fieldLabelStyle }}">URGENCY</div>
+              <div style="{{ pickRowStyle }}">
+                <sc-for list="{{ urgencyOptions }}" as="o" hint-placeholder-count="3">
+                  <div onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="{{ fieldStyle }}">
+            <div style="{{ fieldLabelStyle }}">SEND IT TO</div>
+            <div style="display:flex; gap:6px; margin-bottom:9px;">
+              <sc-for list="{{ routeModes }}" as="o" hint-placeholder-count="2">
+                <div onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</div>
+              </sc-for>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <sc-for list="{{ targets }}" as="o" hint-placeholder-count="5">
+                <div onClick="{{ o.pick }}" style="{{ o.style }}">
+                  <span style="{{ o.radioStyle }}"></span>
+                  <div style="flex:1; min-width:0;">
+                    <div style="{{ o.nameStyle }}">{{ o.name }}</div>
+                    <div style="{{ o.descStyle }}">{{ o.desc }}</div>
+                  </div>
+                  <span style="{{ o.slaStyle }}">{{ o.sla }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="{{ fieldStyle }}">
+            <div style="{{ fieldLabelStyle }}">WHY / WHAT IT'S HOLDING UP</div>
+            <input value="{{ dNote }}" onChange="{{ onNote }}" placeholder="Pump cans land Monday, nothing on site can lift them" style="{{ textInputStyle }}">
+          </div>
+
+        </div>
+
+        <div style="{{ drawerFootStyle }}">
+          <div style="{{ previewStyle }}">{{ routePreview }}</div>
+          <div style="flex:1;"></div>
+          <div onClick="{{ closeNew }}" style="{{ cancelStyle }}">Cancel</div>
+          <div onClick="{{ submitNew }}" style="{{ submitStyle }}">{{ submitLabel }}</div>
+        </div>
+
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1560,&quot;height&quot;:950},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;},&quot;askPaneWidth&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:400,&quot;min&quot;:320,&quot;max&quot;:520,&quot;unit&quot;:&quot;px&quot;,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  state = { theme:null, tab:'all', dept:'All', query:'', focus:null, closed:{}, openRow:null,
+    ask:'', answer:"What's stopping work today?",
+    newOpen:false, draft:null, added:[], toast:null };
+
+  BLANK = { job:'Trinity River Levee Ph 2', kind:'equipment', item:'', qty:'1', needBy:'This week',
+    route:'dept', target:'Procurement', urgency:'Normal', note:'' };
+
+  /* Desks are task.department values — Maintenance, Procurement, Equipment Yard.
+     Requests are raised UNASSIGNED; the desk claims them (equipment_admin / warehouse). */
+  ROUTES = {
+    dept:[['Equipment Yard','Warehouse · fills from stock first','same day if in stock'],
+      ['Maintenance','Shop queue · repair & service','~1 day to triage'],
+      ['Procurement','Rentals, purchases & vendor POs','~4h to acknowledge'],
+      ['Project team','Not an equipment desk — permits, submittals, safety','1–3 days']],
+    vendor:[['United Rentals','Primary vendor · portal export imported','quote in ~4h'],
+      ['Sunbelt Rentals','Dallas branch · acct 40-8812','quote in ~2h'],
+      ['Fastenal','Consumables & small tools · acct FN-991','next-day delivery'],
+      ['Holt CAT','Service & parts · acct HC-7740','parts quote same day']]
+  };
+
+  STATUS_LABEL = { 'New':'Pending', 'In review':'Claimed', 'Ordered':'Ordered', 'Blocked':'Blocked', 'In shop':'In shop' };
+  chasesFor(r) { return r.status === 'Ordered' ? 0 : Math.max(1, Math.min(4, Math.round(r.age))); }
+
+  /* task.classification (docs/19): a request is Recognized when it carries an
+     actionType + pendingAction the desk can replay, Unrecognized when the
+     parser could not bind it and a human has to resolve it. Equipment and tool
+     requests resolve to real actions; prose work/permit items often do not. */
+  readingFor(r) {
+    if (r.kind === 'work' || r.routeTo === 'Project team') {
+      return ['Unrecognized — no action bound, needs a human', true];
+    }
+    return ['Recognized — action ready to replay on approval', false];
+  }
+
+  R = [
+    ['R-4840','Trinity River Levee Ph 2','JOB 22104','P. Raghavan','equipment','Excavator 336 — hydraulic leak','Blocked','Today',1,'Equipment','Boom cylinder weeping badly, operator shut it down at 07:00. Levee cut is stopped — critical path.',true],
+    ['R-4839','Trinity River Levee Ph 2','JOB 22104','M. Torres','work','Traffic control plan revision','New','Mon',1,'Engineering','City moved the lane closure window. Need the revised TCP before Monday staging.',false],
+    ['R-4817','Trinity River Levee Ph 2','JOB 22104','R. Delgado','tools','(2) Cut-off saws + blades','Ordered','Thu',4,'Small tools','Both saws on site are dull past the arbor.',false],
+    ['R-4795','Trinity River Levee Ph 2','JOB 22104','B. Aldana','repair','Trailer TE-004 brake controller','In shop','—',12,'Shop','DOT flagged it at the scale. Crew is running loose loads in the truck bed.',true],
+    ['R-4844','Trinity River Levee Ph 2','JOB 22104','M. Torres','tools','(6) Fall harnesses, size L','New','Wed',1,'Safety','Levee slope work starts Wednesday, we are three harnesses short.',false],
+    ['R-4821','Legacy West Utilities','JOB 22018','D. Marín','equipment','Skid steer T66 w/ auger','Ordered','Fri',3,'Equipment','Rental branch quoted Thursday pickup. Can bridge Wednesday with the McKinney S570.',true],
+    ['R-4834','Legacy West Utilities','JOB 22018','A. Capuchino','tools','(4) M18 impact drivers','In review','Wed',2,'Small tools','Two drivers walked off site Friday. Four men sharing one on the vault lids.',false],
+    ['R-4802','Legacy West Utilities','JOB 22018','J. Abarca','repair','Plate compactor WP1550','In shop','—',9,'Shop','In the Dallas shop since the 1st on a carb kit. Crew has been hand-tamping.',false],
+    ['R-4845','Legacy West Utilities','JOB 22018','D. Marín','work','Bore permit — north crossing','In review','Tue',2,'Engineering','City utility review. Bore rig is scheduled Tuesday either way.',false],
+    ['R-4808','DFW Water Main Ph 2','JOB 21877','H. Villalobos','work','Gas monitor cal + entry attendant','Blocked','Tue',6,'Safety','Monitor out of calibration and no attendant assigned. Vault work is stopped.',true],
+    ['R-4836','DFW Water Main Ph 2','JOB 21877','S. Nunez','equipment','2in trash pump — dewatering','In review','Wed',2,'Equipment','Groundwater higher than the geotech report. One pump is not keeping the trench dry.',false],
+    ['R-4829','DFW Water Main Ph 2','JOB 21877','D. Okafor','tools','Pipe threader + dies 2–4in','New','Fri',3,'Small tools','Yard threader is spoken for. Field-fabbing 3in taps by hand.',false],
+    ['R-4788','DFW Water Main Ph 2','JOB 21877','S. Nunez','repair','Light tower AL5 — no start','In shop','—',14,'Shop','Night pours running on truck headlights. Starter backordered two weeks.',true],
+    ['R-4843','DFW Water Main Ph 2','JOB 21877','H. Villalobos','equipment','Trench box 8ft — two weeks','New','Thu',1,'Equipment','Depth went past 10ft on the east run.',false],
+    ['R-4841','McKinney Pump Station','JOB 22131','C. Benitez','equipment','Rough terrain forklift 8k 4wd','New','Mon',1,'Equipment','Pump cans land Monday and nothing on site can lift them off the flatbed.',false],
+    ['R-4826','McKinney Pump Station','JOB 22131','C. Benitez','tools','Rotary laser + tripod + rod','Ordered','Wed',3,'Small tools','Borrowed Legacy West\u2019s laser, they want it back Tuesday.',false],
+    ['R-4831','McKinney Pump Station','JOB 22131','A. Fields','work','Submittal — valve vault precast','In review','Thu',2,'Engineering','Precast lead time is 5 weeks. Every day here pushes the vault set.',false],
+    ['R-4846','McKinney Pump Station','JOB 22131','A. Fields','repair','Truck TR-109 — brake light out','New','Fri',2,'Shop','Minor, but it will fail a roadside inspection.',false],
+    ['R-4812','Grapevine Lift Station','JOB 21990','W. Fontenot','repair','Generator EB2200i — 180hr service','New','Fri',5,'Shop','Still running but overdue. Rather swap now than lose it mid-pour.',false],
+    ['R-4837','Grapevine Lift Station','JOB 21990','W. Fontenot','equipment','Mini excavator 35Z — two weeks','In review','Tue',2,'Equipment','Backfill around the wet well is too tight for the 336.',false],
+    ['R-4847','Grapevine Lift Station','JOB 21990','L. Okonjo','tools','(2) Confined space tripods','New','Thu',3,'Safety','Wet well entries start next week.',false],
+    ['R-4849','Frisco Reclaimed Main','JOB 22160','K. Whitfield','equipment','Vac truck — 2 days','Blocked','Today',2,'Equipment','Unmarked fiber in the trench line. No potholing until the vac truck shows.',true],
+    ['R-4850','Frisco Reclaimed Main','JOB 22160','K. Whitfield','work','Franchise utility locate ticket','Blocked','Today',4,'Engineering','Locate ticket expired before we opened the ground. Re-ticket is 48 hours.',true],
+    ['R-4851','Frisco Reclaimed Main','JOB 22160','T. Iverson','tools','(3) 4-gas detectors','In review','Wed',2,'Safety','Two units failed bump test this morning.',false],
+    ['R-4852','Frisco Reclaimed Main','JOB 22160','T. Iverson','repair','Compactor roller — seat mount cracked','In shop','—',8,'Shop','Welded once already. Shop wants to fabricate a new mount.',false],
+    ['R-4853','Arlington Outfall Repair','JOB 22077','G. Santoyo','repair','Pump 6in — impeller wear','In shop','—',11,'Shop','Bypass pumping at half rate. Second pump is holding the line for now.',true],
+    ['R-4854','Arlington Outfall Repair','JOB 22077','G. Santoyo','tools','Torque wrench set + sockets','Ordered','Wed',3,'Small tools','Flange bolts on the new outfall need certified torque.',false],
+    ['R-4855','Arlington Outfall Repair','JOB 22077','N. Ibarra','equipment','Boom lift 45ft — one week','New','Thu',1,'Equipment','Headwall forms are 30ft up the embankment.',false],
+    ['R-4856','Denton Reservoir Ph 1','JOB 22145','E. Kowalski','work','Geotech report — dam-side borings','In review','Mon',7,'Engineering','Consultant is a week late. Cannot finalize the embankment plan.',false],
+    ['R-4857','Denton Reservoir Ph 1','JOB 22145','E. Kowalski','equipment','Dozer D6 — three weeks','Ordered','Tue',4,'Equipment','Mass grading starts once the geotech clears.',false],
+    ['R-4858','Denton Reservoir Ph 1','JOB 22145','F. Almeida','tools','Survey GPS rover — rental','In review','Wed',2,'Small tools','Ours is in for firmware repair.',false],
+    ['R-4859','Denton Reservoir Ph 1','JOB 22145','F. Almeida','repair','Water truck — pump seal leak','In shop','—',6,'Shop','Dust control is being run off a garden line from the hydrant meter.',false]
+  ];
+
+  KIND = { equipment:['Equipment',0], tools:['Small tools',1], work:['Pending work',2], repair:['Repair & maint.',3] };
+
+  /* Seated on apps/web/app/globals.css — :root and .dark, verbatim oklch tokens.
+     Status hues (--ok/--warn/--crit/--idle) are reserved: never decorative. */
+  T() {
+    const d = (this.state.theme ?? this.props.theme ?? 'dark') === 'dark';
+    return d ? {
+      dark:true,
+      bg:'oklch(0.172 0.012 245)',        // --background
+      panel:'oklch(0.212 0.014 245)',     // --card
+      panel2:'oklch(0.252 0.014 245)',    // --muted
+      line:'oklch(0.302 0.016 245)',      // --border
+      line2:'oklch(0.262 0.015 245)',     // --secondary
+      text:'oklch(0.948 0.005 240)',      // --foreground
+      text2:'oklch(0.812 0.010 243)',
+      text3:'oklch(0.688 0.014 245)',     // --muted-foreground
+      accent:'oklch(0.715 0.105 222)',    // --primary
+      accentFg:'oklch(0.172 0.012 245)',  // --primary-foreground
+      accentBg:'oklch(0.288 0.032 228)',  // --accent
+      accentText:'oklch(0.88 0.045 222)', // --accent-foreground
+      stop:'oklch(0.688 0.135 28)',       // --crit
+      stopBg:'oklch(0.285 0.052 28)',     // --crit-bg
+      warn:'oklch(0.762 0.112 68)',       // --warn
+      ok:'oklch(0.735 0.105 168)',        // --ok
+      idle:'oklch(0.665 0.012 245)',      // --idle
+      idleBg:'oklch(0.258 0.008 245)',    // --idle-bg
+      chipOn:'oklch(0.262 0.015 245)',
+      hover:'oklch(0.232 0.014 245)'
+    } : {
+      dark:false,
+      bg:'oklch(0.988 0.003 240)',
+      panel:'oklch(1 0 0)',
+      panel2:'oklch(0.965 0.005 240)',
+      line:'oklch(0.906 0.008 240)',
+      line2:'oklch(0.938 0.006 240)',
+      text:'oklch(0.195 0.016 245)',
+      text2:'oklch(0.365 0.017 245)',
+      text3:'oklch(0.505 0.016 245)',
+      accent:'oklch(0.505 0.093 227)',
+      accentFg:'oklch(0.99 0.002 240)',
+      accentBg:'oklch(0.948 0.014 230)',
+      accentText:'oklch(0.34 0.055 227)',
+      stop:'oklch(0.525 0.163 28)',
+      stopBg:'oklch(0.955 0.028 28)',
+      warn:'oklch(0.545 0.115 62)',
+      ok:'oklch(0.505 0.092 168)',
+      idle:'oklch(0.545 0.012 245)',
+      idleBg:'oklch(0.952 0.005 240)',
+      chipOn:'oklch(0.962 0.006 240)',
+      hover:'oklch(0.972 0.004 240)'
+    };
+  }
+
+  /* Reserved status tokens only — --crit/--warn/--ok/--idle. */
+  statusColor(s, t) { return ({ 'Blocked':t.stop, 'New':t.accent, 'In review':t.warn, 'Ordered':t.ok, 'In shop':t.idle })[s]; }
+  kindColor(k, t) { return ({ equipment:t.accent, tools:t.ok, work:t.warn, repair:t.stop })[k]; }
+
+  FULFIL = {
+    'R-4840':['dept','Procurement','Sunbelt quote pending','—'],
+    'R-4839':['dept','Project team','With city TCP reviewer','Mon'],
+    'R-4817':['vendor','Fastenal','PO 88-4471 · shipped','Wed'],
+    'R-4795':['dept','Maintenance','Bay 2 · awaiting controller','Fri'],
+    'R-4844':['dept','Project team','Filling from stock','Tue'],
+    'R-4821':['vendor','Sunbelt Rentals','PO 88-4462 · confirmed','Thu'],
+    'R-4834':['dept','Equipment Yard','2 of 4 in stock','Wed'],
+    'R-4802':['dept','Maintenance','Bay 1 · carb kit backordered','—'],
+    'R-4845':['dept','Project team','Submitted to city 8/6','Tue'],
+    'R-4808':['dept','Project team','No attendant assigned','—'],
+    'R-4836':['vendor','United Rentals','Quote requested','Wed'],
+    'R-4829':['dept','Equipment Yard','Threader allocated to 22018','—'],
+    'R-4788':['dept','Maintenance','Starter backordered · Holt CAT','8/24'],
+    'R-4843':['vendor','United Rentals','Quote requested','Thu'],
+    'R-4841':['vendor','Sunbelt Rentals','Quote requested','Mon'],
+    'R-4826':['vendor','Fastenal','PO 88-4468 · shipped','Wed'],
+    'R-4831':['dept','Project team','With precast supplier','Thu'],
+    'R-4846':['dept','Maintenance','Queued','Fri'],
+    'R-4812':['dept','Maintenance','Service slot 8/14','8/14'],
+    'R-4837':['vendor','Sunbelt Rentals','Quote requested','Tue'],
+    'R-4847':['dept','Project team','Ordering from Fastenal','Thu'],
+    'R-4849':['vendor','United Rentals','Vac truck unavailable Dallas','—'],
+    'R-4850':['dept','Project team','Re-ticket filed · 48h clock','Wed'],
+    'R-4851':['dept','Project team','Sending 3 from Fort Worth','Wed'],
+    'R-4852':['dept','Maintenance','Fabricating mount','Fri'],
+    'R-4853':['dept','Maintenance','Impeller ordered · Holt CAT','8/18'],
+    'R-4854':['vendor','Fastenal','PO 88-4475 · shipped','Wed'],
+    'R-4855':['vendor','Sunbelt Rentals','Quote requested','Thu'],
+    'R-4856':['dept','Project team','Consultant late','Mon'],
+    'R-4857':['vendor','United Rentals','PO 88-4459 · confirmed','Tue'],
+    'R-4858':['vendor','Sunbelt Rentals','Quote requested','Wed'],
+    'R-4859':['dept','Maintenance','Seal kit on hand','Thu']
+  };
+
+  reqs() {
+    const base = this.R.map(r => ({ id:r[0], job:r[1], code:r[2], by:r[3], kind:r[4], item:r[5],
+      status:r[6], needBy:r[7], age:r[8], dept:r[9], note:r[10], stops:r[11] }));
+    return this.state.added.concat(base).map(r => {
+      const f = r.fulfil || this.FULFIL[r.id] || ['dept','Procurement','Submitted','—'];
+      /* task.department is the owning desk — vendor work is owned by Procurement */
+      return { ...r, routeKind:f[0], routeTo:f[1], routeState:f[2], eta:f[3],
+        dept:f[0] === 'vendor' ? 'Procurement' : f[1] };
+    });
+  }
+
+  submitDraft() {
+    const d = this.state.draft || this.BLANK;
+    if (!d.item.trim()) return;
+    const id = 'R-' + (4860 + this.state.added.length);
+    const rec = { id, job:d.job, code:'—', by:'A. Fields', kind:d.kind,
+      item:(d.qty && +d.qty > 1 ? '(' + d.qty + ') ' : '') + d.item.trim(),
+      status:'New', needBy:d.needBy === 'This week' ? 'Fri' : d.needBy, age:0,
+      dept:d.route === 'vendor' ? 'Procurement' : d.target,
+      note:d.note.trim() || 'No note added.', stops:d.urgency === 'Work stopped',
+      fulfil:[d.route, d.target, d.route === 'vendor' ? 'Quote requested' : 'Unassigned — desk has not claimed it', d.needBy === 'This week' ? 'Fri' : d.needBy] };
+    this.setState(s => ({ added:[rec, ...s.added], newOpen:false, draft:null, openRow:id,
+      toast:id + ' sent to ' + d.target }));
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => this.setState({ toast:null }), 4200);
+  }
+
+  renderVals() {
+    const st = this.state, t = this.T(), mono = "'JetBrains Mono',monospace";
+    const all = this.reqs();
+    const q = st.query.trim().toLowerCase();
+
+    let list = all;
+    if (st.tab !== 'all') list = list.filter(r => r.kind === st.tab);
+    if (st.dept !== 'All') list = list.filter(r => r.dept === st.dept);
+    if (st.focus === 'stopped') list = list.filter(r => r.stops);
+    if (st.focus === 'aged') list = list.filter(r => r.age >= 7);
+    if (st.focus === 'today') list = list.filter(r => r.needBy === 'Today');
+    if (st.focus === 'shop') list = list.filter(r => r.status === 'In shop');
+    if (q) list = list.filter(r => (r.job + r.item + r.by + r.id + r.status).toLowerCase().includes(q));
+
+    /* .label-xs — mono 0.6875rem uppercase, tracking .14em */
+    const label = (extra) => ({ fontFamily:mono, fontSize:'11px', textTransform:'uppercase', letterSpacing:'.14em', color:t.text3, ...(extra || {}) });
+
+    // status board
+    const boardDefs = [
+      ['stopped', all.filter(r => r.stops).length, 'WORK STOPPED', t.stop],
+      ['today', all.filter(r => r.needBy === 'Today').length, 'NEEDED TODAY', t.warn],
+      ['aged', all.filter(r => r.age >= 7).length, 'OPEN OVER 7 DAYS', t.warn],
+      ['shop', all.filter(r => r.status === 'In shop').length, 'IN THE SHOP', t.idle],
+      [null, all.length, 'OPEN REQUESTS', t.text],
+      [null, new Set(all.map(r => r.job)).size, 'JOBS AFFECTED', t.text]
+    ];
+    const board = boardDefs.map(([key, value, lbl, color], i) => {
+      const on = key && st.focus === key;
+      return { value:String(value), label:lbl,
+        pick:key ? () => this.setState(s => ({ focus:s.focus === key ? null : key })) : () => this.setState({ focus:null }),
+        cellStyle:{ flex:1, padding:'13px 20px', cursor:'pointer', borderRight:i < 5 ? '1px solid ' + t.line2 : 'none',
+          background:on ? t.accentBg : 'transparent', boxShadow:on ? 'inset 0 -2px 0 ' + t.accent : 'none' },
+        numStyle:{ fontSize:'27px', fontWeight:700, letterSpacing:'-.03em', lineHeight:1, color, fontVariantNumeric:'tabular-nums' },
+        labelStyle:label({ marginTop:'8px', fontSize:'10px' }) };
+    });
+
+    // filters
+    const chip = (on) => ({ display:'flex', alignItems:'center', gap:'6px', height:'27px', padding:'0 10px', borderRadius:'4px',
+      cursor:'pointer', fontSize:'12px', fontWeight:on ? 600 : 500, color:on ? t.text : t.text3,
+      background:on ? t.chipOn : 'transparent', border:'1px solid ' + (on ? t.line : 'transparent') });
+    const tabDefs = [['all','All'],['equipment','Equipment'],['tools','Small tools'],['work','Pending work'],['repair','Repair & maint.']];
+    const tabs = tabDefs.map(([k, lbl]) => ({ label:lbl,
+      count:String(k === 'all' ? all.length : all.filter(r => r.kind === k).length),
+      dotStyle:k === 'all' ? { display:'none' } : { width:'7px', height:'7px', borderRadius:'2px', flex:'none', background:this.kindColor(k, t) },
+      countStyle:{ fontFamily:mono, fontSize:'10px', color:st.tab === k ? t.text2 : t.text3 },
+      style:chip(st.tab === k), pick:() => this.setState({ tab:k }) }));
+    const depts = ['All depts','Procurement','Equipment Yard','Maintenance','Project team'].map(d => {
+      const key = d === 'All depts' ? 'All' : d;
+      return { label:d, style:chip(st.dept === key), pick:() => this.setState({ dept:key }) };
+    });
+
+    // job grouping
+    const byJob = [];
+    list.forEach(r => { let g = byJob.find(x => x.name === r.job); if (!g) { g = { name:r.job, code:r.code, rows:[] }; byJob.push(g); } g.rows.push(r); });
+    byJob.sort((a, b) => (b.rows.filter(r => r.stops).length - a.rows.filter(r => r.stops).length) || (b.rows.length - a.rows.length));
+
+    const jobs = byJob.map(j => {
+      const open = !st.closed[j.name];
+      const stops = j.rows.filter(r => r.stops).length;
+      const oldest = Math.max.apply(null, j.rows.map(r => r.age));
+      return {
+        name:j.name, code:j.code, open,
+        cardStyle:{ background:t.panel, border:'1px solid ' + t.line, borderRadius:'6px', overflow:'hidden', flex:'none' },
+        headStyle:{ display:'flex', alignItems:'center', gap:'10px', padding:'11px 16px', cursor:'pointer', flexWrap:'wrap', rowGap:'6px' },
+        severityStyle:{ width:'9px', height:'9px', borderRadius:'50%', flex:'none',
+          background:stops ? t.stop : oldest >= 7 ? t.warn : t.ok },
+        caretStyle:{ color:t.text3, flex:'none', transform:open ? 'rotate(90deg)' : 'none', transition:'transform .15s' },
+        nameStyle:{ fontSize:'15px', fontWeight:650, color:t.text, letterSpacing:'-.01em', whiteSpace:'nowrap' },
+        codeStyle:{ fontFamily:mono, fontSize:'10px', color:t.text3 },
+        stopped:stops > 0, stoppedLabel:stops + ' stopping work',
+        stopPillStyle:{ fontSize:'11px', fontWeight:650, color:t.stop, background:t.stopBg,
+          border:'1px solid ' + t.stop, borderRadius:'4px', padding:'3px 9px' },
+        mixWrapStyle:{ display:'flex', gap:'5px', alignItems:'center' },
+        mix:[['equipment','equipment'],['tools','tools'],['work','pending work'],['repair','in repair']]
+          .map(([k, word]) => ({ k, word, n:j.rows.filter(r => r.kind === k).length }))
+          .filter(m => m.n > 0)
+          .map(m => ({ value:m.n + ' ' + m.word,
+            style:{ fontSize:'11px', fontWeight:600, borderRadius:'4px', padding:'3px 8px',
+              color:this.kindColor(m.k, t), background:t.panel2,
+              border:'1px solid ' + t.line2, whiteSpace:'nowrap' } })),
+        total:j.rows.length + ' open',
+        totalStyle:{ fontSize:'11.5px', color:t.text3, width:'62px', textAlign:'right' },
+        toggle:() => this.setState(s => ({ closed:{ ...s.closed, [j.name]:!s.closed[j.name] } })),
+        rows:j.rows.slice().sort((a, b) => (b.stops - a.stops) || (b.age - a.age)).map((r, i) => {
+          const isOpen = st.openRow === r.id;
+          return {
+            item:r.item, by:r.by, needBy:r.needBy, age:r.age + 'd',
+            status:this.STATUS_LABEL[r.status] || r.status, note:r.note,
+            open:isOpen, toggle:() => this.setState(s => ({ openRow:s.openRow === r.id ? null : r.id })),
+            rowStyle:{ display:'flex', alignItems:'center', gap:'10px', padding:'9px 16px', cursor:'pointer',
+              borderTop:'1px solid ' + t.line2, background:isOpen ? t.hover : t.panel },
+            kindDotStyle:{ width:'7px', height:'7px', borderRadius:'2px', flex:'none', background:this.kindColor(r.kind, t) },
+            itemStyle:{ flex:'1 1 240px', minWidth:'120px', fontSize:'13px', color:t.text,
+              whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' },
+            byStyle:{ display:'none' },
+            needStyle:{ fontSize:'12px', fontWeight:r.needBy === 'Today' ? 650 : 400,
+              color:r.needBy === 'Today' ? t.stop : t.text2, width:'56px', flex:'none' },
+            ageStyle:{ fontFamily:mono, fontSize:'11px', fontWeight:r.age >= 7 ? 650 : 400,
+              color:r.age >= 7 ? t.warn : t.text3, width:'34px', flex:'none', textAlign:'right' },
+            statusStyle:{ fontSize:'11px', fontWeight:650, width:'86px', flex:'none', textAlign:'right',
+              whiteSpace:'nowrap', color:this.statusColor(r.status, t) },
+            detailStyle:{ display:'flex', gap:'28px', alignItems:'flex-start', padding:'14px 16px 16px 35px',
+              background:t.panel2, borderTop:'1px solid ' + t.line2 },
+            noteStyle:{ fontSize:'13px', lineHeight:1.55, color:t.text2, maxWidth:'560px', textWrap:'pretty' },
+            primaryAction:r.kind === 'repair' ? 'Chase the shop' : r.kind === 'work' ? 'Escalate' : 'Approve & order',
+            primaryStyle:{ background:t.accent, color:t.accentFg, borderRadius:'4px', padding:'6px 13px',
+              fontSize:'12px', fontWeight:650, cursor:'pointer' },
+            ghostStyle:{ border:'1px solid ' + t.line, color:t.text2, borderRadius:'4px', padding:'6px 13px', fontSize:'12px', cursor:'pointer' },
+            routeChip:({ 'Procurement':'Procure', 'Equipment Yard':'Yard', 'Maintenance':'Shop',
+              'Project team':'Project', 'Sunbelt Rentals':'Sunbelt',
+              'United Rentals':'United', 'Fastenal':'Fastenal', 'Holt CAT':'Holt CAT' })[r.routeTo] || r.routeTo,
+            routeChipStyle:{ fontSize:'11px', fontWeight:600, borderRadius:'4px', padding:'2px 7px',
+              flex:'0 0 auto', whiteSpace:'nowrap', textAlign:'center',
+              color:r.routeKind === 'vendor' ? t.accentText : t.text2,
+              background:r.routeKind === 'vendor' ? t.accentBg : t.panel2,
+              border:'1px solid ' + (r.routeKind === 'vendor' ? t.accent : t.line2) },
+            meta:[['DESK', (r.routeKind === 'vendor' ? 'Vendor · ' : '') + r.routeTo],
+              ['ORDER STATE', r.routeState], ['ETA', r.eta === '—' ? 'Not committed' : r.eta],
+              ['CHASED', this.chasesFor(r) === 0 ? 'Settled — no chase' :
+                this.chasesFor(r) + '× by the request worker' + (this.chasesFor(r) >= 2 ? ' · priority raised to high' : '')],
+              ['READING', this.readingFor(r)[0]],
+              ['REQUESTED', r.age + 'd ago · ' + r.by],
+              ['IMPACT', r.stops ? 'Crew standing down' : 'Working around it']]
+              .map(m => ({ label:m[0], value:m[1], labelStyle:label({ width:'74px', flex:'none', paddingTop:'2px' }),
+                valStyle:{ fontSize:'12px', color:m[0] === 'IMPACT' && r.stops ? t.stop
+                  : m[0] === 'READING' && this.readingFor(r)[1] ? t.warn : t.text2 } }))
+          };
+        })
+      };
+    });
+
+    // ask
+    const A = this.answerFor(st.answer, all);
+    /* sidebar 216 + board floor 560 + ask floor 320 */
+    const askRoom = (st.vw || 1600) >= 1096;
+    const prompts = ["What's stopping work today?", 'Anything open over a week?', 'What does the shop owe the field?', 'Who needs small tools?']
+      .map(p => ({ label:p, pick:() => this.setState({ ask:p, answer:p }),
+        style:{ border:'1px solid ' + t.line, background:t.panel2, color:t.text2, borderRadius:'20px',
+          padding:'5px 11px', fontSize:'11.5px', cursor:'pointer' } })); 
+
+    return {
+      shellStyle:{ height:'100vh', display:'flex', flexDirection:'column', background:t.bg, color:t.text, overflow:'hidden' },
+      ...this.navVals(t, mono, all, label),
+      bodyRowStyle:{ flex:1, minHeight:0, display:'flex' },
+      mainColStyle:{ flex:1, minWidth:0, display:'flex', flexDirection:'column', minHeight:0 },
+      ...this.navVals(t, mono, all, label),
+      barStyle:{ background:t.panel, borderBottom:'1px solid ' + t.line, flex:'none' },
+      markStyle:{ width:'30px', height:'30px', borderRadius:'6px', background:t.accent, color:t.accentFg,
+        display:'flex', alignItems:'center', justifyContent:'center', fontFamily:mono, fontSize:'12px', fontWeight:700, flex:'none' },
+      h1Style:{ fontSize:'16px', fontWeight:700, letterSpacing:'-.02em', color:t.text, lineHeight:1.1 },
+      subStyle:{ fontSize:'11.5px', color:t.text3, marginTop:'2px' },
+      searchStyle:{ display:'flex', alignItems:'center', gap:'8px', height:'32px', width:'220px', padding:'0 10px',
+        borderRadius:'4px', border:'1px solid ' + t.line, background:t.panel2 },
+      mutedIconStyle:{ color:t.text3, flex:'none' },
+      inputStyle:{ flex:1, minWidth:0, border:'none', outline:'none', background:'transparent', color:t.text, fontSize:'12.5px' },
+      clearStyle:{ cursor:'pointer', color:t.text3, fontSize:'15px', lineHeight:1 },
+      themeBtnStyle:{ display:'flex', alignItems:'center', height:'32px', padding:'0 12px', borderRadius:'4px',
+        border:'1px solid ' + t.line, background:t.panel2, color:t.text2, fontSize:'12px', fontWeight:600, cursor:'pointer' },
+      themeLabel:t.dark ? 'Light' : 'Dark',
+      toggleTheme:() => this.setState({ theme:t.dark ? 'light' : 'dark' }),
+      who:'A. Fields · PM', whoStyle:{ fontSize:'12px', color:t.text3, paddingLeft:'6px', borderLeft:'1px solid ' + t.line, marginLeft:'4px', paddingTop:'2px' },
+
+      board,
+      boardStyle:{ display:'flex', background:t.panel, borderBottom:'1px solid ' + t.line, flex:'none' },
+      filterBarStyle:{ display:'flex', alignItems:'center', gap:'6px', padding:'8px 20px', background:t.bg,
+        borderBottom:'1px solid ' + t.line, flex:'none', flexWrap:'wrap', rowGap:'6px' },
+      /* Each chip group wraps as a whole unit — a wrap point inside a group made
+         the selected department read as a sixth kind tab. */
+      chipGroupStyle:{ display:'flex', flexWrap:'wrap', gap:'6px', alignItems:'center' },
+      dividerStyle:{ width:'1px', height:'18px', background:t.line, margin:'0 8px', flex:'none' },
+      tabs, depts,
+      filtered:st.tab !== 'all' || st.dept !== 'All' || !!st.focus || !!q,
+      resetAll:() => this.setState({ tab:'all', dept:'All', focus:null, query:'' }),
+      resetStyle:{ fontSize:'11.5px', color:t.accent, cursor:'pointer', marginRight:'10px' },
+      showingLabel:list.length + ' of ' + all.length + ' requests · ' + jobs.length + ' jobs',
+      countStyle:{ fontFamily:mono, fontSize:'10px', letterSpacing:'.1em', color:t.text3 },
+
+      /* The board is the page. It gets a real floor (a request row needs ~430px
+         plus padding); the ask pane yields, and collapses entirely when the
+         window cannot seat both. */
+      listPaneStyle:{ flex:'1 1 auto', minWidth:'560px', overflowY:'auto', padding:'14px 20px 40px',
+        display:'flex', flexDirection:'column', gap:'10px' },
+      jobs, empty:jobs.length === 0,
+      emptyStyle:{ padding:'70px 0', textAlign:'center', color:t.text3, fontSize:'13.5px' },
+
+      askPaneStyle:askRoom
+        ? { flex:'0 1 ' + (this.props.askPaneWidth ?? 400) + 'px', minWidth:'320px', display:'flex',
+            borderLeft:'1px solid ' + t.line, background:t.panel, flexDirection:'column', minHeight:0 }
+        /* No room beside the board — the panel becomes an overlay instead of squeezing it. */
+        : { position:'fixed', top:0, right:0, bottom:0, width:'400px', zIndex:40,
+            display:st.askOverlay ? 'flex' : 'none', flexDirection:'column', minHeight:0,
+            background:t.panel, borderLeft:'1px solid ' + t.line, boxShadow:'-24px 0 60px rgba(0,0,0,.28)' },
+      askNarrow:!askRoom,
+      askOverlayBtnStyle:{ display:'flex', alignItems:'center', gap:'6px', height:'32px', padding:'0 12px',
+        borderRadius:'4px', border:'1px solid ' + t.line, cursor:'pointer', fontSize:'12px', fontWeight:600,
+        background:st.askOverlay ? t.accentBg : t.panel2, color:st.askOverlay ? t.accentText : t.text2 },
+      toggleAskOverlay:() => this.setState(s => ({ askOverlay:!s.askOverlay })),
+      askHeadStyle:{ display:'flex', alignItems:'baseline', gap:'8px', padding:'14px 18px 0', flex:'none' },
+      askTitleStyle:{ fontSize:'14px', fontWeight:700, color:t.text, letterSpacing:'-.01em' },
+      askHintStyle:{ fontSize:'11.5px', color:t.text3 },
+      totalOpen:String(all.length),
+      askFieldStyle:{ display:'flex', alignItems:'center', gap:'8px', height:'36px', padding:'0 6px 0 11px',
+        borderRadius:'6px', border:'1px solid ' + t.line, background:t.panel2 },
+      askInputStyle:{ flex:1, minWidth:0, border:'none', outline:'none', background:'transparent', color:t.text, fontSize:'13px' },
+      askGoStyle:{ display:'flex', alignItems:'center', height:'26px', padding:'0 12px', borderRadius:'4px',
+        background:t.accent, color:t.accentFg, fontSize:'12px', fontWeight:650, cursor:'pointer' },
+      prompts,
+      ask:st.ask,
+      onAsk:(e) => this.setState({ ask:e.target.value }),
+      /* An empty submit used to blank the whole panel — keep the last answer. */
+      onAskKey:(e) => { if (e.key === 'Enter' && e.target.value.trim()) this.setState(s => ({ answer:s.ask })); },
+      runAsk:() => this.setState(s => (s.ask.trim() ? { answer:s.ask } : null)),
+      askBodyStyle:{ flex:1, minHeight:0, overflowY:'auto' },
+      hasAnswer:!!A,
+      answerText:A ? A.text : '',
+      answerTextStyle:{ fontSize:'13.5px', lineHeight:1.6, color:t.text, textWrap:'pretty' },
+      answerScope:A ? A.scope : '',
+      factGridStyle:{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'8px', margin:'14px 0 16px' },
+      answerFacts:A ? A.facts.map(f => ({ label:f[0], value:f[1],
+        wrapStyle:{ border:'1px solid ' + t.line, borderRadius:'6px', background:t.panel2, padding:'10px 11px' },
+        valStyle:{ fontSize:'21px', fontWeight:700, letterSpacing:'-.02em', lineHeight:1, color:f[2] ? t[f[2]] : t.text },
+        labelStyle:label({ marginTop:'6px' }) })) : [],
+      viewHeadStyle:label({ marginBottom:'8px' }),
+      viewWrapStyle:{ border:'1px solid ' + t.line, borderRadius:'6px', overflow:'hidden' },
+      answerRows:A ? A.rows.map((r, i) => ({
+        item:r.item, job:r.job, age:r.age + 'd', status:this.STATUS_LABEL[r.status] || r.status,
+        wrapStyle:{ padding:'9px 11px', background:i % 2 ? t.panel2 : t.panel, borderTop:i ? '1px solid ' + t.line2 : 'none' },
+        kindDotStyle:{ width:'7px', height:'7px', borderRadius:'2px', flex:'none', background:this.kindColor(r.kind, t) },
+        itemStyle:{ flex:1, minWidth:0, fontSize:'12.5px', color:t.text, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' },
+        ageStyle:{ fontFamily:mono, fontSize:'10.5px', color:r.age >= 7 ? t.warn : t.text3, flex:'none' },
+        jobStyle:{ flex:1, minWidth:0, fontSize:'11.5px', color:t.text3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' },
+        statusStyle:{ fontSize:'11px', fontWeight:650, flex:'none', color:this.statusColor(r.status, t) } })) : [],
+      answerActionsStyle:{ display:'flex', gap:'8px', marginTop:'14px' },
+      applyStyle:{ padding:'7px 12px', borderRadius:'4px', border:'1px solid ' + t.line,
+        color:t.text2, fontSize:'12px', fontWeight:600, cursor:'pointer' },
+      raiseStyle:{ padding:'7px 12px', borderRadius:'4px', background:t.accent, color:t.accentFg,
+        fontSize:'12px', fontWeight:650, cursor:'pointer' },
+      /* Same LLM as /chat: there it parses a field sentence into a ChatAction;
+         here it reads the same entities. Answering and acting are one assistant. */
+      aiNote:'Same parser as Hand Off — reading instead of acting. Raising goes through the request executor, so it lands in the ledger identically.',
+      aiNoteStyle:{ marginTop:'10px', fontSize:'11px', lineHeight:1.45, color:t.text3, textWrap:'pretty' },
+      raiseFromAnswer:() => this.setState(s => ({ newOpen:true,
+        draft:{ ...this.BLANK, note:(s.ask || s.answer || '').trim(), urgency:A && A.focus === 'stopped' ? 'Work stopped' : 'Normal' } })),
+      applyAnswer:() => this.setState({ focus:A ? A.focus : null, tab:A ? A.tab : 'all', dept:'All', query:'' }),
+      ...this.orderVals(t, mono, all, label)
+    };
+  }
+
+  orderVals(t, mono, all, label) {
+    const st = this.state, d = st.draft || this.BLANK;
+    const set = (patch) => this.setState(s => ({ draft:{ ...(s.draft || this.BLANK), ...patch } }));
+    const pill = (on) => ({ display:'flex', alignItems:'center', gap:'6px', padding:'6px 11px', borderRadius:'4px',
+      cursor:'pointer', fontSize:'12px', fontWeight:on ? 650 : 500, whiteSpace:'nowrap',
+      color:on ? t.accentText : t.text2,
+      background:on ? t.accentBg : t.panel2,
+      border:'1px solid ' + (on ? t.accent : t.line) });
+
+    const jobNames = [];
+    all.forEach(r => { if (jobNames.indexOf(r.job) < 0) jobNames.push(r.job); });
+    const targets = this.ROUTES[d.route].map(([name, desc, sla]) => {
+      const on = d.target === name;
+      return { name, desc, sla, pick:() => set({ target:name }),
+        style:{ display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', borderRadius:'6px', cursor:'pointer',
+          background:on ? t.accentBg : t.panel2, border:'1px solid ' + (on ? t.accent : t.line) },
+        radioStyle:{ width:'12px', height:'12px', borderRadius:'50%', flex:'none',
+          border:'2px solid ' + (on ? t.accent : t.text3), background:on ? t.accent : 'transparent',
+          boxShadow:on ? 'inset 0 0 0 2px ' + t.panel : 'none' },
+        nameStyle:{ fontSize:'13px', fontWeight:650, color:t.text },
+        descStyle:{ fontSize:'11.5px', color:t.text3, marginTop:'2px' },
+        slaStyle:{ fontFamily:mono, fontSize:'10px', color:t.text3, flex:'none', textAlign:'right', maxWidth:'110px' } };
+    });
+
+    return {
+      newOpen:st.newOpen,
+      openNew:() => this.setState({ newOpen:true, draft:st.draft || { ...this.BLANK } }),
+      closeNew:() => this.setState({ newOpen:false }),
+      newBtnStyle:{ display:'flex', alignItems:'center', gap:'6px', height:'32px', padding:'0 13px', borderRadius:'4px',
+        background:t.accent, color:t.accentFg, fontSize:'12.5px', fontWeight:650, cursor:'pointer', flex:'none' },
+      scrimStyle:{ position:'fixed', inset:0, zIndex:50, display:'flex',
+        background:t.dark ? 'oklch(0.10 0.010 245 / .66)' : 'oklch(0.195 0.016 245 / .34)' },
+      drawerStyle:{ width:'520px', flex:'none', background:t.bg, borderLeft:'1px solid ' + t.line,
+        display:'flex', flexDirection:'column', minHeight:0, boxShadow:'-24px 0 60px rgba(0,0,0,.28)' },
+      drawerHeadStyle:{ display:'flex', alignItems:'flex-start', gap:'10px', padding:'18px 20px 16px',
+        borderBottom:'1px solid ' + t.line, background:t.panel, flex:'none' },
+      drawerTitleStyle:{ fontSize:'17px', fontWeight:700, letterSpacing:'-.02em', color:t.text },
+      drawerSubStyle:{ fontSize:'12px', color:t.text3, marginTop:'3px' },
+      closeXStyle:{ cursor:'pointer', color:t.text3, fontSize:'20px', lineHeight:1 },
+      drawerBodyStyle:{ flex:1, minHeight:0, overflowY:'auto', padding:'18px 20px 24px',
+        display:'flex', flexDirection:'column', gap:'18px' },
+      fieldStyle:{ display:'flex', flexDirection:'column' },
+      fieldHalfStyle:{ flex:1, minWidth:0, display:'flex', flexDirection:'column' },
+      fieldLabelStyle:label({ marginBottom:'8px' }),
+      pickRowStyle:{ display:'flex', flexWrap:'wrap', gap:'6px' },
+      textInputStyle:{ flex:1, minWidth:0, height:'38px', padding:'0 12px', borderRadius:'6px',
+        border:'1px solid ' + t.line, background:t.panel2, color:t.text, fontSize:'13px', outline:'none' },
+      qtyInputStyle:{ width:'70px', flex:'none', height:'38px', padding:'0 12px', borderRadius:'6px',
+        border:'1px solid ' + t.line, background:t.panel2, color:t.text, fontSize:'13px', outline:'none' },
+      jobOptions:jobNames.map(n => ({ label:n, style:pill(d.job === n), pick:() => set({ job:n }) })),
+      kindOptions:[['equipment','Equipment'],['tools','Small tools'],['work','Pending work'],['repair','Repair & maint.']]
+        .map(([k, lbl]) => ({ label:lbl, style:pill(d.kind === k),
+          dotStyle:{ width:'7px', height:'7px', borderRadius:'2px', flex:'none', background:this.kindColor(k, t) },
+          pick:() => set({ kind:k, route:k === 'repair' ? 'dept' : d.route, target:k === 'repair' ? 'Shop' : k === 'tools' ? 'Yard / Small Tools' : d.target }) })),
+      needOptions:['Today','Tomorrow','This week','Next week'].map(n => ({ label:n, style:pill(d.needBy === n), pick:() => set({ needBy:n }) })),
+      urgencyOptions:['Normal','Urgent','Work stopped'].map(u => ({ label:u, style:pill(d.urgency === u), pick:() => set({ urgency:u }) })),
+      routeModes:[['dept','A department'],['vendor','Outside vendor']].map(([k, lbl]) => ({ label:lbl, style:pill(d.route === k),
+        pick:() => set({ route:k, target:this.ROUTES[k][0][0] }) })),
+      targets,
+      dItem:d.item, onItem:(e) => set({ item:e.target.value }),
+      dQty:d.qty, onQty:(e) => set({ qty:e.target.value }),
+      dNote:d.note, onNote:(e) => set({ note:e.target.value }),
+      drawerFootStyle:{ display:'flex', alignItems:'center', gap:'10px', padding:'14px 20px',
+        borderTop:'1px solid ' + t.line, background:t.panel, flex:'none' },
+      previewStyle:{ fontSize:'11.5px', color:t.text3, maxWidth:'230px', lineHeight:1.4 },
+      routePreview:d.route === 'vendor'
+        ? 'Procurement claims it, then raises the PO with ' + d.target + ' (PO numbering is roadmap)'
+        : 'Raised unassigned — ' + d.target + ' claims it. Chased after 1h, then daily.',
+      cancelStyle:{ padding:'8px 14px', borderRadius:'4px', border:'1px solid ' + t.line,
+        color:t.text2, fontSize:'12.5px', cursor:'pointer' },
+      submitLabel:d.route === 'vendor' ? 'Send for PO' : 'Send request',
+      submitStyle:{ padding:'8px 16px', borderRadius:'4px', background:d.item.trim() ? t.accent : t.line,
+        color:d.item.trim() ? t.accentFg : t.text3, fontSize:'12.5px', fontWeight:650,
+        cursor:d.item.trim() ? 'pointer' : 'default' },
+      submitNew:() => this.submitDraft(),
+      hasToast:!!st.toast, toast:st.toast,
+      toastStyle:{ position:'fixed', left:'50%', bottom:'26px', transform:'translateX(-50%)', zIndex:60,
+        display:'flex', alignItems:'center', gap:'9px', padding:'11px 18px', borderRadius:'6px',
+        background:t.panel, color:t.text, border:'1px solid ' + t.line, fontSize:'13px', fontWeight:600,
+        boxShadow:'0 12px 32px rgba(0,0,0,.35)' },
+      toastDotStyle:{ width:'8px', height:'8px', borderRadius:'50%', background:t.ok, flex:'none' }
+    };
+  }
+
+  /*
+    Navigation shape.
+
+    nav-config.ts has exactly two shapes — FIELD_NAV (foreman, superintendent)
+    and DESK_NAV (everyone else) — and the file is explicit that this is
+    deliberate: "Two shapes of navigation, not one list with things hidden."
+
+    A PM falls through to DESK_NAV today, which is why they get the equipment
+    admin's surface. This is the third shape: a PM runs jobs, not the yard.
+  */
+  NAV = [
+    ['Overview', [['Request Desk', 'here', 'new'], ['Dashboard', '/home', 'exists']]],
+    ['My jobs', [['Projects / Jobs', '/projects', 'exists'], ['Tools by Jobsite', '/jobsites', 'exists'],
+      ['Fleet & Small Tools Map', '/map', 'exists']]],
+    ['Requests', [['Hand Off', '/chat', 'exists'], ['Alerts', '/inbox', 'exists']]],
+    ['Insight', [['Reports & Logs', '/reports', 'exists'], ['Activity', '/activity', 'exists']]]
+  ];
+
+  componentDidMount() {
+    this._onResize = () => this.setState({ vw:window.innerWidth });
+    window.addEventListener('resize', this._onResize);
+    this._onResize();
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this._onResize); clearTimeout(this._tt); }
+
+  /* lucide paths, matching the icon each nav item declares in nav-config.ts */
+  ICON = {
+    'Request Desk':'M3 5h18v6H3z|M7 11v8|M17 11v8|M3 19h18',
+    'Dashboard':'M3 3h8v8H3z|M13 3h8v5h-8z|M13 12h8v9h-8z|M3 15h8v6H3z',
+    'Projects / Jobs':'M2 18h20|M4 18v-4a8 8 0 0116 0v4|M12 6V3',
+    'Tools by Jobsite':'M4 21V5a2 2 0 012-2h8a2 2 0 012 2v16|M16 9h2a2 2 0 012 2v10|M8 7h4M8 11h4M8 15h4',
+    'Fleet & Small Tools Map':'M5 12a7 7 0 010-9.9M19 2.1a7 7 0 010 9.9|M8.5 9a3 3 0 010-4.2M15.5 4.8a3 3 0 010 4.2|M12 12v9',
+    'Hand Off':'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z',
+    'Alerts':'M22 12h-6l-2 3h-4l-2-3H2|M5.4 5.1L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.4-6.9A2 2 0 0016.8 4H7.2a2 2 0 00-1.8 1.1z',
+    'Reports & Logs':'M12 20V10|M18 20V4|M6 20v-4',
+    'Activity':'M22 12h-4l-3 9L9 3l-3 9H2'
+  };
+
+  navVals(t, mono, all, label) {
+    const stopped = all.filter(r => r.stops).length;
+    const badges = { 'Request Desk':String(all.length), 'Alerts':String(stopped) };
+    return {
+      bodyRowStyle:{ flex:1, minHeight:0, display:'flex' },
+      mainColStyle:{ flex:1, minWidth:0, display:'flex', flexDirection:'column', minHeight:0 },
+      sidebarStyle:{ width:'216px', flex:'none', background:t.dark ? 'oklch(0.16 0.017 240)' : 'oklch(0.94 0.015 234)',
+        borderRight:'1px solid ' + (t.dark ? 'oklch(0.245 0.018 240)' : 'oklch(0.87 0.014 236)'),
+        display:'flex', flexDirection:'column', minHeight:0 },
+      sideBrandStyle:{ display:'flex', alignItems:'center', gap:'10px', padding:'14px 16px', flex:'none' },
+      sideBrandTextStyle:{ fontSize:'14px', fontWeight:700, letterSpacing:'-.01em',
+        color:t.dark ? 'oklch(0.885 0.008 240)' : 'oklch(0.28 0.018 245)' },
+      sideScrollStyle:{ flex:1, minHeight:0, overflowY:'auto', padding:'4px 10px 14px',
+        display:'flex', flexDirection:'column', gap:'16px' },
+      navGroups:this.NAV.map(([label_, items]) => ({
+        label:label_, groupStyle:{ display:'flex', flexDirection:'column', gap:'2px' },
+        labelStyle:label({ padding:'0 6px 6px', fontSize:'10px' }),
+        items:items.map(([name, href, kind]) => {
+          const here = href === 'here';
+          return { label:name, badge:badges[name] || '',
+            paths:(this.ICON[name] || '').split('|'),
+            style:{ display:'flex', alignItems:'center', gap:'9px', padding:'7px 8px', borderRadius:'4px',
+              cursor:'pointer', background:here ? t.accentBg : 'transparent' },
+            iconStyle:{ flex:'none', color:here ? t.accent : t.text3 },
+            labelStyle:{ flex:1, minWidth:0, fontSize:'12.5px', fontWeight:here ? 650 : 500,
+              whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+              color:here ? t.accentText : (t.dark ? 'oklch(0.885 0.008 240)' : 'oklch(0.28 0.018 245)') },
+            badgeStyle:{ fontFamily:mono, fontSize:'10.5px', flex:'none',
+              color:name === 'Alerts' && stopped ? t.stop : t.text3 } };
+        })
+      })),
+      sideFootStyle:{ padding:'12px 16px', flex:'none',
+        borderTop:'1px solid ' + (t.dark ? 'oklch(0.245 0.018 240)' : 'oklch(0.87 0.014 236)') },
+      sideRoleStyle:{ fontSize:'12px', fontWeight:650, color:t.accentText },
+      navShape:'PROJECT shape',
+      navShapeHint:'A third nav shape — a PM runs jobs, not the yard',
+      sideRoleHintStyle:{ fontSize:'11px', color:t.text3, marginTop:'3px', lineHeight:1.35 }
+    };
+  }
+
+  answerFor(qRaw, all) {
+    if (!qRaw || !qRaw.trim()) return null;
+    const q = qRaw.toLowerCase(), has = (...w) => w.some(x => q.includes(x));
+    let rows, text, scope, facts, focus = null, tab = 'all';
+
+    if (has('stop', 'block', 'down', 'critical', 'today')) {
+      rows = all.filter(r => r.stops).sort((a, b) => b.age - a.age); focus = 'stopped';
+      scope = 'WORK STOPPED · ' + rows.length + ' ITEMS';
+      text = rows.length + ' items are holding crews right now across ' + new Set(rows.map(r => r.job)).size +
+        ' jobs. Move Trinity River first — the 336 went down at 07:00 and the levee cut is critical path. Frisco has two: an expired locate ticket and a vac truck, both fixable today.';
+      facts = [['STOPPED', String(rows.length), 'stop'], ['JOBS', String(new Set(rows.map(r => r.job)).size)],
+        ['OLDEST', Math.max.apply(null, rows.map(r => r.age)) + 'd', 'warn']];
+    } else if (has('week', '7 day', 'old', 'aging', 'sitting', 'stale')) {
+      rows = all.filter(r => r.age >= 7).sort((a, b) => b.age - a.age); focus = 'aged';
+      scope = 'OPEN 7+ DAYS';
+      text = rows.length + ' requests have aged past a week and all but one is a shop item waiting on parts nobody is chasing. The AL5 light tower is worst at 14 days on a backordered starter.';
+      facts = [['OVER 7D', String(rows.length), 'warn'], ['SHOP ITEMS', String(rows.filter(r => r.dept === 'Maintenance').length), 'idle'],
+        ['AVG', Math.round(rows.reduce((a, r) => a + r.age, 0) / rows.length) + 'd']];
+    } else if (has('shop', 'repair', 'maint', 'part')) {
+      rows = all.filter(r => r.kind === 'repair').sort((a, b) => b.age - a.age); tab = 'repair';
+      scope = 'REPAIR & MAINTENANCE';
+      text = 'The shop holds ' + rows.filter(r => r.status === 'In shop').length + ' pieces with a queue of ' + rows.length +
+        '. Four crews are working around the gap — hand-tamping, headlight pours, half-rate bypass pumping, and loose loads in a truck bed.';
+      facts = [['IN SHOP', String(rows.filter(r => r.status === 'In shop').length), 'idle'], ['QUEUE', String(rows.length)], ['WORST', '14d', 'stop']];
+    } else if (has('tool')) {
+      rows = all.filter(r => r.kind === 'tools').sort((a, b) => b.age - a.age); tab = 'tools';
+      scope = 'SMALL TOOLS';
+      text = new Set(rows.map(r => r.job)).size + ' jobs are waiting on ' + rows.length +
+        ' small-tool requests. Three could be filled from idle yard stock today instead of purchased — the impact drivers, the rotary laser, and the torque set.';
+      facts = [['REQUESTS', String(rows.length)], ['JOBS', String(new Set(rows.map(r => r.job)).size)], ['FROM YARD', '3', 'ok']];
+    } else if (has('equipment', 'rental', 'order')) {
+      rows = all.filter(r => r.kind === 'equipment').sort((a, b) => b.age - a.age); tab = 'equipment';
+      scope = 'EQUIPMENT ORDERS';
+      text = rows.length + ' equipment requests across ' + new Set(rows.map(r => r.job)).size +
+        ' jobs. Two are hard downs, the rest are additions. McKinney needs a forklift by Monday or the pump cans stay on the flatbed.';
+      facts = [['OPEN', String(rows.length)], ['HARD DOWN', String(rows.filter(r => r.stops).length), 'stop'], ['THIS WEEK', String(rows.filter(r => r.needBy !== '—').length)]];
+    } else {
+      const hit = all.filter(r => q.split(/\s+/).some(w => w.length > 3 && r.job.toLowerCase().includes(w)));
+      rows = (hit.length ? hit : all.slice()).sort((a, b) => (b.stops - a.stops) || (b.age - a.age));
+      scope = hit.length ? rows[0].job.toUpperCase() : 'EVERYTHING OPEN';
+      text = hit.length
+        ? rows[0].job + ' has ' + rows.length + ' open requests, ' + rows.filter(r => r.stops).length + ' stopping work, oldest ' + Math.max.apply(null, rows.map(r => r.age)) + ' days.'
+        : rows.length + ' open requests on ' + new Set(rows.map(r => r.job)).size + ' jobs. ' + rows.filter(r => r.stops).length +
+          ' are stopping work, ' + rows.filter(r => r.age >= 7).length + ' have aged past a week. Ask about a job, a department, or what is stopping work.';
+      facts = [['MATCHED', String(rows.length)], ['STOPPED', String(rows.filter(r => r.stops).length), 'stop'], ['OVER 7D', String(rows.filter(r => r.age >= 7).length), 'warn']];
+    }
+    return { rows:rows.slice(0, 8), text, scope, facts, focus, tab };
+  }
+}
+</script>
+</body>
+</html>

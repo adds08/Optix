@@ -1,5 +1,15 @@
 # Vendors, purchase orders and where tools come from
 
+> **Status: Removed, 2026-08-09.** The rental half of this spec was built and has
+> since been deleted — `vendor`, `rental_order` and `rental_line` are dropped in
+> migration `0012`, along with the router, the United Rentals import and the
+> reports. STInventory tracks tools Urban owns, not equipment it hires.
+>
+> This document is kept rather than deleted because the reasoning outlives the
+> code, and because Urban has since raised orders, quotations and receipts as a
+> possible future need. If that work starts, start by reading this.
+
+
 Urban buys and rents small tools from vendors — United Rentals most of all. The
 register knows what tools exist and who holds them. It does not know where any
 of them came from.

@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#090B0E; font-family:'Inter Tight',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  * { box-sizing:border-box; }
+  a { color:#7FB0E4; text-decoration:none; }
+  a:hover { color:#A9CDF2; }
+  input { font-family:inherit; }
+  input::placeholder { color:#8A939C; }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background:#242A31; border-radius:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#090B0E; color:#EAEDEF; padding-bottom:90px;">
+
+  <!-- HEADER -->
+  <div style="background:#0D1015; border-bottom:1px solid #1B2027; position:sticky; top:0; z-index:20;">
+    <div style="max-width:1500px; margin:0 auto; padding:22px 44px 0;">
+
+      <div style="display:flex; align-items:center; gap:28px;">
+        <div style="flex:none;">
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:500; letter-spacing:.2em; color:#8A939C;">FLEET · DISTRIBUTION</div>
+          <h1 style="margin:8px 0 0; font-size:26px; font-weight:700; letter-spacing:-.02em; color:#FFFFFF; line-height:1;">Tools by Jobsite</h1>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex; align-items:center; gap:26px;">
+          <sc-for list="{{ summary }}" as="s" hint-placeholder-count="7">
+            <div style="text-align:right;">
+              <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C;">{{ s.label }}</div>
+              <div style="{{ s.valStyle }}">{{ s.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- TOOLBAR -->
+      <div style="display:flex; align-items:center; gap:14px; margin-top:18px; padding-bottom:12px;">
+        <div style="display:flex; background:#12161C; border:1px solid #262E37; border-radius:4px; padding:2px;">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+            <div onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.countStyle }}">{{ t.count }}</span></div>
+          </sc-for>
+        </div>
+
+        <div style="flex:1;"></div>
+
+        <div style="display:flex; align-items:center; gap:9px; height:34px; width:290px; padding:0 11px; border:1px solid #262E37; border-radius:4px; background:#12161C;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8A939C" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.8-3.8"></path></svg>
+          <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Search job, crew, tool, tag…" style="flex:1; min-width:0; border:none; outline:none; background:transparent; color:#EAEDEF; font-size:12.5px;">
+          <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+            <span onClick="{{ clearQuery }}" style="cursor:pointer; color:#8A939C; font-size:15px; line-height:1;">×</span>
+          </sc-if>
+        </div>
+
+        <div style="position:relative;">
+          <div onClick="{{ toggleSort }}" style="{{ sortBtnStyle }}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A939C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5v14M4 16l3 3 3-3M17 19V5M14 8l3-3 3 3"></path></svg>
+            {{ sortLabel }}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8A939C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5l6 6 6-6"></path></svg>
+          </div>
+          <sc-if value="{{ sortOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; top:40px; right:0; width:200px; background:#151A21; border:1px solid #2A323B; border-radius:4px; padding:4px; z-index:40; box-shadow:0 16px 40px rgba(0,0,0,.6);">
+              <sc-for list="{{ sortOptions }}" as="s" hint-placeholder-count="4">
+                <div onClick="{{ s.pick }}" style="{{ s.style }}">{{ s.label }}<sc-if value="{{ s.active }}" hint-placeholder-val="{{ false }}"><span style="color:#7FB0E4;">✓</span></sc-if></div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <div onClick="{{ toggleGapsOnly }}" style="{{ gapChipStyle }}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.6l8.6 15H3.4z"></path><path d="M12 9.6v4.2"></path><path d="M12 16.7v.2"></path></svg>
+          Needs vehicle
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div style="max-width:1500px; margin:0 auto; padding:20px 44px 0; display:flex; flex-direction:column; gap:12px;">
+
+    <sc-if value="{{ showPool }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#11151A; border:1px solid #232A32; border-radius:4px; overflow:hidden;">
+        <div style="display:flex; align-items:center; gap:12px; padding:13px 20px; border-bottom:1px solid #1B2027;">
+          <span style="font-size:16px; font-weight:650; color:#FFFFFF; letter-spacing:-.015em;">Unassigned pool</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#8A939C; border:1px solid #2A323B; border-radius:3px; padding:2px 7px; white-space:nowrap; flex:none;">{{ poolCount }} TOOLS</span>
+          <span style="font-size:12.5px; color:#8A939C;">sitting in warehouses, not out on a job</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; padding:8px 20px; background:#0E1218; border-bottom:1px solid #1B2027;">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; width:88px; flex:none;">TAG</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; flex:1;">TOOL</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; width:104px; flex:none;">CATEGORY</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; width:212px; flex:none;">LOCATION</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; width:104px; flex:none; text-align:right;">STATUS</span>
+        </div>
+        <sc-for list="{{ pool }}" as="p" hint-placeholder-count="6">
+          <div style="{{ p.rowStyle }}">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; color:#7FB0E4; width:88px; flex:none;">{{ p.tag }}</span>
+            <span style="flex:1; font-size:13px; color:#EAEDEF;">{{ p.name }}</span>
+            <span style="{{ p.catStyle }}">{{ p.cat }}</span>
+            <span style="font-size:12px; color:#8A939C; width:212px; flex:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ p.loc }}</span>
+            <span style="{{ p.condStyle }}">{{ p.cond }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-for list="{{ jobs }}" as="j" hint-placeholder-count="4">
+      <div style="display:flex; background:#11151A; border:1px solid #232A32; border-radius:4px; overflow:hidden;">
+        <div style="{{ j.edgeStyle }}"></div>
+        <div style="flex:1; min-width:0;">
+
+          <div onClick="{{ j.toggle }}" style="display:flex; align-items:center; gap:11px; padding:12px 20px; cursor:pointer;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A939C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="{{ j.caretStyle }}"><path d="M9 5l7 7-7 7"></path></svg>
+            <span style="font-size:16.5px; font-weight:650; color:#FFFFFF; letter-spacing:-.015em;">{{ j.name }}</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:#8A939C; border:1px solid #2A323B; border-radius:3px; padding:2px 7px;">{{ j.code }}</span>
+            <span style="font-size:12.5px; color:#8A939C;">{{ j.city }}</span>
+            <div style="flex:1;"></div>
+            <sc-if value="{{ j.hasGap }}" hint-placeholder-val="{{ false }}">
+              <span style="display:flex; align-items:center; gap:6px; background:rgba(228,161,59,.11); border:1px solid rgba(228,161,59,.3); color:#E4A13B; border-radius:3px; padding:4px 10px; font-size:11.5px; font-weight:600;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#E4A13B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.6l8.6 15H3.4z"></path><path d="M12 9.6v4.2"></path><path d="M12 16.7v.2"></path></svg>
+                {{ j.gapLabel }}
+              </span>
+            </sc-if>
+            <span style="font-size:12px; color:#8A939C;">{{ j.crewSummary }}</span>
+          </div>
+
+          <sc-if value="{{ j.open }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <div style="display:flex; align-items:center; gap:0; border-top:1px solid #1B2027; border-bottom:1px solid #1B2027; background:#0E1218;">
+                <sc-for list="{{ j.metrics }}" as="m" hint-placeholder-count="5">
+                  <div style="{{ m.cellStyle }}">
+                    <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C;">{{ m.label }}</span>
+                    <span style="display:flex; align-items:baseline; gap:3px;">
+                      <span style="{{ m.valStyle }}">{{ m.value }}</span>
+                      <span style="font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#8A939C;">{{ m.suffix }}</span>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <sc-for list="{{ j.crews }}" as="c" hint-placeholder-count="2">
+                <div style="{{ c.wrapStyle }}">
+
+                  <div onClick="{{ c.toggle }}" style="display:flex; align-items:center; gap:10px; padding:10px 20px; cursor:pointer;">
+                    <span style="{{ c.tickStyle }}"></span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8A939C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="{{ c.caretStyle }}"><path d="M9 5l7 7-7 7"></path></svg>
+                    <span style="width:186px; flex:none; font-size:13.5px; font-weight:550; color:#EAEDEF; letter-spacing:-.005em;">{{ c.name }}</span>
+
+                    <div style="display:flex; align-items:center; gap:7px; width:132px; flex:none;">
+                      <sc-if value="{{ c.truck }}" hint-placeholder-val="{{ true }}">
+                        <span style="display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:11px; color:#A6AEB6; border:1px solid #2A323B; border-radius:3px; padding:3px 8px;">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8A939C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h9v9H3z"></path><path d="M12 10h4l3.5 3.5V16H12z"></path><circle cx="7" cy="18" r="1.5"></circle><circle cx="17" cy="18" r="1.5"></circle></svg>
+                          {{ c.truck }}
+                        </span>
+                      </sc-if>
+                      <sc-if value="{{ c.noTruck }}" hint-placeholder-val="{{ false }}">
+                        <div onClick="{{ c.pickTruck }}" style="display:flex; align-items:center; gap:5px; background:rgba(228,161,59,.1); border:1px solid rgba(228,161,59,.4); color:#E4A13B; border-radius:3px; padding:3px 8px; font-size:11px; font-weight:600; cursor:pointer;">+ truck</div>
+                      </sc-if>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:7px; width:132px; flex:none;">
+                      <sc-if value="{{ c.trailer }}" hint-placeholder-val="{{ true }}">
+                        <span style="display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:11px; color:#A6AEB6; border:1px solid #2A323B; border-radius:3px; padding:3px 8px;">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8A939C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h15v8H2z"></path><path d="M17 12h4"></path><circle cx="7" cy="18" r="1.5"></circle><circle cx="13" cy="18" r="1.5"></circle></svg>
+                          {{ c.trailer }}
+                        </span>
+                      </sc-if>
+                      <sc-if value="{{ c.noTrailer }}" hint-placeholder-val="{{ false }}">
+                        <div onClick="{{ c.pickTrailer }}" style="display:flex; align-items:center; gap:5px; background:rgba(228,161,59,.1); border:1px solid rgba(228,161,59,.4); color:#E4A13B; border-radius:3px; padding:3px 8px; font-size:11px; font-weight:600; cursor:pointer;">+ trailer</div>
+                      </sc-if>
+                    </div>
+
+                    <div style="flex:1;"></div>
+                    <span style="{{ c.updStyle }}">{{ c.updated }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace; font-size:13.5px; font-weight:600; color:#FFFFFF; width:30px; text-align:right;">{{ c.toolCount }}</span>
+                    <span style="font-size:11.5px; color:#8A939C; width:34px;">tools</span>
+                  </div>
+
+                  <sc-if value="{{ c.pickerOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="border-top:1px solid #1B2027; background:#0E1218; padding:13px 20px;">
+                      <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; margin-bottom:10px;">{{ c.pickerTitle }}</div>
+                      <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                        <sc-for list="{{ c.vehicleOptions }}" as="v" hint-placeholder-count="3">
+                          <div onClick="{{ v.pick }}" style="display:flex; align-items:center; gap:9px; background:#141A21; border:1px solid #2E3742; border-radius:3px; padding:8px 12px; cursor:pointer;">
+                            <span style="font-family:'JetBrains Mono',monospace; font-size:11.5px; font-weight:600; color:#EAEDEF;">{{ v.id }}</span>
+                            <span style="font-size:11.5px; color:#8A939C;">{{ v.desc }}</span>
+                          </div>
+                        </sc-for>
+                        <div onClick="{{ c.closePicker }}" style="display:flex; align-items:center; padding:8px 12px; font-size:11.5px; color:#8A939C; cursor:pointer;">Cancel</div>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ c.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="border-top:1px solid #1B2027; background:#0A0D11;">
+                      <div style="display:flex; align-items:center; gap:14px; padding:8px 20px; background:#0E1218; border-bottom:1px solid #1B2027;">
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; width:88px; flex:none;">TAG</span>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; flex:1;">TOOL</span>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; width:104px; flex:none;">CATEGORY</span>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; width:96px; flex:none;">TIME OUT</span>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C; width:104px; flex:none; text-align:right;">CONDITION</span>
+                      </div>
+                      <sc-for list="{{ c.tools }}" as="r" hint-placeholder-count="5">
+                        <div style="{{ r.rowStyle }}">
+                          <span style="font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; color:#7FB0E4; width:88px; flex:none;">{{ r.tag }}</span>
+                          <span style="flex:1; font-size:13px; color:#EAEDEF;">{{ r.name }}</span>
+                          <span style="{{ r.catStyle }}">{{ r.cat }}</span>
+                          <span style="font-size:11.5px; color:#8A939C; width:96px; flex:none;">{{ r.since }}</span>
+                          <span style="{{ r.condStyle }}">{{ r.cond }}</span>
+                        </div>
+                      </sc-for>
+                      <div style="display:flex; align-items:center; gap:10px; padding:9px 20px; background:#0E1218; border-top:1px solid #1B2027;">
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C;">{{ c.toolCount }} TOOLS · {{ c.upperName }}</span>
+                        <div style="flex:1;"></div>
+                        <span style="font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em; color:#8A939C;">VALUE {{ c.value }}</span>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </sc-for>
+
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:60px 0; text-align:center; color:#8A939C; font-size:14px;">No jobs, crews, or tools match “{{ query }}”.</div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1000}}">
+class Component extends DCLogic {
+  state = { query: '', sort: 'tools', sortOpen: false, tab: 'all', gapsOnly: false,
+    closed: {}, openCrews: {}, picker: null, pickerKind: null, assignedTruck: {}, assignedTrailer: {} };
+
+  CATALOG = [
+    ['DeWalt DCD996 Hammer Drill', 'Power tool', 320], ['Milwaukee M18 Sawzall', 'Power tool', 280],
+    ['Milwaukee M18 Impact Driver', 'Power tool', 240], ['DeWalt 20V Angle Grinder', 'Power tool', 190],
+    ['Makita 7-1/4in Circular Saw', 'Power tool', 210], ['Bosch Bulldog Rotary Hammer', 'Power tool', 430],
+    ['Stihl TS420 Cutquik', 'Cutting', 1100], ['Husqvarna K770 Demo Saw', 'Cutting', 1250],
+    ['Wacker WP1550 Plate Compactor', 'Compaction', 2100], ['Multiquip 2in Trash Pump', 'Pump', 900],
+    ['Bosch GRL2000-40HVK Laser', 'Survey', 1400], ['Hilti PM 30-MG Multi Laser', 'Survey', 640],
+    ['Werner 24ft Extension Ladder', 'Access', 380], ['Little Giant 8ft Step Ladder', 'Access', 260],
+    ['Ridgid Pipe Wrench Set', 'Hand tool', 340], ['Klein Electrician Tool Set', 'Hand tool', 290],
+    ['Greenlee Cable Puller', 'Pipe', 780], ['Honda EB2200i Generator', 'Generator', 1300],
+    ['Milwaukee M18 Site Light', 'Site', 220], ['Dayton 1in Submersible Pump', 'Pump', 460]
+  ];
+  CONDS = [['Good', '#4FA97A'], ['Good', '#4FA97A'], ['Good', '#4FA97A'], ['Fair', '#E4A13B'], ['Needs service', '#D2694A']];
+  SINCE = ['out 3d', 'out 11d', 'out 2d', 'out 26d', 'out 6d', 'out 19d', 'out 1d', 'out 40d'];
+
+  DATA = [
+    { id:'j1', name:'Legacy West Utilities', code:'JOB 22018', city:'Plano, TX',
+      crews:[ {id:'c1', n:'Alejandro Capuchino', truck:'TR-118', trailer:'TE-006', tools:28, up:'2h ago', stale:false},
+              {id:'c2', n:'Jobani Abarca', truck:'TR-104', trailer:null, tools:19, up:'20m ago', stale:false} ] },
+    { id:'j2', name:'Trinity River Levee Ph 2', code:'JOB 22104', city:'Dallas, TX',
+      crews:[ {id:'c3', n:'Miguel Torres', truck:'TR-102', trailer:'TE-002', tools:24, up:'40m ago', stale:false},
+              {id:'c4', n:'Ruben Delgado', truck:'TR-127', trailer:'TE-011', tools:17, up:'3h ago', stale:false},
+              {id:'c5', n:'Beto Aldana', truck:null, trailer:'TE-004', tools:11, up:'1h ago', stale:false} ] },
+    { id:'j3', name:'DFW Water Main Ph 2', code:'JOB 21877', city:'Irving, TX',
+      crews:[ {id:'c6', n:'Sergio Nunez', truck:'TR-131', trailer:'TE-009', tools:14, up:'5h ago', stale:false},
+              {id:'c7', n:'Hector Villalobos', truck:'TR-115', trailer:null, tools:10, up:'1d ago', stale:false},
+              {id:'c8', n:'Danny Okafor', truck:null, trailer:null, tools:7, up:'stale · 4d', stale:true} ] },
+    { id:'j4', name:'McKinney Pump Station', code:'JOB 22131', city:'McKinney, TX',
+      crews:[ {id:'c9', n:'Carlos Benitez', truck:'TR-109', trailer:'TE-014', tools:17, up:'25m ago', stale:false} ] }
+  ];
+
+  TRUCKS = [ {id:'TR-140', desc:'F-350 crew cab · Dallas yard'}, {id:'TR-142', desc:'F-250 · Irving yard'}, {id:'TR-147', desc:'Ram 3500 · Dallas yard'} ];
+  TRAILERS = [ {id:'TE-021', desc:'16ft enclosed · Dallas yard'}, {id:'TE-023', desc:'20ft flatbed · Dallas yard'}, {id:'TE-030', desc:'14ft enclosed · Irving yard'} ];
+
+  POOL = [
+    ['ST-00412','Wacker WP1550 Plate Compactor','Compaction','Regional Warehouse — Houston',0],
+    ['ST-00355','Bosch GRL2000-40HVK Laser','Survey','Dallas Yard',0],
+    ['ST-00298','Multiquip 2in Trash Pump','Pump','Dallas Yard',3],
+    ['ST-00476','Stihl TS420 Cutquik','Cutting','Regional Warehouse — Houston',0],
+    ['ST-00190','Genie AL5 Light Tower','Site','Irving Yard',1],
+    ['ST-00521','Miller Bobcat 260 Welder','Welding','Dallas Yard',0],
+    ['ST-00233','Ridgid 300 Pipe Threader','Pipe','Irving Yard',4]
+  ];
+
+  hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+
+  toolsFor(crewId, n) {
+    const out = [], base = this.hash(crewId);
+    for (let i = 0; i < n; i++) {
+      const c = this.CATALOG[(base + i * 7) % this.CATALOG.length];
+      const cond = this.CONDS[(base + i * 3) % this.CONDS.length];
+      out.push({ tag: 'ST-' + String(((base + i * 137) % 800) + 100).padStart(5, '0'),
+        name: c[0], cat: c[1], value: c[2], cond: cond[0], condColor: cond[1],
+        since: this.SINCE[(base + i * 5) % this.SINCE.length] });
+    }
+    return out;
+  }
+
+  truckOf(c) { return this.state.assignedTruck[c.id] !== undefined ? this.state.assignedTruck[c.id] : c.truck; }
+  trailerOf(c) { return this.state.assignedTrailer[c.id] !== undefined ? this.state.assignedTrailer[c.id] : c.trailer; }
+  money(n) { return n >= 1000 ? '$' + (n / 1000).toFixed(1) + 'k' : '$' + n; }
+
+  renderVals() {
+    const st = this.state;
+    const q = st.query.trim().toLowerCase();
+    const mono = "'JetBrains Mono',monospace";
+
+    const enriched = this.DATA.map(j => {
+      const crews = j.crews.map(c => {
+        const tools = this.toolsFor(c.id, c.tools);
+        return { ...c, truck: this.truckOf(c), trailer: this.trailerOf(c), tools,
+          value: tools.reduce((a, t) => a + t.value, 0) };
+      });
+      return { ...j, crews,
+        gaps: crews.filter(c => !c.truck || !c.trailer).length,
+        trucks: crews.filter(c => c.truck).length,
+        trailers: crews.filter(c => c.trailer).length,
+        toolCount: crews.reduce((a, c) => a + c.tools.length, 0),
+        value: crews.reduce((a, c) => a + c.value, 0) };
+    });
+
+    const matches = (j) => {
+      if (!q) return true;
+      if (j.name.toLowerCase().includes(q) || j.code.toLowerCase().includes(q) || j.city.toLowerCase().includes(q)) return true;
+      return j.crews.some(c => c.n.toLowerCase().includes(q) || (c.trailer || '').toLowerCase().includes(q) || (c.truck || '').toLowerCase().includes(q) ||
+        c.tools.some(t => t.name.toLowerCase().includes(q) || t.tag.toLowerCase().includes(q) || t.cat.toLowerCase().includes(q)));
+    };
+
+    let list = enriched.filter(matches);
+    if (st.gapsOnly) list = list.filter(j => j.gaps > 0);
+    if (st.tab === 'pool') list = [];
+    const SORTS = { tools: (a, b) => b.toolCount - a.toolCount, value: (a, b) => b.value - a.value,
+      gaps: (a, b) => b.gaps - a.gaps, name: (a, b) => a.name.localeCompare(b.name) };
+    list = list.slice().sort(SORTS[st.sort]);
+
+    const allCrews = enriched.reduce((a, j) => a.concat(j.crews), []);
+    const totalCrews = allCrews.length;
+    const withTruck = allCrews.filter(c => c.truck).length;
+    const withTrailer = allCrews.filter(c => c.trailer).length;
+    const fullyRigged = allCrews.filter(c => c.truck && c.trailer).length;
+    const totalTools = enriched.reduce((a, j) => a + j.toolCount, 0);
+    const totalValue = enriched.reduce((a, j) => a + j.value, 0);
+
+    const sumStyle = (accent) => ({ fontSize: '19px', fontWeight: 600, marginTop: '5px', letterSpacing: '-.01em', color: accent || '#FFFFFF' });
+    const summary = [
+      { label: 'JOBS', value: String(enriched.length), valStyle: sumStyle() },
+      { label: 'CREWS', value: String(totalCrews), valStyle: sumStyle() },
+      { label: 'WITH TRUCK', value: withTruck + '/' + totalCrews, valStyle: sumStyle(withTruck === totalCrews ? '#4FA97A' : '#E4A13B') },
+      { label: 'WITH TRAILER', value: withTrailer + '/' + totalCrews, valStyle: sumStyle(withTrailer === totalCrews ? '#4FA97A' : '#E4A13B') },
+      { label: 'FULLY RIGGED', value: fullyRigged + '/' + totalCrews, valStyle: sumStyle(fullyRigged === totalCrews ? '#4FA97A' : '#E4A13B') },
+      { label: 'TOOLS OUT', value: String(totalTools), valStyle: sumStyle() },
+      { label: 'VALUE', value: this.money(totalValue), valStyle: sumStyle() }
+    ];
+
+    const tabStyle = (on) => ({ display: 'flex', alignItems: 'center', gap: '7px', padding: '6px 13px', cursor: 'pointer',
+      borderRadius: '3px', background: on ? '#222A33' : 'transparent',
+      fontSize: '12.5px', fontWeight: on ? 600 : 500, color: on ? '#FFFFFF' : '#8A939C' });
+    const countStyle = (on) => ({ fontFamily: mono, fontSize: '10px', padding: '1px 5px', borderRadius: '3px',
+      background: on ? 'rgba(255,255,255,.12)' : '#1A1F26', color: on ? '#EAEDEF' : '#8A939C' });
+    const mkTab = (id, label, count) => ({ label, count: String(count), style: tabStyle(st.tab === id),
+      countStyle: countStyle(st.tab === id), pick: () => this.setState({ tab: id }) });
+    const tabs = [ mkTab('all', 'Jobs', enriched.length), mkTab('pool', 'Unassigned pool', this.POOL.length) ];
+
+    const SORT_LABELS = { tools: 'Tools out', value: 'Value on site', gaps: 'Vehicle gaps', name: 'Job name' };
+    const sortOptions = Object.keys(SORT_LABELS).map(k => ({
+      label: SORT_LABELS[k], active: st.sort === k,
+      style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '3px', cursor: 'pointer',
+        fontSize: '12.5px', color: st.sort === k ? '#FFFFFF' : '#AFB7BF', background: st.sort === k ? 'rgba(255,255,255,.06)' : 'transparent' },
+      pick: () => this.setState({ sort: k, sortOpen: false })
+    }));
+
+    const catStyle = { fontFamily: mono, fontSize: '11px', color: '#8A939C', width: '104px', flex: 'none' };
+    const condPill = (color) => ({ fontSize: '12px', fontWeight: 600, color, width: '104px', textAlign: 'right', flex: 'none' });
+    const toolRow = (i) => ({ display: 'flex', alignItems: 'center', gap: '14px', padding: '8px 20px', background: i % 2 ? '#0C1014' : '#0A0D11' });
+
+    const usedTrucks = Object.values(st.assignedTruck), usedTrailers = Object.values(st.assignedTrailer);
+
+    const jobs = list.map(j => {
+      const open = !st.closed[j.id];
+      return {
+        name: j.name, code: j.code, city: j.city,
+        hasGap: j.gaps > 0, gapLabel: j.gaps === 1 ? '1 crew needs a vehicle' : j.gaps + ' crews need vehicles',
+        crewSummary: j.crews.length + (j.crews.length === 1 ? ' crew · ' : ' crews · ') + j.toolCount + ' tools',
+        edgeStyle: { width: '3px', flex: 'none', background: j.gaps > 0 ? '#E4A13B' : '#3A6E9E' },
+        caretStyle: { transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s', flex: 'none' },
+        open, toggle: () => this.setState(s => ({ closed: { ...s.closed, [j.id]: !s.closed[j.id] } })),
+        metrics: [
+          { label: 'TOOLS OUT', value: String(j.toolCount), suffix: '' },
+          { label: 'CREWS', value: String(j.crews.length), suffix: '' },
+          { label: 'TRUCKS', value: String(j.trucks), suffix: '/ ' + j.crews.length, warn: j.trucks < j.crews.length },
+          { label: 'TRAILERS', value: String(j.trailers), suffix: '/ ' + j.crews.length, warn: j.trailers < j.crews.length },
+          { label: 'VALUE', value: this.money(j.value), suffix: '' }
+        ].map((m, i) => ({ label: m.label, value: m.value, suffix: m.suffix,
+          cellStyle: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+            padding: '9px 20px', borderRight: i < 4 ? '1px solid #1B2027' : 'none' },
+          valStyle: { fontSize: '15px', fontWeight: 600, color: m.warn ? '#E4A13B' : '#FFFFFF', letterSpacing: '-.01em' } })),
+        crews: j.crews.map((c, i) => {
+          const cOpen = !!st.openCrews[c.id];
+          const isTruck = st.pickerKind === 'truck';
+          const fleet = isTruck ? this.TRUCKS.filter(x => !usedTrucks.includes(x.id)) : this.TRAILERS.filter(x => !usedTrailers.includes(x.id));
+          const rigged = c.truck && c.trailer;
+          return {
+            name: c.n, upperName: c.n.toUpperCase(), toolCount: String(c.tools.length), updated: c.up,
+            truck: c.truck, noTruck: !c.truck, trailer: c.trailer, noTrailer: !c.trailer, value: this.money(c.value),
+            wrapStyle: { borderTop: i === 0 ? 'none' : '1px solid #171C22' },
+            tickStyle: { width: '3px', height: '20px', flex: 'none', borderRadius: '2px', background: rigged ? '#4FA97A' : '#E4A13B' },
+            caretStyle: { transform: cOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s', flex: 'none' },
+            updStyle: { fontSize: '12px', color: c.stale ? '#D2694A' : '#8A939C', width: '76px', textAlign: 'right' },
+            open: cOpen,
+            toggle: () => this.setState(s => ({ openCrews: { ...s.openCrews, [c.id]: !s.openCrews[c.id] } })),
+            pickerOpen: st.picker === c.id,
+            pickerTitle: isTruck ? 'AVAILABLE TRUCKS' : 'AVAILABLE TRAILERS',
+            pickTruck: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState({ picker: c.id, pickerKind: 'truck' }); },
+            pickTrailer: (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState({ picker: c.id, pickerKind: 'trailer' }); },
+            closePicker: () => this.setState({ picker: null, pickerKind: null }),
+            vehicleOptions: fleet.map(f => ({ id: f.id, desc: f.desc,
+              pick: (e) => { if (e && e.stopPropagation) e.stopPropagation();
+                this.setState(s => (isTruck
+                  ? { assignedTruck: { ...s.assignedTruck, [c.id]: f.id }, picker: null, pickerKind: null }
+                  : { assignedTrailer: { ...s.assignedTrailer, [c.id]: f.id }, picker: null, pickerKind: null })); } })),
+            tools: c.tools.map((x, k) => ({ tag: x.tag, name: x.name, cat: x.cat, since: x.since, cond: x.cond,
+              rowStyle: toolRow(k), catStyle, condStyle: condPill(x.condColor) }))
+          };
+        })
+      };
+    });
+
+    const pool = this.POOL.filter(p => !q || p[1].toLowerCase().includes(q) || p[0].toLowerCase().includes(q) || p[2].toLowerCase().includes(q))
+      .map((p, i) => ({ tag: p[0], name: p[1], cat: p[2], loc: p[3],
+        cond: p[4] ? p[4] + (p[4] === 1 ? ' day idle' : ' days idle') : 'Ready',
+        rowStyle: { display: 'flex', alignItems: 'center', gap: '14px', padding: '9px 20px', background: i % 2 ? '#0C1014' : '#11151A' },
+        catStyle, condStyle: condPill(p[4] > 2 ? '#E4A13B' : '#4FA97A') }));
+
+    return {
+      jobs, summary, tabs, sortOptions, pool,
+      poolCount: String(this.POOL.length),
+      showPool: st.tab === 'pool',
+      empty: st.tab !== 'pool' && jobs.length === 0,
+      query: st.query, hasQuery: !!st.query,
+      sortOpen: st.sortOpen, sortLabel: SORT_LABELS[st.sort],
+      sortBtnStyle: { display: 'flex', alignItems: 'center', gap: '8px', height: '34px', padding: '0 11px',
+        border: '1px solid #262E37', borderRadius: '3px', background: '#12161C', color: '#AFB7BF',
+        fontSize: '12.5px', fontWeight: 500, cursor: 'pointer' },
+      gapChipStyle: { display: 'flex', alignItems: 'center', gap: '7px', height: '34px', padding: '0 12px', borderRadius: '3px',
+        cursor: 'pointer', fontSize: '12.5px', fontWeight: 600,
+        border: '1px solid ' + (st.gapsOnly ? 'rgba(228,161,59,.55)' : '#262E37'),
+        background: st.gapsOnly ? 'rgba(228,161,59,.14)' : '#12161C',
+        color: st.gapsOnly ? '#E4A13B' : '#8A939C' },
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      clearQuery: () => this.setState({ query: '' }),
+      toggleSort: () => this.setState(s => ({ sortOpen: !s.sortOpen })),
+      toggleGapsOnly: () => this.setState(s => ({ gapsOnly: !s.gapsOnly }))
+    };
+  }
+}
+</script>
+</body>
+</html>

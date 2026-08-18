@@ -52,7 +52,7 @@ export type ImportColumn = {
   valueAliases?: Record<string, string>;
 };
 
-export type ImportEntity = "asset" | "employee" | "project" | "location" | "vehicle" | "rental";
+export type ImportEntity = "asset" | "employee" | "project" | "location" | "vehicle";
 
 export type ImportSpec = {
   entity: ImportEntity;
@@ -187,36 +187,6 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     would reject every row of a real file. Linking happens afterwards, once,
     per jobsite.
   */
-  rental: {
-    entity: "rental",
-    label: "Rented equipment",
-    permission: "rental.manage",
-    /* Nothing is unique per row: a contract legitimately appears on as many
-       rows as it has lines. */
-    unique: [],
-    description:
-      "Quotes and contracts from a rental vendor. Export from the vendor's portal and load it as-is — one row per line item.",
-    columns: [
-      { key: "orderType", header: "Order Type", type: "enum", required: true,
-        values: ["Quote", "Open Contract", "Closed Contract"], example: "Open Contract",
-        hint: "The vendor's own wording." },
-      { key: "externalNumber", header: "Contract/Quote #", type: "text", required: true, example: "260816452",
-        hint: "Groups rows into one order." },
-      { key: "startDate", header: "Start Date", type: "usdate", example: "12/04/2026" },
-      { key: "endDate", header: "End Date", type: "usdate", example: "01/01/2027",
-        hint: "When it must go back. Past this and still on rent is what the alerts chase." },
-      { key: "jobsiteLabel", header: "Jobsite", type: "text", example: "TXDOT PUMP STATION IMPROVEMENT",
-        hint: "The vendor's name for the job. Match it to one of yours after importing." },
-      { key: "orderedByLabel", header: "Ordered By", type: "text", example: "Martha Gonazalez-Munoz" },
-      { key: "itemName", header: "Item Name", type: "text", required: true,
-        example: "Vacuum Assisted Pump, 12 in. by 8 in., Diesel Powered" },
-      { key: "catClass", header: "Cat Class", type: "text", example: "520-6005",
-        hint: "The vendor's catalogue code. Worth keeping — it is what makes two lines comparable." },
-      { key: "quantity", header: "Qty", type: "integer", example: "5" },
-      { key: "notes", header: "Notes", type: "text", example: "" },
-    ],
-  },
-
   vehicle: {
     entity: "vehicle",
     label: "Vehicles",

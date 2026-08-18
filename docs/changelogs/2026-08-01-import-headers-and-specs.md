@@ -34,7 +34,7 @@ survives.
 
 `docs/11` through `docs/15`, covering department cost targets, the `modelName`
 split, the Excel round-trip, dashboard additions, and a vendors/orders roadmap.
-Plus `docs/16-handoff-brief.md` as the orientation for whoever implements them.
+Plus `docs/archive/16-handoff-brief.md` as the orientation for whoever implements them.
 
 ## Found while auditing the specs
 
@@ -47,7 +47,7 @@ is a gap between what the register demands and what the yard records.
 Resolved the same day: tags become optional, and generating them was rejected. A
 tag is a physical label somebody puts on a tool, not an id the system assigns —
 a generated number that is not written on the tool is right in the register and
-absent in reality. Specified in `docs/17-optional-tags.md`.
+absent in reality. Specified in `docs/built/17-optional-tags.md`.
 
 **`OTHER` is the condition column** — `NEW`/`USED` — not a reference number. The
 equipment numbers (`PC-08`, `QS-602`, `106`) sit in a further column with **no

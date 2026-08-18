@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 
 /*
@@ -73,4 +73,75 @@ export async function notifyCustodyDecision(db: any, d: CustodyDecision): Promis
     });
   }
   return recipients.size;
+}
+
+/*
+  Telling the desk that something is now waiting on them.
+
+  The decision notifications above close the loop for whoever *asked*. Nothing
+  closed it for whoever has to *act*: a hand-off held for a second signature
+  appeared only as a number on a dashboard widget somebody had to think to open.
+  (This once also covered a borrow awaiting verification; that path was removed
+  on 2026-08-09 and no writer can produce one.) So the queue's arrival was
+  silent, and the tool sat in the wrong truck until the desk happened to look.
+
+  Who counts as "the desk" is `tenantSettings.custodyApproverRole` — a setting
+  the settings page has always written and nothing has ever read. It falls back
+  to `equipment_admin`, which is both the column default and the role
+  `detectRentalsDue` already addresses for the same reason: the desk is who can
+  actually act on the thing.
+
+  The actor is excluded. An equipment admin raising a high-value hand-off does
+  not need to be told they raised it — only their colleagues do.
+*/
+export type DeskPending = {
+  tenantId: string;
+  /** Falls back to `equipment_admin` when the tenant has not set one. */
+  approverRole?: string | null;
+  refType: "transfer" | "assignment";
+  refId: string;
+  assetTag: string | null;
+  assetLabel: string;
+  /** Employee id of whoever raised it, so they are not told about themselves. */
+  actorEmployeeId?: string | null;
+  /** Who it is going to, when that reads better than the tool alone. */
+  toName?: string | null;
+};
+
+export async function notifyDeskPending(db: any, d: DeskPending): Promise<number> {
+  const role = d.approverRole ?? "equipment_admin";
+
+  const conditions = [
+    eq(schema.employee.tenantId, d.tenantId),
+    eq(schema.employee.employmentStatus, "active"),
+    eq(schema.employee.role, role),
+  ];
+  if (d.actorEmployeeId) conditions.push(ne(schema.employee.id, d.actorEmployeeId));
+
+  const desk = await db
+    .select({ id: schema.employee.id })
+    .from(schema.employee)
+    .where(and(...conditions));
+
+  if (!desk.length) return 0;
+
+  const what = d.assetTag ? `${d.assetTag} — ${d.assetLabel}` : d.assetLabel;
+  const title = `Waiting for approval: ${what}`;
+  const body = `This one is held until somebody signs it off${
+    d.toName ? `, then it goes to ${d.toName}` : ""
+  }. The tool has not moved.`;
+
+  for (const person of desk) {
+    await db.insert(schema.notification).values({
+      tenantId: d.tenantId,
+      recipientEmployeeId: person.id,
+      type: "approval_pending",
+      refType: d.refType,
+      refId: d.refId,
+      title,
+      body,
+      channel: "in_app",
+    });
+  }
+  return desk.length;
 }

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import bcrypt from "bcryptjs";
@@ -20,6 +20,7 @@ import {
   tenant,
   tenantSettings,
   transaction,
+  transfer,
   user,
   userRole,
   vehicle,
@@ -47,6 +48,34 @@ const db = drizzle(client, { schema });
 // Fixed "today" for deterministic overdue detection (matches the prototype).
 const TODAY = "2026-07-09";
 
+/*
+  Acquisition costs, by tag (STI-108). The tools-list source carries no prices,
+  and for most rows that stays true on purpose: imported rows routinely have no
+  price, and `custodyOutcome` counts null as 0, not "needs approval". But with
+  EVERY cost null the high-value gate was unreachable from a clean seed — the
+  approval queue, the desk notification and the whole second-signature path had
+  never been exercisable without hand-editing rows in psql (found by STI-105).
+
+  The tenant's highValueThreshold is seeded at 5000 below. TOOL-0053 sits at
+  exactly 5000.00 because the rule is `>=`, not `>` (pinned by rules.test.ts) —
+  the seed demonstrates the edge, and TOOL-0255 at 4999.99 demonstrates the
+  other side of it. Values are realistic street prices for the tool named.
+*/
+const SEED_COSTS: Record<string, string> = {
+  "TOOL-0001": "289.00", // BOSCH 11255VSR hammer drill
+  "TOOL-0002": "129.00", // BOSCH GWS10-450P angle grinder
+  "TOOL-0004": "1149.00", // STIHL TS-420 quickie saw
+  "TOOL-0010": "219.00", // STIHL BG56C leaf blower
+  "TOOL-0013": "2850.00", // WACKER WP1550AW plate compactor
+  "TOOL-0020": "3899.00", // WACKER GP6600 generator
+  "TOOL-0053": "5000.00", // HONDA EB6500X generator — exactly AT the threshold (>= fires)
+  "TOOL-0054": "3200.00", // MIKASA MVC-82VHW plate compactor
+  "TOOL-0090": "3750.00", // WACKER GP6500 generator
+  "TOOL-0106": "5450.00", // MULTIQUIP MVC-88VTHW plate compactor — above threshold
+  "TOOL-0142": "5200.00", // HONDA EB6500X generator — above threshold
+  "TOOL-0255": "4999.99", // HONDA EB6500X generator — one cent BELOW the threshold (auto)
+};
+
 // RBAC: permissions per role (MVP subset). owner/equipment_admin broad; foreman narrow.
 const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
   owner: [...PERMISSIONS],
@@ -64,7 +93,6 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "employee.read",
     "assignment.read",
     "assignment.create",
-    "rental.read",
     "transfer.read",
     "transfer.create",
     "report.read",
@@ -95,6 +123,11 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "project.assign.superintendent",
     "project.assign.foreman",
   ],
+  /* Read-only on custody by design. Tools are issued and reassigned by the
+     equipment desk; a foreman sees what he is holding and what is coming, and
+     tells the desk through chat or a request when something needs to move. He
+     used to hold assignment.create and transfer.create, which is what made a
+     foreman-to-foreman borrow possible — see the 2026-08-09 changelog. */
   foreman: [
     "asset.read",
     "location.read",
@@ -102,9 +135,7 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "project.read",
     "employee.read",
     "assignment.read",
-    "assignment.create",
     "transfer.read",
-    "transfer.create",
     "report.read",
     "notification.read",
     /* A foreman can see who else is on the project they work. */
@@ -120,22 +151,35 @@ async function main() {
 
   if (process.env.SEED_RESET === "1") {
     console.log("[seed] SEED_RESET=1 — wiping data first");
-    await db.delete(asset);
-    await db.delete(transaction);
-    await db.delete(vehicle);
-    await db.delete(location);
-    await db.delete(employeeProjectAssignment); // before employees — it points at them
-    await db.delete(projectTeamMember); // before employees and projects — it points at both
-    await db.delete(employee);
-    await db.delete(project);
-    await db.delete(warehouse);
-    await db.delete(userRole);
-    await db.delete(rolePermission);
-    await db.delete(role);
-    await db.delete(user);
-    await db.delete(permission);
-    await db.delete(tenantSettings);
-    await db.delete(tenant);
+    /* The ledger is append-only, enforced by trigger since 0014_append_only_ledger
+       (STI-104): both the direct delete below and the cascades from asset/tenant
+       would raise 0A000 with it armed. The demo wipe is the one sanctioned
+       exception, so drop the guard for exactly this block — never weaken the
+       trigger itself. Owner-only ALTER. One transaction, not try/finally: a
+       `finally` never runs on SIGKILL or a dropped connection, which would leave
+       the ledger silently unguarded until the next seed. ALTER TABLE is
+       transactional in Postgres, so any abort rolls the DISABLE back along with
+       the deletes — the guard cannot survive a crash in the off state. */
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`ALTER TABLE "transaction" DISABLE TRIGGER transaction_no_update_delete`);
+      await tx.delete(asset);
+      await tx.delete(transaction);
+      await tx.delete(vehicle);
+      await tx.delete(location);
+      await tx.delete(employeeProjectAssignment); // before employees — it points at them
+      await tx.delete(projectTeamMember); // before employees and projects — it points at both
+      await tx.delete(employee);
+      await tx.delete(project);
+      await tx.delete(warehouse);
+      await tx.delete(userRole);
+      await tx.delete(rolePermission);
+      await tx.delete(role);
+      await tx.delete(user);
+      await tx.delete(permission);
+      await tx.delete(tenantSettings);
+      await tx.delete(tenant);
+      await tx.execute(sql`ALTER TABLE "transaction" ENABLE TRIGGER transaction_no_update_delete`);
+    });
   }
 
   /*
@@ -365,7 +409,7 @@ async function main() {
         serialNumber: a.serial,
         isSerialized: a.isSerialized,
         quantity: a.quantity,
-        acquisitionCost: a.cost,
+        acquisitionCost: SEED_COSTS[a.tag] ?? a.cost,
         acquisitionDate: null,
         owningProjectId: a.own ? projectByKey[a.own]! : null,
         costTarget: a.dept ? "department" : "project",
@@ -381,6 +425,9 @@ async function main() {
     )
     .returning();
   const assetByTag = Object.fromEntries(assetRows.map((a) => [a.tag, a]));
+  // Tag -> spec, so the ledger events below can snapshot the same state the
+  // projection was written from. One source of truth for both sides.
+  const assetSpecByTag = Object.fromEntries(assetSpecs.map((a) => [a.tag, a]));
   console.log(`[seed] ${assetSpecs.length} assets`);
 
   // ---- Assignments (active custody). One per tool with a foreman. ----
@@ -392,9 +439,7 @@ async function main() {
       custodianId: empByKey[s.cust]!,
       projectId: s.proj ? projectByKey[s.proj]! : null,
       locationId: locByKey[s.loc]!,
-      type: s.type,
       startDate: s.start,
-      expectedEndDate: s.end,
       status: "active",
       approvedBy: adminId,
     })),
@@ -403,21 +448,87 @@ async function main() {
 
   // ---- Transaction log (append-only). One assign event per tool so the
   // activity feed has the tools-list history and the rebuild guarantee holds. ----
+  /* Every event carries the complete four-key snapshot, derived from the same
+     assetSpec that set `asset.current_*` above — so the ledger folds to the
+     projection by construction. These used to be `toState: null`, which made
+     `foldAssetState` a no-op on every seeded asset: `asset.rebuild` reported
+     nothing rebuilt and the boot reconciliation sweep raised one
+     `custody_discrepancy` per asset (~754) on every fresh reset. Migration 0013
+     repaired one database, but its NOT EXISTS guard never re-runs — this is
+     what makes the fix survive a reseed (STI-108). A missing key is NOT the
+     same as an explicit null: the fold replaces rather than merges, so a
+     partial snapshot blanks custodian, project and location on rebuild. */
   await db.insert(transaction).values(
-    txSpecs.map((t) => ({
-      tenantId: tid,
-      assetId: assetByTag[t.tag]!.id,
-      eventType: t.event,
-      actorId: adminId,
-      fromState: null,
-      toState: null,
-      refType: t.ref,
-      refId: null,
-      occurredAt: new Date(t.at),
-      note: t.note,
-    })),
+    txSpecs.map((t) => {
+      const spec = assetSpecByTag[t.tag]!;
+      return {
+        tenantId: tid,
+        assetId: assetByTag[t.tag]!.id,
+        eventType: t.event,
+        actorId: adminId,
+        /* Genesis import: the state before this event is genuinely unknown, and
+           the fold only ever reads toState. Claiming an "available, in the
+           warehouse" fromState here would be inventing history. */
+        fromState: null,
+        toState: {
+          status: spec.status,
+          custodianId: spec.cust ? empByKey[spec.cust]! : null,
+          projectId: spec.cur ? projectByKey[spec.cur]! : null,
+          locationId: locByKey[spec.loc]!,
+        },
+        refType: t.ref,
+        refId: null,
+        occurredAt: new Date(t.at),
+        note: t.note,
+      };
+    }),
   );
   console.log(`[seed] ${txSpecs.length} transactions`);
+
+  /* ---- Desk approval queue (STI-108). ----
+     One pending assignment and one pending transfer, both on assets priced at
+     or above the highValueThreshold seeded below (5000) — the only assets that
+     can produce these rows at runtime. Without them the queue was empty on
+     every fresh database, so it could regress to permanently-empty unnoticed;
+     the STI-105 developer had to hand-edit rows in psql to see a single one.
+
+     A pending row changes NOTHING yet: no custody link closes, no projection
+     moves, no ledger event is written — that all happens at approve time
+     (assignment.approve / transfer.approve), which is exactly why seeding
+     these directly is safe and mirrors what assignment.create/transfer.create
+     write for the `approve` outcome. Custody WRITES still go through
+     custody.ts; these rows are paperwork awaiting a second signature. */
+
+  // TOOL-0053 (HONDA EB6500X, exactly $5000.00 — the `>=` edge) is held by
+  // Jose Luis Rodriguez; the desk proposed moving it to Andres Flores (NEX).
+  await db.insert(assignment).values({
+    tenantId: tid,
+    assetId: assetByTag["TOOL-0053"]!.id,
+    custodianId: empByKey["e-fm005"]!,
+    projectId: projectByKey["p-nex-22017"]!,
+    locationId: locByKey["l-TE-011"]!,
+    startDate: TODAY,
+    status: "pending_approval",
+    approvedBy: null,
+  });
+
+  // TOOL-0142 (HONDA EB6500X, $5200 — above threshold) is held by Alberto
+  // Mendes Aleman on Garland; a hand-off to Felipe Portillo (DART) waits.
+  await db.insert(transfer).values({
+    tenantId: tid,
+    assetId: assetByTag["TOOL-0142"]!.id,
+    fromCustodianId: empByKey["e-fm007"]!,
+    toCustodianId: empByKey["e-fm011"]!,
+    fromLocationId: locByKey["l-TE-013"]!,
+    toLocationId: locByKey["l-TE-017"]!,
+    fromProjectId: projectByKey["p-garland-22015"]!,
+    toProjectId: projectByKey["p-dart-20011"]!,
+    reason: "reallocation",
+    status: "pending_approval",
+    requestedBy: adminId,
+    approvedBy: null,
+  });
+  console.log("[seed] 1 pending assignment + 1 pending transfer (desk queue)");
 
   // ---- Tenant settings ----
   await db.insert(tenantSettings).values({

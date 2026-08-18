@@ -39,8 +39,6 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
      means it is going in their trailer or gang box, and without this the only
      way to record that was a separate Transfer afterwards. */
   const [locationId, setLocationId] = useState("");
-  const [type, setType] = useState<"permanent" | "temporary">("permanent");
-  const [expectedEnd, setExpectedEnd] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
   /* Same fix as transfer-form: "waiting" is a success, not a failure, and it
@@ -70,12 +68,13 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
       const res = await utils.client.assignment.create.mutate({
         assetId, custodianId, projectId: projectId || undefined,
         locationId: locationId || undefined,
-        type, expectedEnd: expectedEnd || undefined,
       });
       if (res.needsApproval) {
         setPending(true);
         setResult(
-          "Sent to the equipment desk. This tool is above the value that needs a second signature — it stays where it is until someone approves it in the Inbox.",
+          /* Names the queue tab on /custody, not the Inbox — the inbox handles
+             tasks and messages and cannot act on an assignment row (STI-105). */
+          "Sent to the equipment desk. This tool is above the value that needs a second signature — it stays where it is until someone approves it in the Custody approval queue.",
         );
       }
       utils.assignment.list.invalidate();
@@ -138,19 +137,6 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
               A truck, trailer or gang box, if the tool is going into one.
             </p>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Type</label>
-            <select value={type} onChange={(e) => setType(e.target.value as "permanent" | "temporary")} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="permanent">Permanent</option>
-              <option value="temporary">Temporary (loan)</option>
-            </select>
-          </div>
-          {type === "temporary" && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Expected end date</label>
-              <Input type="date" value={expectedEnd} onChange={(e) => setExpectedEnd(e.target.value)} />
-            </div>
-          )}
           {result ? (
             <p
               className={`rounded-md border px-3 py-2 text-sm ${
