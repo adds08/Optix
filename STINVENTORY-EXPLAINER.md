@@ -176,65 +176,65 @@ events with an identical `occurred_at` (`location.ts:120`, `project-assign.ts:29
 
 ---
 
-## 6. The custody gate — the sharpest idea in the codebase
+## 6. The custody gate
 
-When someone hands a tool over, the system asks two questions, not one
-(`packages/domain/src/rules.ts:29-49`):
+When someone hands a tool over, the system asks **one** question
+(`packages/domain/src/rules.ts:28-38`):
 
 ```mermaid
 flowchart TD
-    START["Someone hands a tool over"] --> Q1{"Can the actor<br/>approve custody?"}
-    Q1 -- "No — e.g. a foreman" --> VERIFY["<b>verify</b><br/>Apply it NOW as a temporary borrow.<br/>Queue it for the desk.<br/>Permanent owner untouched."]
-    Q1 -- Yes --> Q2{"Asset cost ≥<br/>high-value threshold?"}
-    Q2 -- Yes --> APPROVE["<b>approve</b><br/>Write NOTHING.<br/>Register does not move until<br/>a second person signs."]
-    Q2 -- No --> AUTO["<b>auto</b><br/>Apply as a permanent<br/>custody change."]
+    START["Someone hands a tool over"] --> Q{"Asset cost &ge;<br/>high-value threshold?"}
+    Q -- Yes --> APPROVE["<b>approve</b><br/>Write NOTHING.<br/>Register does not move until<br/>a second person signs."]
+    Q -- No --> AUTO["<b>auto</b><br/>Apply as a permanent<br/>custody change."]
 
-    style VERIFY fill:#7c4a03,color:#fff
     style APPROVE fill:#7f1d1d,color:#fff
     style AUTO fill:#14532d,color:#fff
 ```
 
-**Why `verify` exists, and why it's clever.** The naive design blocks the foreman's hand-off
-until the desk approves. But the tool has *already physically moved* — the foreman handed it
-over in the yard an hour ago. Blocking the record doesn't stop the movement; it just makes the
-register wrong and rebuilds the unattended approval queue nobody clears.
+That is the whole function. `custodyOutcome` takes an asset cost and a threshold and
+returns one of two outcomes.
 
-So `verify` records the truth immediately, but as a **borrow** — which means the permanent
-owner is unchanged, and the desk gets a "confirm this happened" item rather than a
-"permit this" item. The 24-line rationale comment at `rules.ts:4-28` is worth reading in full.
+**It used to ask two questions.** There was a third outcome, `verify`, and a second input —
+"does the actor hold the approve permission". Together they modelled a foreman handing a
+tool to another foreman: the tool moved immediately, ownership did not, and the desk
+confirmed it afterwards. It was a genuinely clever design for a problem Urban does not
+have. **Tools are moved by the equipment desk, and a foreman does not reassign one.** With
+foreman-initiated movement gone, no actor could reach the function without already holding
+the approve permission, so the question had one answer and was deleted on 2026-08-09. The
+rationale comment at `rules.ts:13-20` is worth reading in full.
 
-Note the deliberate asymmetry: **value gates the desk, never the foreman.** A borrow never
-changes ownership and is already queued, so a value check there would protect nothing.
+> ⚠️ **This section described the old three-outcome gate until 2026-08-18** (STI-111),
+> including a `pending_verification` lifecycle and a claim that `transfer.approve` refuses
+> such rows. None of that code exists. If you are holding a copy of this file older than
+> that date, distrust this chapter specifically.
 
-`>=` not `>` is pinned by test (`rules.test.ts:36-40`). A null cost counts as 0, not as
-"needs approval", because imported rows routinely have no price (`rules.test.ts:57-63`).
+### What survives from the old design
 
-### The borrow lifecycle
+The `pending_verification` transfer status still exists in `packages/types` and in both
+badge maps, marked **historical only** — no writer can produce it, and it is kept solely so
+that a pre-removal row still renders. The live database holds zero of them.
 
-```mermaid
-stateDiagram-v2
-    [*] --> pending_approval: high-value, desk actor
-    [*] --> pending_verification: foreman actor (borrow, applied now)
-    [*] --> approved: auto
+### The edges, all pinned by test
 
-    pending_approval --> approved: transfer.approve
-    pending_approval --> cancelled: transfer.decline
+- **`>=`, not `>`** — a tool priced *exactly* at the threshold needs the second signature.
+  That is the one most likely to be argued about, so it is pinned
+  (`rules.test.ts:23-27`).
+- **A null threshold disables the gate entirely** rather than parking every move. A tenant
+  that has not said what "high value" means has not asked for a gate
+  (`rules.test.ts:33-37`).
+- **A null cost counts as 0**, not as "needs approval" — imported rows routinely have no
+  price (`rules.test.ts:43-44`).
 
-    pending_verification --> completed: verify, keep as borrow
-    pending_verification --> completed: verify, make permanent
-    pending_verification --> cancelled: decline, tool walks back home
-
-    approved --> completed
-```
-
-`transfer.approve` explicitly **refuses** a `pending_verification` row and tells you to verify
-instead (`transfer.ts:189-198`) — approving an already-applied borrow would open a second
-custody link.
 
 ### The one-custodian invariant
 
-"At most one active assignment per asset" is enforced **only in application code**, in a single
-file: `packages/api-contracts/src/custody.ts`. There is no database constraint.
+"At most one active assignment per asset" is enforced in two places. The mechanism is a single
+file, `packages/api-contracts/src/custody.ts`; since STI-103 the backstop is a partial unique
+index, `assignment_one_active_uq` on `assignment (asset_id) WHERE status = 'active'`.
+
+The index makes a bypass throw rather than silently produce two custodians, but it cannot *close*
+the row that was already active — that logic exists only in `custody.ts`, which is why the file is
+still the chokepoint every writer must go through.
 
 The header comment at the top of `custody.ts` records why it exists: three separate writers each
 opened custody without closing the previous row, so the register showed the new holder while
@@ -242,14 +242,17 @@ the custody screen showed the old one — and every downstream reader (offboardi
 foreman, tools-follow-the-foreman) named someone who'd given the tool away weeks earlier.
 
 `closeActiveCustody` updates **by predicate, not by id** (`custody.ts:39-41`), deliberately,
-because duplicate active rows already exist in production data and closing only the first would
-strand the rest forever.
+because rows written before the `assignment_one_active_uq` index (STI-103) may still carry
+duplicates, and closing only the first would strand the rest forever. The local database was
+verified duplicate-free on 2026-08-18; production has not been checked.
 
-> ⚠️ **The chokepoint has a hole.** `assignment.approve` (`assignment.ts:149-191`) never calls
-> `closeActiveCustody`. Since `assignment.create` deliberately skips the close while a row is
-> `pending_approval` ("a row waiting on approval changes nothing yet", `:90-94`), nothing ever
-> closes the prior link when that row is later approved. A high-value assignment routed through
-> approval leaves two active custody rows.
+> ✅ **The chokepoint hole is closed.** This section previously warned that
+> `assignment.approve` never called `closeActiveCustody`, so a high-value assignment routed
+> through approval left two active custody rows. **STI-102 fixed that** — `approve` now closes
+> the prior link inside the same transaction — and **STI-114 removed the last exception**, so
+> `assignment.return` routes through the helper too. As of 2026-08-18 every custody writer goes
+> through `custody.ts`, and the partial unique index makes a bypass fail loudly rather than
+> silently produce two custodians.
 
 ---
 
@@ -259,18 +262,27 @@ Ten roles, 30 permissions, mapped in exactly one place — **the seed**
 (`packages/db/src/seed.ts:51-116`). The mapping lives as `role_permission` rows, not as code,
 so it can drift from source after seeding.
 
-| Role | Perms | Notably |
-|---|---|---|
-| `owner`, `equipment_admin` | all 30 | full access |
-| `warehouse` | 22 | can manage assets/locations/vehicles, **cannot approve custody** |
-| `superintendent` | 15 | can approve custody |
-| `foreman` | 12 | can *create* assignments/transfers, **never approve** → always `verify` |
-| `project_manager` | 8 | + `project.manage`, which silently grants global project visibility |
-| `hr`, `finance`, `procurement` | 4 each | narrow |
-| `read_only` | 6 | reads |
+| Role | Notably |
+|---|---|
+| `owner`, `equipment_admin` | full access |
+| `warehouse` | can manage assets/locations/vehicles, **cannot approve custody** |
+| `superintendent` | can approve custody |
+| `foreman` | **read-only** — cannot create or approve any custody movement |
+| `project_manager` | + `project.manage`, which silently grants global project visibility |
+| `hr`, `finance`, `procurement` | narrow |
+| `read_only` | reads |
 
-The foreman's lack of `assignment.approve` is not an oversight — it is precisely what routes
-every foreman hand-off down the `verify`/borrow path in §6.
+Counts are deliberately omitted; query `role_permission` for the authoritative set.
+
+**The foreman row is the one that surprises people.** A foreman holds only `*.read`
+permissions — not `assignment.create`, not `transfer.create`, and not `assignment.approve`.
+This is not an oversight and not an unfinished feature: **the equipment desk is the only
+writer of custody movements.** Until 2026-08-09 a foreman could initiate a hand-off, which
+is what the deleted `verify`/borrow path in §6 existed to model.
+
+> ⚠️ **Corrected 2026-08-18** (STI-111). This table previously stated that a foreman
+> "can *create* assignments/transfers … → always `verify`", which was the exact inverse of
+> the live permission set, and gave per-role counts that had all drifted.
 
 **Auth is bearer-token, not cookies.** There are no cookies anywhere in the system. Login
 returns a 64-hex-char random session id as plain JSON (`packages/auth/src/index.ts:67`); the web

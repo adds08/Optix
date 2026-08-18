@@ -30,7 +30,10 @@ it now) are separate axes, and tools follow the person, not the site.
 and the off switch are in `.claude/workflow.config.json`. Agents review and comment —
 **a human is the sole approver, and no agent merges.**
 
-These live in `.claude/` and are tuned to this repo. The `superpowers` plugin ships a generic
+These live in `.claude/skills/` and are tuned to this repo. (They sat directly under
+`.claude/` until 2026-08-18, which meant the `Skill` tool could not find them and every
+subagent told to invoke one silently failed — if a skill stops resolving, check the path
+first.) The `superpowers` plugin ships a generic
 `systematic-debugging` too — **prefer the project one**; it names this codebase's real
 evidence sources and traps.
 
@@ -44,9 +47,11 @@ If minimalism or convenience conflicts with any of these, they win — say so ou
    merge. A partial snapshot does not mean "status changed" — it means custodian, project and
    location are now undefined, and a rebuild will blank them. This has shipped three
    times — most recently `assignment.return` (STI-113).
-2. **All custody writes go through `packages/api-contracts/src/custody.ts`.** The
-   one-active-link invariant has **no database constraint** behind it. That file is the only
-   thing holding it.
+2. **All custody writes go through `packages/api-contracts/src/custody.ts`.** Since STI-103
+   the partial unique index `assignment_one_active_uq` is a backstop, so a bypass now *fails
+   loudly* instead of quietly producing two custodians — but it is still a bypass. The index
+   cannot close the previous row; only this file knows that opening custody means closing what
+   was active first. Treat it as the one legitimate writer, exactly as before.
 3. **Every query carries `eq(table.tenantId, tid)`.** There is no RLS. The `WHERE` clause
    *is* the isolation.
 4. **Every mutating procedure carries a permission.** A bare `protectedProcedure` that writes

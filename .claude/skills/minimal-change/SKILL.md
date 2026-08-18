@@ -92,8 +92,10 @@ Non-negotiable regardless of intensity:
   undefined". This has shipped before; `packages/domain/src/fold.test.ts:114-135`
   pins it.
 - **Custody writes go through `packages/api-contracts/src/custody.ts`.** Never
-  insert or update an `assignment` row directly. The one-active-link invariant has
-  no database constraint behind it — that file is the only thing holding it.
+  insert or update an `assignment` row directly. Since STI-103 the partial unique
+  index `assignment_one_active_uq` is a backstop, so a bypass throws instead of
+  silently producing two custodians — but the index cannot close the previously
+  active row, so that file is still the only thing that makes custody correct.
 - **Tenant scoping.** Every query carries `eq(table.tenantId, tid)`. There is no
   RLS. The `WHERE` clause *is* the isolation.
 - **A permission on every procedure.** `requirePermission(...)` or a documented

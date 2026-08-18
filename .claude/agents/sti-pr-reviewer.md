@@ -80,8 +80,10 @@ correctness against a spec you haven't read.
   carry all four fields. BLOCKING.
 - **A custody write bypassing `packages/api-contracts/src/custody.ts`.** Grep
   the diff for direct `insert(schema.assignment)` / `update(schema.assignment)`.
-  There is no database constraint behind one-active-link; that file is the only
-  enforcement. BLOCKING.
+  Since STI-103 the partial unique index `assignment_one_active_uq` makes a second
+  active row throw, so the failure mode is a runtime error rather than two
+  custodians — but the index cannot close the previously active row, so a bypass is
+  still a defect, and now a user-visible one. BLOCKING.
 - **A projection patched directly** — an `asset.current_*` update with no
   corresponding ledger event — to make a screen look right. BLOCKING.
 - **Claims the code does not support.** Comments, docs, and CI messages

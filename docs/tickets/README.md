@@ -122,17 +122,28 @@ Sizes are in *units*, matching `SYSTEM_PLAN.md` §6 (1 unit ≈ half a developer
 | [STI-101](STI-101-ledger-tostate-backfill.md) | Backfill `to_state` on the existing ledger | 2 | ✅ DONE — QA PASS |
 | [STI-108](STI-108-seed-emits-complete-snapshots.md) | Seed emits complete snapshots + reaches the gates | 2 | ✅ DONE — QA PASS (round 2) |
 | [STI-113](STI-113-assignment-return-blanks-project-location.md) | `assignment.return` writes a partial `toState` | 1 | ✅ DONE — QA PASS |
-| [STI-114](STI-114-return-bypasses-custody-chokepoint.md) | `assignment.return` bypasses the custody chokepoint | 1 | READY |
+| [STI-114](STI-114-return-bypasses-custody-chokepoint.md) | `assignment.return` bypasses the custody chokepoint | 1 | ✅ DONE — QA PASS |
 | [STI-102](STI-102-atomic-custody-writes.md) | Atomic custody writes — one transaction, row-locked | 3 | ✅ DONE — QA PASS |
-| [STI-109](STI-109-double-approve-duplicate-ledger-event.md) | Concurrent double-approve duplicates a ledger event | 1 | READY |
-| [STI-103](STI-103-one-active-assignment-index.md) | Partial unique index for one-active-assignment | 2 | READY |
+| [STI-109](STI-109-double-approve-duplicate-ledger-event.md) | Concurrent double-approve duplicates a ledger event | 1 | ✅ DONE — QA PASS |
+| [STI-103](STI-103-one-active-assignment-index.md) | Partial unique index for one-active-assignment | 2 | ✅ DONE — QA PASS (round 2: rules doc) |
 | [STI-104](STI-104-ledger-append-only.md) | Enforce ledger append-only at the database | 1 | ✅ DONE — QA PASS (round 2) |
 | [STI-105](STI-105-desk-queue-ui.md) | Desk queue screen — approve / decline | 3 | ✅ DONE — QA PASS |
-| [STI-111](STI-111-remove-dead-verify-remnants.md) | Remove dead `pending_verification` remnants | 1 | READY |
-| [STI-112](STI-112-decline-path-defects.md) | Decline path: broken message, missing ledger event | 1 | READY |
+| [STI-111](STI-111-remove-dead-verify-remnants.md) | Remove dead `pending_verification` remnants | 1 | ✅ DONE — QA PASS (round 2: doc sweep) |
+| [STI-112](STI-112-decline-path-defects.md) | Decline path: broken message, missing ledger event | 1 | ✅ DONE — QA PASS |
 | [STI-106](STI-106-projection-reconciliation.md) | Reconciliation check that reports divergence | 1 | ✅ DONE — QA PASS |
-| [STI-110](STI-110-unclearable-empty-fold-divergence.md) | No-snapshot divergence can never be cleared | 1 | READY |
+| [STI-110](STI-110-unclearable-empty-fold-divergence.md) | No-snapshot divergence can never be cleared | 1 | ✅ DONE — QA PASS |
 | [STI-107](STI-107-ci-migration-drift.md) | Real migration drift detection in CI | 1 | ✅ DONE — QA PASS (round 2) |
+
+**Phase 1 is complete — all 15 tickets accepted.** The three tickets below were opened on
+2026-08-18 from defects found *during* that work, by implementers and QA who were told to
+report adjacent problems rather than fix them. They are **not** Phase 1 scope and nothing
+above depends on them.
+
+| Ticket | What | Units | Status |
+|---|---|---|---|
+| [STI-115](STI-115-asset-create-not-transactional.md) | `asset.create` is not transactional | 1 | READY — not started |
+| [STI-116](STI-116-rest-asset-create-mass-assign.md) | `/api/*` writes assets and custody outside every control | 1 | READY — not started |
+| [STI-117](STI-117-stale-reads-and-chat-approve-race.md) | Three reads that escaped the lock discipline | 1 | READY — not started |
 
 ### Phase 2 — Assignment detail (7 units)
 
@@ -199,8 +210,9 @@ substitute for it afterwards.
 
 | | Units |
 |---|---|
-| Accepted (incl. STI-205, a Phase 2 ticket already landed) | 8 |
-| Remaining — STI-104 (in QA), 108, 103, 109, 110, 111, 112 | 9 |
+| Accepted (incl. STI-205, a Phase 2 ticket already landed) | 16 |
+| Remaining in Phase 1 | **0** |
+| Opened from defects found during the work (STI-115, 116, 117) — not Phase 1 scope | 3 |
 | **Total remaining** | **9** |
 
 Deferred: 33 units across Phases 2–5, of which 21 were blocked on an Urban decision

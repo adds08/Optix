@@ -110,7 +110,7 @@ stateDiagram-v2
     WithForeman --> Lost: reported missing
 ```
 
-**Verification model, not acceptance model.** Urban operates a desk. A tool physically moves first; the Equipment desk then *verifies* or *reverses* the record. The receiving foreman is never asked to accept. This was a deliberate decision — blocking a tool that has already physically moved is worse than recording it and confirming later. Do not implement recipient accept/reject.
+**Desk-origin model, not verification model.** *(Corrected 2026-08-18, STI-111. The paragraph this replaces described the pre-2026-08-09 design and was still being read as live behaviour.)* Urban operates a desk, and the desk is the only writer of movements: foremen hold neither `assignment.create` nor `transfer.create` — both were removed on 2026-08-09, with the rationale in `packages/domain/src/rules.ts`. Every hand-off is recorded at the desk as `pending_approval` and approved or declined there; nothing moves first to be verified later, because nobody but the desk can record a move. The receiving foreman is still never asked to accept — do not implement recipient accept/reject. The `pending_verification` transfer state is **historical only**: no writer can produce it, and its enum entry survives solely so that old rows still render.
 
 ---
 
@@ -143,7 +143,7 @@ Assessed 2026-08-09. **63.6% complete** by size-point arithmetic (121 of 190 poi
 | Foundation | `FUNCTIONAL` | Event-sourced schema, 12 migrations, CI with build/migrate/smoke/deploy/rollback |
 | Access control | `PARTIAL` | 5 of 7+ roles can log in. **No user administration exists at all.** |
 | Master data | `PARTIAL` | Tools, categories, projects, employees, locations, trucks, trailers all CRUD. Vendors read-only. |
-| Custody engine | `PARTIAL` | Best-designed area. **Approve/verify/decline procedures have no caller in any screen.** |
+| Custody engine | `PARTIAL` | Best-designed area. ~~**Approve/verify/decline procedures have no caller in any screen.**~~ Reachable since STI-105 (2026-08-16): approve/decline are driven from the desk queue at `/custody?tab=queue`. The `verify` outcome no longer exists. |
 | Spreadsheet import | `FUNCTIONAL` | Genuinely good: typed validation, dedup, preview, transactional commit. No tests. |
 | KPI dashboard | `FUNCTIONAL` | 10+ reports, filters, export. Ignores project scoping. |
 | Notifications | `PARTIAL` | Delivery is a `console.log` that then marks rows delivered. |
@@ -151,11 +151,12 @@ Assessed 2026-08-09. **63.6% complete** by size-point arithmetic (121 of 190 poi
 
 ### The five things that matter most
 
-1. **The desk queue is unreachable.** Correct backend procedures, no UI calling them, and the transfer form directs users to an Inbox that cannot handle transfers. Backend logic that cannot be run is not delivered.
-2. **Custody writes are not atomic.** Three consecutive unwrapped statements. Import does this correctly; custody does not.
-3. **One-active-assignment has no DB constraint,** and duplicates already exist in live data.
-4. **The ledger is append-only by comment only.** Nothing prevents an `UPDATE`.
-5. **Two migrations are uncommitted.** Production may not match `main`. Fix today; it is free.
+1. ~~**The desk queue is unreachable.**~~ **RESOLVED — STI-105.** Correct backend procedures, no UI calling them, and the transfer form directed users to an Inbox that cannot handle transfers. An Approval queue tab now drives all six procedures.
+2. ~~**Custody writes are not atomic.**~~ **RESOLVED — STI-102.** Every custody procedure now wraps close + open + projection + ledger in one transaction, anchored on a `SELECT … FOR UPDATE` of the asset row. Passing a raw `db` handle is a compile error.
+3. ~~**One-active-assignment has no DB constraint,**~~ **RESOLVED — STI-103.** Partial unique index `assignment_one_active_uq` on `assignment (asset_id) WHERE status = 'active'` (migration `0015`).
+   **The second half of this finding was wrong.** "Duplicates already exist in live data" did not hold: the local database was verified duplicate-free on 2026-08-16 and again on 2026-08-18 (754 assets, 754 active assignments, zero duplicates), so the per-tool backfill judgement §6.1 warns about was not needed. **Production has not been checked.** Run the same query there before applying `0015`; if it returns rows, stop and take it to the Equipment department rather than writing a script that picks a survivor.
+4. ~~**The ledger is append-only by comment only.**~~ **RESOLVED — STI-104,** though not as planned. The proposed `REVOKE UPDATE, DELETE` would have enforced nothing: there is no `app_role`, the app connects as the table owner, and Postgres treats an owner as holding all grant options. Shipped as a trigger raising `0A000` on UPDATE, DELETE and TRUNCATE, which fires for every role including superuser.
+5. ~~**Two migrations are uncommitted.**~~ **RESOLVED — STI-107.** Migrations are committed and CI now fails on schema drift across seven drift shapes, including renames, which exit 0 silently and were the hole in the first attempt.
 
 ---
 
@@ -224,7 +225,9 @@ def verify_projection():
     report(divergent)                                # must be empty
 ```
 
-Tasks: desk queue screen (approve / verify / decline, borrow vs held distinction visible) · atomic writes · unique index + duplicate backfill · ledger immutability · reconciliation check · desk alert on pending · commit migrations + drift detection in CI.
+Tasks: desk queue screen (approve / decline) · atomic writes · unique index · ledger immutability · reconciliation check · desk alert on pending · commit migrations + drift detection in CI.
+
+*(Corrected 2026-08-18: the `verify` outcome and the borrow/held distinction were removed from the backend on 2026-08-09 and cannot be built. The duplicate backfill proved unnecessary locally — see §5 item 3.)*
 
 **Risk.** The duplicate backfill must decide which of two active assignments survives. That is a per-tool judgement made with the Equipment department, not a script.
 
@@ -347,7 +350,7 @@ PANEL_REGISTRY = [
     Panel('tools.by_jobsite',  'assets.view.project', ToolsByJobsite),
     Panel('tools.mine',        'assets.view.own',     MyTools),
     Panel('crew.tools',        'assets.view.crew',    CrewTools),
-    Panel('desk.queue',        'custody.verify',      PendingQueue),
+    Panel('desk.queue',        'assignment.approve',  PendingQueue),
     Panel('tools.overdue',     'assets.view.all',     OverdueTools),
 ]
 ```
