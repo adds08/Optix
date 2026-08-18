@@ -175,6 +175,27 @@ export const assignmentRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `This assignment is already ${a.status}.` });
       }
       await ctx.db.transaction(async (tx) => {
+        /* Ask again under the lock (STI-109). The guard above ran before this
+           transaction existed, so two simultaneous approves both read
+           `pending_approval` and both proceeded — the custody invariant held
+           (the asset-row lock serialised the writes), but the loser appended a
+           second identical "Assignment approved" event to a ledger that can
+           never be pruned. Queue on the asset row — the same anchor every
+           custody writer locks, so approves, declines and returns on one tool
+           all serialise with each other — then re-read the row now that
+           whoever held the lock has committed. */
+        await tx
+          .select({ id: schema.asset.id })
+          .from(schema.asset)
+          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)))
+          .for("update");
+        const [fresh] = await tx
+          .select({ status: schema.assignment.status })
+          .from(schema.assignment)
+          .where(and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)));
+        if (fresh?.status !== "pending_approval") {
+          throw new TRPCError({ code: "CONFLICT", message: `This assignment is already ${fresh?.status ?? "gone"}.` });
+        }
         /* Approval is the moment this link takes effect, so it is also the
            moment the previous holder's link must close. `create` deliberately
            skips the close while a row waits for approval — and nothing closed
@@ -233,20 +254,70 @@ export const assignmentRouter = router({
       });
       if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "That assignment no longer exists." });
       if (a.status !== "pending_approval") {
-        throw new TRPCError({ code: "CONFLICT", message: `This assignment is already .` });
+        /* This is what a desk operator sees when the row was actioned elsewhere
+           — the one moment they need to know WHAT happened. It shipped with the
+           status interpolation missing ("This assignment is already .") and
+           nobody noticed until STI-105 gave the path a caller (STI-112). */
+        throw new TRPCError({ code: "CONFLICT", message: `This assignment is already ${a.status}.` });
       }
 
-      /* One write, but wrapped like its siblings (STI-102) so every custody
-         decision commits atomically and no future second write here can land
-         outside the transaction. */
+      let asset: typeof schema.asset.$inferSelect | undefined;
       await ctx.db.transaction(async (tx) => {
+        /* Same re-check-under-lock shape as approve (STI-109): the guard above
+           ran outside the lock, so two racing declines — or a decline racing an
+           approve — both passed it, and the loser overwrote the winner's
+           decision and duplicated its ledger event. The asset read doubles as
+           the lock: the from=to snapshot below must be the state at commit
+           time, because a stale one would become the ledger's newest snapshot
+           and a rebuild would apply it. */
+        [asset] = await tx
+          .select()
+          .from(schema.asset)
+          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, tid)))
+          .for("update");
+        const [fresh] = await tx
+          .select({ status: schema.assignment.status })
+          .from(schema.assignment)
+          .where(and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, tid)));
+        if (fresh?.status !== "pending_approval") {
+          throw new TRPCError({ code: "CONFLICT", message: `This assignment is already ${fresh?.status ?? "gone"}.` });
+        }
         await tx
           .update(schema.assignment)
           .set({ status: "cancelled", approvedBy: ctx.session.userId, updatedAt: new Date() })
           .where(and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, tid)));
-      });
 
-      const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, a.assetId) });
+        /* Is a decline custody-affecting? Decided YES (STI-112): a refusal is a
+           decision about custody — someone with authority was asked to move a
+           tool and said no — and the tool's own history has to be able to prove
+           why it did NOT go out. `transfer.decline` already records exactly
+           this as a from_state = to_state event; the two decline procedures
+           recording the same decision differently was the only indefensibly
+           wrong option, and deleting evidence from the transfer path was the
+           worse way to reconcile them. Nothing moves: both snapshots are the
+           same COMPLETE four-key state, because the fold replaces rather than
+           merges — a partial "nothing changed" event would still blank what it
+           omits on the next rebuild. */
+        if (asset) {
+          const state = {
+            status: asset.currentStatus,
+            custodianId: asset.currentCustodianId,
+            projectId: asset.currentProjectId,
+            locationId: asset.currentLocationId,
+          };
+          await tx.insert(schema.transaction).values({
+            tenantId: tid,
+            assetId: a.assetId,
+            eventType: "status_change",
+            actorId: ctx.session.userId,
+            fromState: state,
+            toState: state,
+            refType: "assignment",
+            refId: a.id,
+            note: input.reason ? `Assignment declined — ${input.reason}` : "Assignment declined",
+          });
+        }
+      });
       await notifyCustodyDecision(ctx.db, {
         tenantId: tid,
         toCustodianId: a.custodianId,
@@ -271,39 +342,65 @@ export const assignmentRouter = router({
   return: requirePermission("assignment.create")
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
       const a = await ctx.db.query.assignment.findFirst({
-        where: and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)),
+        where: and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, tid)),
       });
       if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "That assignment no longer exists." });
-      const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, a.assetId) });
+      /* Only an active link can come back. This procedure had no guard at all
+         (STI-114): a double return on a stale id rewrote the asset and appended
+         a second return event to a ledger that can never be pruned. */
+      if (a.status !== "active") {
+        throw new TRPCError({ code: "CONFLICT", message: `This assignment is already ${a.status}.` });
+      }
       /* Close + projection + ledger commit or vanish together (STI-102). A
          crash after the close used to leave a tool that was nobody's custody
          but still `assigned` in the register. */
-      /* What a return MEANS (STI-113): nobody holds the tool, so it is booked
-         to no job — the project comes from the custodian (projectForCustodian:
-         tools follow the person, not the site), and with no person there is no
-         project. Location is a physical fact independent of custody; this
-         procedure takes no location input, so the last recorded location stays
-         the best evidence of where the tool sits. The chat return in
-         apply-action.ts already says exactly this.
-
-         Same partial-snapshot bug the sibling writers carry scars for: this
-         one kept project and location on the asset row while nulling both in
-         the ledger event, so from the first real return the register and the
-         ledger disagreed — every sweep raised a custody_discrepancy and a
-         rebuild blanked both fields for good. One `next` object now feeds the
-         projection update AND the `toState`, so the two cannot drift apart. */
-      const next = {
-        status: "available",
-        custodianId: null,
-        projectId: null,
-        locationId: asset?.currentLocationId ?? null,
-      };
       await ctx.db.transaction(async (tx) => {
-        await tx
-          .update(schema.assignment)
-          .set({ status: "returned", returnedAt: new Date(), updatedAt: new Date() })
-          .where(and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)));
+        /* The asset read doubles as the lock (STI-114): it used to happen
+           outside the transaction, so the snapshot the ledger event was built
+           from could be stale by the time the writes ran. Same anchor and same
+           re-check-under-lock shape as approve and decline (STI-109) — the
+           loser of a race finds the row no longer active and raises instead of
+           writing a duplicate event. */
+        const [asset] = await tx
+          .select()
+          .from(schema.asset)
+          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, tid)))
+          .for("update");
+        const [fresh] = await tx
+          .select({ status: schema.assignment.status })
+          .from(schema.assignment)
+          .where(and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, tid)));
+        if (fresh?.status !== "active") {
+          throw new TRPCError({ code: "CONFLICT", message: `This assignment is already ${fresh?.status ?? "gone"}.` });
+        }
+        /* The close goes through the chokepoint (STI-114) — this was the last
+           custody writer touching assignment rows directly. `closeActiveCustody`
+           closes by predicate rather than by id, so pre-STI-103 duplicate
+           actives are not stranded, and with `closeAs: "returned"` it also
+           stamps `returnedAt`. */
+        await closeActiveCustody(tx, tid, a.assetId, "returned");
+        /* What a return MEANS (STI-113): nobody holds the tool, so it is booked
+           to no job — the project comes from the custodian (projectForCustodian:
+           tools follow the person, not the site), and with no person there is no
+           project. Location is a physical fact independent of custody; this
+           procedure takes no location input, so the last recorded location stays
+           the best evidence of where the tool sits. The chat return in
+           apply-action.ts already says exactly this.
+
+           Same partial-snapshot bug the sibling writers carry scars for: this
+           one kept project and location on the asset row while nulling both in
+           the ledger event, so from the first real return the register and the
+           ledger disagreed — every sweep raised a custody_discrepancy and a
+           rebuild blanked both fields for good. One `next` object feeds the
+           projection update AND the `toState`, so the two cannot drift apart. */
+        const next = {
+          status: "available",
+          custodianId: null,
+          projectId: null,
+          locationId: asset?.currentLocationId ?? null,
+        };
         await tx
           .update(schema.asset)
           .set({
@@ -313,9 +410,9 @@ export const assignmentRouter = router({
             currentLocationId: next.locationId,
             updatedAt: new Date(),
           })
-          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)));
+          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, tid)));
         await tx.insert(schema.transaction).values({
-          tenantId: ctx.session.tenantId,
+          tenantId: tid,
           assetId: a.assetId,
           eventType: "return",
           actorId: ctx.session.userId,

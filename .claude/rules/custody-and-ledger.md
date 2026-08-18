@@ -50,13 +50,45 @@ that disagrees with the ledger should keep nagging.
 **All custody writes go through `packages/api-contracts/src/custody.ts`. No exceptions.**
 Never insert or update an `assignment` row directly.
 
-There is **no database constraint** enforcing "one active assignment per asset" — that file is
-the only thing holding it. It exists because `assignment.create`, `transfer.create` and
+Since STI-103 there **is** a database constraint — the partial unique index
+`assignment_one_active_uq` on `assignment (asset_id) WHERE status = 'active'` (migration
+`0015`). It is a backstop, not a replacement: it makes a second active row throw, but it
+cannot *close* the previous link, and it does not cover `pending_approval` rows (two pending
+approvals for one asset are still possible — see the re-check-under-lock rule below). So
+`custody.ts` is still the only thing that makes custody correct; the index only guarantees
+that getting it wrong fails loudly. It exists because `assignment.create`, `transfer.create` and
 `transfer.approve` each opened custody without closing the previous link, so the register
 showed the new holder while the custody screen showed the old one, and every downstream reader
 (offboarding, capital-per-foreman, tools-follow-the-foreman) named someone who had given the
 tool away weeks earlier. Read the header comment at the top of `custody.ts`.
 
+- **Since STI-114 the "no exceptions" above is finally true in fact, not just in
+  intent.** `assignment.return` was the last writer outside the chokepoint — it closed
+  by id with no status guard, no lock, and an asset read outside its transaction. It
+  now routes through `closeActiveCustody(tx, tid, assetId, "returned")`, which also
+  owns stamping `returnedAt`.
+
+  Be precise about what "no exceptions" means, because the obvious reading is wrong:
+  **closing** an active link is the chokepoint's job and must never be done directly.
+  **Opening** a new link is still a direct `insert` in `assignment.create`,
+  `assignment.approve` and `apply-action.ts` — that is the intended STI-102 shape, and
+  those writers count as going *through* the chokepoint because they call
+  `closeActiveCustody` first, inside the same transaction. So: a direct write that closes
+  or supersedes an active link is a regression; a direct insert that opens one after
+  closing through the helper is not.
+- **Decision procedures re-check status under the lock (STI-109).** The outside
+  `status !== "pending_approval"` guard alone is not enough: two simultaneous approves
+  both read "pending" before either commits, and the loser appended a duplicate event
+  to the append-only ledger. Every approve/decline/return now takes the asset-row
+  `FOR UPDATE` (the same anchor `custody.ts` locks, so all decisions on one tool
+  serialise with each other), re-reads the row, and raises `CONFLICT` — naming the
+  actual status — if the work is already done. Follow that shape if you add another
+  decision path.
+- **Declines are custody-affecting (STI-112).** Both `assignment.decline` and
+  `transfer.decline` write a `status_change` event with `from_state = to_state` — the
+  complete four-key snapshot, read under the lock so it is the state at commit time.
+  "Considered, and refused" belongs in the tool's history; the reasoning lives on the
+  ledger insert in `assignment.decline`.
 - **Since STI-102, custody writes are transactional and row-locked.** `closeActiveCustody`
   and `moveCustody` take a `Transaction` (exported by `@stinventory/db`) as their first
   parameter — a raw `db` handle is a **compile error**, which is the enforcement: the old

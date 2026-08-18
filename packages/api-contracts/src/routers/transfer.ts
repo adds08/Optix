@@ -249,6 +249,25 @@ export const transferRouter = router({
          between any two left a completed transfer whose custody never moved,
          the disagreement the rebuild guarantee exists to detect. */
       await ctx.db.transaction(async (tx) => {
+        /* Ask again under the lock (STI-109) — identical shape to
+           assignment.approve, on purpose. The pending_approval guard above ran
+           before this transaction existed, so two simultaneous approves both
+           passed it and both wrote a "Transfer approved" event into the
+           append-only ledger. Queue on the asset row — the same anchor
+           moveCustody locks below — then re-read the row now that whoever held
+           the lock has committed. */
+        await tx
+          .select({ id: schema.asset.id })
+          .from(schema.asset)
+          .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)))
+          .for("update");
+        const [fresh] = await tx
+          .select({ status: schema.transfer.status })
+          .from(schema.transfer)
+          .where(and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, ctx.session.tenantId)));
+        if (fresh?.status !== "pending_approval") {
+          throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${fresh?.status ?? "gone"}.` });
+        }
         await tx
           .update(schema.transfer)
           .set({ status: "completed", approvedBy: ctx.session.userId, completedAt: new Date() })
@@ -332,11 +351,30 @@ export const transferRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${tr.status}.` });
       }
 
-      const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, tr.assetId) });
-
       /* Refusal + its history entry commit together (STI-102): a crash between
          them left a cancelled transfer the tool's history never mentioned. */
+      let asset: typeof schema.asset.$inferSelect | undefined;
       await ctx.db.transaction(async (tx) => {
+        /* Same re-check-under-lock shape as the approve paths (STI-109): the
+           guard above ran outside the lock, so a decline racing an approve — or
+           a double-tapped decline — both passed it, and the loser overwrote the
+           winner's decision and duplicated its ledger event. The asset read
+           doubles as the lock, and moving it in here (it sat outside the
+           transaction) keeps the from=to snapshot below the state at commit
+           time — a stale one would become the ledger's newest snapshot, which
+           a rebuild would then apply (STI-112). */
+        [asset] = await tx
+          .select()
+          .from(schema.asset)
+          .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, tid)))
+          .for("update");
+        const [fresh] = await tx
+          .select({ status: schema.transfer.status })
+          .from(schema.transfer)
+          .where(and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, tid)));
+        if (fresh?.status !== "pending_approval") {
+          throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${fresh?.status ?? "gone"}.` });
+        }
         await tx
           .update(schema.transfer)
           .set({ status: "cancelled", approvedBy: ctx.session.userId, updatedAt: new Date() })
@@ -345,7 +383,9 @@ export const transferRouter = router({
         /* The refusal belongs in the tool's history, since "why is this still
            with Miguel?" is answered here. The state does not change, so both
            snapshots are the same — what this records is that somebody asked and
-           was told no. */
+           was told no. `assignment.decline` records its refusals the same way;
+           the shared decision and its reasoning live on the ledger insert
+           there (STI-112). */
         if (asset) {
           const state = {
             status: asset.currentStatus,
