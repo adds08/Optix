@@ -502,7 +502,8 @@ export const vehicleRouter = router({
           custodianEmployeeId: resolvedForeman,
         })
         .returning();
-      if (!loc) throw new Error("Failed to create vehicle location");
+      if (!loc)
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create vehicle location" });
 
       const [row] = await ctx.db
         .insert(schema.vehicle)

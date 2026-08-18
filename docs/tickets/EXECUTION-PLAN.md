@@ -65,18 +65,56 @@ no-evidence divergence may no longer be reachable. If it cannot occur, the right
 deliverable is a clearer alert, not repair machinery for an impossible state. The ticket
 says so; the implementer must confirm before building.
 
-## Wave E — Phase 2
+## Wave E — Phase 2 (revised 2026-08-18)
 
-| Step | Ticket | Notes |
-|---|---|---|
-| E1 | **STI-202** | Migration adding `truckId`/`trailerId`. Alone — schema change. |
-| E2 | **STI-203** | Carries truck/trailer through custody and `toState`. Depends on E1. |
-| E3 | **STI-204** | Typed `TRPCError`. Disjoint from E2 — may run parallel with it. |
+> **The original ordering here was wrong and would have caused a collision.** It said
+> E3 (STI-204) "may run parallel with" E2 (STI-203), naming `apply-action.ts` as the
+> only near-miss. A file-level check on 2026-08-18 found **two** overlaps, not one:
+>
+> - `apply-action.ts` calls `closeActiveCustody` at four sites and writes ledger
+>   events, so STI-203 must edit it (its criterion 2 requires both new keys in every
+>   custody `toState`) — and STI-204 rewrites thirteen `throw new Error` calls in the
+>   same file.
+> - `location.ts:111` calls `moveCustody`, so STI-203 needs it — and STI-204 needs
+>   `location.ts:505`.
+>
+> They cannot run together. Revised waves below.
 
-STI-204 touches `apply-action.ts`, `approve.ts`, `task.ts`, `location.ts`,
-`messaging.ts`, `projectGroup.ts`, `trpc.ts`. STI-203 touches `custody.ts`, the two
-custody routers and `apps/web`. `apply-action.ts` is the only near-miss — E3 should
-avoid the custody write block E2 may be editing, or run after it.
+| Step | Ticket | Runs | Notes |
+|---|---|---|---|
+| E1 | **STI-202** + **STI-204** | parallel | Disjoint: E1a is schema/migration/domain, E1b is the router error surface. |
+| E2 | **STI-203** | alone | Depends on both. |
+
+### E1a — STI-202, schema and fold
+
+Owns `packages/db/src/schema/**`, the migration, `packages/domain/**`, and the
+`CustodyMove` **type** in `custody.ts`.
+
+**Add `truckId`/`trailerId` to `CustodyMove` as OPTIONAL**, or every existing caller
+(`location.ts`, `transfer.ts` ×2, and the four `closeActiveCustody` sites in
+`apply-action.ts`) becomes a compile error the moment the type lands — which would
+collide with E1b mid-run. STI-203 makes them real in E2.
+
+The migration is the easy half. **The hard half is the fold across the shape
+boundary** (STI-202 criterion 5): every existing snapshot was written without these
+keys, and the fold *replaces* rather than merges, so choosing wrongly blanks truck and
+trailer across all history on the next rebuild.
+
+### E1b — STI-204, typed errors
+
+Owns `apply-action.ts`, `approve.ts`, `task.ts`, `location.ts`, `messaging.ts`,
+`projectGroup.ts`, `trpc.ts`, `apply-action.test.ts`.
+
+**Must not start until STI-117 lands** — that ticket is editing `approve.ts`.
+
+### E2 — STI-203, alone
+
+Owns `custody.ts`, `routers/assignment.ts`, `routers/transfer.ts`, `apply-action.ts`,
+`routers/location.ts`, and the `apps/web` forms and screens.
+
+Running it *after* STI-204 is not merely a collision workaround — it is better
+ordering. STI-203's criterion 6 requires rejecting a wrong vehicle type "with a typed
+error the UI can render", which is exactly what STI-204 builds.
 
 ---
 

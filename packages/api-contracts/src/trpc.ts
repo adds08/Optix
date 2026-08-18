@@ -21,8 +21,36 @@ export type Context = {
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
-  errorFormatter({ shape }) {
-    return shape;
+  /*
+    STI-204: whatever this returns in `data` is the type both clients infer on
+    `TRPCClientError.data` — that inference is the whole mechanism for typed
+    domain errors, so this is the one place the wire contract is written.
+
+    `userMessage` is that contract: non-null exactly when the text was written
+    for the person on the other end (a coded refusal like "A new tool needs a
+    tag…"), null when the failure is internal and its message may name tables
+    or invariants nobody outside should read. Clients render
+    `data.userMessage ?? <generic fallback>` and never show internal text.
+    `cause` is preserved on the server-side throw for the logs; tRPC never
+    serialises it, which is correct — it is evidence, not guidance.
+  */
+  errorFormatter({ shape, error }) {
+    const internal = error.code === "INTERNAL_SERVER_ERROR";
+    /* `message` is redacted too, not just `userMessage`. Adding a safe field
+       while leaving the unsafe one populated protects nobody: the clients that
+       predate this formatter render `e.message` directly — custody/page.tsx:64
+       and tools/[id]/page.tsx:54 both do — so a failed `vehicle.delete` showed
+       a desk user `update or delete on table "vehicle" violates foreign key
+       constraint "assignment_truck_fk"`. The original text still reaches the
+       server logs; only the wire shape is redacted. */
+    return {
+      ...shape,
+      message: internal ? "Something went wrong on our side. Try again, or ask the equipment desk." : shape.message,
+      data: {
+        ...shape.data,
+        userMessage: internal ? null : error.message,
+      },
+    };
   },
 });
 

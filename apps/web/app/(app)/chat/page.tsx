@@ -66,12 +66,30 @@ export default function ChatPage() {
     },
   });
 
+  /*
+    STI-204: a refused confirm used to arrive as a 500 and render as nothing at
+    all — the button spinner reset and the card just sat there, so "TOOL-0001
+    is already in the register" was written for this screen and never shown on
+    it. Same pattern as the custody queue: onError into state, ErrorNote next
+    to the thing that failed. `data.userMessage` is the formatter's contract —
+    non-null only when the text was written to be shown; an internal failure
+    deliberately carries null and gets the generic line instead.
+  */
+  const [confirmError, setConfirmError] = useState<{ id: string; message: string } | null>(null);
   const confirm = trpc.messaging.confirmAction.useMutation({
     onSuccess: () => {
+      setConfirmError(null);
       if (channelId) utils.messaging.messages.invalidate({ channelId, limit: 40 });
       utils.asset.list.invalidate();
       utils.dashboard.kpis.invalidate();
     },
+    onError: (e, vars) =>
+      setConfirmError({
+        id: vars.messageId,
+        message:
+          e.data?.userMessage ??
+          "That could not be recorded. Try again, or ask the equipment desk.",
+      }),
   });
 
   /* Newest first from the API; render oldest first. */
@@ -149,6 +167,7 @@ export default function ChatPage() {
                         m={m}
                         onConfirm={() => confirm.mutate({ messageId: m.id })}
                         confirming={confirm.isPending}
+                        error={confirmError?.id === m.id ? confirmError.message : null}
                       />
                     ))}
                   </div>
@@ -350,10 +369,14 @@ function Message({
   m,
   onConfirm,
   confirming,
+  error,
 }: {
   m: Msg;
   onConfirm: () => void;
   confirming: boolean;
+  /* The refusal from this message's own failed confirm — guidance, not a
+     crash, rendered under the card it belongs to (STI-204). */
+  error: string | null;
 }) {
   const action = (m.proposedAction ?? null) as {
     type?: string;
@@ -412,6 +435,7 @@ function Message({
               model confidence {Math.round(payload.confidence * 100)}%
             </span>
           ) : null}
+          {error ? <ErrorNote message={error} /> : null}
         </div>
       ) : null}
 

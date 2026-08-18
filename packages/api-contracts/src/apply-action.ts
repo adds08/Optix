@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import type { Database } from "@stinventory/db";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome, type CustodyOutcome } from "@stinventory/domain";
@@ -131,11 +132,16 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
 
   if (!canApplyAction(action.type, permissions)) {
     const needed = permissionForAction(action.type);
-    throw new Error(
-      needed
+    /* STI-204: callers normally downgrade a refusal to a desk request before
+       ever calling this, so reaching either throw means a caller skipped
+       canApplyAction — but the person on the other end still gets a coded
+       refusal, not a 500. */
+    throw new TRPCError({
+      code: needed ? "FORBIDDEN" : "BAD_REQUEST",
+      message: needed
         ? `Not allowed: ${action.type} requires ${needed}`
         : `Cannot apply unsupported action type: ${action.type}`,
-    );
+    });
   }
 
   /* Intake runs before the asset loop because it is the one action whose
@@ -147,7 +153,7 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
 
   const assetIds = action.assetIds ?? [];
   if (!assetIds.length) {
-    throw new Error("No assets resolved for this action");
+    throw new TRPCError({ code: "BAD_REQUEST", message: "No assets resolved for this action" });
   }
 
   const transactionIds: string[] = [];
@@ -180,9 +186,11 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
         const toLocationId = action.locationId ?? null;
 
         if (!toCustodianId && !toLocationId) {
-          throw new Error(
-            "This hand-off names nobody to hand it to. Say who is taking it, or record it from Custody.",
-          );
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This hand-off names nobody to hand it to. Say who is taking it, or record it from Custody.",
+          });
         }
 
         /* `transfer.requested_by` is NOT NULL — a desk queue entry nobody
@@ -190,7 +198,11 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
            type (STI-102): the worker's no-session path can never reach here
            because canApplyAction refuses custody intents to an empty
            permission set, so an anonymous requester is a caller bug. */
-        if (!actorUserId) throw new Error("This hand-off has no identifiable requester");
+        if (!actorUserId)
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "This hand-off has no identifiable requester",
+          });
 
         /* Handing a tool to somebody sends it to their job. The chat rarely
            resolves a project, so the fallback is the recipient's current one. */
@@ -247,7 +259,8 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
 
       switch (action.type) {
         case "assign": {
-          if (!action.custodianId) throw new Error("Assign needs a custodian");
+          if (!action.custodianId)
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Assign needs a custodian" });
           /* Assigning a tool that is already out closes the previous link first,
              or the tool ends up in two people's custody at once. The project
              defaults to the custodian's current job when the action says nothing. */
@@ -282,11 +295,15 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
 
         case "transfer": {
           if (!action.custodianId && !action.locationId && !action.projectId) {
-            throw new Error("Transfer needs a destination");
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Transfer needs a destination" });
           }
           /* Same NOT NULL constraint as the pending branch above: a transfer
              row must name who moved it. */
-          if (!actorUserId) throw new Error("This hand-off has no identifiable requester");
+          if (!actorUserId)
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "This hand-off has no identifiable requester",
+            });
           // Close any assignment the previous holder had.
           await closeActiveCustody(tx, tenantId, assetId);
           const transferProjectId =
@@ -377,7 +394,13 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
         }
 
         default:
-          throw new Error(`Cannot apply unsupported action type: ${action.type}`);
+          /* Reachable only when an intent is in the catalog but has no case
+             here — executor drift, not a bad request (an unknown type was
+             already refused above, before any write). */
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Cannot apply unsupported action type: ${action.type}`,
+          });
       }
 
       await tx
@@ -418,7 +441,7 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
      was recorded, it just needs a second signature. A borrow is more clearly a
      success: the register moved. Only a run that touched nothing is an error. */
   if (applied === 0 && awaitingApproval === 0) {
-    throw new Error("No matching assets in this tenant");
+    throw new TRPCError({ code: "NOT_FOUND", message: "No matching assets in this tenant" });
   }
   return { transactionIds, applied, awaitingApproval };
 }
@@ -449,14 +472,23 @@ async function applyIntake(
   const description = draft.description?.trim();
 
   if (!tag && !make && !description) {
-    throw new Error("A new tool needs a tag or something it is — a make or a description — before it can be registered");
+    /* STI-204: this sentence is written for the person typing, and it used to
+       reach them as INTERNAL_SERVER_ERROR — guidance rendered as a crash. */
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "A new tool needs a tag or something it is — a make or a description — before it can be registered",
+    });
   }
 
   if (tag) {
     const clash = await db.query.asset.findFirst({
       where: and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.tag, tag)),
     });
-    if (clash) throw new Error(`${tag} is already in the register`);
+    /* CONFLICT, matching the same clash in asset.update — the two surfaces
+       must disagree with the user in the same voice. */
+    if (clash)
+      throw new TRPCError({ code: "CONFLICT", message: `${tag} is already in the register` });
   }
 
   const label = formatAssetModel({ make, modelNumber, description }) || "Untagged tool";
@@ -479,7 +511,8 @@ async function applyIntake(
     })
     .returning();
 
-  if (!row) throw new Error("Could not register that tool");
+  if (!row)
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not register that tool" });
 
   const [tx] = await db
     .insert(schema.transaction)
@@ -544,7 +577,7 @@ export async function requestChatAction(db: any, opts: ApplyOptions): Promise<Re
 
   const aboutExisting = named.length > 0;
   if (assetIds.length && !aboutExisting) {
-    throw new Error("No matching assets in this tenant");
+    throw new TRPCError({ code: "NOT_FOUND", message: "No matching assets in this tenant" });
   }
 
   const draft = action.draft ?? {};
