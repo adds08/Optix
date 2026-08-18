@@ -72,7 +72,9 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
       if (res.needsApproval) {
         setPending(true);
         setResult(
-          "Sent to the equipment desk. This tool is above the value that needs a second signature — it stays where it is until someone approves it in the Inbox.",
+          /* Names the queue tab on /custody, not the Inbox — the inbox handles
+             tasks and messages and cannot act on an assignment row (STI-105). */
+          "Sent to the equipment desk. This tool is above the value that needs a second signature — it stays where it is until someone approves it in the Custody approval queue.",
         );
       }
       utils.assignment.list.invalidate();

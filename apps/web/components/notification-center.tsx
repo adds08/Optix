@@ -19,7 +19,9 @@ import { relative } from "@/lib/format";
 */
 
 const QUEUE_LABELS: { key: keyof ReturnType<typeof queuesOf>; label: string; href: string }[] = [
-  { key: "approvals", label: "Approvals & hand-offs", href: "/inbox" },
+  /* Approvals act on /custody's queue tab — /inbox only handles tasks and
+     messages, and cannot clear an assignment or transfer row (STI-105). */
+  { key: "approvals", label: "Approvals & hand-offs", href: "/custody?tab=queue" },
   { key: "tasks", label: "Open tasks", href: "/inbox" },
   { key: "messages", label: "Unresolved messages", href: "/inbox" },
   { key: "clearance", label: "HR clearance", href: "/people" },

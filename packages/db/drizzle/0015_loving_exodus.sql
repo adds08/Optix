@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "assignment_one_active_uq" ON "assignment" USING btree ("asset_id") WHERE "assignment"."status" = 'active';

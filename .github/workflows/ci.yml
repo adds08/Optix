@@ -94,9 +94,37 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # Migrations run from scratch on an empty database. This is the check
-      # that the committed SQL actually reproduces the schema — a drift between
-      # schema.ts and the migration folder is invisible until a fresh deploy.
+      # `db:migrate` below only proves the committed SQL *applies* — it never
+      # compares the result against schema.ts, so an edited schema with no
+      # generated migration used to sail through green. This step closes that
+      # gap. drizzle-kit 0.28.1 has no --check flag and its exit code is no
+      # signal (verified against the pinned binary): add-column drift emits a
+      # migration and exits 0, and rename-shaped drift prints an interactive
+      # "created or renamed?" prompt and — with stdin closed — exits 0 having
+      # emitted NOTHING, so a dirty-tree test alone stays green on real drift.
+      # The only output a drift-free run produces is the "No schema changes"
+      # line, so the step requires that sentinel and additionally fails if
+      # generate left any new or modified file behind. stdin from /dev/null
+      # makes the prompt path exit immediately instead of waiting for input.
+      # Hand-written migrations (0005, 0009, 0013, …) have no schema.ts
+      # counterpart and never touch the snapshot, so they do not trip this.
+      # (`drizzle-kit check` was evaluated and rejected: it validates
+      # migration-history collisions and reports "Everything's fine" with
+      # real schema drift in place.)
+      - name: Check for uncommitted schema drift
+        run: |
+          pnpm db:generate < /dev/null 2>&1 | tee /tmp/drizzle-generate.log
+          if ! grep -q "No schema changes, nothing to migrate" /tmp/drizzle-generate.log \
+            || [ -n "$(git status --porcelain -- packages/db/drizzle)" ]; then
+            echo "::error::packages/db/src/schema has changed without a generated migration. Run 'make generate' and commit the resulting SQL and meta files."
+            git status --porcelain -- packages/db/drizzle
+            git diff --stat -- packages/db/drizzle
+            exit 1
+          fi
+
+      # Migrations run from scratch on an empty database. This proves the
+      # committed SQL applies cleanly end to end; drift between schema.ts and
+      # the migration folder is caught by the generate check above, not here.
       - name: Migrate a fresh database
         run: pnpm db:migrate
 

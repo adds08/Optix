@@ -3,7 +3,14 @@ import { tenant, user } from "./identity";
 import { asset } from "./asset";
 import { employee } from "./employee";
 
-// The event log — append-only system of record. Nothing is ever updated or deleted.
+// The event log — append-only system of record. Nothing is ever updated or deleted:
+// enforced at the database by BEFORE UPDATE/DELETE/TRUNCATE triggers
+// (drizzle/0014_append_only_ledger.sql, STI-104) that raise SQLSTATE 0A000 —
+// corrections are compensating INSERTs. Custom migrations are invisible to the
+// drizzle differ, so a later `generate` will never drop them. Two sanctioned
+// exceptions disable the trigger around their deletes, both inside a single
+// transaction so an abort re-arms it: the seed's SEED_RESET wipe (src/seed.ts) and
+// the append-only test's cleanup (api-contracts/src/ledger-append-only.test.ts).
 // Every projection (assets.current_*, assignments) is a fold over this table.
 export const transaction = pgTable(
   "transaction",

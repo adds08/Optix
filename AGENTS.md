@@ -2,6 +2,11 @@
 
 > Concise reference for AI agents working on this codebase. Deeper planning lives in
 > `docs/*.md`; quick-start lives in `README.md`.
+>
+> **This file is a reference, not always-on context.** Claude Code loads `CLAUDE.md`
+> automatically and per-area rules from `.claude/rules/` when you touch that area; this file
+> is read on demand when you need the full domain model, the roadmap or the ADRs. Other agent
+> tools that read `AGENTS.md` natively still get everything here.
 
 ---
 
@@ -239,12 +244,15 @@ anything a human must review before trusting it is in
   after a schema change, commit the SQL, `make migrate` to apply. The API container migrates
   on boot and refuses to serve if it fails. `push` is renamed `push-dangerous` — it diffs a
   live database and applies with no review and no record.
-- **Tests.** 139 across 9 files, in `packages/domain` (custody rules + the event-fold
-  rebuild guarantee), `packages/intent` (the parser), `packages/types` (the @ parser),
-  `packages/api-contracts` (the permission map) and `packages/auth` (secret encryption).
-  `pnpm test`. The fold tests pin the partial-`toState` bug that shipped twice.
-  All of them are pure-function unit tests — `apps/api` and `apps/web` have no `test`
-  script, so nothing exercises a router, a database or a rendered screen.
+- **Tests.** `pnpm test`. They live in the pure packages — `packages/domain` (custody rules +
+  the event-fold rebuild guarantee), `packages/intent` (the catalog and parser),
+  `packages/types` (the @ parser), `packages/auth` (secret encryption) and
+  `packages/api-contracts` (the permission map). The fold tests pin the partial-`toState` bug
+  that has shipped three times. Since Release 1 Phase 1, `packages/api-contracts` also runs
+  **integration tests against the real `DATABASE_URL`** — custody concurrency, the append-only
+  triggers, and a gate asserting the seeded ledger folds to its projection. `apps/api`,
+  `apps/web` and `apps/mobile` still have no `test` script, so nothing exercises a rendered
+  screen.
 - **Production images.** `docker/Dockerfile.{api,web}` + `docker-compose.prod.yml`.
   The API is bundled with esbuild (`apps/api/build.mjs`) because every workspace package
   exports raw `.ts` — `tsc && node dist/index.js` never worked. Web uses Next standalone.
@@ -268,6 +276,10 @@ Items 1, 4 and 6 below are **resolved** and kept for the record; 2, 3 and 5 rema
    along with `packages/design-system` and `packages/frontend-shared`. All three were
    unimported by either app; the latter two are the ones ADR-3 anticipated would serve
    both clients, which never happened.
+   The notification engine itself lives in `apps/api/src/notifications.ts`. Note its delivery
+   layer is still two `console.log` branches — there is no `nodemailer` or `twilio`
+   dependency, and the `SMTP_*`/`TWILIO_*` env vars beyond `SMTP_HOST` are read by nothing.
+   In-app is the only channel that actually works.
 4. ~~The manual action path skips the high-value approval rule~~ — **resolved**: verified
    against the code on 2026-08-06 — `action.submit` → `applyChatAction` applies
    `outcomeFor` (which reads `tenantSettings.highValueThreshold`) per asset for

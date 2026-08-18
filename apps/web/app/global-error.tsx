@@ -18,10 +18,10 @@ import { useEffect } from "react";
 */
 export default function GlobalError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error("[root] render error", { message: error.message, digest: error.digest });
@@ -50,7 +50,7 @@ export default function GlobalError({
             and no record was lost. Reloading usually clears it.
           </p>
           <button
-            onClick={reset}
+            onClick={retry}
             style={{
               border: "1px solid #d4d4d8",
               borderRadius: "0.375rem",

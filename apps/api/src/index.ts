@@ -9,12 +9,12 @@ import { createDb } from "@stinventory/db";
 import { resolveSession, login, logout } from "@stinventory/auth";
 import { serverEnv } from "@stinventory/env";
 import { createLogger } from "@stinventory/logger";
-import { deliverPendingNotifications } from "./notifications.js";
+import { createNotification, deliverPendingNotifications } from "./notifications.js";
+import { reconcileProjections, type EventEnvelope } from "@stinventory/domain";
 import { processQueuedMessages } from "./messaging-worker.js";
 import { clearRateLimit, clientIp, rateLimit } from "./rate-limit.js";
 import { isAllowedImage, MAX_PHOTO_BYTES, storageFor } from "./storage.js";
 import { sweepRequests } from "./request-worker.js";
-import { mountRestRoutes } from "./rest-routes.js";
 import * as schema from "@stinventory/db/schema";
 import { and, eq } from "drizzle-orm";
 
@@ -225,7 +225,30 @@ app.post("/auth/logout", async (c) => {
   which charges permissions and never silently succeeds.
 */
 
-mountRestRoutes(app, db);
+/*
+  The `/api/*` REST surface used to be mounted here (`rest-routes.ts`, 28 routes).
+  Removed 2026-08-18 (STI-116) for the same reason `POST /ai/chat` above was: it
+  was a second executor, and a second executor is the bug.
+
+  It authenticated and then stopped — no permission checks at all, so a
+  `warehouse` user refused by tRPC `employee.create` got a 200 from
+  `POST /api/employees`. It mass-assigned (`{...body}` spread into the insert), so
+  `POST /api/assets` could set `current_custodian_id` and `current_status`
+  directly: custody state written with no ledger event and no chokepoint.
+  `POST /api/assignment/:id/approve` flipped a status to `active` without closing
+  the previous link or writing a `transaction` row. QA reached an unreportable
+  no-evidence state with one authenticated call.
+
+  Nothing called it: no reference in apps/web or apps/mobile, and the production
+  Caddyfile routes only /trpc/*, /auth/*, /health, /assets/*, /media/* and
+  /field/* — `/api/*` never reached this process in production at all.
+
+  Its blanket `use("*")` bearer middleware also intercepted `/trpc/*`, which is why
+  an unauthenticated tRPC call used to return a bare `{"error":"Unauthorized"}`
+  instead of a tRPC UNAUTHORIZED envelope, and why every authenticated call
+  resolved its session twice. Both are fixed by this removal — tRPC resolves its
+  own session in `createContext` below and always did.
+*/
 
 app.use(
   "/trpc/*",
@@ -303,3 +326,147 @@ setInterval(async () => {
   }
 }, REQUEST_SWEEP_INTERVAL_MS);
 log.info(`[request-worker] sweeper started (every ${REQUEST_SWEEP_INTERVAL_MS / 1000}s)`);
+
+/*
+  Projection reconciliation (STI-106): replays the whole ledger per tenant and
+  compares it against `asset.current_*`. Read-only by design — a divergence is a
+  broken writer's only signal, and repairing it silently (asset.rebuild) is
+  exactly how that signal gets destroyed. This sweep raises it instead.
+
+  Six-hourly, not every 60s like the notification loop above: it scans every
+  ledger row of every tenant, and a corruption that waits six hours to be seen
+  is still caught in time to be diagnosed. One run at boot as well, because a
+  first fire six hours after startup means a dev stack never runs it — and just
+  after a deploy is precisely when a freshly shipped writer is most likely to
+  have started corrupting.
+*/
+const RECONCILE_INTERVAL_MS = 6 * 60 * 60_000;
+async function sweepProjectionDivergence() {
+  const tenants = await db.select({ id: schema.tenant.id }).from(schema.tenant);
+  for (const t of tenants) {
+    const projected = (
+      await db
+        .select({
+          assetId: schema.asset.id,
+          assetNumber: schema.asset.assetNumber,
+          tag: schema.asset.tag,
+          status: schema.asset.currentStatus,
+          custodianId: schema.asset.currentCustodianId,
+          projectId: schema.asset.currentProjectId,
+          locationId: schema.asset.currentLocationId,
+        })
+        .from(schema.asset)
+        .where(eq(schema.asset.tenantId, t.id))
+    ).map((a) => ({ ...a, label: a.tag ? `#${a.assetNumber} ${a.tag}` : `#${a.assetNumber}` }));
+    const events = (await db
+      .select()
+      .from(schema.transaction)
+      .where(eq(schema.transaction.tenantId, t.id))) as unknown as EventEnvelope[];
+
+    const divergences = reconcileProjections(projected, events);
+    if (!divergences.length) {
+      log.info(
+        `[reconciliation] tenant ${t.id}: ${projected.length} assets checked against ${events.length} events, 0 divergences`,
+      );
+      continue;
+    }
+
+    /* The full detail goes to the log — folded vs projected, per asset. */
+    log.error(`[reconciliation] tenant ${t.id}: ${divergences.length} divergent asset(s)`, {
+      divergences: divergences.slice(0, 20),
+    });
+
+    /*
+      And a human hears about it, not just the log. This is a desk alert through
+      notifyDeskPending's mechanism — same recipient selection (active employees
+      holding `tenantSettings.custodyApproverRole`, defaulting to
+      `equipment_admin`), same notification table, same in-app bell — rather
+      than a new report table, because the bell already reaches exactly the
+      people who can act on custody being wrong, and a report row would need a
+      migration and a screen to be seen at all. `custody_discrepancy` has been
+      in NOTIFICATION_TYPES since the start with no writer; this is its meaning.
+      No dedupe on purpose: at one notification per desk person per six hours, a
+      divergence that persists SHOULD keep nagging until someone diagnoses it.
+    */
+    const [settings] = await db
+      .select({ role: schema.tenantSettings.custodyApproverRole })
+      .from(schema.tenantSettings)
+      .where(eq(schema.tenantSettings.tenantId, t.id))
+      .limit(1);
+    const desk = await db
+      .select({ id: schema.employee.id })
+      .from(schema.employee)
+      .where(
+        and(
+          eq(schema.employee.tenantId, t.id),
+          eq(schema.employee.employmentStatus, "active"),
+          eq(schema.employee.role, settings?.role ?? "equipment_admin"),
+        ),
+      );
+    /*
+      The body names which of two problems each tool has, because they need
+      opposite responses (STI-110). Before the kinds were distinguished, a
+      no-evidence divergence recurred here every six hours forever — rebuild
+      skips it by design, so nothing the alert suggested could clear it, and an
+      alert that keeps firing with no workable action is the shape people learn
+      to dismiss. A dismissed reconciliation alert is worse than none.
+    */
+    const stale = divergences.filter((d) => d.kind === "stale_projection");
+    const noEvidence = divergences.filter((d) => d.kind === "no_evidence");
+    const clip = (n: number) => (n > 10 ? ` — and ${n - 10} more` : "");
+    const parts: string[] = [];
+    if (stale.length) {
+      const detail = stale
+        .slice(0, 10)
+        .map(
+          (d) =>
+            `${d.label ?? d.assetId} (${d.fields.join(", ")}): ledger says ` +
+            `${d.folded.status}/${d.folded.custodianId ?? "no custodian"}, register shows ` +
+            `${d.projected.status}/${d.projected.custodianId ?? "no custodian"}`,
+        )
+        .join("; ");
+      parts.push(
+        `${stale.length} tool(s) where the register disagrees with the ledger: ${detail}${clip(stale.length)}. ` +
+          `Something wrote custody without the ledger; do not repair until it is diagnosed — then Rebuild fixes these.`,
+      );
+    }
+    if (noEvidence.length) {
+      const detail = noEvidence
+        .slice(0, 10)
+        .map(
+          (d) =>
+            `${d.label ?? d.assetId} (register shows ` +
+            `${d.projected.status}/${d.projected.custodianId ?? "no custodian"})`,
+        )
+        .join("; ");
+      parts.push(
+        `${noEvidence.length} tool(s) where the ledger has no evidence at all: ${detail}${clip(noEvidence.length)}. ` +
+          `Rebuild will skip these — repairing on no evidence would blank a live row. ` +
+          `To resolve one, record a real custody action for the tool through the app ` +
+          `(an assignment, transfer or status change writes a complete snapshot that becomes its baseline); ` +
+          `until then this alert repeats every six hours.`,
+      );
+    }
+    for (const person of desk) {
+      await createNotification(db, {
+        tenantId: t.id,
+        recipientEmployeeId: person.id,
+        type: "custody_discrepancy",
+        refType: "reconciliation",
+        title: `Register out of step with the ledger: ${divergences.length} tool(s)`,
+        body: parts.join(" "),
+      });
+    }
+  }
+}
+sweepProjectionDivergence().catch((err) =>
+  log.error("[reconciliation] boot sweep failed", { err: String(err) }),
+);
+setInterval(async () => {
+  try {
+    await sweepProjectionDivergence();
+  } catch (err) {
+    log.error("[reconciliation] sweep failed", { err: String(err) });
+  }
+}, RECONCILE_INTERVAL_MS);
+log.info(`[reconciliation] scheduler started (every ${RECONCILE_INTERVAL_MS / 3_600_000}h)`);

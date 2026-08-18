@@ -1,0 +1,114 @@
+{
+  "$comment": "Config for the feature-delivery workflow (.claude/skills/feature-delivery/SKILL.md). The workflow never fires on its own — it runs only when invoked as /feature-delivery. This file carries the tunables and the hard off switch.",
+
+  "enabled": true,
+
+  "baseBranch": "development",
+  "branchPattern": "feat/<TICKET-ID>-<slug>",
+
+  "authority": {
+    "$comment": "Agents review and comment. A human is the sole approver. Every shipped multi-agent system researched keeps it this way, and on 2026-08-16 a ticket in this repo passed its own author's evidence and still failed independent QA — self-approval would have shipped it.",
+    "agentsMayApprove": false,
+    "agentsMayMerge": false,
+    "agentsMayPush": true,
+    "agentsMayForcePush": false
+  },
+
+  "parallelism": {
+    "$comment": "Reads parallelise, writes do not. Spawn parallel writers only for named independent modules, each in its own worktree. Default is one implementer — 'can this split into disjoint sub-tickets?' is the real question, not 'how many devs?'.",
+    "maxConcurrentImplementers": 1,
+    "maxConcurrentReadOnlyAgents": 4,
+    "requireWorktreeIsolationForParallelWrites": true,
+    "serialiseMigrationTickets": true,
+    "serialiseGlobalDbBehaviourChanges": true
+  },
+
+  "quality": {
+    "$comment": "Quality outranks speed. These are not tunables — turning one off means the workflow is no longer being followed. See the 'quality bar' section of the skill.",
+    "evidenceNotAssertion": "Every claim must be backed by pasted command output someone else could re-run. 'The code looks right' is not verification.",
+    "testsForChangedBehaviour": true,
+    "testsMustBeProvablyAbleToFail": "Break it, watch red, restore, watch green. A test that passes whether or not the feature exists reads as coverage and is worse than none.",
+    "writeTestFirstForLatentDefects": "Red-then-fix is the only honest order for a bug that has not surfaced — otherwise the test merely agrees with the code.",
+    "featureMustBeReachable": "A correct procedure with no UI caller is not delivered (SYSTEM_PLAN.md §9). Grep for a call site and drive it in a browser.",
+    "verifyTheDataNotTheScreen": "Event-sourced: after any mutation query the row AND the transaction row. A green screen is a claim.",
+    "adversarialQaAlwaysRequired": "Every ticket, including small ones. Never risk-scaled. The verifier must be a different agent with fresh context.",
+    "verifierMustTryAnUntriedInput": "The habit that has caught every real failure here. Implementer evidence is usually genuine and incomplete.",
+    "reportFailurePlainly": "Failing tests get shown with output. Skipped steps get named. Blocked work finishes everything unblocked and states what was left."
+  },
+
+  "gates": {
+    "$comment": "Ordered. Deterministic checks first — they are cheap and unambiguous. Review agents run only after QA passes, so they never review code that is still moving.",
+    "typecheck": { "command": "make ENV=local typecheck", "blocking": true },
+    "test": { "command": "make ENV=local test", "blocking": true },
+    "lint": { "command": "make ENV=local lint", "blocking": true },
+    "adversarialQa": { "agent": "sti-qa", "blocking": true },
+    "correctnessReview": { "agent": "sti-pr-reviewer", "blocking": true },
+    "securityReview": {
+      "agent": "sti-security-reviewer",
+      "blocking": true,
+      "alwaysRunWhenTouching": [
+        "packages/api-contracts/src/custody.ts",
+        "packages/db/src/schema/**",
+        "packages/auth/**",
+        "packages/api-contracts/src/trpc.ts",
+        "packages/api-contracts/src/scope.ts",
+        "apps/api/src/**"
+      ]
+    },
+    "e2e": { "agent": "sti-e2e-qa", "blocking": false, "scope": "once per phase, not per ticket" },
+    "$ultrareviewNote": "Deep multi-agent review (/code-review ultra) is deliberately NOT a gate here. The user runs it themselves, once, after all work is complete. No agent invokes it, prompts for it, or simulates it."
+  },
+
+  "review": {
+    "$comment": "Noise is the enemy, not missed bugs. A reviewer leaving 14 comments of which 11 are wrong is worse than no reviewer, because people learn to ignore it. These limits are the mitigation.",
+    "maxCommentsPerPr": 10,
+    "requireNamedFailingInput": true,
+    "reportStylePreferences": false,
+    "softMaxChangedLines": 400,
+    "splitAboveSoftMax": true,
+    "excludedFindingCategories": [
+      "denial of service",
+      "rate limiting",
+      "memory or CPU exhaustion",
+      "generic input validation without proven impact",
+      "open redirects"
+    ]
+  },
+
+  "sizing": {
+    "$comment": "No vendor publishes an agents-per-task-size rubric. This is reasoned from the reads/writes constraint, not received wisdom. Scale writers by independent modules, never by line count.",
+    "XS": { "implementers": 1, "qa": 1, "prReview": false, "securityReview": false },
+    "S": { "implementers": 1, "qa": 1, "prReview": true, "securityReview": false },
+    "M": { "implementers": 1, "qa": 1, "prReview": true, "securityReview": true },
+    "L": { "action": "split into sub-tickets before dispatching anyone" }
+  },
+
+  "records": {
+    "ticketDir": "docs/tickets",
+    "featureDir": "docs/features",
+    "$comment": "Feature records are append-only archives frozen at merge, never documents kept current. Spec-and-plan files that are maintained drift, and agents then execute stale specs at machine speed. Scale the file count to ticket size.",
+    "filesBySize": {
+      "XS": ["TICKET.md"],
+      "S": ["TICKET.md", "IMPLEMENTATION.md", "REVIEW.md"],
+      "M": ["TICKET.md", "PLAN.md", "IMPLEMENTATION.md", "REVIEW.md"]
+    },
+    "neverCommit": [
+      "screenshots",
+      "playwright traces",
+      "videos",
+      "test-results/",
+      "playwright-report/",
+      "e2e/.auth/"
+    ]
+  },
+
+  "prTemplate": {
+    "sections": [
+      "What — the change, in one paragraph",
+      "Why — the ticket link and the problem it solves",
+      "How tested — real command output and database evidence, not assertions",
+      "Deviations — where the plan turned out wrong, and why",
+      "Out of scope — adjacent problems found and their ticket references"
+    ]
+  }
+}

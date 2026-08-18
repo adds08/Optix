@@ -1,5 +1,13 @@
 # What the dashboard should answer
 
+> **SUPERSEDED — 2026-08-18.** This as-built record describes the borrow /
+> `pending_verification` flow, which was **removed from the backend on 2026-08-09**
+> (rationale in `packages/domain/src/rules.ts`), and the "Loans to verify" card it
+> added, which was **removed by STI-111** after sitting permanently empty in the
+> product. `dashboard.pendingApprovals` no longer filters on `pending_verification`.
+> Kept as a record of what was built and why it was undone — **do not treat anything
+> below as current behaviour.**
+
 The desk dashboard shows stock levels: how many tools are available, assigned,
 in maintenance, lost, reserved, what the fleet is worth. Those are true and they
 are static. A person opening the screen in the morning is asking a different
