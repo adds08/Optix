@@ -148,15 +148,25 @@ above depends on them.
 | [STI-119](STI-119-untenanted-predicate-sweep.md) | Queries that don't carry a tenant predicate | 1 | READY — not started |
 | [STI-120](STI-120-confirm-claim-crash-recovery.md) | Chat sign-off can duplicate ledger events, and can strand requests | 2 | READY — not started |
 
-### Phase 2 — Assignment detail (7 units)
+### Phase 2 — Assignment detail — ✅ COMPLETE
 
 | ID | Title | Size | Status |
 |---|---|---|---|
 | [STI-201](STI-201-truck-trailer-decision.md) | **Decision:** two columns vs location hierarchy | 0 | RESOLVED — two columns |
 | [STI-202](STI-202-assignment-truck-trailer.md) | Truck and trailer as first-class assignment fields | 3 | ✅ DONE — QA PASS |
-| [STI-203](STI-203-custody-context-writers.md) | Carry truck/trailer through custody + `toState` | 2 | READY — unblocked, last Phase 2 ticket |
+| [STI-203](STI-203-custody-context-writers.md) | Carry truck/trailer through custody + `toState` | 2 | ✅ DONE — QA PASS (round 2) |
 | [STI-204](STI-204-typed-trpc-errors.md) | Typed `TRPCError` across the chat/action path | 2 | ✅ DONE — QA PASS |
 | [STI-205](STI-205-error-boundary-retry-prop.md) | Error boundaries recover without re-fetching | 1 | ✅ DONE — QA PASS |
+
+**Phase 2 is complete — invariant 5 is delivered.** The three below were opened from
+questions this work raised. None blocks anything delivered; STI-207 is the one with a real
+decision in it.
+
+| Ticket | What | Units | Status |
+|---|---|---|---|
+| [STI-206](STI-206-approval-queue-hides-the-rig.md) | The desk approves without seeing which rig it signs off | 1 | READY — not started |
+| [STI-207](STI-207-container-membership-is-still-location-based.md) | Container membership is location-based, but the truth moved to the assignment | 2 | READY — needs a model decision first |
+| [STI-208](STI-208-hitching-a-trailer-could-assert-the-new-truck.md) | Hitching carries a stale truck forward instead of asserting the new one | 1 | READY — the answer may be "no" |
 
 ### Phase 3 — Roles, accounts and organisation structure (18 units)
 
@@ -213,10 +223,10 @@ substitute for it afterwards.
 
 | | Units |
 |---|---|
-| Accepted | 20 |
+| Accepted | 21 |
 | Remaining in Phase 1 | **0** |
-| Remaining in Phase 2 | **1** — STI-203 |
-| Opened from defects found during the work (STI-118, 119, 120) | 3 |
+| Remaining in Phase 2 | **0** |
+| Opened from questions the work raised (STI-118, 119, 120, 206, 207, 208) | 6 |
 | **Total remaining** | **9** |
 
 Deferred: 33 units across Phases 2–5, of which 21 were blocked on an Urban decision
