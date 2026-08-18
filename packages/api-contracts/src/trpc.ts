@@ -1,4 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
+import { ZodError } from "zod";
 import superjson from "superjson";
 import type { Database } from "@stinventory/db";
 import type { ResolvedSession } from "@stinventory/auth";
@@ -36,6 +37,13 @@ const t = initTRPC.context<Context>().create({
   */
   errorFormatter({ shape, error }) {
     const internal = error.code === "INTERNAL_SERVER_ERROR";
+    /* A zod input failure is BAD_REQUEST, so it is not `internal` — but its
+       message is the raw issue array, and the chat card renders `userMessage`
+       verbatim. Left alone, a mistyped id showed the user
+       `[{"validation":"uuid","code":"invalid_string",...}]` as guidance, which is
+       the exact failure this formatter exists to prevent. Machine text gets the
+       generic line; `zodError` carries the detail for anything that wants it. */
+    const zod = error.cause instanceof ZodError ? error.cause : null;
     /* `message` is redacted too, not just `userMessage`. Adding a safe field
        while leaving the unsafe one populated protects nobody: the clients that
        predate this formatter render `e.message` directly — custody/page.tsx:64
@@ -48,7 +56,8 @@ const t = initTRPC.context<Context>().create({
       message: internal ? "Something went wrong on our side. Try again, or ask the equipment desk." : shape.message,
       data: {
         ...shape.data,
-        userMessage: internal ? null : error.message,
+        userMessage: internal || zod ? null : error.message,
+        zodError: zod ? zod.flatten() : null,
       },
     };
   },
