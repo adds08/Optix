@@ -244,10 +244,12 @@ describe("the shape boundary (STI-202: truckId/trailerId)", () => {
   });
 
   it("folds a later old-shape event to 'not recorded', never to null or a stale truck", () => {
-    /* Until STI-203 carries the fields through every writer, a shape-blind
-       writer can append AFTER a shape-aware one. Replace-not-merge means the
-       earlier truck must not leak forward (the tool moved), and the absent key
-       must not be invented as null (nobody recorded "no truck"). */
+    /* Shape-blind writers still append AFTER shape-aware ones — STI-203
+       carried the custody movers over, but the annotation writers (lost,
+       report, setStatus, the bulk project/custodian writers) stay four-key
+       on purpose. Replace-not-merge means the earlier truck must not leak
+       forward (the tool moved), and the absent key must not be invented as
+       null (nobody recorded "no truck"). */
     const state = foldAssetState([
       ev("a1", "assign", "2026-08-18T09:00:00Z", inTruckNoTrailer),
       ev("a1", "return", "2026-08-19T09:00:00Z", yard, inTruckNoTrailer), // old shape

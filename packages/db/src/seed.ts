@@ -548,6 +548,10 @@ async function main() {
 
   // TOOL-0142 (HONDA EB6500X, $5200 — above threshold) is held by Alberto
   // Mendes Aleman on Garland; a hand-off to Felipe Portillo (DART) waits.
+  // It names the destination rig (STI-203 / 0017): the trailer the tool would
+  // ride to DART in. Held-with-a-rig is now a reachable state, so the seed
+  // reaches it — approving this row exercises the parked columns and their
+  // composite FKs from a fresh reset, not just the direct path.
   await db.insert(transfer).values({
     tenantId: tid,
     assetId: assetByTag["TOOL-0142"]!.id,
@@ -557,6 +561,8 @@ async function main() {
     toLocationId: locByKey["l-TE-017"]!,
     fromProjectId: projectByKey["p-garland-22015"]!,
     toProjectId: projectByKey["p-dart-20011"]!,
+    toTruckId: null, // no truck in the fleet data; the synthetic truck stays on TOOL-0001
+    toTrailerId: trailerIdByLocKey["l-TE-017"] ?? null,
     reason: "reallocation",
     status: "pending_approval",
     requestedBy: adminId,

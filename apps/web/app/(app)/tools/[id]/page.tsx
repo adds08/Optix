@@ -180,6 +180,18 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 hint={a.costTarget === "department" ? "department, not a job" : "financial owner"}
               />
               <Field label="Location" value={a.locationName ?? <span className="text-muted-foreground">—</span>} />
+              {/* The rig it rides in — off the ACTIVE assignment (STI-203), a
+                  per-custody fact, distinct from Location above. */}
+              <Field
+                label="Truck"
+                value={a.currentTruckUnit ?? <span className="text-muted-foreground">—</span>}
+                hint="rides in"
+              />
+              <Field
+                label="Trailer"
+                value={a.currentTrailerUnit ?? <span className="text-muted-foreground">—</span>}
+                hint="rides in"
+              />
               <Field label="Condition" value={a.condition ?? "—"} />
               <Field label="Acquired" value={shortDate(a.acquisitionDate)} hint={money(a.acquisitionCost)} />
               <Field

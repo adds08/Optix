@@ -6,7 +6,7 @@ import { vehicleStatus, type VehicleStatus } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
-import { moveCustody } from "../custody.js";
+import { moveCustody, vehicleContextFromLedger } from "../custody.js";
 
 /*
   Hand a container to a foreman, or take it back.
@@ -106,14 +106,30 @@ async function applyContainerCustody(opts: {
     .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)));
 
   /* Custody links follow, through the same helper every other custody writer
-     uses, so the one-active-link invariant holds here too. */
+     uses, so the one-active-link invariant holds here too.
+
+     Which bucket is this writer in (STI-203)? A container hand-over moves the
+     WHO, not the WHERE-IT-RIDES: the tools stay inside the same box, so this
+     writer asserts nothing new about vehicles and CARRIES the newest ledger
+     snapshot's truck/trailer keys FORWARD verbatim — absent stays absent, the
+     same rule as the decline writers. It must not stay four-key: the fold
+     replaces, so a four-key custodian_change here erased "still in TE-006"
+     from a tool that never left the trailer. And it must not emit blind
+     nulls: that stamps "affirmatively no trailer" over a recorded ride. The
+     carried context also goes onto the link moveCustody opens, so the row and
+     the event tell one story — the STI-113 lesson, one source for both. */
+  const rideByAsset = new Map<string, { truckId?: string | null; trailerId?: string | null }>();
   for (const a of moving) {
+    const ride = await vehicleContextFromLedger(tx, tid, a.id);
+    rideByAsset.set(a.id, ride);
     await moveCustody(tx, {
       tenantId: tid,
       assetId: a.id,
       toCustodianId: custodianId,
       projectId: a.currentProjectId,
       locationId,
+      truckId: ride.truckId,
+      trailerId: ride.trailerId,
       actorUserId,
     });
   }
@@ -135,6 +151,7 @@ async function applyContainerCustody(opts: {
         custodianId,
         projectId: a.currentProjectId,
         locationId,
+        ...rideByAsset.get(a.id),
       },
       refType: "location",
       refId: locationId,
@@ -370,6 +387,44 @@ export const locationRouter = router({
   ...locationCustodyRouter,
 });
 
+
+/*
+  Every row that can pin a vehicle at the database level (STI-203).
+
+  TWO tables reference vehicle through the composite NO ACTION FKs:
+  assignment (truck_id/trailer_id, migration 0016) and transfer
+  (to_truck_id/to_trailer_id, migration 0017) — and the transfer writers park
+  the rig on EVERY row, pending, declined and completed alike, so any vehicle
+  ever named in a hand-off is pinned forever. A guard that checked only
+  assignment passed for a vehicle named once in a declined transfer and then
+  died on the raw FK as a 500 (QA-203 reproduced it). No status predicate on
+  either table, deliberately: the FKs have none.
+*/
+async function vehicleInCustodyRecord(db: any, tid: string, vehicleId: string): Promise<boolean> {
+  const [assignmentRef] = await db
+    .select({ id: schema.assignment.id })
+    .from(schema.assignment)
+    .where(
+      and(
+        eq(schema.assignment.tenantId, tid),
+        or(eq(schema.assignment.truckId, vehicleId), eq(schema.assignment.trailerId, vehicleId)),
+      ),
+    )
+    .limit(1);
+  if (assignmentRef) return true;
+  const [transferRef] = await db
+    .select({ id: schema.transfer.id })
+    .from(schema.transfer)
+    .where(
+      and(
+        eq(schema.transfer.tenantId, tid),
+        or(eq(schema.transfer.toTruckId, vehicleId), eq(schema.transfer.toTrailerId, vehicleId)),
+      ),
+    )
+    .limit(1);
+  return !!transferRef;
+}
+
 export const vehicleRouter = router({
   list: protectedProcedure
     .input(z.object({ projectId: z.string().uuid().optional() }).optional())
@@ -552,6 +607,21 @@ export const vehicleRouter = router({
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such vehicle in this tenant" });
 
+      /* A type flip on a vehicle that any assignment OR transfer row
+         references — active, closed or historical, because the composite FKs
+         (assignment 0016, transfer 0017) check (id, vehicle_type) and do not
+         care about status — would violate a FK and surface as a raw Postgres
+         500. Refuse it with a sentence instead (STI-203, and
+         vehicleInCustodyRecord below). */
+      if (changes.vehicleType && changes.vehicleType !== existing.vehicleType) {
+        if (await vehicleInCustodyRecord(ctx.db, tid, id)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${existing.unit} appears as a ${existing.vehicleType} in the custody record — assignment history or a transfer — so its type cannot change. Register the ${changes.vehicleType} as a new vehicle instead.`,
+          });
+        }
+      }
+
       /* `foremanEmployeeId` is not here: handing a truck over is
          `location.setCustodian`, which takes the tools aboard with it. */
       if (changes.unit && changes.unit !== existing.unit) {
@@ -657,6 +727,20 @@ export const vehicleRouter = router({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "There are tools recorded aboard. Unload it first — hand it over to nobody.",
+        });
+      }
+
+      /* Any status counts, not just active — and BOTH referencing tables
+         count, assignment (0016) and transfer (0017): the composite NO ACTION
+         FKs block the delete while even a closed or declined row names this
+         vehicle, so a guard that checked less would pass and the delete would
+         still 500. That history is the point — "which trailer was TOOL-0007
+         riding in when it went missing" must outlive the trailer's sale
+         (STI-203, and vehicleInCustodyRecord above). */
+      if (await vehicleInCustodyRecord(ctx.db, tid, input.id)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${existing.unit} is named in the custody record — assignment history or a transfer — so it cannot be deleted. The register keeps it so that history stays answerable.`,
         });
       }
 

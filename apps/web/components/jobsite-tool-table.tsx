@@ -35,14 +35,21 @@ export type ToolRow = {
   currentProjectId?: string | null;
   locationId?: string | null;
   locationName?: string | null;
+  /* The rig recorded on the ACTIVE assignment (STI-203) — a per-custody fact
+     that can differ from the crew's rig above the table. */
+  currentTruckUnit?: string | null;
+  currentTrailerUnit?: string | null;
 };
 
 export const TOOL_LIMIT = 5;
 
-/* Serial / ID · Tool name · Status · Value. No "rides on" column: the row
-   already sits under the rig it rides in. When `selectable`, each row gets a
-   checkbox the parent drives — used by the "on site, nobody holding" sections
-   so a desk can pick several tools and hand them to a foreman at once. */
+/* Serial / ID · Tool name · Rides in · Status · Value. "Rides in" is the rig
+   recorded on the tool's own assignment (STI-203) — it usually matches the
+   crew rig above the table, and the desk cares exactly when it does not
+   (a tool left in the previous truck, or nothing recorded). When `selectable`,
+   each row gets a checkbox the parent drives — used by the "on site, nobody
+   holding" sections so a desk can pick several tools and hand them to a
+   foreman at once. */
 export function ToolTable({
   rows,
   showWhere,
@@ -78,6 +85,7 @@ export function ToolTable({
             {selectable ? <th className="w-8 px-3 py-1.5" aria-hidden /> : null}
             <th className="label-xs w-32 px-3 py-1.5 text-left">Serial / ID</th>
             <th className="label-xs px-3 py-1.5 text-left">Tool name</th>
+            <th className="label-xs w-36 px-3 py-1.5 text-left">Rides in</th>
             <th className="label-xs w-36 px-3 py-1.5 text-left">Status</th>
             <th className="label-xs w-24 px-3 py-1.5 text-right">Value</th>
             {actions ? <th className="w-10 px-3 py-1.5" aria-hidden /> : null}
@@ -110,6 +118,17 @@ export function ToolTable({
                   </span>
                 ) : null}
               </td>
+              <td className="px-3 py-2 text-xs text-muted-foreground">
+                {t.currentTruckUnit || t.currentTrailerUnit ? (
+                  <>
+                    {t.currentTruckUnit ?? ""}
+                    {t.currentTruckUnit && t.currentTrailerUnit ? " · " : ""}
+                    {t.currentTrailerUnit ?? ""}
+                  </>
+                ) : (
+                  "—"
+                )}
+              </td>
               <td className="px-3 py-2"><StatusPill status={t.status} /></td>
               <td className="tnum px-3 py-2 text-right text-muted-foreground">{money(t.acquisitionCost)}</td>
               {actions ? (
@@ -121,7 +140,7 @@ export function ToolTable({
           ))}
           {visible.length === 0 ? (
             <tr>
-              <td className="px-3 py-2.5 text-sm text-muted-foreground" colSpan={selectable && actions ? 6 : selectable || actions ? 5 : 4}>
+              <td className="px-3 py-2.5 text-sm text-muted-foreground" colSpan={selectable && actions ? 7 : selectable || actions ? 6 : 5}>
                 Nothing here.
               </td>
             </tr>

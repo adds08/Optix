@@ -23,8 +23,28 @@ Since STI-202 the snapshot also carries **optional** `truckId`/`trailerId` keys.
 optional only so pre-STI-202 history stays readable: an ABSENT key folds to "not recorded",
 an explicit `null` means "affirmatively none" — two different answers, and the fold keeps
 them distinct (the shape-boundary rule in `fold.ts`, pinned by the "shape boundary" tests).
-A shape-aware writer must emit BOTH keys with explicit values; writers not yet carried over
-by STI-203 still emit four-key snapshots, which is legal and reads as "unknown".
+
+Since STI-203 the writers split three ways — pick the right bucket before adding one:
+
+- **Custody movers emit BOTH keys explicitly, `?? null`, never a `current_*` fallback**:
+  `assignment.create`/`approve`/`return`, `transfer.create`/`approve`, and the
+  `assign`/`transfer`/`return`/`repair` cases in `apply-action.ts`. A new custody does not
+  inherit the previous holder's rig, and a return or repair means the tool is affirmatively
+  out of one. `assertVehicleContext` (custody.ts) must gate every id before it is written —
+  the composite FK behind the columns is **tenant-blind** and raises raw 23503s.
+- **Writers that assert nothing new about vehicles carry the newest snapshot's keys
+  forward VERBATIM** (`vehicleContextFromLedger`, custody.ts) — absent stays absent. Two
+  members: the from=to decline writers, and `applyContainerCustody`'s `custodian_change`
+  (a container hand-over moves the WHO, not the where-it-rides — the tools stay in the
+  same box, and a four-key event here erased "still in TE-006" from the fold for a tool
+  that never left the trailer). The asset table has no truck columns, so the ledger is
+  the only source; a blind null would stamp "affirmatively no truck" over a recorded
+  ride and the next rebuild would blank it. The container writer also puts the carried
+  context on the link it opens, so row and event tell one story.
+- **Writers that never asked stay four-key**: `lost`/`report` in apply-action,
+  `requestChatAction`'s annotation, `asset.setStatus`, the `project_change` bulk writer,
+  and the intake/import/create baseline events. Absent keys are how those snapshots
+  honestly say "unknown".
 
 This bug has shipped three times. `fold.test.ts:114-135` pins it. Every writer that got it
 wrong carries a scar-tissue comment — grep "Same fallbacks the asset update"
@@ -110,9 +130,10 @@ tool away weeks earlier. Read the header comment at the top of `custody.ts`.
   apply) are named on the claim comments in `approve.ts`.
 - **Declines are custody-affecting (STI-112).** Both `assignment.decline` and
   `transfer.decline` write a `status_change` event with `from_state = to_state` — the
-  complete four-key snapshot, read under the lock so it is the state at commit time.
-  "Considered, and refused" belongs in the tool's history; the reasoning lives on the
-  ledger insert in `assignment.decline`.
+  complete snapshot, read under the lock so it is the state at commit time: four base
+  keys off the asset row, vehicle keys carried forward from the newest ledger snapshot
+  (STI-203, see the writer buckets above). "Considered, and refused" belongs in the
+  tool's history; the reasoning lives on the ledger insert in `assignment.decline`.
 - **Since STI-102, custody writes are transactional and row-locked.** `closeActiveCustody`
   and `moveCustody` take a `Transaction` (exported by `@stinventory/db`) as their first
   parameter — a raw `db` handle is a **compile error**, which is the enforcement: the old

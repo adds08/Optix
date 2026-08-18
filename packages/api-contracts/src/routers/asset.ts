@@ -74,6 +74,12 @@ export const assetRouter = router({
       const currentProject = alias(schema.project, "current_project");
       const owningProject = alias(schema.project, "owning_project");
       const owningDepartment = alias(schema.department, "owning_department");
+      /* The rig the tool rides in (STI-203) lives on the ACTIVE assignment —
+         a per-custody fact, not a column on asset. At most one active row per
+         asset (assignment_one_active_uq), so these joins cannot fan out. */
+      const activeAssignment = alias(schema.assignment, "active_assignment");
+      const rideTruck = alias(schema.vehicle, "ride_truck");
+      const rideTrailer = alias(schema.vehicle, "ride_trailer");
       const rows = await ctx.db
         .select({
           id: schema.asset.id,
@@ -105,6 +111,10 @@ export const assetRouter = router({
              tools by truck vs trailer, which only the vehicle row knows. */
           locationType: schema.location.type,
           vehicleType: schema.vehicle.vehicleType,
+          currentTruckId: activeAssignment.truckId,
+          currentTruckUnit: rideTruck.unit,
+          currentTrailerId: activeAssignment.trailerId,
+          currentTrailerUnit: rideTrailer.unit,
           owningProjectId: schema.asset.owningProjectId,
           owningProjectName: owningProject.name,
           costTarget: schema.asset.costTarget,
@@ -116,6 +126,16 @@ export const assetRouter = router({
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
         .leftJoin(schema.vehicle, eq(schema.vehicle.locationId, schema.location.id))
+        .leftJoin(
+          activeAssignment,
+          and(
+            eq(activeAssignment.assetId, schema.asset.id),
+            eq(activeAssignment.tenantId, tid),
+            eq(activeAssignment.status, "active"),
+          ),
+        )
+        .leftJoin(rideTruck, eq(activeAssignment.truckId, rideTruck.id))
+        .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
         .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
         .where(and(...conditions));
@@ -131,6 +151,10 @@ export const assetRouter = router({
       const currentProject = alias(schema.project, "current_project");
       const owningProject = alias(schema.project, "owning_project");
       const owningDepartment = alias(schema.department, "owning_department");
+      /* Same active-assignment rig joins as `list` (STI-203). */
+      const activeAssignment = alias(schema.assignment, "active_assignment");
+      const rideTruck = alias(schema.vehicle, "ride_truck");
+      const rideTrailer = alias(schema.vehicle, "ride_trailer");
       const [row] = await ctx.db
         .select({
           id: schema.asset.id,
@@ -157,6 +181,10 @@ export const assetRouter = router({
           currentProjectExternalId: currentProject.externalId,
           locationId: schema.asset.currentLocationId,
           locationName: schema.location.name,
+          currentTruckId: activeAssignment.truckId,
+          currentTruckUnit: rideTruck.unit,
+          currentTrailerId: activeAssignment.trailerId,
+          currentTrailerUnit: rideTrailer.unit,
           owningProjectId: schema.asset.owningProjectId,
           owningProjectName: owningProject.name,
           costTarget: schema.asset.costTarget,
@@ -168,6 +196,16 @@ export const assetRouter = router({
         .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
+        .leftJoin(
+          activeAssignment,
+          and(
+            eq(activeAssignment.assetId, schema.asset.id),
+            eq(activeAssignment.tenantId, ctx.session.tenantId),
+            eq(activeAssignment.status, "active"),
+          ),
+        )
+        .leftJoin(rideTruck, eq(activeAssignment.truckId, rideTruck.id))
+        .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
         .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
         .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)));

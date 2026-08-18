@@ -6,7 +6,7 @@ import { custodyOutcome } from "@stinventory/domain";
 import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { moveCustody, projectForCustodian } from "../custody.js";
+import { assertVehicleContext, moveCustody, projectForCustodian, vehicleContextFromLedger } from "../custody.js";
 import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 
 /*
@@ -55,6 +55,10 @@ export const transferRouter = router({
         toCustodianId: z.string().uuid(),
         toLocationId: z.string().uuid().optional(),
         toProjectId: z.string().uuid().optional(),
+        /* Which rig the tool rides out in (STI-203). Optional, never
+           defaulted — a tool does not inherit the recipient's truck. */
+        toTruckId: z.string().uuid().optional(),
+        toTrailerId: z.string().uuid().optional(),
         reason: z.string().default("reallocation"),
         note: z.string().optional(),
       }),
@@ -65,6 +69,10 @@ export const transferRouter = router({
         where: and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)),
       });
       if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "That tool is not in the register." });
+
+      /* Tenant-scoped type check before anything is written — the composite FK
+         is tenant-blind and answers a wrong type with a raw 500 (custody.ts). */
+      await assertVehicleContext(ctx.db, tid, input.toTruckId, input.toTrailerId);
 
       /*
         One open hand-off per tool.
@@ -118,6 +126,11 @@ export const transferRouter = router({
             toLocationId: input.toLocationId ?? null,
             fromProjectId: asset.currentProjectId,
             toProjectId,
+            /* Parked with the rest of the "to" state (STI-203 / migration
+               0017): before these columns a held transfer silently dropped
+               the requester's rig pick and approve could only write nulls. */
+            toTruckId: input.toTruckId ?? null,
+            toTrailerId: input.toTrailerId ?? null,
             reason: input.reason,
             status: applyNow ? "approved" : "pending_approval",
             requestedBy: ctx.session.userId,
@@ -145,6 +158,12 @@ export const transferRouter = router({
             toCustodianId: input.toCustodianId,
             projectId: toProjectId ?? asset.currentProjectId ?? null,
             locationId: input.toLocationId ?? asset.currentLocationId ?? null,
+            /* No current_* fallback, unlike project and location: those fall
+               back because "No change" is a sensible answer for them. A tool
+               changing hands is NOT still riding the previous holder's rig —
+               blank means no vehicle recorded for the new custody. */
+            truckId: input.toTruckId ?? null,
+            trailerId: input.toTrailerId ?? null,
             actorUserId: ctx.session.userId,
           });
           await tx
@@ -170,6 +189,10 @@ export const transferRouter = router({
               custodianId: input.toCustodianId,
               projectId: toProjectId ?? asset.currentProjectId ?? null,
               locationId: input.toLocationId ?? asset.currentLocationId ?? null,
+              /* Both keys explicit, mirroring the moveCustody call above —
+                 the ledger and the assignment row must tell the same story. */
+              truckId: input.toTruckId ?? null,
+              trailerId: input.toTrailerId ?? null,
             },
             refType: "transfer",
             refId: created.id,
@@ -286,12 +309,20 @@ export const transferRouter = router({
             updatedAt: new Date(),
           })
           .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)));
+        /* The rig the requester named, parked on the row at create time
+           (STI-203 / 0017). NULL stays NULL — "not recorded" — with no
+           carry-forward, because the tool has changed hands. Unlike project
+           and location there is no "No change" fallback: a new custody does
+           not inherit the previous holder's rig. moveCustody re-runs the
+           tenant-scoped type check on these ids inside the transaction. */
         await moveCustody(tx, {
           tenantId: ctx.session.tenantId,
           assetId: tr.assetId,
           toCustodianId: tr.toCustodianId,
           projectId: toProjectId,
           locationId: toLocationId,
+          truckId: tr.toTruckId,
+          trailerId: tr.toTrailerId,
           actorUserId: ctx.session.userId,
         });
         await tx.insert(schema.transaction).values({
@@ -309,7 +340,17 @@ export const transferRouter = router({
                 locationId: asset.currentLocationId,
               }
             : null,
-          toState: { status: "assigned", custodianId: tr.toCustodianId, projectId: toProjectId, locationId: toLocationId },
+          toState: {
+            status: "assigned",
+            custodianId: tr.toCustodianId,
+            projectId: toProjectId,
+            locationId: toLocationId,
+            /* Mirrors the moveCustody call above; an unrecorded rig lands
+               here as an explicit null, which is truthful — the requester
+               genuinely named none. */
+            truckId: tr.toTruckId,
+            trailerId: tr.toTrailerId,
+          },
           refType: "transfer",
           refId: tr.id,
           note: "Transfer approved",
@@ -396,6 +437,11 @@ export const transferRouter = router({
             custodianId: asset.currentCustodianId,
             projectId: asset.currentProjectId,
             locationId: asset.currentLocationId,
+            /* Same carry-forward as assignment.decline (STI-203): truck and
+               trailer have no asset.current_* column, so "nothing changed"
+               copies the newest ledger snapshot's keys verbatim — a blind
+               null would blank a recorded ride on the next rebuild. */
+            ...(await vehicleContextFromLedger(tx, tid, tr.assetId)),
           };
           await tx.insert(schema.transaction).values({
             tenantId: tid,

@@ -72,6 +72,9 @@ export async function approveTaskAction(
     ...(stored.custodianId ? { custodianId: stored.custodianId as string } : {}),
     ...(stored.projectId ? { projectId: stored.projectId as string } : {}),
     ...(stored.locationId ? { locationId: stored.locationId as string } : {}),
+    /* The rig the requester named (STI-203) — the desk signs off on it. */
+    ...(stored.truckId ? { truckId: stored.truckId as string } : {}),
+    ...(stored.trailerId ? { trailerId: stored.trailerId as string } : {}),
     ...(stored.draft ? { draft: stored.draft as ChatAction["draft"] } : {}),
     note: note || (stored.note as string) || `Approved from request: ${task.title}`,
   };

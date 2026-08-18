@@ -35,7 +35,11 @@ record. Do not reach for it because a migration is inconvenient.
   where `truck_kind` is a generated constant `'truck'` (likewise trailer) — a plain FK cannot
   say "must be a truck" when both columns point at the same table. Consequence: deleting a
   vehicle, or flipping its `vehicle_type`, fails with an FK error while any assignment row
-  references it. The columns themselves stay nullable; `NULL` skips the check (MATCH SIMPLE).
+  — active, closed or historical — references it; the friendly guards in front of that raw
+  error live in `vehicle.delete`/`vehicle.update` (STI-203). The columns themselves stay
+  nullable; `NULL` skips the check (MATCH SIMPLE). The FK is also **tenant-blind** —
+  `vehicle_id_type_uq` has no tenant column — so every truck/trailer lookup must carry its
+  own tenant predicate (`assertVehicleContext` in `custody.ts`).
   Never read or write `truck_kind`/`trailer_kind` — they exist only so the FK can be written.
 - **`assignment` carries one partial unique index**, `assignment_one_active_uq` on
   `(asset_id) WHERE status = 'active'` (STI-103, migration `0015`). It blocks a *second active*
