@@ -60,8 +60,11 @@ survivor.
    why rather than leaving it implicit.
 4. A test proves the constraint bites: attempting to open a second active assignment
    for one asset raises a database error.
-5. Duplicate check run against **production** and the result recorded in the QA
-   report before the migration is applied there.
+5. Duplicate check run against **production** and the result recorded before the
+   migration is applied there. **A script now exists for exactly this:**
+   `scripts/sti-103-production-preflight.sh` — read-only, exits 0 on a clean database
+   and 1 with the offending tools listed. Still OUTSTANDING: no agent has production
+   access, so a human must run it.
 6. `custody.ts`'s header comment is updated. It currently tells the reader duplicates
    exist in the wild and that this file is the only enforcement. After this ticket
    both halves are wrong, and that comment is load-bearing documentation.

@@ -133,12 +133,15 @@ fix them. None is Phase 1 scope; none blocks anything delivered above.
 | Ticket | What | Why it matters |
 |---|---|---|
 | [STI-115](STI-115-asset-create-not-transactional.md) | `asset.create` is not transactional | A failure between its two writes leaves an asset with a projection and no ledger — the no-evidence state, from a legitimate path |
-| [STI-116](STI-116-rest-asset-create-mass-assign.md) | `/api/*` writes assets and custody outside every control | `POST /api/assets` mass-assigns the request body onto `current_*` columns; `POST /api/assignment/:id/approve` sets `status='active'` with no chokepoint, no ledger event, no permission check |
+| ~~STI-116~~ | ~~`/api/*` writes assets and custody outside every control~~ | **DONE 2026-08-18 — the whole surface was deleted.** No caller anywhere, and production Caddy never routed `/api/*` at all |
 | [STI-117](STI-117-stale-reads-and-chat-approve-race.md) | Three reads that escaped the lock discipline | Incl. a query with no tenant predicate, and the chat approve surface carrying the same duplicate-event race STI-109 fixed |
 
-**STI-116 is the one to look at first.** QA reached the no-evidence state with a single
-authenticated HTTP call. The surface is already sentenced to deletion in
-`.claude/rules/api-server.md`; the right fix is almost certainly to delete it.
+**STI-116 is closed.** QA reached the no-evidence state with a single authenticated HTTP
+call, so the 349-line `/api/*` surface was deleted outright rather than hardened — no
+caller existed, and production Caddy never routed it. Deleting it also fixed tRPC's
+unauthenticated response, which that surface's blanket middleware had been intercepting.
+
+**STI-115 and STI-117 remain open**, and neither blocks anything delivered.
 
 ### Deferred with Phases 2–5
 
@@ -163,13 +166,19 @@ authenticated HTTP call. The surface is already sentenced to deletion in
 **The production duplicate check for STI-103 has not been run.** No agent has production
 access and none sought it. Before migration `0015` is applied to production, run:
 
-```sql
-select asset_id, count(*) from assignment where status='active' group by 1 having count(*)>1;
+```bash
+make prod-shell
+./scripts/sti-103-production-preflight.sh
 ```
 
-Local returned zero rows on 2026-08-16 and again on 2026-08-18. **If production returns
-rows, stop** — per the ticket, that is a per-tool conversation with the Equipment
-department, not a script that picks a survivor.
+That script is the check. It is read-only, safe to re-run, and exits **0** when the
+database is clean, **1** with the offending tools and every custodian claimed for each, and
+**2** if it could not reach the database (which is *not* a pass). Both paths were tested by
+fabricating a real duplicate locally and restoring afterwards.
+
+Local returned zero duplicates on 2026-08-16 and again on 2026-08-18. **If production
+returns rows, stop** — that is a per-tool conversation with the Equipment department, not a
+script that picks a survivor.
 
 ---
 
@@ -221,6 +230,7 @@ If the boot sweep reports ~754 divergences, the seed has regressed — run
 | Wave order and collision rules | `docs/tickets/EXECUTION-PLAN.md` |
 | Pinned versions that differ from public docs | `docs/tickets/STACK-NOTES.md` |
 | Delivery workflow | `.claude/skills/feature-delivery/SKILL.md` |
+| Production preflight for migration 0015 | `scripts/sti-103-production-preflight.sh` |
 | Workflow tunables and off switch | `.claude/workflow.config.json` |
 | Agent definitions | `.claude/agents/` |
 | Per-feature archive convention | `docs/features/README.md` |

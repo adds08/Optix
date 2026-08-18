@@ -12,7 +12,7 @@ it now) are separate axes, and tools follow the person, not the site.
 |---|---|
 | To run it, seed it, or unstick the containers | `docs/SETUP.md` |
 | The domain model, roadmap, ADRs | `AGENTS.md` |
-| Rules for the area I'm editing | `.claude/rules/` — loads automatically |
+| Rules for the area I'm editing | `.claude/rules/` — **read the file covering your area; nothing loads it for you** |
 | A verified architecture walkthrough | `STINVENTORY-EXPLAINER.md` |
 
 ---
@@ -85,8 +85,8 @@ If minimalism or convenience conflicts with any of these, they win — say so ou
    This rule is not housekeeping. Both halves have already cost this project real time:
 
    - **A stale doc is worse than no doc, because agents obey it confidently.**
-     `.claude/rules/` loads automatically, so a wrong rule there misleads *every* future
-     change, not just the next one. A stale gate table in `custody-and-ledger.md` caused a
+     `.claude/rules/` is what every agent is told to read before touching an area, so a
+     wrong rule there misleads *every* future change, not just the next one. A stale gate table in `custody-and-ledger.md` caused a
      ticket to be written specifying a control for a state that had been deleted from the
      backend months earlier.
    - **Data the seed cannot produce is behaviour nobody tests.** The seed carries no

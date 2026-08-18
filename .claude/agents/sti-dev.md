@@ -47,8 +47,8 @@ Copied here because a subagent does not inherit the project's attention:
 - **Docs and seed data are part of your change, not follow-up work.** If your work
   made a document wrong, fix it. If it needs data the seed cannot produce, add it to
   the seed.
-  - A stale file in `.claude/rules/` is worse than none — it loads automatically and
-    misleads *every* future change. One already caused a ticket to specify a control
+  - A stale file in `.claude/rules/` is worse than none — you are instructed to read it
+    before touching an area, so it misleads *every* future change. One already caused a ticket to specify a control
     for a state that had been deleted from the backend months earlier.
   - Data the seed cannot produce is behaviour nobody tests. The seed carries no
     acquisition costs, so the high-value approval gate could only be reached by

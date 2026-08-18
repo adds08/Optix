@@ -142,7 +142,7 @@ above depends on them.
 | Ticket | What | Units | Status |
 |---|---|---|---|
 | [STI-115](STI-115-asset-create-not-transactional.md) | `asset.create` is not transactional | 1 | READY — not started |
-| [STI-116](STI-116-rest-asset-create-mass-assign.md) | `/api/*` writes assets and custody outside every control | 1 | READY — not started |
+| [STI-116](STI-116-rest-asset-create-mass-assign.md) | `/api/*` writes assets and custody outside every control | 1 | ✅ DONE — whole surface deleted |
 | [STI-117](STI-117-stale-reads-and-chat-approve-race.md) | Three reads that escaped the lock discipline | 1 | READY — not started |
 
 ### Phase 2 — Assignment detail (7 units)

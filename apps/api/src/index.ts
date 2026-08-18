@@ -15,7 +15,6 @@ import { processQueuedMessages } from "./messaging-worker.js";
 import { clearRateLimit, clientIp, rateLimit } from "./rate-limit.js";
 import { isAllowedImage, MAX_PHOTO_BYTES, storageFor } from "./storage.js";
 import { sweepRequests } from "./request-worker.js";
-import { mountRestRoutes } from "./rest-routes.js";
 import * as schema from "@stinventory/db/schema";
 import { and, eq } from "drizzle-orm";
 
@@ -226,7 +225,30 @@ app.post("/auth/logout", async (c) => {
   which charges permissions and never silently succeeds.
 */
 
-mountRestRoutes(app, db);
+/*
+  The `/api/*` REST surface used to be mounted here (`rest-routes.ts`, 28 routes).
+  Removed 2026-08-18 (STI-116) for the same reason `POST /ai/chat` above was: it
+  was a second executor, and a second executor is the bug.
+
+  It authenticated and then stopped — no permission checks at all, so a
+  `warehouse` user refused by tRPC `employee.create` got a 200 from
+  `POST /api/employees`. It mass-assigned (`{...body}` spread into the insert), so
+  `POST /api/assets` could set `current_custodian_id` and `current_status`
+  directly: custody state written with no ledger event and no chokepoint.
+  `POST /api/assignment/:id/approve` flipped a status to `active` without closing
+  the previous link or writing a `transaction` row. QA reached an unreportable
+  no-evidence state with one authenticated call.
+
+  Nothing called it: no reference in apps/web or apps/mobile, and the production
+  Caddyfile routes only /trpc/*, /auth/*, /health, /assets/*, /media/* and
+  /field/* — `/api/*` never reached this process in production at all.
+
+  Its blanket `use("*")` bearer middleware also intercepted `/trpc/*`, which is why
+  an unauthenticated tRPC call used to return a bare `{"error":"Unauthorized"}`
+  instead of a tRPC UNAUTHORIZED envelope, and why every authenticated call
+  resolved its session twice. Both are fixed by this removal — tRPC resolves its
+  own session in `createContext` below and always did.
+*/
 
 app.use(
   "/trpc/*",

@@ -2,7 +2,7 @@
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit
-**Status:** READY
+**Status:** ✅ DONE — resolved by deletion, 2026-08-18
 **Found by:** the STI-110 implementer on 2026-08-18 (as a no-evidence factory).
 Widened by the lead on reading it — the defect is larger than first reported.
 
@@ -63,7 +63,35 @@ already had an active link: HTTP 500, the full `duplicate key value violates uni
 correct**. That is the index doing its job. It is not a reason to leave the route alone: on an
 asset with *no* active link it would still succeed and produce custody with no ledger event.
 
-## Scope — decide first, and the answer is probably deletion
+## RESOLVED — the whole surface was deleted, 2026-08-18
+
+The caller check the ticket demanded was run and came back empty:
+
+- No reference to any `/api/*` path in `apps/web` or `apps/mobile`.
+- The only mention outside docs was the mount itself in `apps/api/src/index.ts`.
+- **The production `docker/Caddyfile` routes only `/trpc/*`, `/auth/*`, `/health`,
+  `/assets/*`, `/media/*` and `/field/*`.** `/api/*` never reached this process in
+  production at all.
+
+So `apps/api/src/rest-routes.ts` (349 lines, 28 routes) was deleted outright, along with
+its import and `mountRestRoutes(app, db)`. A comment at the mount site records why, next to
+the existing note about `POST /ai/chat` being removed for the same reason: a second
+executor is the bug.
+
+**One trap that nearly made this dangerous.** The surface installed a blanket
+`rest.use("*")` bearer middleware and was mounted with `app.route("/", rest)` *before* the
+tRPC handler, so it also intercepted `/trpc/*`. Deleting it therefore changes tRPC's
+unauthenticated behaviour. Verified this is an improvement, not a regression: tRPC resolves
+its own session in `createContext` and always did, so an unauthenticated call now returns a
+proper tRPC `UNAUTHORIZED` envelope instead of a bare `{"error":"Unauthorized"}`, and every
+authenticated call no longer resolves its session twice.
+
+Verified after deletion: `/health` 200, login works, authenticated tRPC works with 0
+divergences, `POST /api/assets` returns 404, web renders, 144 tests green, typecheck 12/12.
+
+## Original scope note — kept for the record
+
+
 
 Establish whether this route has any caller before writing code. The STI-110 implementer
 described the REST surface as "unrouted in prod and slated for deletion". **Confirm that
