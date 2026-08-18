@@ -231,7 +231,15 @@ export const assignmentRouter = router({
         });
       });
 
-      const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, a.assetId) });
+      /* Tenant predicate carried even though this is read-only, only feeds the
+         notification's asset tag, and `a.assetId` came off a tenant-scoped row
+         (STI-117). There is no RLS — the WHERE clause is the isolation — and
+         the rule's value is having no exceptions to reason about: an unscoped
+         lookup here is the template that gets copied into a query where the
+         id is attacker-supplied. */
+      const asset = await ctx.db.query.asset.findFirst({
+        where: and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)),
+      });
       await notifyCustodyDecision(ctx.db, {
         tenantId: ctx.session.tenantId,
         toCustodianId: a.custodianId,
