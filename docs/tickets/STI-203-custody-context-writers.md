@@ -36,6 +36,51 @@ screen captures is not delivered (`SYSTEM_PLAN.md` §9).
 7. Verified in a real browser, with the resulting `assignment` row **and** the
    `transaction.to_state` queried directly to confirm both were written.
 
+## New in scope — three raw-FK error paths STI-202 created
+
+STI-202's composite FKs use `ON DELETE NO ACTION` (`SET NULL` is illegal on a generated
+column). Once `truck_id`/`trailer_id` carry values — which they do **from the next
+reseed**, because the seed now attaches the synthetic truck to TOOL-0001 — three
+existing routes raise a raw Postgres FK error and surface as a 500. Treat these as
+live, not theoretical. All in `packages/api-contracts/src/routers/location.ts`:
+
+1. **`vehicle.delete`** — procedure at `:641`, deletes at `:663-664`. Needs an
+   "assignments reference this vehicle" pre-check returning a friendly `BAD_REQUEST`,
+   alongside the existing tools-aboard guard at `:650-660`.
+   **Closed and historical assignment rows count too** — the FK does not care about
+   status — so the message must say the vehicle has assignment *history*, not just
+   active custody. Getting this wrong produces a guard that passes and then still 500s.
+2. **`vehicle.update`, the `vehicleType` flip** — input at `:534`, applied at `:569`.
+   Flipping a referenced truck to trailer violates the composite FK. Reject the type
+   change when any assignment references the vehicle.
+3. ~~**`location.delete`**~~ — **this prediction was wrong; do not write a guard for it.**
+   STI-202's QA drove it and found a *pre-existing* guard at `:327` already refuses
+   first: `"This is ZZ-SEED-TRUCK (synthetic)'s location. Delete the vehicle instead."`
+   (400). The cascade never runs and the FK is never reached. Verified by attempting it
+   against the running API, not reasoned about.
+
+   It is listed here because a guard written against the original prediction would have
+   been dead code, and because the next person will make the same inference from the
+   `ON DELETE CASCADE` on `vehicle.locationId`.
+
+The other `update(schema.vehicle)` sites (`:65`, `:314`, `:435`) set GPS and custodian
+fields only and never touch `vehicleType`. No guard needed there.
+
+**So the guard work is two paths, not three.**
+
+## The composite FK is tenant-blind — your writers must not be
+
+Found by STI-202's QA. `vehicle_id_type_uq` is `(id, vehicle_type)` with **no tenant
+component**, so at the database level an assignment in tenant A can reference tenant B's
+truck. The FK guarantees the vehicle *type*; it guarantees nothing about the tenant.
+
+Only one tenant is seeded, so this could not be demonstrated empirically — it is
+structural, not observed. That makes it exactly the kind of thing that stays invisible
+until a second tenant exists.
+
+**Every truck/trailer lookup you add must carry `eq(vehicle.tenantId, tid)`** —
+non-negotiable 3, and here the database will not catch you.
+
 ## Watch for
 
 `projectForCustodian` (`custody.ts:88`) defaults the project to the recipient's

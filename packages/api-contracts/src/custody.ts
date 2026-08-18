@@ -36,6 +36,17 @@ export type CustodyMove = {
   toCustodianId: string | null;
   projectId: string | null;
   locationId: string | null;
+  /*
+    STI-202: the truck and trailer the tool rides on, both FKs to `vehicle`
+    (the composite FKs in schema/asset.ts hold truckId to a truck and
+    trailerId to a trailer). OPTIONAL, and not yet persisted by moveCustody —
+    STI-203 carries them into the insert, the ledger toState and every caller.
+    When it does: emit them in toState as EXPLICIT values (null means
+    "affirmatively none"), never as omitted keys — an absent key folds to
+    "not recorded", see the shape-boundary rule in packages/domain/src/fold.ts.
+  */
+  truckId?: string | null;
+  trailerId?: string | null;
   actorUserId: string | null;
   /** Recorded on the row being closed. `returned` when the tool comes back in. */
   closeAs?: "transferred" | "returned";

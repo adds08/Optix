@@ -30,6 +30,13 @@ record. Do not reach for it because a migration is inconvenient.
 - **Enums are not Postgres enums.** Every status/type column is plain `text`; the vocabularies
   live in `packages/types`. The database will *not* stop you writing a value you forgot to
   add. Validate at the router edge with Zod, and use `z.enum(...)` rather than `z.string()`.
+- **`assignment.truck_id`/`trailer_id` are type-checked by composite FKs** (STI-202,
+  migration `0016`): `(truck_id, truck_kind)` references `UNIQUE vehicle(id, vehicle_type)`
+  where `truck_kind` is a generated constant `'truck'` (likewise trailer) — a plain FK cannot
+  say "must be a truck" when both columns point at the same table. Consequence: deleting a
+  vehicle, or flipping its `vehicle_type`, fails with an FK error while any assignment row
+  references it. The columns themselves stay nullable; `NULL` skips the check (MATCH SIMPLE).
+  Never read or write `truck_kind`/`trailer_kind` — they exist only so the FK can be written.
 - **`assignment` carries one partial unique index**, `assignment_one_active_uq` on
   `(asset_id) WHERE status = 'active'` (STI-103, migration `0015`). It blocks a *second active*
   row and nothing else — `pending_approval` rows are uncovered, and rows written before the
@@ -48,16 +55,21 @@ record. Do not reach for it because a migration is inconvenient.
 
 `SEED_RESET=1` wipes first. The seed refuses to run with `NODE_ENV=production`.
 
-Since STI-108 the seed emits a **complete four-key `to_state`** on every ledger event,
+Since STI-108 the seed emits a **complete `to_state`** (the four core keys, plus explicit
+`truckId`/`trailerId` since STI-202 — `truckId` null on every source row because the sheets
+carry no trucks; one clearly-synthetic seed truck exists solely so the truck path is
+reachable, see its `vehSpecs` comment) on every ledger event,
 derived from the same `assetSpecs` entry that sets `asset.current_*` — so a fresh database
 folds to its own projection by construction, `asset.rebuild` actually rebuilds, and
 `asset.verifyProjection` reports zero divergences. (Before STI-108 every seeded row carried
 `to_state: null`, the fold was a no-op, and the boot sweep raised one `custody_discrepancy`
 per asset. Migration 0013 repaired that once, but its `NOT EXISTS` guard never re-runs — the
-seed is what keeps it fixed across resets.) If you add seeded events, snapshot all four keys
-with explicit nulls — a missing key is not "unchanged", it is blanked on the next rebuild —
-and never emit `projection_baseline`, which exists only to compensate for pre-snapshot
-history.
+seed is what keeps it fixed across resets.) If you add seeded events, snapshot every key
+with explicit nulls — the four core keys plus `truckId`/`trailerId`; a missing core key is
+not "unchanged", it is blanked on the next rebuild, and a missing truck/trailer key folds to
+"not recorded" rather than "none" (see the shape-boundary rule in
+`packages/domain/src/fold.ts`) — and never emit `projection_baseline`, which exists only to
+compensate for pre-snapshot history.
 
 The seed also has to **reach the rules it gates** (CLAUDE.md behaviour rule 8): some assets
 carry an `acquisition_cost` at, just below, and above the tenant's `highValueThreshold`
