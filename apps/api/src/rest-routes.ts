@@ -116,9 +116,7 @@ export function mountRestRoutes(app: Hono, db: Database) {
     }).from(s.transfer)
       .innerJoin(s.asset, eq(s.transfer.assetId, s.asset.id))
       .innerJoin(s.employee, eq(s.transfer.toCustodianId, s.employee.id))
-      /* Borrows belong in the desk's queue too — they are the larger half of it
-         now, since a foreman's hand-off no longer settles itself. */
-      .where(and(eq(s.transfer.tenantId, tenantId), inArray(s.transfer.status, ["pending_approval", "pending_verification"])));
+      .where(and(eq(s.transfer.tenantId, tenantId), eq(s.transfer.status, "pending_approval")));
     const withModel = (r: { make: string | null; modelNumber: string | null; description: string | null }) => ({
       ...r,
       assetModel: formatAssetModel(r),

@@ -79,9 +79,10 @@ export async function notifyCustodyDecision(db: any, d: CustodyDecision): Promis
   Telling the desk that something is now waiting on them.
 
   The decision notifications above close the loop for whoever *asked*. Nothing
-  closed it for whoever has to *act*: a hand-off held for a second signature, or
-  a borrow recorded and awaiting verification, appeared only as a number on a
-  dashboard widget somebody had to think to open. So the queue's arrival was
+  closed it for whoever has to *act*: a hand-off held for a second signature
+  appeared only as a number on a dashboard widget somebody had to think to open.
+  (This once also covered a borrow awaiting verification; that path was removed
+  on 2026-08-09 and no writer can produce one.) So the queue's arrival was
   silent, and the tool sat in the wrong truck until the desk happened to look.
 
   Who counts as "the desk" is `tenantSettings.custodyApproverRole` — a setting

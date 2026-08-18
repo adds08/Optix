@@ -158,9 +158,10 @@ export type TransferReason = (typeof TRANSFER_REASONS)[number];
 
 export const TRANSFER_STATUSES = [
   "pending_approval",
-  /* Recorded and applied, but as a borrow: a foreman told the desk where his
-     tool went. Distinct from `pending_approval`, where nothing moved at all —
-     the desk is confirming a fact here, not permitting a change. */
+  /* HISTORICAL ONLY — no writer may produce this. The borrow/verify flow was
+     removed on 2026-08-09 (packages/domain/src/rules.ts: Urban's desk moves
+     tools; foremen do not reassign). The entry stays solely so a pre-removal
+     transfer row still carrying it renders in history. */
   "pending_verification",
   "approved",
   "in_transit",

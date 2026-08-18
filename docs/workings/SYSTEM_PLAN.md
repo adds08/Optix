@@ -110,7 +110,7 @@ stateDiagram-v2
     WithForeman --> Lost: reported missing
 ```
 
-**Verification model, not acceptance model.** Urban operates a desk. A tool physically moves first; the Equipment desk then *verifies* or *reverses* the record. The receiving foreman is never asked to accept. This was a deliberate decision — blocking a tool that has already physically moved is worse than recording it and confirming later. Do not implement recipient accept/reject.
+**Desk-origin model, not verification model.** Urban operates a desk, and the desk is the only writer of movements: foremen hold neither `assignment.create` nor `transfer.create` (removed 2026-08-09 — see the rationale in `packages/domain/src/rules.ts`). Every hand-off is recorded at the desk as `pending_approval` and approved or declined there; nothing moves first to be verified later, because nobody but the desk can record a move. The receiving foreman is still never asked to accept — do not implement recipient accept/reject. The old `pending_verification` transfer state is historical only: no writer can produce it, and its enum entry survives solely so old rows render.
 
 ---
 
@@ -217,7 +217,7 @@ def verify_projection():
     report(divergent)                                # must be empty
 ```
 
-Tasks: desk queue screen (approve / verify / decline, borrow vs held distinction visible) · atomic writes · unique index + duplicate backfill · ledger immutability · reconciliation check · desk alert on pending · commit migrations + drift detection in CI.
+Tasks: desk queue screen (approve / decline) · atomic writes · unique index + duplicate backfill · ledger immutability · reconciliation check · desk alert on pending · commit migrations + drift detection in CI.
 
 **Risk.** The duplicate backfill must decide which of two active assignments survives. That is a per-tool judgement made with the Equipment department, not a script.
 

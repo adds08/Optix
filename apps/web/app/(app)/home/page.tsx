@@ -129,14 +129,12 @@ export default function HomePage() {
 
   const k = kpis.data;
 
-  /* "Awaiting approval" and "Awaiting verification" are different questions —
-     may this happen, versus this happened, is the record right. They share one
-     query and split here. */
-  const all = approvals.data ?? [];
-  const holds = all.filter((a) => a.status === "pending_approval");
-  const borrows = all.filter((a) => a.status === "pending_verification");
+  /* Everything pendingApprovals returns is pending_approval — the verify flow
+     (and its "Loans to verify" card) was removed on 2026-08-09; the desk is
+     the only writer of movements now. */
+  const holds = approvals.data ?? [];
 
-  const attention = (clearance.data?.length ?? 0) + all.length;
+  const attention = (clearance.data?.length ?? 0) + holds.length;
 
   const idleCount = idleReport.data?.length ?? 0;
 
@@ -237,24 +235,6 @@ export default function HomePage() {
                         key={p.id}
                         left={<Tag>{p.assetTag}</Tag>}
                         mid={`${p.type} · ${p.custodianName ?? "—"}`}
-                        right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
-                      />
-                    ))}
-                  </AttentionCard>
-
-                  <AttentionCard
-                    tone="warn"
-                    icon={Handshake}
-                    title="Loans to verify"
-                    count={borrows.length}
-                    href="/custody?tab=queue"
-                    empty="No foreman hand-off is waiting to be checked."
-                  >
-                    {borrows.slice(0, 4).map((p) => (
-                      <Row
-                        key={p.id}
-                        left={<Tag>{p.assetTag}</Tag>}
-                        mid={`${p.fromName ?? "Somebody"} → ${p.custodianName ?? "—"}`}
                         right={<span className="text-muted-foreground">{relative(p.createdAt)}</span>}
                       />
                     ))}

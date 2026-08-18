@@ -285,8 +285,6 @@ export const dashboardRouter = router({
         assetModelNumber: schema.asset.modelNumber,
         assetDescription: schema.asset.description,
         custodianName: schema.employee.name,
-        /* The desk has to be able to tell the two apart before it acts: one is
-           "may this happen", the other is "this happened, is it right". */
         status: schema.transfer.status,
         fromName: sql<string | null>`(select name from employee where id = ${schema.transfer.fromCustodianId})`,
         createdAt: schema.transfer.createdAt,
@@ -294,12 +292,7 @@ export const dashboardRouter = router({
       .from(schema.transfer)
       .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
       .innerJoin(schema.employee, eq(schema.transfer.toCustodianId, schema.employee.id))
-      .where(
-        and(
-          eq(schema.transfer.tenantId, tid),
-          inArray(schema.transfer.status, ["pending_approval", "pending_verification"]),
-        ),
-      );
+      .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval")));
     return [...pendingAssignments, ...pendingTransfers]
       .map((r) => ({
         ...r,
@@ -348,12 +341,7 @@ export const dashboardRouter = router({
           ctx.db
             .select({ c: count() })
             .from(schema.transfer)
-            .where(
-              and(
-                eq(schema.transfer.tenantId, tid),
-                inArray(schema.transfer.status, ["pending_approval", "pending_verification"]),
-              ),
-            ),
+            .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval"))),
         ]);
         return Number(a[0]?.c ?? 0) + Number(t[0]?.c ?? 0);
       })(),
