@@ -205,26 +205,44 @@ export const assetRouter = router({
          may arrive without one. What it is called in the ledger is the id; the
          display name is whatever of make/model/description was given. */
       const label = formatAssetModel(input) || "Untagged tool";
-      const [row] = await ctx.db
-        .insert(schema.asset)
-        .values({
-          tenantId: ctx.session.tenantId,
-          createdBy: ctx.session.userId,
-          currentStatus: "available",
-          currentLocationId: input.locationId ?? null,
-          ...input,
-        })
-        .returning();
+      /* One transaction for the row and its opening `tag` event (STI-115).
+         These were two bare awaits; a failure between them left an asset with
+         a projection but zero ledger rows — and because the ledger is
+         append-only (STI-104), the missing opening snapshot could never be
+         written retroactively, so STI-110's sweep reported the asset as
+         no_evidence forever. Same shape as the importer's insertOne. */
+      const row = await ctx.db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(schema.asset)
+          .values({
+            tenantId: ctx.session.tenantId,
+            createdBy: ctx.session.userId,
+            currentStatus: "available",
+            currentLocationId: input.locationId ?? null,
+            ...input,
+          })
+          .returning();
+        if (created) {
+          await tx.insert(schema.transaction).values({
+            tenantId: ctx.session.tenantId,
+            assetId: created.id,
+            eventType: "tag",
+            actorId: ctx.session.userId,
+            toState: { status: "available", custodianId: null, projectId: null, locationId: input.locationId ?? null },
+            refType: "manual",
+            note: `Asset ${label} registered`,
+          });
+        }
+        return created;
+      });
       if (row) {
-        await ctx.db.insert(schema.transaction).values({
-          tenantId: ctx.session.tenantId,
-          assetId: row.id,
-          eventType: "tag",
-          actorId: ctx.session.userId,
-          toState: { status: "available", custodianId: null, projectId: null, locationId: input.locationId ?? null },
-          refType: "manual",
-          note: `Asset ${label} registered`,
-        });
+        /* Deliberately OUTSIDE the transaction. The ledger event above is the
+           evidence; event_log is best-effort observability and logEvent already
+           swallows its own failures, so an audit hiccup must never roll back a
+           legitimate create. Running after commit also means it can never
+           describe an asset that does not exist — and the custody rule forbids
+           awaiting logEvent inside db.transaction anyway (it pins a pool
+           connection). The importer makes the same call. */
         await logEvent(ctx, {
           category: "asset",
           action: "create",

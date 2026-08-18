@@ -31,7 +31,7 @@ the asset as `no_evidence` every six hours until then.
 
 ## The fix is already the house pattern
 
-The importer does this correctly — `packages/db/src/import.ts:318` inserts the asset and
+The importer does this correctly — `packages/api-contracts/src/routers/import.ts:318` (`insertOne`) inserts the asset and
 its opening event inside the same `tx`. STI-102 did the same for every custody procedure.
 `asset.create` is the straggler.
 
@@ -59,4 +59,4 @@ its opening event inside the same `tx`. STI-102 did the same for every custody p
 ## Files
 
 - `packages/api-contracts/src/routers/asset.ts:206-227` — the create procedure
-- `packages/db/src/import.ts:318` — the correct pattern to copy
+- `packages/api-contracts/src/routers/import.ts:318` — the correct pattern to copy
