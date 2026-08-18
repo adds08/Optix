@@ -11,10 +11,16 @@
 
 `SYSTEM_PLAN.md` §6.2, second half: "typed `TRPCError` across routers".
 
-Verified 2026-08-16. 15 of 22 routers already throw `TRPCError` — this is mostly
-done. What remains is **19 plain `throw new Error`** calls, and they are concentrated
-in exactly the wrong place: the chat and action path, which is the surface a
-non-technical user touches.
+Most routers already throw `TRPCError` — this is mostly done. What remains is a set of
+plain `throw new Error` calls concentrated in exactly the wrong place: the chat and
+action path, which is the surface a non-technical user touches.
+
+**Re-count before you start** — the list below drifted between 2026-08-16 and
+2026-08-18 (19 → 21). The authoritative source is the grep, not this table:
+
+```
+grep -rn 'throw new Error' packages/api-contracts/src --include='*.ts' | grep -v test
+```
 
 | File | Lines |
 |---|---|
@@ -52,8 +58,9 @@ The 7 routers that throw nothing (`action`, `dashboard`, `entity`, `identity`,
 `notification`, `preferences`, `report`, `transaction`) are not in scope. Do not add
 error handling where none is needed to make a count look better.
 
-Also note the `/api/*` REST surface has **no** error formatter and **no** permissions
-(`CLAUDE.md`, Traps). This ticket does not fix that. Do not half-fix it.
+*(The `/api/*` REST surface used to be named here as having no error formatter and no
+permissions. It was **deleted entirely** on 2026-08-18 by STI-116, so that caveat no
+longer applies.)*
 
 ## Files
 

@@ -1,4 +1,4 @@
-import { boolean, decimal, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, decimal, index, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { tenant } from "./identity";
 import { employee } from "./employee";
 import { project } from "./project";
@@ -75,5 +75,13 @@ export const vehicle = pgTable(
   (t) => ({
     tenantIdx: index("vehicle_tenant_idx").on(t.tenantId),
     locationIdx: index("vehicle_location_idx").on(t.locationId),
+    /*
+      STI-202: `id` is the PK, so this pair is trivially unique — it exists
+      only as the referenceable target for assignment's composite FKs
+      (assignment_truck_fk / assignment_trailer_fk), which is how the database
+      can insist that a truckId names a truck. See the comment on those FKs
+      in schema/asset.ts.
+    */
+    idTypeUq: unique("vehicle_id_type_uq").on(t.id, t.vehicleType),
   }),
 );

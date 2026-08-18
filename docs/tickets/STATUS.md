@@ -1,17 +1,20 @@
 # STInventory Release 1 — status and how to resume
 
-**Last updated:** 2026-08-18.
+**Last updated:** 2026-08-18, later session.
 **Branch:** `release-1/delivery`, cut from `development`. Draft PR #1 is open against
 `development`.
-**Scope:** Phase 1 only (`SYSTEM_PLAN.md` §6.1). Phases 2–5 deferred — see `README.md`
-in this directory.
+**Scope:** Phase 1 complete. **Phase 2 is one ticket from done** (STI-203). Phases 3–5
+deferred — see `README.md` in this directory.
 
-> ## Phase 1 is complete. All 15 tickets accepted, each verified by an agent that did not write it.
+> ## Phase 1 complete. Phase 2 has one ticket left — STI-203.
 >
-> Nothing in Phase 1 is outstanding. What remains below is either **deferred scope**
-> (Phases 2–5), **three follow-up tickets opened from defects found during the work**, or
-> **one product question for Urban**. All three categories are stated explicitly — no
-> exceptions.
+> **Invariant 5 now has a schema behind it**, which means four of the five core invariants
+> are enforced and the fifth is one ticket from delivered. Every ticket was verified by an
+> agent that did not write it; two failed QA and were reworked.
+>
+> What remains is stated explicitly below — no exceptions: **STI-203**, three follow-up
+> tickets opened from defects found during the work, **one product question for Urban**, and
+> **one query a human must run before production**.
 
 This document is written so you can resume **cold**, without the conversation that
 produced it.
@@ -23,7 +26,7 @@ produced it.
 ```bash
 cd /home/subedim/inventory
 make ENV=local up          # stack: web :3100, api :4100, postgres
-make ENV=local test        # expect 144 passing
+make ENV=local test        # expect 167 passing
 ```
 
 Then read, in this order:
@@ -31,7 +34,7 @@ Then read, in this order:
 2. `docs/tickets/README.md` — the board.
 3. `docs/tickets/EXECUTION-PLAN.md` — wave order and *why* tickets collide.
 
-To run a ticket end to end: **`/feature-delivery STI-115`**. That skill orchestrates
+To run a ticket end to end: **`/feature-delivery STI-203`**. That skill orchestrates
 ticket → branch → implement → adversarial QA → review. It never fires on its own.
 
 ---
@@ -49,7 +52,7 @@ real controls; the fifth is deferred with Phase 2.
 | 2 | Ledger is append-only | A source comment | Postgres trigger raising `0A000` on UPDATE, DELETE **and** TRUNCATE. Cascade deletes blocked. Test-pinned. |
 | 3 | Custody writes are atomic | Three unwrapped statements | One transaction per procedure, anchored on the asset row. Passing a raw `db` handle is a **compile error**. |
 | 4 | Projection is derivable | Untestable — the fold was a no-op | Folds cleanly. One fold, not two. Divergence sweep every 6h + at boot, reporting **two distinct kinds**. |
-| 5 | Assignment carries truck and trailer | Fails | **Still fails — deferred with Phase 2.** |
+| 5 | Assignment carries truck and trailer | Fails | **Schema delivered (STI-202)** — `truckId`/`trailerId` with a composite FK enforcing vehicle type at the database. **Nothing writes them yet — STI-203.** |
 
 ### Feature by feature, in Phase 1's own terms
 
@@ -130,24 +133,35 @@ and it is not guessed at in code.
 Found by implementers and QA who were instructed to report adjacent problems rather than
 fix them. None is Phase 1 scope; none blocks anything delivered above.
 
+**STI-115, STI-116 and STI-117 are all now DONE.** The three below replaced them, found by
+the greps and probes those tickets required.
+
 | Ticket | What | Why it matters |
 |---|---|---|
-| [STI-115](STI-115-asset-create-not-transactional.md) | `asset.create` is not transactional | A failure between its two writes leaves an asset with a projection and no ledger — the no-evidence state, from a legitimate path |
-| ~~STI-116~~ | ~~`/api/*` writes assets and custody outside every control~~ | **DONE 2026-08-18 — the whole surface was deleted.** No caller anywhere, and production Caddy never routed `/api/*` at all |
-| [STI-117](STI-117-stale-reads-and-chat-approve-race.md) | Three reads that escaped the lock discipline | Incl. a query with no tenant predicate, and the chat approve surface carrying the same duplicate-event race STI-109 fixed |
+| [STI-118](STI-118-intake-and-setstatus-not-atomic.md) | `applyIntake` and `asset.setStatus` split a projection from its ledger event | `applyIntake` is the **chat** path, so this is the remaining route to a no-evidence asset a user can actually reach |
+| [STI-119](STI-119-untenanted-predicate-sweep.md) | Queries without a tenant predicate | None exploitable today; the value is a rule with no exceptions to reason about. Includes one **legitimate** exception (login) that needs documenting, not fixing |
+| [STI-120](STI-120-confirm-claim-crash-recovery.md) | Chat sign-off can duplicate events and strand requests | **A partial multi-asset apply re-applies the successful part on retry — no crash needed.** Also: a stranded task has no sweeper at all |
 
-**STI-116 is closed.** QA reached the no-evidence state with a single authenticated HTTP
-call, so the 349-line `/api/*` surface was deleted outright rather than hardened — no
-caller existed, and production Caddy never routed it. Deleting it also fixed tRPC's
-unauthenticated response, which that surface's blanket middleware had been intercepting.
+**STI-120 is the one to look at first**, and it grew during the work: it was opened as a
+narrow crash-window ticket and QA then showed a duplicate-write reachable by an ordinary
+retry, with no crash involved. Re-size it before starting.
 
-**STI-115 and STI-117 remain open**, and neither blocks anything delivered.
+### Phase 2 — one ticket left
 
-### Deferred with Phases 2–5
+**[STI-203](STI-203-custody-context-writers.md)** carries truck and trailer through
+`custody.ts`, the ledger `toState`, the assign/transfer forms and the jobsite and tool-detail
+screens. Until it lands, the columns exist and nothing writes them — **a column nothing
+writes is not delivered** (`SYSTEM_PLAN.md` §9).
 
-- **Invariant 5 fails.** `assignment` carries a single `locationId`, so a tool cannot record
-  both a truck and a trailer — one of the five core invariants, and one of the questions the
-  system exists to answer.
+Two things QA established that the ticket now carries, and both would otherwise be
+rediscovered the hard way:
+
+- The guard work is **two** paths, not three. `location.delete` already refuses before the
+  cascade, so a guard there would be dead code.
+- **The composite FK is tenant-blind.** It guarantees vehicle *type*, nothing about tenant.
+  Every truck/trailer lookup must carry `eq(vehicle.tenantId, tid)` itself.
+
+### Deferred with Phases 3–5
 - **No user administration of any kind.** Creating a user means editing `seed-data.ts` and
   reseeding. Three accounts exist.
 - **Login is tenant-blind.** Credential lookup is by email with no tenant predicate, and
@@ -208,12 +222,19 @@ If the boot sweep reports ~754 divergences, the seed has regressed — run
    Four ran concurrently on 2026-08-18 with named file ownership and a ban on
    `reset`/`seed`/`migrate`/`test`; nothing collided. Earlier, agents sharing the database
    produced two false defect reports. Reads parallelise, writes do not.
-2. **Serialise anything that changes DB shape.** Migrations collide on numbering; triggers
-   and constraints change behaviour under everyone else's tests.
-3. **Full adversarial QA on every ticket, by an agent that did not write the code.** Two of
-   six implementations failed QA on 2026-08-18, both on incomplete doc sweeps rather than
-   broken code — and both would have shipped a document that actively lied. The
-   differentiator every time is a second agent trying an input the first did not.
+2. **Serialise anything that changes DB shape — I broke this rule and it cost a round.**
+   Running a schema ticket in parallel with another implementer put a `truckId` column in
+   the tree with its migration unapplied, so every assignment write failed and the running
+   API was broken until I applied `0016`. The other agent stopped and escalated rather than
+   working around it, which was correct. Migrations collide on numbering; constraints change
+   behaviour under everyone else's tests.
+3. **Full adversarial QA on every ticket, by an agent that did not write the code.** Four of
+   ten implementations failed QA on 2026-08-18. Two were incomplete doc sweeps that would
+   have shipped a document actively lying; one had wedged the connection pool under
+   concurrency while passing its own tests; one had fixed a function the user never touches.
+   The differentiator every time is a second agent trying an input the first did not.
+   **Ask implementers directly whether a branch is tested.** Asked plainly, one said "no"
+   and added the tests — that honesty is worth more than any report that claims coverage.
 4. **Docs and seed data are part of the change** — `CLAUDE.md` behaviour rule 8. A stale file
    in `.claude/rules/` loads automatically and misleads every future change.
 5. **Never `git add -A`.** The tree carries root-owned `node_modules/` and `.turbo/` from

@@ -538,9 +538,15 @@ but that is every demo and dev instance.
 
 *Closed in two steps: migration 0013 (STI-101) appended a `projection_baseline` snapshot per
 asset to repair existing ledgers once, and STI-108 made the seed itself emit a complete
-four-key `toState` on every event, derived from the same spec that sets `current_*` — so a
-fresh `make ENV=local reset` now folds to its own projection and `asset.verifyProjection`
-reports zero divergences.*
+snapshot on every event, derived from the same spec that sets `current_*` — so a fresh
+`make ENV=local reset` now folds to its own projection and `asset.verifyProjection` reports
+zero divergences.*
+
+*Since STI-202 those seeded snapshots carry **six** keys, adding `truckId` and `trailerId`.
+Note what that means for a reset: `SEED_RESET` wipes `transaction`, and 0013's backfill has
+a `NOT EXISTS` guard so it never re-runs — so a **freshly reset** database contains only
+new-shape events, while a database **migrated in place** carries both. Mixed-shape folding
+is therefore exercised by `fold.test.ts`'s shape-boundary tests, not by seeded data.*
 
 Two structural aggravators:
 - **`asset.rebuild` doesn't use the tested fold.** ~~It reimplements it inline

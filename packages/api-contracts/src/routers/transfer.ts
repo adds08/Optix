@@ -226,38 +226,25 @@ export const transferRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${tr.status}.` });
       }
 
-      /*
-        A transfer names only what it changes.
-
-        `create` stores `toProjectId`/`toLocationId` as null when the person
-        moving the tool did not pick one — the form's "No change" option. Approve
-        then wrote those nulls straight onto the asset, so signing off a
-        person-to-person hand-off silently erased where the tool was and which
-        project it was on. UIC-1001 lost both this way, and the register could no
-        longer answer "where is it" for a tool it still called assigned.
-
-        Null means "leave it alone", so the current value is the fallback.
-      */
-      const asset = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)),
-      });
-      const toProjectId = tr.toProjectId ?? asset?.currentProjectId ?? null;
-      const toLocationId = tr.toLocationId ?? asset?.currentLocationId ?? null;
-
       /* Sign-off + close + open + projection + ledger commit or vanish together
          (STI-102). This used to be four bare consecutive writes — a crash
          between any two left a completed transfer whose custody never moved,
          the disagreement the rebuild guarantee exists to detect. */
+      let asset: typeof schema.asset.$inferSelect | undefined;
       await ctx.db.transaction(async (tx) => {
         /* Ask again under the lock (STI-109) — identical shape to
            assignment.approve, on purpose. The pending_approval guard above ran
            before this transaction existed, so two simultaneous approves both
            passed it and both wrote a "Transfer approved" event into the
-           append-only ledger. Queue on the asset row — the same anchor
-           moveCustody locks below — then re-read the row now that whoever held
-           the lock has committed. */
-        await tx
-          .select({ id: schema.asset.id })
+           append-only ledger. The asset read doubles as the lock — the same
+           anchor moveCustody locks below — and lives in here (it sat before
+           the transaction until STI-117) because a return committing in the
+           gap left this path writing a `fromState`, and "no change" fallbacks
+           below, describing custody that had already moved: the stale-read
+           class STI-112 fixed in `decline`. Whoever held the lock has
+           committed by the time these reads run. */
+        [asset] = await tx
+          .select()
           .from(schema.asset)
           .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)))
           .for("update");
@@ -268,6 +255,23 @@ export const transferRouter = router({
         if (fresh?.status !== "pending_approval") {
           throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${fresh?.status ?? "gone"}.` });
         }
+
+        /*
+          A transfer names only what it changes.
+
+          `create` stores `toProjectId`/`toLocationId` as null when the person
+          moving the tool did not pick one — the form's "No change" option.
+          Approve then wrote those nulls straight onto the asset, so signing off
+          a person-to-person hand-off silently erased where the tool was and
+          which project it was on. UIC-1001 lost both this way, and the register
+          could no longer answer "where is it" for a tool it still called
+          assigned.
+
+          Null means "leave it alone", so the current value — as read under the
+          lock — is the fallback.
+        */
+        const toProjectId = tr.toProjectId ?? asset?.currentProjectId ?? null;
+        const toLocationId = tr.toLocationId ?? asset?.currentLocationId ?? null;
         await tx
           .update(schema.transfer)
           .set({ status: "completed", approvedBy: ctx.session.userId, completedAt: new Date() })

@@ -19,6 +19,13 @@ it finds — it *replaces*, it does not merge. So emitting `{status: "in_mainten
 does not mean "status changed"; it means *custodian, project and location are now undefined*,
 and a rebuild will blank them.
 
+Since STI-202 the snapshot also carries **optional** `truckId`/`trailerId` keys. They are
+optional only so pre-STI-202 history stays readable: an ABSENT key folds to "not recorded",
+an explicit `null` means "affirmatively none" — two different answers, and the fold keeps
+them distinct (the shape-boundary rule in `fold.ts`, pinned by the "shape boundary" tests).
+A shape-aware writer must emit BOTH keys with explicit values; writers not yet carried over
+by STI-203 still emit four-key snapshots, which is legal and reads as "unknown".
+
 This bug has shipped three times. `fold.test.ts:114-135` pins it. Every writer that got it
 wrong carries a scar-tissue comment — grep "Same fallbacks the asset update"
 (`assignment.ts` create), "What a return MEANS" (`assignment.ts` return, STI-113: the
@@ -84,6 +91,23 @@ tool away weeks earlier. Read the header comment at the top of `custody.ts`.
   serialise with each other), re-reads the row, and raises `CONFLICT` — naming the
   actual status — if the work is already done. Follow that shape if you add another
   decision path.
+
+  One deliberate exception to the shape (STI-117): the two chat sign-off paths
+  in `approve.ts` (`approveTaskAction`, `confirmMessageAction`) use
+  **claim-then-act**, not a held lock. One conditional `UPDATE … WHERE status
+  still confirmable` is the claim — racing claims serialise on the row lock
+  inside the statement, the loser matches nothing and raises `CONFLICT` — and
+  `applyChatAction` then runs **outside any transaction**. Two reasons: a
+  `pendingAction` can name several assets or (intake) none, so no asset row can
+  anchor the re-check; and `applyChatAction` opens its own transaction on the
+  raw handle, so holding any transaction — and its pool connection — across it
+  wedges the pool at pool-size concurrent approves. That wedge is client-side
+  starvation (`max: 10`, `packages/db/src/index.ts`) which Postgres's deadlock
+  detector cannot see; QA reproduced it before this shape replaced a held-lock
+  first attempt. **Never hold a `db.transaction` open across
+  `applyChatAction`.** The claim writes the terminal state before the apply;
+  the trade-offs (stranded-claimed on crash, and the un-claim on a failed
+  apply) are named on the claim comments in `approve.ts`.
 - **Declines are custody-affecting (STI-112).** Both `assignment.decline` and
   `transfer.decline` write a `status_change` event with `from_state = to_state` — the
   complete four-key snapshot, read under the lock so it is the state at commit time.

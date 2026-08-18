@@ -47,15 +47,43 @@ query where it does matter.
 
 Grep for the same shape elsewhere while you are here, and report what you find.
 
-## Defect 3 — the chat approve surface has the pre-lock guard STI-109 removed
+## Defect 3 — the chat approve surfaces have the pre-lock guard STI-109 removed
 
-`packages/api-contracts/src/approve.ts:~46` checks status **before** the transaction that
-`applyChatAction` uses to write ledger events — exactly the shape STI-109 fixed in the two
-custody approve paths. A double-tapped confirm in chat is the same duplicate-ledger-event
-race, in the same append-only ledger that can never be pruned.
+**There are TWO functions here, and the first version of this ticket named only one.**
+That error cost a QA round: the implementer fixed `approveTaskAction` exactly as
+specified, and the surface the rationale below actually describes was left untouched.
 
-This one is the most likely of the three to be hit by a real user, because tapping a chat
-confirmation twice is an ordinary thing to do on a phone with a slow connection.
+| Function | Reached from | Status |
+|---|---|---|
+| `approveTaskAction` (`approve.ts:~46`) | `task.approve`, `inbox.resolve` | the one the original ticket pointed at |
+| **`confirmMessageAction`** (`approve.ts:182-262`) | **the chat Confirm button** — `apps/web/app/(app)/chat/page.tsx:150`, `apps/mobile/.../handoff.tsx:65` | **the one the rationale means** |
+
+Both check status **before** the transaction that `applyChatAction` uses to write ledger
+events — exactly the shape STI-109 fixed in the two custody approve paths. A double-tapped
+confirm is the same duplicate-ledger-event race, in the same append-only ledger that can
+never be pruned.
+
+This is the most likely of the three to be hit by a real user, because tapping a chat
+confirmation twice is an ordinary thing to do on a phone with a slow connection. QA
+demonstrated it in a browser: two clicks produced two `assign` ledger rows and two
+assignment rows, the first closed as `"transferred"` — a transfer that never happened, now
+permanent in the record.
+
+### Do not fix this by wrapping `applyChatAction` in an outer transaction
+
+The obvious fix is a regression. `applyChatAction` takes the raw `db` handle and opens its
+**own** transaction (`apply-action.ts:241`), so an outer transaction holds one pool
+connection while the inner work needs a second. The pool is `max: 10`
+(`packages/db/src/index.ts`). Ten concurrent approves on ten *distinct* rows hold every
+connection while each waits for an eleventh.
+
+QA produced exactly this and it never recovers — Postgres reports `blocked_on_locks: 0`,
+because it is client-side pool starvation that the deadlock detector cannot see, and the
+shared pool means every other API request starves with it.
+
+**Use claim-then-act instead:** a short transaction that locks the row, re-checks status and
+claims it, then commits; `applyChatAction` outside any transaction; a short transaction to
+finish. The whole race lives in the first step, which is why that step can be short.
 
 ## Acceptance criteria
 
