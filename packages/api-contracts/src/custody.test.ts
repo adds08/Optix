@@ -643,8 +643,11 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
     const assetId = await newAsset();
     const trailerLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, trailerId) }))!.locationId;
 
-    /* Assigned INTO the trailer: the ride on the snapshot, and the trailer's
-       own location row on the asset so the container query finds it aboard. */
+    /* Assigned INTO the trailer, with the trailer's own location row too.
+       Since STI-207 the location is no longer what makes it aboard — the
+       assignment's `trailerId` is — but keeping both set here holds this test
+       to its original subject: that the hand-over CARRIES the ride forward.
+       The next test covers the case where only the assignment says so. */
     await assignmentRouter.createCaller(ctx).create({ assetId, custodianId: empA, trailerId, locationId: trailerLoc });
 
     await locationRouter.createCaller(ctx).setCustodian({
@@ -669,6 +672,210 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
       .from(schema.assignment)
       .where(and(eq(schema.assignment.tenantId, tenantId), eq(schema.assignment.assetId, assetId), eq(schema.assignment.status, "active")));
     expect(link).toEqual({ custodianId: empB, truckId: null, trailerId });
+  });
+
+  it("a tool aboard by its ASSIGNMENT but parked elsewhere by location still moves with its trailer", async () => {
+    /*
+      STI-207 — the case that silently failed before the containment rule
+      changed, and the reason it was invisible.
+
+      `applyContainerCustody` used to decide who was aboard by
+      `asset.current_location_id`. Every seeded row put the tool's location AT
+      its trailer's location row, so both signals agreed and it did not matter
+      which one the query read. The shape STI-202's schema comment actually
+      prescribes is this one: the vehicle in `trailerId`, and `locationId`
+      carrying a NON-vehicle place — here a yard.
+
+      Under the old query this tool was aboard TE-006 by the assignment and NOT
+      aboard by the location, so handing the trailer over left its custody
+      behind. It then read "Rides in: TR-203" while still held by Foreman A:
+      no error, no divergence — the projection and the ledger agreeing with
+      each other and both wrong about the world.
+    */
+    const assetId = await newAsset();
+    const trailerLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, trailerId) }))!.locationId;
+
+    /* A yard: a real place that is NOT a vehicle. */
+    const [yard] = await db
+      .insert(schema.location)
+      .values({ tenantId, type: "warehouse", name: "STI-207 Yard" })
+      .returning({ id: schema.location.id });
+
+    await assignmentRouter
+      .createCaller(ctx)
+      .create({ assetId, custodianId: empA, trailerId, locationId: yard!.id });
+
+    /* Precondition — the two signals genuinely disagree, which is what makes
+       this test meaningful rather than a restatement of the one above. */
+    const [before] = await db
+      .select({ locationId: schema.asset.currentLocationId, custodianId: schema.asset.currentCustodianId })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, assetId));
+    expect(before!.locationId).toBe(yard!.id);
+    expect(before!.locationId).not.toBe(trailerLoc);
+    expect(before!.custodianId).toBe(empA);
+
+    await locationRouter.createCaller(ctx).setCustodian({
+      locationId: trailerLoc,
+      custodianEmployeeId: empB,
+      moveContents: true,
+    });
+
+    /* It moved — this is the assertion that fails on the old query. */
+    const [after] = await db
+      .select({ custodianId: schema.asset.currentCustodianId })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, assetId));
+    expect(after!.custodianId).toBe(empB);
+
+    /* …and it carried its rig, so STI-203's carry-forward still holds on the
+       path STI-207 rerouted. */
+    const events = (await db
+      .select()
+      .from(schema.transaction)
+      .where(and(eq(schema.transaction.tenantId, tenantId), eq(schema.transaction.assetId, assetId)))) as unknown as EventEnvelope[];
+    const folded = foldAssetState(events);
+    expect(folded.custodianId).toBe(empB);
+    expect(folded.trailerId).toBe(trailerId);
+    expect(folded.truckId).toBeNull();
+
+    const [link] = await db
+      .select({ custodianId: schema.assignment.custodianId, trailerId: schema.assignment.trailerId })
+      .from(schema.assignment)
+      .where(and(eq(schema.assignment.tenantId, tenantId), eq(schema.assignment.assetId, assetId), eq(schema.assignment.status, "active")));
+    expect(link).toEqual({ custodianId: empB, trailerId });
+  });
+
+  it("a container hand-over does NOT relocate the tool, and leaves no projection divergence", async () => {
+    /*
+      Caught in adversarial review before it shipped, and it is the sharper
+      half of STI-207.
+
+      The old contents query WAS `currentLocationId = locationId`, so writing
+      the container's location into the link and the snapshot merely restated
+      something already true. Selecting by assignment removed that identity: a
+      tool recorded in a yard would have had the trailer's location row stamped
+      onto its ledger event while `applyContainerCustody` — which deliberately
+      never writes `currentLocationId` — left the projection in the yard. The
+      fold would then disagree with the register: a `stale_projection`
+      divergence re-raised every six hours forever, and an `asset.rebuild` that
+      silently relocates the tool out of the yard.
+
+      A hand-over changes WHO holds the tool, not where it is.
+    */
+    const assetId = await newAsset();
+    const trailerLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, trailerId) }))!.locationId;
+    const [yard] = await db
+      .insert(schema.location)
+      .values({ tenantId, type: "warehouse", name: "STI-207 Divergence Yard" })
+      .returning({ id: schema.location.id });
+
+    await assignmentRouter
+      .createCaller(ctx)
+      .create({ assetId, custodianId: empA, trailerId, locationId: yard!.id });
+
+    await locationRouter.createCaller(ctx).setCustodian({
+      locationId: trailerLoc,
+      custodianEmployeeId: empB,
+      moveContents: true,
+    });
+
+    /* The projection did not move the tool out of the yard… */
+    const [projection] = await db
+      .select({ locationId: schema.asset.currentLocationId, custodianId: schema.asset.currentCustodianId })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, assetId));
+    expect(projection!.custodianId).toBe(empB);
+    expect(projection!.locationId).toBe(yard!.id);
+
+    /* …and neither did the ledger, so the two still agree. This is the
+       assertion that fails if the container's location is written here. */
+    const events = (await db
+      .select()
+      .from(schema.transaction)
+      .where(and(eq(schema.transaction.tenantId, tenantId), eq(schema.transaction.assetId, assetId)))) as unknown as EventEnvelope[];
+    const folded = foldAssetState(events);
+    expect(folded.locationId).toBe(yard!.id);
+    expect(folded.custodianId).toBe(empB);
+    expect(folded.trailerId).toBe(trailerId);
+
+    /* The link the move opened tells the same story — STI-113's lesson. */
+    const [link] = await db
+      .select({ locationId: schema.assignment.locationId, trailerId: schema.assignment.trailerId })
+      .from(schema.assignment)
+      .where(and(eq(schema.assignment.tenantId, tenantId), eq(schema.assignment.assetId, assetId), eq(schema.assignment.status, "active")));
+    expect(link).toEqual({ locationId: yard!.id, trailerId });
+  });
+
+  it("handing a trailer BACK and then out again still moves the tools aboard it", async () => {
+    /*
+      Also from review. Selecting purely by active assignment is a trapdoor on
+      the return leg: `moveCustody` with a null custodian CLOSES the active
+      link and opens nothing, so after a hand-back no assignment names the
+      trailer at all. A second hand-over would then find zero tools while they
+      sat in the trailer — permanently orphaned, no error, no divergence.
+
+      Hence the precedence rule: an UNHELD tool (no active assignment) is
+      aboard by its location row, which for such a tool is the only record
+      there is.
+    */
+    const assetId = await newAsset();
+    const trailerLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, trailerId) }))!.locationId;
+
+    await assignmentRouter
+      .createCaller(ctx)
+      .create({ assetId, custodianId: empA, trailerId, locationId: trailerLoc });
+
+    const caller = locationRouter.createCaller(ctx);
+
+    /* Hand it back: custody closes, nothing reopens. */
+    await caller.setCustodian({ locationId: trailerLoc, custodianEmployeeId: null, moveContents: true });
+    const [unheld] = await db
+      .select({ custodianId: schema.asset.currentCustodianId, status: schema.asset.currentStatus })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, assetId));
+    expect(unheld!.custodianId).toBeNull();
+    expect(unheld!.status).toBe("available");
+    const active = await db
+      .select({ id: schema.assignment.id })
+      .from(schema.assignment)
+      .where(and(eq(schema.assignment.tenantId, tenantId), eq(schema.assignment.assetId, assetId), eq(schema.assignment.status, "active")));
+    expect(active).toHaveLength(0); // nothing names the trailer any more
+
+    /* Hand it out again — this is the assertion that fails without the
+       unheld-by-location leg. */
+    await caller.setCustodian({ locationId: trailerLoc, custodianEmployeeId: empB, moveContents: true });
+    const [reheld] = await db
+      .select({ custodianId: schema.asset.currentCustodianId })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, assetId));
+    expect(reheld!.custodianId).toBe(empB);
+  });
+
+  it("a NON-vehicle container still moves its tools by location", async () => {
+    /* The other half of the STI-207 split, and the reason it is a split rather
+       than a wholesale migration: a gang box has no `trailerId` to be aboard
+       of. For a container that is not a vehicle, `current_location_id` is the
+       only signal there is and stays authoritative. */
+    const assetId = await newAsset();
+    const [box] = await db
+      .insert(schema.location)
+      .values({ tenantId, type: "warehouse", name: "STI-207 Gang Box" })
+      .returning({ id: schema.location.id });
+
+    await assignmentRouter.createCaller(ctx).create({ assetId, custodianId: empA, locationId: box!.id });
+
+    await locationRouter.createCaller(ctx).setCustodian({
+      locationId: box!.id,
+      custodianEmployeeId: empB,
+      moveContents: true,
+    });
+
+    const [after] = await db
+      .select({ custodianId: schema.asset.currentCustodianId })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, assetId));
+    expect(after!.custodianId).toBe(empB);
   });
 
   it("a vehicle referenced ONLY from a transfer row refuses delete and type flip with a sentence, not a 500", async () => {

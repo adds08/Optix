@@ -160,6 +160,43 @@ export default function CustodyPage() {
         ),
     }),
     col<QueueRow>({
+      /* STI-206: the rig this movement goes out in. Same phrasing as the
+         jobsite table's "Rides in" — one vocabulary for one fact, rather than
+         inventing a third name for it here.
+
+         A row with nothing recorded renders EMPTY, not "—" and not "no truck".
+         After STI-202's three-state rule an absent vehicle is "this movement
+         never said", which is different from "affirmatively no truck", and a
+         dash reads like the latter. */
+      header: "Rides in",
+      accessorFn: (r) => [r.truckUnit, r.trailerUnit].filter(Boolean).join(" "),
+      width: "11rem",
+      sortable: false,
+      cell: (r) => {
+        if (!r.truckUnit && !r.trailerUnit) return null;
+        return (
+          <span className="text-muted-foreground">
+            {r.truckUnit ? (
+              <span>
+                {r.truckUnit}
+                {/* Company vs personal matters here specifically: the desk is
+                    signing off company property moving on someone's own
+                    truck. It is also the distinction the departure path keys
+                    off. */}
+                {r.truckOwnership === "personal_allowance" ? (
+                  <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                    personal
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+            {r.truckUnit && r.trailerUnit ? " · " : null}
+            {r.trailerUnit ?? null}
+          </span>
+        );
+      },
+    }),
+    col<QueueRow>({
       header: "Requested",
       accessorFn: (r) => (r.createdAt ? new Date(r.createdAt).toISOString() : ""),
       width: "8rem",

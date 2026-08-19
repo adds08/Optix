@@ -38,6 +38,7 @@ export type ToolRow = {
   /* The rig recorded on the ACTIVE assignment (STI-203) — a per-custody fact
      that can differ from the crew's rig above the table. */
   currentTruckUnit?: string | null;
+  currentTruckOwnership?: string | null;
   currentTrailerUnit?: string | null;
 };
 
@@ -122,6 +123,14 @@ export function ToolTable({
                 {t.currentTruckUnit || t.currentTrailerUnit ? (
                   <>
                     {t.currentTruckUnit ?? ""}
+                    {/* Company vs personal, wherever a truck is shown
+                        (STI-501). A tool riding a foreman's own truck is the
+                        case the departure path cares about. */}
+                    {t.currentTruckUnit && t.currentTruckOwnership === "personal_allowance" ? (
+                      <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                        personal
+                      </span>
+                    ) : null}
                     {t.currentTruckUnit && t.currentTrailerUnit ? " · " : ""}
                     {t.currentTrailerUnit ?? ""}
                   </>

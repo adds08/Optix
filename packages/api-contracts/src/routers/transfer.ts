@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome } from "@stinventory/domain";
@@ -27,6 +28,8 @@ import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 export const transferRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const truckVehicle = alias(schema.vehicle, "transfer_to_truck");
+    const trailerVehicle = alias(schema.vehicle, "transfer_to_trailer");
     return ctx.db
       .select({
         id: schema.transfer.id,
@@ -41,9 +44,31 @@ export const transferRouter = router({
         status: schema.transfer.status,
         createdAt: schema.transfer.createdAt,
         completedAt: schema.transfer.completedAt,
+        /* The rig this movement is going out in (STI-206). The desk approves
+           from this list, and approving a movement you cannot fully see is a
+           weaker signature than it looks — the vehicle is not incidental
+           detail. `undefined` here means "no vehicle recorded", which after
+           STI-202's three-state rule is a claim, not an absence: render it as
+           silence, never as an empty slot that reads like a truck. */
+        toTruckId: schema.transfer.toTruckId,
+        toTruckUnit: truckVehicle.unit,
+        toTruckOwnership: truckVehicle.ownershipType,
+        toTrailerId: schema.transfer.toTrailerId,
+        toTrailerUnit: trailerVehicle.unit,
       })
       .from(schema.transfer)
       .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
+      /* Tenant-scoped on the join. The composite FK behind these columns proves
+         the vehicle TYPE and nothing about the tenant, so it will not catch a
+         mistake here. */
+      .leftJoin(
+        truckVehicle,
+        and(eq(schema.transfer.toTruckId, truckVehicle.id), eq(truckVehicle.tenantId, tid)),
+      )
+      .leftJoin(
+        trailerVehicle,
+        and(eq(schema.transfer.toTrailerId, trailerVehicle.id), eq(trailerVehicle.tenantId, tid)),
+      )
       .where(eq(schema.transfer.tenantId, tid))
       .then((rows) => rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   }),

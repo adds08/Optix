@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome } from "@stinventory/domain";
@@ -12,6 +13,8 @@ import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 export const assignmentRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const truckVehicle = alias(schema.vehicle, "assignment_truck");
+    const trailerVehicle = alias(schema.vehicle, "assignment_trailer");
     const rows = await ctx.db
       .select({
         id: schema.assignment.id,
@@ -30,12 +33,30 @@ export const assignmentRouter = router({
         locationName: schema.location.name,
         startDate: schema.assignment.startDate,
         status: schema.assignment.status,
+        /* Same gap as `transfer.list` — the desk approves pending assignments
+           from this list too (STI-206), so it needs the rig for the same
+           reason. `undefined` means "no vehicle recorded"; render it as
+           silence, not as a blank that reads like "no truck". */
+        truckId: schema.assignment.truckId,
+        truckUnit: truckVehicle.unit,
+        truckOwnership: truckVehicle.ownershipType,
+        trailerId: schema.assignment.trailerId,
+        trailerUnit: trailerVehicle.unit,
       })
       .from(schema.assignment)
       .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
       .innerJoin(schema.employee, eq(schema.assignment.custodianId, schema.employee.id))
       .leftJoin(schema.project, eq(schema.assignment.projectId, schema.project.id))
       .leftJoin(schema.location, eq(schema.assignment.locationId, schema.location.id))
+      /* Tenant-scoped on the join — the composite FK is tenant-blind. */
+      .leftJoin(
+        truckVehicle,
+        and(eq(schema.assignment.truckId, truckVehicle.id), eq(truckVehicle.tenantId, tid)),
+      )
+      .leftJoin(
+        trailerVehicle,
+        and(eq(schema.assignment.trailerId, trailerVehicle.id), eq(trailerVehicle.tenantId, tid)),
+      )
       .where(eq(schema.assignment.tenantId, tid));
     return rows.map((r) => ({ ...r, modelName: formatAssetModel(r) }));
   }),

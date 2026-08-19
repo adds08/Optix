@@ -184,8 +184,21 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                   per-custody fact, distinct from Location above. */}
               <Field
                 label="Truck"
-                value={a.currentTruckUnit ?? <span className="text-muted-foreground">—</span>}
-                hint="rides in"
+                value={
+                  a.currentTruckUnit ? (
+                    <span>
+                      {a.currentTruckUnit}
+                      {a.currentTruckOwnership === "personal_allowance" ? (
+                        <span className="ml-1.5 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                          personal
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )
+                }
+                hint={a.currentTruckOwnership === "personal_allowance" ? "rides in — foreman's own truck" : "rides in"}
               />
               <Field
                 label="Trailer"
