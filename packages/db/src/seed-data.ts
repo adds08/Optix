@@ -213,7 +213,11 @@ export const vehSpecs: VehSeed[] = [
   { key: "v-TE-035", loc: "l-TE-035", vtype: "trailer", unit: "TE-035", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-little-elm-23009", foreman: "e-fm025", lat: "32.7766", lng: "-96.7970" },
   { key: "v-TE-036", loc: "l-TE-036", vtype: "trailer", unit: "TE-036", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm026", lat: "32.7766", lng: "-96.7970" },
   /*
-    The ONE synthetic vehicle in the seed, and deliberately the only truck.
+    The FIRST of two synthetic vehicles, and the company-owned truck.
+
+    (A second synthetic truck, `personal_allowance`, follows below — it exists
+    to make the company-vs-personal marker reachable. Urban's sheets still
+    contain zero trucks; both are seed-only.)
 
     Urban's source sheets carry 29 trailers and zero trucks, so nothing real can
     exercise `assignment_truck_fk` or the "in a truck" fold path (STI-202) — the

@@ -852,6 +852,57 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
     expect(reheld!.custodianId).toBe(empB);
   });
 
+  it("a TRUCK as the container moves the tools whose assignment names that truck", async () => {
+    /* The `vehicleType === "truck"` half of the containment branch. The trailer
+       path is covered above; without this, a typo swapping truckId for
+       trailerId in that ternary would pass every other test in this file. */
+    const assetId = await newAsset();
+    const truckLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, truckId) }))!.locationId;
+    const [yard] = await db
+      .insert(schema.location)
+      .values({ tenantId, type: "warehouse", name: "STI-207 Truck Yard" })
+      .returning({ id: schema.location.id });
+
+    /* Aboard the TRUCK by assignment, parked in a yard by location. */
+    await assignmentRouter
+      .createCaller(ctx)
+      .create({ assetId, custodianId: empA, truckId, locationId: yard!.id });
+
+    /* A decoy on the TRAILER: it must NOT move when the truck is handed over
+       directly, or the branch is reading the wrong column. */
+    const decoyId = await newAsset();
+    await assignmentRouter
+      .createCaller(ctx)
+      .create({ assetId: decoyId, custodianId: empA, trailerId, locationId: yard!.id });
+
+    await locationRouter.createCaller(ctx).setCustodian({
+      locationId: truckLoc,
+      custodianEmployeeId: empB,
+      moveContents: true,
+    });
+
+    const [moved] = await db
+      .select({ custodianId: schema.asset.currentCustodianId })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, assetId));
+    expect(moved!.custodianId).toBe(empB);
+
+    const [decoy] = await db
+      .select({ custodianId: schema.asset.currentCustodianId })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, decoyId));
+    expect(decoy!.custodianId).toBe(empA); // the trailer's tool stayed put
+
+    /* The truck is carried forward, and the tool did not get relocated. */
+    const events = (await db
+      .select()
+      .from(schema.transaction)
+      .where(and(eq(schema.transaction.tenantId, tenantId), eq(schema.transaction.assetId, assetId)))) as unknown as EventEnvelope[];
+    const folded = foldAssetState(events);
+    expect(folded.truckId).toBe(truckId);
+    expect(folded.locationId).toBe(yard!.id);
+  });
+
   it("a NON-vehicle container still moves its tools by location", async () => {
     /* The other half of the STI-207 split, and the reason it is a split rather
        than a wholesale migration: a gang box has no `trailerId` to be aboard

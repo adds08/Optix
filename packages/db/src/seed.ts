@@ -568,7 +568,8 @@ async function main() {
              with explicit values, so the fold answers "recorded", not
              "unknown". truckId is an honest null on every source row (the
              sheets have no truck column anywhere, which records "no truck",
-             not "never asked"); only TOOL-0001 carries the synthetic truck,
+             not "never asked"); only TOOL-0001 and TOOL-0003 carry a truck
+             (the company-owned and personal-allowance synthetic ones),
              mirroring its assignment row above. A missing key would instead
              fold to "not recorded" — see the shape-boundary rule in
              packages/domain/src/fold.ts. */
@@ -607,6 +608,12 @@ async function main() {
     projectId: projectByKey["p-nex-22017"]!,
     locationId: locByKey["l-TE-011"]!,
     trailerId: trailerIdByLocKey["l-TE-011"] ?? null,
+    /* The PERSONAL-allowance truck, deliberately (STI-206). The approval queue
+       marks a personal truck so the desk can see it is signing company property
+       onto someone's own vehicle — the distinction the departure path keys off.
+       Without a pending row that carries one, that marker was unreachable from
+       a clean database and nobody could have seen it work. */
+    truckId: seedPersonalTruckId,
     startDate: TODAY,
     status: "pending_approval",
     approvedBy: null,

@@ -149,15 +149,25 @@ the greps and probes those tickets required.
 narrow crash-window ticket and QA then showed a duplicate-write reachable by an ordinary
 retry, with no crash involved. Re-size it before starting.
 
-### Phase 2 follow-ups — three open questions, none blocking
+### Phase 2 follow-ups — ALL THREE NOW CLOSED (2026-08-19)
 
-| Ticket | What | Note |
-|---|---|---|
-| [STI-206](STI-206-approval-queue-hides-the-rig.md) | The Approval queue does not show the rig | The desk gives a second signature without seeing which truck — on the one path where the signature is the point |
-| [STI-207](STI-207-container-membership-is-still-location-based.md) | Container membership is location-based; the truth moved to the assignment | **A tension this work created.** Invisible today because seeded rows satisfy both signals; real the first time a tool is assigned the model-correct way |
-| [STI-208](STI-208-hitching-a-trailer-could-assert-the-new-truck.md) | Hitching carries a stale truck forward | **The answer may legitimately be "no"** — it turns a historical record into a running state, and unhitching has no good answer under the three-state rule |
+| Ticket | Outcome |
+|---|---|
+| [STI-206](STI-206-approval-queue-hides-the-rig.md) | **DONE.** The queue shows the rig. Nothing recorded renders as an empty cell, never a dash — after the three-state rule an absent vehicle is an absence, not a claim of "no truck" |
+| [STI-207](STI-207-container-membership-is-still-location-based.md) | **DONE.** The active assignment is the truth for a vehicle, by **precedence** not union: a tool with no active assignment is aboard by its location row, because an unheld tool has no `trailerId` to be aboard of |
+| [STI-208](STI-208-hitching-a-trailer-could-assert-the-new-truck.md) | **CLOSED — the answer was "no."** Hitching keeps carrying the recorded truck forward. Reasoning recorded at the call site and in the rules, so it is not re-raised |
 
-**Read STI-207 before STI-208** — 207 may change which tools 208 would even apply to.
+**Two defects in STI-207's first cut were caught by adversarial review before they shipped**,
+and both are now pinned by tests confirmed to fail when the fix is reverted:
+
+- The writer stamped the **container's location** onto the link and the ledger snapshot while
+  `applyContainerCustody` never updates `currentLocationId`. Harmless only while the contents
+  query *was* `currentLocationId = locationId`; selecting by assignment removed that identity,
+  so every moved tool would have diverged — a `stale_projection` raised every six hours
+  forever, and an `asset.rebuild` that silently relocates the tool.
+- Selecting **purely** by active assignment made the return leg a trapdoor: handing a
+  container back closes every link and reopens none, so the manifest emptied permanently and
+  the next hand-over moved zero tools while nineteen sat in the trailer.
 
 ### Deferred with Phases 3–5
 - **No user administration of any kind.** Creating a user means editing `seed-data.ts` and
@@ -205,8 +215,8 @@ After `make ENV=local reset`:
 | Boot sweep | `754 assets checked against 754 events, 0 divergences` |
 | Append-only triggers | both `tgenabled = 'O'` |
 | `assignment_one_active_uq` | present |
-| Desk queue | 1 pending assignment + 1 pending transfer |
-| Tests | 144 passing |
+| Desk queue | 1 pending assignment (carries the personal-allowance truck) + 1 pending transfer (trailer only) |
+| Tests | 182 passing |
 | Typecheck | 12/12 |
 
 If the boot sweep reports ~754 divergences, the seed has regressed — run
