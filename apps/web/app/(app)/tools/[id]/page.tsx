@@ -13,7 +13,7 @@ import { AssetActions } from "@/components/asset-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { assetNumberDisplay, dateTime, money, relative, shortDate } from "@/lib/format";
+import { assetNumberDisplay, dateTime, daysFrom, money, relative, shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /* Which events deserve visual weight in the chain. */
@@ -210,7 +210,14 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
               <Field
                 label="Warranty"
                 value={a.warrantyExpiresOn ? shortDate(a.warrantyExpiresOn) : "—"}
-                hint={a.warrantyExpiresOn ? `expires ${relative(a.warrantyExpiresOn)}` : undefined}
+                /* Tense follows the date. "expires 3 days ago" is the other
+                   half of the bug the five warranty reports describe: it reads
+                   as a live warranty even when the tool is out of cover. */
+                hint={
+                  a.warrantyExpiresOn
+                    ? `${(daysFrom(a.warrantyExpiresOn) ?? 0) > 0 ? "expired" : "expires"} ${relative(a.warrantyExpiresOn)}`
+                    : undefined
+                }
               />
             </dl>
             {a.owningProjectName && a.currentProjectName && a.owningProjectName !== a.currentProjectName ? (

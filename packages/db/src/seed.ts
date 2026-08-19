@@ -446,6 +446,34 @@ async function main() {
   // No model catalog: the tools-list source carries its own make/model strings.
   // Cost target: serialized tools -> Equipment Department, the rest -> the
   // Purchased project they ride with.
+  /*
+    Warranty dates, and specifically the FUTURE ones (UI-60/62/63/64/65).
+
+    Every asset carried `warranty_expires_on = NULL`, so the whole warranty
+    surface — the "expires in N days" hint on tool detail and the
+    warranty_soon / warranty_expired badges — was unreachable from a clean
+    database. That is why a past-only date formatter rendering
+    "expires -413 days ago" for a 2027 warranty was found by a human on real
+    data instead of by anyone running the seed. CLAUDE.md rule 8: seed the edge
+    that trips the rule.
+
+    Offsets from today, never fixed dates: a hardcoded 2027 quietly becomes a
+    PAST date next year and the case stops being tested at all.
+  */
+  const dayOffset = (n: number) => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  const WARRANTY_BY_TAG: Record<string, string> = {
+    "TOOL-0001": dayOffset(413), // the exact figure UI-60 and UI-65 report
+    "TOOL-0002": dayOffset(515), // the exact figure UI-62 reports
+    "TOOL-0003": dayOffset(60), // inside WARRANTY_SOON_DAYS (120) — "ending soon"
+    "TOOL-0004": dayOffset(-30), // genuinely expired, so the past branch is covered too
+    "TOOL-0005": dayOffset(1), // "tomorrow" — the singular boundary
+  };
+
   const assetRows = await db
     .insert(asset)
     .values(
@@ -465,7 +493,7 @@ async function main() {
         owningProjectId: a.own ? projectByKey[a.own]! : null,
         costTarget: a.dept ? "department" : "project",
         owningDepartmentId: a.dept ? deptByCode["EQ"]! : null,
-        warrantyExpiresOn: null,
+        warrantyExpiresOn: WARRANTY_BY_TAG[a.tag] ?? null,
         currentStatus: a.status,
         currentCustodianId: a.cust ? empByKey[a.cust]! : null,
         currentProjectId: a.cur ? projectByKey[a.cur]! : null,
