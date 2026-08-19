@@ -102,7 +102,12 @@ app.post("/auth/login", async (c) => {
   /* Succeeded, so the earlier failures were a person misremembering rather
      than an attack — give them their budget back. */
   clearRateLimit(key);
-  return c.json({ sessionId: result.sessionId, userId: result.userId, tenantId: result.tenantId });
+  return c.json({
+    sessionId: result.sessionId,
+    userId: result.userId,
+    tenantId: result.tenantId,
+    mustChangePassword: result.mustChangePassword,
+  });
 });
 
 /*

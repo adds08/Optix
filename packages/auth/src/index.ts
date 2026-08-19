@@ -38,7 +38,7 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
 }
 
 export type LoginResult =
-  | { ok: true; sessionId: string; userId: string; tenantId: string }
+  | { ok: true; sessionId: string; userId: string; tenantId: string; mustChangePassword: boolean }
   | { ok: false; reason: "invalid_credentials" | "inactive" };
 
 /*
@@ -81,6 +81,7 @@ export async function login(
       tenantId: schema.user.tenantId,
       isActive: schema.user.isActive,
       passwordHash: schema.user.passwordHash,
+      mustChangePassword: schema.user.mustChangePassword,
     })
     .from(schema.user)
     .innerJoin(schema.tenant, eq(schema.tenant.id, schema.user.tenantId))
@@ -123,7 +124,11 @@ export async function login(
     tenantId: u.tenantId,
     expiresAt: new Date(Date.now() + SESSION_TTL_MS),
   });
-  return { ok: true, sessionId, userId: u.id, tenantId: u.tenantId };
+  /* Reported, NOT enforced as a refusal (STI-303 criterion 5). An admin who
+     resets a password knows it, so the user must be made to change it — but
+     refusing the login would leave them unable to, since changing a password
+     needs a session. The client forces the change; the flag is the signal. */
+  return { ok: true, sessionId, userId: u.id, tenantId: u.tenantId, mustChangePassword: u.mustChangePassword };
 }
 
 export async function logout(db: Database, sessionId: string): Promise<void> {

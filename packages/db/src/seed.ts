@@ -95,6 +95,13 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "assignment.create",
     "transfer.read",
     "transfer.create",
+    /* The yard desk runs departures operationally (STI-306). `owner` and
+       `equipment_admin` get it through the spread above. Deliberately NOT
+       granted to PM, Engineer, superintendent or HR yet — whether the person
+       who DISCOVERS a departure should be able to act on it is one of the three
+       questions still open on the draft permission matrix, and guessing it here
+       would put a bulk custody move in more hands than Urban has agreed to. */
+    "custody.reassign",
     "report.read",
     "notification.read",
     "notification.manage",
@@ -329,6 +336,10 @@ async function main() {
         passwordHash,
         firstName: u.first,
         lastName: u.last,
+        /* Defaults to active; one seeded account is deactivated so STI-303's
+           Deactivated badge and Reactivate button are reachable from a clean
+           database. */
+        isActive: u.isActive ?? true,
       })),
     )
     .returning();

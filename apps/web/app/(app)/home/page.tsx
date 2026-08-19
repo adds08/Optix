@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { dateTime, money, num, relative } from "@/lib/format";
+import { DepartureReassignButton } from "@/components/departure-form";
 import { FleetLegend } from "@/components/fleet-map-view";
 import { GreetingBar } from "@/components/greeting-bar";
 import { MovementChart } from "@/components/movement-chart";
@@ -220,6 +221,8 @@ export default function HomePage() {
                         right={<StatusPill status={c.status} />}
                       />
                     ))}
+                    {/* The queue named the ex-employee and stopped there (STI-306). */}
+                    <DepartureReassignButton />
                   </AttentionCard>
 
                   <AttentionCard

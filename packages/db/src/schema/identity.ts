@@ -28,6 +28,17 @@ export const user = pgTable(
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    /* STI-303 criterion 5. An admin who resets a password KNOWS it, so a reset
+       that does not force a change leaves a live account whose credential a
+       second person holds indefinitely. The alternative design — a one-time
+       link — needs a token table and an unauthenticated consume endpoint; this
+       is the smaller honest version of the same guarantee.
+
+       Set by `user.resetPassword` and by `user.create`; cleared only when the
+       user sets their own password. `login()` reports it so the client can
+       force the change; it does NOT refuse the login, because a user who
+       cannot log in also cannot change their password. */
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
