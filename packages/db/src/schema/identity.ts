@@ -33,6 +33,16 @@ export const user = pgTable(
   (t) => ({
     tenantIdx: index("user_tenant_idx").on(t.tenantId),
     emailIdx: index("user_email_idx").on(t.email),
+    /* STI-305. `email` alone was a plain index, so the same address could exist
+       twice in one tenant and the credential lookup — which had no tenant
+       predicate — resolved to whichever row Postgres happened to return first.
+       A user could authenticate into the wrong tenant, non-deterministically.
+
+       This closes the within-tenant half at the database. The cross-tenant half
+       cannot be an index (the same person may legitimately hold an account in
+       two tenants); it is closed in `login()`, which now refuses to guess when
+       an address is ambiguous rather than picking a row. */
+    tenantEmailUq: uniqueIndex("user_tenant_email_uq").on(t.tenantId, t.email),
   }),
 );
 

@@ -41,8 +41,60 @@ export type LoginResult =
   | { ok: true; sessionId: string; userId: string; tenantId: string }
   | { ok: false; reason: "invalid_credentials" | "inactive" };
 
-export async function login(db: Database, email: string, password: string): Promise<LoginResult> {
-  const u = await db.query.user.findFirst({ where: eq(schema.user.email, email) });
+/*
+  How the tenant is decided at login (STI-305 — this is the ticket's real design
+  content; the unique index was the easy half).
+
+  The lookup used to be `where email = ?` with NO tenant predicate, and the
+  session's tenant was then read off whichever row matched. `user.email` was a
+  plain index, so the same address could exist more than once and Postgres
+  returned whichever row it liked: a user could authenticate into the wrong
+  tenant, and which one was not deterministic.
+
+  Three designs were available — a subdomain, a visible tenant field on the
+  form, or an email→tenant lookup. A visible field is a PRODUCT change and the
+  ticket says to confirm rather than assume one, and a subdomain is
+  infrastructure that does not exist yet. So:
+
+    `tenantSlug` is OPTIONAL. Given, it scopes the lookup outright. Omitted,
+    the address must identify exactly ONE account across all tenants; if it
+    matches more than one, the login is REFUSED rather than resolved by
+    guessing.
+
+  That is deterministic in every case, needs no UI change today, and leaves the
+  hint ready for the moment a second tenant exists. It fails CLOSED: the
+  ambiguous case returns `invalid_credentials`, identical to an unknown address,
+  so a caller cannot use it to discover that an email exists in another tenant
+  (criterion 5). The alternative — picking the first row — is the defect.
+*/
+export async function login(
+  db: Database,
+  email: string,
+  password: string,
+  tenantSlug?: string,
+): Promise<LoginResult> {
+  /* Two rows are enough to know the address is ambiguous; there is no reason
+     to read every account sharing it. */
+  const matches = await db
+    .select({
+      id: schema.user.id,
+      tenantId: schema.user.tenantId,
+      isActive: schema.user.isActive,
+      passwordHash: schema.user.passwordHash,
+    })
+    .from(schema.user)
+    .innerJoin(schema.tenant, eq(schema.tenant.id, schema.user.tenantId))
+    .where(
+      tenantSlug
+        ? and(eq(schema.user.email, email), eq(schema.tenant.slug, tenantSlug))
+        : eq(schema.user.email, email),
+    )
+    .limit(2);
+
+  /* Ambiguous without a hint: refuse. Indistinguishable from "no such user" on
+     purpose — see the note above about not leaking cross-tenant existence. */
+  if (matches.length !== 1) return { ok: false, reason: "invalid_credentials" };
+  const u = matches[0]!;
   if (!u) return { ok: false, reason: "invalid_credentials" };
   if (!u.isActive) return { ok: false, reason: "inactive" };
   const ok = await verifyPassword(password, u.passwordHash);
