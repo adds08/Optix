@@ -28,11 +28,32 @@ export const user = pgTable(
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    /* STI-303 criterion 5. An admin who resets a password KNOWS it, so a reset
+       that does not force a change leaves a live account whose credential a
+       second person holds indefinitely. The alternative design — a one-time
+       link — needs a token table and an unauthenticated consume endpoint; this
+       is the smaller honest version of the same guarantee.
+
+       Set by `user.resetPassword` and by `user.create`; cleared only when the
+       user sets their own password. `login()` reports it so the client can
+       force the change; it does NOT refuse the login, because a user who
+       cannot log in also cannot change their password. */
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     tenantIdx: index("user_tenant_idx").on(t.tenantId),
     emailIdx: index("user_email_idx").on(t.email),
+    /* STI-305. `email` alone was a plain index, so the same address could exist
+       twice in one tenant and the credential lookup — which had no tenant
+       predicate — resolved to whichever row Postgres happened to return first.
+       A user could authenticate into the wrong tenant, non-deterministically.
+
+       This closes the within-tenant half at the database. The cross-tenant half
+       cannot be an index (the same person may legitimately hold an account in
+       two tenants); it is closed in `login()`, which now refuses to guess when
+       an address is ambiguous rather than picking a row. */
+    tenantEmailUq: uniqueIndex("user_tenant_email_uq").on(t.tenantId, t.email),
   }),
 );
 

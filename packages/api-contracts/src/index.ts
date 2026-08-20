@@ -21,10 +21,14 @@ import { importRouter } from "./routers/import.js";
 import { settingsRouter } from "./routers/settings.js";
 import { projectGroupRouter } from "./routers/projectGroup.js";
 import { preferencesRouter, THEME_NAMES, FONT_FAMILIES } from "./routers/preferences.js";
+import { userRouter } from "./routers/user.js";
+import { departureRouter } from "./routers/custody-reassign.js";
 export { llmConfigFor } from "./routers/settings.js";
 
 export const appRouter = router({
   identity: identityRouter,
+  user: userRouter,
+  departure: departureRouter,
   dashboard: dashboardRouter,
   asset: assetRouter,
   category: categoryRouter,

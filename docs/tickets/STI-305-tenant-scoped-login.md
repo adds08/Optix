@@ -2,7 +2,12 @@
 
 **Phase:** 3 — Roles, accounts and organisation structure
 **Size:** 2 units
-**Status:** READY
+**Status:** **DONE** — 2026-08-19. Unique index `user_tenant_email_uq` (migration `0018`);
+`login()` takes an optional `tenantSlug` and **refuses** an address that is ambiguous across
+tenants rather than picking a row, failing closed as `invalid_credentials` so the ambiguous
+case leaks nothing. Decision recorded in `.claude/rules/api-server.md`. Production duplicate
+check: `scripts/sti-305-production-preflight.sh` — **not yet run against production**, both
+exit paths tested locally.
 **Depends on:** nothing (coordinate with STI-303)
 
 ---

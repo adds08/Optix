@@ -33,14 +33,36 @@ Since STI-203 the writers split three ways — pick the right bucket before addi
   out of one. `assertVehicleContext` (custody.ts) must gate every id before it is written —
   the composite FK behind the columns is **tenant-blind** and raises raw 23503s.
 - **Writers that assert nothing new about vehicles carry the newest snapshot's keys
-  forward VERBATIM** (`vehicleContextFromLedger`, custody.ts) — absent stays absent. Two
-  members: the from=to decline writers, and `applyContainerCustody`'s `custodian_change`
+  forward VERBATIM** (`vehicleContextFromLedger`, custody.ts) — absent stays absent. Three
+  members: the from=to decline writers, `applyContainerCustody`'s `custodian_change`
   (a container hand-over moves the WHO, not the where-it-rides — the tools stay in the
   same box, and a four-key event here erased "still in TE-006" from the fold for a tool
-  that never left the trailer). The asset table has no truck columns, so the ledger is
-  the only source; a blind null would stamp "affirmatively no truck" over a recorded
-  ride and the next rebuild would blank it. The container writer also puts the carried
-  context on the link it opens, so row and event tell one story.
+  that never left the trailer), and the departure move
+  (`reassignOnDeparture`, `departure.ts`, STI-306). The asset table has no truck columns,
+  so the ledger is the only source; a blind null would stamp "affirmatively no truck" over
+  a recorded ride and the next rebuild would blank it. The container writer also puts the
+  carried context on the link it opens, so row and event tell one story.
+
+  **The departure move is in this bucket despite asserting a new custodian**, which is the
+  counter-intuitive one — the reflex is bucket 1, because a new custody does not inherit
+  the previous holder's rig. The reflex is wrong here for a physical reason: nobody unpacks
+  the trailer. The tools stay in the same box, and the box is in the same move going to the
+  same successor, so re-asserting "no truck" over every tool would erase a recorded ride
+  from the fold for tools that never moved an inch.
+
+  It carries forward with **one exception, and only one**: a key naming a vehicle that is
+  *leaving with the person* — a `personal_allowance` vehicle, which is never reassigned —
+  is written as an explicit `null`. That truck is the leaver's own property and drives off
+  site, so "affirmatively none" is the honest answer rather than a uuid pointing at a
+  vehicle Urban no longer has access to. `rideAfterDeparture` is the whole of that rule and
+  is unit-tested without a database. The same event also nulls `locationId` when the tool's
+  recorded place *is* that departing vehicle's location row — and, uniquely among these
+  writers, updates `asset.current_location_id` in the same transaction to match, so the
+  fold and the register still agree and no `stale_projection` divergence is raised.
+
+  A departure does **not** hand containers over itself: it calls `applyContainerCustody`,
+  so trailers, trucks and gang boxes — and whatever is inside them — move by exactly one
+  set of rules whichever screen started it.
 - **Writers that never asked stay four-key**: `lost`/`report` in apply-action,
   `requestChatAction`'s annotation, `asset.setStatus`, the `project_change` bulk writer,
   and the intake/import/create baseline events. Absent keys are how those snapshots

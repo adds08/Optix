@@ -141,7 +141,7 @@ Assessed 2026-08-09. **63.6% complete** by size-point arithmetic (121 of 190 poi
 | Area | Status | Note |
 |---|---|---|
 | Foundation | `FUNCTIONAL` | Event-sourced schema, 12 migrations, CI with build/migrate/smoke/deploy/rollback |
-| Access control | `PARTIAL` | 5 of 7+ roles can log in. **No user administration exists at all.** |
+| Access control | `PARTIAL` | 5 of 7+ roles can log in. ~~No user administration exists at all.~~ **Superseded 2026-08-19 (STI-303): a `user` router and `/admin/users` screen now create accounts, assign roles, deactivate and reset passwords.** The role gap is still real — it waits on the permission matrix. |
 | Master data | `PARTIAL` | Tools, categories, projects, employees, locations, trucks, trailers all CRUD. Vendors read-only. |
 | Custody engine | `PARTIAL` | Best-designed area. **Approve/verify/decline procedures have no caller in any screen.** |
 | Spreadsheet import | `FUNCTIONAL` | Genuinely good: typed validation, dedup, preview, transactional commit. No tests. |

@@ -54,7 +54,11 @@ const LOGIN_LIMIT = 10;
 const LOGIN_WINDOW_MS = 15 * 60_000;
 
 app.post("/auth/login", async (c) => {
-  const body = await c.req.json<{ email: string; password: string }>();
+  /* `tenantSlug` is optional (STI-305). Omitted, the address must identify
+     exactly one account across all tenants or the login is refused — the API
+     never guesses which tenant was meant. Nothing sends it today; it is the
+     hook a subdomain or a tenant field would use when a second tenant exists. */
+  const body = await c.req.json<{ email: string; password: string; tenantSlug?: string }>();
 
   const key = `login:${clientIp(c.req.raw.headers)}:${(body.email ?? "").toLowerCase()}`;
   const limited = rateLimit(key, LOGIN_LIMIT, LOGIN_WINDOW_MS);
@@ -67,7 +71,7 @@ app.post("/auth/login", async (c) => {
     });
   }
 
-  const result = await login(db, body.email, body.password);
+  const result = await login(db, body.email, body.password, body.tenantSlug);
   if (!result.ok) {
     await db.insert(schema.eventLog).values({
       tenantId: null,
@@ -98,7 +102,12 @@ app.post("/auth/login", async (c) => {
   /* Succeeded, so the earlier failures were a person misremembering rather
      than an attack — give them their budget back. */
   clearRateLimit(key);
-  return c.json({ sessionId: result.sessionId, userId: result.userId, tenantId: result.tenantId });
+  return c.json({
+    sessionId: result.sessionId,
+    userId: result.userId,
+    tenantId: result.tenantId,
+    mustChangePassword: result.mustChangePassword,
+  });
 });
 
 /*
