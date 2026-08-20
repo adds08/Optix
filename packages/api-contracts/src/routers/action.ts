@@ -43,6 +43,10 @@ export const actionRouter = router({
           custodianId: z.string().uuid().optional(),
           projectId: z.string().uuid().optional(),
           locationId: z.string().uuid().optional(),
+          /* Which rig the tools ride out in (STI-203) — assign/transfer only;
+             the executor validates type and tenant before writing. */
+          truckId: z.string().uuid().optional(),
+          trailerId: z.string().uuid().optional(),
           note: z.string().max(2000).optional(),
           draft: z
             .object({
@@ -80,6 +84,8 @@ export const actionRouter = router({
           custodianId: input.custodianId,
           projectId: input.projectId,
           locationId: input.locationId,
+          truckId: input.truckId,
+          trailerId: input.trailerId,
           note: input.note,
           draft: input.draft,
         },

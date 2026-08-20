@@ -81,8 +81,23 @@ which is a deployment change outside Release 1.
 inferred on **both** clients — that is the mechanism for typed domain errors. Always
 preserve `cause`; never re-throw a bare `Error` out of a domain package.
 
-Remember the `/api/*` REST surface bypasses this entirely — no formatter, and no
-permissions.
+*(This used to warn that the `/api/*` REST surface bypassed the formatter and had no
+permission checks. That surface was **deleted** on 2026-08-18 by STI-116, so tRPC is now
+the only API surface and there is no bypass left to remember.)*
+
+**The formatter redacts `message`, not just `data.userMessage` (STI-204).** Adding a safe
+field while leaving the unsafe one populated protects nobody — the clients that predate the
+formatter render `e.message` directly (`custody/page.tsx:64`, `tools/[id]/page.tsx:54`), so
+a failed `vehicle.delete` showed a desk user
+`update or delete on table "vehicle" violates foreign key constraint "assignment_truck_fk"`.
+If you add a field for safe text, redact the unsafe one in the same change.
+
+**`data.stack` still carries the raw error, and that is deliberate.** tRPC omits `stack`
+when `NODE_ENV === "production"`, which production sets in two independent places
+(`docker/Dockerfile.api:65` and `docker-compose.prod.yml`). It is left in place because it
+is genuinely useful locally. **If you ever run this stack outside those two files' control,
+the stack trace is a leak** — verified 2026-08-18 that `data.stack` contains the full
+Postgres error text in development.
 
 ## Next.js error boundaries — resolved (STI-205)
 

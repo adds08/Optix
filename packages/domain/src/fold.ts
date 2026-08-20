@@ -2,6 +2,19 @@ import { INITIAL_STATE, type AssetStateSnapshot, type EventEnvelope } from "./ev
 
 // Sort events by occurredAt (then id) ascending and return the snapshot for the latest
 // event that carries a toState. If no event carries a toState, return the initial state.
+//
+// THE SHAPE-BOUNDARY RULE (STI-202): a `truckId`/`trailerId` key that is ABSENT from
+// the winning snapshot stays absent in the fold result — it folds to "not recorded"
+// (undefined), never to null. Null and absent are different answers to different
+// questions: an explicit `trailerId: null` was WRITTEN by a shape-aware writer and
+// means "affirmatively no trailer"; an absent key means the event predates the
+// columns and never asked. Coercing absent to null would stamp "no truck, no
+// trailer" onto every pre-STI-202 snapshot in the ledger — including all
+// `projection_baseline` rows — so the first rebuild after anything starts projecting
+// these keys would silently blank truck/trailer across all history, the exact
+// partial-snapshot bug class this codebase has shipped three times, inverted.
+// The spread below implements the rule for free (replace-not-merge copies exactly
+// the keys the snapshot has); fold.test.ts "the shape boundary" pins it.
 export function foldAssetState(events: EventEnvelope[]): AssetStateSnapshot {
   const sorted = [...events].sort(compareOccurred);
   for (let i = sorted.length - 1; i >= 0; i--) {
@@ -81,6 +94,12 @@ export type ProjectionDivergence = {
   the report's kind cannot drift apart. A partial snapshot still counts as
   evidence: rebuild will act on it (that is the pinned partial-snapshot bug
   surfacing), so its divergence is `stale_projection`.
+
+  Deliberately key-agnostic (`!= null`, nothing else): when STI-202 added the
+  optional truckId/trailerId snapshot keys, tightening this to "has all keys"
+  would have reclassified every pre-STI-202 snapshot as no-evidence in one
+  release — all ~754 seeded assets divergent and unrepairable at the next boot
+  sweep. New optional snapshot keys must never change what counts as evidence.
 */
 export function hasSnapshotEvidence(events: EventEnvelope[]): boolean {
   return events.some((e) => e.toState != null);

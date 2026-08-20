@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RidePicker } from "@/components/ride-picker";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -106,12 +107,17 @@ export function CrewAssignDialog({
     utils.employee.list.invalidate();
   };
 
-  const giveTo = async (assetIds: string[], custodianId: string) => {
+  const giveTo = async (assetIds: string[], custodianId: string, truckId: string, trailerId: string) => {
     setBusy(true);
     setError("");
     try {
       for (const assetId of assetIds) {
-        await assign.mutateAsync({ assetId, custodianId });
+        await assign.mutateAsync({
+          assetId,
+          custodianId,
+          truckId: truckId || undefined,
+          trailerId: trailerId || undefined,
+        });
       }
       invalidate();
       onDone();
@@ -125,6 +131,11 @@ export function CrewAssignDialog({
   /* Every hand-off confirms first — a batch of tools leaving the yard for a
      person is not a stray-click decision. */
   const [confirm, setConfirm] = useState<{ title: string; body: string; assetIds: string[]; custodianId: string; foremanName: string } | null>(null);
+  /* Which rig the batch rides out in (STI-203), asked on the confirm step.
+     Never pre-filled from the foreman's rig — a tool does not inherit the
+     truck of whoever receives it; see ride-picker.tsx. */
+  const [rideTruckId, setRideTruckId] = useState("");
+  const [rideTrailerId, setRideTrailerId] = useState("");
 
   /* All hooks run before any return — `request` may be null, in which case the
      memo yields nothing and the dialog renders null below. */
@@ -281,12 +292,13 @@ export function CrewAssignDialog({
     </Dialog>
 
     {/* Every hand-off confirms here first. */}
-    <Dialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
+    <Dialog open={!!confirm} onOpenChange={(o) => { if (!o) { setConfirm(null); setRideTruckId(""); setRideTrailerId(""); } }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{confirm?.title}</DialogTitle>
         </DialogHeader>
         <p className="-mt-2 text-sm text-muted-foreground">{confirm?.body}</p>
+        <RidePicker truckId={rideTruckId} trailerId={rideTrailerId} onTruck={setRideTruckId} onTrailer={setRideTrailerId} />
         <DialogFooter>
           <Button variant="outline" onClick={() => setConfirm(null)}>Cancel</Button>
           <Button
@@ -294,7 +306,9 @@ export function CrewAssignDialog({
             onClick={() => {
               const c = confirm;
               setConfirm(null);
-              if (c) giveTo(c.assetIds, c.custodianId);
+              if (c) giveTo(c.assetIds, c.custodianId, rideTruckId, rideTrailerId);
+              setRideTruckId("");
+              setRideTrailerId("");
             }}
           >
             {busy ? "Handing over…" : `Yes, hand to ${confirm?.foremanName ?? "them"}`}

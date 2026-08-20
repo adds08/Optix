@@ -1,9 +1,9 @@
-import { bigint, boolean, date, decimal, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, date, decimal, foreignKey, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { tenant, user } from "./identity";
 import { assetModel } from "./catalog";
 import { project } from "./project";
-import { location } from "./location";
+import { location, vehicle } from "./location";
 import { employee } from "./employee";
 import { department } from "./department";
 
@@ -110,7 +110,41 @@ export const assignment = pgTable(
     assetId: uuid("asset_id").notNull().references(() => asset.id, { onDelete: "cascade" }),
     custodianId: uuid("custodian_id").notNull().references(() => employee.id, { onDelete: "restrict" }),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
+    /*
+      Where the tool sits — three columns, independently recordable, because
+      invariant 5 says "job, truck and trailer" and a single place cannot say
+      "in trailer TE-011, hitched to truck 12" (STI-201/STI-202):
+
+      - `locationId` — a static PLACE: warehouse, yard, site container, gang
+        box. Before STI-202 it also carried "in a trailer" by pointing at the
+        vehicle's own location row; rows from that era still do, and stay
+        valid. Shape-aware writers (STI-203+) put vehicles in the two columns
+        below and use locationId for non-vehicle places only.
+      - `truckId` — the truck the tool rides on. FK to `vehicle`, and the
+        composite FK below insists that row IS a truck.
+      - `trailerId` — likewise, and the row must be a trailer. Both set means
+        the trailer is hitched to the truck with the tool aboard.
+
+      What NULL means depends on who wrote the row. A shape-aware writer
+      records NULL affirmatively — "in a truck, NO trailer" is truckId set,
+      trailerId NULL. On rows that predate these columns NULL means "never
+      asked". At row level those are indistinguishable; the authoritative
+      record of the difference is the ledger snapshot, where a shape-aware
+      writer emits the key with an explicit null and a pre-STI-202 event has
+      no such key at all (see packages/domain/src/events.ts, and the
+      shape-boundary rule in packages/domain/src/fold.ts).
+    */
     locationId: uuid("location_id").references(() => location.id, { onDelete: "set null" }),
+    truckId: uuid("truck_id"),
+    trailerId: uuid("trailer_id"),
+    /*
+      Generated constants, not data — they exist so the composite FKs below can
+      be written at all. Never read them; read truckId/trailerId. (Generated
+      columns cannot take ON DELETE SET NULL, which is why the FKs are NO
+      ACTION — see the FK comment.)
+    */
+    truckKind: text("truck_kind").generatedAlwaysAs(sql`'truck'`),
+    trailerKind: text("trailer_kind").generatedAlwaysAs(sql`'trailer'`),
     startDate: date("start_date").notNull(),
     status: text("status").notNull().default("active"), // active | returned | transferred | pending_approval
     approvedBy: uuid("approved_by").references(() => user.id, { onDelete: "set null" }),
@@ -144,6 +178,44 @@ export const assignment = pgTable(
     oneActiveUq: uniqueIndex("assignment_one_active_uq")
       .on(t.assetId)
       .where(sql`${t.status} = 'active'`),
+    truckIdx: index("assignment_truck_idx").on(t.truckId),
+    trailerIdx: index("assignment_trailer_idx").on(t.trailerId),
+    /*
+      STI-202 criterion 3: truckId must name a row whose vehicleType is
+      'truck', trailerId a 'trailer'. A plain FK cannot say that — both point
+      at `vehicle`, discriminated by a text column. This lives in the DATABASE
+      rather than as a validation in custody.ts for two reasons:
+
+      1. vehicleType is editable (vehicle.update accepts it), so an
+         insert-time check goes stale the moment a referenced truck is edited
+         into a trailer. The composite FK holds at both ends: the flip (and a
+         delete) fails loudly while any assignment references the vehicle.
+      2. App-only enforcement of a structural invariant is how two custodians
+         for one tool shipped — assignment_one_active_uq above is the scar.
+
+      The mechanism is not a simple FK: (truck_id, truck_kind) references
+      UNIQUE vehicle(id, vehicle_type), with truck_kind generated as the
+      constant 'truck' — so a set truck_id must exist as an (id, 'truck')
+      pair. MATCH SIMPLE means a NULL truck_id skips the check entirely.
+      NO ACTION (not SET NULL, which is illegal on a generated column) means
+      the FK blocks a delete or type flip while ANY assignment row — active,
+      closed or historical — references the vehicle. The friendly guards in
+      front of that raw error live in vehicle.delete and vehicle.update
+      (routers/location.ts, STI-203), which is also where every truck/trailer
+      id is tenant-checked: vehicle_id_type_uq carries no tenant component,
+      so this FK would accept another tenant's truck (assertVehicleContext
+      in custody.ts is the gate).
+    */
+    truckFk: foreignKey({
+      columns: [t.truckId, t.truckKind],
+      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      name: "assignment_truck_fk",
+    }),
+    trailerFk: foreignKey({
+      columns: [t.trailerId, t.trailerKind],
+      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      name: "assignment_trailer_fk",
+    }),
   }),
 );
 
@@ -161,6 +233,20 @@ export const transfer = pgTable(
     toLocationId: uuid("to_location_id").references(() => location.id, { onDelete: "set null" }),
     fromProjectId: uuid("from_project_id").references(() => project.id, { onDelete: "set null" }),
     toProjectId: uuid("to_project_id").references(() => project.id, { onDelete: "set null" }),
+    /*
+      STI-203: the rig the requester named, parked with the rest of the "to"
+      state while a high-value hand-off waits for its second signature. NULL
+      means "not recorded", same as toProjectId/toLocationId above. Without
+      these, a held transfer silently dropped the pick and approve could only
+      write `truckId: null` — which the ledger reads as "affirmatively no
+      truck", a lie about what the requester said. Applied by transfer.approve
+      as explicit values; same composite-FK + generated-kind mechanism as
+      assignment (see the long comment there).
+    */
+    toTruckId: uuid("to_truck_id"),
+    toTrailerId: uuid("to_trailer_id"),
+    toTruckKind: text("to_truck_kind").generatedAlwaysAs(sql`'truck'`),
+    toTrailerKind: text("to_trailer_kind").generatedAlwaysAs(sql`'trailer'`),
     reason: text("reason").notNull().default("reallocation"), // TransferReason
     status: text("status").notNull().default("pending_approval"), // pending_approval | approved | completed | cancelled
     requestedBy: uuid("requested_by").notNull().references(() => user.id, { onDelete: "restrict" }),
@@ -173,5 +259,17 @@ export const transfer = pgTable(
     tenantIdx: index("transfer_tenant_idx").on(t.tenantId),
     assetIdx: index("transfer_asset_idx").on(t.assetId),
     statusIdx: index("transfer_status_idx").on(t.status),
+    toTruckIdx: index("transfer_to_truck_idx").on(t.toTruckId),
+    toTrailerIdx: index("transfer_to_trailer_idx").on(t.toTrailerId),
+    toTruckFk: foreignKey({
+      columns: [t.toTruckId, t.toTruckKind],
+      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      name: "transfer_to_truck_fk",
+    }),
+    toTrailerFk: foreignKey({
+      columns: [t.toTrailerId, t.toTrailerKind],
+      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      name: "transfer_to_trailer_fk",
+    }),
   }),
 );

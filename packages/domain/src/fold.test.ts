@@ -198,6 +198,88 @@ describe("projection_baseline (STI-101 backfill)", () => {
 });
 
 /*
+  The shape boundary (STI-202).
+
+  Every snapshot written before truckId/trailerId existed — every historical
+  event and every STI-101 projection_baseline row — carries only the four
+  original keys, and historical snapshots are never rewritten. The rule pinned
+  here: an ABSENT truck/trailer key folds to "not recorded" (undefined), never
+  to null. An explicit null is a shape-aware writer saying "affirmatively no
+  truck/trailer"; an absent key is an event that never asked. Collapsing the
+  two would stamp "no truck" onto all pre-STI-202 history on the next rebuild —
+  the partial-snapshot bug class, inverted.
+*/
+describe("the shape boundary (STI-202: truckId/trailerId)", () => {
+  /* A shape-aware writer records BOTH keys explicitly. Trailer null here is
+     an answer ("on truck 12, nothing hitched"), not an omission. */
+  const inTruckNoTrailer: AssetStateSnapshot = {
+    status: "assigned",
+    custodianId: "emp-dwayne",
+    projectId: "proj-trinity",
+    locationId: "loc-truck-12",
+    truckId: "veh-truck-12",
+    trailerId: null,
+  };
+
+  it("folds old events then new events: the new shape wins with both keys intact", () => {
+    const state = foldAssetState([
+      ev("a1", "assign", "2026-02-01T09:00:00Z", withMiguel), // old shape
+      ev("a1", "transfer", "2026-08-18T09:00:00Z", inTruckNoTrailer, withMiguel),
+    ]);
+    expect(state).toEqual(inTruckNoTrailer);
+    expect(state.truckId).toBe("veh-truck-12");
+    /* null, not undefined: the writer recorded "no trailer". */
+    expect(state.trailerId).toBeNull();
+  });
+
+  it("keeps 'in a truck, no trailer' distinguishable from 'never recorded'", () => {
+    /* Same four-key state, one event asked the trailer question and one never
+       did. If these two folds ever agree on trailerId, the distinction
+       invariant 5 requires ("independently recordable") is gone. */
+    const newShape = foldAssetState([ev("a1", "assign", "2026-08-18T09:00:00Z", inTruckNoTrailer)]);
+    const oldShape = foldAssetState([ev("a2", "assign", "2026-02-01T09:00:00Z", withMiguel)]);
+    expect(newShape.trailerId).toBeNull();
+    expect(oldShape.trailerId).toBeUndefined();
+    expect(oldShape).not.toHaveProperty("trailerId");
+  });
+
+  it("folds a later old-shape event to 'not recorded', never to null or a stale truck", () => {
+    /* Shape-blind writers still append AFTER shape-aware ones — STI-203
+       carried the custody movers over, but the annotation writers (lost,
+       report, setStatus, the bulk project/custodian writers) stay four-key
+       on purpose. Replace-not-merge means the earlier truck must not leak
+       forward (the tool moved), and the absent key must not be invented as
+       null (nobody recorded "no truck"). */
+    const state = foldAssetState([
+      ev("a1", "assign", "2026-08-18T09:00:00Z", inTruckNoTrailer),
+      ev("a1", "return", "2026-08-19T09:00:00Z", yard, inTruckNoTrailer), // old shape
+    ]);
+    expect(state).toEqual(yard);
+    expect(state.truckId).toBeUndefined();
+    expect(state).not.toHaveProperty("truckId");
+    expect(state).not.toHaveProperty("trailerId");
+  });
+
+  it("does not change what counts as snapshot evidence (STI-110 stays whole)", () => {
+    /* hasSnapshotEvidence is deliberately key-agnostic. If a four-key snapshot
+       stopped counting as "complete" when the two keys arrived, every
+       historical asset would reclassify as no_evidence — divergent AND
+       unrepairable, ~754 at once — at the next boot sweep. */
+    const oldShapeOnly = [ev("a1", "assign", "2026-02-01T09:00:00Z", withMiguel)];
+    expect(hasSnapshotEvidence(oldShapeOnly)).toBe(true);
+
+    /* And a register that matches an old-shape ledger stays clean: the two new
+       keys alone must never manufacture a divergence. */
+    expect(reconcileProjections([{ assetId: "a1", ...withMiguel }], oldShapeOnly)).toEqual([]);
+
+    /* When an old-shape asset IS divergent, it is still the repairable kind. */
+    const report = reconcileProjections([{ assetId: "a1", ...withDwayne }], oldShapeOnly);
+    expect(report).toHaveLength(1);
+    expect(report[0]!.kind).toBe("stale_projection");
+  });
+});
+
+/*
   The reconciliation check (STI-106).
 
   `asset.rebuild` repairs; this compares. The point of the check is to raise the

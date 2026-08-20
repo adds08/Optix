@@ -140,7 +140,8 @@ export const projectGroupRouter = router({
         .insert(schema.projectGroup)
         .values({ tenantId: tid, name: input.name, description: input.description ?? null })
         .returning();
-      if (!group) throw new Error("Could not create the job group");
+      if (!group)
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create the job group" });
 
       if (input.projectIds.length) {
         await ctx.db.insert(schema.projectGroupProject).values(

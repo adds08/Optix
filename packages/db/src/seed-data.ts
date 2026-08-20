@@ -177,6 +177,9 @@ export const vehLocSpecs: VehLocSeed[] = [
   { key: "l-TE-034", type: "vehicle", name: "TE-034", project: "p-lone-star-22018", custodian: "e-fm039" },
   { key: "l-TE-035", type: "vehicle", name: "TE-035", project: "p-little-elm-23009", custodian: "e-fm025" },
   { key: "l-TE-036", type: "vehicle", name: "TE-036", project: "p-lone-star-22018", custodian: "e-fm026" },
+  // Location row for the one SYNTHETIC truck — see the comment on its vehSpecs entry.
+  { key: "l-ZZ-SEED-TRUCK", type: "vehicle", name: "ZZ-SEED-TRUCK (synthetic)", project: "p-lone-star-22018", custodian: "e-fm001" },
+  { key: "l-ZZ-SEED-TRUCK-P", type: "vehicle", name: "ZZ-SEED-TRUCK-P (synthetic, personal)", project: "p-lone-star-22018", custodian: "e-fm002" },
 ];
 
 export const vehSpecs: VehSeed[] = [
@@ -209,6 +212,32 @@ export const vehSpecs: VehSeed[] = [
   { key: "v-TE-034", loc: "l-TE-034", vtype: "trailer", unit: "TE-034", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm039", lat: "32.7766", lng: "-96.7970" },
   { key: "v-TE-035", loc: "l-TE-035", vtype: "trailer", unit: "TE-035", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-little-elm-23009", foreman: "e-fm025", lat: "32.7766", lng: "-96.7970" },
   { key: "v-TE-036", loc: "l-TE-036", vtype: "trailer", unit: "TE-036", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm026", lat: "32.7766", lng: "-96.7970" },
+  /*
+    The ONE synthetic vehicle in the seed, and deliberately the only truck.
+
+    Urban's source sheets carry 29 trailers and zero trucks, so nothing real can
+    exercise `assignment_truck_fk` or the "in a truck" fold path (STI-202) — the
+    same gap that once left the high-value approval gate unreachable because no
+    seeded asset carried an `acquisition_cost` (CLAUDE.md behaviour rule 8: data
+    the seed cannot produce is behaviour nobody tests). One truck is enough to
+    reach the rule; inventing trucks for the other 28 trailers would be
+    fabricating fleet data. The ZZ- unit and "(synthetic)" naming exist so no
+    report reader can mistake it for Urban's fleet.
+  */
+  { key: "v-ZZ-SEED-TRUCK", loc: "l-ZZ-SEED-TRUCK", vtype: "truck", unit: "ZZ-SEED-TRUCK (synthetic)", plate: null, make: "SYNTHETIC — seed-only truck, not Urban fleet data", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm001", lat: "32.7766", lng: "-96.7970" },
+  /*
+    The SECOND synthetic truck, and the only `personal_allowance` vehicle.
+
+    STI-501's last acceptance criterion is that company vs personal is visible
+    wherever a truck is shown, because that distinction is what the departure
+    path (STI-402) keys off — company property leaving on a foreman's own truck
+    is the case the Equipment department has to see. Every real seeded vehicle
+    is `company_owned`, so the "personal" marker on the jobsite table, tool
+    detail and the approval queue was unreachable from a clean database: the
+    same anti-pattern as the acquisition-cost gap above. One is enough to reach
+    the rule.
+  */
+  { key: "v-ZZ-SEED-TRUCK-P", loc: "l-ZZ-SEED-TRUCK-P", vtype: "truck", unit: "ZZ-SEED-TRUCK-P (synthetic, personal)", plate: null, make: "SYNTHETIC — seed-only truck, not Urban fleet data", own: "personal_allowance", payee: "e-fm002", allow: "650.00", freq: "monthly", proj: "p-lone-star-22018", foreman: "e-fm002", lat: "32.7801", lng: "-96.8005" },
 ];
 
 export const assetSpecs: AssetSeed[] = [

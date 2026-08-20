@@ -1,12 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome } from "@stinventory/domain";
 import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { moveCustody, projectForCustodian } from "../custody.js";
+import { assertVehicleContext, moveCustody, projectForCustodian, vehicleContextFromLedger } from "../custody.js";
 import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 
 /*
@@ -27,6 +28,8 @@ import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 export const transferRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const truckVehicle = alias(schema.vehicle, "transfer_to_truck");
+    const trailerVehicle = alias(schema.vehicle, "transfer_to_trailer");
     return ctx.db
       .select({
         id: schema.transfer.id,
@@ -41,9 +44,31 @@ export const transferRouter = router({
         status: schema.transfer.status,
         createdAt: schema.transfer.createdAt,
         completedAt: schema.transfer.completedAt,
+        /* The rig this movement is going out in (STI-206). The desk approves
+           from this list, and approving a movement you cannot fully see is a
+           weaker signature than it looks — the vehicle is not incidental
+           detail. `undefined` here means "no vehicle recorded", which after
+           STI-202's three-state rule is a claim, not an absence: render it as
+           silence, never as an empty slot that reads like a truck. */
+        toTruckId: schema.transfer.toTruckId,
+        toTruckUnit: truckVehicle.unit,
+        toTruckOwnership: truckVehicle.ownershipType,
+        toTrailerId: schema.transfer.toTrailerId,
+        toTrailerUnit: trailerVehicle.unit,
       })
       .from(schema.transfer)
       .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
+      /* Tenant-scoped on the join. The composite FK behind these columns proves
+         the vehicle TYPE and nothing about the tenant, so it will not catch a
+         mistake here. */
+      .leftJoin(
+        truckVehicle,
+        and(eq(schema.transfer.toTruckId, truckVehicle.id), eq(truckVehicle.tenantId, tid)),
+      )
+      .leftJoin(
+        trailerVehicle,
+        and(eq(schema.transfer.toTrailerId, trailerVehicle.id), eq(trailerVehicle.tenantId, tid)),
+      )
       .where(eq(schema.transfer.tenantId, tid))
       .then((rows) => rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   }),
@@ -55,6 +80,10 @@ export const transferRouter = router({
         toCustodianId: z.string().uuid(),
         toLocationId: z.string().uuid().optional(),
         toProjectId: z.string().uuid().optional(),
+        /* Which rig the tool rides out in (STI-203). Optional, never
+           defaulted — a tool does not inherit the recipient's truck. */
+        toTruckId: z.string().uuid().optional(),
+        toTrailerId: z.string().uuid().optional(),
         reason: z.string().default("reallocation"),
         note: z.string().optional(),
       }),
@@ -65,6 +94,10 @@ export const transferRouter = router({
         where: and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)),
       });
       if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "That tool is not in the register." });
+
+      /* Tenant-scoped type check before anything is written — the composite FK
+         is tenant-blind and answers a wrong type with a raw 500 (custody.ts). */
+      await assertVehicleContext(ctx.db, tid, input.toTruckId, input.toTrailerId);
 
       /*
         One open hand-off per tool.
@@ -118,6 +151,11 @@ export const transferRouter = router({
             toLocationId: input.toLocationId ?? null,
             fromProjectId: asset.currentProjectId,
             toProjectId,
+            /* Parked with the rest of the "to" state (STI-203 / migration
+               0017): before these columns a held transfer silently dropped
+               the requester's rig pick and approve could only write nulls. */
+            toTruckId: input.toTruckId ?? null,
+            toTrailerId: input.toTrailerId ?? null,
             reason: input.reason,
             status: applyNow ? "approved" : "pending_approval",
             requestedBy: ctx.session.userId,
@@ -145,6 +183,12 @@ export const transferRouter = router({
             toCustodianId: input.toCustodianId,
             projectId: toProjectId ?? asset.currentProjectId ?? null,
             locationId: input.toLocationId ?? asset.currentLocationId ?? null,
+            /* No current_* fallback, unlike project and location: those fall
+               back because "No change" is a sensible answer for them. A tool
+               changing hands is NOT still riding the previous holder's rig —
+               blank means no vehicle recorded for the new custody. */
+            truckId: input.toTruckId ?? null,
+            trailerId: input.toTrailerId ?? null,
             actorUserId: ctx.session.userId,
           });
           await tx
@@ -170,6 +214,10 @@ export const transferRouter = router({
               custodianId: input.toCustodianId,
               projectId: toProjectId ?? asset.currentProjectId ?? null,
               locationId: input.toLocationId ?? asset.currentLocationId ?? null,
+              /* Both keys explicit, mirroring the moveCustody call above —
+                 the ledger and the assignment row must tell the same story. */
+              truckId: input.toTruckId ?? null,
+              trailerId: input.toTrailerId ?? null,
             },
             refType: "transfer",
             refId: created.id,
@@ -226,38 +274,25 @@ export const transferRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${tr.status}.` });
       }
 
-      /*
-        A transfer names only what it changes.
-
-        `create` stores `toProjectId`/`toLocationId` as null when the person
-        moving the tool did not pick one — the form's "No change" option. Approve
-        then wrote those nulls straight onto the asset, so signing off a
-        person-to-person hand-off silently erased where the tool was and which
-        project it was on. UIC-1001 lost both this way, and the register could no
-        longer answer "where is it" for a tool it still called assigned.
-
-        Null means "leave it alone", so the current value is the fallback.
-      */
-      const asset = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)),
-      });
-      const toProjectId = tr.toProjectId ?? asset?.currentProjectId ?? null;
-      const toLocationId = tr.toLocationId ?? asset?.currentLocationId ?? null;
-
       /* Sign-off + close + open + projection + ledger commit or vanish together
          (STI-102). This used to be four bare consecutive writes — a crash
          between any two left a completed transfer whose custody never moved,
          the disagreement the rebuild guarantee exists to detect. */
+      let asset: typeof schema.asset.$inferSelect | undefined;
       await ctx.db.transaction(async (tx) => {
         /* Ask again under the lock (STI-109) — identical shape to
            assignment.approve, on purpose. The pending_approval guard above ran
            before this transaction existed, so two simultaneous approves both
            passed it and both wrote a "Transfer approved" event into the
-           append-only ledger. Queue on the asset row — the same anchor
-           moveCustody locks below — then re-read the row now that whoever held
-           the lock has committed. */
-        await tx
-          .select({ id: schema.asset.id })
+           append-only ledger. The asset read doubles as the lock — the same
+           anchor moveCustody locks below — and lives in here (it sat before
+           the transaction until STI-117) because a return committing in the
+           gap left this path writing a `fromState`, and "no change" fallbacks
+           below, describing custody that had already moved: the stale-read
+           class STI-112 fixed in `decline`. Whoever held the lock has
+           committed by the time these reads run. */
+        [asset] = await tx
+          .select()
           .from(schema.asset)
           .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)))
           .for("update");
@@ -268,6 +303,23 @@ export const transferRouter = router({
         if (fresh?.status !== "pending_approval") {
           throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${fresh?.status ?? "gone"}.` });
         }
+
+        /*
+          A transfer names only what it changes.
+
+          `create` stores `toProjectId`/`toLocationId` as null when the person
+          moving the tool did not pick one — the form's "No change" option.
+          Approve then wrote those nulls straight onto the asset, so signing off
+          a person-to-person hand-off silently erased where the tool was and
+          which project it was on. UIC-1001 lost both this way, and the register
+          could no longer answer "where is it" for a tool it still called
+          assigned.
+
+          Null means "leave it alone", so the current value — as read under the
+          lock — is the fallback.
+        */
+        const toProjectId = tr.toProjectId ?? asset?.currentProjectId ?? null;
+        const toLocationId = tr.toLocationId ?? asset?.currentLocationId ?? null;
         await tx
           .update(schema.transfer)
           .set({ status: "completed", approvedBy: ctx.session.userId, completedAt: new Date() })
@@ -282,12 +334,20 @@ export const transferRouter = router({
             updatedAt: new Date(),
           })
           .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)));
+        /* The rig the requester named, parked on the row at create time
+           (STI-203 / 0017). NULL stays NULL — "not recorded" — with no
+           carry-forward, because the tool has changed hands. Unlike project
+           and location there is no "No change" fallback: a new custody does
+           not inherit the previous holder's rig. moveCustody re-runs the
+           tenant-scoped type check on these ids inside the transaction. */
         await moveCustody(tx, {
           tenantId: ctx.session.tenantId,
           assetId: tr.assetId,
           toCustodianId: tr.toCustodianId,
           projectId: toProjectId,
           locationId: toLocationId,
+          truckId: tr.toTruckId,
+          trailerId: tr.toTrailerId,
           actorUserId: ctx.session.userId,
         });
         await tx.insert(schema.transaction).values({
@@ -305,7 +365,17 @@ export const transferRouter = router({
                 locationId: asset.currentLocationId,
               }
             : null,
-          toState: { status: "assigned", custodianId: tr.toCustodianId, projectId: toProjectId, locationId: toLocationId },
+          toState: {
+            status: "assigned",
+            custodianId: tr.toCustodianId,
+            projectId: toProjectId,
+            locationId: toLocationId,
+            /* Mirrors the moveCustody call above; an unrecorded rig lands
+               here as an explicit null, which is truthful — the requester
+               genuinely named none. */
+            truckId: tr.toTruckId,
+            trailerId: tr.toTrailerId,
+          },
           refType: "transfer",
           refId: tr.id,
           note: "Transfer approved",
@@ -392,6 +462,11 @@ export const transferRouter = router({
             custodianId: asset.currentCustodianId,
             projectId: asset.currentProjectId,
             locationId: asset.currentLocationId,
+            /* Same carry-forward as assignment.decline (STI-203): truck and
+               trailer have no asset.current_* column, so "nothing changed"
+               copies the newest ledger snapshot's keys verbatim — a blind
+               null would blank a recorded ride on the next rebuild. */
+            ...(await vehicleContextFromLedger(tx, tid, tr.assetId)),
           };
           await tx.insert(schema.transaction).values({
             tenantId: tid,

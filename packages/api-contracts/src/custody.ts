@@ -1,4 +1,5 @@
-import { and, eq } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import type { Database, Transaction } from "@stinventory/db";
 import * as schema from "@stinventory/db/schema";
 
@@ -36,6 +37,19 @@ export type CustodyMove = {
   toCustodianId: string | null;
   projectId: string | null;
   locationId: string | null;
+  /*
+    STI-202/203: the truck and trailer the tool rides on, both FKs to `vehicle`
+    (the composite FKs in schema/asset.ts hold truckId to a truck and
+    trailerId to a trailer). Persisted on the opened link as `?? null`, so the
+    row always records an answer. Callers on custody paths must ALSO emit both
+    keys in their ledger toState as EXPLICIT values (null means "affirmatively
+    none"), never as omitted keys — an absent key folds to "not recorded",
+    see the shape-boundary rule in packages/domain/src/fold.ts.
+    NO default here, ever: `projectForCustodian` exists because tools follow
+    the person, but a tool does not inherit the truck of whoever receives it.
+  */
+  truckId?: string | null;
+  trailerId?: string | null;
   actorUserId: string | null;
   /** Recorded on the row being closed. `returned` when the tool comes back in. */
   closeAs?: "transferred" | "returned";
@@ -87,11 +101,54 @@ export async function closeActiveCustody(
   return closed.map((r: { id: string }) => r.id);
 }
 
+/*
+  The gate in front of the tenant-blind composite FK (STI-203).
+
+  `vehicle_id_type_uq` is `(id, vehicle_type)` with NO tenant component, so at
+  the database level an assignment in tenant A can happily reference tenant
+  B's truck — the FK guarantees the vehicle's TYPE and nothing else. And when
+  the type IS wrong, the FK raises a raw Postgres error that surfaces as a
+  500. This lookup is therefore doing two jobs at once: the tenant WHERE
+  clause is the isolation (there is no RLS, and only one tenant is seeded, so
+  no test downstream of here will catch a missing predicate), and the type
+  check turns "trailer picked into the truck slot" into an error a person can
+  read. Every writer that records a truck or trailer must pass through it.
+
+  Read-only, so like `projectForCustodian` it accepts either handle.
+*/
+export async function assertVehicleContext(
+  db: Database | Transaction,
+  tenantId: string,
+  truckId: string | null | undefined,
+  trailerId: string | null | undefined,
+): Promise<void> {
+  const check = async (id: string, wanted: "truck" | "trailer") => {
+    const v = await db.query.vehicle.findFirst({
+      where: and(eq(schema.vehicle.id, id), eq(schema.vehicle.tenantId, tenantId)),
+      columns: { unit: true, vehicleType: true },
+    });
+    if (!v) throw new TRPCError({ code: "NOT_FOUND", message: `No such ${wanted} in this tenant.` });
+    if (v.vehicleType !== wanted) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `${v.unit} is a ${v.vehicleType}, not a ${wanted}. Pick it in the ${v.vehicleType} slot instead.`,
+      });
+    }
+  };
+  if (truckId) await check(truckId, "truck");
+  if (trailerId) await check(trailerId, "trailer");
+}
+
 /** Closes whatever was active, then opens the new link if there is a holder. */
 export async function moveCustody(tx: Transaction, move: CustodyMove): Promise<{ closedIds: string[]; openedId: string | null }> {
   const closedIds = await closeActiveCustody(tx, move.tenantId, move.assetId, move.closeAs ?? "transferred");
 
   if (!move.toCustodianId) return { closedIds, openedId: null };
+
+  /* Checked here as well as at the input edge: this is the chokepoint, and a
+     future caller that forgets the edge check must not be able to write a
+     cross-tenant vehicle or ride the raw FK error to a 500. */
+  await assertVehicleContext(tx, move.tenantId, move.truckId, move.trailerId);
 
   const [row] = await tx
     .insert(schema.assignment)
@@ -101,6 +158,12 @@ export async function moveCustody(tx: Transaction, move: CustodyMove): Promise<{
       custodianId: move.toCustodianId,
       projectId: move.projectId,
       locationId: move.locationId,
+      /* `?? null` and not a passthrough: an undefined key on the MOVE still
+         writes an affirmative "no vehicle recorded" on the ROW. The three-state
+         distinction (uuid / null / never-asked) lives in the ledger snapshot,
+         not here — see the column comment in schema/asset.ts. */
+      truckId: move.truckId ?? null,
+      trailerId: move.trailerId ?? null,
       startDate: new Date().toISOString().slice(0, 10),
       status: "active",
       approvedBy: move.actorUserId,
@@ -108,6 +171,47 @@ export async function moveCustody(tx: Transaction, move: CustodyMove): Promise<{
     .returning();
 
   return { closedIds, openedId: row?.id ?? null };
+}
+
+/*
+  The truck/trailer keys of the newest ledger snapshot, verbatim (STI-203).
+
+  For the writers that record "considered, and refused" — the two decline
+  procedures — the from=to snapshot must describe the state at commit time
+  WITHOUT changing what the ledger knows. The four base keys come off the
+  locked asset row; these two cannot, because the asset table has no truck
+  columns — the ledger snapshot is their only authoritative record. Emitting
+  blind nulls here would stamp "affirmatively no truck" over a recorded
+  `truckId` (a rebuild then blanks it — the shipped-three-times partial-
+  snapshot bug, key by key), and inventing values would be worse. So: copy
+  exactly the keys the newest snapshot has, absent staying absent, per the
+  shape-boundary rule in packages/domain/src/fold.ts.
+
+  Same occurred_at-then-id ordering as the fold's tie-break — bulk writers
+  insert many events sharing a timestamp.
+*/
+export async function vehicleContextFromLedger(
+  db: Database | Transaction,
+  tenantId: string,
+  assetId: string,
+): Promise<{ truckId?: string | null; trailerId?: string | null }> {
+  const [last] = await db
+    .select({ toState: schema.transaction.toState })
+    .from(schema.transaction)
+    .where(
+      and(
+        eq(schema.transaction.tenantId, tenantId),
+        eq(schema.transaction.assetId, assetId),
+        isNotNull(schema.transaction.toState),
+      ),
+    )
+    .orderBy(desc(schema.transaction.occurredAt), desc(schema.transaction.id))
+    .limit(1);
+  const s = (last?.toState ?? {}) as Record<string, unknown>;
+  const out: { truckId?: string | null; trailerId?: string | null } = {};
+  if ("truckId" in s) out.truckId = s.truckId as string | null;
+  if ("trailerId" in s) out.trailerId = s.trailerId as string | null;
+  return out;
 }
 
 /*

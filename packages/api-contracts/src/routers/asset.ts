@@ -74,6 +74,12 @@ export const assetRouter = router({
       const currentProject = alias(schema.project, "current_project");
       const owningProject = alias(schema.project, "owning_project");
       const owningDepartment = alias(schema.department, "owning_department");
+      /* The rig the tool rides in (STI-203) lives on the ACTIVE assignment —
+         a per-custody fact, not a column on asset. At most one active row per
+         asset (assignment_one_active_uq), so these joins cannot fan out. */
+      const activeAssignment = alias(schema.assignment, "active_assignment");
+      const rideTruck = alias(schema.vehicle, "ride_truck");
+      const rideTrailer = alias(schema.vehicle, "ride_trailer");
       const rows = await ctx.db
         .select({
           id: schema.asset.id,
@@ -105,6 +111,15 @@ export const assetRouter = router({
              tools by truck vs trailer, which only the vehicle row knows. */
           locationType: schema.location.type,
           vehicleType: schema.vehicle.vehicleType,
+          currentTruckId: activeAssignment.truckId,
+          currentTruckUnit: rideTruck.unit,
+          /* STI-501's last AC: company vs personal must be visible wherever a
+             truck is shown, because that distinction is what the departure
+             path keys off — company property leaving on someone's own truck is
+             the case the Equipment department needs to see. */
+          currentTruckOwnership: rideTruck.ownershipType,
+          currentTrailerId: activeAssignment.trailerId,
+          currentTrailerUnit: rideTrailer.unit,
           owningProjectId: schema.asset.owningProjectId,
           owningProjectName: owningProject.name,
           costTarget: schema.asset.costTarget,
@@ -116,6 +131,16 @@ export const assetRouter = router({
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
         .leftJoin(schema.vehicle, eq(schema.vehicle.locationId, schema.location.id))
+        .leftJoin(
+          activeAssignment,
+          and(
+            eq(activeAssignment.assetId, schema.asset.id),
+            eq(activeAssignment.tenantId, tid),
+            eq(activeAssignment.status, "active"),
+          ),
+        )
+        .leftJoin(rideTruck, eq(activeAssignment.truckId, rideTruck.id))
+        .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
         .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
         .where(and(...conditions));
@@ -131,6 +156,10 @@ export const assetRouter = router({
       const currentProject = alias(schema.project, "current_project");
       const owningProject = alias(schema.project, "owning_project");
       const owningDepartment = alias(schema.department, "owning_department");
+      /* Same active-assignment rig joins as `list` (STI-203). */
+      const activeAssignment = alias(schema.assignment, "active_assignment");
+      const rideTruck = alias(schema.vehicle, "ride_truck");
+      const rideTrailer = alias(schema.vehicle, "ride_trailer");
       const [row] = await ctx.db
         .select({
           id: schema.asset.id,
@@ -157,6 +186,15 @@ export const assetRouter = router({
           currentProjectExternalId: currentProject.externalId,
           locationId: schema.asset.currentLocationId,
           locationName: schema.location.name,
+          currentTruckId: activeAssignment.truckId,
+          currentTruckUnit: rideTruck.unit,
+          /* STI-501's last AC: company vs personal must be visible wherever a
+             truck is shown, because that distinction is what the departure
+             path keys off — company property leaving on someone's own truck is
+             the case the Equipment department needs to see. */
+          currentTruckOwnership: rideTruck.ownershipType,
+          currentTrailerId: activeAssignment.trailerId,
+          currentTrailerUnit: rideTrailer.unit,
           owningProjectId: schema.asset.owningProjectId,
           owningProjectName: owningProject.name,
           costTarget: schema.asset.costTarget,
@@ -168,6 +206,16 @@ export const assetRouter = router({
         .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
+        .leftJoin(
+          activeAssignment,
+          and(
+            eq(activeAssignment.assetId, schema.asset.id),
+            eq(activeAssignment.tenantId, ctx.session.tenantId),
+            eq(activeAssignment.status, "active"),
+          ),
+        )
+        .leftJoin(rideTruck, eq(activeAssignment.truckId, rideTruck.id))
+        .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
         .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
         .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)));
@@ -205,26 +253,44 @@ export const assetRouter = router({
          may arrive without one. What it is called in the ledger is the id; the
          display name is whatever of make/model/description was given. */
       const label = formatAssetModel(input) || "Untagged tool";
-      const [row] = await ctx.db
-        .insert(schema.asset)
-        .values({
-          tenantId: ctx.session.tenantId,
-          createdBy: ctx.session.userId,
-          currentStatus: "available",
-          currentLocationId: input.locationId ?? null,
-          ...input,
-        })
-        .returning();
+      /* One transaction for the row and its opening `tag` event (STI-115).
+         These were two bare awaits; a failure between them left an asset with
+         a projection but zero ledger rows — and because the ledger is
+         append-only (STI-104), the missing opening snapshot could never be
+         written retroactively, so STI-110's sweep reported the asset as
+         no_evidence forever. Same shape as the importer's insertOne. */
+      const row = await ctx.db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(schema.asset)
+          .values({
+            tenantId: ctx.session.tenantId,
+            createdBy: ctx.session.userId,
+            currentStatus: "available",
+            currentLocationId: input.locationId ?? null,
+            ...input,
+          })
+          .returning();
+        if (created) {
+          await tx.insert(schema.transaction).values({
+            tenantId: ctx.session.tenantId,
+            assetId: created.id,
+            eventType: "tag",
+            actorId: ctx.session.userId,
+            toState: { status: "available", custodianId: null, projectId: null, locationId: input.locationId ?? null },
+            refType: "manual",
+            note: `Asset ${label} registered`,
+          });
+        }
+        return created;
+      });
       if (row) {
-        await ctx.db.insert(schema.transaction).values({
-          tenantId: ctx.session.tenantId,
-          assetId: row.id,
-          eventType: "tag",
-          actorId: ctx.session.userId,
-          toState: { status: "available", custodianId: null, projectId: null, locationId: input.locationId ?? null },
-          refType: "manual",
-          note: `Asset ${label} registered`,
-        });
+        /* Deliberately OUTSIDE the transaction. The ledger event above is the
+           evidence; event_log is best-effort observability and logEvent already
+           swallows its own failures, so an audit hiccup must never roll back a
+           legitimate create. Running after commit also means it can never
+           describe an asset that does not exist — and the custody rule forbids
+           awaiting logEvent inside db.transaction anyway (it pins a pool
+           connection). The importer makes the same call. */
         await logEvent(ctx, {
           category: "asset",
           action: "create",

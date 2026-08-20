@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RidePicker } from "./ride-picker";
 import { usePermissions } from "./use-permissions";
 
 type Props = { open: boolean; onClose: () => void; preselectedAssetId?: string };
@@ -15,7 +16,6 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const assets = trpc.asset.list.useQuery({ status: "available" });
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
-  const vehicles = trpc.vehicle.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
   const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: role === "superintendent" });
   const me = trpc.identity.me.useQuery();
@@ -39,6 +39,10 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
      means it is going in their trailer or gang box, and without this the only
      way to record that was a separate Transfer afterwards. */
   const [locationId, setLocationId] = useState("");
+  /* Which rig it rides out in (STI-203). Deliberately never auto-filled: the
+     project follows the person, the truck does not — see ride-picker.tsx. */
+  const [truckId, setTruckId] = useState("");
+  const [trailerId, setTrailerId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
   /* Same fix as transfer-form: "waiting" is a success, not a failure, and it
@@ -48,17 +52,17 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   useEffect(() => { setAssetId(preselectedAssetId ?? ""); }, [preselectedAssetId]);
 
   /* Tools go where the foreman is: picking a custodian pre-fills the project
-     from their current job and their truck, since that is where the tool is
-     physically going. Both stay editable — this is a default, not a lock. */
+     from their current job. It stays editable — a default, not a lock.
+     The truck is NOT pre-filled (STI-203): it used to be, via the truck's
+     location row, but a tool does not inherit the truck of whoever receives
+     it — the ride is recorded only when somebody says so. */
   const autoFilledFor = useRef<string | null>(null);
   useEffect(() => {
     if (!custodianId || autoFilledFor.current === custodianId) return;
     const emp = foremen.data?.find((e) => e.id === custodianId);
     if (emp?.primaryProjectId) setProjectId(emp.primaryProjectId);
-    const truck = vehicles.data?.find((v) => v.vehicleType === "truck" && v.foremanEmployeeId === custodianId);
-    if (truck?.locationId) setLocationId(truck.locationId);
     autoFilledFor.current = custodianId;
-  }, [custodianId, foremen.data, vehicles.data]);
+  }, [custodianId, foremen.data]);
 
   const submit = async () => {
     if (!assetId || !custodianId) return;
@@ -68,6 +72,8 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
       const res = await utils.client.assignment.create.mutate({
         assetId, custodianId, projectId: projectId || undefined,
         locationId: locationId || undefined,
+        truckId: truckId || undefined,
+        trailerId: trailerId || undefined,
       });
       if (res.needsApproval) {
         setPending(true);
@@ -124,9 +130,12 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Where it goes</label>
+            {/* Vehicles are filtered out since STI-203: "in a truck" is the
+                rig fields below, a per-assignment fact — not a location. Old
+                rows that recorded a vehicle here stay valid (schema/asset.ts). */}
             <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
               <option value="">Leave where it is</option>
-              {locations.data?.map((l) => (
+              {locations.data?.filter((l) => l.type !== "vehicle").map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
                   {l.custodianName ? ` — ${l.custodianName}` : ""}
@@ -134,9 +143,10 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              A truck, trailer or gang box, if the tool is going into one.
+              A gang box, yard or warehouse, if the tool is going into one.
             </p>
           </div>
+          <RidePicker truckId={truckId} trailerId={trailerId} onTruck={setTruckId} onTrailer={setTrailerId} />
           {result ? (
             <p
               className={`rounded-md border px-3 py-2 text-sm ${

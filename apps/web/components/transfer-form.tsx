@@ -4,6 +4,7 @@ import { CUSTODIAN_ROLES } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { RidePicker } from "./ride-picker";
 import { usePermissions } from "./use-permissions";
 
 type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
@@ -15,7 +16,6 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
   const foremen = trpc.employee.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
-  const vehicles = trpc.vehicle.list.useQuery();
 
   let custodianOptions =
     foremen.data?.filter((e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active") ?? [];
@@ -27,6 +27,10 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
   const [toCustodianId, setToCustodianId] = useState("");
   const [toProjectId, setToProjectId] = useState("");
   const [toLocationId, setToLocationId] = useState("");
+  /* Which rig it rides out in (STI-203). Never auto-filled — a tool does not
+     inherit the recipient's truck; see ride-picker.tsx. */
+  const [toTruckId, setToTruckId] = useState("");
+  const [toTrailerId, setToTrailerId] = useState("");
   const [reason, setReason] = useState("reallocation");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
@@ -35,17 +39,16 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
   const [pending, setPending] = useState(false);
 
   /* Tools go where the foreman is: picking a recipient pre-fills the project
-     from their current job and their truck. Both stay editable — a default,
-     not a lock. */
+     from their current job. It stays editable — a default, not a lock. The
+     truck is NOT pre-filled (STI-203): a tool does not inherit the truck of
+     whoever receives it — the ride is recorded only when somebody says so. */
   const autoFilledFor = useRef<string | null>(null);
   useEffect(() => {
     if (!toCustodianId || autoFilledFor.current === toCustodianId) return;
     const emp = foremen.data?.find((e) => e.id === toCustodianId);
     if (emp?.primaryProjectId) setToProjectId(emp.primaryProjectId);
-    const truck = vehicles.data?.find((v) => v.vehicleType === "truck" && v.foremanEmployeeId === toCustodianId);
-    if (truck?.locationId) setToLocationId(truck.locationId);
     autoFilledFor.current = toCustodianId;
-  }, [toCustodianId, foremen.data, vehicles.data]);
+  }, [toCustodianId, foremen.data]);
 
   /*
     Close only when the tool actually moved.
@@ -65,7 +68,10 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
     try {
       const res = await utils.client.transfer.create.mutate({
         assetId, toCustodianId, toProjectId: toProjectId || undefined,
-        toLocationId: toLocationId || undefined, reason,
+        toLocationId: toLocationId || undefined,
+        toTruckId: toTruckId || undefined,
+        toTrailerId: toTrailerId || undefined,
+        reason,
       });
       utils.transfer.list.invalidate();
       utils.assignment.list.invalidate();
@@ -116,11 +122,14 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">To location</label>
+            {/* Vehicles are filtered out since STI-203: "in a truck" is the
+                rig fields below, a per-assignment fact — not a location. */}
             <select value={toLocationId} onChange={(e) => setToLocationId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
               <option value="">No change</option>
-              {locations.data?.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              {locations.data?.filter((l) => l.type !== "vehicle").map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
           </div>
+          <RidePicker truckId={toTruckId} trailerId={toTrailerId} onTruck={setToTruckId} onTrailer={setToTrailerId} />
           <div className="space-y-2">
             <label className="text-sm font-medium">Reason</label>
             <select value={reason} onChange={(e) => setReason(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">

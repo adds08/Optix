@@ -68,7 +68,7 @@ export const taskRouter = router({
       const row = await ctx.db.query.task.findFirst({
         where: and(eq(schema.task.id, input.id), eq(schema.task.tenantId, tid)),
       });
-      if (!row) throw new Error("Task not found");
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
       return row;
     }),
 
@@ -134,7 +134,7 @@ export const taskRouter = router({
       const existing = await ctx.db.query.task.findFirst({
         where: and(eq(schema.task.id, input.id), eq(schema.task.tenantId, tid)),
       });
-      if (!existing) throw new Error("Task not found");
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
 
       const updates: Record<string, unknown> = { updatedAt: new Date() };
       if (input.title !== undefined) updates.title = input.title;
@@ -176,7 +176,7 @@ export const taskRouter = router({
       const existing = await ctx.db.query.task.findFirst({
         where: and(eq(schema.task.id, input.id), eq(schema.task.tenantId, tid)),
       });
-      if (!existing) throw new Error("Task not found");
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Task not found" });
 
       await ctx.db
         .delete(schema.task)

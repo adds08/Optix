@@ -220,7 +220,8 @@ export const messagingRouter = router({
           processingStatus: "queued",
         })
         .returning();
-      if (!row) throw new Error("Failed to create message");
+      if (!row)
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create message" });
       await logEvent(ctx, {
         category: "messaging",
         action: "send",

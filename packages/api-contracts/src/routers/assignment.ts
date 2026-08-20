@@ -1,17 +1,20 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome } from "@stinventory/domain";
 import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { closeActiveCustody, projectForCustodian } from "../custody.js";
+import { assertVehicleContext, closeActiveCustody, projectForCustodian, vehicleContextFromLedger } from "../custody.js";
 import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 
 export const assignmentRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const truckVehicle = alias(schema.vehicle, "assignment_truck");
+    const trailerVehicle = alias(schema.vehicle, "assignment_trailer");
     const rows = await ctx.db
       .select({
         id: schema.assignment.id,
@@ -30,12 +33,30 @@ export const assignmentRouter = router({
         locationName: schema.location.name,
         startDate: schema.assignment.startDate,
         status: schema.assignment.status,
+        /* Same gap as `transfer.list` — the desk approves pending assignments
+           from this list too (STI-206), so it needs the rig for the same
+           reason. `undefined` means "no vehicle recorded"; render it as
+           silence, not as a blank that reads like "no truck". */
+        truckId: schema.assignment.truckId,
+        truckUnit: truckVehicle.unit,
+        truckOwnership: truckVehicle.ownershipType,
+        trailerId: schema.assignment.trailerId,
+        trailerUnit: trailerVehicle.unit,
       })
       .from(schema.assignment)
       .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
       .innerJoin(schema.employee, eq(schema.assignment.custodianId, schema.employee.id))
       .leftJoin(schema.project, eq(schema.assignment.projectId, schema.project.id))
       .leftJoin(schema.location, eq(schema.assignment.locationId, schema.location.id))
+      /* Tenant-scoped on the join — the composite FK is tenant-blind. */
+      .leftJoin(
+        truckVehicle,
+        and(eq(schema.assignment.truckId, truckVehicle.id), eq(truckVehicle.tenantId, tid)),
+      )
+      .leftJoin(
+        trailerVehicle,
+        and(eq(schema.assignment.trailerId, trailerVehicle.id), eq(trailerVehicle.tenantId, tid)),
+      )
       .where(eq(schema.assignment.tenantId, tid));
     return rows.map((r) => ({ ...r, modelName: formatAssetModel(r) }));
   }),
@@ -47,6 +68,10 @@ export const assignmentRouter = router({
         custodianId: z.string().uuid(),
         projectId: z.string().uuid().optional(),
         locationId: z.string().uuid().optional(),
+        /* Which rig the tool rides out in (STI-203). Optional and NEVER
+           defaulted — the project follows the person, the truck does not. */
+        truckId: z.string().uuid().optional(),
+        trailerId: z.string().uuid().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -55,6 +80,10 @@ export const assignmentRouter = router({
         where: and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)),
       });
       if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "That tool is not in the register." });
+
+      /* Tenant-scoped type check before anything is written — the composite FK
+         is tenant-blind and answers a wrong type with a raw 500 (custody.ts). */
+      await assertVehicleContext(ctx.db, tid, input.truckId, input.trailerId);
 
       const settings = await ctx.db.query.tenantSettings.findFirst({
         where: eq(schema.tenantSettings.tenantId, tid),
@@ -91,6 +120,10 @@ export const assignmentRouter = router({
             custodianId: input.custodianId,
             projectId,
             locationId: input.locationId ?? null,
+            /* Written on the pending row too: approval applies what the request
+               recorded, so the desk signs off on the rig the requester named. */
+            truckId: input.truckId ?? null,
+            trailerId: input.trailerId ?? null,
             startDate: new Date().toISOString().slice(0, 10),
             status,
             approvedBy: needsApproval ? null : ctx.session.userId,
@@ -124,6 +157,14 @@ export const assignmentRouter = router({
               custodianId: input.custodianId,
               projectId: projectId ?? asset.currentProjectId ?? null,
               locationId: input.locationId ?? asset.currentLocationId ?? null,
+              /* Both vehicle keys explicit, `?? null`, no current_* fallback:
+                 this is a NEW custody — the tool is not still riding whatever
+                 the last holder drove. Omitting the keys is not an option
+                 either; a shape-aware writer that stays silent reads as
+                 "never asked", which is only truthful of pre-STI-202 events
+                 (see the shape-boundary rule in packages/domain/src/fold.ts). */
+              truckId: input.truckId ?? null,
+              trailerId: input.trailerId ?? null,
             },
             refType: "assignment",
             refId: created.id,
@@ -222,16 +263,34 @@ export const assignmentRouter = router({
           assetId: a.assetId,
           eventType: "assign",
           actorId: ctx.session.userId,
-          // Complete snapshot: the fold replaces rather than merges, so all
-          // four keys must be present even when their value is null.
-          toState: { status: "assigned", custodianId: a.custodianId, projectId: a.projectId, locationId: a.locationId },
+          // Complete snapshot: the fold replaces rather than merges, so every
+          // key must be present even when its value is null. Truck and trailer
+          // come off the pending row — approval applies what the request
+          // recorded, and a pre-STI-203 pending row recorded nothing, which
+          // its null honestly says.
+          toState: {
+            status: "assigned",
+            custodianId: a.custodianId,
+            projectId: a.projectId,
+            locationId: a.locationId,
+            truckId: a.truckId,
+            trailerId: a.trailerId,
+          },
           refType: "assignment",
           refId: a.id,
           note: "Assignment approved",
         });
       });
 
-      const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, a.assetId) });
+      /* Tenant predicate carried even though this is read-only, only feeds the
+         notification's asset tag, and `a.assetId` came off a tenant-scoped row
+         (STI-117). There is no RLS — the WHERE clause is the isolation — and
+         the rule's value is having no exceptions to reason about: an unscoped
+         lookup here is the template that gets copied into a query where the
+         id is attacker-supplied. */
+      const asset = await ctx.db.query.asset.findFirst({
+        where: and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)),
+      });
       await notifyCustodyDecision(ctx.db, {
         tenantId: ctx.session.tenantId,
         toCustodianId: a.custodianId,
@@ -304,6 +363,13 @@ export const assignmentRouter = router({
             custodianId: asset.currentCustodianId,
             projectId: asset.currentProjectId,
             locationId: asset.currentLocationId,
+            /* Truck and trailer have no asset.current_* column, so "nothing
+               changed" copies them off the newest ledger snapshot verbatim —
+               absent keys stay absent (STI-203). A blind null here would be
+               the partial-snapshot bug wearing a new key: it stamps
+               "affirmatively no truck" over a recorded ride, and the next
+               rebuild makes that permanent. */
+            ...(await vehicleContextFromLedger(tx, tid, a.assetId)),
           };
           await tx.insert(schema.transaction).values({
             tenantId: tid,
@@ -400,6 +466,11 @@ export const assignmentRouter = router({
           custodianId: null,
           projectId: null,
           locationId: asset?.currentLocationId ?? null,
+          /* Explicit nulls, not absent keys (STI-203): a return means the tool
+             came back IN — out of whoever's truck or trailer it rode, which is
+             an affirmative fact, unlike the last-known location above. */
+          truckId: null,
+          trailerId: null,
         };
         await tx
           .update(schema.asset)

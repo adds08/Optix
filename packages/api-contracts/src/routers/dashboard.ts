@@ -1,4 +1,5 @@
 import { and, count, desc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { formatAssetModel } from "@stinventory/types";
@@ -257,8 +258,29 @@ export const dashboardRouter = router({
       );
     }),
 
+  /*
+    The Approval queue's source. STI-206: it now carries the rig.
+
+    The gate exists so a SECOND person consents to a movement, and consent to a
+    movement you cannot fully see is weaker than it looks. The vehicle is not
+    incidental — `SYSTEM_PLAN.md` §1 names "which trailer is it in" as one of
+    the questions the system exists to answer. Without it the desk cannot catch
+    a tool routed into a trailer already bound for a different jobsite, or a
+    personal-allowance truck used where company property is expected.
+
+    Both halves are joined tenant-scoped: the composite FK behind these columns
+    proves the vehicle's TYPE and nothing about the tenant.
+
+    `truckUnit`/`trailerUnit` are null when NOTHING WAS RECORDED. After
+    STI-202's three-state rule that is an absence, not a claim of "no truck" —
+    so the screen must say nothing there rather than render an empty slot.
+  */
   pendingApprovals: protectedProcedure.query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const aTruck = alias(schema.vehicle, "pending_assignment_truck");
+    const aTrailer = alias(schema.vehicle, "pending_assignment_trailer");
+    const tTruck = alias(schema.vehicle, "pending_transfer_truck");
+    const tTrailer = alias(schema.vehicle, "pending_transfer_trailer");
     const pendingAssignments = await ctx.db
       .select({
         id: schema.assignment.id,
@@ -271,10 +293,15 @@ export const dashboardRouter = router({
         status: schema.assignment.status,
         fromName: sql<string | null>`null`,
         createdAt: schema.assignment.createdAt,
+        truckUnit: aTruck.unit,
+        truckOwnership: aTruck.ownershipType,
+        trailerUnit: aTrailer.unit,
       })
       .from(schema.assignment)
       .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
       .innerJoin(schema.employee, eq(schema.assignment.custodianId, schema.employee.id))
+      .leftJoin(aTruck, and(eq(schema.assignment.truckId, aTruck.id), eq(aTruck.tenantId, tid)))
+      .leftJoin(aTrailer, and(eq(schema.assignment.trailerId, aTrailer.id), eq(aTrailer.tenantId, tid)))
       .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.status, "pending_approval")));
     const pendingTransfers = await ctx.db
       .select({
@@ -288,10 +315,15 @@ export const dashboardRouter = router({
         status: schema.transfer.status,
         fromName: sql<string | null>`(select name from employee where id = ${schema.transfer.fromCustodianId})`,
         createdAt: schema.transfer.createdAt,
+        truckUnit: tTruck.unit,
+        truckOwnership: tTruck.ownershipType,
+        trailerUnit: tTrailer.unit,
       })
       .from(schema.transfer)
       .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
       .innerJoin(schema.employee, eq(schema.transfer.toCustodianId, schema.employee.id))
+      .leftJoin(tTruck, and(eq(schema.transfer.toTruckId, tTruck.id), eq(tTruck.tenantId, tid)))
+      .leftJoin(tTrailer, and(eq(schema.transfer.toTrailerId, tTrailer.id), eq(tTrailer.tenantId, tid)))
       .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval")));
     return [...pendingAssignments, ...pendingTransfers]
       .map((r) => ({

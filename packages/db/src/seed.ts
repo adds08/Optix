@@ -367,7 +367,7 @@ async function main() {
 
   // Vehicles (1:1 with vehicle locations). The tools-list source has trailers
   // only — every truck column is null by spec — so all rows are trailers.
-  await db.insert(vehicle).values(
+  const vehicleRows = await db.insert(vehicle).values(
     vehSpecs.map((v) => ({
       tenantId: tid,
       locationId: locByKey[v.loc]!,
@@ -386,8 +386,59 @@ async function main() {
       projectId: v.proj ? projectByKey[v.proj]! : null,
       foremanEmployeeId: v.foreman ? empByKey[v.foreman]! : null,
     })),
-  );
-  console.log(`[seed] ${vehSpecs.length} trailers (no trucks in source)`);
+  ).returning();
+  /* Location key -> TRAILER id, so an assignment whose `loc` is a trailer's
+     location row can also carry that trailer in `trailer_id` (STI-202).
+     Filtered by vtype so the synthetic truck below can never land in a
+     trailer slot — assignment_trailer_fk would reject it anyway. */
+  const trailerIdByLocKey: Record<string, string> = {};
+  vehSpecs.forEach((v, i) => {
+    if (v.vtype === "trailer") trailerIdByLocKey[v.loc] = vehicleRows[i]!.id;
+  });
+  /* The one SYNTHETIC truck — see the rationale on its vehSpecs entry.
+     TOOL-0001 below rides on it so a real assignment row exercises
+     assignment_truck_fk and a real ledger event carries a uuid truckId. */
+  const seedTruckId = vehicleRows[vehSpecs.findIndex((v) => v.vtype === "truck")]!.id;
+  /*
+    ONE assignment in the MODEL-CORRECT shape (STI-207).
+
+    Every other seeded row puts the tool's location AT its trailer's own
+    location row, so "aboard by the assignment" and "aboard by the location"
+    agree on all 754 of them. That agreement is exactly why the container
+    hand-over bug was invisible: both signals said the same thing, so it did
+    not matter which one `applyContainerCustody` read.
+
+    The shape STI-202's schema comment actually prescribes is the other one —
+    the vehicle lives in `trailerId`, and `locationId` carries a NON-vehicle
+    place. This tool is therefore aboard its trailer by the assignment and
+    parked in the Dallas Yard by its location. Hand that trailer over and it
+    must move; under the old location-based query it silently did not.
+
+    `CLAUDE.md` rule 8: seed the edge that trips the rule, not just the happy
+    path. Data the seed cannot produce is behaviour nobody tests.
+
+    Chosen by position, not hardcoded by tag, so it survives the source sheets
+    changing. TOOL-0001 is excluded because it carries the synthetic truck and
+    is already doing a different job.
+  */
+  const modelCorrectTag =
+    assignSpecs.find((s) => s.tag !== "TOOL-0001" && trailerIdByLocKey[s.loc])?.tag ?? null;
+  /* The personal-allowance truck and the one tool riding it — see the rationale
+     on its vehSpecs entry. Without a tool on it the "personal" marker on the
+     jobsite table, tool detail and the approval queue stays unreachable from a
+     clean database. */
+  const seedPersonalTruckId = vehicleRows[vehSpecs.findIndex((v) => v.own === "personal_allowance")]!.id;
+  const personalTruckTag =
+    assignSpecs.find((s) => s.tag !== "TOOL-0001" && s.tag !== modelCorrectTag)?.tag ?? null;
+  const truckIdFor = (tag: string) =>
+    tag === "TOOL-0001" ? seedTruckId : tag === personalTruckTag ? seedPersonalTruckId : null;
+  const YARD_LOC_KEY = "l-dal";
+  /* The location the three writers below agree on. `trailerId` deliberately
+     keeps using the ORIGINAL key — that is the whole point: the trailer is
+     still recorded, the location no longer names it. */
+  const locKeyOf = (tag: string, loc: string) => (tag === modelCorrectTag ? YARD_LOC_KEY : loc);
+  const trailerCount = vehSpecs.filter((v) => v.vtype === "trailer").length;
+  console.log(`[seed] ${trailerCount} trailers (no trucks in source) + 2 synthetic trucks (1 company, 1 personal-allowance)`);
 
   // ---- Assets (the register). current_* projection set at seed time; matching
   // transactions are appended below so the rebuild guarantee holds.
@@ -418,7 +469,7 @@ async function main() {
         currentStatus: a.status,
         currentCustodianId: a.cust ? empByKey[a.cust]! : null,
         currentProjectId: a.cur ? projectByKey[a.cur]! : null,
-        currentLocationId: locByKey[a.loc]!,
+        currentLocationId: locByKey[locKeyOf(a.tag, a.loc)]!,
         condition: "good",
         createdBy: userByEmail["admin@stinventory.local"]!.id,
       })),
@@ -438,7 +489,16 @@ async function main() {
       assetId: assetByTag[s.tag]!.id,
       custodianId: empByKey[s.cust]!,
       projectId: s.proj ? projectByKey[s.proj]! : null,
-      locationId: locByKey[s.loc]!,
+      locationId: locByKey[locKeyOf(s.tag, s.loc)]!,
+      /* STI-202: when the assignment's location is a trailer's own location
+         row, record the trailer first-class too — this is what exercises the
+         assignment_trailer_fk composite FK on every reset. TOOL-0001 also
+         rides the synthetic truck, so a fresh database carries BOTH of the
+         cases criterion 2 keeps distinguishable: "in a truck with a trailer"
+         (TOOL-0001) and "in a trailer, affirmatively no truck" (all others —
+         honest, because the source sheets carry no trucks at all). */
+      truckId: truckIdFor(s.tag),
+      trailerId: trailerIdByLocKey[s.loc] ?? null,
       startDate: s.start,
       status: "active",
       approvedBy: adminId,
@@ -448,7 +508,8 @@ async function main() {
 
   // ---- Transaction log (append-only). One assign event per tool so the
   // activity feed has the tools-list history and the rebuild guarantee holds. ----
-  /* Every event carries the complete four-key snapshot, derived from the same
+  /* Every event carries the complete snapshot (the four core keys, plus the
+     explicit STI-202 truck/trailer keys), derived from the same
      assetSpec that set `asset.current_*` above — so the ledger folds to the
      projection by construction. These used to be `toState: null`, which made
      `foldAssetState` a no-op on every seeded asset: `asset.rebuild` reported
@@ -474,7 +535,17 @@ async function main() {
           status: spec.status,
           custodianId: spec.cust ? empByKey[spec.cust]! : null,
           projectId: spec.cur ? projectByKey[spec.cur]! : null,
-          locationId: locByKey[spec.loc]!,
+          locationId: locByKey[locKeyOf(spec.tag, spec.loc)]!,
+          /* STI-202: the seed writes shape-AWARE snapshots — both keys present
+             with explicit values, so the fold answers "recorded", not
+             "unknown". truckId is an honest null on every source row (the
+             sheets have no truck column anywhere, which records "no truck",
+             not "never asked"); only TOOL-0001 carries the synthetic truck,
+             mirroring its assignment row above. A missing key would instead
+             fold to "not recorded" — see the shape-boundary rule in
+             packages/domain/src/fold.ts. */
+          truckId: truckIdFor(spec.tag),
+          trailerId: trailerIdByLocKey[spec.loc] ?? null,
         },
         refType: t.ref,
         refId: null,
@@ -507,6 +578,7 @@ async function main() {
     custodianId: empByKey["e-fm005"]!,
     projectId: projectByKey["p-nex-22017"]!,
     locationId: locByKey["l-TE-011"]!,
+    trailerId: trailerIdByLocKey["l-TE-011"] ?? null,
     startDate: TODAY,
     status: "pending_approval",
     approvedBy: null,
@@ -514,6 +586,10 @@ async function main() {
 
   // TOOL-0142 (HONDA EB6500X, $5200 — above threshold) is held by Alberto
   // Mendes Aleman on Garland; a hand-off to Felipe Portillo (DART) waits.
+  // It names the destination rig (STI-203 / 0017): the trailer the tool would
+  // ride to DART in. Held-with-a-rig is now a reachable state, so the seed
+  // reaches it — approving this row exercises the parked columns and their
+  // composite FKs from a fresh reset, not just the direct path.
   await db.insert(transfer).values({
     tenantId: tid,
     assetId: assetByTag["TOOL-0142"]!.id,
@@ -523,6 +599,8 @@ async function main() {
     toLocationId: locByKey["l-TE-017"]!,
     fromProjectId: projectByKey["p-garland-22015"]!,
     toProjectId: projectByKey["p-dart-20011"]!,
+    toTruckId: null, // no truck in the fleet data; the synthetic truck stays on TOOL-0001
+    toTrailerId: trailerIdByLocKey["l-TE-017"] ?? null,
     reason: "reallocation",
     status: "pending_approval",
     requestedBy: adminId,
@@ -562,7 +640,7 @@ Login (password: stinventory-demo):
 
 Data (from TOOL LIST BY NAME.xlsx):
   ${employeeRows.length - 2} foremen, ${projectRows.length} projects,
-  ${vehSpecs.length} trailers, ${assetRows.length} tools
+  ${trailerCount} trailers (+2 synthetic trucks, seed-only), ${assetRows.length} tools
 `);
   await client.end();
 }
