@@ -1,20 +1,23 @@
 # STInventory Release 1 — status and how to resume
 
-**Last updated:** 2026-08-18, later session.
+**Last updated:** 2026-08-19.
 **Branch:** `release-1/delivery`, cut from `development`. Draft PR #1 is open against
 `development`.
-**Scope:** Phase 1 complete. **Phase 2 is one ticket from done** (STI-203). Phases 3–5
-deferred — see `README.md` in this directory.
+**Scope:** **Phases 1 and 2 are complete.** Phases 3–5 deferred — see `README.md` in this
+directory.
 
-> ## Phase 1 complete. Phase 2 has one ticket left — STI-203.
+> ## Phases 1 and 2 are complete. All five core invariants are enforced.
 >
-> **Invariant 5 now has a schema behind it**, which means four of the five core invariants
-> are enforced and the fifth is one ticket from delivered. Every ticket was verified by an
-> agent that did not write it; two failed QA and were reworked.
+> Invariant 5 — "every assignment carries job, truck and trailer, independently recordable"
+> — was the last one failing. It is delivered: the columns exist, every custody writer fills
+> them, the ledger records them, and the screens show them.
 >
-> What remains is stated explicitly below — no exceptions: **STI-203**, three follow-up
-> tickets opened from defects found during the work, **one product question for Urban**, and
-> **one query a human must run before production**.
+> Every ticket was verified by an agent that did not write it. **Four failed QA and were
+> reworked**; two of those failures were caused by instructions I got wrong.
+>
+> What remains is stated explicitly below — no exceptions: **six follow-up tickets** opened
+> from questions this work raised, **one product question for Urban**, and **one query a
+> human must run before production**.
 
 This document is written so you can resume **cold**, without the conversation that
 produced it.
@@ -26,7 +29,7 @@ produced it.
 ```bash
 cd /home/subedim/inventory
 make ENV=local up          # stack: web :3100, api :4100, postgres
-make ENV=local test        # expect 167 passing
+make ENV=local test        # expect 177 passing
 ```
 
 Then read, in this order:
@@ -34,7 +37,7 @@ Then read, in this order:
 2. `docs/tickets/README.md` — the board.
 3. `docs/tickets/EXECUTION-PLAN.md` — wave order and *why* tickets collide.
 
-To run a ticket end to end: **`/feature-delivery STI-203`**. That skill orchestrates
+To run a ticket end to end: **`/feature-delivery STI-207`**. That skill orchestrates
 ticket → branch → implement → adversarial QA → review. It never fires on its own.
 
 ---
@@ -52,7 +55,7 @@ real controls; the fifth is deferred with Phase 2.
 | 2 | Ledger is append-only | A source comment | Postgres trigger raising `0A000` on UPDATE, DELETE **and** TRUNCATE. Cascade deletes blocked. Test-pinned. |
 | 3 | Custody writes are atomic | Three unwrapped statements | One transaction per procedure, anchored on the asset row. Passing a raw `db` handle is a **compile error**. |
 | 4 | Projection is derivable | Untestable — the fold was a no-op | Folds cleanly. One fold, not two. Divergence sweep every 6h + at boot, reporting **two distinct kinds**. |
-| 5 | Assignment carries truck and trailer | Fails | **Schema delivered (STI-202)** — `truckId`/`trailerId` with a composite FK enforcing vehicle type at the database. **Nothing writes them yet — STI-203.** |
+| 5 | Assignment carries truck and trailer | Fails | **Delivered (STI-202 + STI-203).** Composite FK enforces vehicle type at the database; every custody writer fills both keys; held transfers keep the pick through approval (`0017`); jobsites and tool detail show it. |
 
 ### Feature by feature, in Phase 1's own terms
 
@@ -146,20 +149,15 @@ the greps and probes those tickets required.
 narrow crash-window ticket and QA then showed a duplicate-write reachable by an ordinary
 retry, with no crash involved. Re-size it before starting.
 
-### Phase 2 — one ticket left
+### Phase 2 follow-ups — three open questions, none blocking
 
-**[STI-203](STI-203-custody-context-writers.md)** carries truck and trailer through
-`custody.ts`, the ledger `toState`, the assign/transfer forms and the jobsite and tool-detail
-screens. Until it lands, the columns exist and nothing writes them — **a column nothing
-writes is not delivered** (`SYSTEM_PLAN.md` §9).
+| Ticket | What | Note |
+|---|---|---|
+| [STI-206](STI-206-approval-queue-hides-the-rig.md) | The Approval queue does not show the rig | The desk gives a second signature without seeing which truck — on the one path where the signature is the point |
+| [STI-207](STI-207-container-membership-is-still-location-based.md) | Container membership is location-based; the truth moved to the assignment | **A tension this work created.** Invisible today because seeded rows satisfy both signals; real the first time a tool is assigned the model-correct way |
+| [STI-208](STI-208-hitching-a-trailer-could-assert-the-new-truck.md) | Hitching carries a stale truck forward | **The answer may legitimately be "no"** — it turns a historical record into a running state, and unhitching has no good answer under the three-state rule |
 
-Two things QA established that the ticket now carries, and both would otherwise be
-rediscovered the hard way:
-
-- The guard work is **two** paths, not three. `location.delete` already refuses before the
-  cascade, so a guard there would be dead code.
-- **The composite FK is tenant-blind.** It guarantees vehicle *type*, nothing about tenant.
-  Every truck/trailer lookup must carry `eq(vehicle.tenantId, tid)` itself.
+**Read STI-207 before STI-208** — 207 may change which tools 208 would even apply to.
 
 ### Deferred with Phases 3–5
 - **No user administration of any kind.** Creating a user means editing `seed-data.ts` and

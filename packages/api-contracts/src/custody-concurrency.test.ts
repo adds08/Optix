@@ -224,12 +224,16 @@ describe.skipIf(!url)("double decisions write exactly one ledger event (STI-109,
         .where(and(eq(schema.transaction.tenantId, tenantId), eq(schema.transaction.assetId, assetId)));
       expect(events).toHaveLength(1);
       expect(events[0]!.eventType).toBe("assign");
-      /* Complete four-key snapshot — the fold replaces, it does not merge. */
+      /* Complete snapshot — the fold replaces, it does not merge. Since
+         STI-203 the chat executor is shape-aware, so the vehicle keys are
+         present as explicit nulls even when nothing named a rig. */
       expect(events[0]!.toState).toEqual({
         status: "assigned",
         custodianId: empA,
         projectId: null,
         locationId: null,
+        truckId: null,
+        trailerId: null,
       });
 
       const row = await db.query.task.findFirst({ where: eq(schema.task.id, pendingTask!.id) });
@@ -270,11 +274,14 @@ describe.skipIf(!url)("double decisions write exactly one ledger event (STI-109,
         .where(and(eq(schema.transaction.tenantId, tenantId), eq(schema.transaction.assetId, assetId)));
       expect(events).toHaveLength(1);
       expect(events[0]!.eventType).toBe("assign");
+      /* Same shape-aware snapshot as the task-approve path above (STI-203). */
       expect(events[0]!.toState).toEqual({
         status: "assigned",
         custodianId: empA,
         projectId: null,
         locationId: null,
+        truckId: null,
+        trailerId: null,
       });
 
       /* One custody link, active — not two with the first closed as a

@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import type { Database } from "@stinventory/db";
 import * as schema from "@stinventory/db/schema";
-import { custodyOutcome, type CustodyOutcome } from "@stinventory/domain";
+import { custodyOutcome, type AssetStateSnapshot, type CustodyOutcome } from "@stinventory/domain";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel, type Permission } from "@stinventory/types";
 import {
   ACTION_DEPARTMENTS,
@@ -11,7 +11,7 @@ import {
   CUSTODY_INTENTS,
   REQUEST_TITLES,
 } from "@stinventory/intent";
-import { closeActiveCustody, moveCustody, projectForCustodian } from "./custody.js";
+import { assertVehicleContext, closeActiveCustody, moveCustody, projectForCustodian } from "./custody.js";
 
 /*
   The single place a chat-derived intent becomes real state.
@@ -49,6 +49,10 @@ export type ChatAction = {
   custodianId?: string;
   projectId?: string;
   locationId?: string;
+  /* Which rig the tool rides out in (STI-203) — set by the bulk-move form;
+     the chat parser does not resolve vehicles yet. Never defaulted. */
+  truckId?: string | null;
+  trailerId?: string | null;
   note?: string;
   /* Only `intake` carries this — every other action names assets that exist. */
   draft?: AssetDraft;
@@ -156,6 +160,12 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
     throw new TRPCError({ code: "BAD_REQUEST", message: "No assets resolved for this action" });
   }
 
+  /* Once, before the per-asset loop: the composite FK behind truckId/trailerId
+     is tenant-blind and answers a wrong type with a raw 500 (custody.ts). */
+  if (action.type === "assign" || action.type === "transfer") {
+    await assertVehicleContext(db, tenantId, action.truckId, action.trailerId);
+  }
+
   const transactionIds: string[] = [];
   let applied = 0;
   let awaitingApproval = 0;
@@ -224,6 +234,10 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
             toLocationId: toLocationId ?? asset.currentLocationId,
             fromProjectId: asset.currentProjectId,
             toProjectId,
+            /* The rig the requester named rides the parked row (STI-203 /
+               0017), so transfer.approve applies what was actually asked. */
+            toTruckId: action.truckId ?? null,
+            toTrailerId: action.trailerId ?? null,
             reason: "handoff",
             status: "pending_approval",
             requestedBy: actorUserId,
@@ -237,7 +251,9 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
       }
     }
 
-    const before = {
+    /* Typed as the snapshot, not inferred four-key: the shape-aware branches
+       below assign vehicle keys into `after` (STI-203). */
+    const before: AssetStateSnapshot = {
       status: asset.currentStatus,
       custodianId: asset.currentCustodianId,
       projectId: asset.currentProjectId,
@@ -251,7 +267,7 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
        pool connection for the life of a transaction, and this is the chat
        path — the LLM parse already happened, in the worker, before this call. */
     const ledgerId = await db.transaction(async (tx) => {
-      let after = { ...before };
+      let after: AssetStateSnapshot = { ...before };
       let eventType = "status_change";
       let refType = "message";
       let refId: string | null = refMessageId ?? null;
@@ -275,6 +291,8 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
               custodianId: action.custodianId,
               projectId: assignProjectId,
               locationId: action.locationId ?? asset.currentLocationId ?? null,
+              truckId: action.truckId ?? null,
+              trailerId: action.trailerId ?? null,
               startDate: new Date().toISOString().slice(0, 10),
               status: "active",
               approvedBy: actorUserId,
@@ -285,6 +303,10 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
             custodianId: action.custodianId,
             projectId: assignProjectId,
             locationId: action.locationId ?? asset.currentLocationId ?? null,
+            /* Both keys explicit, no current_* fallback: a new custody does
+               not inherit the previous holder's rig (STI-203). */
+            truckId: action.truckId ?? null,
+            trailerId: action.trailerId ?? null,
           };
           eventType = "assign";
           refType = "assignment";
@@ -320,6 +342,8 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
               toLocationId: action.locationId ?? asset.currentLocationId,
               fromProjectId: asset.currentProjectId,
               toProjectId: transferProjectId,
+              toTruckId: action.truckId ?? null,
+              toTrailerId: action.trailerId ?? null,
               reason: "reallocation",
               status: "completed",
               requestedBy: actorUserId,
@@ -335,6 +359,8 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
               custodianId: action.custodianId,
               projectId: transferProjectId,
               locationId: action.locationId ?? asset.currentLocationId ?? null,
+              truckId: action.truckId ?? null,
+              trailerId: action.trailerId ?? null,
               startDate: new Date().toISOString().slice(0, 10),
               status: "active",
               approvedBy: actorUserId,
@@ -345,6 +371,9 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
             custodianId: action.custodianId ?? asset.currentCustodianId,
             projectId: transferProjectId,
             locationId: action.locationId ?? asset.currentLocationId,
+            /* Explicit, never inherited from the previous holder (STI-203). */
+            truckId: action.truckId ?? null,
+            trailerId: action.trailerId ?? null,
           };
           eventType = "transfer";
           refType = "transfer";
@@ -360,6 +389,11 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
             custodianId: null,
             projectId: null,
             locationId: action.locationId ?? asset.currentLocationId,
+            /* Explicit nulls (STI-203): a return means the tool came back IN,
+               out of whoever's rig — an affirmative fact, same as the form
+               return in routers/assignment.ts. */
+            truckId: null,
+            trailerId: null,
           };
           eventType = "return";
           refType = "assignment";
@@ -371,7 +405,12 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
         /* Previously fell through every branch: marked done, wrote nothing. */
         case "repair": {
           await closeActiveCustody(tx, tenantId, assetId, "returned");
-          after = { ...before, status: "in_maintenance", custodianId: null };
+          /* Custody closes, so the vehicle keys are affirmatively null too —
+             a tool in the shop is not riding anyone's rig (STI-203). `lost`
+             below deliberately stays silent on them instead: nobody knows
+             where a lost tool is riding, and absent keys are how a snapshot
+             says "unknown" (packages/domain/src/fold.ts). */
+          after = { ...before, status: "in_maintenance", custodianId: null, truckId: null, trailerId: null };
           eventType = "repair_start";
           note = note || "Sent for repair via chat";
           break;
@@ -627,6 +666,9 @@ export async function requestChatAction(db: any, opts: ApplyOptions): Promise<Re
         custodianId: action.custodianId ?? null,
         projectId: action.projectId ?? null,
         locationId: action.locationId ?? null,
+        /* Kept so approval replays the rig the requester named (STI-203). */
+        truckId: action.truckId ?? null,
+        trailerId: action.trailerId ?? null,
         note: action.note ?? null,
         draft: action.draft ?? null,
       },

@@ -23,8 +23,28 @@ Since STI-202 the snapshot also carries **optional** `truckId`/`trailerId` keys.
 optional only so pre-STI-202 history stays readable: an ABSENT key folds to "not recorded",
 an explicit `null` means "affirmatively none" — two different answers, and the fold keeps
 them distinct (the shape-boundary rule in `fold.ts`, pinned by the "shape boundary" tests).
-A shape-aware writer must emit BOTH keys with explicit values; writers not yet carried over
-by STI-203 still emit four-key snapshots, which is legal and reads as "unknown".
+
+Since STI-203 the writers split three ways — pick the right bucket before adding one:
+
+- **Custody movers emit BOTH keys explicitly, `?? null`, never a `current_*` fallback**:
+  `assignment.create`/`approve`/`return`, `transfer.create`/`approve`, and the
+  `assign`/`transfer`/`return`/`repair` cases in `apply-action.ts`. A new custody does not
+  inherit the previous holder's rig, and a return or repair means the tool is affirmatively
+  out of one. `assertVehicleContext` (custody.ts) must gate every id before it is written —
+  the composite FK behind the columns is **tenant-blind** and raises raw 23503s.
+- **Writers that assert nothing new about vehicles carry the newest snapshot's keys
+  forward VERBATIM** (`vehicleContextFromLedger`, custody.ts) — absent stays absent. Two
+  members: the from=to decline writers, and `applyContainerCustody`'s `custodian_change`
+  (a container hand-over moves the WHO, not the where-it-rides — the tools stay in the
+  same box, and a four-key event here erased "still in TE-006" from the fold for a tool
+  that never left the trailer). The asset table has no truck columns, so the ledger is
+  the only source; a blind null would stamp "affirmatively no truck" over a recorded
+  ride and the next rebuild would blank it. The container writer also puts the carried
+  context on the link it opens, so row and event tell one story.
+- **Writers that never asked stay four-key**: `lost`/`report` in apply-action,
+  `requestChatAction`'s annotation, `asset.setStatus`, the `project_change` bulk writer,
+  and the intake/import/create baseline events. Absent keys are how those snapshots
+  honestly say "unknown".
 
 This bug has shipped three times. `fold.test.ts:114-135` pins it. Every writer that got it
 wrong carries a scar-tissue comment — grep "Same fallbacks the asset update"
@@ -110,9 +130,10 @@ tool away weeks earlier. Read the header comment at the top of `custody.ts`.
   apply) are named on the claim comments in `approve.ts`.
 - **Declines are custody-affecting (STI-112).** Both `assignment.decline` and
   `transfer.decline` write a `status_change` event with `from_state = to_state` — the
-  complete four-key snapshot, read under the lock so it is the state at commit time.
-  "Considered, and refused" belongs in the tool's history; the reasoning lives on the
-  ledger insert in `assignment.decline`.
+  complete snapshot, read under the lock so it is the state at commit time: four base
+  keys off the asset row, vehicle keys carried forward from the newest ledger snapshot
+  (STI-203, see the writer buckets above). "Considered, and refused" belongs in the
+  tool's history; the reasoning lives on the ledger insert in `assignment.decline`.
 - **Since STI-102, custody writes are transactional and row-locked.** `closeActiveCustody`
   and `moveCustody` take a `Transaction` (exported by `@stinventory/db`) as their first
   parameter — a raw `db` handle is a **compile error**, which is the enforcement: the old
@@ -140,6 +161,77 @@ tool away weeks earlier. Read the header comment at the top of `custody.ts`.
   skips the close while a row is `pending_approval` (nothing has taken effect yet), so
   approval is the moment the previous holder's link closes — until STI-102 nothing closed
   it, which left two active rows.
+
+## What "aboard a container" means (STI-207 / STI-208)
+
+Two decisions, both settled. Do not re-open either without reading why.
+
+**For a container that IS a vehicle, membership is decided by PRECEDENCE, not a union:**
+
+1. a tool with an **active assignment** naming this vehicle is aboard;
+2. a tool with **no active assignment at all** is aboard if its `current_location_id` is
+   the container's location row.
+
+Rule 2 is not the old signal sneaking back. An unheld tool has no assignment, so it has no
+`trailerId` to be aboard of — its location row is the only record that it is in the trailer.
+Without rule 2, handing a trailer **back** (`custodianEmployeeId: null`) closes every active
+link and reopens none, so the manifest empties permanently and the next hand-over moves zero
+tools while nineteen sit in the trailer. The two sets are disjoint by construction (one
+demands an active assignment, the other demands none) and the result is deduped by id, so
+nothing is moved twice.
+
+STI-202 created a second answer to "is this tool aboard TE-006" and STI-203 made it the
+one the product displays, while custody still moved on the first. A tool assigned the way
+the schema comment prescribes — `trailerId` set, `locationId` a yard — was aboard by the
+assignment and not aboard by the location, so handing that trailer over silently left its
+custody behind. It then read "Rides in: TE-006" while held by whoever had it before. **No
+error and no divergence**: the projection and the ledger agree with each other and both are
+wrong about the world, which is why this class of bug is expensive.
+
+**For a container that is NOT a vehicle — a gang box, a yard, a warehouse shelf —
+`current_location_id` remains authoritative**, because there is no vehicle column for a
+gang box to be named in. That split is not a compromise; it is what the schema comment on
+`assignment.locationId` already prescribes: vehicles live in the vehicle columns,
+`locationId` carries non-vehicle places. Both halves are pinned in `custody.test.ts`.
+
+Why precedence and not a plain union: a union would make the location signal authoritative
+for *held* tools too, which is the ambiguity this ticket existed to remove, and would leave no
+forcing function to retire it. Precedence keeps exactly one answer per tool.
+
+**This writer never re-states the location.** `moveCustody` and the `custodian_change`
+snapshot both carry the tool's OWN `current_location_id`, not the container's location row —
+a hand-over changes WHO holds the tool, not where it is, the same reasoning as the
+carry-forward rule for the vehicle keys. Before STI-207 the two were always equal because the
+contents query *was* `currentLocationId = locationId`; selecting by assignment removed that
+identity. Writing the container's location instead would stamp a place the projection never
+updates (this function deliberately never writes `currentLocationId`), producing a
+`stale_projection` divergence on every moved tool — raised every six hours forever — and an
+`asset.rebuild` that silently relocates the tool. Both halves are pinned in `custody.test.ts`
+and both were confirmed to fail when the fix is reverted.
+
+**`assignment.location_id` was NOT retired**, and the STI-501 acceptance criterion asking
+for that is knowingly unmet. Three readers remain and are legitimate under the narrowed
+meaning (`routers/assignment.ts`, `apps/api/src/messaging-worker.ts`).
+
+### Hitching a trailer does NOT rewrite the truck of the tools aboard it (STI-208)
+
+`applyContainerCustody` is also reached from `vehicle.update { attachedToVehicleId }`, where
+the new truck is in scope. It still carries the recorded truck forward verbatim rather than
+asserting the new one. **This is deliberate — the answer here was "leave it":**
+
+- `assignment.truckId` records **the truck a custody move recorded**, a fact about a
+  hand-off. Rewriting it on every hitch turns a historical record into a live tracking
+  field, which is a different thing from what STI-201 decided these columns are for.
+- A trailer is hitched and unhitched repeatedly between custody moves, so each hitch would
+  append ledger events for tools nobody touched — permanent noise in a log that cannot be
+  pruned.
+- **Unhitching has no good answer.** Does the truck become `null`, and is that
+  "affirmatively no truck" or "not recorded"? The three-state rule makes that question
+  sharp and neither answer is defensible. That is the argument that settles it.
+
+So a tool may record an older truck, or none, after its trailer is hitched to a new one.
+That is a writer honestly declining to claim something it was not asked about — not a
+staleness bug. Do not "fix" it.
 
 ## The custody gate
 

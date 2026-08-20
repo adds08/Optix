@@ -1,12 +1,12 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, inArray, notInArray, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { vehicleStatus, type VehicleStatus } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
-import { moveCustody } from "../custody.js";
+import { moveCustody, vehicleContextFromLedger } from "../custody.js";
 
 /*
   Hand a container to a foreman, or take it back.
@@ -68,26 +68,123 @@ async function applyContainerCustody(opts: {
 
   if (!moveContents) return 0;
 
-  /* Everything sitting in this container. Lost and disposed tools stay put —
-     the record of where they went missing should not follow the trailer to its
-     next foreman. */
-  const contents = await tx
-    .select({
-      id: schema.asset.id,
-      tag: schema.asset.tag,
-      currentStatus: schema.asset.currentStatus,
-      currentCustodianId: schema.asset.currentCustodianId,
-      currentProjectId: schema.asset.currentProjectId,
-      currentLocationId: schema.asset.currentLocationId,
-    })
+  /*
+    Which tools are aboard? (STI-207 — the decision, recorded here and in
+    `.claude/rules/custody-and-ledger.md`.)
+
+    THE ACTIVE ASSIGNMENT IS THE TRUTH FOR A VEHICLE. Not the location row.
+
+    Before STI-202 there was one signal — `asset.current_location_id` pointing
+    at the vehicle's location row — so this query had no choice. STI-202 added
+    `assignment.truck_id` / `trailer_id` and STI-203 made them what the product
+    reads ("Rides in" on the jobsite table, Truck/Trailer on tool detail). That
+    left TWO answers to "is this tool aboard TE-006", and only this query drove
+    custody. A tool assigned the way the schema comment prescribes — trailerId
+    set, locationId a yard — was aboard by the assignment and NOT aboard here,
+    so handing the trailer over silently left its custody behind. It then read
+    "Rides in: TE-006" while held by whoever had it before: no error, no
+    divergence, the projection and the ledger agreeing with each other and both
+    wrong about the world.
+
+    So, for a container that IS a vehicle, PRECEDENCE — not a union:
+
+      1. a tool with an ACTIVE ASSIGNMENT naming this vehicle is aboard;
+      2. a tool with NO active assignment at all is aboard if its
+         `current_location_id` is this container's location row.
+
+    Rule 2 is not a second source of truth sneaking back in. An unheld tool has
+    no assignment, so it has no `trailerId` to be aboard of — the location row
+    is the ONLY record that it is sitting in this trailer. Without rule 2,
+    handing a trailer BACK (`custodianEmployeeId: null`) closes every active
+    link and nothing reopens; the manifest would then be permanently empty and
+    the next hand-over would move zero tools while nineteen sat in the trailer.
+    Review caught that before it shipped. The two sets are disjoint by
+    construction — one demands an active assignment, the other demands none —
+    so no tool can be moved twice, and the result is deduped by id anyway.
+
+    For a container that is NOT a vehicle — a gang box, a yard, a warehouse
+    shelf — `locationId` is the only signal there is and stays authoritative
+    for held and unheld tools alike. That split is exactly what the schema
+    comment on `assignment.locationId` prescribes: vehicles live in the vehicle
+    columns, `locationId` carries non-vehicle places.
+
+    Verified against the seed before changing it: every seeded trailer had the
+    two signals in perfect agreement (0 tools would stop moving), and exactly
+    one tool — assigned to a truck with its location elsewhere — starts moving
+    that never did. That one row is the bug, demonstrated.
+  */
+  const [containerVehicle] = await tx
+    .select({ id: schema.vehicle.id, vehicleType: schema.vehicle.vehicleType })
+    .from(schema.vehicle)
+    .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, locationId)))
+    .limit(1);
+
+  const contentsColumns = {
+    id: schema.asset.id,
+    tag: schema.asset.tag,
+    currentStatus: schema.asset.currentStatus,
+    currentCustodianId: schema.asset.currentCustodianId,
+    currentProjectId: schema.asset.currentProjectId,
+    currentLocationId: schema.asset.currentLocationId,
+  };
+
+  /* Lost and disposed tools stay put either way — the record of where they went
+     missing should not follow the trailer to its next foreman. */
+  const aliveInTenant = notInArray(schema.asset.currentStatus, ["lost", "disposed"]);
+
+  const byLocation = await tx
+    .select(contentsColumns)
     .from(schema.asset)
+    /* An UNHELD tool has no active assignment at all, so it has no
+       `trailerId` to be aboard of — for those the location row is not a weaker
+       second signal, it is the ONLY record that the tool is in this trailer.
+       See the precedence rule below. */
+    .leftJoin(
+      schema.assignment,
+      and(
+        eq(schema.assignment.assetId, schema.asset.id),
+        eq(schema.assignment.tenantId, tid),
+        eq(schema.assignment.status, "active"),
+      ),
+    )
     .where(
       and(
         eq(schema.asset.tenantId, tid),
         eq(schema.asset.currentLocationId, locationId),
-        notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
+        aliveInTenant,
+        containerVehicle ? isNull(schema.assignment.id) : undefined,
       ),
     );
+
+  const byAssignment = containerVehicle
+    ? await tx
+        .select(contentsColumns)
+        .from(schema.asset)
+        /* Tenant-scoped on the JOIN as well as the WHERE. The composite FK
+           behind these columns is tenant-blind — it proves the vehicle's TYPE
+           and nothing about whose vehicle it is — so this predicate is the
+           only isolation there is. */
+        .innerJoin(
+          schema.assignment,
+          and(
+            eq(schema.assignment.assetId, schema.asset.id),
+            eq(schema.assignment.tenantId, tid),
+            eq(schema.assignment.status, "active"),
+            containerVehicle.vehicleType === "truck"
+              ? eq(schema.assignment.truckId, containerVehicle.id)
+              : eq(schema.assignment.trailerId, containerVehicle.id),
+          ),
+        )
+        .where(and(eq(schema.asset.tenantId, tid), aliveInTenant))
+    : [];
+
+  /* Deduped by id: the two sets are disjoint by construction for a vehicle
+     (one requires an active assignment, the other requires none), but a tool
+     must never be moved twice whatever a future edit does here. */
+  const seen = new Set<string>();
+  const contents = [...byAssignment, ...byLocation].filter((a: any) =>
+    seen.has(a.id) ? false : (seen.add(a.id), true),
+  );
 
   const moving = contents.filter((a: any) => a.currentCustodianId !== custodianId);
   if (!moving.length) return 0;
@@ -106,14 +203,44 @@ async function applyContainerCustody(opts: {
     .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)));
 
   /* Custody links follow, through the same helper every other custody writer
-     uses, so the one-active-link invariant holds here too. */
+     uses, so the one-active-link invariant holds here too.
+
+     Which bucket is this writer in (STI-203)? A container hand-over moves the
+     WHO, not the WHERE-IT-RIDES: the tools stay inside the same box, so this
+     writer asserts nothing new about vehicles and CARRIES the newest ledger
+     snapshot's truck/trailer keys FORWARD verbatim — absent stays absent, the
+     same rule as the decline writers. It must not stay four-key: the fold
+     replaces, so a four-key custodian_change here erased "still in TE-006"
+     from a tool that never left the trailer. And it must not emit blind
+     nulls: that stamps "affirmatively no trailer" over a recorded ride. The
+     carried context also goes onto the link moveCustody opens, so the row and
+     the event tell one story — the STI-113 lesson, one source for both. */
+  const rideByAsset = new Map<string, { truckId?: string | null; trailerId?: string | null }>();
   for (const a of moving) {
+    const ride = await vehicleContextFromLedger(tx, tid, a.id);
+    rideByAsset.set(a.id, ride);
     await moveCustody(tx, {
       tenantId: tid,
       assetId: a.id,
       toCustodianId: custodianId,
       projectId: a.currentProjectId,
-      locationId,
+      /* The tool's OWN recorded place, not the container's location row.
+         A hand-over changes WHO holds it, not where it is — the same reason
+         the vehicle keys are carried forward rather than re-asserted.
+
+         Before STI-207 these were always equal, because the contents query
+         WAS `currentLocationId = locationId`; writing the container's id was
+         a restatement of a fact already true. That identity is gone: a tool
+         selected by its assignment can be recorded in a yard. Writing the
+         container's location here would then stamp a location the projection
+         never updates (this function deliberately never writes
+         `currentLocationId`), so the fold and the register would disagree —
+         a `stale_projection` divergence raised every six hours forever, and
+         an `asset.rebuild` that silently relocates the tool. Caught in review
+         before it shipped. */
+      locationId: a.currentLocationId,
+      truckId: ride.truckId,
+      trailerId: ride.trailerId,
       actorUserId,
     });
   }
@@ -134,7 +261,10 @@ async function applyContainerCustody(opts: {
         status: custodianId ? "assigned" : "available",
         custodianId,
         projectId: a.currentProjectId,
-        locationId,
+        /* Same reason as the link above: the tool's own place, so the snapshot
+           folds back to the projection this function actually wrote. */
+        locationId: a.currentLocationId,
+        ...rideByAsset.get(a.id),
       },
       refType: "location",
       refId: locationId,
@@ -370,6 +500,44 @@ export const locationRouter = router({
   ...locationCustodyRouter,
 });
 
+
+/*
+  Every row that can pin a vehicle at the database level (STI-203).
+
+  TWO tables reference vehicle through the composite NO ACTION FKs:
+  assignment (truck_id/trailer_id, migration 0016) and transfer
+  (to_truck_id/to_trailer_id, migration 0017) — and the transfer writers park
+  the rig on EVERY row, pending, declined and completed alike, so any vehicle
+  ever named in a hand-off is pinned forever. A guard that checked only
+  assignment passed for a vehicle named once in a declined transfer and then
+  died on the raw FK as a 500 (QA-203 reproduced it). No status predicate on
+  either table, deliberately: the FKs have none.
+*/
+async function vehicleInCustodyRecord(db: any, tid: string, vehicleId: string): Promise<boolean> {
+  const [assignmentRef] = await db
+    .select({ id: schema.assignment.id })
+    .from(schema.assignment)
+    .where(
+      and(
+        eq(schema.assignment.tenantId, tid),
+        or(eq(schema.assignment.truckId, vehicleId), eq(schema.assignment.trailerId, vehicleId)),
+      ),
+    )
+    .limit(1);
+  if (assignmentRef) return true;
+  const [transferRef] = await db
+    .select({ id: schema.transfer.id })
+    .from(schema.transfer)
+    .where(
+      and(
+        eq(schema.transfer.tenantId, tid),
+        or(eq(schema.transfer.toTruckId, vehicleId), eq(schema.transfer.toTrailerId, vehicleId)),
+      ),
+    )
+    .limit(1);
+  return !!transferRef;
+}
+
 export const vehicleRouter = router({
   list: protectedProcedure
     .input(z.object({ projectId: z.string().uuid().optional() }).optional())
@@ -552,6 +720,21 @@ export const vehicleRouter = router({
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such vehicle in this tenant" });
 
+      /* A type flip on a vehicle that any assignment OR transfer row
+         references — active, closed or historical, because the composite FKs
+         (assignment 0016, transfer 0017) check (id, vehicle_type) and do not
+         care about status — would violate a FK and surface as a raw Postgres
+         500. Refuse it with a sentence instead (STI-203, and
+         vehicleInCustodyRecord below). */
+      if (changes.vehicleType && changes.vehicleType !== existing.vehicleType) {
+        if (await vehicleInCustodyRecord(ctx.db, tid, id)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${existing.unit} appears as a ${existing.vehicleType} in the custody record — assignment history or a transfer — so its type cannot change. Register the ${changes.vehicleType} as a new vehicle instead.`,
+          });
+        }
+      }
+
       /* `foremanEmployeeId` is not here: handing a truck over is
          `location.setCustodian`, which takes the tools aboard with it. */
       if (changes.unit && changes.unit !== existing.unit) {
@@ -609,7 +792,19 @@ export const vehicleRouter = router({
           /* Attaching to a truck that already has a foreman puts the trailer in
              that foreman's custody on the spot — tools inside follow, each with
              its own ledger entry. A truck with nobody assigned keeps the
-             trailer's current custodian. */
+             trailer's current custodian.
+
+             STI-208, DELIBERATE — do not "fix" this: the tools aboard keep
+             whatever truck their last custody move recorded, which may be an
+             older truck or an explicit null. `truck.id` is in scope here and
+             the writer could assert it. It does not, because
+             `assignment.truckId` records THE TRUCK A CUSTODY MOVE RECORDED —
+             a fact about a hand-off, not a live tracking field. Asserting it
+             on every hitch would append ledger events for tools nobody
+             touched, and unhitching would then have no defensible answer: null
+             would mean "affirmatively no truck" under the three-state rule,
+             which is a claim nobody made. The reasoning is in
+             `.claude/rules/custody-and-ledger.md`. */
           if (truck?.foremanEmployeeId) {
             const emp = await tx.query.employee.findFirst({
               where: and(eq(schema.employee.id, truck.foremanEmployeeId), eq(schema.employee.tenantId, tid)),
@@ -657,6 +852,20 @@ export const vehicleRouter = router({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "There are tools recorded aboard. Unload it first — hand it over to nobody.",
+        });
+      }
+
+      /* Any status counts, not just active — and BOTH referencing tables
+         count, assignment (0016) and transfer (0017): the composite NO ACTION
+         FKs block the delete while even a closed or declined row names this
+         vehicle, so a guard that checked less would pass and the delete would
+         still 500. That history is the point — "which trailer was TOOL-0007
+         riding in when it went missing" must outlive the trailer's sale
+         (STI-203, and vehicleInCustodyRecord above). */
+      if (await vehicleInCustodyRecord(ctx.db, tid, input.id)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `${existing.unit} is named in the custody record — assignment history or a transfer — so it cannot be deleted. The register keeps it so that history stays answerable.`,
         });
       }
 

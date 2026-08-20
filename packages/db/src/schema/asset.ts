@@ -198,8 +198,13 @@ export const assignment = pgTable(
       constant 'truck' — so a set truck_id must exist as an (id, 'truck')
       pair. MATCH SIMPLE means a NULL truck_id skips the check entirely.
       NO ACTION (not SET NULL, which is illegal on a generated column) means
-      vehicle.delete needs a friendly are-there-assignments guard once
-      STI-203 starts writing these columns; until then nothing writes them.
+      the FK blocks a delete or type flip while ANY assignment row — active,
+      closed or historical — references the vehicle. The friendly guards in
+      front of that raw error live in vehicle.delete and vehicle.update
+      (routers/location.ts, STI-203), which is also where every truck/trailer
+      id is tenant-checked: vehicle_id_type_uq carries no tenant component,
+      so this FK would accept another tenant's truck (assertVehicleContext
+      in custody.ts is the gate).
     */
     truckFk: foreignKey({
       columns: [t.truckId, t.truckKind],
@@ -228,6 +233,20 @@ export const transfer = pgTable(
     toLocationId: uuid("to_location_id").references(() => location.id, { onDelete: "set null" }),
     fromProjectId: uuid("from_project_id").references(() => project.id, { onDelete: "set null" }),
     toProjectId: uuid("to_project_id").references(() => project.id, { onDelete: "set null" }),
+    /*
+      STI-203: the rig the requester named, parked with the rest of the "to"
+      state while a high-value hand-off waits for its second signature. NULL
+      means "not recorded", same as toProjectId/toLocationId above. Without
+      these, a held transfer silently dropped the pick and approve could only
+      write `truckId: null` — which the ledger reads as "affirmatively no
+      truck", a lie about what the requester said. Applied by transfer.approve
+      as explicit values; same composite-FK + generated-kind mechanism as
+      assignment (see the long comment there).
+    */
+    toTruckId: uuid("to_truck_id"),
+    toTrailerId: uuid("to_trailer_id"),
+    toTruckKind: text("to_truck_kind").generatedAlwaysAs(sql`'truck'`),
+    toTrailerKind: text("to_trailer_kind").generatedAlwaysAs(sql`'trailer'`),
     reason: text("reason").notNull().default("reallocation"), // TransferReason
     status: text("status").notNull().default("pending_approval"), // pending_approval | approved | completed | cancelled
     requestedBy: uuid("requested_by").notNull().references(() => user.id, { onDelete: "restrict" }),
@@ -240,5 +259,17 @@ export const transfer = pgTable(
     tenantIdx: index("transfer_tenant_idx").on(t.tenantId),
     assetIdx: index("transfer_asset_idx").on(t.assetId),
     statusIdx: index("transfer_status_idx").on(t.status),
+    toTruckIdx: index("transfer_to_truck_idx").on(t.toTruckId),
+    toTrailerIdx: index("transfer_to_trailer_idx").on(t.toTrailerId),
+    toTruckFk: foreignKey({
+      columns: [t.toTruckId, t.toTruckKind],
+      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      name: "transfer_to_truck_fk",
+    }),
+    toTrailerFk: foreignKey({
+      columns: [t.toTrailerId, t.toTrailerKind],
+      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      name: "transfer_to_trailer_fk",
+    }),
   }),
 );

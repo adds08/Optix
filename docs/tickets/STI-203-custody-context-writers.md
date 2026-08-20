@@ -25,8 +25,19 @@ screen captures is not delivered (`SYSTEM_PLAN.md` §9).
    - `apps/web/components/transfer-form.tsx`
    - `apps/web/components/bulk-move-form.tsx`
    - `apps/web/components/crew-assign-dialog.tsx`
-   `apps/web/components/rig-picker.tsx` already has local `truckId`/`trailerId` state
-   (`:44,198`) — reuse it rather than building a second picker.
+   **Do NOT assume `rig-picker.tsx` is reusable — an earlier version of this ticket said
+   to reuse it, and that was wrong.** It does have `truckId`/`trailerId` locals, but it
+   solves a different problem: which truck a *trailer is hitched to* and who *holds a
+   vehicle*, via `location.setCustodian` and `vehicle.update { attachedToVehicleId }`.
+
+   This ticket is about which truck and trailer **a tool rode in when its custody moved** —
+   `assignment.truckId`/`trailerId`, a per-assignment historical fact. The two models share
+   variable names and nothing else, and conflating them would put vehicle-hitching state
+   into the custody ledger.
+
+   Read `rig-picker.tsx`'s header comment before deciding. If a small piece is genuinely
+   shareable (a vehicle search/select control), share that piece — but say what you decided
+   and why. None of the four forms currently import it.
 4. Tools-by-jobsite shows holder, truck and trailer against each tool
    (`SYSTEM_PLAN.md` §6.5). The screen is
    `apps/web/app/(app)/jobsites/page.tsx`.
