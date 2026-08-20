@@ -2,7 +2,11 @@
 
 **Phase:** 2 — Assignment detail (follow-up)
 **Size:** 1 unit
-**Status:** READY
+**Status:** **DONE** — 2026-08-19. `dashboard.pendingApprovals`, `transfer.list` and
+`assignment.list` now carry the rig; the queue shows a "Rides in" column matching the
+jobsite table's phrasing. Nothing recorded renders as an EMPTY cell, never a dash. The
+seeded pending assignment carries the personal-allowance truck so the ownership marker is
+reachable from a clean database.
 **Found by:** the STI-203 implementer on 2026-08-18, disclosed as "a natural follow-up".
 Raised here as more than that, for the reason below.
 

@@ -61,8 +61,9 @@ record. Do not reach for it because a migration is inconvenient.
 
 Since STI-108 the seed emits a **complete `to_state`** (the four core keys, plus explicit
 `truckId`/`trailerId` since STI-202 — `truckId` null on every source row because the sheets
-carry no trucks; one clearly-synthetic seed truck exists solely so the truck path is
-reachable, see its `vehSpecs` comment) on every ledger event,
+carry no trucks; **two** clearly-synthetic seed trucks exist solely so the truck path is
+reachable — one `company_owned`, one `personal_allowance` so the company-vs-personal
+marker is reachable too; see their `vehSpecs` comments) on every ledger event,
 derived from the same `assetSpecs` entry that sets `asset.current_*` — so a fresh database
 folds to its own projection by construction, `asset.rebuild` actually rebuilds, and
 `asset.verifyProjection` reports zero divergences. (Before STI-108 every seeded row carried
