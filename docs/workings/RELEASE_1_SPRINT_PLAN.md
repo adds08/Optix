@@ -1139,7 +1139,7 @@ the scope as written, and it is the number to plan Urban's expectations against.
 | **Dashboard promoted to S2** | E9 moves from last to second, bringing STI-802 and STI-701 with it. Org structure and departure (E4) slip to S3 |
 | **Blocky replaces the shadcn look** (ADR-7) | New epic E10, +52h. Tokens in S2 so new UI is built once; existing screens migrate in S3 |
 | **Foundation is ODBC** (ADR-8) | STI-205 becomes a connection and mapping task rather than a spike. Ongoing sync drops from weeks to days, because the same query serves the load and every refresh |
-| **Engineer, Mechanic and the three Admins defined** | STI-801's substance is answered. `PERMISSION_MATRIX.md` is drafted; the day-2 session is now a confirmation with three specific questions, not a discovery workshop |
+| **Engineer, Mechanic and the three Admins — proposed, not confirmed** | **Corrected 2026-08-22:** STI-801's substance is *proposed*, not answered — no record of Urban's answers exists anywhere, and the ticket board still carries the question as `BLOCKED on Urban`. `PERMISSION_MATRIX.md` is a draft for confirmation, so the day-2 session is a confirmation of concrete proposals rather than a discovery workshop — but nothing is agreed until Urban says so |
 | **Conversational layer deprioritised** | The field chat (foreman types a sentence) is not scheduled. Note this is *not* the dashboard's LLM ask (STI-903), which is a separate surface and stays in S2 |
 
 Sprint 1 is unchanged by all of the above. Nothing in it depends on any of these decisions.
