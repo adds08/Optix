@@ -3,17 +3,29 @@ import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { formatAssetModel } from "@stinventory/types";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, requirePermission, router } from "../trpc.js";
+import { assetVisibility, assetScopeWhere, type AssetScope } from "../scope.js";
 
 export const dashboardRouter = router({
-  kpis: protectedProcedure.query(async ({ ctx }) => {
+  /*
+    STI-302: every number on this page is now scoped.
+
+    The KPI tiles were the worst leak in the product and the least visible one.
+    A count does not look like data — but "312 assigned" told a foreman who may
+    see four tools exactly how many Urban owns, and the clearance tile named
+    how many people had been terminated. An aggregate over rows you may not
+    read is a read of those rows.
+  */
+  kpis: requirePermission("asset.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const scope = await assetVisibility(ctx.db, ctx.session);
+    const scoped = assetScopeWhere(scope);
 
     const byStatus = (status: string) =>
       ctx.db
         .select({ c: count() })
         .from(schema.asset)
-        .where(sql`${schema.asset.tenantId} = ${tid} AND ${schema.asset.currentStatus} = ${status}`)
+        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentStatus, status), scoped))
         .then((r) => Number(r[0]?.c ?? 0));
 
     const [available, assigned, inMaintenance, lost, reserved] = await Promise.all([
@@ -42,28 +54,50 @@ export const dashboardRouter = router({
         eq(schema.asset.tenantId, tid),
         eq(schema.asset.isSerialized, true),
         isNull(schema.asset.serialNumber),
+        scoped,
       ))
       .then((r) => Number(r[0]?.c ?? 0));
 
     const terminated = await ctx.db
-      .select({ id: schema.employee.id, name: schema.employee.name })
+      .select({ id: schema.employee.id })
       .from(schema.employee)
-      .where(sql`${schema.employee.tenantId} = ${tid} AND ${schema.employee.employmentStatus} = 'terminated'`);
+      .where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.employmentStatus, "terminated")));
 
     const termIds = terminated.map((t) => t.id);
-    let clearanceCount = 0;
-    if (termIds.length > 0) {
-      clearanceCount = await ctx.db
-        .select({ c: count() })
-        .from(schema.asset)
-        .where(
-          sql`${schema.asset.tenantId} = ${tid} AND ${schema.asset.currentStatus} != 'available' AND ${schema.asset.currentCustodianId} IN (${sql.join(
-            termIds.map((id) => sql`${id}`),
-            sql`,`,
-          )})`,
-        )
-        .then((r) => Number(r[0]?.c ?? 0));
-    }
+
+    /*
+      `terminatedCount` used to be every terminated employee in the tenant — an
+      HR fact, on a tools dashboard, readable by a foreman.
+
+      The desk keeps EXACTLY the number it had: at `assets.view.all` the tile
+      still means "terminated staff", including people who hold nothing and so
+      need no clearance. Narrowing that for the desk would be a product change
+      to a shipped tile, which is not what STI-302 asks for.
+
+      Below `all` the same tile answers the only version of the question the
+      caller can act on — "has someone whose tools I can see left the company"
+      — counted over the same scoped asset set as `clearanceCount`, so
+      "2 people, 9 tools" can never name people the caller has never heard of.
+    */
+    const clearanceRows = termIds.length
+      ? await ctx.db
+          .select({ custodianId: schema.asset.currentCustodianId })
+          .from(schema.asset)
+          .where(
+            and(
+              eq(schema.asset.tenantId, tid),
+              ne(schema.asset.currentStatus, "available"),
+              inArray(schema.asset.currentCustodianId, termIds),
+              scoped,
+            ),
+          )
+      : [];
+
+    const clearanceCount = clearanceRows.length;
+    const terminatedCount =
+      scope.tier === "assets.view.all"
+        ? terminated.length
+        : new Set(clearanceRows.map((r) => r.custodianId)).size;
 
     return {
       available,
@@ -73,19 +107,32 @@ export const dashboardRouter = router({
       reserved,
       scheduledMaint: 0,
       clearanceCount,
-      terminatedCount: terminated.length,
+      terminatedCount,
       missingSerial,
     };
   }),
 
-  recentActivity: protectedProcedure
+  /*
+    STI-307: this branched on `ctx.session.roleName === "foreman"` to decide
+    whether the feed was narrowed to one person. That is the exact pattern
+    SYSTEM_PLAN §9 forbids — it meant a superintendent, a mechanic and an
+    engineer all silently got the desk's tenant-wide feed, and adding a role
+    got the wrong answer by default rather than by decision.
+
+    The ladder answers it properly now: `own` narrows to the caller, `crew` to
+    their crew, `project` to their jobs, `all` to everything. The explicit
+    `employeeId` input still narrows FURTHER (it is how the tool detail page
+    asks for one person's history) but it can no longer widen — it is ANDed
+    with the scope, not substituted for it.
+  */
+  recentActivity: requirePermission("asset.read")
     .input(z.object({ employeeId: z.string().uuid().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const scopedEmployeeId =
-        input?.employeeId ?? (ctx.session.roleName === "foreman" ? ctx.session.employeeId : undefined);
+      const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
       const conditions = [eq(schema.transaction.tenantId, tid)];
-      if (scopedEmployeeId) conditions.push(eq(schema.asset.currentCustodianId, scopedEmployeeId));
+      if (scoped) conditions.push(scoped);
+      if (input?.employeeId) conditions.push(eq(schema.asset.currentCustodianId, input.employeeId));
       return ctx.db
         .select({
           id: schema.transaction.id,
@@ -104,8 +151,9 @@ export const dashboardRouter = router({
         .limit(20);
     }),
 
-  clearanceQueue: protectedProcedure.query(async ({ ctx }) => {
+  clearanceQueue: requirePermission("asset.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     const term = await ctx.db
       .select({ id: schema.employee.id, name: schema.employee.name })
       .from(schema.employee)
@@ -125,10 +173,12 @@ export const dashboardRouter = router({
       .from(schema.asset)
       .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
       .where(
-        sql`${schema.asset.tenantId} = ${tid} AND ${schema.asset.currentStatus} != 'available' AND ${schema.asset.currentCustodianId} IN (${sql.join(
-          termIds.map((id) => sql`${id}`),
-          sql`,`,
-        )})`,
+        and(
+          eq(schema.asset.tenantId, tid),
+          ne(schema.asset.currentStatus, "available"),
+          inArray(schema.asset.currentCustodianId, termIds),
+          scoped,
+        ),
       );
   }),
 
@@ -275,8 +325,14 @@ export const dashboardRouter = router({
     STI-202's three-state rule that is an absence, not a claim of "no truck" —
     so the screen must say nothing there rather than render an empty slot.
   */
-  pendingApprovals: protectedProcedure.query(async ({ ctx }) => {
+  pendingApprovals: requirePermission("assignment.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    /* Scoped through the ASSET rather than the assignment's custodian: the
+       question the queue answers is "what is waiting on a tool I can see",
+       and a pending row names a custodian the tool does not have yet. Scoping
+       by the proposed custodian would hide from a superintendent the very
+       hand-off that moves a tool OUT of their crew. */
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     const aTruck = alias(schema.vehicle, "pending_assignment_truck");
     const aTrailer = alias(schema.vehicle, "pending_assignment_trailer");
     const tTruck = alias(schema.vehicle, "pending_transfer_truck");
@@ -302,7 +358,7 @@ export const dashboardRouter = router({
       .innerJoin(schema.employee, eq(schema.assignment.custodianId, schema.employee.id))
       .leftJoin(aTruck, and(eq(schema.assignment.truckId, aTruck.id), eq(aTruck.tenantId, tid)))
       .leftJoin(aTrailer, and(eq(schema.assignment.trailerId, aTrailer.id), eq(aTrailer.tenantId, tid)))
-      .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.status, "pending_approval")));
+      .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.status, "pending_approval"), scoped));
     const pendingTransfers = await ctx.db
       .select({
         id: schema.transfer.id,
@@ -324,7 +380,7 @@ export const dashboardRouter = router({
       .innerJoin(schema.employee, eq(schema.transfer.toCustodianId, schema.employee.id))
       .leftJoin(tTruck, and(eq(schema.transfer.toTruckId, tTruck.id), eq(tTruck.tenantId, tid)))
       .leftJoin(tTrailer, and(eq(schema.transfer.toTrailerId, tTrailer.id), eq(tTrailer.tenantId, tid)))
-      .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval")));
+      .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval"), scoped));
     return [...pendingAssignments, ...pendingTransfers]
       .map((r) => ({
         ...r,
@@ -347,8 +403,29 @@ export const dashboardRouter = router({
     are tenant-wide, because the desk owns them and the bell is how the desk
     sees them without opening the page.
   */
-  notifications: protectedProcedure.query(async ({ ctx }) => {    const tid = ctx.session.tenantId;
+  notifications: requirePermission("notification.read").query(async ({ ctx }) => {
+    const tid = ctx.session.tenantId;
     const empId = ctx.session.employeeId;
+    /* The badge sums the desk queues. Those counts used to be tenant-wide on
+       the reasoning that "the desk owns them" — which was true of the three
+       accounts that existed when it was written, all of which held
+       `assets.view.all`. With a real role list it made the bell tell a foreman
+       how many approvals, tasks and stuck messages exist across every job at
+       Urban. Scoped to the same asset set as the rest of the page. */
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
+    /*
+      The queue counts are all counts OF ASSETS — approvals, clearance and
+      asset-linked tasks. A caller without `asset.read` may not read those rows,
+      so they may not be told how many there are either: HR holds
+      `notification.read` and deliberately not `asset.read`, and the bell was
+      telling them "25", of which 23 was the number of tools a terminated
+      employee is still holding. Same leak as `report.assetRegister` and
+      `dashboard.charts`, one layer further out — a badge is an aggregate too.
+
+      The bell still works for them: `alerts` is their own notification rows and
+      is unaffected.
+    */
+    const mayCountAssets = ctx.session.permissions.has("asset.read");
     const today = new Date().toISOString().slice(0, 10);
 
     const [alerts, approvals, tasks, messages, clearance] = await Promise.all([
@@ -365,39 +442,57 @@ export const dashboardRouter = router({
         .orderBy(desc(schema.notification.createdAt))
         .limit(5),
       (async () => {
+        if (!mayCountAssets) return 0;
         const [a, t] = await Promise.all([
           ctx.db
             .select({ c: count() })
             .from(schema.assignment)
-            .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.status, "pending_approval"))),
+            .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
+            .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.status, "pending_approval"), scoped)),
           ctx.db
             .select({ c: count() })
             .from(schema.transfer)
-            .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval"))),
+            .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
+            .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval"), scoped)),
         ]);
         return Number(a[0]?.c ?? 0) + Number(t[0]?.c ?? 0);
       })(),
-      ctx.db
+      /* A task usually names a tool (`relatedAssetId`) — scope on it when it
+         does. A task with NO related asset is a plain request the desk owns
+         ("order two more grinders"); those are counted only for the desk,
+         because a foreman being told there are eleven open requests he cannot
+         see or act on is noise, and the eleven is itself a disclosure. */
+      (!mayCountAssets ? Promise.resolve(0) : ctx.db
         .select({ c: count() })
         .from(schema.task)
+        .leftJoin(schema.asset, eq(schema.task.relatedAssetId, schema.asset.id))
         .where(
           and(
             eq(schema.task.tenantId, tid),
             notInArray(schema.task.status, ["completed", "cancelled"]),
+            scoped ? scoped : undefined,
           ),
         )
-        .then((r) => Number(r[0]?.c ?? 0)),
-      ctx.db
-        .select({ c: count() })
-        .from(schema.message)
-        .where(
-          and(
-            eq(schema.message.tenantId, tid),
-            inArray(schema.message.processingStatus, ["pending_manual", "error"]),
-          ),
-        )
-        .then((r) => Number(r[0]?.c ?? 0)),
-      ctx.db
+        .then((r) => Number(r[0]?.c ?? 0))),
+      /* Stuck messages are the DESK's queue and only the desk can clear them
+         (`messaging.dismiss` needs `notification.manage` since STI-308). A
+         message that could not be parsed has, by definition, no resolved asset
+         to scope on — that is why it is stuck — so there is nothing to narrow
+         it by. Counted for whoever can act on it, and zero for everyone else,
+         rather than shown to people with no way to clear it. */
+      (ctx.session.permissions.has("notification.manage")
+        ? ctx.db
+            .select({ c: count() })
+            .from(schema.message)
+            .where(
+              and(
+                eq(schema.message.tenantId, tid),
+                inArray(schema.message.processingStatus, ["pending_manual", "error"]),
+              ),
+            )
+            .then((r) => Number(r[0]?.c ?? 0))
+        : Promise.resolve(0)),
+      (!mayCountAssets ? Promise.resolve(0) : ctx.db
         .select({ c: count() })
         .from(schema.asset)
         .innerJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
@@ -406,9 +501,10 @@ export const dashboardRouter = router({
             eq(schema.asset.tenantId, tid),
             eq(schema.employee.employmentStatus, "terminated"),
             ne(schema.asset.currentStatus, "available"),
+            scoped,
           ),
         )
-        .then((r) => Number(r[0]?.c ?? 0)),
+        .then((r) => Number(r[0]?.c ?? 0))),
     ]);
 
     return {
@@ -430,13 +526,27 @@ export const dashboardRouter = router({
     by who pays (project vs department), and the movement rate per week folded
     from the transaction log. All read-only; the ledger stays the source.
   */
-  charts: protectedProcedure.query(async ({ ctx }) => {
+  /*
+    `asset.read`, not `report.read`. These three widgets are asset data wearing
+    a chart: the status split counts assets, the capital split SUMS them, and
+    the movement rate folds their ledger. Gating them on the reports permission
+    let HR — who holds `report.read` and deliberately not `asset.read` — read
+    the total value of Urban's tool fleet off the dashboard. Same class of
+    mistake as `report.assetRegister`; both were found by probing all thirteen
+    roles against the running API.
+  */
+  charts: requirePermission("asset.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    /* `capitalSplit` sums acquisition cost. An unscoped sum is the single most
+       revealing number on the page — it tells anyone who can load a dashboard
+       what Urban's tool fleet is worth — and it was computed over every row in
+       the tenant. */
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
 
     const statuses = await ctx.db
       .select({ status: schema.asset.currentStatus, count: count() })
       .from(schema.asset)
-      .where(eq(schema.asset.tenantId, tid))
+      .where(and(eq(schema.asset.tenantId, tid), scoped))
       .groupBy(schema.asset.currentStatus);
 
     const capital = await ctx.db
@@ -445,19 +555,25 @@ export const dashboardRouter = router({
         value: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
       })
       .from(schema.asset)
-      .where(eq(schema.asset.tenantId, tid))
+      .where(and(eq(schema.asset.tenantId, tid), scoped))
       .groupBy(sql`1`);
 
+    /* The movement rate joins the asset so the ledger can be scoped by the
+       same predicate as everything else. The ledger itself is not scoped —
+       it is append-only history — but a chart OVER it is a read of the rows
+       it counts. */
     const movements = await ctx.db
       .select({
         week: sql<string>`to_char(date_trunc('week', ${schema.transaction.occurredAt}), 'YYYY-MM-DD')`,
         count: count(),
       })
       .from(schema.transaction)
+      .innerJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
       .where(
         and(
           eq(schema.transaction.tenantId, tid),
           sql`${schema.transaction.occurredAt} >= now() - interval '8 weeks'`,
+          scoped,
         ),
       )
       .groupBy(sql`1`)

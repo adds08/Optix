@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
 import { COST_TARGETS, formatAssetModel } from "@stinventory/types";
 import { foldAssetState, hasSnapshotEvidence, reconcileProjections, type EventEnvelope } from "@stinventory/domain";
+import { assetVisibility, assetScopeWhere } from "../scope.js";
 
 /* A tool needs to be describable, not catalogued. A brand with no catalogue
    number is completely ordinary ("Skill Saw" is a description, not a brand), so
@@ -29,7 +30,11 @@ const assetRefine = (v: {
 };
 
 export const assetRouter = router({
-  list: protectedProcedure
+  /* STI-302: `asset.read` gates whether you may see the register at all; the
+     visibility ladder below decides how much of it. This was a bare
+     `protectedProcedure` — any signed-in account, including one with no role
+     at all, could read every tool Urban owns. */
+  list: requirePermission("asset.read")
     .input(
       z
         .object({
@@ -55,6 +60,13 @@ export const assetRouter = router({
     .query(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       const conditions = [eq(schema.asset.tenantId, tid)];
+      /* The ladder, applied to the QUERY — not to the rows afterwards. A
+         post-filter would still return an honest-looking count of tools the
+         caller may not see (SYSTEM_PLAN §7). `undefined` here means the caller
+         holds `assets.view.all`; every narrower tier, including "no tier at
+         all", returns a real predicate. */
+      const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
+      if (scoped) conditions.push(scoped);
       if (input?.status && input.status !== "all") conditions.push(eq(schema.asset.currentStatus, input.status));
       if (input?.projectId === "none") conditions.push(isNull(schema.asset.currentProjectId));
       else if (input?.projectId) conditions.push(eq(schema.asset.currentProjectId, input.projectId));
@@ -150,9 +162,10 @@ export const assetRouter = router({
   // Returns the same joined shape as `list` so the detail screen shows names,
   // not raw uuids. Both projections read from asset.current_* — never from a
   // hand-edited field.
-  get: protectedProcedure
+  get: requirePermission("asset.read")
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
       const currentProject = alias(schema.project, "current_project");
       const owningProject = alias(schema.project, "owning_project");
       const owningDepartment = alias(schema.department, "owning_department");
@@ -218,7 +231,14 @@ export const assetRouter = router({
         .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
         .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
-        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)));
+        /* The ladder applies to the detail screen too. Scoping the list but
+           not the row behind it is the classic hole: the tool is missing from
+           your register and still readable by pasting its id into the URL, and
+           the id is not a secret — it appears in every chat card and every
+           notification link. Out of scope reads as "not found" rather than
+           "forbidden", so the response cannot be used to confirm that a tag
+           exists on a job the caller has no business knowing about. */
+        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId), ...(scoped ? [scoped] : [])));
       return row ?? null;
     }),
 
@@ -439,18 +459,35 @@ export const assetRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      /* Read before the write, so the ledger can record both sides. */
-      const before = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)),
-      });
+      /*
+        STI-118: the projection update and its ledger event commit together.
 
-      const [row] = await ctx.db
+        These were two unwrapped statements, so a failure between them left the
+        register saying "lost" with nothing in the ledger to say why — a
+        `stale_projection` divergence the six-hourly sweep would then raise
+        forever, and a rebuild would silently revert.
+
+        The read of `before` is INSIDE the transaction and takes the asset row
+        `FOR UPDATE`, the same anchor `custody.ts` locks. Without it, two
+        concurrent status changes both read the same `before`, and the second
+        event records a `fromState` that was never true — permanent fiction in
+        an append-only log. Reading outside the transaction, as this did, is
+        the identical bug STI-114 fixed in `assignment.return`.
+      */
+      return ctx.db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(schema.asset)
+        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)))
+        .for("update");
+
+      const [row] = await tx
         .update(schema.asset)
         .set({ currentStatus: input.status, updatedAt: new Date() })
         .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)))
         .returning();
       if (row) {
-        await ctx.db.insert(schema.transaction).values({
+        await tx.insert(schema.transaction).values({
           tenantId: ctx.session.tenantId,
           assetId: row.id,
           eventType: "status_change",
@@ -480,6 +517,7 @@ export const assetRouter = router({
         });
       }
       return row;
+      });
     }),
 
   /*

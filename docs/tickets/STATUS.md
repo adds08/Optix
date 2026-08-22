@@ -1,10 +1,81 @@
 # STInventory Release 1 — status and how to resume
 
-**Last updated:** 2026-08-19.
-**Branch:** `release-1/delivery`, cut from `development`. Draft PR #1 is open against
-`development`.
-**Scope:** **Phases 1 and 2 are complete.** Phases 3–5 deferred — see `README.md` in this
-directory.
+**Last updated:** 2026-08-22.
+**Scope:** **Phases 1, 2, 3 and 5 are complete. Phase 4 (Foundation import) is not started
+and is blocked on Urban**, who owns the interface question — that is the only phase left.
+
+> ## Where this actually stands, 2026-08-22
+>
+> | Phase | State |
+> |---|---|
+> | 1 — Custody trail | Complete. All five invariants enforced |
+> | 2 — Truck & trailer | Complete |
+> | 3 — Roles, accounts, visibility | **Complete.** One login per role, the four-tier ladder applied to the query on every read path, no role-name branching in server code, RBAC matrix test |
+> | 4 — Foundation load | **Not started. Blocked on Urban** (STI-401) |
+> | 5 — Desk views by role | **Complete**, four panels of five — the fifth specifies a deleted concept, see below |
+>
+> **A warning about this directory.** Most `STI-1xx`/`STI-2xx` ticket files still say
+> `Status: READY` while the work shipped weeks ago. The Status lines were not maintained;
+> the code is the truth. Verify against code before believing either a ticket or this file
+> — that is CLAUDE.md behaviour rule 3 and this board is not exempt from it.
+
+### The permission matrix stopped being a blocker
+
+Every previous version of this file, and of `SYSTEM_PLAN.md` §8.2, ended with the same
+warning: six defaults are in code that Urban has never seen, and after release each becomes
+a migration rather than an edit.
+
+**That is no longer true.** `/admin/roles` lets an administrator tick permissions on and off
+per role — in plain English, not dotted identifiers — and create roles of their own. Urban
+changes what they disagree with, with no developer and no deploy.
+
+What it cost is worth knowing before touching the RBAC tests: `packages/db/src/role-perms.ts`
+used to **be** the matrix, and STI-308 asserted the database matched it exactly in both
+directions. That cannot hold once grants are editable — the moment somebody unticks a box
+the database is *supposed* to differ. `role-perms.ts` is now the **factory default**, the
+test asserts a freshly seeded tenant matches it, and the live database is guarded by the
+audit trail instead: `role.setPermissions` logs the delta.
+
+The screen deliberately does **not** offer inventing permissions. A permission is only real
+because a procedure names it, so one typed into a screen would gate nothing.
+
+### An adversarial audit ran over this work, and found three things
+
+Four read-only agents audited SYSTEM_PLAN §1–§9 and every STI-1xx/2xx ticket against the
+code rather than against the Status lines. Worth recording what they caught, because two
+were **overclaims in work that had just been marked done**:
+
+1. **STI-119 was claimed done and was not.** The sweep scanned only
+   `packages/api-contracts` and reported clean while four writes in `apps/api` — the photo
+   upload and delete routes, the messaging worker's project lookup, the entity resolver's
+   asset lookup — were untouched. *A sweep that cannot see half the writes is worse than no
+   sweep, because it produces a green tick.* The test now scans both roots.
+2. **STI-120 was the most severe open item and had not been looked at.** Fixed — see below.
+3. Several §1/§5 claims were false rather than merely stale: "No mobile application" (there
+   is one), "Vendors read-only" (there is no vendor table at all), "No error boundaries"
+   (there are two). All corrected in place.
+
+### What Phase 3 + 5 added, and the defects they exposed
+
+- **A production data migration that had to exist.** `0020` grants the new permissions and
+  roles to an EXISTING database. Without it, deploying Phase 3 shows every user in the
+  company an empty register — verified by simulating Urban's live database and watching the
+  yard desk see 0 of 754 tools.
+- **`report.assetRegister` and `dashboard.charts` were gated on `report.read`**, so HR — who
+  deliberately lacks `asset.read` — could read the whole register and the fleet's capital
+  value. Found by probing all thirteen roles against the running API.
+- **`notification.markRead` cleared anyone's alert by id.** Found by the router walk.
+- **`messaging.dismiss` let any account empty the desk's queue.** Same walk.
+- **Nothing can go overdue** — the borrow model went on 2026-08-09 — yet SYSTEM_PLAN §6.5
+  still asked for an overdue panel and four other documents still described it as live.
+- **A chat retry appended permanent duplicate ledger events** (STI-120). `applyChatAction`
+  writes one asset per transaction, so a multi-asset action failing partway left some
+  applied; the caller un-claimed the message and the Confirm button worked again, and
+  pressing it re-applied the ones that had landed. **No crash required.** The ledger is
+  append-only, so the duplicates could not be removed, and the fold is last-snapshot-wins so
+  the projection still looked right — the history was wrong and nothing reported it. Fixed
+  by migration `0021`: the ledger now records the message that CAUSED an event separately
+  from the row it is about.
 
 > ## Phases 1 and 2 are complete. All five core invariants are enforced.
 >
@@ -29,7 +100,7 @@ produced it.
 ```bash
 cd /home/subedim/inventory
 make ENV=local up          # stack: web :3100, api :4100, postgres
-make ENV=local test        # expect 177 passing
+make ENV=local test        # expect 267 passing
 ```
 
 Then read, in this order:
@@ -169,19 +240,55 @@ and both are now pinned by tests confirmed to fail when the fix is reverted:
   container back closes every link and reopens none, so the manifest emptied permanently and
   the next hand-over moved zero tools while nineteen sat in the trailer.
 
-### Deferred with Phases 3–5
-- **No user administration of any kind.** Creating a user means editing `seed-data.ts` and
-  reseeding. Three accounts exist.
-- **Login is tenant-blind.** Credential lookup is by email with no tenant predicate, and
-  `user.email` is not unique. Post-login isolation holds; only the lookup is affected.
-  Latent while there is one tenant.
-- No four-tier visibility ladder — a superintendent and a foreman are indistinguishable to
-  the scoping layer, and the KPI dashboard ignores project scope.
-- No Foundation load, no departure reassignment, no permission-driven desk panels.
-- **No E2E harness.** Everything above was verified by agents driving the real stack, but
-  nothing automated will catch it if a later change makes the desk queue unreachable again —
-  which is exactly how it became unreachable the first time. `STI-001`/`STI-002` are written
-  and ready if you want that protection.
+### ~~Deferred with Phases 3–5~~ — all delivered 2026-08-22
+
+Everything in this section was true when written and is not any more. Kept struck through
+rather than deleted, because the *before* is what makes the change legible.
+
+- ~~**No user administration of any kind.** Creating a user means editing `seed-data.ts` and
+  reseeding. Three accounts exist.~~ **Fourteen accounts, one per role**, created through
+  `/admin/users`.
+- ~~**Login is tenant-blind.**~~ STI-305: `user_tenant_email_uq` (`0018`) plus a `login()`
+  that **refuses** an ambiguous address rather than picking a row.
+- ~~No four-tier visibility ladder — a superintendent and a foreman are indistinguishable to
+  the scoping layer, and the KPI dashboard ignores project scope.~~ STI-302: the ladder is
+  applied to the QUERY on every read path, dashboard aggregates included — those were the
+  widest leak, because a total over rows you may not read is a read of those rows.
+- ~~No Foundation load, no departure reassignment, no permission-driven desk panels.~~
+  Departure reassignment shipped (STI-306); the Desk is at `/desk`, composed from the panel
+  registry by permission (STI-501/502). **Foundation load remains — it is Phase 4 and is
+  blocked on Urban**, who owns the interface question.
+- **No E2E harness — still true, and now the largest single gap.** Everything above was
+  verified by agents driving the real stack and by a per-role sweep against the running API,
+  but nothing automated will catch it if a later change makes the desk queue unreachable
+  again — which is exactly how it became unreachable the first time. `STI-001`/`STI-002` are
+  written and ready.
+
+### Reachability: a set of procedures still have no UI caller
+
+`SYSTEM_PLAN.md` §9 makes "reachable through the UI by a user with the right permission"
+the acceptance standard. A sweep of `appRouter` against both clients on 2026-08-22 found
+22 procedures nothing calls. **Recompute it rather than trusting this number** — map
+`appRouter`'s keys to each router's procedure names and grep `apps/web` + `apps/mobile` for
+`.<key>.<proc>`; the count moves whenever a screen is added. Two were dealt with:
+
+- `messaging.pendingVerification` — **deleted.** It was the removed `verify` queue: dead
+  code with a live permission, the same class STI-111 swept.
+- `user.changePassword` — **now reachable** at `/account/password`. STI-303 set
+  `must_change_password` on every created and reset account and nothing read it, so users
+  were told to change a password they had no way to change. The shell now redirects them.
+
+The rest are mostly operations and integration procedures — `asset.rebuild`,
+`asset.verifyProjection`, `vehicle.updateGps`, `location.updateGps`, the `task.*` CRUD,
+`category.rename`/`delete`/`adoptInUse`, `department.create`/`update`, `asset.delete`,
+`vehicle.delete`, `assignment.return`, `projectTeam.remove`, `notification.all`,
+`messaging.feed`.
+
+**None has been confirmed as legitimately UI-less.** Several look like real product holes
+rather than ops tools — `assignment.return` and `projectTeam.remove` in particular are
+ordinary desk actions with no button. That is a ticket somebody should open, not a
+conclusion this note is entitled to draw, and it is the single biggest piece of §9 still
+outstanding.
 
 ### One thing a human must do before production
 

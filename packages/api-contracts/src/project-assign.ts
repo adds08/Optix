@@ -2,6 +2,11 @@ import { and, eq, inArray, isNull, notInArray } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
 
+/* The employee roles that map straight onto a project-team role when the
+   caller says "auto". A named list rather than a chain of `||` comparisons —
+   STI-307's rule for the branches that legitimately read domain data. */
+const TEAM_ROLE_FROM_EMPLOYEE = ["pm", "superintendent", "foreman"] as const;
+
 /*
   Move a person to a project — the shared engine behind `employee.assignToProject`
   and `project.team.assign` for a foreman.
@@ -83,12 +88,19 @@ export async function moveEmployeeToProject(
     .where(and(eq(schema.employee.id, employeeId), eq(schema.employee.tenantId, tid)));
   if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
 
+  /* STI-307 — DOMAIN DATA, not authorisation. `person.role` is the employee
+     register's answer to "what kind of worker is this", and "auto" means
+     "infer the team role from that". It is not a permission check: the caller's
+     authority is decided by `project.assign.*` in projectTeam.assertCanAssign,
+     which runs before anything here. Routed through TEAM_ROLE_FROM_EMPLOYEE so
+     adding a team role is one edit rather than a three-way `||` somebody has
+     to notice. */
   const teamRole =
-    role === "auto" && (person.role === "pm" || person.role === "superintendent" || person.role === "foreman")
-      ? person.role
-      : role === "auto"
-        ? undefined
-        : role;
+    role === "auto"
+      ? (TEAM_ROLE_FROM_EMPLOYEE as readonly string[]).includes(person.role)
+        ? (person.role as (typeof TEAM_ROLE_FROM_EMPLOYEE)[number])
+        : undefined
+      : role;
 
   const [proj] = await db
     .select({ id: schema.project.id, name: schema.project.name })
@@ -126,7 +138,7 @@ export async function moveEmployeeToProject(
     await tx
       .update(schema.employee)
       .set({ primaryProjectId: projectId })
-      .where(eq(schema.employee.id, employeeId));
+      .where(and(eq(schema.employee.id, employeeId), eq(schema.employee.tenantId, tid)));
 
     /*
       The roster row follows the posting, so the Tools by Jobsite hub and the

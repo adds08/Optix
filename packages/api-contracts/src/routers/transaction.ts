@@ -2,14 +2,15 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { formatAssetModel } from "@stinventory/types";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, requirePermission, router } from "../trpc.js";
+import { assetVisibility, assetScopeWhere } from "../scope.js";
 
 export const transactionRouter = router({
   // Append-only event feed. Pass `assetId` to get one tool's custody chain —
   // that chain IS the audit trail, so nothing here is filtered or redacted.
   // Pass `projectId` to get the activity of every tool currently working that
   // site — the live jobsite feed.
-  list: protectedProcedure
+  list: requirePermission("asset.read")
     .input(
       z
         .object({
@@ -22,6 +23,13 @@ export const transactionRouter = router({
     .query(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       const where = [eq(schema.transaction.tenantId, tid)];
+      /* The ledger is append-only history and is never itself narrowed — but a
+         READ of it is a read of the assets it names, so the feed is scoped by
+         the same predicate as the register. Without this, the jobsite activity
+         feed was the way around every other control on this page: it names the
+         tag, the custodian and the movement of tools the caller cannot list. */
+      const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
+      if (scoped) where.push(scoped);
       if (input?.assetId) where.push(eq(schema.transaction.assetId, input.assetId));
       if (input?.projectId) where.push(eq(schema.asset.currentProjectId, input.projectId));
 

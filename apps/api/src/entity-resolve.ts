@@ -84,7 +84,9 @@ export async function resolveEngineAssets(
   for (const h of hints) {
     const m = await matchEntity(db, tid, `${h.label} ${h.raw}`);
     if (m && m.type === "asset") {
-      const a = await db.query.asset.findFirst({ where: eq(schema.asset.id, m.id) });
+      const a = await db.query.asset.findFirst({
+        where: and(eq(schema.asset.id, m.id), eq(schema.asset.tenantId, tid)),
+      });
       if (a) results.push({ id: a.id, label: m.label, tag: a.tag });
     }
   }

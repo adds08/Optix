@@ -6,22 +6,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RidePicker } from "./ride-picker";
-import { usePermissions } from "./use-permissions";
+import { usePermissions, useViewTier } from "./use-permissions";
 
 type Props = { open: boolean; onClose: () => void; preselectedAssetId?: string };
 
 export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
-  const { role, has } = usePermissions();
+  const { has } = usePermissions();
+  const tier = useViewTier();
   const utils = trpc.useUtils();
   const assets = trpc.asset.list.useQuery({ status: "available" });
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
-  const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: role === "superintendent" });
+  const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: tier === "assets.view.crew" });
   const me = trpc.identity.me.useQuery();
 
-  const isSuper = role === "superintendent";
-  const isWarehouseOrAdmin = has("employee.manage");
+  /* STI-307: was `role === "superintendent"` / `has("employee.manage")`. The
+     ladder says the same thing without naming a role — crew narrows to your
+     foremen, all is the desk's full picker, and anything narrower is yourself. */
+  const isSuper = tier === "assets.view.crew";
+  const isWarehouseOrAdmin = tier === "assets.view.all";
 
   let custodianOptions =
     foremen.data?.filter((e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active") ?? [];

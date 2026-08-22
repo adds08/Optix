@@ -2,7 +2,7 @@
 
 **Phase:** 1 — Custody trail (follow-up)
 **Size:** 1 unit
-**Status:** READY
+**Status:** **DONE — 2026-08-22.** Twenty-three writes carried no tenant predicate: nineteen in the routers and **four in `apps/api` that a first pass missed entirely**, because the sweep only scanned one package and reported clean. All now carry it. The two real exceptions — the background workers (no session, tenant-agnostic queue) and the login lookup (the tenant is an OUTPUT of the credential check) — are documented at their call sites, exempted with reasons in the test, and written up as a rule in `.claude/rules/database.md` (AC 4). `packages/api-contracts/src/tenant-predicate.test.ts` now scans BOTH roots and fails the build on a twenty-fourth.
 **Found by:** the STI-117 implementer on 2026-08-18, running the grep that ticket's
 criterion 2 required. The two writes were confirmed by the lead.
 

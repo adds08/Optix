@@ -100,6 +100,29 @@ export function AppShell({
     }
   }, [me.isError, router]);
 
+  /*
+    A credential somebody else chose is a credential somebody else knows.
+
+    STI-303 set `must_change_password` on every account an administrator
+    creates or resets, and deliberately did NOT enforce it as a login refusal —
+    a user who cannot sign in also cannot change their password. Enforcement
+    belongs here instead: they sign in normally and land on the one screen that
+    clears the flag.
+
+    Reads the flag from `identity.me` rather than from the login response, so
+    an administrator resetting a password mid-session reaches that user on
+    their next page load rather than only if they happen to sign in again.
+
+    Not a security boundary — it is a redirect, and the API does not consult
+    it. Someone who ignores it keeps a password their administrator picked;
+    they do not gain anything they did not already have.
+  */
+  useEffect(() => {
+    if (me.data?.mustChangePassword && pathname !== "/account/password") {
+      router.replace("/account/password");
+    }
+  }, [me.data?.mustChangePassword, pathname, router]);
+
   const role = me.data?.role ?? null;
   const perms = me.data?.permissions ?? [];
   const field = isFieldRole(role);

@@ -24,6 +24,30 @@ export const transaction = pgTable(
     toState: jsonb("to_state"),
     refType: text("ref_type"), // assignment | transfer | maintenance | manual
     refId: uuid("ref_id"),
+    /*
+      Which chat message caused this event, if one did (STI-120).
+
+      `refType`/`refId` name the ROW the event is about — for a chat-driven
+      assign they hold `assignment`/<assignment id>, which means the chat
+      provenance was lost entirely: nothing in the ledger recorded that a
+      sentence somebody typed is why a tool moved.
+
+      That absence was also a correctness problem, not only a reporting one.
+      `applyChatAction` writes one asset per transaction, so a multi-asset
+      action that fails partway leaves some applied; the caller un-claims the
+      message and the Confirm button works again, and pressing it re-applied
+      the ones that had already landed — permanent duplicate history in a log
+      that cannot be pruned, with no crash required. Idempotency needs a key,
+      and "which message did this" is the key. It is here rather than folded
+      into `refType`/`refId` because an event has both a subject and a cause,
+      and overloading one pair to carry two facts is what lost the cause.
+
+      Nullable, and null means "not from a message" OR "written before this
+      column existed" — the same honest-unknown the vehicle keys use. No
+      backfill: the 754 genesis rows predate chat and inventing a link for
+      them would be worse than saying nothing.
+    */
+    refMessageId: uuid("ref_message_id"),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     note: text("note"),
   },
@@ -31,6 +55,9 @@ export const transaction = pgTable(
     tenantIdx: index("transaction_tenant_idx").on(t.tenantId),
     assetIdx: index("transaction_asset_idx").on(t.assetId),
     occurredIdx: index("transaction_occurred_idx").on(t.occurredAt),
+    /* The idempotency lookup is (asset, message) — indexed together because
+       that is the question the retry guard asks on every asset it touches. */
+    refMessageIdx: index("transaction_ref_message_idx").on(t.refMessageId, t.assetId),
   }),
 );
 

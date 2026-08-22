@@ -95,7 +95,17 @@ no per-tenant report code.
 ## 5. Multi-tenant readiness checklist
 
 Carry these from the first commit even while Urban is the only tenant. Status as of
-2026-07-25:
+**2026-08-22**, re-verified against the running schema rather than restated.
+
+> **What `tenant_id` is actually for, since PR #6 asked.** Multi-tenancy is *not* a
+> Release 1 deliverable — Urban is the only tenant and the plan says so. `tenant_id` is
+> nonetheless on every table from the first migration, because of the design rule in §1:
+> retrofitting tenancy later is the expensive way to do it, and the column costs nothing
+> while it is constant. Release 1 added **no** `tenant_id` columns. What it added is the
+> discipline that every query carries `eq(table.tenantId, tid)` — which is load-bearing
+> today for a different reason than tenancy: it is the habit that makes the second tenant a
+> configuration change rather than a rewrite, and `WHERE` is the only isolation there is
+> while RLS stays off.
 
 - [x] All IDs are uuids (no sequential leakage across tenants) — the two append-only log
       tables (`transaction`, `event_log`) use bigint identity by design, for ordering
@@ -106,10 +116,15 @@ Carry these from the first commit even while Urban is the only tenant. Status as
 - [x] Config is tenant-scoped data, not code — `tenant_settings` (high-value threshold,
       approver role, SLA cadences, delivery channels)
 - [x] No hardcoded "Urban" strings in domain logic — Urban appears only in seed data
-- [ ] **`tenant_id` column on every table — FAILING.** `project_phase` has no `tenant_id`
-      (`packages/db/src/schema/project.ts`). It is reachable only via `project_id`, so no RLS
-      policy can be written against it as it stands. **This blocks tenant two** and must be
-      fixed before Phase 2 onboarding.
+- [x] **`tenant_id` column on every table — now PASSING.** ~~`project_phase` has no
+      `tenant_id`; this blocks tenant two.~~ Re-verified against the live schema on
+      2026-08-22: `project_phase` was **deleted**, not fixed — it had been migrated to every
+      database and never held a row (see the note in `packages/db/src/schema/project.ts`).
+      Every remaining table carries `tenant_id` except four, each deliberately:
+      `tenant` (it *is* the tenant), `permission` (a global vocabulary — tenanting it would
+      let two tenants disagree about what `asset.manage` means), and the join tables
+      `role_permission` and `user_role`, whose tenant is carried by their parents. The
+      recheck query is in `.claude/rules/database.md`.
 - [ ] Tool templates as tenant config — the table does not exist yet (still an open topic in
       `01-plan.md` §20)
 

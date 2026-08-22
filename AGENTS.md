@@ -98,16 +98,32 @@ make ENV=local seed    # load sample data
 - API: http://localhost:4100 (health: `/health`)
 - Demo password: `stinventory-demo`
 
-| Email | Role |
-|---|---|
-| owner@stinventory.local | Owner — full access |
-| admin@stinventory.local | Karen Osei — Equipment Admin |
-| warehouse@stinventory.local | Yard Desk — Warehouse |
+| Email | Role | Sees |
+|---|---|---|
+| owner@stinventory.local | System Administrator | Everything |
+| admin@stinventory.local | Equipment Administrator | Everything |
+| office@stinventory.local | Office Administrator | Everything; no custody, no config |
+| warehouse@stinventory.local | Warehouse — the yard desk | Everything |
+| pm@stinventory.local | Project Manager | Lone Star's tools |
+| engineer@stinventory.local | Engineer | DART's tools |
+| super@stinventory.local | Superintendent | His crew's tools, across two jobs |
+| foreman@stinventory.local | Foreman | His own tools |
+| mechanic@stinventory.local | Mechanic | His own shop tools |
+| procurement@stinventory.local | Procurement | Everything, read-only |
+| hr@stinventory.local | HR | People — deliberately not tools |
+| finance@stinventory.local | Finance | Everything, plus the audit trail |
+| readonly@stinventory.local | Read-only | Everything, read-only |
+| jobani@stinventory.local | Foreman | **Deactivated** — refuses to sign in |
 
 The seed (packages/db/src/seed.ts) loads the fleet from
 `packages/db/src/seed-data.ts`, generated from `docs/data/TOOL LIST BY NAME.xlsx`
-via `docs/data/generate_app_seed.py` (39 foremen, 16 projects, 29 trailers,
-754 tools). Raw extraction lives in `docs/data/seed_from_tools_list.json`;
+via `docs/data/generate_app_seed.py`.
+
+**The generator no longer reproduces this file.** `seed-data.ts` has been hand-edited
+since — STI-303's deactivated account, STI-306's terminated employee and reporting chain,
+and STI-304's role accounts are all absent from the generator, so re-running it would
+silently delete them. Treat `seed-data.ts` as the source and the generator as provenance;
+if the tools list is reloaded, regenerate to a scratch file and merge. Raw extraction lives in `docs/data/seed_from_tools_list.json`;
 anything a human must review before trusting it is in
 `docs/data/reconciliation_report.json`.
 
@@ -207,7 +223,8 @@ anything a human must review before trusting it is in
 ## 10. Important invariants
 
 - One active **Assignment** per serialized asset at a time.
-- Temporary assignments carry `expected_end_date`; overdue triggers escalating alerts.
+- ~~Temporary assignments carry `expected_end_date`; overdue triggers escalating alerts.~~
+  **Contradicted §7 of this same document, which was right.** Removed 2026-08-09 with the borrow model: `assignment.expected_end_date` was DROPPED in migration `0012`, `isOverdueLoan` was deleted from `packages/domain`, and no `dashboard.overdueLoans` procedure exists. **Nothing falls due, so nothing goes overdue.** Verified 2026-08-22.
 - HR termination event (`employment_status = terminated`) triggers a **clearance queue**.
   Offboarding sign-off is blocked until the queue is empty.
 - Assets in maintenance are not Available and cannot be assigned.

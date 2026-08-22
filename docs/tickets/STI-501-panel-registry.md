@@ -2,7 +2,7 @@
 
 **Phase:** 5 — Desk views by role
 **Size:** 2 units
-**Status:** BLOCKED by STI-302
+**Status:** **DONE — 2026-08-22.** `apps/web/components/desk/panel-registry.tsx`, rendered at `/desk`. Composition is `PANEL_REGISTRY.filter(panelVisible)` — no role name. The width rule (`tierAtLeast`) lives in `packages/types` and is unit-tested over all sixteen tier pairs, because `apps/web` has no test runner and adding one was not this ticket.
 **Blocks:** STI-502
 
 ---

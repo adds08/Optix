@@ -12,9 +12,10 @@ the README describes**, but less than a field-ready app.
 
 - tRPC client with `superjson`, deriving the LAN host so physical devices can reach a laptop
   API (`lib/trpc.ts:16-28`); bearer token from a cached session.
-- **My Tools** (`(tabs)/index.tsx`) — fully wired: `identity.me`, `asset.list` scoped by
-  `custodianId`, `dashboard.overdueLoans` scoped by `employeeId`, pull-to-refresh, overdue
-  banner, proper loading/error/empty states, rows linking to `/tool/[id]`.
+- **My Tools** (`(tabs)/index.tsx`) — `identity.me`, `asset.list` scoped by `custodianId`,
+  pull-to-refresh, proper loading/error/empty states, rows linking to `/tool/[id]`.
+  ~~`dashboard.overdueLoans` scoped by `employeeId`, overdue banner.~~ **That procedure does
+  not exist.** Removed 2026-08-09 with the borrow model: `assignment.expected_end_date` was DROPPED in migration `0012`, `isOverdueLoan` was deleted from `packages/domain`, and no `dashboard.overdueLoans` procedure exists. **Nothing falls due, so nothing goes overdue.** Verified 2026-08-22.
 - **Action screen** (`app/action/[type].tsx`) — all six types (assign, transfer, return,
   repair, lost, report) through a single `action.submit` mutation with cache invalidation.
 - Tabs: my tools · hand-off · alerts · desk. Login, tool detail, @-mention input.

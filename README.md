@@ -154,7 +154,7 @@ createdb -p 5433 stinventory -U postgres
 
 ```bash
 pnpm install
-DATABASE_URL="postgres://postgres@localhost:5433/stinventory" pnpm --filter @stinventory/db push --force
+DATABASE_URL="postgres://postgres@localhost:5433/stinventory" pnpm --filter @stinventory/db push:dangerous
 DATABASE_URL="postgres://postgres@localhost:5433/stinventory" SEED_RESET=1 pnpm --filter @stinventory/db seed
 ```
 
@@ -188,12 +188,33 @@ it can parse a real sentence before relying on it.
 
 Password: **`stinventory-demo`**
 
-| Email | Role |
-|---|---|
-| owner@stinventory.local | Owner — full access |
-| admin@stinventory.local | Karen Osei — Equipment Admin |
-| warehouse@stinventory.local | Yard Desk — Warehouse |
-| foreman.miguel@stinventory.local | Miguel Torres — Foreman |
+| Email | Role | Sees |
+|---|---|---|
+| owner@stinventory.local | System Administrator | Everything |
+| admin@stinventory.local | Equipment Administrator | Everything |
+| office@stinventory.local | Office Administrator | Everything; no custody, no config |
+| warehouse@stinventory.local | Warehouse — the yard desk | Everything |
+| pm@stinventory.local | Project Manager | Lone Star's tools |
+| engineer@stinventory.local | Engineer | DART's tools |
+| super@stinventory.local | Superintendent | His crew's tools, across two jobs |
+| foreman@stinventory.local | Foreman | His own tools |
+| mechanic@stinventory.local | Mechanic | His own shop tools |
+| procurement@stinventory.local | Procurement | Everything, read-only |
+| hr@stinventory.local | HR | People — deliberately not tools |
+| finance@stinventory.local | Finance | Everything, plus the audit trail |
+| readonly@stinventory.local | Read-only | Everything, read-only |
+| jobani@stinventory.local | Foreman | **Deactivated** — refuses to sign in |
+
+> One account per role since STI-304. Before that there were three, all of which saw
+> everything, so no permission denial had ever actually been observed.
+>
+> Sign in as `pm@` and `super@` side by side to see the visibility ladder work: each sees
+> tools the other cannot. The authoritative role→permission table is
+> `packages/db/src/role-perms.ts`.
+>
+> *(An earlier version of this note described a hand-off becoming "a borrow rather than a
+> permanent reassignment". There is no borrow — it and the `verify` outcome were removed on
+> 2026-08-09, and foremen no longer hold `assignment.create` or `transfer.create` at all.)*
 
 ### What's built
 
@@ -206,8 +227,9 @@ Password: **`stinventory-demo`**
   transaction they confirm. Plus chat-extracted tasks and an admin verification queue
 - **Notification engine** — overdue detection, SLA timers, email/SMS provider interface
 - **Event-sourced core** — append-only `transaction` table; all state is a projection; rebuild guarantee
-- **Reports — API only.** Six procedures (register, by project, by foreman, idle, lost,
-  capital by project) exist with **no web pages yet**. The audit trail is browsable at `/d02/audit`.
+- **Reports** — browsable under `/reports`: the asset register, custody by project / by
+  foreman / by mechanic, idle, lost, needs-a-tag, capital by project and by department, plus
+  chart views and a searchable, paged audit trail at `/reports/audit-trail`.
 
 ### Not built
 
@@ -221,7 +243,7 @@ See `docs/archive/01-plan.md` §18 for the full roadmap and `AGENTS.md` §12 for
 STInventory/
 ├── apps/
 │   ├── api/          Hono + tRPC + auth + notification scheduler + messaging worker
-│   ├── web/          Next.js 15 dashboard (routes under /d02)
+│   ├── web/          Next.js 15 dashboard (routes under app/(app)/)
 │   └── mobile/       Expo Router app — shell only (login + index)
 ├── packages/
 │   ├── api-contracts/   tRPC routers (identity, dashboard, asset, assignment, transfer,
@@ -242,12 +264,20 @@ STInventory/
 
 ### Make targets
 
-Working: `up`, `down`, `restart`, `build`, `rebuild`, `logs`, `ps`, `seed`, `push`,
-`migrate`, `studio`, `reset`, `test`, `typecheck`, `lint`, `psql`.
+`make help` lists every target with a one-line description — that output is generated from
+the Makefile itself, so it cannot drift.
 
-> **Broken:** `make dev` and `make mobile` still invoke `flutter` against `apps/desktop`,
-> which does not exist — mobile moved to Expo (`docs/06-decisions.md` ADR-3). Use
-> `make ENV=local up` and start the Expo app separately.
+Day to day: `up`, `down`, `restart`, `logs`, `ps`, `seed`, `psql`, `migrate`, `generate`,
+`reset`, `test`, `typecheck`, `lint`. `make dev` is `up` plus a banner; `make mobile` starts
+Expo on the host (mobile is Expo Router, not Flutter — `docs/06-decisions.md` ADR-3).
+
+> `push` is deliberately named **`push-dangerous`**: it diffs a live database and applies with
+> no review and no record. Use `generate` + `migrate`.
+
+> `make test` and `make typecheck` run inside the API container and depend on
+> `docker-compose.yml` declaring a `node_modules` volume for every workspace package. If a
+> package is missing from that list its tests silently fail to collect — run `pnpm test` on
+> the host to confirm before chasing a phantom bug.
 
 ## Status
 

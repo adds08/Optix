@@ -247,7 +247,7 @@ export const taskRouter = router({
           completedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(schema.task.id, task.id));
+        .where(and(eq(schema.task.id, task.id), eq(schema.task.tenantId, tid)));
 
       if (task.requestedByEmployeeId) {
         await ctx.db.insert(schema.notification).values({

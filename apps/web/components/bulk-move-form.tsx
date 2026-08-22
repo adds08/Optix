@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RidePicker } from "./ride-picker";
-import { usePermissions } from "./use-permissions";
+import { useViewTier } from "./use-permissions";
 
 /*
   One dialog for moving a selection of tools — the bulk path that turns the
@@ -34,9 +34,9 @@ type Props = {
 };
 
 export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }: Props) {
-  const { role } = usePermissions();
+  const tier = useViewTier();
   const utils = trpc.useUtils();
-  const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: role === "superintendent" });
+  const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: tier === "assets.view.crew" });
   const foremen = trpc.employee.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
@@ -47,7 +47,8 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
         CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) &&
         e.employmentStatus === "active",
     ) ?? [];
-  if (role === "superintendent") {
+  /* STI-307: the crew tier, not the role name. */
+  if (tier === "assets.view.crew") {
     const ids = new Set(myForemen.data?.map((f) => f.id) ?? []);
     custodianOptions = custodianOptions.filter((e) => ids.has(e.id));
   }
