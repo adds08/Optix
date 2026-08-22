@@ -1,9 +1,10 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { vehicleStatus, type VehicleStatus } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
+import { visibleProjectScope } from "../scope.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
 import { moveCustody, vehicleContextFromLedger } from "../custody.js";
@@ -363,7 +364,19 @@ export const locationCustodyRouter = {
 };
 
 export const locationRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  /*
+    STI-302. A place is scoped by PROJECT, not by the asset ladder — a gang box
+    is not a tool and has no custodian ladder of its own. `visibleProjectScope`
+    is derived from the same four permissions, so the two cannot disagree.
+
+    Locations with NO project stay visible to everyone who holds
+    `location.read`. That is deliberate: they are the warehouses and the yard,
+    every foreman collects from them, and hiding the Dallas Yard from the
+    people who load out of it would break the product to protect nothing —
+    the tools inside it are already scoped by the ladder.
+  */
+  list: requirePermission("location.read").query(async ({ ctx }) => {
+    const scope = await visibleProjectScope(ctx.db, ctx.session);
     const custodian = alias(schema.employee, "location_custodian");
     return ctx.db
       .select({
@@ -384,7 +397,17 @@ export const locationRouter = router({
       .leftJoin(schema.warehouse, eq(schema.location.warehouseId, schema.warehouse.id))
       .leftJoin(schema.project, eq(schema.location.projectId, schema.project.id))
       .leftJoin(custodian, eq(schema.location.custodianEmployeeId, custodian.id))
-      .where(eq(schema.location.tenantId, ctx.session.tenantId));
+      .where(
+        and(
+          eq(schema.location.tenantId, ctx.session.tenantId),
+          scope.restrict
+            ? or(
+                isNull(schema.location.projectId),
+                scope.ids.size ? inArray(schema.location.projectId, [...scope.ids]) : sql`false`,
+              )
+            : undefined,
+        ),
+      );
   }),
 
   create: requirePermission("location.manage")
@@ -545,10 +568,22 @@ async function vehicleInCustodyRecord(db: any, tid: string, vehicleId: string): 
 }
 
 export const vehicleRouter = router({
-  list: protectedProcedure
+  /* Same project axis as `location.list`, same reasoning for the null case:
+     an unassigned truck sitting in the yard belongs to no job, and hiding it
+     would stop a foreman naming the rig he is actually driving. */
+  list: requirePermission("vehicle.read")
     .input(z.object({ projectId: z.string().uuid().optional() }).optional())
     .query(async ({ ctx, input }) => {
+      const scope = await visibleProjectScope(ctx.db, ctx.session);
       const conditions = [eq(schema.vehicle.tenantId, ctx.session.tenantId)];
+      if (scope.restrict) {
+        conditions.push(
+          or(
+            isNull(schema.vehicle.projectId),
+            scope.ids.size ? inArray(schema.vehicle.projectId, [...scope.ids]) : sql`false`,
+          )!,
+        );
+      }
       if (input?.projectId) conditions.push(eq(schema.vehicle.projectId, input.projectId));
       const payee = alias(schema.employee, "payee");
       const foreman = alias(schema.employee, "foreman");
@@ -770,7 +805,7 @@ export const vehicleRouter = router({
               ...(patch.unit ? { name: patch.unit as string } : {}),
               ...(patch.projectId !== undefined ? { projectId: (patch.projectId as string) ?? null } : {}),
             })
-            .where(eq(schema.location.id, existing.locationId));
+            .where(and(eq(schema.location.id, existing.locationId), eq(schema.location.tenantId, tid)));
         }
 
         /* The hitch: a trailer's location points at its truck's location. Only
@@ -793,7 +828,7 @@ export const vehicleRouter = router({
           await tx
             .update(schema.location)
             .set({ parentLocationId: parentLocId })
-            .where(eq(schema.location.id, existing.locationId));
+            .where(and(eq(schema.location.id, existing.locationId), eq(schema.location.tenantId, tid)));
 
           /* Attaching to a truck that already has a foreman puts the trailer in
              that foreman's custody on the spot — tools inside follow, each with

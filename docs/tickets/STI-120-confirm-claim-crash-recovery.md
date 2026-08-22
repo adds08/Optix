@@ -2,7 +2,7 @@
 
 **Phase:** 1 — Custody trail (follow-up)
 **Size:** 1 unit
-**Status:** READY
+**Status:** **DONE — 2026-08-22.** All six criteria. Gap 2a (a retry duplicating ledger events, no crash needed) closed by migration `0021`'s `transaction.ref_message_id` — an event has a subject and a cause, and overloading `refType`/`refId` to carry both is what lost the cause. Gap 1 (permanent stranding at the attempts ceiling) closed by splitting `unstickProcessing` on `proposedAction`: **`attempts` counts PARSE attempts and only gates parsing**, so a stalled CONFIRM is re-armed with no ceiling — raising the ceiling to five would have moved the cliff, not removed it. Gap 2b closed by the same idempotency guard. Gap 3 documented at the claim site with the reason a sweeper was NOT built: it would fix chat-raised tasks and silently re-apply form-raised ones in full, and half a recovery that corrupts the rest is worse than a documented manual one. `apps/api/src/request-worker.test.ts` is the first test in that package.
 **Size note:** opened at 1 unit as a crash-window ticket. **Gap 2a changes that** — it is
 a duplicate-write reachable by an ordinary user retry with no crash at all. Re-size before
 starting; this is probably 2.

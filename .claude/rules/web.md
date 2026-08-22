@@ -32,16 +32,38 @@ Login is at `/`, not `/login`.
 ## Navigation is role-split
 
 `components/sti/nav-config.ts` defines two disjoint sets: `FIELD_NAV` (My Tools, Hand Off,
-Alerts) for `foreman`/`superintendent`, and `DESK_NAV` (four groups, 11 items) for everyone
-else. Items carry an optional permission, filtered against `me.permissions` in
-`components/app-sidebar.tsx:55`. Add a route → add it here, with its permission.
+Alerts) for `foreman`/`superintendent`, and `DESK_NAV` for everyone else. Items carry an
+optional permission, filtered against `me.permissions` in `components/app-sidebar.tsx`.
+Add a route → add it here, with its permission.
+
+> **This split still branches on the role NAME**, which STI-307 removed everywhere else.
+> It was left alone deliberately — deciding which *navigation* a role sees is a layout
+> question, not an access control, and every item is separately permission-filtered. But it
+> is now the only role-name branch left in the product, and with `engineer`, `mechanic` and
+> `office_admin` added by STI-304 it is **already wrong for three roles**: a mechanic gets
+> the desk navigation. Fixing it is STI-501's registry (`DESK_NAV`/`FIELD_NAV` chosen by
+> permission), not a patch here.
+
+## Visibility: the ladder, client-side
+
+`useViewTier()` (`components/use-permissions.ts`) resolves the four `assets.view.*`
+permissions widest-first, exactly as `scope.ts` does on the server, reading the same
+`VIEW_SCOPES` array. Use it — never `role === "superintendent"` — when a picker needs
+narrowing. Three forms did that and got it wrong for every role added after them.
+
+It narrows a *picker*, nothing more. The server refuses out-of-scope writes on its own.
 
 ## The job-scope selector is not a security boundary
 
 `components/job-scope.tsx` holds three levels — Show All / a group / one project — persisted
 to localStorage and exposed as `projectIds: Set<string> | null`. **Pages filter client-side on
-this set.** The server scopes independently, and today does so in only two read paths, so
-never present this as access control.
+this set**, and a client-side filter is never access control.
+
+Since STI-302 the server scopes independently on **every** read path — the register, the
+ledger feed, every report, every dashboard tile and chart — through the visibility ladder in
+`packages/api-contracts/src/scope.ts`. (This rule used to say "only two read paths", which
+was true when it was written and is the reason the dashboard totals leaked.) The selector can
+only narrow what the API already returned; it cannot widen it.
 
 ## DataTable
 

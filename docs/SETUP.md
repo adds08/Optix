@@ -20,12 +20,38 @@ make ENV=local seed            # sample data from the real trailer sheets
 | API | <http://localhost:4100> — health at `/health` |
 | Postgres | `postgres://postgres:stinventory@localhost:5433/stinventory` |
 
-Sign in with password `stinventory-demo`. The seed creates `owner@stinventory.local`,
-`admin@stinventory.local` and `warehouse@stinventory.local` — see `README.md` for what each
-role can do.
+### Sign-in accounts
 
-`SEED_RESET=1 make ENV=local seed` wipes first. The seed refuses to run against
-`NODE_ENV=production`.
+Password `stinventory-demo` for every account. **Development credentials only** — the seed
+refuses to run against `NODE_ENV=production` for exactly this reason.
+
+Since STI-304 there is **one account per role**, which is what makes a permission denial
+observable at all: until then the only three accounts were `owner`, `equipment_admin` and
+`warehouse`, all of which see everything, so no refusal had ever been exercised.
+
+| Account | Role | Sees |
+|---|---|---|
+| `owner@stinventory.local` | System Administrator | Everything |
+| `admin@stinventory.local` | Equipment Administrator | Everything |
+| `office@stinventory.local` | Office Administrator | Everything; **no** custody, **no** config |
+| `warehouse@stinventory.local` | Warehouse | Everything — the yard desk |
+| `pm@stinventory.local` | Project Manager | Lone Star's tools |
+| `engineer@stinventory.local` | Engineer | DART's tools |
+| `super@stinventory.local` | Superintendent | His crew's tools, across two jobs |
+| `foreman@stinventory.local` | Foreman | His own tools |
+| `mechanic@stinventory.local` | Mechanic | His own shop tools |
+| `procurement@stinventory.local` | Procurement | Everything, read-only |
+| `hr@stinventory.local` | HR | People — deliberately **not** tools |
+| `finance@stinventory.local` | Finance | Everything, plus the audit trail |
+| `readonly@stinventory.local` | Read-only | Everything, read-only |
+| `jobani@stinventory.local` | Foreman | **Deactivated** — refuses to sign in, by design |
+
+To see the visibility ladder do something, sign in as `pm@` and `super@` side by side: each
+sees tools the other cannot. The authoritative role→permission table is
+`packages/db/src/role-perms.ts`; the prose version, with the questions still open with
+Urban, is `docs/workings/PERMISSION_MATRIX.md`.
+
+`SEED_RESET=1 make ENV=local seed` wipes first.
 
 ## The chat parser
 

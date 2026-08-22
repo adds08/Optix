@@ -2,7 +2,7 @@
 
 **Phase:** 1 — Custody trail (follow-up)
 **Size:** 1 unit
-**Status:** READY
+**Status:** **DONE — 2026-08-22.** Both writers wrapped. `applyIntake` (the CHAT path, reachable by any foreman) now commits the asset row and its genesis ledger event together; `asset.setStatus` does the same AND moves its `before` read inside the transaction under `FOR UPDATE` — reading it outside was the identical race STI-114 fixed in `assignment.return`, and it let a second writer record a `fromState` that was never true.
 **Found by:** the STI-115 implementer on 2026-08-18, running the grep that ticket's
 criterion 5 required. Both confirmed by the lead.
 

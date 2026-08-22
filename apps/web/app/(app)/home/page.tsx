@@ -81,18 +81,32 @@ type Tab = "fleet" | "command";
 
 export default function HomePage() {
   const router = useRouter();
-  const { role } = usePermissions();
+  const { role, has } = usePermissions();
+  /*
+    STI-302/304: this dashboard is entirely asset-shaped, and since the reads
+    behind it require `asset.read` a role that lacks it (HR) landed on a page of
+    empty tiles, an empty ledger strip and a "Full audit trail" link that 403s.
+    STI-304 AC 4 is explicit that a role logging in to an empty dashboard is not
+    delivered. The asset sections are gated on the same permission their queries
+    need, so the page shows what this account can actually use instead of the
+    shape of what it cannot.
+  */
+  const seesTools = has("asset.read");
 
   /* Field roles get their own landing surface. */
   useEffect(() => {
     if (isFieldRole(role)) router.replace("/my-tools");
   }, [role, router]);
 
-  const kpis = trpc.dashboard.kpis.useQuery();
-  const clearance = trpc.dashboard.clearanceQueue.useQuery();
-  const approvals = trpc.dashboard.pendingApprovals.useQuery();
-  const activity = trpc.dashboard.recentActivity.useQuery();
-  const idleReport = trpc.report.idle.useQuery();
+  /* `enabled` rather than just hiding the panels: a hidden panel whose query
+     still runs fills the console with 403s on every load for HR, which is how
+     a real error stops being visible among the expected ones. The gate and the
+     fetch answer to the same permission. */
+  const kpis = trpc.dashboard.kpis.useQuery(undefined, { enabled: seesTools });
+  const clearance = trpc.dashboard.clearanceQueue.useQuery(undefined, { enabled: seesTools });
+  const approvals = trpc.dashboard.pendingApprovals.useQuery(undefined, { enabled: seesTools });
+  const activity = trpc.dashboard.recentActivity.useQuery(undefined, { enabled: seesTools });
+  const idleReport = trpc.report.idle.useQuery(undefined, { enabled: seesTools });
   const me = trpc.identity.me.useQuery();
 
   const prefs = useThemeStore((s) => s.prefs);
@@ -259,6 +273,7 @@ export default function HomePage() {
           </div>
 
           {/* ---- the numbers ---- */}
+          {seesTools ? (
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-medium">Fleet at a glance</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -303,13 +318,25 @@ export default function HomePage() {
               <Metric icon={AlertTriangle} label="Held by terminated" value={num(k?.clearanceCount)} loading={kpis.isLoading} tone={k?.clearanceCount ? "crit" : "ok"} />
             </div>
           </section>
+          ) : (
+            <section className="flex flex-col gap-3">
+              <h2 className="text-sm font-medium">Fleet at a glance</h2>
+              <EmptyState
+                title="This account does not track tools"
+                description="Your role covers people and records rather than the equipment register. Use People and Reports & Logs in the sidebar."
+              />
+            </section>
+          )}
 
           {/* ---- the movement chart (dashboard-01 slot), above the ledger ---- */}
+          {seesTools ? (
           <section className="flex flex-col gap-3">
             <MovementChart />
           </section>
+          ) : null}
 
           {/* ---- the ledger strip, at the bottom (docs/20, B2) ---- */}
+          {seesTools ? (
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-medium">Latest log</h2>
@@ -338,6 +365,7 @@ export default function HomePage() {
               </ul>
             )}
           </section>
+          ) : null}
         </>
       ) : (
         <>

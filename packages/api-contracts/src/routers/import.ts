@@ -42,7 +42,7 @@ export type PreviewRow = {
 
 /* Every name→id lookup for one import, loaded once. A 400-row file would
    otherwise issue 400 queries per ref column. */
-type RefIndex = Record<ImportRefTarget, Map<string, string>>;
+export type RefIndex = Record<ImportRefTarget, Map<string, string>>;
 
 async function loadRefIndex(db: any, tenantId: string): Promise<RefIndex> {
   const [projects, locations, employees, warehouses] = await Promise.all([
@@ -103,7 +103,12 @@ async function loadExisting(db: any, tenantId: string, spec: ImportSpec): Promis
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-function checkCell(col: ImportColumn, raw: string, refs: RefIndex): { value?: unknown; error?: string } {
+/* Exported for `import-validation.test.ts` (STI-405). Both are pure — no
+   database, no session — which is exactly why they are worth testing directly:
+   `SYSTEM_PLAN.md` §5 called the importer "genuinely good: typed validation,
+   dedup, preview, transactional commit" and then "No tests", and the typed
+   validation is the half a bad spreadsheet meets first. */
+export function checkCell(col: ImportColumn, raw: string, refs: RefIndex): { value?: unknown; error?: string } {
   const v = raw.trim();
 
   if (!v) {
@@ -156,7 +161,7 @@ function checkCell(col: ImportColumn, raw: string, refs: RefIndex): { value?: un
   }
 }
 
-function validateRows(
+export function validateRows(
   spec: ImportSpec,
   rows: Record<string, string>[],
   refs: RefIndex,

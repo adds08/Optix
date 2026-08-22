@@ -127,7 +127,7 @@ If minimalism or convenience conflicts with any of these, they win — say so ou
 | A rebuild blanks everything | A writer emitted a partial `toState` |
 | Two custodians for one tool | A write bypassed `custody.ts` — check `assignment.approve` and `/api/*` |
 | A permission check "does nothing" | You are on the `/api/*` REST surface, which has none |
-| Overdue alert fires a day early | The domain rule uses strict `<`; the notification worker uses `lte` |
+| ~~Overdue alert fires a day early~~ | **Gone, not fixed.** Removed 2026-08-09 with the borrow model: `assignment.expected_end_date` was DROPPED in migration `0012`, `isOverdueLoan` was deleted from `packages/domain`, and no `dashboard.overdueLoans` procedure exists. **Nothing falls due, so nothing goes overdue.** Verified 2026-08-22. If a doc, ticket or plan asks for an overdue view, it is describing a deleted feature — say so rather than inventing a due date. |
 | Chat message stuck in `pending_manual` | No model configured, low confidence, or no asset resolved |
 | Stale deps after a `package.json` change | Anonymous volumes survive rebuilds — `make ENV=local reset` |
 

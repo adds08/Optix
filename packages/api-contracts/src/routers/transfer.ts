@@ -8,6 +8,7 @@ import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { assertVehicleContext, moveCustody, projectForCustodian, vehicleContextFromLedger } from "../custody.js";
+import { assetVisibility, assetScopeWhere } from "../scope.js";
 import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 
 /*
@@ -26,8 +27,14 @@ import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
   second signature because of what it is worth.
 */
 export const transferRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: requirePermission("transfer.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    /* Scoped through the ASSET, not through from/toCustodianId. A transfer has
+       two people and scoping on either one alone picks a side: filtering on
+       `toCustodianId` hides every tool leaving your crew, and on
+       `fromCustodianId` hides every tool arriving. The tool is the thing both
+       ends have in common. */
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     const truckVehicle = alias(schema.vehicle, "transfer_to_truck");
     const trailerVehicle = alias(schema.vehicle, "transfer_to_trailer");
     return ctx.db
@@ -69,7 +76,7 @@ export const transferRouter = router({
         trailerVehicle,
         and(eq(schema.transfer.toTrailerId, trailerVehicle.id), eq(trailerVehicle.tenantId, tid)),
       )
-      .where(eq(schema.transfer.tenantId, tid))
+      .where(and(eq(schema.transfer.tenantId, tid), scoped))
       .then((rows) => rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   }),
 

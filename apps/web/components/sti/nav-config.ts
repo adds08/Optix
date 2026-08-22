@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, HardHat, Inbox, LayoutDashboard, MessageSquare, Radio, Settings, UserCog, Users, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Radio, Settings, ShieldCheck, UserCog, Users, Wrench } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -27,9 +27,18 @@ export const FIELD_NAV: NavGroup[] = [
   {
     label: "Field",
     items: [
+      /* STI-501: the Desk is in BOTH navs on purpose. SYSTEM_PLAN §6.5 calls it
+         "the intended long-term surface for the entire system", and two of its
+         four panels — `tools.mine` and `crew.tools` — exist for exactly the
+         people this nav serves. It carries no `perm`: the Desk composes itself
+         from the registry and shows an explanation when nothing matches, so
+         gating the LINK would be a second, cruder copy of that rule. */
+      { href: "/desk", label: "Desk", icon: LayoutDashboard, hint: "Everything you can act on" },
       { href: "/my-tools", label: "My Tools", icon: Wrench, hint: "What you are holding" },
       { href: "/chat", label: "Hand Off", icon: MessageSquare, hint: "Type it in one sentence" },
-      { href: "/inbox", label: "Alerts", icon: Inbox, hint: "Overdue and requests" },
+      /* ~~"Overdue and requests"~~ — nothing goes overdue; the borrow model and
+         `expected_end_date` were removed on 2026-08-09 (migration 0012). */
+      { href: "/inbox", label: "Alerts", icon: Inbox, hint: "Requests and notifications" },
     ],
   },
 ];
@@ -37,7 +46,10 @@ export const FIELD_NAV: NavGroup[] = [
 export const DESK_NAV: NavGroup[] = [
   {
     label: "Overview",
-    items: [{ href: "/home", label: "Dashboard", icon: LayoutDashboard }],
+    items: [
+      { href: "/desk", label: "Desk", icon: LayoutGrid, hint: "Composed from your permissions" },
+      { href: "/home", label: "Dashboard", icon: LayoutDashboard },
+    ],
   },
   {
     label: "Equipment",
@@ -72,13 +84,31 @@ export const DESK_NAV: NavGroup[] = [
          with "holds tools" is how a foreman gets forced into a login he does
          not need. */
       { href: "/admin/users", label: "User Accounts", icon: UserCog, perm: "config.manage" },
+      { href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage" },
       { href: "/settings", label: "Settings", icon: Settings, perm: "config.manage" },
     ],
   },
 ];
 
-/* Roles that live in the field. Everyone else gets the desk layout. */
-const FIELD_ROLES = new Set(["foreman", "superintendent"]);
+/*
+  Roles that live in the field. Everyone else gets the desk layout.
+
+  `mechanic` added by STI-304 — a mechanic holds tools and works out of the
+  shop, so the desk's twelve-item navigation is the wrong shelf to put them on.
+  This is the LAST role-name branch in the product (STI-307 removed the rest),
+  and it is a layout decision rather than an access control: every item in both
+  sets is separately permission-filtered in `app-sidebar.tsx`, so a wrong
+  answer here shows somebody the wrong menu, never data they may not see.
+
+  It is still wrong by construction — a set of role names has to be edited
+  every time a role is added, which is exactly what happened here. Replacing it
+  with a permission-driven registry is STI-501, and this line is the argument
+  for doing it.
+
+  `engineer` and `office_admin` correctly get the desk layout: an engineer runs
+  jobs from a desk and an office administrator never leaves one.
+*/
+const FIELD_ROLES = new Set(["foreman", "superintendent", "mechanic"]);
 
 export function isFieldRole(role: string | null | undefined): boolean {
   return !!role && FIELD_ROLES.has(role);

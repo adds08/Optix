@@ -24,7 +24,7 @@ ordering in mind before moving these lines.
 
 | Worker | Interval | Does |
 |---|---|---|
-| notification scheduler | 60s | overdue loans, rentals due, "delivery" |
+| notification scheduler | 60s | rentals due, "delivery". ~~overdue loans~~ — Removed 2026-08-09 with the borrow model: `assignment.expected_end_date` was DROPPED in migration `0012`, `isOverdueLoan` was deleted from `packages/domain`, and no `dashboard.overdueLoans` procedure exists. **Nothing falls due, so nothing goes overdue.** Verified 2026-08-22. |
 | messaging worker | 4s | claims ≤5 queued chat messages, parses, proposes |
 | request sweeper | 60s | requeues failed, unsticks `processing` >5min, escalates |
 

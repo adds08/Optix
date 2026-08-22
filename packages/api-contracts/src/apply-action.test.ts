@@ -167,7 +167,27 @@ const assetRow = (acquisitionCost: string | null) => ({
   currentLocationId: null,
 });
 
-const dbWith = (over: Record<string, unknown>) => over as unknown as Database;
+/*
+  A stub standing in for a real `Database`.
+
+  `transaction` runs the callback against the stub itself, which is what makes
+  these tests still exercise the code inside `db.transaction(...)` after STI-118
+  wrapped `applyIntake`. It deliberately does NOT simulate rollback: these
+  assert typed REFUSALS, and a refusal is a throw before any write. The
+  commit-or-vanish behaviour needs a real Postgres and is asserted in the
+  database-backed suites.
+
+  Without this the stub simply lacked `.transaction` and every intake test died
+  with "db.transaction is not a function" — a test failing because the fake
+  stopped resembling the real thing, not because the code was wrong.
+*/
+const dbWith = (over: Record<string, unknown>) => {
+  const stub: Record<string, unknown> = {
+    transaction: async (fn: (tx: unknown) => unknown) => fn(stub),
+    ...over,
+  };
+  return stub as unknown as Database;
+};
 
 describe("applyChatAction typed refusals", () => {
   it("refuses a caller without the permission as FORBIDDEN", async () => {

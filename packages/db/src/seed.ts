@@ -4,6 +4,7 @@ import postgres from "postgres";
 import bcrypt from "bcryptjs";
 import { PERMISSIONS, ROLES } from "@stinventory/types";
 import * as schema from "./schema/index.js";
+import { ROLE_PERMS } from "./role-perms.js";
 import {
   asset,
   assignment,
@@ -76,82 +77,6 @@ const SEED_COSTS: Record<string, string> = {
   "TOOL-0255": "4999.99", // HONDA EB6500X generator — one cent BELOW the threshold (auto)
 };
 
-// RBAC: permissions per role (MVP subset). owner/equipment_admin broad; foreman narrow.
-const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
-  owner: [...PERMISSIONS],
-  equipment_admin: [...PERMISSIONS],
-  warehouse: [
-    "asset.read",
-    "asset.manage",
-    "department.read",
-    "location.read",
-    "location.manage",
-    "vehicle.read",
-    "vehicle.manage",
-    "project.read",
-    "project.manage",
-    "employee.read",
-    "assignment.read",
-    "assignment.create",
-    "transfer.read",
-    "transfer.create",
-    /* The yard desk runs departures operationally (STI-306). `owner` and
-       `equipment_admin` get it through the spread above. Deliberately NOT
-       granted to PM, Engineer, superintendent or HR yet — whether the person
-       who DISCOVERS a departure should be able to act on it is one of the three
-       questions still open on the draft permission matrix, and guessing it here
-       would put a bulk custody move in more hands than Urban has agreed to. */
-    "custody.reassign",
-    "report.read",
-    "notification.read",
-    "notification.manage",
-    /* The equipment department sits at the same tier as admins for who gets
-       put on a project (docs: project.team.assign hierarchy) — and it keeps
-       project.manage so the yard desk sees every job, the way admins do. */
-    "project.team.read",
-    "project.assign.pm",
-    "project.assign.superintendent",
-    "project.assign.foreman",
-  ],
-  superintendent: [
-    "asset.read", "location.read", "vehicle.read", "project.read", "employee.read",
-    "assignment.read", "assignment.create", "assignment.approve",
-    "transfer.read", "transfer.create", "transfer.approve",
-    "report.read", "notification.read",
-    /* Superintendents put foremen on their projects. */
-    "project.team.read",
-    "project.assign.foreman",
-  ],
-  procurement: ["asset.read", "project.read", "employee.read", "report.read"],
-  project_manager: [
-    "asset.read", "project.read", "project.manage", "employee.read", "report.read",
-    /* PMs assign superintendents and foremen to their projects. */
-    "project.team.read",
-    "project.assign.superintendent",
-    "project.assign.foreman",
-  ],
-  /* Read-only on custody by design. Tools are issued and reassigned by the
-     equipment desk; a foreman sees what he is holding and what is coming, and
-     tells the desk through chat or a request when something needs to move. He
-     used to hold assignment.create and transfer.create, which is what made a
-     foreman-to-foreman borrow possible — see the 2026-08-09 changelog. */
-  foreman: [
-    "asset.read",
-    "location.read",
-    "vehicle.read",
-    "project.read",
-    "employee.read",
-    "assignment.read",
-    "transfer.read",
-    "report.read",
-    "notification.read",
-    /* A foreman can see who else is on the project they work. */
-    "project.team.read",
-  ],
-  hr: ["employee.read", "employee.manage", "notification.read", "report.read"],
-  finance: ["asset.read", "project.read", "report.read", "audit.read"],
-  read_only: ["asset.read", "location.read", "vehicle.read", "project.read", "employee.read", "report.read"],
-};
 
 async function main() {
   console.log("[seed] target:", url.replace(/:[^@]+@/, ":***@"));
@@ -679,13 +604,35 @@ async function main() {
   console.log(`
 [seed] DONE.
 
-Login (password: stinventory-demo):
-  owner@stinventory.local      Owner — full access
-  admin@stinventory.local       Karen Osei — Equipment Admin
-  warehouse@stinventory.local   Yard Desk — Warehouse
+Login — password  stinventory-demo  for every account (STI-304).
+One per role, because a permission system only ever tested as 'owner'
+is not a tested permission system. See docs/SETUP.md.
+
+  owner@stinventory.local        Demo Owner      System Administrator — everything
+  admin@stinventory.local        Karen Osei      Equipment Administrator
+  office@stinventory.local       Lena Boyd       Office Administrator — no custody, no config
+  warehouse@stinventory.local    Yard Desk       Warehouse — the yard desk
+  pm@stinventory.local           Dana Whitmore   Project Manager — Lone Star only
+  engineer@stinventory.local     Priya Raman     Engineer — DART only
+  super@stinventory.local        Marcus Whitfield Superintendent — his crew, across two jobs
+  foreman@stinventory.local      Alejandro Capuchino  Foreman — his own tools only
+  mechanic@stinventory.local     Ruben Ortiz     Mechanic — his own tools, charged to the department
+  procurement@stinventory.local  Nadia Kerr      Procurement
+  hr@stinventory.local           Tomas Reyes     HR — people, deliberately NOT tools
+  finance@stinventory.local      Grace Lin       Finance
+  readonly@stinventory.local     Read Only       Read-only
+  jobani@stinventory.local       Jobani Abarca   DEACTIVATED — cannot sign in, by design
+
+Visibility (STI-302) — the ladder, on this data:
+  owner/admin/office/warehouse/hr/finance/procurement/readonly  every tool
+  pm        -> the tools on Lone Star
+  engineer  -> the tools on DART
+  super     -> the tools his crew hold, which spans Lone Star and DART
+  foreman   -> the ${assignSpecs.filter((a) => a.cust === "e-fm001").length} tools in his own hands
+  mechanic  -> the ${assignSpecs.filter((a) => a.cust === "e-mech001").length} shop tools in his
 
 Data (from TOOL LIST BY NAME.xlsx):
-  ${employeeRows.length - 2} foremen, ${projectRows.length} projects,
+  ${employeeRows.length} people, ${projectRows.length} projects,
   ${trailerCount} trailers (+2 synthetic trucks, seed-only), ${assetRows.length} tools
 `);
   await client.end();

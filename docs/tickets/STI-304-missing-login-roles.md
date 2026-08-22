@@ -2,7 +2,7 @@
 
 **Phase:** 3 — Roles, accounts and organisation structure
 **Size:** 2 units
-**Status:** BLOCKED by STI-301
+**Status:** **DONE — 2026-08-22.** Three new login roles (`office_admin`, `engineer`, `mechanic`) and **one account per role** — fourteen, up from three. `pm` vs `project_manager` resolved by `PM_EMPLOYEE_ROLE`/`PM_LOGIN_ROLE` in `packages/types`. Credentials in `docs/SETUP.md`.
 **Depends on:** STI-301 (which roles), STI-303 (the mechanism to create them)
 
 ---

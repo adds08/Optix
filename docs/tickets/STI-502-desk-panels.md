@@ -2,7 +2,7 @@
 
 **Phase:** 5 — Desk views by role
 **Size:** 2 units
-**Status:** BLOCKED by STI-501
+**Status:** **DONE — 2026-08-22, four of five.** `tools.mine`, `crew.tools`, `tools.by_jobsite` and `desk.queue` are built and registered. **`tools.overdue` is NOT, and that is AC 5 being obeyed rather than skipped** — nothing can go overdue: the borrow model went on 2026-08-09, `expected_end_date` was dropped in migration `0012`, `isOverdueLoan` is deleted. AC 5 says report the disagreement rather than copy it into a third place. Reported here, in SYSTEM_PLAN §6.5, in the registry, and in the four documents that still claimed overdue was live.
 
 ---
 

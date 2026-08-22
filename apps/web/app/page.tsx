@@ -12,7 +12,7 @@ import { AuthPanel } from "@/components/auth-panel";
 
   This page used to pre-fill a working account and print the shared password
   underneath the form. That is exactly right on a laptop and indefensible on a
-  public host: it advertises four valid addresses and their password to anyone
+  public host: it advertises every valid address and their shared password to anyone
   who loads the page, and it breaks the moment those accounts are disabled —
   which is the first thing a real deployment does.
 
@@ -20,10 +20,29 @@ import { AuthPanel } from "@/components/auth-panel";
 */
 const SHOW_DEMO = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "1";
 
+/*
+  One entry per role since STI-304. It was three — all of which see everything —
+  which is why every journey this product was ever demonstrated on was driven by
+  an account that could not be refused anything.
+
+  Ordered widest-visibility first, so the three that differ from each other are
+  adjacent: signing in as `pm` and then `super` is the fastest way to see the
+  visibility ladder actually do something.
+*/
 const DEMO = [
-  { email: "owner@stinventory.local", who: "Owner — full access" },
-  { email: "admin@stinventory.local", who: "Karen Osei — Equipment Admin" },
+  { email: "owner@stinventory.local", who: "System Administrator — everything" },
+  { email: "admin@stinventory.local", who: "Karen Osei — Equipment Administrator" },
+  { email: "office@stinventory.local", who: "Lena Boyd — Office Admin, no custody" },
   { email: "warehouse@stinventory.local", who: "Yard Desk — Warehouse" },
+  { email: "pm@stinventory.local", who: "Dana Whitmore — PM, Lone Star only" },
+  { email: "engineer@stinventory.local", who: "Priya Raman — Engineer, DART only" },
+  { email: "super@stinventory.local", who: "Marcus Whitfield — Super, his crew" },
+  { email: "foreman@stinventory.local", who: "Alejandro Capuchino — his own tools" },
+  { email: "mechanic@stinventory.local", who: "Ruben Ortiz — Mechanic, the shop" },
+  { email: "hr@stinventory.local", who: "Tomas Reyes — HR, people not tools" },
+  { email: "finance@stinventory.local", who: "Grace Lin — Finance" },
+  { email: "procurement@stinventory.local", who: "Nadia Kerr — Procurement" },
+  { email: "readonly@stinventory.local", who: "Read-only" },
 ];
 
 export default function LoginPage() {

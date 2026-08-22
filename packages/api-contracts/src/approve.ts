@@ -105,6 +105,38 @@ export async function approveTaskAction(
     invites a retry that duplicates ledger events, which is permanent; and a
     new "claimed" status would leak an unknown value into every task list and
     filter. If the apply throws, the catch below un-claims.
+
+    **The asymmetry with the message path, which is NOT symmetric and is not an
+    oversight (STI-120 gap 3).** Read this before assuming a sweeper will
+    rescue a stranded task:
+
+      message  — a crash mid-apply leaves it `processing`, and
+                 `unstickProcessing` (request-worker.ts) re-arms the Confirm
+                 button after five minutes. Automatic.
+      task     — a crash mid-apply leaves it `completed` and unapplied.
+                 **Nothing sweeps tasks. A human must re-raise the request.**
+
+    Why it is left that way rather than swept. A sweeper needs to recognise the
+    stranded state, and "completed but unapplied" is not a state this row can
+    report: a task carries no record of which assets its apply reached, so the
+    sweeper would have to re-run every completed task and rely on the apply
+    being idempotent to make that harmless. That holds for a task raised from
+    chat — `refMessageId: task.sourceMessageId` below carries the STI-120
+    idempotency key — and does NOT hold for one raised on a form, which has no
+    `sourceMessageId` and would be re-applied in full.
+
+    So a sweeper would fix the chat-raised half and silently duplicate the
+    other. Half a recovery that corrupts the rest is worse than a documented
+    manual one, and the honest fix is to give tasks their own applied-marker
+    first. That is the remaining half of STI-120, and it is written down there
+    rather than half-built here.
+
+    QA measured the window and it is wide, not theoretical: approving a
+    30-asset request showed `status = 'completed'` with fewer than 30 events
+    applied in 175 of 178 samples, including samples at zero. A desk user
+    refreshing mid-approve sees "completed" for work that has not happened yet.
+    That part is transient and resolves on its own; only a crash makes it
+    permanent.
   */
   const claimed = await ctx.db
     .update(schema.task)
@@ -336,7 +368,7 @@ export async function confirmMessageAction(
       handledAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(schema.message.id, messageId));
+    .where(and(eq(schema.message.id, messageId), eq(schema.message.tenantId, tid)));
 
   await logEvent(ctx, {
     category: "messaging",
