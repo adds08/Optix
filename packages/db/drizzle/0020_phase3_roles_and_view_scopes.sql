@@ -27,12 +27,32 @@
 -- 1. The permission rows themselves.
 -- ---------------------------------------------------------------------------
 -- `permission` is a GLOBAL table (no tenant_id) — see the note at the end of
--- this file. These four are the visibility ladder from SYSTEM_PLAN §6.3.
+-- this file. The four `assets.view.*` are the visibility ladder from
+-- SYSTEM_PLAN §6.3. The rest are the catalog rows the grants below reference
+-- that the SEED also writes — but the seed refuses to touch an existing
+-- tenant, so on a database seeded before this migration existed they are
+-- absent, every grant of them is a foreign-key violation (23503,
+-- key (permission_name)=(project.team.read)), and the whole migration rolls
+-- back. Writing the full referenced set here makes this migration
+-- self-contained for exactly that database. Idempotent: ON CONFLICT DO NOTHING.
+--
+-- FIXED 2026-08-22 after the live deploy crash-looped the API on exactly this
+-- FK failure. Earlier editions of this file inserted only the four
+-- `assets.view.*` rows. The file's hash changed, so a database that already
+-- applied the earlier edition re-runs this section on its next boot — every
+-- statement in this migration is idempotent, so that re-run is a no-op.
 INSERT INTO "permission" ("name", "description") VALUES
   ('assets.view.all',     'See every tool in the tenant'),
   ('assets.view.project', 'See tools on the projects you are on the team of'),
   ('assets.view.crew',    'See tools held by the foremen reporting to you'),
-  ('assets.view.own',     'See only the tools in your own custody')
+  ('assets.view.own',     'See only the tools in your own custody'),
+  ('project.team.read',   'See who is on a project''s team'),
+  ('project.assign.pm',   'Place a Project Manager on a project''s team'),
+  ('project.assign.superintendent', 'Place a superintendent on a project''s team'),
+  ('project.assign.foreman', 'Place a foreman on a project''s team'),
+  ('department.read',     'Read departments'),
+  ('department.manage',   'Manage departments'),
+  ('custody.reassign',    'Reassign all custody on departure (STI-306)')
 ON CONFLICT ("name") DO NOTHING;
 
 -- ---------------------------------------------------------------------------
