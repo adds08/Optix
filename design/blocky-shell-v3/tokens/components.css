@@ -1,0 +1,49 @@
+:root {
+  /* ── Row heights ── */
+  --row-height-sm: 30px;
+  --row-height-md: 34px;
+  --row-height-lg: 42px;
+
+  /* ── Button ── */
+  --btn-height: 34px;
+  --btn-padding: 0 12px;
+  --btn-radius: var(--radius-sm);
+  --btn-font-size: var(--text-base);
+  --btn-font-weight: var(--weight-semibold);
+
+  /* ── Input ── */
+  --input-height: 34px;
+  --input-padding: 0 11px;
+  --input-radius: var(--radius-md);
+  --input-bg: var(--surface-4);
+  --input-border: var(--border-2);
+  --input-font-size: var(--text-base);
+
+  /* ── Card ── */
+  --card-bg: var(--surface-3);
+  --card-border: var(--border-1);
+  --card-radius: var(--radius-md);
+  --card-padding: 12px 20px;
+
+  /* ── Chip / Tag ── */
+  --chip-height: 27px;
+  --chip-padding: 0 10px;
+  --chip-radius: var(--radius-md);
+  --chip-font-size: var(--text-base);
+
+  /* ── Pill / Status ── */
+  --pill-padding: 3px 8px;
+  --pill-radius: var(--radius-sm);
+  --pill-font-size: var(--text-sm);
+  --pill-font-weight: var(--weight-semibold);
+
+  /* ── Toolbar ── */
+  --toolbar-bg: var(--surface-1);
+  --toolbar-border: var(--border-0);
+  --toolbar-height: 58px;
+
+  /* ── Sidebar / Rail ── */
+  --rail-width: 48px;
+  --sidebar-width: 200px;
+  --sidebar-bg: var(--surface-1);
+}

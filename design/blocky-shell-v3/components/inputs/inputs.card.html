@@ -1,0 +1,54 @@
+<!-- @dsCard group="Components" viewport="700x100" name="Input" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<div id="root"></div>
+<script>
+window.__ds = function(names) {
+  var out = {}, miss = [];
+  var pools = [];
+  // Prefer an explicit namespace if the bundle set one
+  for (var k in window) {
+    try {
+      var v = window[k];
+      if (v && typeof v === 'object' && !Array.isArray(v) && k[0] === k[0].toUpperCase() && k.length > 2) {
+        for (var i = 0; i < names.length; i++) if (typeof v[names[i]] === 'function') { pools.push(v); break; }
+      }
+    } catch (e) {}
+  }
+  pools.push(window);
+  names.forEach(function(n) {
+    for (var p = 0; p < pools.length; p++) {
+      if (typeof pools[p][n] === 'function') { out[n] = pools[p][n]; return; }
+    }
+    miss.push(n);
+  });
+  if (miss.length) {
+    document.getElementById('root').innerHTML =
+      '<div style="padding:16px;background:var(--surface-3);border:1px solid var(--warn-border);' +
+      'border-radius:4px;color:var(--warn);font-family:var(--font-mono);font-size:11px;">' +
+      'Bundle not built yet — missing: ' + miss.join(', ') + '</div>';
+    return null;
+  }
+  return out;
+};
+</script>
+<script type="text/babel">
+const __c = window.__ds(['Input']);
+if (__c) {
+const { Input } = __c;
+const SearchIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg>;
+function Demo() {
+  const [v, setV] = React.useState('');
+  const [v2, setV2] = React.useState('Legacy West');
+  return <div style={{padding:16, background:'var(--surface-0)', display:'flex', gap:12, alignItems:'center'}}>
+    <Input placeholder="Search job, crew, tool…" icon={<SearchIcon />} clearable value={v} onChange={e=>setV(e.target.value)} style={{width:290}} />
+    <Input value={v2} onChange={e=>setV2(e.target.value)} clearable style={{width:200}} />
+    <Input placeholder="Qty" size="sm" style={{width:70}} />
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+}
+</script>

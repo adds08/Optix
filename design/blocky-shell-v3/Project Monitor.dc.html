@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;font-family:'Inter Tight',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+.pm-scroll::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+
+<div style="{{ shellStyle }}">
+
+<div style="{{ topBarStyle }}">
+<div style="{{ topLeftStyle }}">
+<div style="{{ monitorLabelStyle }}">PROJECT MONITOR</div>
+<div style="{{ monitorSubStyle }}">{{ statusLine }}</div>
+</div>
+<div style="{{ topMetricsStyle }}">
+<sc-for list="{{ topMetrics }}" as="m" hint-placeholder-count="5">
+<div style="{{ m.style }}">
+<div style="{{ m.valStyle }}">{{ m.value }}</div>
+<div style="{{ m.lblStyle }}">{{ m.label }}</div>
+</div>
+</sc-for>
+</div>
+<div style="{{ topRightStyle }}">
+<div style="{{ clockStyle }}">{{ clock }}</div>
+<div onClick="{{ togglePause }}" style="{{ pauseBtnStyle }}">{{ pauseLabel }}</div>
+<div onClick="{{ toggleFullscreen }}" style="{{ fullscreenBtnStyle }}">{{ fullscreenLabel }}</div>
+</div>
+</div>
+
+<div style="{{ projHeaderStyle }}">
+<div style="{{ projLeftStyle }}">
+<div style="{{ projTopRowStyle }}">
+<div style="{{ projCodeStyle }}">{{ activeCode }}</div>
+<div style="{{ projStatusStyle }}">{{ activeStatus }}</div>
+</div>
+<div style="{{ projNameStyle }}">{{ activeName }}</div>
+<div style="{{ projCityStyle }}">{{ activeCity }}</div>
+</div>
+<div style="{{ projMetricsStyle }}">
+<sc-for list="{{ activeMetrics }}" as="m" hint-placeholder-count="4">
+<div style="{{ m.style }}">
+<span style="{{ m.valStyle }}">{{ m.value }}</span>
+<span style="{{ m.lblStyle }}">{{ m.label }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="{{ tableSectionStyle }}">
+<div style="{{ tableHeadStyle }}">
+<span style="{{ colIdStyle }}">TOOL ID</span>
+<span style="{{ colToolStyle }}">TOOL NAME</span>
+<span style="{{ colForemanStyle }}">ASSIGNED FOREMAN</span>
+<span style="{{ colCondStyle }}">STATUS</span>
+</div>
+<div ref="{{ tableRef }}" class="pm-scroll" style="{{ tableBodyStyle }}">
+<sc-for list="{{ activeTools }}" as="r" hint-placeholder-count="10">
+<div style="{{ r.rowStyle }}">
+<span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+<span style="{{ r.nameStyle }}">{{ r.name }}</span>
+<span style="{{ r.foremanStyle }}">{{ r.foreman }}</span>
+<span style="{{ r.condStyle }}">{{ r.cond }}</span>
+</div>
+</sc-for>
+</div>
+<div style="{{ scrollIndicatorStyle }}">
+<div style="{{ scrollThumbStyle }}"></div>
+</div>
+</div>
+
+<div style="{{ foremanBarStyle }}">
+<span style="{{ foremanBarTitleStyle }}">TOOLS PER FOREMAN</span>
+<div style="{{ foremanChipsStyle }}">
+<sc-for list="{{ foremanCounts }}" as="f" hint-placeholder-count="3">
+<div style="{{ f.style }}">
+<span style="{{ f.nameStyle }}">{{ f.name }}</span>
+<span style="{{ f.countStyle }}">{{ f.count }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="{{ bottomBarStyle }}">
+<div onClick="{{ goPrev }}" style="{{ prevNavStyle }}">
+<span style="{{ navArrowStyle }}">‹</span>
+<div style="{{ navTextWrapStyle }}">
+<div style="{{ navKickerStyle }}">PREVIOUS</div>
+<div style="{{ navCodeStyle }}">{{ prevCode }}</div>
+<div style="{{ navNameStyle }}">{{ prevName }}</div>
+</div>
+</div>
+
+<div style="{{ bottomCenterStyle }}">
+<div style="{{ progressTrackStyle }}">
+<div style="{{ progressFillStyle }}"></div>
+</div>
+<div style="{{ dotsRowStyle }}">
+<sc-for list="{{ dots }}" as="d" hint-placeholder-count="5">
+<div onClick="{{ d.go }}" style="{{ d.style }}"></div>
+</sc-for>
+</div>
+<div style="{{ cycleHintStyle }}">{{ cycleHint }}</div>
+</div>
+
+<div onClick="{{ goNext }}" style="{{ nextNavStyle }}">
+<div style="{{ navTextWrapRightStyle }}">
+<div style="{{ navKickerStyle }}">NEXT UP</div>
+<div style="{{ navCodeStyle }}">{{ nextCode }}</div>
+<div style="{{ navNameStyle }}">{{ nextName }}</div>
+</div>
+<span style="{{ navArrowStyle }}">›</span>
+</div>
+</div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1600, &quot;height&quot;: 900 },
+  &quot;embedded&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: false, &quot;tsType&quot;: &quot;boolean&quot; },
+  &quot;theme&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;dark&quot;,&quot;light&quot;], &quot;default&quot;: &quot;dark&quot;, &quot;tsType&quot;: &quot;'dark'|'light'&quot; },
+  &quot;rowHeight&quot;: { &quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 34, &quot;min&quot;: 28, &quot;max&quot;: 52, &quot;step&quot;: 2, &quot;unit&quot;: &quot;px&quot;, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Wall display&quot; }
+}">
+class Component extends DCLogic {
+  state = { idx: 0, paused: false, clock: '', progress: 0, scrollPct: 0, fullscreen: false };
+
+  PROJECTS = [
+    { code:'JOB 22018', name:'Legacy West Utilities', city:'Plano, TX', status:'Active',
+      crews:[
+        { foreman:'A. Capuchino', tools:[
+          ['ST-00137','DeWalt DCD996 Hammer Drill','Good'],['ST-00241','Milwaukee M18 Sawzall','Good'],
+          ['ST-00355','Bosch Bulldog Rotary Hammer','Good'],['ST-00412','Wacker WP1550 Plate Compactor','Fair'],
+          ['ST-00498','Stihl TS420 Cutquik','Good'],['ST-00521','Honda EB2200i Generator','Good'],
+          ['ST-00190','Ridgid Pipe Wrench Set','Good'],['ST-00602','Milwaukee M18 Impact Driver','Good'],
+          ['ST-00718','Greenlee Cable Puller','Good'],['ST-00233','Bosch GRL2000-40HVK Laser','Good']
+        ]},
+        { foreman:'J. Abarca', tools:[
+          ['ST-00301','Makita 7-1/4in Circular Saw','Good'],['ST-00477','DeWalt 20V Angle Grinder','Fair'],
+          ['ST-00544','Klein Electrician Tool Set','Good'],['ST-00619','Werner 24ft Extension Ladder','Good'],
+          ['ST-00388','Multiquip 2in Trash Pump','Good'],['ST-00712','Milwaukee M18 Site Light','Good'],
+          ['ST-00155','Little Giant 8ft Step Ladder','Good'],['ST-00829','Hilti PM 30-MG Multi Laser','Good']
+        ]}
+      ]},
+    { code:'JOB 22104', name:'Trinity River Levee Ph 2', city:'Dallas, TX', status:'Active',
+      crews:[
+        { foreman:'M. Torres', tools:[
+          ['ST-00102','DeWalt DCD996 Hammer Drill','Good'],['ST-00209','Husqvarna K770 Demo Saw','Fair'],
+          ['ST-00314','Wacker WP1550 Plate Compactor','Good'],['ST-00427','Bosch Bulldog Rotary Hammer','Good'],
+          ['ST-00533','Honda EB2200i Generator','Good'],['ST-00648','Stihl TS420 Cutquik','Needs service'],
+          ['ST-00751','Milwaukee M18 Sawzall','Good'],['ST-00866','Ridgid Pipe Wrench Set','Good']
+        ]},
+        { foreman:'R. Delgado', tools:[
+          ['ST-00118','Milwaukee M18 Impact Driver','Good'],['ST-00225','DeWalt 20V Angle Grinder','Good'],
+          ['ST-00337','Makita 7-1/4in Circular Saw','Fair'],['ST-00442','Klein Electrician Tool Set','Good'],
+          ['ST-00559','Dayton 1in Submersible Pump','Good']
+        ]},
+        { foreman:'B. Aldana', tools:[
+          ['ST-00163','Werner 24ft Extension Ladder','Good'],['ST-00278','Bosch GRL2000-40HVK Laser','Good'],
+          ['ST-00391','Multiquip 2in Trash Pump','Good'],['ST-00506','Milwaukee M18 Site Light','Fair']
+        ]}
+      ]},
+    { code:'JOB 21877', name:'DFW Water Main Ph 2', city:'Irving, TX', status:'Active',
+      crews:[
+        { foreman:'S. Nunez', tools:[
+          ['ST-00144','Bosch Bulldog Rotary Hammer','Good'],['ST-00257','DeWalt DCD996 Hammer Drill','Fair'],
+          ['ST-00368','Stihl TS420 Cutquik','Good'],['ST-00479','Honda EB2200i Generator','Good'],
+          ['ST-00581','Greenlee Cable Puller','Good']
+        ]},
+        { foreman:'H. Villalobos', tools:[
+          ['ST-00196','Milwaukee M18 Sawzall','Good'],['ST-00308','Wacker WP1550 Plate Compactor','Good'],
+          ['ST-00419','Hilti PM 30-MG Multi Laser','Fair']
+        ]},
+        { foreman:'D. Okafor', tools:[
+          ['ST-00127','DeWalt 20V Angle Grinder','Needs service'],['ST-00238','Ridgid Pipe Wrench Set','Good']
+        ]}
+      ]},
+    { code:'JOB 22131', name:'McKinney Pump Station', city:'McKinney, TX', status:'Active',
+      crews:[
+        { foreman:'C. Benitez', tools:[
+          ['ST-00171','Milwaukee M18 Impact Driver','Good'],['ST-00284','Makita 7-1/4in Circular Saw','Good'],
+          ['ST-00397','Bosch GRL2000-40HVK Laser','Good'],['ST-00508','Husqvarna K770 Demo Saw','Fair'],
+          ['ST-00613','Wacker WP1550 Plate Compactor','Good'],['ST-00726','Klein Electrician Tool Set','Good'],
+          ['ST-00839','Werner 24ft Extension Ladder','Good']
+        ]}
+      ]},
+    { code:'JOB 22205', name:'Cedar Hill WWTP Expansion', city:'Cedar Hill, TX', status:'Upcoming',
+      crews:[
+        { foreman:'F. Morales', tools:[
+          ['ST-00153','DeWalt DCD996 Hammer Drill','Good'],['ST-00266','Milwaukee M18 Sawzall','Good'],
+          ['ST-00379','Stihl TS420 Cutquik','Good'],['ST-00488','Honda EB2200i Generator','Good']
+        ]},
+        { foreman:'L. Garza', tools:[
+          ['ST-00201','Bosch Bulldog Rotary Hammer','Good'],['ST-00316','Multiquip 2in Trash Pump','Fair'],
+          ['ST-00429','Milwaukee M18 Site Light','Good']
+        ]}
+      ]}
+  ];
+
+  tableRef = React.createRef();
+
+  toolCount(p) { return p.crews.reduce((a, c) => a + c.tools.length, 0); }
+
+  /* Dwell scales with list length so a long table still reads at a steady pace:
+     12s of chrome-reading plus ~1.1s per row, capped so nothing stalls the wall. */
+  cycleMs(p) { return Math.min(52000, 12000 + this.toolCount(p) * 1100); }
+
+  componentDidMount() {
+    this.cycleStart = Date.now();
+    this.loop = setInterval(() => this.step(), 100);
+    this.step();
+  }
+  componentWillUnmount() { clearInterval(this.loop); }
+
+  step() {
+    const now = new Date();
+    const h = now.getHours();
+    const clock = String(h % 12 || 12).padStart(2, '0') + ':' +
+      String(now.getMinutes()).padStart(2, '0') + ':' +
+      String(now.getSeconds()).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM');
+
+    if (this.state.paused) { this.setState({ clock }); return; }
+
+    const proj = this.PROJECTS[this.state.idx % this.PROJECTS.length];
+    const dur = this.cycleMs(proj);
+    const elapsed = Date.now() - this.cycleStart;
+
+    if (elapsed >= dur) {
+      this.cycleStart = Date.now();
+      if (this.tableRef.current) this.tableRef.current.scrollTop = 0;
+      this.setState({ clock, progress: 0, scrollPct: 0,
+        idx: (this.state.idx + 1) % this.PROJECTS.length });
+      return;
+    }
+
+    const progress = elapsed / dur;
+    /* Hold at the top for the first 18% so the header can be read, finish the
+       travel by 88% so the last rows sit still before the project changes. */
+    const scrollPct = Math.max(0, Math.min(1, (progress - 0.18) / 0.70));
+    const el = this.tableRef.current;
+    if (el) {
+      const max = el.scrollHeight - el.clientHeight;
+      if (max > 1) el.scrollTop = max * scrollPct;
+    }
+    this.setState({ clock, progress, scrollPct });
+  }
+
+  jumpTo(i) {
+    this.cycleStart = Date.now();
+    if (this.tableRef.current) this.tableRef.current.scrollTop = 0;
+    this.setState({ idx: i, progress: 0, scrollPct: 0 });
+  }
+
+  isDark() { return (this.props.theme ?? 'dark') === 'dark'; }
+
+  /* Canonical Blocky scale — identical values to System Shell v3 and Tools by
+     Jobsite so an embedded monitor never disagrees with its shell on a surface. */
+  theme() {
+    return this.isDark() ? {
+      bg:'#090B0E', panel:'#0D1015', card:'#11151A', cardAlt:'#0E1218',
+      line:'#232A32', line2:'#1B2027',
+      text:'#EAEDEF', text2:'#A6AEB6', text3:'#8A939C', heading:'#FFFFFF',
+      accent:'#7FB0E4', accentBright:'#A9CDF2', accentBg:'#162233', accentFg:'#C8DFFA',
+      ok:'#4FA97A', warn:'#E4A13B', crit:'#D2694A',
+      rowA:'#0A0D11', rowB:'#0C1014', hover:'#141A21'
+    } : {
+      bg:'#F4F5F7', panel:'#FFFFFF', card:'#FFFFFF', cardAlt:'#F8F9FA',
+      line:'#D8DBE0', line2:'#E0E3E8',
+      text:'#1A1E24', text2:'#505860', text3:'#6E7681', heading:'#0F1216',
+      accent:'#3A6E9E', accentBright:'#2B5A82', accentBg:'#E8F0F8', accentFg:'#1E3A54',
+      ok:'#2F7D52', warn:'#B37A18', crit:'#B8492A',
+      rowA:'#FFFFFF', rowB:'#F7F8FA', hover:'#EEF0F3'
+    };
+  }
+
+  renderVals() {
+    const t = this.theme(), d = this.state;
+    const mono = "'JetBrains Mono',monospace";
+    const emb = this.props.embedded ?? false;
+    const fs = d.fullscreen;
+    const rowH = this.props.rowHeight ?? 34;
+
+    const projects = this.PROJECTS.map(p => {
+      const allTools = p.crews.reduce((a, c) =>
+        a.concat(c.tools.map(x => ({ tag:x[0], name:x[1], cond:x[2], foreman:c.foreman }))), []);
+      return { ...p, allTools,
+        foremanCounts: p.crews.map(c => ({ name:c.foreman, count:c.tools.length })) };
+    });
+
+    const n = projects.length;
+    const idx = d.idx % n;
+    const active = projects[idx];
+    const prev = projects[(idx - 1 + n) % n];
+    const next = projects[(idx + 1) % n];
+
+    const flagged = active.allTools.filter(x => x.cond !== 'Good').length;
+    const condColor = c => c === 'Good' ? t.ok : c === 'Fair' ? t.warn : t.crit;
+    const statusColor = { Active:t.ok, Upcoming:t.accent, Completed:t.text3 }[active.status] || t.text3;
+
+    const secsLeft = Math.max(0, Math.ceil((this.cycleMs(active) * (1 - d.progress)) / 1000));
+
+    const navBtn = () => ({
+      display:'flex', alignItems:'center', gap:'10px', padding:'8px 14px', minWidth:'190px',
+      borderRadius:'4px', border:'1px solid ' + t.line, background:t.card, cursor:'pointer'
+    });
+
+    return {
+      /* When embedded the mount wrapper has auto height, so percentage height has
+         nothing to resolve against — pin to the embed box with absolute inset. */
+      shellStyle: { display:'flex', flexDirection:'column', minHeight:0,
+        background:t.bg, color:t.text, fontFamily:"'Inter Tight',system-ui,sans-serif",
+        position: (fs || emb) ? 'fixed' : 'relative',
+        ...(fs ? { top:0, left:0, right:0, bottom:0, height:'100vh', zIndex:9999 }
+          : emb ? { position:'absolute', top:0, left:0, right:0, bottom:0 }
+          : { height:'100vh' }) },
+
+      topBarStyle: { flex:'none', display:'flex', alignItems:'center', gap:'24px',
+        padding:'12px 24px', background:t.panel, borderBottom:'1px solid ' + t.line },
+      topLeftStyle: { flex:'none' },
+      monitorLabelStyle: { fontFamily:mono, fontSize:'11px', fontWeight:700, letterSpacing:'.18em', color:t.text3 },
+      monitorSubStyle: { fontSize:'12px', color:t.text2, marginTop:'3px' },
+      statusLine: n + ' projects · ' + (d.paused ? 'PAUSED' : 'LIVE'),
+
+      topMetricsStyle: { flex:1, minWidth:0, display:'flex', justifyContent:'center',
+        gap:'clamp(10px, 2.5vw, 30px)', flexWrap:'wrap' },
+      topMetrics: [
+        { value:String(n), label:'PROJECTS' },
+        { value:String(projects.reduce((a,p) => a + p.allTools.length, 0)), label:'TOOLS OUT' },
+        { value:String(projects.reduce((a,p) => a + p.crews.length, 0)), label:'FOREMEN' },
+        { value:String(projects.reduce((a,p) => a + p.allTools.filter(x=>x.cond==='Needs service').length, 0)), label:'NEEDS SVC' }
+      ].map(m => ({ value:m.value, label:m.label,
+        style:{ textAlign:'center', minWidth:'52px', flex:'0 1 auto' },
+        valStyle:{ fontFamily:mono, fontSize:'clamp(17px, 1.6vw, 23px)', fontWeight:700,
+          color:t.heading, lineHeight:1.1 },
+        lblStyle:{ fontFamily:mono, fontSize:'9.5px', letterSpacing:'.1em', color:t.text3,
+          marginTop:'3px', whiteSpace:'nowrap' } })),
+
+      topRightStyle: { flex:'none', display:'flex', alignItems:'center', gap:'12px', whiteSpace:'nowrap' },
+      clockStyle: { fontFamily:mono, fontSize:'16px', fontWeight:600, color:t.text2,
+        letterSpacing:'.04em', whiteSpace:'nowrap', flex:'none' },
+      clock: d.clock || '—',
+      pauseBtnStyle: { padding:'6px 12px', borderRadius:'3px', border:'1px solid ' + t.line,
+        background: d.paused ? t.accentBg : 'transparent', color: d.paused ? t.accentFg : t.text3,
+        fontFamily:mono, fontSize:'11px', fontWeight:600, cursor:'pointer' },
+      pauseLabel: d.paused ? '▶ RESUME' : '❚❚ PAUSE',
+      togglePause: () => { if (d.paused) this.cycleStart = Date.now() - this.cycleMs(active) * d.progress;
+        this.setState({ paused: !d.paused }); },
+      fullscreenBtnStyle: { padding:'6px 12px', borderRadius:'3px', border:'1px solid ' + t.line,
+        background: fs ? t.accentBg : 'transparent', color: fs ? t.accentFg : t.text3,
+        fontFamily:mono, fontSize:'11px', fontWeight:600, cursor:'pointer' },
+      fullscreenLabel: fs ? '✕ EXIT' : '⛶ FULL',
+      toggleFullscreen: () => this.setState({ fullscreen: !d.fullscreen }),
+
+      projHeaderStyle: { flex:'none', display:'flex', alignItems:'center', gap:'24px',
+        padding:'14px 24px', background:t.card, borderBottom:'1px solid ' + t.line },
+      projLeftStyle: { flex:1, minWidth:0 },
+      projTopRowStyle: { display:'flex', alignItems:'center', gap:'12px' },
+      projCodeStyle: { fontFamily:mono, fontSize:'26px', fontWeight:800, color:t.accent, letterSpacing:'.03em' },
+      activeCode: active.code,
+      projStatusStyle: { fontFamily:mono, fontSize:'10px', fontWeight:700, letterSpacing:'.12em',
+        padding:'4px 10px', borderRadius:'3px', color:statusColor,
+        border:'1px solid ' + statusColor + '55', background:statusColor + '1A' },
+      activeStatus: active.status.toUpperCase(),
+      projNameStyle: { fontSize:'20px', fontWeight:700, color:t.heading, marginTop:'4px', letterSpacing:'-.02em' },
+      activeName: active.name,
+      projCityStyle: { fontSize:'12.5px', color:t.text3, marginTop:'2px' },
+      activeCity: active.city,
+      projMetricsStyle: { flex:'none', display:'grid', gridTemplateColumns:'auto auto', gap:'6px 22px' },
+      activeMetrics: [
+        { value:String(active.allTools.length), label:'Total tools' },
+        { value:String(active.crews.length), label:'Foremen' },
+        { value:String(active.allTools.length - flagged), label:'Good' },
+        { value:String(flagged), label:'Flagged' }
+      ].map(m => ({ value:m.value, label:m.label,
+        style:{ display:'flex', alignItems:'baseline', gap:'6px', justifyContent:'flex-end' },
+        valStyle:{ fontFamily:mono, fontSize:'17px', fontWeight:700, color:t.heading },
+        lblStyle:{ fontSize:'11.5px', color:t.text3 } })),
+
+      tableSectionStyle: { flex:1, minHeight:0, display:'flex', flexDirection:'column',
+        position:'relative', background:t.rowA },
+      tableHeadStyle: { flex:'none', display:'flex', alignItems:'center', gap:'16px',
+        height:'34px', padding:'0 24px', background:t.cardAlt, borderBottom:'1px solid ' + t.line },
+      colIdStyle: { fontFamily:mono, fontSize:'10px', letterSpacing:'.15em', color:t.text3, width:'104px', flex:'none' },
+      colToolStyle: { fontFamily:mono, fontSize:'10px', letterSpacing:'.15em', color:t.text3, flex:1 },
+      colForemanStyle: { fontFamily:mono, fontSize:'10px', letterSpacing:'.15em', color:t.text3, width:'190px', flex:'none' },
+      colCondStyle: { fontFamily:mono, fontSize:'10px', letterSpacing:'.15em', color:t.text3, width:'110px', flex:'none', textAlign:'right' },
+
+      tableRef: this.tableRef,
+      tableBodyStyle: { flex:1, minHeight:0, overflowY:'auto', overflowX:'hidden', scrollBehavior:'auto' },
+      activeTools: active.allTools.map((r, i) => ({
+        tag:r.tag, name:r.name, foreman:r.foreman, cond:r.cond,
+        rowStyle:{ display:'flex', alignItems:'center', gap:'16px', height: rowH + 'px',
+          padding:'0 24px', background: i % 2 ? t.rowB : t.rowA,
+          borderBottom:'1px solid ' + t.line2 },
+        tagStyle:{ fontFamily:mono, fontSize:'13px', fontWeight:600, color:t.accent, width:'104px', flex:'none' },
+        nameStyle:{ flex:1, minWidth:0, fontSize:'14px', color:t.text,
+          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' },
+        foremanStyle:{ width:'190px', flex:'none', fontSize:'13.5px', fontWeight:500, color:t.text2, whiteSpace:'nowrap' },
+        condStyle:{ width:'110px', flex:'none', fontSize:'12.5px', fontWeight:600,
+          color:condColor(r.cond), textAlign:'right' }
+      })),
+
+      /* Fixed rail on the right edge of the table so the wall always shows how
+         far through the list the scroll has travelled. */
+      scrollIndicatorStyle: { position:'absolute', top:'34px', right:'4px', bottom:0, width:'3px',
+        borderRadius:'2px', background:t.line2 },
+      scrollThumbStyle: { position:'absolute', left:0, width:'3px', borderRadius:'2px',
+        background:t.accent, height:'22%', top:(d.scrollPct * 78) + '%', transition:'top .1s linear' },
+
+      foremanBarStyle: { flex:'none', display:'flex', alignItems:'center', gap:'16px',
+        padding:'10px 24px', background:t.cardAlt, borderTop:'1px solid ' + t.line },
+      foremanBarTitleStyle: { flex:'none', fontFamily:mono, fontSize:'9.5px', letterSpacing:'.15em', color:t.text3 },
+      foremanChipsStyle: { display:'flex', gap:'8px', flexWrap:'wrap' },
+      foremanCounts: active.foremanCounts.map(f => ({
+        name:f.name, count:String(f.count),
+        style:{ display:'flex', alignItems:'center', gap:'8px', padding:'5px 11px',
+          background:t.accentBg, border:'1px solid ' + t.accent + '38', borderRadius:'3px' },
+        nameStyle:{ fontSize:'12.5px', fontWeight:600, color:t.text },
+        countStyle:{ fontFamily:mono, fontSize:'14px', fontWeight:700, color:t.accent } })),
+
+      bottomBarStyle: { flex:'none', display:'flex', alignItems:'center', gap:'20px',
+        padding:'12px 24px', background:t.panel, borderTop:'1px solid ' + t.line },
+      prevNavStyle: navBtn(),
+      nextNavStyle: { ...navBtn(), justifyContent:'flex-end' },
+      navArrowStyle: { flex:'none', fontSize:'22px', fontWeight:700, color:t.text3, lineHeight:1 },
+      navTextWrapStyle: { minWidth:0 },
+      navTextWrapRightStyle: { minWidth:0, textAlign:'right' },
+      navKickerStyle: { fontFamily:mono, fontSize:'8.5px', letterSpacing:'.16em', color:t.text3 },
+      navCodeStyle: { fontFamily:mono, fontSize:'13px', fontWeight:700, color:t.accent, marginTop:'2px' },
+      navNameStyle: { fontSize:'12px', color:t.text2, marginTop:'1px',
+        whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'150px' },
+      prevCode: prev.code, prevName: prev.name,
+      nextCode: next.code, nextName: next.name,
+      goPrev: () => this.jumpTo((idx - 1 + n) % n),
+      goNext: () => this.jumpTo((idx + 1) % n),
+
+      bottomCenterStyle: { flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'7px' },
+      progressTrackStyle: { width:'100%', maxWidth:'420px', height:'3px', borderRadius:'2px',
+        background:t.line2, overflow:'hidden' },
+      progressFillStyle: { height:'100%', borderRadius:'2px', background:t.accent,
+        width:(d.progress * 100) + '%', transition:'width .1s linear' },
+      dotsRowStyle: { display:'flex', alignItems:'center', gap:'7px' },
+      dots: projects.map((p, i) => ({
+        style:{ width: i === idx ? '22px' : '7px', height:'7px', borderRadius:'4px', cursor:'pointer',
+          background: i === idx ? t.accent : t.line, transition:'all .25s' },
+        go: () => this.jumpTo(i) })),
+      cycleHintStyle: { fontFamily:mono, fontSize:'9.5px', letterSpacing:'.1em', color:t.text3 },
+      cycleHint: d.paused ? 'PAUSED' : 'NEXT IN ' + secsLeft + 'S'
+    };
+  }
+}
+</script>
+</body>
+</html>
