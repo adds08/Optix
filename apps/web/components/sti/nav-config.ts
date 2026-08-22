@@ -1,18 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import {
-  Activity,
-  BarChart3,
-  Boxes,
-  Building2,
-  HardHat,
-  Inbox,
-  LayoutDashboard,
-  MessageSquare,
-  Radio,
-  Settings,
-  Users,
-  Wrench,
-} from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, HardHat, Inbox, LayoutDashboard, MessageSquare, Radio, Settings, UserCog, Users, Wrench } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -79,6 +66,12 @@ export const DESK_NAV: NavGroup[] = [
       { href: "/people", label: "People", icon: Users, perm: "employee.read" },
       /* A job and a project are the same thing — the job ID is the cost code. */
       { href: "/projects", label: "Projects / Jobs", icon: HardHat, perm: "project.read" },
+      /* STI-303. `people/` is the EMPLOYEE register — domain people who hold
+         tools and mostly have no login. This is the ACCOUNT register. Keeping
+         them as separate entries is deliberate: conflating "has an account"
+         with "holds tools" is how a foreman gets forced into a login he does
+         not need. */
+      { href: "/admin/users", label: "User Accounts", icon: UserCog, perm: "config.manage" },
       { href: "/settings", label: "Settings", icon: Settings, perm: "config.manage" },
     ],
   },

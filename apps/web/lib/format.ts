@@ -56,13 +56,14 @@ export function dateTime(v: string | Date | null | undefined): string {
   });
 }
 
-/* "3 days overdue" reads faster than a date when the number is the point. */
-export function daysFrom(v: string | Date | null | undefined): number | null {
-  if (!v) return null;
-  const d = v instanceof Date ? v : new Date(v);
-  if (Number.isNaN(d.getTime())) return null;
-  return Math.floor((Date.now() - d.getTime()) / 86_400_000);
-}
+/*
+  `daysFrom` and `relative` moved to `@stinventory/types` so they could get a
+  test suite — `apps/web` has none, and `relative`'s handling of FUTURE dates
+  (warranty expiry) is exactly the kind of sign-convention detail that needs
+  one. Re-exported here so the call sites keep importing from `@/lib/format`
+  alongside the other formatters.
+*/
+export { daysFrom, relative } from "@stinventory/types";
 
 /*
   Entity identifiers everywhere read as "<ID> - <Entity name>" — the job ID is
@@ -85,16 +86,6 @@ export function idName(id: string | null | undefined, name: string | null | unde
 */
 export function jobSearchText(p: { externalId?: string | null; name?: string | null }): string {
   return idName(p.externalId, p.name).toLowerCase();
-}
-
-export function relative(v: string | Date | null | undefined): string {
-  const days = daysFrom(v);
-  if (days === null) return "—";
-  if (days === 0) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days} days ago`;
-  if (days < 365) return `${Math.floor(days / 30)} mo ago`;
-  return `${Math.floor(days / 365)} yr ago`;
 }
 
 /*

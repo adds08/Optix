@@ -95,6 +95,13 @@ const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "assignment.create",
     "transfer.read",
     "transfer.create",
+    /* The yard desk runs departures operationally (STI-306). `owner` and
+       `equipment_admin` get it through the spread above. Deliberately NOT
+       granted to PM, Engineer, superintendent or HR yet — whether the person
+       who DISCOVERS a departure should be able to act on it is one of the three
+       questions still open on the draft permission matrix, and guessing it here
+       would put a bulk custody move in more hands than Urban has agreed to. */
+    "custody.reassign",
     "report.read",
     "notification.read",
     "notification.manage",
@@ -329,6 +336,10 @@ async function main() {
         passwordHash,
         firstName: u.first,
         lastName: u.last,
+        /* Defaults to active; one seeded account is deactivated so STI-303's
+           Deactivated badge and Reactivate button are reachable from a clean
+           database. */
+        isActive: u.isActive ?? true,
       })),
     )
     .returning();
@@ -446,6 +457,34 @@ async function main() {
   // No model catalog: the tools-list source carries its own make/model strings.
   // Cost target: serialized tools -> Equipment Department, the rest -> the
   // Purchased project they ride with.
+  /*
+    Warranty dates, and specifically the FUTURE ones (UI-60/62/63/64/65).
+
+    Every asset carried `warranty_expires_on = NULL`, so the whole warranty
+    surface — the "expires in N days" hint on tool detail and the
+    warranty_soon / warranty_expired badges — was unreachable from a clean
+    database. That is why a past-only date formatter rendering
+    "expires -413 days ago" for a 2027 warranty was found by a human on real
+    data instead of by anyone running the seed. CLAUDE.md rule 8: seed the edge
+    that trips the rule.
+
+    Offsets from today, never fixed dates: a hardcoded 2027 quietly becomes a
+    PAST date next year and the case stops being tested at all.
+  */
+  const dayOffset = (n: number) => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  const WARRANTY_BY_TAG: Record<string, string> = {
+    "TOOL-0001": dayOffset(413), // the exact figure UI-60 and UI-65 report
+    "TOOL-0002": dayOffset(515), // the exact figure UI-62 reports
+    "TOOL-0003": dayOffset(60), // inside WARRANTY_SOON_DAYS (120) — "ending soon"
+    "TOOL-0004": dayOffset(-30), // genuinely expired, so the past branch is covered too
+    "TOOL-0005": dayOffset(1), // "tomorrow" — the singular boundary
+  };
+
   const assetRows = await db
     .insert(asset)
     .values(
@@ -465,7 +504,7 @@ async function main() {
         owningProjectId: a.own ? projectByKey[a.own]! : null,
         costTarget: a.dept ? "department" : "project",
         owningDepartmentId: a.dept ? deptByCode["EQ"]! : null,
-        warrantyExpiresOn: null,
+        warrantyExpiresOn: WARRANTY_BY_TAG[a.tag] ?? null,
         currentStatus: a.status,
         currentCustodianId: a.cust ? empByKey[a.cust]! : null,
         currentProjectId: a.cur ? projectByKey[a.cur]! : null,
@@ -540,7 +579,8 @@ async function main() {
              with explicit values, so the fold answers "recorded", not
              "unknown". truckId is an honest null on every source row (the
              sheets have no truck column anywhere, which records "no truck",
-             not "never asked"); only TOOL-0001 carries the synthetic truck,
+             not "never asked"); only TOOL-0001 and TOOL-0003 carry a truck
+             (the company-owned and personal-allowance synthetic ones),
              mirroring its assignment row above. A missing key would instead
              fold to "not recorded" — see the shape-boundary rule in
              packages/domain/src/fold.ts. */
@@ -579,6 +619,12 @@ async function main() {
     projectId: projectByKey["p-nex-22017"]!,
     locationId: locByKey["l-TE-011"]!,
     trailerId: trailerIdByLocKey["l-TE-011"] ?? null,
+    /* The PERSONAL-allowance truck, deliberately (STI-206). The approval queue
+       marks a personal truck so the desk can see it is signing company property
+       onto someone's own vehicle — the distinction the departure path keys off.
+       Without a pending row that carries one, that marker was unreachable from
+       a clean database and nobody could have seen it work. */
+    truckId: seedPersonalTruckId,
     startDate: TODAY,
     status: "pending_approval",
     approvedBy: null,

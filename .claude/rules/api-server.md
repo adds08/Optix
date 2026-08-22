@@ -41,6 +41,23 @@ overlaps itself. If you scale past one instance, this is the first thing that br
 - `SESSION_SECRET` does **not** sign sessions. It derives (scrypt) the AES-256-GCM key that
   encrypts tenant LLM keys. Changing it makes every stored key undecryptable.
 - bcrypt cost 12 with transparent rehash on login.
+- **The credential lookup is tenant-scoped, and refuses to guess (STI-305).** It used to be
+  `where email = ?` with no tenant predicate, and the session's tenant was read off whichever
+  row matched; `user.email` was a plain index, so the same address could exist twice and
+  Postgres returned whichever row it liked — a user could authenticate into the **wrong
+  tenant, non-deterministically**. Two things changed:
+  - `user_tenant_email_uq` on `(tenant_id, email)` (migration `0018`) closes the
+    within-tenant half at the database.
+  - `login()` takes an **optional** `tenantSlug`. Given, it scopes the lookup. Omitted, the
+    address must identify exactly ONE account across all tenants; matching more than one is
+    **refused**, not resolved. It fails closed as `invalid_credentials`, identical to an
+    unknown address, so the ambiguous case cannot be used to discover that an email exists
+    in another tenant.
+
+  Nothing sends `tenantSlug` today — one tenant, and a visible tenant field on the login
+  form is a product change nobody has approved. It is the hook a subdomain or a form field
+  would use. **Do not "helpfully" make an ambiguous login pick the first row.** That is the
+  defect, not a convenience.
 - Login rate limit is 10/15min per IP+email, **in memory**, keyed off a client-supplied
   `X-Forwarded-For`. Single-instance only, and trivially rotated around. It is the only rate
   limit in the system.
