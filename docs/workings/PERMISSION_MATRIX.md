@@ -219,3 +219,30 @@ splitting the permission.
 
 Everything else in this table follows from the role definitions in §1 and needs a reason,
 not a review, to change.
+
+---
+
+## 6. Answer sheet
+
+Reply with eight lines. "OK" accepts the proposal or the default; anything else is the
+correction, in whatever words are convenient.
+
+| # | Question | Proposal / default | Your answer |
+|---|---|---|---|
+| 1 | Engineer = a Project Manager's permissions | as proposed | |
+| 2 | Mechanic = holds tools like a foreman, charges to the Equipment department | as proposed | |
+| 3 | "Admin" splits into System / Equipment / Office Administrator | as proposed | |
+| 4 | Build the four new login roles this requires | yes | |
+| 5 | Who may reassign everything a leaver holds | Equipment desk only (as shipped) | |
+| 6 | What a mechanic sees | their own custody only | |
+| 7 | May Office Admin place a PM on a job | yes | |
+| 8 | May Office Admin create users and reset passwords | no — stays with System / Equipment Admin | |
+
+**Silence is an answer.** Every default above is what gets built if this document is not
+returned. Each is reversible cheaply *now* and expensively later — after the roles ship,
+changing one is a migration against live permission rows, not an edit to a table.
+
+**What unblocks on receipt:** STI-302 (the visibility ladder — who sees whose tools),
+STI-304 (the four login roles), STI-307 (removing the last role-name branches from the
+code), STI-308 (the test that pins this table so it cannot drift), STI-501 (role-based desk
+views). Eleven units, all of Phase 3 and the start of Phase 5.
