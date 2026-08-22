@@ -1,21 +1,31 @@
-# Permission matrix — draft for confirmation
+# Permission matrix — draft proposal for Urban's confirmation
 
-**Status:** Draft, 2026-08-15 · **Confirms:** STI-801 · **Blocks:** STI-102, STI-802, STI-804
+**Status:** Draft proposal, 2026-08-15 · corrected 2026-08-22 · **awaiting Urban**
+**Confirms:** STI-301 · **Blocks:** STI-302, STI-304, STI-307, STI-308, STI-501 — 11 units
 
-This is the STI-801 deliverable, drafted from Urban's answers on the three questions that
-were open. **It still needs the day-2 session** — but that session is now a confirmation
-with three specific things to check, not a discovery workshop.
+> **Correction, 2026-08-22.** The first version of this document said it was "drafted from
+> Urban's answers on the three questions that were open." **No record of those answers
+> exists** — not in this repository, not in any meeting note, and `docs/tickets/STI-301`
+> (written the day *after* this file) still carries **`Status: BLOCKED on Urban`** with the
+> same questions listed as unanswered. The role definitions in §1 are **Bodhi Labs'
+> proposals**, not decisions Urban has taken. They are presented here so Urban confirms or
+> corrects a concrete document rather than inventing one in a meeting — which was always the
+> intent — but nothing below is agreed until Urban says so.
+>
+> Also corrected in this pass: a permission that no longer exists, a row that contradicted
+> shipped code, and ticket references using an obsolete numbering scheme. See §4.
 
 `packages/db/src/seed.ts` `ROLE_PERMS` and `packages/types/src/index.ts` `PERMISSIONS` must
-match this table exactly. STI-804 generates its test from it so the two cannot drift.
+match this table exactly once it is confirmed. **They do not match it today** — see §4.
+STI-308 generates its test from this table so the two cannot drift again.
 
 ---
 
-## 1. The roles, resolved
+## 1. The roles — proposed definitions, each needing confirmation
 
 ### "Admin" is three distinct roles
 
-The most dangerous ambiguity in Urban's vocabulary, now settled:
+The most dangerous ambiguity in Urban's vocabulary. **Proposed resolution:**
 
 | Role | Who they are | Scope |
 |---|---|---|
@@ -26,21 +36,25 @@ The most dangerous ambiguity in Urban's vocabulary, now settled:
 None of these three may be collapsed into a single `admin` role in code, and no procedure
 may branch on the name `admin`.
 
+**Today `owner` is doing System Administrator's job, and Office Administrator has no
+representation at all.**
+
 ### Engineer
 
-**An Engineer is a Project Manager with a different operational purpose — identical where
-small tools are concerned.** They run work on a project rather than owning it commercially,
-but their relationship to tools is the same: they see their projects' tools, they place
-people on their projects, they do not run the yard.
+**Proposed: an Engineer is a Project Manager with a different operational purpose —
+identical where small tools are concerned.** They run work on a project rather than owning
+it commercially, but their relationship to tools is the same: they see their projects'
+tools, they place people on their projects, they do not run the yard.
 
-**Consequence:** `engineer` takes the same permission set as `project_manager`. It exists as
-a separate role so reporting can tell them apart and so the two can diverge later without a
-migration — not because they differ today.
+**Consequence if confirmed:** `engineer` takes the same permission set as
+`project_manager`. It exists as a separate role so reporting can tell them apart and so the
+two can diverge later without a migration — not because they differ today.
 
 ### Mechanic
 
-**A mechanic is an Equipment department employee who holds and uses tools, like a foreman —
-but for repair and maintenance rather than construction.** The distinction that matters:
+**Proposed: a mechanic is an Equipment department employee who holds and uses tools, like a
+foreman — but for repair and maintenance rather than construction.** The distinction that
+matters:
 
 | | Foreman | Mechanic |
 |---|---|---|
@@ -49,18 +63,27 @@ but for repair and maintenance rather than construction.** The distinction that 
 | Their tools charge to | The **project** | The **department** (Equipment Yard) |
 
 So a mechanic is a **custodian** (already true — `CUSTODIAN_ROLES` includes `mechanic`) and
-now also a **login role**. Their cost target is `department`, not `project`, which the
-schema already supports: `docs/built/11-department-cost-targets.md` shipped exactly this.
+would also become a **login role**. Their cost target is `department`, not `project`, which
+the schema already supports: `docs/built/11-department-cost-targets.md` shipped exactly this.
 
-**Consequence:** STI-102 adds `mechanic` as a login role. The cost-target behaviour needs no
-new work — only wiring the default so a mechanic's custody defaults to charging the
-Equipment department.
+**Consequence if confirmed:** STI-304 adds `mechanic` as a login role. The cost-target
+behaviour needs no new work — only wiring the default so a mechanic's custody defaults to
+charging the Equipment department.
+
+### What confirming §1 costs
+
+**Four login roles that do not exist today** — `system_admin`, `office_admin`, `engineer`
+and `mechanic`. The system currently has ten (`packages/types/src/index.ts`): `owner`,
+`equipment_admin`, `warehouse`, `procurement`, `project_manager`, `superintendent`,
+`foreman`, `hr`, `finance`, `read_only`. Building the four is STI-304, already scoped. This
+is not an objection — it is the price tag attached to the answer, and Urban should see it
+before answering.
 
 ---
 
 ## 2. The matrix
 
-`●` granted · `—` not granted · `▲` granted but scoped (see §3)
+`●` granted · `—` not granted · `▲` granted but scoped (see §3) · `?` open decision (see §5)
 
 | Permission | System Admin | Equip Admin | Office Admin | Warehouse | PM | Engineer | Super | Foreman | Mechanic | Procurement | HR | Finance | Read-only |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -72,8 +95,7 @@ Equipment department.
 | `transfer.read` | ● | ● | ● | ● | ▲ | ▲ | ▲ | ▲ | ▲ | — | — | ● | ● |
 | `transfer.create` | ● | ● | — | ● | — | — | ● | — | — | — | — | — | — |
 | `transfer.approve` | ● | ● | — | — | — | — | ● | — | — | — | — | — | — |
-| `custody.verify` | ● | ● | — | ● | — | — | — | — | — | — | — | — | — |
-| `custody.reassign` | ● | ● | — | ● | ● | ● | ● | — | — | — | ● | — | — |
+| `custody.reassign` | ● | ● | — | ● | ? | ? | ? | — | — | — | ? | — | — |
 | `location.read` | ● | ● | ● | ● | ▲ | ▲ | ▲ | ▲ | ▲ | — | — | — | ● |
 | `location.manage` | ● | ● | — | ● | — | — | — | — | — | — | — | — | — |
 | `vehicle.read` | ● | ● | ● | ● | ▲ | ▲ | ▲ | ▲ | ▲ | — | — | — | ● |
@@ -86,7 +108,7 @@ Equipment department.
 | `project.assign.foreman` | ● | ● | — | ● | ● | ● | ● | — | — | — | — | — | — |
 | `employee.read` | ● | ● | ● | ● | ▲ | ▲ | ▲ | ▲ | ● | ● | ● | ● | ● |
 | `employee.manage` | ● | ● | ● | — | — | — | — | — | — | — | ● | — | — |
-| `user.manage` | ● | ● | ● | — | — | — | — | — | — | — | — | — | — |
+| `user.manage` † | ● | ● | ● | — | — | — | — | — | — | — | — | — | — |
 | `department.read` | ● | ● | ● | ● | — | — | — | — | ● | ● | — | ● | ● |
 | `department.manage` | ● | ● | — | — | — | — | — | — | — | — | — | — | — |
 | `report.read` | ● | ● | ● | ● | ▲ | ▲ | ▲ | ▲ | ▲ | ● | — | ● | ● |
@@ -95,11 +117,20 @@ Equipment department.
 | `notification.manage` | ● | ● | — | ● | — | — | — | — | — | — | — | — | — |
 | `config.manage` | ● | ● | — | — | — | — | — | — | — | — | — | — | — |
 
+**† `user.manage` does not exist in the codebase.** User administration shipped in STI-303
+gated on **`config.manage`** (`routers/user.ts` — `create`, `setRole`, `setActive`,
+`resetPassword`). This table grants `user.manage` to Office Administrator but grants
+`config.manage` only to System and Equipment Admin — so as drafted, an Office Administrator
+would be *unable* to create a user or reset a password. Splitting the two is a real change,
+not a rename: `config.manage` also controls the LLM configuration and the high-value
+threshold, and "may add a user" and "may change the approval threshold" are not obviously
+the same authority. **This is open decision 4 in §5.**
+
 ---
 
 ## 3. Scope permissions — what `▲` resolves to
 
-A grant says *may see*; a scope says *how much*. These are the new permissions STI-802 adds,
+A grant says *may see*; a scope says *how much*. These are the new permissions STI-302 adds,
 and they are what replaces every `actor.role == '...'` comparison.
 
 | Scope permission | Held by | Resolves to |
@@ -111,26 +142,80 @@ and they are what replaces every `actor.role == '...'` comparison.
 
 Resolution is first-match in that order, so a role holding two scopes gets the wider one.
 
-**Mechanics get `assets.view.own`, not a department-wide view.** A mechanic sees the tools
-in their own custody, exactly as a foreman does. Seeing every tool the Equipment department
-owns is `assets.view.all` and belongs to the desk. This is the one line in this document
-most likely to be wrong — confirm it.
+**None of these four permissions exists yet** — building them is STI-302, which this
+document blocks.
 
 ---
 
-## 4. The three things to confirm on day 2
+## 4. Where this table and the shipped system disagree today
 
-Everything above is derived from answers already given. These are genuinely open:
+The header claims `ROLE_PERMS` "must match this table exactly". It does not, and this table
+has never been reconciled against the seed. Reconciling it — and pinning it with a test so
+it cannot drift again — is **STI-308**.
 
-1. **`custody.reassign` for PM, Engineer and HR.** Departure reassignment (STI-402) moves
-   everything a leaver holds. Granted here to PMs, Engineers, Superintendents and HR on the
-   reasoning that whoever discovers the departure should be able to act. If Urban wants that
-   narrowed to the Equipment desk plus HR, say so — it is a one-line change now and a
-   migration later.
-2. **The mechanic's scope** — `assets.view.own` as drafted, or department-wide?
-3. **Office Administrator and `project.manage` / `project.assign.pm`.** Drafted as granted,
-   because placing a PM on a job reads as an administrative act. If that is an Equipment
-   department decision at Urban, move it.
+**Corrected in this document on 2026-08-22:**
+
+| Was | Now | Why |
+|---|---|---|
+| A `custody.verify` row | **Removed** | The permission is in neither `PERMISSIONS` nor anywhere else in the codebase. The `verify` custody outcome was removed on 2026-08-09 and its remnants swept by STI-111. Asking Urban to sign off a control for a deleted feature is how a stale document becomes a wrong ticket. |
+| `custody.reassign` granted to PM, Engineer, Super and HR | **Marked `?`** | STI-306 **shipped** on 2026-08-19 granting it to `owner`, `equipment_admin` and `warehouse` only. `seed.ts` carries a comment saying precisely why it stopped there: widening it "would put a bulk custody move in more hands than Urban has agreed to." The code was honest; this table was not. |
+| `STI-801`, `STI-102`, `STI-802`, `STI-804`, `STI-402` | `STI-301`, `STI-304`, `STI-302`, `STI-308`, `STI-306` | An obsolete numbering scheme from an earlier planning pass. The board in `docs/tickets/` is authoritative. |
+
+**Not corrected here, and still true:** spot-checking this table against seeded `ROLE_PERMS`
+found divergences in **both** directions beyond `custody.reassign` — the table is wider than
+the seed for `finance`, `procurement` and `read_only` (it grants them `assignment.read`,
+`transfer.read` and `department.read`, which they do not have), and narrower for `foreman`
+(who holds `project.team.read`) and `hr` (who holds `report.read`). These are not decisions
+for Urban; they are a reconciliation job for STI-308 once the table is confirmed. They are
+recorded here so nobody reads this table as a description of the running system.
+
+**The same claim was baked into the Jira import.** `docs/workings/gen-jira.js:78` carried
+"Urban has now resolved the three open definitions" inside a ticket description, and
+`jira-import.csv` / `.json` are generated from it. All three were corrected in place with the
+same replacement text, so the generator and its artefacts stay in step without a full
+regeneration. **If that import has already been run, the ticket text in the tracker is still
+wrong in the way this document was** — it needs correcting there by hand.
+
+---
+
+## 5. What we need from Urban
+
+### Tier 1 — confirm or correct the four definitions in §1
+
+Engineer, Mechanic, the three-way Admin split, and the four new login roles that confirming
+them requires. These are proposals with reasoning attached, not questions from a blank page.
+
+### Tier 2 — four decisions, each with a default
+
+If no answer is given, the default is what gets built, and changing it later is a migration
+rather than a one-line change.
+
+**1. Who may reassign everything a leaver holds?** Departure reassignment (STI-306, shipped)
+moves every tool a departing person holds in one irreversible transaction. It is
+deliberately a separate permission from `assignment.approve`, so it can be given to fewer
+people.
+- **Shipped today:** Equipment desk only — System Admin, Equipment Admin, Warehouse.
+- **This table proposed widening it** to PM, Engineer, Superintendent and HR, on the
+  reasoning that whoever *discovers* the departure should be able to act.
+- **Default if unanswered:** leave it as shipped. Widening is a one-line change now.
+
+**2. What does a mechanic see?** Drafted as `assets.view.own` — the tools in their own
+custody, exactly as a foreman does. The alternative is a department-wide view of everything
+the Equipment department holds, which is `assets.view.all` and belongs to the desk.
+- **Default if unanswered:** own custody only. *This is the line in this document most
+  likely to be wrong.*
+
+**3. May an Office Administrator place a Project Manager on a job?** Drafted as granted,
+because placing a PM on a job reads as an administrative act. If that is an Equipment
+department decision at Urban, it moves.
+- **Default if unanswered:** as drafted — Office Admin may.
+
+**4. May an Office Administrator create users and reset passwords?** Today that power is
+`config.manage`, which also controls the LLM configuration and the high-value approval
+threshold. Granting it to Office Admin grants all three; keeping them separate means
+splitting the permission.
+- **Default if unanswered:** keep them together and do **not** grant Office Admin
+  `config.manage` — so user administration stays with System and Equipment Admin.
 
 Everything else in this table follows from the role definitions in §1 and needs a reason,
 not a review, to change.
