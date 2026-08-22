@@ -19,6 +19,26 @@ and is blocked on Urban**, who owns the interface question — that is the only 
 > the code is the truth. Verify against code before believing either a ticket or this file
 > — that is CLAUDE.md behaviour rule 3 and this board is not exempt from it.
 
+### The permission matrix stopped being a blocker
+
+Every previous version of this file, and of `SYSTEM_PLAN.md` §8.2, ended with the same
+warning: six defaults are in code that Urban has never seen, and after release each becomes
+a migration rather than an edit.
+
+**That is no longer true.** `/admin/roles` lets an administrator tick permissions on and off
+per role — in plain English, not dotted identifiers — and create roles of their own. Urban
+changes what they disagree with, with no developer and no deploy.
+
+What it cost is worth knowing before touching the RBAC tests: `packages/db/src/role-perms.ts`
+used to **be** the matrix, and STI-308 asserted the database matched it exactly in both
+directions. That cannot hold once grants are editable — the moment somebody unticks a box
+the database is *supposed* to differ. `role-perms.ts` is now the **factory default**, the
+test asserts a freshly seeded tenant matches it, and the live database is guarded by the
+audit trail instead: `role.setPermissions` logs the delta.
+
+The screen deliberately does **not** offer inventing permissions. A permission is only real
+because a procedure names it, so one typed into a screen would gate nothing.
+
 ### An adversarial audit ran over this work, and found three things
 
 Four read-only agents audited SYSTEM_PLAN §1–§9 and every STI-1xx/2xx ticket against the

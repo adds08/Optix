@@ -152,6 +152,96 @@ export type Permission = (typeof PERMISSIONS)[number];
    the wider rather than the narrower. Both `scope.ts` and the RBAC matrix test
    read THIS array — the order is the rule, so it must not be written down
    twice. */
+/*
+  What each permission means, in the words of somebody who runs a tool yard.
+
+  The role editor (`/admin/roles`) renders these. Without them the screen is a
+  list of dotted identifiers, and an administrator ticking `asset.manage`
+  because it sounds harmless is worse than no screen at all — this is the
+  surface where a wrong guess hands somebody the register.
+
+  Grouped because thirty checkboxes in one column cannot be reasoned about.
+  The group is presentational; the permission strings are the contract.
+*/
+export const PERMISSION_GROUPS = [
+  {
+    label: "Seeing the register",
+    hint: "Whether they can open the tool list at all, and how much of it.",
+    permissions: [
+      ["asset.read", "See tools in the register"],
+      ["assets.view.all", "Scope: every tool in the company"],
+      ["assets.view.project", "Scope: tools on the jobs they are on the team of"],
+      ["assets.view.crew", "Scope: tools held by the foremen reporting to them"],
+      ["assets.view.own", "Scope: only tools in their own hands"],
+    ],
+  },
+  {
+    label: "Custody",
+    hint: "Issuing tools, moving them between people, and signing those moves off.",
+    permissions: [
+      ["assignment.read", "See who is holding what"],
+      ["assignment.create", "Issue a tool to somebody"],
+      ["assignment.approve", "Sign off an issue that needs a second signature"],
+      ["transfer.read", "See hand-offs"],
+      ["transfer.create", "Hand a tool from one person to another"],
+      ["transfer.approve", "Sign off a hand-off"],
+      ["custody.reassign", "Move EVERYTHING a leaver holds, in one action"],
+    ],
+  },
+  {
+    label: "The register itself",
+    hint: "Adding tools, and the places and vehicles they live in.",
+    permissions: [
+      ["asset.manage", "Add, edit and write off tools"],
+      ["location.read", "See yards, gang boxes and containers"],
+      ["location.manage", "Add and edit them"],
+      ["vehicle.read", "See trucks and trailers"],
+      ["vehicle.manage", "Add and edit them"],
+      ["department.read", "See departments"],
+      ["department.manage", "Add and edit them"],
+    ],
+  },
+  {
+    label: "Jobs and people",
+    hint: "Who works where. Note these are EMPLOYEE records, not login accounts.",
+    permissions: [
+      ["project.read", "See the list of jobs"],
+      ["project.manage", "Add and edit jobs. Also widens what the job selector offers"],
+      ["project.team.read", "See who is on a job"],
+      ["project.assign.pm", "Put a project manager on a job"],
+      ["project.assign.superintendent", "Put a superintendent on a job"],
+      ["project.assign.foreman", "Put a foreman on a job — this MOVES their tools"],
+      ["employee.read", "See the people register — everyone, not just their crew"],
+      ["employee.manage", "Add and edit people"],
+    ],
+  },
+  {
+    label: "Reporting",
+    permissions: [
+      ["report.read", "Open the reports. Each is still narrowed by the scope above"],
+      ["audit.read", "Read the full audit trail"],
+      ["notification.read", "Receive alerts"],
+      ["notification.manage", "Manage the desk's alert queue"],
+    ],
+  },
+  {
+    label: "Administration",
+    hint: "The powerful ones. `config.manage` is also what lets somebody reach this screen.",
+    permissions: [
+      ["config.manage", "Manage accounts, roles, the chat model and the approval threshold"],
+    ],
+  },
+] as const satisfies readonly {
+  label: string;
+  hint?: string;
+  permissions: readonly (readonly [Permission, string])[];
+}[];
+
+/* Flattened lookup for the places that want one permission's wording. */
+export const PERMISSION_LABELS: Record<string, string> = Object.fromEntries(
+  PERMISSION_GROUPS.flatMap((g) => g.permissions.map(([p, label]) => [p, label])),
+);
+
 export const VIEW_SCOPES = [
   "assets.view.all",
   "assets.view.project",

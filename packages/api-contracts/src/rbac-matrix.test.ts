@@ -51,6 +51,9 @@ const url = process.env.DATABASE_URL;
 describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
   let db: Database;
   let tenantId: string;
+  /* A throwaway tenant seeded straight from ROLE_PERMS — the factory default,
+     untouched by whatever an administrator has since changed on the real one. */
+  let factoryTenantId: string;
 
   beforeAll(async () => {
     db = createDb(url!);
@@ -59,10 +62,37 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       .from(schema.tenant)
       .where(eq(schema.tenant.slug, "urban"));
     tenantId = t!.id;
+
+    const suffix = crypto.randomUUID().slice(0, 8);
+    const [factory] = await db
+      .insert(schema.tenant)
+      .values({ name: "STI-308 factory default", slug: `sti308-${suffix}` })
+      .returning({ id: schema.tenant.id });
+    factoryTenantId = factory!.id;
+
+    /* Written the same way the seed writes it, from the same constant. If the
+       seed and this ever diverge in HOW they write, that is a different bug
+       and `make ENV=local reset` is where it shows. */
+    const created = await db
+      .insert(schema.role)
+      .values(ROLES.map((name) => ({ tenantId: factoryTenantId, name })))
+      .returning({ id: schema.role.id, name: schema.role.name });
+    await db.insert(schema.permission).values(PERMISSIONS.map((name) => ({ name }))).onConflictDoNothing();
+    for (const r of created) {
+      const perms = ROLE_PERMS[r.name as (typeof ROLES)[number]] ?? [];
+      if (perms.length) {
+        await db
+          .insert(schema.rolePermission)
+          .values(perms.map((p) => ({ roleId: r.id, permissionName: p })))
+          .onConflictDoNothing();
+      }
+    }
   });
 
   afterAll(async () => {
-    /* Read-only suite — nothing to clean up. */
+    if (db && factoryTenantId) {
+      await db.delete(schema.tenant).where(eq(schema.tenant.id, factoryTenantId));
+    }
   });
 
   const ctxFor = (permissions: Permission[], employeeId: string | null = null): Context => ({
@@ -126,19 +156,37 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       }
     });
 
-    it.each(ROLES)("%s holds exactly what the matrix grants — no more, no less", async (role) => {
+    it.each(ROLES)("%s is SEEDED with exactly what the matrix grants — no more, no less", async (role) => {
+      /*
+        **This asserts the FACTORY DEFAULT, not the live database.**
+
+        It used to assert the live one, and that was right until `/admin/roles`
+        shipped: an administrator can now tick permissions on and off, so the
+        moment Urban adjusts anything the running database is SUPPOSED to
+        differ from `role-perms.ts`. A test asserting otherwise would fail on
+        correct use of a feature, and the fix somebody reached for under time
+        pressure would be to delete the test.
+
+        So the meaning changed with the product. `role-perms.ts` is what a
+        fresh tenant is seeded with; this proves the seed writes it faithfully,
+        in both directions — a subset check would pass for a role carrying
+        extra grants, which is the failure that costs something.
+
+        Read against a THROWAWAY tenant seeded from `ROLE_PERMS` here rather
+        than the `urban` one, precisely so an administrator's legitimate edit
+        cannot break it. What guards the live database instead is the audit
+        trail: `role.setPermissions` logs the delta, so "who took approval away
+        from the superintendents" stays answerable.
+      */
       const rows = await db
         .select({ name: schema.rolePermission.permissionName })
         .from(schema.rolePermission)
         .innerJoin(schema.role, eq(schema.role.id, schema.rolePermission.roleId))
-        .where(and(eq(schema.role.tenantId, tenantId), eq(schema.role.name, role)));
+        .where(and(eq(schema.role.tenantId, factoryTenantId), eq(schema.role.name, role)));
 
       const seeded = [...new Set(rows.map((r) => r.name))].sort();
       const expected = [...new Set(ROLE_PERMS[role])].sort();
 
-      /* Both directions in one assertion. A subset check would pass for a role
-         carrying extra grants, which is the failure that actually costs
-         something. */
       expect(seeded).toEqual(expected);
     });
 

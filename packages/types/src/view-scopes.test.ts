@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PERMISSIONS, ROLES, VIEW_SCOPES, PM_EMPLOYEE_ROLE, PM_LOGIN_ROLE, isViewScope, tierAtLeast } from "./index.js";
+import { PERMISSIONS, ROLES, VIEW_SCOPES, PM_EMPLOYEE_ROLE, PM_LOGIN_ROLE, isViewScope, tierAtLeast, PERMISSION_GROUPS, PERMISSION_LABELS } from "./index.js";
 import { EMPLOYEE_ROLES, CUSTODIAN_ROLES } from "./enums.js";
 
 /*
@@ -126,5 +126,43 @@ describe("the two role vocabularies stay separate (STI-301 problem 3)", () => {
     expect(CUSTODIAN_ROLES as readonly string[]).toContain("mechanic");
     expect(EMPLOYEE_ROLES as readonly string[]).toContain("mechanic");
     expect(ROLES as readonly string[]).toContain("mechanic");
+  });
+});
+
+describe("the permission catalogue the role editor renders", () => {
+  /*
+    `/admin/roles` lets an administrator tick permissions on and off. A
+    permission missing from PERMISSION_GROUPS is invisible on that screen —
+    which means it can never be granted, and worse, a role that already holds
+    it shows as not holding it. Silent, and exactly the kind of drift that
+    happens when somebody adds a permission and forgets the catalogue.
+  */
+  it("describes every permission that exists", () => {
+    const described = new Set(Object.keys(PERMISSION_LABELS));
+    const missing = PERMISSIONS.filter((p) => !described.has(p));
+    expect(missing, `not shown in the role editor:\n  ${missing.join("\n  ")}`).toEqual([]);
+  });
+
+  it("describes nothing that does not exist", () => {
+    /* The other direction: a permission removed from PERMISSIONS but left in
+       the catalogue renders a checkbox that grants something nothing checks. */
+    const real = new Set<string>(PERMISSIONS);
+    const bogus = Object.keys(PERMISSION_LABELS).filter((p) => !real.has(p));
+    expect(bogus).toEqual([]);
+  });
+
+  it("lists each permission exactly once", () => {
+    const all = PERMISSION_GROUPS.flatMap((g) => g.permissions.map(([p]) => p));
+    expect(new Set(all).size, "a permission appears in two groups").toBe(all.length);
+  });
+
+  it("gives every permission a description a person could act on", () => {
+    for (const [perm, label] of Object.entries(PERMISSION_LABELS)) {
+      expect(label.length, `${perm} has no usable description`).toBeGreaterThan(8);
+      /* The description must not just restate the identifier — "asset.manage:
+         manage assets" tells an administrator nothing they did not already
+         see. */
+      expect(label.toLowerCase().replace(/[^a-z]/g, "")).not.toBe(perm.replace(/[^a-z]/g, ""));
+    }
   });
 });

@@ -2,7 +2,7 @@
 
 **Phase:** 3 — Roles, accounts and organisation structure
 **Size:** 0 units (decision record + draft for approval)
-**Status:** **RESOLVED BY DEFAULT — 2026-08-22.** Urban never returned the matrix. `PERMISSION_MATRIX.md` §6 states its own policy — *"Silence is an answer"* — and the six defaults were built. They are listed in `SYSTEM_PLAN.md` §8.2 with the one-line change that reverses each. **This is a decision taken under a stated rule, not agreement obtained** — put the §8.2 table in front of Urban before the roles reach production, because after that each is a migration against live permission rows.
+**Status:** **RESOLVED — 2026-08-22, by making it editable rather than by getting an answer.** Urban never returned the matrix, so Phase 3 shipped on the defaults the document says apply in silence. `/admin/roles` then removed the need for the answer: an administrator ticks permissions per role, in plain words, and creates roles of their own. The six defaults are a starting position, not a decision made on Urban's behalf, and none is a migration any more. **Consequence:** `role-perms.ts` is now the factory default rather than the invariant — STI-308 asserts a freshly seeded tenant matches it, and the audit trail guards the live one.
 **Unblocks:** STI-302, STI-304, STI-307, STI-308, STI-501 — **11 units**
 
 ---

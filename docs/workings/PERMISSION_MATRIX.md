@@ -1,6 +1,23 @@
 # Permission matrix — draft proposal for Urban's confirmation
 
-**Status:** **BUILT AT ITS DEFAULTS, 2026-08-22 — still awaiting Urban.**
+**Status:** **BUILT AT ITS DEFAULTS, 2026-08-22 — and now EDITABLE, so it no longer blocks.**
+
+> **The deadlock is dissolved.** `/admin/roles` lets an administrator tick permissions on
+> and off per role and create roles of their own. Urban does not have to return this
+> document for the product to be correct — they open the screen, read what each role holds
+> in plain words, and change what they disagree with. No developer, no deploy, no migration.
+>
+> **This document's job changed accordingly.** It is no longer a decision waiting for a
+> signature; it is the reasoning behind the starting position, and the place to look when
+> somebody asks *why* a role was given something. `packages/db/src/role-perms.ts` is the
+> factory default that a fresh tenant is seeded with. **Neither is what the live system
+> does** — the live grants are in `role_permission`, and `/admin/roles` is how you read
+> them.
+>
+> One thing the screen deliberately does NOT offer: **inventing permissions.** A permission
+> is only real because a procedure names it (`requirePermission("asset.read")`), so one
+> typed into a screen would gate nothing — a checkbox that grants a feeling. Creating
+> *roles* is genuinely useful and is offered. The distinction is the whole of it.
 Draft proposal 2026-08-15 · corrected 2026-08-22 · implemented 2026-08-22
 
 > **What happened.** This document was not returned. §6 states its own policy — *"Silence is

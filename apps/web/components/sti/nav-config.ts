@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Radio, Settings, UserCog, Users, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Radio, Settings, ShieldCheck, UserCog, Users, Wrench } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -84,6 +84,7 @@ export const DESK_NAV: NavGroup[] = [
          with "holds tools" is how a foreman gets forced into a login he does
          not need. */
       { href: "/admin/users", label: "User Accounts", icon: UserCog, perm: "config.manage" },
+      { href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage" },
       { href: "/settings", label: "Settings", icon: Settings, perm: "config.manage" },
     ],
   },

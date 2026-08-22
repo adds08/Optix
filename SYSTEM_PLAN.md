@@ -517,8 +517,24 @@ Requisition → approval → estimate → quotation → purchase order → recei
 | ~~What may an Engineer do?~~ | **Built at the default** — a Project Manager's permission set exactly. Reversible with a one-line change to `role-perms.ts` until it ships. |
 
 **Six decisions taken at their documented default, because `PERMISSION_MATRIX.md` was
-never returned.** Each is cheap to reverse *now* and a migration against live permission
-rows *later*. This is the list to put in front of Urban.
+never returned.**
+
+> **This is no longer a blocker, and the reason is a product change rather than an
+> answer.** `/admin/roles` lets an administrator tick permissions on and off per role, so
+> none of the six is a migration any more — Urban reads what the roles actually hold and
+> changes what they disagree with, with no developer and no deploy. The defaults below are
+> now a *starting position* rather than a decision made on their behalf.
+>
+> **What that cost:** `packages/db/src/role-perms.ts` used to BE the matrix, and STI-308
+> asserted the database matched it exactly in both directions. It cannot mean that once an
+> administrator can edit grants — the moment somebody unticks a box the database is
+> *supposed* to differ. `role-perms.ts` is now the FACTORY DEFAULT, the test asserts a
+> freshly seeded tenant matches it, and what guards the live database instead is the audit
+> trail: `role.setPermissions` logs the delta, so "who took approval away from the
+> superintendents, and when" stays answerable.
+>
+> Still worth walking Urban through the table below — a default nobody looked at is not the
+> same as a decision, and the screen only helps if somebody opens it.
 
 | # | Question | Built as | To change it |
 |---|---|---|---|
