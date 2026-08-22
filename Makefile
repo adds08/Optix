@@ -39,7 +39,7 @@ SVC ?= api
 .PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell
 
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
 up: ## Build + start postgres, api, web, desktop (detached)
@@ -96,6 +96,16 @@ reset: ## Wipe DB volume + restart + reseed (DESTRUCTIVE)
 
 test: ## Run vitest inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm test"
+
+e2e: ## Run the browser suite against the running stack (STI-001)
+	@# Deliberately NOT inside the api container. The suite drives a browser
+	@# against web:3100 and api:4100 from OUTSIDE, which is the only way to
+	@# test the stack rather than a process's opinion of itself — and the
+	@# container has no browser. `make ENV=local up` must be running.
+	pnpm --dir e2e exec playwright test
+
+e2e-install: ## One-time: fetch the Chromium the browser suite drives
+	pnpm --dir e2e exec playwright install chromium
 
 typecheck: ## Run typecheck inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm typecheck"
