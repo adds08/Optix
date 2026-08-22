@@ -2,7 +2,7 @@
 
 **Phase:** 1 — Custody trail (follow-up)
 **Size:** 1 unit
-**Status:** READY
+**Status:** **PARTIALLY DONE — 2026-08-22. Gap 2a, the severe half, is fixed and pinned.** A partial multi-asset chat apply re-applied on ordinary retry — no crash needed — appending permanent duplicate events to an append-only ledger. Root cause: `refType`/`refId` name the row an event is ABOUT and get overwritten to `assignment`/<id>, so the chat provenance was lost and there was no idempotency key. Migration `0021` adds `transaction.ref_message_id` — an event has a subject and a cause, and overloading one pair to carry both is what lost the cause. `chat-retry-idempotency.test.ts` proves it, and proves the guard is load-bearing by disabling it. **Still open: the stranded-task sweeper (AC 6) and the `attempts` decision (AC 1)** — see below.
 **Size note:** opened at 1 unit as a crash-window ticket. **Gap 2a changes that** — it is
 a duplicate-write reachable by an ordinary user retry with no crash at all. Re-size before
 starting; this is probably 2.

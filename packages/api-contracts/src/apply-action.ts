@@ -176,6 +176,48 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
     });
     if (!asset) continue;
 
+    /*
+      STI-120 — a retry must not re-apply what already landed.
+
+      This loop writes one asset at a time, each in its own transaction. A
+      five-asset action that fails on the third leaves two applied and three
+      not; `confirmMessageAction` then catches, un-claims the message back to
+      `action_proposed`, and the Confirm button works again. Pressing it
+      re-ran the whole list, appending a second `assign` event for the two that
+      had already moved — **permanent duplicate history in a log that cannot be
+      pruned, with no crash involved.** QA reproduced it by ordinary retry.
+
+      The ledger is its own idempotency key. Every event this path writes
+      carries `refType: "message"` and `refId: <messageId>`, so "has this
+      message already moved this asset" is a question the append-only log can
+      answer, and answering it there means the guard cannot drift from what was
+      actually written.
+
+      Only for the message path: a direct form apply has no `refMessageId`, and
+      each press of a form button is a genuinely new instruction. Skipping is
+      the honest outcome rather than an error — the work IS done, and the
+      caller asked for it to be done.
+    */
+    if (refMessageId) {
+      const already = await db.query.transaction.findFirst({
+        where: and(
+          eq(schema.transaction.tenantId, tenantId),
+          eq(schema.transaction.assetId, assetId),
+          eq(schema.transaction.refMessageId, refMessageId),
+        ),
+      });
+      if (already) {
+        /* Counted as applied and its id returned, so the caller's totals and
+           `executedTransactionIds` describe the whole action rather than only
+           the part this attempt happened to do. A retry that reported "2
+           applied" after a five-asset action would read as a partial success
+           when it is a complete one. */
+        transactionIds.push(String(already.id));
+        applied++;
+        continue;
+      }
+    }
+
     /* Custody moves get the rule applied before anything is written. */
     if (action.type === "assign" || action.type === "transfer") {
       const outcome = await outcomeFor(db, tenantId, asset);
@@ -466,6 +508,13 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
           toState: after,
           refType,
           refId,
+          /* STI-120. `refType`/`refId` name the row this event is ABOUT — for
+             an assign they become `assignment`/<id>, overwriting the message
+             defaults set above. The cause is recorded separately so both
+             survive, and so a retry can ask "have I already moved this asset
+             for this message". Null on the form paths, which carry no
+             message and where each press is a new instruction. */
+          refMessageId: refMessageId ?? null,
           note,
         })
         .returning();
@@ -590,6 +639,13 @@ async function applyIntake(
       },
       refType: refMessageId ? "message" : "manual",
       refId: refMessageId ?? null,
+      /* Same cause column as the custody path (STI-120). Here `refType`/`refId`
+         already hold the message, so this is redundant TODAY — and it is
+         written anyway, because the retry guard queries one column and an
+         intake event that answered a different one would be invisible to it.
+         An intake is also the case where a duplicate is most visible: a second
+         tool in the register, not just a second event. */
+      refMessageId: refMessageId ?? null,
       note: action.note || `Asset ${label} registered from a message`,
     })
     .returning();

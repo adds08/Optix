@@ -27,6 +27,16 @@ import { join } from "node:path";
 */
 
 const SRC = new URL("./", import.meta.url).pathname;
+/*
+  `apps/api` is scanned too, and NOT as an afterthought — it is where the four
+  defects STI-119 originally named actually lived (the photo upload and delete
+  routes, the messaging worker's project lookup, the entity resolver's asset
+  lookup). A first pass at this test scanned only this package, reported clean,
+  and the ticket was marked done while all four were untouched. A sweep that
+  cannot see half the writes is worse than no sweep, because it produces a
+  green tick.
+*/
+const API_SRC = new URL("../../../apps/api/src/", import.meta.url).pathname;
 
 /* Tables carrying `tenant_id`. The four that do not — `tenant`, `permission`,
    `role_permission`, `user_role` — are absent on purpose and documented in
@@ -47,7 +57,32 @@ const TENANT_SCOPED = new Set([
   sentence to justify.
 */
 const EXEMPT: Record<string, string> = {
-  // (none today — every write in this package carries one)
+  /*
+    THE BACKGROUND WORKERS — the one real category, and the reason is the same
+    for all three files.
+
+    A worker has no session and therefore no tenant. It claims rows off a
+    tenant-agnostic queue (`processingStatus = 'queued'`, ordered by age,
+    across every tenant) and then updates the rows it just claimed, by id.
+    There is no tenant to scope BY: adding `eq(message.tenantId, ???)` would
+    have nothing to put in the second argument. A worker that filtered to one
+    tenant would simply stop serving the others.
+
+    What makes that safe is that the worker never takes an id from a user. It
+    reads a batch, acts on that batch, and writes back to the same ids —
+    `msgIds` in the claim, `msg.id` in the failure path, `t.id` in the
+    escalation. Tenant isolation is preserved because the row carries its own
+    `tenantId` into everything downstream (`processOne` reads `msg.tenantId`
+    and scopes from there).
+
+    This is exempted per FILE rather than per line because the reason is a
+    property of the file — it is a worker — not of any one statement. If a
+    worker ever grows a route or a procedure that takes a caller-supplied id,
+    that reasoning stops applying and this entry must be narrowed.
+  */
+  "apps/api/src/messaging-worker.ts": "background worker: no session, claims from a tenant-agnostic queue and writes back the ids it claimed",
+  "apps/api/src/request-worker.ts": "background worker: same — sweeps and escalates across every tenant by design",
+  "apps/api/src/notifications.ts": "delivery worker: marks a notification it just read as delivered, by its own id",
 };
 
 function tsFiles(dir: string): string[] {
@@ -65,7 +100,7 @@ describe("tenant isolation (STI-119)", () => {
   it("has no write to a tenant-scoped table without a tenant predicate", () => {
     const offenders: string[] = [];
 
-    for (const file of tsFiles(SRC)) {
+    for (const file of [...tsFiles(SRC), ...tsFiles(API_SRC)]) {
       const src = readFileSync(file, "utf8");
       const re = /(?:await\s+)?(?:ctx\.)?(?:db|tx|trx)\s*\n?\s*\.\s*(update|delete)\s*\(\s*schema\.(\w+)/g;
 
@@ -107,9 +142,13 @@ describe("tenant isolation (STI-119)", () => {
         */
 
         const line = src.slice(0, m.index).split("\n").length;
-        const rel = file.slice(file.indexOf("/src/") + 1);
-        const key = `${rel}:${kind}(${table})`;
-        if (key in EXEMPT) continue;
+        const rel = file.includes("/apps/api/")
+          ? `apps/api/${file.slice(file.indexOf("/apps/api/src/") + "/apps/api/".length)}`
+          : file.slice(file.indexOf("/src/") + 1);
+        /* A file-level exemption (the workers) or a precise
+           `path:kind(table)` one. File-level is deliberate for the workers —
+           the reason is a property of the file, not of a statement. */
+        if (rel in EXEMPT || `${rel}:${kind}(${table})` in EXEMPT) continue;
         offenders.push(`${rel}:${line} — ${kind}(${table})`);
       }
     }
@@ -124,10 +163,30 @@ describe("tenant isolation (STI-119)", () => {
   it("has no stale exemptions", () => {
     /* An exemption that is no longer needed is a place a real offender can
        hide behind a name that used to be legitimate. */
-    const src = tsFiles(SRC).map((f) => readFileSync(f, "utf8")).join("\n");
+    const files = [...tsFiles(SRC), ...tsFiles(API_SRC)];
+    const src = files.map((f) => readFileSync(f, "utf8")).join("\n");
+
     for (const key of Object.keys(EXEMPT)) {
       const table = key.match(/\((\w+)\)$/)?.[1];
-      expect(src, `exemption "${key}" names a table nothing writes any more`).toContain(`schema.${table}`);
+      if (table) {
+        expect(src, `exemption "${key}" names a table nothing writes any more`).toContain(`schema.${table}`);
+        continue;
+      }
+      /* A file-level exemption must still name a file that exists — a renamed
+         or deleted worker would otherwise leave a blanket pass behind it. */
+      const base = key.slice(key.lastIndexOf("/") + 1);
+      expect(files.some((f) => f.endsWith(base)), `exemption "${key}" names a file that no longer exists`).toBe(true);
+    }
+  });
+
+  it("exempts only the workers, and every exemption carries a reason", () => {
+    /* The list is where this test goes wrong: if triage starts dropping
+       anything awkward into it to get green, it asserts history rather than
+       policy. Every entry must be a background worker — nothing under
+       `routers/` may ever appear here, because a router HAS a session. */
+    for (const [key, reason] of Object.entries(EXEMPT)) {
+      expect(reason.length, `exemption "${key}" has no reason`).toBeGreaterThan(20);
+      expect(key, `"${key}" is a router — a router has a session and can always scope`).not.toContain("/routers/");
     }
   });
 });

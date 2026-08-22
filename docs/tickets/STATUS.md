@@ -19,7 +19,23 @@ and is blocked on Urban**, who owns the interface question — that is the only 
 > the code is the truth. Verify against code before believing either a ticket or this file
 > — that is CLAUDE.md behaviour rule 3 and this board is not exempt from it.
 
-### What Phase 3 + 5 added, and the four defects they exposed
+### An adversarial audit ran over this work, and found three things
+
+Four read-only agents audited SYSTEM_PLAN §1–§9 and every STI-1xx/2xx ticket against the
+code rather than against the Status lines. Worth recording what they caught, because two
+were **overclaims in work that had just been marked done**:
+
+1. **STI-119 was claimed done and was not.** The sweep scanned only
+   `packages/api-contracts` and reported clean while four writes in `apps/api` — the photo
+   upload and delete routes, the messaging worker's project lookup, the entity resolver's
+   asset lookup — were untouched. *A sweep that cannot see half the writes is worse than no
+   sweep, because it produces a green tick.* The test now scans both roots.
+2. **STI-120 was the most severe open item and had not been looked at.** Fixed — see below.
+3. Several §1/§5 claims were false rather than merely stale: "No mobile application" (there
+   is one), "Vendors read-only" (there is no vendor table at all), "No error boundaries"
+   (there are two). All corrected in place.
+
+### What Phase 3 + 5 added, and the defects they exposed
 
 - **A production data migration that had to exist.** `0020` grants the new permissions and
   roles to an EXISTING database. Without it, deploying Phase 3 shows every user in the
@@ -32,6 +48,14 @@ and is blocked on Urban**, who owns the interface question — that is the only 
 - **`messaging.dismiss` let any account empty the desk's queue.** Same walk.
 - **Nothing can go overdue** — the borrow model went on 2026-08-09 — yet SYSTEM_PLAN §6.5
   still asked for an overdue panel and four other documents still described it as live.
+- **A chat retry appended permanent duplicate ledger events** (STI-120). `applyChatAction`
+  writes one asset per transaction, so a multi-asset action failing partway left some
+  applied; the caller un-claimed the message and the Confirm button worked again, and
+  pressing it re-applied the ones that had landed. **No crash required.** The ledger is
+  append-only, so the duplicates could not be removed, and the fold is last-snapshot-wins so
+  the projection still looked right — the history was wrong and nothing reported it. Fixed
+  by migration `0021`: the ledger now records the message that CAUSED an event separately
+  from the row it is about.
 
 > ## Phases 1 and 2 are complete. All five core invariants are enforced.
 >

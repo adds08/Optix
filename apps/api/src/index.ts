@@ -87,6 +87,24 @@ app.post("/auth/login", async (c) => {
     }).catch((err) => log.error("[audit] failed-login insert", { err: String(err) }));
     return c.json({ error: result.reason }, 401);
   }
+  /*
+    STI-119 — **the one legitimate exemption from the tenant-predicate rule**,
+    documented rather than fixed.
+
+    Login is where the tenant is DECIDED, so there is no tenant in scope to
+    scope by: `result.tenantId` is an output of the credential check, not an
+    input to it. Adding `eq(user.tenantId, result.tenantId)` here would not be
+    a control — it would be asking the row whether it is the row we just got it
+    from.
+
+    The lookup is safe for a different reason: `result.userId` came out of
+    `login()`, which since STI-305 either scopes by `tenantSlug` or **refuses**
+    an address matching more than one account rather than picking a row. The
+    isolation happens there, not here.
+
+    This read is only for the audit-log label. It is a `findFirst` by primary
+    key on an id the credential check produced.
+  */
   const u = await db.query.user.findFirst({ where: eq(schema.user.id, result.userId) });
   await db.insert(schema.eventLog).values({
     tenantId: result.tenantId,
@@ -168,7 +186,7 @@ app.post("/assets/:id/photo", async (c) => {
   await db
     .update(schema.asset)
     .set({ photoKey: key, updatedAt: new Date() })
-    .where(eq(schema.asset.id, assetId));
+    .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, session.tenantId)));
 
   /* Replacing a photo should not leave the old one paying rent. Done after the
      row is updated, so a failed delete cannot lose the new picture. */
@@ -194,7 +212,7 @@ app.delete("/assets/:id/photo", async (c) => {
   await db
     .update(schema.asset)
     .set({ photoKey: null, updatedAt: new Date() })
-    .where(eq(schema.asset.id, assetId));
+    .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, session.tenantId)));
   if (asset.photoKey) await storageFor(env)?.remove(asset.photoKey);
   return c.json({ ok: true });
 });

@@ -34,6 +34,47 @@ where t.table_schema='public' and t.table_type='BASE TABLE'
 *build single-tenant-shaped but multi-tenant-ready from day one*. What Release 1 added is
 the `WHERE` clause that uses it, plus one unique index (`user_tenant_email_uq`, `0018`).
 
+## The tenant predicate: the rule, and its two exceptions (STI-119)
+
+CLAUDE.md non-negotiable 3 — *every query carries `eq(table.tenantId, tid)`* — is now a
+rule you can check rather than one you have to reason about.
+`packages/api-contracts/src/tenant-predicate.test.ts` scans **both** `packages/api-contracts/src`
+and `apps/api/src` and fails the build on a write to a tenant-scoped table with no tenant
+predicate.
+
+It found nineteen in the routers and four in `apps/api`. **None was exploitable** — each sat
+behind a tenant-scoped check-then-act, a `findFirst` that threw NOT_FOUND before the write.
+That is safe, and it is not the same as checkable: it means a reader has to trace back to a
+guard several lines up to know that `DELETE ... WHERE id = $1` is not a cross-tenant delete.
+All twenty-three now carry the predicate.
+
+**Write the predicate even when an upstream check already makes it redundant.** The
+redundancy is the point — it is what makes the rule greppable, and a grep is what catches
+the twenty-fourth.
+
+### The two exceptions, and why they are not arbitrary
+
+**1. Background workers** (`messaging-worker.ts`, `request-worker.ts`, `notifications.ts`).
+A worker has no session and therefore no tenant. It claims rows off a tenant-agnostic queue
+across every tenant, then writes back to the ids it just claimed. There is nothing to put in
+`eq(message.tenantId, ???)`, and a worker filtered to one tenant would stop serving the
+others. Safe because the worker never takes an id from a user, and the row carries its own
+`tenantId` into everything downstream. Exempted **per file** in the test, with the reason,
+because it is a property of the file — it is a worker — not of any one statement.
+
+**If a worker ever grows a route or procedure that takes a caller-supplied id, that
+reasoning stops applying** and its exemption must be narrowed rather than inherited.
+
+**2. The login user lookup** (`apps/api/src/index.ts`). Login is where the tenant is
+*decided*, so there is no tenant in scope to scope by: `result.tenantId` is an output of the
+credential check, not an input to it. Scoping there would be asking the row whether it is
+the row we just got it from. Isolation happens inside `login()`, which since STI-305 either
+scopes by `tenantSlug` or **refuses** an ambiguous address rather than picking a row. It is
+a read, so the scan never reaches it; the reason is written at the call site.
+
+**Nothing under `routers/` may ever be exempt** — a router has a session, so it can always
+scope. The test asserts that too.
+
 ## Migrations, never push
 
 ```bash

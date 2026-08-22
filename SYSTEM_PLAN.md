@@ -18,7 +18,11 @@ The system is a **web-based system of record for tool custody**, with an append-
 
 ### Non-goals for Release 1
 
-- No mobile application. All actions are performed at a desk on the web app.
+- ~~No mobile application. All actions are performed at a desk on the web app.~~
+  **False since the Expo app landed** (`apps/mobile` — My Tools, hand-off, alerts, desk,
+  chat with @-mentions; root `CLAUDE.md` has said "Expo mobile" for some time). The non-goal
+  was never formally retired, so this line sat contradicting the repository it describes.
+  Corrected 2026-08-22.
 - No QR or barcode scanning, no photograph or signature capture at handover.
 - No offline operation.
 - No heavy equipment, consumables, or preventive maintenance.
@@ -136,18 +140,28 @@ graph LR
 
 ## 5. Current state
 
-Assessed 2026-08-09. **63.6% complete** by size-point arithmetic (121 of 190 points). The number excludes the conversational layer, which is substantial working code — see §8.1.
+Assessed 2026-08-09 at **63.6% complete** by size-point arithmetic (121 of 190 points),
+excluding the conversational layer — see §8.1.
+
+> **That figure is stale and has deliberately not been recomputed.** Phases 3 and 5 shipped
+> on 2026-08-22 (27 of the remaining units), leaving Phase 4 as the only phase outstanding —
+> and Phase 4 is blocked on Urban rather than on engineering. A recomputed percentage would
+> be a confidently wrong number of exactly the kind CLAUDE.md tells us not to state, because
+> the arithmetic never counted the follow-up tickets, the conversational layer or the
+> reachability gap. **Read the phase table in `docs/tickets/STATUS.md` instead** — it says
+> which phases are done and what is left, which is the question the percentage was standing
+> in for.
 
 | Area | Status | Note |
 |---|---|---|
-| Foundation | `FUNCTIONAL` | Event-sourced schema, 12 migrations, CI with build/migrate/smoke/deploy/rollback |
+| Foundation | `FUNCTIONAL` | Event-sourced schema, CI with build/migrate/smoke/deploy/rollback. ~~12 migrations~~ — a count that went stale immediately; `packages/db/drizzle/` is the authoritative list, as CLAUDE.md's own conventions say it should be. |
 | Access control | `FUNCTIONAL` | ~~5 of 7+ roles can log in. **No user administration exists at all.**~~ It was 3 of 10, not 5 of 7. Since STI-303/304/302/307/308 (2026-08-22): user administration at `/admin/users`, **one login account per role**, the four-tier visibility ladder enforced in the query rather than as a post-filter, no role-name branching left in server code, and an RBAC matrix test generated from `packages/db/src/role-perms.ts`. |
-| Master data | `PARTIAL` | Tools, categories, projects, employees, locations, trucks, trailers all CRUD. Vendors read-only. |
+| Master data | `PARTIAL` | Tools, projects, employees, locations, trucks and trailers have full CRUD; `category` has create/delete but no update. ~~Vendors read-only.~~ **There is no vendor table, router or screen at all** — not read-only, absent. Verified 2026-08-22. |
 | Custody engine | `PARTIAL` | Best-designed area. ~~**Approve/verify/decline procedures have no caller in any screen.**~~ Reachable since STI-105 (2026-08-16): approve/decline are driven from the desk queue at `/custody?tab=queue`. The `verify` outcome no longer exists. |
 | Spreadsheet import | `FUNCTIONAL` | Genuinely good: typed validation, dedup, preview, transactional commit. No tests. |
 | KPI dashboard | `FUNCTIONAL` | Reports, filters, export — see `routers/report.ts` for the list. ~~Ignores project scoping.~~ Every tile, chart, count and report is narrowed by the visibility ladder since STI-302; the aggregates were the widest leak in the product, because a total over rows you may not read is a read of those rows. |
 | Notifications | `PARTIAL` | Delivery is a `console.log` that then marks rows delivered. |
-| Production readiness | `PARTIAL` | No error boundaries, no integration tests, lint non-blocking. |
+| Production readiness | `PARTIAL` | ~~No error boundaries~~ — `apps/web/app/(app)/error.tsx` and `global-error.tsx` exist. ~~No integration tests~~ — the database-backed suites in `packages/api-contracts` run router+domain+db together against real Postgres, including concurrency races. **What is genuinely missing is a browser E2E harness** (`STI-001`/`STI-002`, not built) and any test at all under `apps/web` or `apps/mobile`. Lint non-blocking: still true. |
 
 ### The five things that matter most
 

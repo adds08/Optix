@@ -119,7 +119,9 @@ async function processOne(
       foremanName = emp.name;
       foremanRole = emp.role;
       if (emp.primaryProjectId) {
-        const proj = await db.query.project.findFirst({ where: eq(schema.project.id, emp.primaryProjectId) });
+        const proj = await db.query.project.findFirst({
+          where: and(eq(schema.project.id, emp.primaryProjectId), eq(schema.project.tenantId, tid)),
+        });
         if (proj) primaryProject = proj.name;
       }
     }
