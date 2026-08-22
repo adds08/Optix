@@ -5,21 +5,22 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { RidePicker } from "./ride-picker";
-import { usePermissions } from "./use-permissions";
+import { useViewTier } from "./use-permissions";
 
 type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
 
 export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
-  const { role } = usePermissions();
+  const tier = useViewTier();
   const utils = trpc.useUtils();
-  const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: role === "superintendent" });
+  const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: tier === "assets.view.crew" });
   const foremen = trpc.employee.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
 
   let custodianOptions =
     foremen.data?.filter((e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active") ?? [];
-  if (role === "superintendent") {
+  /* STI-307: the crew tier, not the role name. */
+  if (tier === "assets.view.crew") {
     const ids = new Set(myForemen.data?.map((f) => f.id) ?? []);
     custodianOptions = custodianOptions.filter((e) => ids.has(e.id));
   }

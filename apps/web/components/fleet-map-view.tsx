@@ -8,6 +8,7 @@ import { dateTime } from "@/lib/format";
 import { humanize } from "@/components/sti/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/components/use-permissions";
 
 /*
   The map itself, shared by the /map page and the dashboard panel.
@@ -50,8 +51,15 @@ export function FleetMapView({
      point. */
   scrollWheelZoom?: boolean;
 }) {
-  const vehicles = trpc.vehicle.list.useQuery();
-  const assets = trpc.asset.list.useQuery({});
+  /* Both reads are permission-gated server side (STI-302). Asking anyway from
+     an account that holds neither just fills the console with 403s, so the
+     query is gated on the same permission the procedure requires and the panel
+     says so instead of rendering an empty map. */
+  const { has } = usePermissions();
+  const maySeeVehicles = has("vehicle.read");
+  const maySeeAssets = has("asset.read");
+  const vehicles = trpc.vehicle.list.useQuery(undefined, { enabled: maySeeVehicles });
+  const assets = trpc.asset.list.useQuery({}, { enabled: maySeeAssets });
 
   const countByLocation = new Map<string, number>();
   for (const a of assets.data ?? []) {
@@ -59,6 +67,17 @@ export function FleetMapView({
   }
 
   const tracked = (vehicles.data ?? []).filter((v) => v.gpsLat && v.gpsLng);
+
+  if (!maySeeVehicles) {
+    /* Say why the map is not here rather than drawing an empty one. An empty
+       map reads as "no trucks are moving", which is a different and wrong
+       answer to a question about the fleet. */
+    return (
+      <div className={cn("flex items-center justify-center rounded-md border bg-muted p-6 text-center text-sm text-muted-foreground", className)}>
+        Fleet positions are not part of what this account tracks.
+      </div>
+    );
+  }
 
   if (vehicles.isLoading) {
     return <Skeleton className={cn("w-full rounded-md", className)} />;

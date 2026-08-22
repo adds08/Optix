@@ -532,7 +532,28 @@ async function applyIntake(
 
   const label = formatAssetModel({ make, modelNumber, description }) || "Untagged tool";
 
-  const [row] = await db
+  /*
+    STI-118: the register row and its genesis ledger event commit together or
+    not at all.
+
+    These were two unwrapped statements. A failure between them — a dropped
+    connection, a constraint, a restart — left an asset in the register with
+    NO ledger evidence at all, which is the one state the whole design forbids:
+    `foldAssetState` has nothing to fold, `verifyProjection` reports it as a
+    divergence with no evidence, and `asset.rebuild` deliberately REFUSES to
+    repair it (repairing on no evidence would blank a live custodian). So the
+    row could only ever be fixed by hand.
+
+    This is the CHAT path, which is what made it worth fixing over the other
+    two-statement writers: it is reachable by any foreman typing a sentence,
+    not just by an administrator on a form.
+
+    Nothing network-shaped runs inside — postgres.js pins one pool connection
+    for the life of a transaction, and the LLM parse already happened in the
+    worker before this call.
+  */
+  const { row, tx } = await db.transaction(async (trx: any) => {
+  const [row] = await trx
     .insert(schema.asset)
     .values({
       tenantId,
@@ -553,7 +574,7 @@ async function applyIntake(
   if (!row)
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not register that tool" });
 
-  const [tx] = await db
+  const [tx] = await trx
     .insert(schema.transaction)
     .values({
       tenantId,
@@ -572,6 +593,9 @@ async function applyIntake(
       note: action.note || `Asset ${label} registered from a message`,
     })
     .returning();
+
+    return { row, tx };
+  });
 
   return { transactionIds: tx ? [String(tx.id)] : [], applied: 1, awaitingApproval: 0 };
 }

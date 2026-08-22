@@ -22,4 +22,8 @@ export function createDb(databaseUrl: string) {
 }
 
 export { schema };
+/* The permission matrix in code — read by the seed and by the RBAC matrix
+   test (STI-308), which is why it is exported from the package root rather
+   than reached into by path. */
+export { ROLE_PERMS, PM_PERMS } from "./role-perms";
 export * from "./schema/index";

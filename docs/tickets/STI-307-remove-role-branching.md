@@ -2,7 +2,7 @@
 
 **Phase:** 3 — Roles, accounts and organisation structure
 **Size:** 2 units
-**Status:** BLOCKED by STI-302
+**Status:** **DONE — 2026-08-22.** No `roleName ===` left in server code. Client checks converted to `useViewTier()`. Surviving `employee.role` comparisons are domain data and each is annotated where it stands.
 **Depends on:** STI-302 (the permissions must exist to branch on)
 
 ---

@@ -246,7 +246,7 @@ export const inboxRouter = router({
             completedAt: new Date(),
             updatedAt: new Date(),
           })
-          .where(eq(schema.task.id, input.id));
+          .where(and(eq(schema.task.id, input.id), eq(schema.task.tenantId, tid)));
         return { ok: true };
       }
       const msg = await ctx.db.query.message.findFirst({
@@ -262,7 +262,7 @@ export const inboxRouter = router({
           handledAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(schema.message.id, input.id));
+        .where(and(eq(schema.message.id, input.id), eq(schema.message.tenantId, tid)));
       return { ok: true };
     }),
 
@@ -310,7 +310,7 @@ export const inboxRouter = router({
         await ctx.db
           .update(schema.message)
           .set({ processingStatus: "queued", attempts: 0, updatedAt: new Date() })
-          .where(eq(schema.message.id, input.id));
+          .where(and(eq(schema.message.id, input.id), eq(schema.message.tenantId, tid)));
         return { ok: true, reQueued: true };
       }
 

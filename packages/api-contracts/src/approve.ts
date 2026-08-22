@@ -336,7 +336,7 @@ export async function confirmMessageAction(
       handledAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(eq(schema.message.id, messageId));
+    .where(and(eq(schema.message.id, messageId), eq(schema.message.tenantId, tid)));
 
   await logEvent(ctx, {
     category: "messaging",

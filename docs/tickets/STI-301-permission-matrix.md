@@ -2,7 +2,7 @@
 
 **Phase:** 3 — Roles, accounts and organisation structure
 **Size:** 0 units (decision record + draft for approval)
-**Status:** BLOCKED on Urban
+**Status:** **RESOLVED BY DEFAULT — 2026-08-22.** Urban never returned the matrix. `PERMISSION_MATRIX.md` §6 states its own policy — *"Silence is an answer"* — and the six defaults were built. They are listed in `SYSTEM_PLAN.md` §8.2 with the one-line change that reverses each. **This is a decision taken under a stated rule, not agreement obtained** — put the §8.2 table in front of Urban before the roles reach production, because after that each is a migration against live permission rows.
 **Unblocks:** STI-302, STI-304, STI-307, STI-308, STI-501 — **11 units**
 
 ---

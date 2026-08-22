@@ -20,7 +20,24 @@ export type Context = {
   };
 };
 
-const t = initTRPC.context<Context>().create({
+/*
+  Procedure metadata — the mechanism behind STI-308's "every mutation carries a
+  permission" test.
+
+  `requirePermission` records WHICH permission it enforces on the procedure
+  itself, so the router tree can be walked statically and asked the question.
+  Without it the only way to test a bare `protectedProcedure` that mutates was
+  to call it with valid input and see what happened, which means the test can
+  only cover mutations somebody remembered to write a case for — and the one
+  that matters is always the next one added.
+
+  It is metadata about enforcement, never the enforcement itself: the `.use()`
+  below is what actually refuses the call. Reading `meta.permission` to decide
+  anything at runtime would make a comment load-bearing.
+*/
+export type Meta = { permission?: Permission };
+
+const t = initTRPC.context<Context>().meta<Meta>().create({
   transformer: superjson,
   /*
     STI-204: whatever this returns in `data` is the type both clients infer on
@@ -72,7 +89,7 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 });
 
 export const requirePermission = (permission: Permission) =>
-  protectedProcedure.use(({ ctx, next }) => {
+  protectedProcedure.meta({ permission }).use(({ ctx, next }) => {
     if (!ctx.session.permissions.has(permission)) {
       throw new TRPCError({ code: "FORBIDDEN", message: `missing permission: ${permission}` });
     }

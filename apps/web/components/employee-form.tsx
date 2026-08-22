@@ -25,6 +25,11 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
   const projects = trpc.project.list.useQuery();
   const allEmployees = trpc.employee.list.useQuery();
+  /* STI-307 — DOMAIN DATA. `e.role` is the employee register's answer to "what
+     kind of worker is this", so filtering the superintendent picker by it is a
+     fact about people, not a statement about the caller's authority. Kept, as
+     STI-307 AC 3 prescribes. The caller's authority to open this form at all
+     is `employee.manage`. */
   const superintendents = allEmployees.data?.filter((e) => e.role === "superintendent") ?? [];
 
   const [name, setName] = useState(edit?.name ?? "");
@@ -126,6 +131,9 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
               {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
+          {/* DOMAIN DATA again — `role` here is the FORM's role field, the
+              employee being edited, not the signed-in user. Only a foreman
+              reports to a superintendent, so only a foreman gets the field. */}
           {role === "foreman" && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Reports to (superintendent)</label>

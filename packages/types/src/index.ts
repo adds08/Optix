@@ -26,22 +26,63 @@ export type MessageId = Brand<string, "MessageId">;
 export const asId = <T extends string>(s: string) => s as T;
 
 // ---------------------------------------------------------------------------
-// Roles (RBAC). MVP-active: owner, equipment_admin, warehouse, foreman,
-// read_only. Others are retained for future phases but not seeded.
+// Roles (RBAC). Every role here is seeded with a permission set and has at
+// least one login account (STI-304) — a role nobody can log in as is a row in
+// a table, not a control, and it is why no permission denial had ever been
+// tested before this list was completed.
+//
+// `owner` IS the System Administrator of docs/workings/PERMISSION_MATRIX.md §1.
+// The matrix's "cost of confirming" line asks for a fourth new role named
+// `system_admin`; it is deliberately NOT added, because `owner` already holds
+// every permission and a second all-permissions role is two names for one
+// authority — the exact "'Admin' means three things" ambiguity SYSTEM_PLAN §2
+// says must never reach the code. The matrix column maps to this role by name
+// in ROLE_PERMS, which is what lets STI-308 generate its test from the table.
+//
+// `project_manager`, not `pm`. EMPLOYEE_ROLES in ./enums.ts uses `pm` for the
+// same human because that list describes *employment*, not *authorisation*,
+// and the two are separate axes — an Engineer is a `project_manager` here and
+// has no employee role at all. Anything joining the two lists must map
+// explicitly; see PM_EMPLOYEE_ROLE below.
 // ---------------------------------------------------------------------------
 export const ROLES = [
   "owner",
   "equipment_admin",
+  /* Operations, accounts and general business administration. Business
+     records — NOT custody, NOT platform configuration. Deliberately without
+     `config.manage`: that permission also carries the LLM configuration and
+     the high-value approval threshold, and "may add a user" is not the same
+     authority as "may change what needs a second signature"
+     (PERMISSION_MATRIX §5 decision 4, default taken). */
+  "office_admin",
   "warehouse",
   "procurement",
   "project_manager",
+  /* Runs work on a project rather than owning it commercially. Identical to
+     `project_manager` where small tools are concerned, and seeded from the
+     same permission set on purpose. It exists as its own role so reporting can
+     tell the two apart and so they can diverge later without a migration —
+     not because they differ today. */
+  "engineer",
   "superintendent",
   "foreman",
+  /* Holds and uses tools like a foreman, but for repair and maintenance. The
+     difference that matters is the cost target: a mechanic's custody charges
+     the Equipment department, a foreman's charges the project. */
+  "mechanic",
   "hr",
   "finance",
   "read_only",
 ] as const;
 export type RoleName = (typeof ROLES)[number];
+
+/* The one sanctioned crossing between the login-role list above and
+   EMPLOYEE_ROLES in ./enums.ts. `pm` and `project_manager` name the same human
+   in two vocabularies, and every previous join between the lists was a string
+   literal written from memory — STI-301 recorded the mismatch as a latent bug
+   before it became a real one. Import this instead of writing either literal. */
+export const PM_EMPLOYEE_ROLE = "pm" as const;
+export const PM_LOGIN_ROLE = "project_manager" as const;
 
 export const PERMISSIONS = [
   "asset.read",
@@ -77,6 +118,25 @@ export const PERMISSIONS = [
      own grant so it can be given to fewer people. */
   "custody.reassign",
   "report.read",
+  /* ---- The visibility ladder (STI-302) ------------------------------------
+     A grant says *may see*; a scope says *how much*. `asset.read` answers the
+     first question, these four answer the second, and every read path resolves
+     them in the order written here — all, then project, then crew, then own,
+     first match wins. A role holding two gets the wider one.
+
+     They are permissions rather than a column on the role because the rule
+     SYSTEM_PLAN §9 states is "permissions are checked, role names are never
+     branched on" — before these existed, scoping keyed off `project.manage`,
+     which made a superintendent and a foreman indistinguishable to the
+     scoping layer and gave a foreman the desk's view the day anyone granted
+     them `project.manage` for an unrelated reason.
+
+     An actor holding NONE of the four sees nothing. That is the secure
+     default and it must stay an empty result, never an unscoped one. */
+  "assets.view.all",
+  "assets.view.project",
+  "assets.view.crew",
+  "assets.view.own",
   /* Rented equipment. Separate from asset.* because the people who decide what
      Urban buys are not always the people who can call a pump off rent, and the
      cost of getting the second one wrong is a daily invoice. */
@@ -86,6 +146,38 @@ export const PERMISSIONS = [
   "audit.read",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
+
+/* The ladder, in resolution order. Widest first: the first tier the actor
+   holds is the one that applies, which is how a role granted two scopes gets
+   the wider rather than the narrower. Both `scope.ts` and the RBAC matrix test
+   read THIS array — the order is the rule, so it must not be written down
+   twice. */
+export const VIEW_SCOPES = [
+  "assets.view.all",
+  "assets.view.project",
+  "assets.view.crew",
+  "assets.view.own",
+] as const satisfies readonly Permission[];
+export type ViewScope = (typeof VIEW_SCOPES)[number];
+
+export const isViewScope = (p: string): p is ViewScope =>
+  (VIEW_SCOPES as readonly string[]).includes(p);
+
+/**
+ * Compare two tiers on the ladder. `true` when `actor` is AT LEAST as wide as
+ * `needed` — so `all` satisfies a `project` requirement, and `own` does not.
+ *
+ * Lives here rather than in either caller because "wider than" is a property
+ * of the ORDER of `VIEW_SCOPES`, and that order is already the rule two
+ * separate places depend on: `scope.ts` resolves the actor's tier by
+ * first-match, and the Desk's panel registry decides whether a panel applies.
+ * Both were about to compare array indices by hand. One implementation, one
+ * test, and `apps/web` needs no test runner of its own to have this pinned.
+ */
+export function tierAtLeast(actor: ViewScope, needed: ViewScope): boolean {
+  /* Widest first, so a LOWER index is wider. */
+  return VIEW_SCOPES.indexOf(actor) <= VIEW_SCOPES.indexOf(needed);
+}
 
 // ---------------------------------------------------------------------------
 // Domain enums

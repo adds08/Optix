@@ -5,8 +5,34 @@ paths:
 
 # Schema, migrations and the seed
 
-Every table is tenant-scoped except `permission` and `role_permission`, which are global.
-`schema/index.ts` is the authoritative list.
+Every table carries `tenant_id` except **four**, and each exception is deliberate
+(PR #6 review asked what `tenant_id` is for — this is the answer):
+
+| Table | Why it has none |
+|---|---|
+| `tenant` | It *is* the tenant |
+| `permission` | Global vocabulary. `asset.manage` must mean the same thing everywhere; tenanting it would let two tenants disagree about what a permission is |
+| `role_permission` | Join table — the tenant is carried by `role.tenant_id` |
+| `user_role` | Join table — the tenant is carried by both parents |
+
+A join table does not get a fourth copy of a fact its parents already hold; that is a way
+for the copies to disagree, not extra isolation. **`role` itself IS tenant-scoped**, with a
+nullable `tenant_id` where null means a system role shared by all tenants.
+
+`schema/index.ts` is the authoritative list. To re-check the claim rather than trust it:
+
+```sql
+select t.table_name from information_schema.tables t
+where t.table_schema='public' and t.table_type='BASE TABLE'
+  and not exists (select 1 from information_schema.columns c
+                  where c.table_schema='public' and c.table_name=t.table_name
+                    and c.column_name='tenant_id');
+```
+
+`tenant_id` is **not** Release 1 work and was never added by it — it is in
+`0000_wooden_blacklash.sql`, from the design rule in `docs/02-saas-architecture.md`:
+*build single-tenant-shaped but multi-tenant-ready from day one*. What Release 1 added is
+the `WHERE` clause that uses it, plus one unique index (`user_tenant_email_uq`, `0018`).
 
 ## Migrations, never push
 

@@ -180,7 +180,7 @@ export const projectGroupRouter = router({
       const [row] = await ctx.db
         .update(schema.projectGroup)
         .set(patch)
-        .where(eq(schema.projectGroup.id, input.id))
+        .where(and(eq(schema.projectGroup.id, input.id), eq(schema.projectGroup.tenantId, tid)))
         .returning();
       return row;
     }),
@@ -193,7 +193,7 @@ export const projectGroupRouter = router({
         where: and(eq(schema.projectGroup.id, input.id), eq(schema.projectGroup.tenantId, tid)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such job group" });
-      await ctx.db.delete(schema.projectGroup).where(eq(schema.projectGroup.id, input.id));
+      await ctx.db.delete(schema.projectGroup).where(and(eq(schema.projectGroup.id, input.id), eq(schema.projectGroup.tenantId, tid)));
       await logEvent(ctx, {
         category: "project",
         action: "projectGroup.delete",
@@ -215,7 +215,7 @@ export const projectGroupRouter = router({
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such job group" });
       await ctx.db
         .delete(schema.projectGroupProject)
-        .where(eq(schema.projectGroupProject.projectGroupId, input.id));
+        .where(and(eq(schema.projectGroupProject.projectGroupId, input.id), eq(schema.projectGroupProject.tenantId, tid)));
       if (input.projectIds.length) {
         await ctx.db.insert(schema.projectGroupProject).values(
           input.projectIds.map((projectId) => ({ tenantId: tid, projectGroupId: input.id, projectId })),
@@ -235,7 +235,7 @@ export const projectGroupRouter = router({
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such job group" });
       await ctx.db
         .delete(schema.projectGroupUser)
-        .where(eq(schema.projectGroupUser.projectGroupId, input.id));
+        .where(and(eq(schema.projectGroupUser.projectGroupId, input.id), eq(schema.projectGroupUser.tenantId, tid)));
       if (input.userIds.length) {
         await ctx.db.insert(schema.projectGroupUser).values(
           input.userIds.map((userId) => ({ tenantId: tid, projectGroupId: input.id, userId })),

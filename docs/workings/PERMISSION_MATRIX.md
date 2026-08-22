@@ -1,6 +1,33 @@
 # Permission matrix — draft proposal for Urban's confirmation
 
-**Status:** Draft proposal, 2026-08-15 · corrected 2026-08-22 · **awaiting Urban**
+**Status:** **BUILT AT ITS DEFAULTS, 2026-08-22 — still awaiting Urban.**
+Draft proposal 2026-08-15 · corrected 2026-08-22 · implemented 2026-08-22
+
+> **What happened.** This document was not returned. §6 states its own policy — *"Silence is
+> an answer. Every default above is what gets built if this document is not returned"* — and
+> that is what was done: Phase 3 shipped on the eight answers below as written. **Urban has
+> still agreed nothing.** The six reversible decisions, each with the one-line change that
+> undoes it, are tabulated in `SYSTEM_PLAN.md` §8.2. Put that table in front of Urban before
+> the roles reach production; after that, each is a migration against live permission rows
+> rather than an edit.
+>
+> **The executable copy of §2 is now `packages/db/src/role-perms.ts`**, and
+> `packages/api-contracts/src/rbac-matrix.test.ts` asserts the database matches it in both
+> directions. When this document and that file disagree, **the file is what the system
+> does.**
+>
+> **One deviation from §1, deliberate.** §1's cost line asks for four new login roles
+> including `system_admin`. Three were built. `owner` already holds every permission and
+> already does System Administrator's job — a second all-permissions role would be two names
+> for one authority, which is the "'Admin' means three things" ambiguity §1 exists to
+> remove. The matrix's System Admin column maps to `owner`.
+>
+> **Two more roles were reconciled against the code, not against Urban** (CLAUDE.md rule 3:
+> the code is the truth about the running system). Where §4 records the seed as narrower
+> than this table — `finance`, `procurement`, `read_only` — or wider — `foreman`, `hr` — the
+> **shipped grant won**. The one exception is `notification.read`, which this table grants to
+> all thirteen roles and the seed had simply not been filled in for; that is an omission, not
+> a decision, and it was granted.
 **Confirms:** STI-301 · **Blocks:** STI-302, STI-304, STI-307, STI-308, STI-501 — 11 units
 
 > **Correction, 2026-08-22.** The first version of this document said it was "drafted from

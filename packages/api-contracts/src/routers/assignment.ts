@@ -8,11 +8,17 @@ import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { assertVehicleContext, closeActiveCustody, projectForCustodian, vehicleContextFromLedger } from "../custody.js";
+import { assetVisibility, assignmentScopeWhere } from "../scope.js";
 import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 
 export const assignmentRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: requirePermission("assignment.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    /* Scoped on the ASSIGNMENT's own custodian and project, not the asset's
+       current ones — a returned row is history, and re-scoping history by
+       where the tool sits today would show a foreman a hand-off he was never
+       part of and hide one he was. See assignmentScopeWhere. */
+    const scoped = assignmentScopeWhere(await assetVisibility(ctx.db, ctx.session));
     const truckVehicle = alias(schema.vehicle, "assignment_truck");
     const trailerVehicle = alias(schema.vehicle, "assignment_trailer");
     const rows = await ctx.db
@@ -57,7 +63,7 @@ export const assignmentRouter = router({
         trailerVehicle,
         and(eq(schema.assignment.trailerId, trailerVehicle.id), eq(trailerVehicle.tenantId, tid)),
       )
-      .where(eq(schema.assignment.tenantId, tid));
+      .where(and(eq(schema.assignment.tenantId, tid), scoped));
     return rows.map((r) => ({ ...r, modelName: formatAssetModel(r) }));
   }),
 

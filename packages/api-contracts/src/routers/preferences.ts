@@ -37,6 +37,9 @@ const prefsInput = z.object({
   density: z.enum(["comfortable", "compact"]),
   dashboard: z.object({
     widgets: z.record(z.string(), z.boolean()),
+    /* The Desk (STI-501) is a ROUTE, not a tab — it is at /desk and appears in
+       both navs — so it deliberately does not belong in this enum. A dashboard
+       tab preference names one of the two dashboard tabs and nothing else. */
     defaultTab: z.enum(["fleet", "command"]).optional(),
   }),
 });
@@ -76,7 +79,7 @@ export const preferencesRouter = router({
       await ctx.db
         .update(schema.userPreferences)
         .set({ ...input, updatedAt: new Date() })
-        .where(eq(schema.userPreferences.id, existing.id));
+        .where(and(eq(schema.userPreferences.id, existing.id), eq(schema.userPreferences.tenantId, tid)));
     } else {
       await ctx.db.insert(schema.userPreferences).values({ tenantId: tid, userId: uid, ...input });
     }

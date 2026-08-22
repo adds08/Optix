@@ -2,7 +2,7 @@
 
 **Phase:** 3 — Roles, accounts and organisation structure
 **Size:** 1 unit
-**Status:** BLOCKED by STI-302, STI-304
+**Status:** **DONE — 2026-08-22.** `packages/api-contracts/src/rbac-matrix.test.ts`, 33 tests. The matrix lives in `packages/db/src/role-perms.ts` and the test reads it. **Found two real holes** — see below.
 
 ---
 

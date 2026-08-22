@@ -2,7 +2,7 @@
 
 **Phase:** 1 — Custody trail (follow-up)
 **Size:** 1 unit
-**Status:** READY
+**Status:** **DONE — 2026-08-22.** Nineteen writes on tenant-scoped tables carried no tenant predicate. **None was exploitable** — every one sat behind a tenant-scoped check-then-act — but safe is not the same as checkable. All nineteen now carry it, and `packages/api-contracts/src/tenant-predicate.test.ts` fails the build on a twentieth. Proven by reverting one fix and watching it fail.
 **Found by:** the STI-117 implementer on 2026-08-18, running the grep that ticket's
 criterion 2 required. The two writes were confirmed by the lead.
 
