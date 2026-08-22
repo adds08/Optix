@@ -2,7 +2,14 @@
 
 **Phase:** 3 — Roles, accounts and organisation structure
 **Size:** 4 units
-**Status:** READY — does not depend on the STI-301 matrix contents
+**Status:** **DONE** — 2026-08-19. `user` router (create / setRole / setActive / resetPassword /
+changePassword) gated on `config.manage`, screen at `/admin/users`, reachable from the Entity
+nav group. Deactivate never deletes and never moves custody. `user.must_change_password`
+(migration `0019`) is set on create and reset, cleared when the user sets their own password,
+and reported by `login()` — **reported, not enforced as a refusal**, because a user who cannot
+log in also cannot change their password. Failed QA once (9 defects) and was reworked.
+**Outstanding:** no client screen yet reads `mustChangePassword`, so the flag is set and
+ignored by the UI.
 **Depends on:** nothing
 
 ---

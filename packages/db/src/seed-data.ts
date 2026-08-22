@@ -12,7 +12,7 @@ export type AssetSeed = { tag: string; make: string | null; modelNumber: string 
 export type AssignSeed = { tag: string; cust: string; proj: string | null; loc: string; type: string; start: string; end: string | null };
 export type TxSeed = { tag: string; event: string; at: string; note: string; ref: string };
 export type DeptSeed = { name: string; code: string };
-export type UserSeed = { email: string; first: string; last: string; role: string; employeeKey: string | null };
+export type UserSeed = { email: string; first: string; last: string; role: string; employeeKey: string | null; isActive?: boolean };
 
 export const departmentSpecs: DeptSeed[] = [
   { name: "Repair & Maintenance", code: "RM" },
@@ -41,7 +41,23 @@ export const projectSpecs: ProjectSeed[] = [
 
 export const employeeSpecs: EmployeeSeed[] = [
   { key: "e-fm001", extId: "FM-001", name: "Alejandro Capuchino", role: "foreman", primary: "p-lone-star-22018", status: "active", email: null, phone: null, reportsTo: null },
-  { key: "e-fm002", extId: "FM-002", name: "Jobani Abarca", role: "foreman", primary: "p-equipment-yard-24002", status: "active", email: null, phone: null, reportsTo: null },
+  /*
+    The one TERMINATED employee, and the reporting chain above them (STI-306).
+
+    Before this, `employment_status` was 'active' on all 41 people and
+    `reports_to_employee_id` was null on every row — so the HR clearance queue
+    was permanently EMPTY and departure reassignment could not be reached, let
+    alone tested, from a clean database. CLAUDE.md rule 8: seed the edge that
+    trips the rule.
+
+    FM-002 is chosen deliberately. He holds 23 tools AND the seed's only
+    `personal_allowance` truck, so a departure preview over him exercises the
+    single most important rule in the feature: company property is reassigned,
+    a personal vehicle is NOT — it is not Urban's and leaves with the person.
+    A leaver holding only tools would never have proved that.
+  */
+  { key: "e-sup001", extId: "SUP-001", name: "Marcus Whitfield", role: "superintendent", primary: "p-equipment-yard-24002", status: "active", email: null, phone: null, reportsTo: null },
+  { key: "e-fm002", extId: "FM-002", name: "Jobani Abarca", role: "foreman", primary: "p-equipment-yard-24002", status: "terminated", email: null, phone: null, reportsTo: "e-sup001" },
   { key: "e-fm003", extId: "FM-003", name: "ELEASAR MURILLO", role: "foreman", primary: "p-lone-star-22018", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-fm004", extId: "FM-004", name: "JOSE LUIS RODRIGUEZ", role: "foreman", primary: "p-colony-phase-12-23004", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-fm005", extId: "FM-005", name: "ANDRES FLORES", role: "foreman", primary: "p-nex-22017", status: "active", email: null, phone: null, reportsTo: null },
@@ -213,7 +229,11 @@ export const vehSpecs: VehSeed[] = [
   { key: "v-TE-035", loc: "l-TE-035", vtype: "trailer", unit: "TE-035", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-little-elm-23009", foreman: "e-fm025", lat: "32.7766", lng: "-96.7970" },
   { key: "v-TE-036", loc: "l-TE-036", vtype: "trailer", unit: "TE-036", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm026", lat: "32.7766", lng: "-96.7970" },
   /*
-    The ONE synthetic vehicle in the seed, and deliberately the only truck.
+    The FIRST of two synthetic vehicles, and the company-owned truck.
+
+    (A second synthetic truck, `personal_allowance`, follows below — it exists
+    to make the company-vs-personal marker reachable. Urban's sheets still
+    contain zero trucks; both are seed-only.)
 
     Urban's source sheets carry 29 trailers and zero trucks, so nothing real can
     exercise `assignment_truck_fk` or the "in a truck" fold path (STI-202) — the
@@ -2515,4 +2535,17 @@ export const userSpecs: UserSeed[] = [
   { email: "owner@stinventory.local", first: "Demo", last: "Owner", role: "owner", employeeKey: null },
   { email: "admin@stinventory.local", first: "Karen", last: "Osei", role: "equipment_admin", employeeKey: "e-karen" },
   { email: "warehouse@stinventory.local", first: "Yard", last: "Desk", role: "warehouse", employeeKey: "e-yard" },
+  /*
+    One DEACTIVATED account (STI-303). All three accounts above are active, so
+    the "Deactivated" badge, the dimmed row and the Reactivate button on
+    /admin/users were unreachable from a clean database — the only way to see
+    them was to deactivate a live account by hand, which is the psql-editing
+    pattern CLAUDE.md rule 8 exists to stop.
+
+    Linked to the terminated foreman on purpose: it is the realistic pairing,
+    and it makes the separation visible — the ACCOUNT is dark while the tools
+    are still on the PERSON until a departure reassignment moves them. Closing
+    an account and moving custody are deliberately different actions.
+  */
+  { email: "jobani@stinventory.local", first: "Jobani", last: "Abarca", role: "foreman", employeeKey: "e-fm002", isActive: false },
 ];

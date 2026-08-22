@@ -2,7 +2,14 @@
 
 **Phase:** 2 — Assignment detail (follow-up)
 **Size:** 2 units
-**Status:** READY
+**Status:** **DONE** — 2026-08-19. Decision: **the active assignment is the truth for a
+vehicle**, by precedence rather than union — a tool with no active assignment at all is
+aboard by its location row, because an unheld tool has no `trailerId` to be aboard of.
+Non-vehicle containers keep the location query. Recorded in
+`.claude/rules/custody-and-ledger.md`. Two defects in the first cut were caught by review
+and fixed: the writer stamped the container's location onto the ledger while the
+projection was never updated (guaranteed divergence), and selecting purely by assignment
+made handing a container BACK empty its manifest permanently.
 **Found by:** the STI-203 implementer on 2026-08-18, while fixing the container writer.
 Reported rather than fixed, correctly — it is a model question, not a bug in that fix.
 

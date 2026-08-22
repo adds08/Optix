@@ -2,7 +2,13 @@
 
 **Phase:** 3 — Roles, accounts and organisation structure
 **Size:** 3 units
-**Status:** READY — the rule is in §2, not in the pending matrix
+**Status:** **DONE** — 2026-08-19. `custody.reassign` permission (owner, equipment_admin,
+warehouse), preview + one-transaction move reachable from the clearance queue. Personal
+vehicles skipped with the reason shown. Containers route through `applyContainerCustody`, the
+sanctioned writer — the first cut used bare UPDATEs and was a second custody writer. Failed QA
+once (10 defects) and was reworked. Verified end to end in a browser: 23 tools moved, 23 prior
+links closed, 23 complete ledger events, the personal truck left with the leaver, 0
+divergences.
 **Depends on:** STI-102 (must be atomic first)
 
 ---

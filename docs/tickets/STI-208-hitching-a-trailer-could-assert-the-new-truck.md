@@ -2,7 +2,11 @@
 
 **Phase:** 2 — Assignment detail (follow-up)
 **Size:** 1 unit
-**Status:** READY — but read "Decide before building" first; the answer may be "no"
+**Status:** **CLOSED — the answer was "no"**, 2026-08-19. Hitching keeps carrying the
+recorded truck forward rather than asserting the new one. Rewriting it on every hitch
+turns a historical record into a live tracking field, and unhitching then has no
+defensible answer under the three-state rule. Reasoning recorded at the `vehicle.update`
+call site and in `.claude/rules/custody-and-ledger.md`. No code change.
 **Found by:** the STI-203 implementer on 2026-08-18, offered as enrichment rather than a
 defect. That framing is correct and this ticket keeps it.
 

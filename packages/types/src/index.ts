@@ -71,6 +71,11 @@ export const PERMISSIONS = [
   "transfer.read",
   "transfer.create",
   "transfer.approve",
+  /* Departure reassignment (STI-306). Deliberately NOT `assignment.approve`:
+     approving one proposed hand-off and stripping every tool a leaver holds in
+     one irreversible transaction are different powers, and the second needs its
+     own grant so it can be given to fewer people. */
+  "custody.reassign",
   "report.read",
   /* Rented equipment. Separate from asset.* because the people who decide what
      Urban buys are not always the people who can call a pump off rent, and the

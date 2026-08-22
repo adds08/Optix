@@ -40,7 +40,7 @@ export const containerCustodyInput = z.object({
   hitched to it) and the vehicle editor (attaching a trailer to a truck that
   already has a foreman).
 */
-async function applyContainerCustody(opts: {
+export async function applyContainerCustody(opts: {
   tx: any;
   tid: string;
   actorUserId: string;
@@ -53,10 +53,16 @@ async function applyContainerCustody(opts: {
 }): Promise<number> {
   const { tx, tid, actorUserId, locationId, locationName, custodianId, custodianName, moveContents, note } = opts;
 
+  /* Tenant-scoped. It was not, and the vehicle-mirror update immediately below
+     always has been — so the omission read as an accident rather than a
+     decision. Safe in practice because every caller selects `locationId` under
+     a tenant predicate first, but there is no RLS here: the WHERE clause IS the
+     isolation, and a control that depends on all its callers being careful is
+     not a control. Found in review while a second caller was being added. */
   await tx
     .update(schema.location)
     .set({ custodianEmployeeId: custodianId })
-    .where(eq(schema.location.id, locationId));
+    .where(and(eq(schema.location.id, locationId), eq(schema.location.tenantId, tid)));
 
   /* Keep the vehicle mirror in step. `location.custodianEmployeeId` is the
      authoritative column, but the vehicle list and import still read
