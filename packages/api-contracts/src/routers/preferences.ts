@@ -50,7 +50,8 @@ export const preferencesRouter = router({
     });
     if (!row) {
       return {
-        themeName: "forest" as const,
+        /* "drafting-ink" is the Blocky base token set — see the catalog. */
+        themeName: "drafting-ink" as const,
         fontFamily: "system" as const,
         fontScale: "1.0",
         density: "comfortable" as const,

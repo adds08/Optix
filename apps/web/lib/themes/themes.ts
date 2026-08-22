@@ -435,11 +435,14 @@ export const THEMES: Record<ThemeName, ThemeDef> = {
   /* The original palette — drafting ink on paper. Default, so it carries no
      overrides: the base tokens in globals.css ARE this theme, and a user with
      no preference gets byte-identical rendering to the pre-engine app. */
+  /* The house look — System Shell v3's own palette. Its overrides are empty by
+     design: this theme IS the base token set in globals.css, so picking it
+     means "remove every override", not "apply another thirty variables". */
   "drafting-ink": {
     name: "drafting-ink",
-    label: "Drafting Ink",
-    description: "The original look. Deep blue-teal ink on near-white paper.",
-    swatch: { light: "oklch(0.505 0.093 227)", dark: "oklch(0.715 0.105 222)" },
+    label: "Blocky",
+    description: "The house look. Drafting blue on near-black, 4px corners, zero decoration.",
+    swatch: { light: "#3a6e9e", dark: "#7fb0e4" },
     light: {},
     dark: {},
   },
@@ -487,7 +490,10 @@ export type ThemePrefs = {
 };
 
 export const DEFAULT_PREFS: ThemePrefs = {
-  themeName: "forest",
+  /* Blocky — the base token set. Any other entry in the catalog layers ~30
+     inline variables over globals.css, which would paint the shell in a
+     palette the design never specified. */
+  themeName: "drafting-ink",
   fontFamily: "system",
   fontScale: "1.0",
   density: "comfortable",

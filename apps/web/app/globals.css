@@ -51,118 +51,151 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* The app rail — the 48px instrument panel that carries the nav groups.
+     It is dark in BOTH modes on purpose (see the token block below). */
+  --color-rail: var(--rail);
+  --color-rail-foreground: var(--rail-foreground);
+
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 }
 
 /*
-  STInventory palette.
-  Neutrals carry a slight cool bias toward the accent so they read as chosen,
-  not inherited. Radius is tight (6px) — this is a yard tool, not a consumer app.
+  STInventory palette — "Blocky" (System Shell v3).
+
+  These are the design system's own values, not a re-derivation of them: the
+  surface, border, text and accent scales come from `tokens/colors.css`, and
+  the light mode from the shell's `theme()` light branch. They are written as
+  hex on purpose — the source of truth is a set of picked colours, and
+  round-tripping them through oklch would make every future diff against the
+  design a conversion argument rather than a colour one.
+
+  Two things in here are deliberate and easy to mistake for bugs:
+
+    - the radius is 4px, everywhere. No pill shapes, no 12px cards. The
+      blockiness is the point — it reads as instrument panel, not consumer app.
+    - --rail is near-black in BOTH modes. The 48px app rail is the one surface
+      that does not follow the light/dark split, because it is the frame the
+      product sits in rather than part of the page.
+
+  This block is also the "Blocky" entry in the theme catalog: that theme ships
+  empty overrides because it IS the base token set (see lib/themes/themes.ts).
 */
 :root {
-  --radius: 0.375rem;
+  --radius: 0.25rem;
 
-  --background: oklch(0.988 0.003 240);
-  --foreground: oklch(0.195 0.016 245);
+  --background: #f4f5f7;
+  --foreground: #1a1e24;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.195 0.016 245);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.195 0.016 245);
+  --card: #ffffff;
+  --card-foreground: #1a1e24;
+  --popover: #ffffff;
+  --popover-foreground: #1a1e24;
 
-  /* Accent: deep blue-teal — drafting ink. */
-  --primary: oklch(0.505 0.093 227);
-  --primary-foreground: oklch(0.99 0.002 240);
+  /* Accent: a desaturated drafting blue. Links, active nav, primary buttons —
+     never decoration. */
+  --primary: #3a6e9e;
+  --primary-foreground: #ffffff;
 
-  --secondary: oklch(0.962 0.006 240);
-  --secondary-foreground: oklch(0.28 0.018 245);
-  --muted: oklch(0.965 0.005 240);
-  --muted-foreground: oklch(0.505 0.016 245);
-  --accent: oklch(0.948 0.014 230);
-  --accent-foreground: oklch(0.34 0.055 227);
+  --secondary: #eceef1;
+  --secondary-foreground: #2a3038;
+  --muted: #eceef1;
+  /* The design's own muted ink is #8A939C, which sits at ~3.2:1 on white and
+     fails AA for the running text this token actually carries. Darkened to the
+     nearest value that passes; the design's lighter grey survives as the /70
+     opacity step used for hints. */
+  --muted-foreground: #616a73;
+  --accent: #e8f0f8;
+  --accent-foreground: #1e3a54;
 
-  --destructive: oklch(0.545 0.163 28);
-  --border: oklch(0.906 0.008 240);
-  --input: oklch(0.906 0.008 240);
-  --ring: oklch(0.505 0.093 227);
+  --destructive: #c0512e;
+  --border: #e0e3e8;
+  --input: #d8dce2;
+  --ring: #3a6e9e;
 
-  --ok: oklch(0.505 0.092 168);
-  --ok-bg: oklch(0.955 0.024 168);
-  --warn: oklch(0.545 0.115 62);
-  --warn-bg: oklch(0.958 0.036 72);
-  --crit: oklch(0.525 0.163 28);
-  --crit-bg: oklch(0.955 0.028 28);
-  --idle: oklch(0.545 0.012 245);
-  --idle-bg: oklch(0.952 0.005 240);
+  /* Status — reserved. 11% wash for backgrounds, per the design. */
+  --ok: #2f7d52;
+  --ok-bg: color-mix(in oklab, var(--ok) 11%, var(--card));
+  --warn: #c48820;
+  --warn-bg: color-mix(in oklab, var(--warn) 11%, var(--card));
+  --crit: #c0512e;
+  --crit-bg: color-mix(in oklab, var(--crit) 11%, var(--card));
+  --idle: #7d858d;
+  --idle-bg: color-mix(in oklab, var(--idle) 11%, var(--card));
 
-  --chart-1: oklch(0.505 0.093 227);
-  --chart-2: oklch(0.505 0.092 168);
-  --chart-3: oklch(0.545 0.115 62);
-  --chart-4: oklch(0.525 0.163 28);
-  --chart-5: oklch(0.545 0.012 245);
+  --chart-1: #3a6e9e;
+  --chart-2: #2f7d52;
+  --chart-3: #c48820;
+  --chart-4: #c0512e;
+  --chart-5: #7d858d;
 
-  /* Sidebar is a panel, not part of the page: close enough in value to stay
-     light, different enough (darker, cooler) that the edge is obvious at a
-     glance. The page background is ~0.99; this sits ~0.94. */
-  --sidebar: oklch(0.94 0.015 234);
-  --sidebar-foreground: oklch(0.28 0.018 245);
-  --sidebar-primary: oklch(0.505 0.093 227);
-  --sidebar-primary-foreground: oklch(0.99 0.002 240);
-  --sidebar-accent: oklch(0.898 0.022 228);
-  --sidebar-accent-foreground: oklch(0.31 0.055 227);
-  --sidebar-border: oklch(0.87 0.014 236);
-  --sidebar-ring: oklch(0.505 0.093 227);
+  /* The secondary nav is a panel on the page, not a tinted band: it takes the
+     card surface and separates with a rule, the way the shell does. */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1e24;
+  --sidebar-primary: #3a6e9e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8f0f8;
+  --sidebar-accent-foreground: #1e3a54;
+  --sidebar-border: #e0e3e8;
+  --sidebar-ring: #3a6e9e;
+
+  --rail: #1a1e24;
+  --rail-foreground: #98a1aa;
 }
 
 .dark {
-  --background: oklch(0.172 0.012 245);
-  --foreground: oklch(0.948 0.005 240);
+  --background: #090b0e;
+  --foreground: #eaedef;
 
-  --card: oklch(0.212 0.014 245);
-  --card-foreground: oklch(0.948 0.005 240);
-  --popover: oklch(0.212 0.014 245);
-  --popover-foreground: oklch(0.948 0.005 240);
+  --card: #11151a;
+  --card-foreground: #eaedef;
+  --popover: #151a21;
+  --popover-foreground: #eaedef;
 
-  --primary: oklch(0.715 0.105 222);
-  --primary-foreground: oklch(0.172 0.012 245);
+  --primary: #7fb0e4;
+  --primary-foreground: #090b0e;
 
-  --secondary: oklch(0.262 0.015 245);
-  --secondary-foreground: oklch(0.94 0.005 240);
-  --muted: oklch(0.252 0.014 245);
-  --muted-foreground: oklch(0.688 0.014 245);
-  --accent: oklch(0.288 0.032 228);
-  --accent-foreground: oklch(0.88 0.045 222);
+  --secondary: #1a1f26;
+  --secondary-foreground: #eaedef;
+  --muted: #141a21;
+  --muted-foreground: #8a939c;
+  --accent: #162233;
+  --accent-foreground: #c8dffa;
 
-  --destructive: oklch(0.665 0.152 27);
-  --border: oklch(0.302 0.016 245);
-  --input: oklch(0.322 0.018 245);
-  --ring: oklch(0.715 0.105 222);
+  --destructive: #d2694a;
+  --border: #232a32;
+  --input: #262e37;
+  --ring: #7fb0e4;
 
-  --ok: oklch(0.735 0.105 168);
-  --ok-bg: oklch(0.268 0.038 168);
-  --warn: oklch(0.762 0.112 68);
-  --warn-bg: oklch(0.282 0.042 62);
-  --crit: oklch(0.688 0.135 28);
-  --crit-bg: oklch(0.285 0.052 28);
-  --idle: oklch(0.665 0.012 245);
-  --idle-bg: oklch(0.258 0.008 245);
+  --ok: #4fa97a;
+  --ok-bg: color-mix(in oklab, var(--ok) 11%, var(--card));
+  --warn: #e4a13b;
+  --warn-bg: color-mix(in oklab, var(--warn) 11%, var(--card));
+  --crit: #d2694a;
+  --crit-bg: color-mix(in oklab, var(--crit) 11%, var(--card));
+  --idle: #8a939c;
+  --idle-bg: color-mix(in oklab, var(--idle) 11%, var(--card));
 
-  --chart-1: oklch(0.715 0.105 222);
-  --chart-2: oklch(0.735 0.105 168);
-  --chart-3: oklch(0.762 0.112 68);
-  --chart-4: oklch(0.688 0.135 28);
-  --chart-5: oklch(0.665 0.012 245);
+  --chart-1: #7fb0e4;
+  --chart-2: #4fa97a;
+  --chart-3: #e4a13b;
+  --chart-4: #d2694a;
+  --chart-5: #8a939c;
 
-  --sidebar: oklch(0.16 0.017 240);
-  --sidebar-foreground: oklch(0.885 0.008 240);
-  --sidebar-primary: oklch(0.715 0.105 222);
-  --sidebar-primary-foreground: oklch(0.172 0.012 245);
-  --sidebar-accent: oklch(0.245 0.032 226);
-  --sidebar-accent-foreground: oklch(0.88 0.045 222);
-  --sidebar-border: oklch(0.245 0.018 240);
-  --sidebar-ring: oklch(0.715 0.105 222);
+  --sidebar: #0d1015;
+  --sidebar-foreground: #a6aeb6;
+  --sidebar-primary: #7fb0e4;
+  --sidebar-primary-foreground: #090b0e;
+  --sidebar-accent: #162233;
+  --sidebar-accent-foreground: #c8dffa;
+  --sidebar-border: #232a32;
+  --sidebar-ring: #7fb0e4;
+
+  --rail: #060809;
+  --rail-foreground: #8a939c;
 }
 
 @layer base {
@@ -451,6 +484,24 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+}
+
+/* Thin, quiet scrollbars — the design never spends 15px of a dense screen on a
+   track. Firefox gets the standard properties, WebKit the pseudo-elements. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--border) 80%, var(--foreground)) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--border) 80%, var(--foreground));
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* Sticky table headers — the column context stays visible while a long table
