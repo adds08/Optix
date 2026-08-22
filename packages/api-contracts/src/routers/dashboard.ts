@@ -309,6 +309,79 @@ export const dashboardRouter = router({
     }),
 
   /*
+    The AI briefing bar — one or two sentences of "here is what happened while
+    you were away", composed server-side in the operator's voice.
+
+    Deliberately NOT an LLM call: this is a deterministic fold over the same
+    scoped counts the rest of the page shows, so the prose can never name a
+    tool or a person the caller cannot see. The Blocky concept showed an
+    assistant that answers from a canned script; a script that lies about the
+    data would be the same defect in prose form. If the sentence ever needs
+    three clauses, the dashboard below is failing to say it.
+
+    The wording follows docs/09-vocabulary.md: numbers lead, consequences are
+    named, nothing "goes overdue" (the loan model was removed 2026-08-09).
+  */
+  briefing: requirePermission("asset.read").query(async ({ ctx }) => {
+    const tid = ctx.session.tenantId;
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
+
+    const [approvals, clearance, idle] = await Promise.all([
+      ctx.db
+        .select({ c: count() })
+        .from(schema.assignment)
+        .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
+        .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.status, "pending_approval"), scoped))
+        .then((r) => Number(r[0]?.c ?? 0))
+        .then(async (a) =>
+          a +
+          Number(
+            (
+              await ctx.db
+                .select({ c: count() })
+                .from(schema.transfer)
+                .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
+                .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval"), scoped))
+            )[0]?.c ?? 0,
+          ),
+        ),
+      ctx.db
+        .select({ c: count() })
+        .from(schema.asset)
+        .innerJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
+        .where(
+          and(
+            eq(schema.asset.tenantId, tid),
+            eq(schema.employee.employmentStatus, "terminated"),
+            ne(schema.asset.currentStatus, "available"),
+            scoped,
+          ),
+        )
+        .then((r) => Number(r[0]?.c ?? 0)),
+      ctx.db
+        .select({ c: count() })
+        .from(schema.asset)
+        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentStatus, "available"), scoped))
+        .then((r) => Number(r[0]?.c ?? 0)),
+    ]);
+
+    const clauses: string[] = [];
+    if (approvals > 0) {
+      clauses.push(`${approvals} hand-off${approvals === 1 ? "" : "s"} waiting on a signature`);
+    }
+    if (clearance > 0) {
+      clauses.push(`${clearance} tool${clearance === 1 ? "" : "s"} still held by a departed employee`);
+    }
+    if (idle > 0) {
+      clauses.push(`${idle} tool${idle === 1 ? "" : "s"} sitting available in the yard`);
+    }
+
+    return clauses.length
+      ? clauses.join(", ") + "."
+      : "Nothing needs you — the yard is square.";
+  }),
+
+  /*
     The Approval queue's source. STI-206: it now carries the rig.
 
     The gate exists so a SECOND person consents to a movement, and consent to a

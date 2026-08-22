@@ -52,6 +52,7 @@ import {
   type WidgetId,
 } from "@/components/dashboard-widgets";
 import { cn } from "@/lib/utils";
+import { BlockyDashboardView } from "@/components/sti/dashboard/blocky-dashboard-view";
 
 /*
   The desk dashboard (docs/20, B).
@@ -77,7 +78,13 @@ const FleetMapPanel = dynamic(
   },
 );
 
-type Tab = "fleet" | "command";
+/* `blocky` is the System Shell v3 concept dashboard (concept/blocky-shell-v3),
+   wired to the same scoped data as the other two tabs so the desk can compare
+   renderings of the same numbers. It is a concept tab, not a shipped default —
+   deliberately kept OUT of `DefaultTab`, so the persisted preference can never
+   name it and a star-click on the concept view cannot overwrite a real default. */
+type DefaultTab = "fleet" | "command";
+type Tab = DefaultTab | "blocky";
 
 export default function HomePage() {
   const router = useRouter();
@@ -113,7 +120,7 @@ export default function HomePage() {
   const setPrefs = useThemeStore((s) => s.setPrefs);
   const utils = trpc.useUtils();
 
-  const defaultTab: Tab = prefs?.dashboard.defaultTab ?? "fleet";
+  const defaultTab: DefaultTab = prefs?.dashboard.defaultTab ?? "fleet";
   const [tab, setTab] = useState<Tab>("fleet");
   const touched = useRef(false);
   /* Hydrate the tab from the stored default once — but never stamp over a tab
@@ -122,7 +129,7 @@ export default function HomePage() {
     if (!touched.current && prefs?.dashboard.defaultTab) setTab(prefs.dashboard.defaultTab);
   }, [prefs]);
 
-  const setDefaultTab = (t: Tab) => {
+  const setDefaultTab = (t: DefaultTab) => {
     /* DEFAULT_PREFS, not a locally duplicated literal — this write path used
        to hardcode "drafting-ink" here, so a star-click or widget toggle that
        landed before the prefs query resolved would silently persist that
@@ -167,7 +174,7 @@ export default function HomePage() {
       {/* ---- tabs: the page's only header ---- */}
       <div className="flex items-center gap-2 border-b pb-3">
         <div className="flex overflow-hidden rounded-md border" role="group" aria-label="Dashboard view">
-          {([["fleet", "Fleet at a Glance"], ["command", "Command Center"]] as const).map(([key, label]) => (
+          {([["fleet", "Fleet at a Glance"], ["command", "Command Center"], ["blocky", "Blocky"]] as const).map(([key, label]) => (
             <button
               key={key}
               type="button"
@@ -184,10 +191,11 @@ export default function HomePage() {
             </button>
           ))}
         </div>
-        {/* The star, per tab: whichever view is starred opens first. */}
+        {/* The star, per tab: whichever view is starred opens first. The
+            concept tab is not a valid default, so starring it is a no-op. */}
         <button
           type="button"
-          onClick={() => { touched.current = true; setDefaultTab(tab); }}
+          onClick={() => { touched.current = true; if (tab !== "blocky") setDefaultTab(tab); }}
           aria-pressed={defaultTab === tab}
           aria-label={defaultTab === tab ? `${tab} view is your default` : `Make the ${tab} view your default`}
           title="Star this view to open it first"
@@ -367,7 +375,7 @@ export default function HomePage() {
           </section>
           ) : null}
         </>
-      ) : (
+      ) : tab === "command" ? (
         <>
           {/* ---- command center: the widget grid, no weather ---- */}
           <section className="flex flex-col gap-3">
@@ -408,6 +416,11 @@ export default function HomePage() {
               )}
             </div>
           </section>
+        </>
+      ) : (
+        <>
+          {/* ---- blocky: the System Shell v3 concept dashboard ---- */}
+          <BlockyDashboardView />
         </>
       )}
       </div>

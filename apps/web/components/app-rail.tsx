@@ -26,7 +26,14 @@ import type { NavGroup } from "@/components/sti/nav-config";
   The groups arriving here are already permission-filtered — an empty group is
   never drawn, because a glyph that opens an empty sidebar is worse than a
   missing one.
+
+  Adaptations for main's nav-config (which ships `NavGroup = { label, items }`
+  with per-ITEM icons and no group key): the group key is derived from the
+  label and the rail glyph is the first item's icon, since that is the one
+  glyph that always exists for a visible group.
 */
+
+const groupKey = (g: NavGroup) => g.label.toLowerCase().replace(/[^a-z]+/g, "-");
 
 export function AppRail({
   groups,
@@ -54,12 +61,15 @@ export function AppRail({
       </Link>
 
       {groups.map((g) => {
-        const active = g.key === activeKey;
+        const key = groupKey(g);
+        const active = key === activeKey;
+        const first = g.items[0];
+        if (!first) return null;
         return (
-          <Tooltip key={g.key}>
+          <Tooltip key={key}>
             <TooltipTrigger asChild>
               <Link
-                href={g.items[0].href}
+                href={first.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "grid size-9 shrink-0 place-items-center rounded-md transition-colors",
@@ -68,7 +78,7 @@ export function AppRail({
                     : "text-rail-foreground hover:bg-white/5 hover:text-sidebar-accent-foreground",
                 )}
               >
-                <g.icon className="size-[17px]" aria-hidden />
+                <first.icon className="size-[17px]" aria-hidden />
                 <span className="sr-only">{g.label}</span>
               </Link>
             </TooltipTrigger>
