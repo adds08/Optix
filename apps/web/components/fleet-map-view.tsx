@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from "react-leaflet";
+import { useEffect, useRef, useState } from "react";
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap, useMapEvent } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { groupByPosition, type VehicleStatus } from "@stinventory/types";
+import { groupByPosition, VEHICLE_MARKER_RADIUS_PX, type VehicleStatus } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { dateTime } from "@/lib/format";
 import { humanize } from "@/components/sti/status";
@@ -46,6 +46,21 @@ export const VEHICLE_STATUS_LABEL: Record<VehicleStatus, string> = {
    truck that pinged from outside this viewport was off-canvas with no cue.
    That was the second half of UI-67.) */
 const CENTER: [number, number] = [32.7767, -96.797];
+
+/* The zoom <MapContainer> opens at. Named because grouping needs the same value
+   before the map has mounted and had a chance to report one. */
+const OPENING_ZOOM = 11;
+
+/*
+  Report the map's zoom back out, because whether two vehicles share a marker is
+  a question about screen distance and therefore about zoom (UI-67). Same shape
+  as FitToTracked: a null-rendering child, because useMap/useMapEvent only work
+  inside <MapContainer>.
+*/
+function ZoomWatch({ onZoom }: { onZoom: (zoom: number) => void }) {
+  useMapEvent("zoomend", (e) => onZoom(e.target.getZoom()));
+  return null;
+}
 
 /*
   Move the view to cover every tracked position. Lives inside <MapContainer>
@@ -97,19 +112,32 @@ export function FleetMapView({
   const vehicles = trpc.vehicle.list.useQuery(undefined, { enabled: maySeeVehicles });
   const assets = trpc.asset.list.useQuery({}, { enabled: maySeeAssets });
 
+  /* Seeded with the value <MapContainer> opens at, so the first paint groups
+     against the zoom actually on screen rather than waiting for a zoomend that
+     only fires if the user moves. */
+  const [zoom, setZoom] = useState(OPENING_ZOOM);
+
   const countByLocation = new Map<string, number>();
   for (const a of assets.data ?? []) {
     if (a.locationId) countByLocation.set(a.locationId, (countByLocation.get(a.locationId) ?? 0) + 1);
   }
 
-  /* UI-67: one marker per POSITION, not per vehicle. Vehicles parked in the
-     same yard share coordinates exactly, and a CircleMarker per vehicle drew
-     them on top of one another — the tester saw 7 vehicles listed as tracked
-     and 2 markers, with only the topmost of each stack clickable. Grouping is
-     the honest fix: scattering the dots would invent positions no GPS unit ever
-     reported, on a map whose whole job is saying where a tool really is. */
-  const groups = groupByPosition(vehicles.data ?? []);
-  const positions = groups.map((g) => [g.lat, g.lng] as [number, number]);
+  /* UI-67: one marker per VISIBLE position, not per vehicle. A CircleMarker per
+     vehicle drew them on top of one another — the tester saw 7 vehicles listed
+     as tracked and 2 markers, with only the topmost of each stack clickable.
+     Grouping is the honest fix: scattering the dots would invent positions no
+     GPS unit ever reported, on a map whose whole job is saying where a tool
+     really is. Whether two dots collide depends on the zoom, so the grouping is
+     redone when the user zooms and a pile splits as they go in. */
+  const groups = groupByPosition(vehicles.data ?? [], zoom);
+
+  /* Fitting reads the RAW pings, not the groups. Groups depend on zoom, and
+     fitBounds sets zoom, so fitting to them would feed its own input — the map
+     would settle into a regroup/refit loop. Every vehicle is inside the bounds
+     either way. */
+  const positions = (vehicles.data ?? [])
+    .filter((v) => v.gpsLat != null && v.gpsLng != null)
+    .map((v) => [Number(v.gpsLat), Number(v.gpsLng)] as [number, number]);
 
   if (!maySeeVehicles) {
     /* Say why the map is not here rather than drawing an empty one. An empty
@@ -133,12 +161,13 @@ export function FleetMapView({
        header's popovers. The popover now sits at z-[70] in the root context,
        which is above everything this container can ever produce. */
     <div className={cn("relative z-0 isolate overflow-hidden rounded-md border bg-muted", className)}>
-      <MapContainer center={CENTER} zoom={11} className="h-full w-full" scrollWheelZoom={scrollWheelZoom}>
+      <MapContainer center={CENTER} zoom={OPENING_ZOOM} className="h-full w-full" scrollWheelZoom={scrollWheelZoom}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitToTracked positions={positions} />
+        <ZoomWatch onZoom={setZoom} />
         {groups.map((g) => {
           /* A group is only created by pushing a vehicle into it, so it is never
              empty — the fallback exists to satisfy the compiler, not a case. */
@@ -148,7 +177,10 @@ export function FleetMapView({
             <CircleMarker
               key={`${g.lat},${g.lng}`}
               center={[g.lat, g.lng]}
-              radius={10}
+              /* The same radius groupByPosition measures collisions against —
+                 one constant, so the dot the user sees and the dot the grouping
+                 reasons about cannot drift apart. */
+              radius={VEHICLE_MARKER_RADIUS_PX}
               pathOptions={{
                 color: "#ffffff",
                 weight: 1.5,

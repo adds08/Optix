@@ -317,7 +317,11 @@ async function main() {
       allowanceFrequency: v.freq ?? null,
       gpsLat: v.lat,
       gpsLng: v.lng,
-      gpsAt: new Date(TODAY),
+      /* No coordinates means no ping ever arrived, so there is no timestamp
+         either — that pair is what vehicleStatus reads as "no_signal", and a
+         seed that stamped gpsAt on a vehicle with no fix would claim a report
+         that never happened. */
+      gpsAt: v.lat === null ? null : new Date(TODAY),
       gpsSource: "seed",
       projectId: v.proj ? projectByKey[v.proj]! : null,
       foremanEmployeeId: v.foreman ? empByKey[v.foreman]! : null,
