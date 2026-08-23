@@ -1,8 +1,9 @@
 "use client";
 
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import { useEffect, useRef } from "react";
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import type { VehicleStatus } from "@stinventory/types";
+import { groupByPosition, type VehicleStatus } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { dateTime } from "@/lib/format";
 import { humanize } from "@/components/sti/status";
@@ -37,9 +38,44 @@ export const VEHICLE_STATUS_LABEL: Record<VehicleStatus, string> = {
   no_signal: "No signal",
 };
 
-/* Dallas — where the seed lives. The map zooms to whatever the fleet is
-   actually doing the moment a vehicle without a Dallas ping exists. */
+/* Dallas — where the seed lives. This is only the opening view, used before
+   any ping is known and when nothing is tracked at all; FitToTracked below
+   then moves the map to the pings that actually exist. (It used to say the map
+   "zooms to whatever the fleet is actually doing", which was simply untrue of
+   the code beneath it — there was no fitBounds anywhere in this file, so a
+   truck that pinged from outside this viewport was off-canvas with no cue.
+   That was the second half of UI-67.) */
 const CENTER: [number, number] = [32.7767, -96.797];
+
+/*
+  Move the view to cover every tracked position. Lives inside <MapContainer>
+  because useMap() reads the map instance from its context.
+*/
+function FitToTracked({ positions }: { positions: [number, number][] }) {
+  const map = useMap();
+  /* Refitting on every render would yank the map back from wherever the user
+     panned it each time the 10s query refetches, so the fit is applied once per
+     distinct set of positions rather than once per render. */
+  const applied = useRef("");
+  useEffect(() => {
+    const key = positions.map(([lat, lng]) => `${lat},${lng}`).join("|");
+    if (key === applied.current) return;
+    applied.current = key;
+    /* Nothing tracked: leave the opening CENTER/zoom alone. */
+    if (positions.length === 0) return;
+    /* One position is a zero-area bounds, and fitBounds on that zooms to the
+       tile server's maximum — a street corner where a fleet map should be. Keep
+       the opening zoom and just centre on the ping, which is the whole point:
+       one truck in Houston must not sit off the edge of a Dallas viewport. */
+    const only = positions[0];
+    if (positions.length === 1 && only) {
+      map.setView(only, 11);
+      return;
+    }
+    map.fitBounds(positions, { padding: [40, 40] });
+  }, [map, positions]);
+  return null;
+}
 
 export function FleetMapView({
   className,
@@ -66,7 +102,14 @@ export function FleetMapView({
     if (a.locationId) countByLocation.set(a.locationId, (countByLocation.get(a.locationId) ?? 0) + 1);
   }
 
-  const tracked = (vehicles.data ?? []).filter((v) => v.gpsLat && v.gpsLng);
+  /* UI-67: one marker per POSITION, not per vehicle. Vehicles parked in the
+     same yard share coordinates exactly, and a CircleMarker per vehicle drew
+     them on top of one another — the tester saw 7 vehicles listed as tracked
+     and 2 markers, with only the topmost of each stack clickable. Grouping is
+     the honest fix: scattering the dots would invent positions no GPS unit ever
+     reported, on a map whose whole job is saying where a tool really is. */
+  const groups = groupByPosition(vehicles.data ?? []);
+  const positions = groups.map((g) => [g.lat, g.lng] as [number, number]);
 
   if (!maySeeVehicles) {
     /* Say why the map is not here rather than drawing an empty one. An empty
@@ -95,35 +138,72 @@ export function FleetMapView({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {tracked.map((v) => (
-          <CircleMarker
-            key={v.id}
-            center={[Number(v.gpsLat), Number(v.gpsLng)]}
-            radius={10}
-            pathOptions={{
-              color: "#ffffff",
-              weight: 1.5,
-              fillColor: VEHICLE_STATUS_COLOR[v.status],
-              fillOpacity: 0.85,
-            }}
-          >
-            <Popup>
-              <div className="flex flex-col gap-0.5 text-sm">
-                <p className="font-semibold">
-                  {v.unit}
-                  <span className="font-normal text-muted-foreground"> · {humanize(v.vehicleType)}</span>
-                </p>
-                {v.makeModel ? <p className="text-muted-foreground">{v.makeModel}</p> : null}
-                <p>{v.projectName ?? "No project"}</p>
-                <p>Tools aboard: {countByLocation.get(v.locationId ?? "") ?? 0}</p>
-                <p className="text-muted-foreground">
-                  {VEHICLE_STATUS_LABEL[v.status]}
-                  {v.gpsAt ? ` · last ping ${dateTime(v.gpsAt)}` : ""}
-                </p>
-              </div>
-            </Popup>
-          </CircleMarker>
-        ))}
+        <FitToTracked positions={positions} />
+        {groups.map((g) => {
+          /* A group is only created by pushing a vehicle into it, so it is never
+             empty — the fallback exists to satisfy the compiler, not a case. */
+          const v = g.vehicles[0]!;
+          const stacked = g.vehicles.length > 1;
+          return (
+            <CircleMarker
+              key={`${g.lat},${g.lng}`}
+              center={[g.lat, g.lng]}
+              radius={10}
+              pathOptions={{
+                color: "#ffffff",
+                weight: 1.5,
+                /* A stack gets the first vehicle's colour — any single colour
+                   is a guess when a yard holds an online and an offline truck,
+                   so the count below and the list in the popup carry the truth
+                   rather than the dot pretending to. */
+                fillColor: VEHICLE_STATUS_COLOR[v.status],
+                fillOpacity: 0.85,
+              }}
+            >
+              {/* The count is permanent, not on hover: the whole failure of
+                  UI-67 was that a stack looked exactly like a single vehicle,
+                  so there was nothing to tell anyone to click it. */}
+              {stacked ? (
+                <Tooltip permanent direction="top" offset={[0, -10]}>
+                  {g.vehicles.length} vehicles
+                </Tooltip>
+              ) : null}
+              <Popup maxHeight={280}>
+                {stacked ? (
+                  <div className="flex flex-col gap-1 text-sm">
+                    <p className="font-semibold">{g.vehicles.length} vehicles at this position</p>
+                    <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+                      {g.vehicles.map((stackedVehicle) => (
+                        <li key={stackedVehicle.id}>
+                          {stackedVehicle.unit}
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {humanize(stackedVehicle.vehicleType)} ·{" "}
+                            {VEHICLE_STATUS_LABEL[stackedVehicle.status]}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-0.5 text-sm">
+                    <p className="font-semibold">
+                      {v.unit}
+                      <span className="font-normal text-muted-foreground"> · {humanize(v.vehicleType)}</span>
+                    </p>
+                    {v.makeModel ? <p className="text-muted-foreground">{v.makeModel}</p> : null}
+                    <p>{v.projectName ?? "No project"}</p>
+                    <p>Tools aboard: {countByLocation.get(v.locationId ?? "") ?? 0}</p>
+                    <p className="text-muted-foreground">
+                      {VEHICLE_STATUS_LABEL[v.status]}
+                      {v.gpsAt ? ` · last ping ${dateTime(v.gpsAt)}` : ""}
+                    </p>
+                  </div>
+                )}
+              </Popup>
+            </CircleMarker>
+          );
+        })}
       </MapContainer>
     </div>
   );

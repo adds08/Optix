@@ -84,28 +84,40 @@ export function ReportTable<T extends Record<string, unknown>>({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {searchable ? (
-          <div className="relative min-w-[220px] flex-1 max-w-sm">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Filter rows…"
-              className="pl-8"
-              aria-label="Filter rows"
-            />
-          </div>
-        ) : null}
-        <span className="tnum text-sm text-muted-foreground">
-          {sorted.length}
-          {sorted.length !== rows.length ? ` of ${rows.length}` : ""} row{sorted.length === 1 ? "" : "s"}
-        </span>
-        <Button variant="outline" size="sm" onClick={exportCsv} disabled={!sorted.length} className="ml-auto">
-          <Download className="size-4" />
-          Export CSV
-        </Button>
-      </div>
+      {/*
+        A report that legitimately has nothing to show renders no toolbar at all.
+        UI-68 and UI-69 were the same non-bug reported twice: on an empty report the
+        row count read "0 rows", the filter box had nothing to filter and Export CSV
+        was correctly `disabled` — but a greyed-out control sitting above the empty
+        state reads as "the export is broken", not "there is nothing to export".
+        Suppressing the whole toolbar leaves the empty state as the only thing on the
+        page. Keyed on `rows`, not `sorted`: when a *filter* is what emptied the
+        table the box must stay, or there is no way left to clear it.
+      */}
+      {rows.length ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {searchable ? (
+            <div className="relative min-w-[220px] flex-1 max-w-sm">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Filter rows…"
+                className="pl-8"
+                aria-label="Filter rows"
+              />
+            </div>
+          ) : null}
+          <span className="tnum text-sm text-muted-foreground">
+            {sorted.length}
+            {sorted.length !== rows.length ? ` of ${rows.length}` : ""} row{sorted.length === 1 ? "" : "s"}
+          </span>
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={!sorted.length} className="ml-auto">
+            <Download className="size-4" />
+            Export CSV
+          </Button>
+        </div>
+      ) : null}
 
       {!sorted.length ? (
         <EmptyState

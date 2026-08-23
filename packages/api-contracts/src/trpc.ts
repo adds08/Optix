@@ -61,6 +61,32 @@ const t = initTRPC.context<Context>().meta<Meta>().create({
        the exact failure this formatter exists to prevent. Machine text gets the
        generic line; `zodError` carries the detail for anything that wants it. */
     const zod = error.cause instanceof ZodError ? error.cause : null;
+    /*
+      A zod refusal is not all one thing, and collapsing the two kinds is what
+      made UI-75 unreportable.
+
+      A `custom` issue comes from a `superRefine` somebody wrote, and its
+      message is a sentence aimed at the person on the other end — "Say which
+      department pays for this tool." is guidance by any measure. A built-in
+      issue ("Invalid uuid") is library text about a wire shape, and belongs in
+      the generic bucket with everything else machine-generated.
+
+      Before this, both fell through as `shape.message` — the raw issue ARRAY —
+      and the three entity forms render `err.message` directly. So a tool
+      charged to a department with no department chosen answered a foreman with
+      `[{"code":"custom","path":["owningDepartmentId"],"message":"Say which
+      department pays for this tool."}]`, which reads as a crash, not as "you
+      missed a field". The sentence the API had already written was sitting
+      inside the noise the whole time.
+    */
+    const written =
+      zod && zod.issues.length > 0 && zod.issues.every((i) => i.code === "custom")
+        ? (zod.issues[0]?.message ?? null)
+        : null;
+    /* Machine-shaped zod text still gets a line a person can act on, rather
+       than the array. `zodError` below keeps the detail for anything that
+       wants to highlight individual fields. */
+    const zodFallback = "Some of what was sent is not valid. Check the fields and try again.";
     /* `message` is redacted too, not just `userMessage`. Adding a safe field
        while leaving the unsafe one populated protects nobody: the clients that
        predate this formatter render `e.message` directly — custody/page.tsx:64
@@ -70,10 +96,12 @@ const t = initTRPC.context<Context>().meta<Meta>().create({
        server logs; only the wire shape is redacted. */
     return {
       ...shape,
-      message: internal ? "Something went wrong on our side. Try again, or ask the equipment desk." : shape.message,
+      message: internal
+        ? "Something went wrong on our side. Try again, or ask the equipment desk."
+        : (written ?? (zod ? zodFallback : shape.message)),
       data: {
         ...shape.data,
-        userMessage: internal || zod ? null : error.message,
+        userMessage: internal ? null : (written ?? (zod ? null : error.message)),
         zodError: zod ? zod.flatten() : null,
       },
     };

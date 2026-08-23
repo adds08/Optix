@@ -37,7 +37,12 @@ export const projectRouter = router({
         endDate: schema.project.endDate,
       })
       .from(schema.project)
-      .where(and(...conds));
+      .where(and(...conds))
+      /* UI-74, the same defect as the register in asset.list: with no ORDER BY
+         a job created a moment ago came back in heap order, so it surfaced
+         wherever Postgres happened to put it rather than where somebody who
+         just created it would look. Newest first. */
+      .orderBy(desc(schema.project.createdAt));
   }),
 
   create: requirePermission("project.manage")
@@ -175,7 +180,12 @@ export const employeeRouter = router({
       .from(schema.employee)
       .leftJoin(schema.project, eq(schema.employee.primaryProjectId, schema.project.id))
       .leftJoin(reportsTo, eq(schema.employee.reportsToEmployeeId, reportsTo.id))
-      .where(eq(schema.employee.tenantId, ctx.session.tenantId));
+      .where(eq(schema.employee.tenantId, ctx.session.tenantId))
+      /* UI-73. Heap order put a new hire at whatever offset the row landed on —
+         with 45 people and a 25-row page, page two — so "the employee does not
+         appear in the People list" was true of the only page anybody looked at.
+         Newest first. */
+      .orderBy(desc(schema.employee.createdAt));
   }),
 
   create: requirePermission("employee.manage")

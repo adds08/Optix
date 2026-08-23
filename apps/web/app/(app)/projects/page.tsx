@@ -5,6 +5,7 @@ import { HardHat } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { Button } from "@/components/ui/button";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
@@ -38,10 +39,26 @@ export default function ProjectsPage() {
 
   const projects = trpc.project.list.useQuery();
   /* A scoped user only sees the jobs in their groups. */
-  const { projectIds: scopeProjects } = useJobScope();
+  const { projectIds: scopeProjects, setSelectedGroup, setSelectedProject } = useJobScope();
   const rows = (projects.data ?? []).filter((p) =>
     scopeProjects ? scopeProjects.has(p.id) : true,
   );
+  /*
+    UI-74: "after creating a new project, the project does not appear in the
+    list". The create works and the list refetches — the row is filtered out
+    HERE, because a brand-new job belongs to no job group and the scope
+    selection persists in localStorage across reloads.
+
+    Filtering is not the bug; doing it silently is. Worse, an empty result fell
+    through to "No projects yet", which is a flat untruth when the register
+    holds sixteen jobs and the scope is hiding all of them — so the one screen
+    that could have explained the disappearance asserted the opposite instead.
+  */
+  const hiddenByScope = (projects.data?.length ?? 0) - rows.length;
+  const clearScope = () => {
+    setSelectedGroup("");
+    setSelectedProject("");
+  };
 
   type Row = (typeof rows)[number];
 
@@ -133,19 +150,39 @@ export default function ProjectsPage() {
       ) : projects.isError ? (
         <ErrorNote message="Projects could not be loaded. Check that the API is running, then reload." />
       ) : !rows.length ? (
-        <EmptyState
-          icon={HardHat}
-          title="No projects yet"
-          description="Add the projects you run, or bring them across from a spreadsheet."
-        />
+        hiddenByScope > 0 ? (
+          <EmptyState
+            icon={HardHat}
+            title="No jobs match the current scope"
+            description={`${hiddenByScope} ${hiddenByScope === 1 ? "job is" : "jobs are"} hidden by the job scope you have selected. A job you have just created belongs to no group yet, so it will not appear until you show all projects.`}
+            action={<Button onClick={clearScope}>Show all projects</Button>}
+          />
+        ) : (
+          <EmptyState
+            icon={HardHat}
+            title="No projects yet"
+            description="Add the projects you run, or bring them across from a spreadsheet."
+          />
+        )
       ) : (
-        <DataTable<Row>
-          mode="client"
-          columns={TABLE_COLUMNS}
-          rows={rows}
-          rowId={(p) => p.id}
-          searchPlaceholder="Search jobs…"
-        />
+        <>
+          {hiddenByScope > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {hiddenByScope} {hiddenByScope === 1 ? "job is" : "jobs are"} hidden by the current job
+              scope.{" "}
+              <button type="button" onClick={clearScope} className="underline underline-offset-2">
+                Show all projects
+              </button>
+            </p>
+          ) : null}
+          <DataTable<Row>
+            mode="client"
+            columns={TABLE_COLUMNS}
+            rows={rows}
+            rowId={(p) => p.id}
+            searchPlaceholder="Search jobs…"
+          />
+        </>
       )}
     </div>
   );

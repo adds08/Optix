@@ -1,5 +1,5 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
@@ -155,7 +155,17 @@ export const assetRouter = router({
         .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
         .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
-        .where(and(...conditions));
+        .where(and(...conditions))
+        /*
+          UI-75. Without an ORDER BY this returned heap order, so a tool created
+          a second ago landed at an arbitrary spot in a 756-row register that
+          the table pages 25 at a time — created successfully, and findable only
+          by knowing what to search for. The ticket's acceptance is "the new
+          tool should appear in the Tool Register", so newest first is the
+          answer to it, not a cosmetic default. The column is sortable; this is
+          only where the register opens.
+        */
+        .orderBy(desc(schema.asset.createdAt));
       return rows;
     }),
 
