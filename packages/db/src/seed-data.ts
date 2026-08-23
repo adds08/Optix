@@ -20,7 +20,7 @@ export type PostingSeed = { emp: string; proj: string; from: string; to: string 
 export type TeamSeed = { emp: string; proj: string; role: string; from: string; note: string };
 export type LocSeed = { key: string; type: string; name: string; warehouse: string | null; project: string | null; custodian: string | null };
 export type VehLocSeed = { key: string; type: string; name: string; project: string | null; custodian: string | null };
-export type VehSeed = { key: string; loc: string; vtype: 'truck' | 'trailer'; unit: string; plate: string | null; make: string | null; own: string; payee: string | null; allow: string | null; freq: string | null; proj: string | null; foreman: string | null; lat: string; lng: string };
+export type VehSeed = { key: string; loc: string; vtype: 'truck' | 'trailer'; unit: string; plate: string | null; make: string | null; own: string; payee: string | null; allow: string | null; freq: string | null; proj: string | null; foreman: string | null; lat: string | null; lng: string | null };
 export type AssetSeed = { tag: string | null; make: string | null; modelNumber: string | null; description: string | null; serial: string | null; isSerialized: boolean; quantity: number; cost: string | null; own: string | null; dept: boolean; status: string; cust: string | null; cur: string | null; loc: string };
 export type AssignSeed = { tag: string; cust: string; proj: string | null; loc: string; type: string; start: string; end: string | null };
 export type TxSeed = { tag: string; event: string; at: string; note: string; ref: string };
@@ -303,14 +303,39 @@ export const vehLocSpecs: VehLocSeed[] = [
   { key: "l-ZZ-SEED-TRUCK-P", type: "vehicle", name: "ZZ-SEED-TRUCK-P (synthetic, personal)", project: "p-lone-star-22018", custodian: "e-fm002" },
 ];
 
+/*
+  Vehicle positions are deliberately VARIED, and that is load-bearing rather
+  than decorative.
+
+  Every trailer used to carry the identical hardcoded point 32.7766/-96.7970.
+  That made the fleet map's whole grouping problem (UI-67) untestable from a
+  clean database in the worst possible way: it produced only the case that
+  worked. Grouping on exact coordinate equality passed here — 30 trailers, one
+  point, one marker — and failed completely on the deployed fleet, where no two
+  trackers agree to six decimal places and every vehicle got its own marker
+  drawn on top of its neighbour's. The seed said "fixed"; the product said
+  otherwise, and nothing local could tell the difference.
+
+  So this set now spans the cases the map actually has to survive:
+    - TE-006 and TE-007 sit on the SAME point   — a genuine yard co-location
+    - TE-009 sits ~9m from them (0.0001 deg)    — the case that regressed: too
+                                                  close to draw apart, not equal
+    - TE-010 has NO fix at all                  — so the "No GPS fix" sidebar is
+                                                  ever non-empty and gets tested
+    - TE-011 / TE-012 / TE-013                  — north Dallas and a Houston pair,
+                                                  so fitBounds has real span to
+                                                  cover and separate dots to draw
+  The remaining trailers stay parked in the yard, which is both realistic and
+  keeps a large stack around to exercise the count badge.
+*/
 export const vehSpecs: VehSeed[] = [
   { key: "v-TE-006", loc: "l-TE-006", vtype: "trailer", unit: "TE-006", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm001", lat: "32.7766", lng: "-96.7970" },
   { key: "v-TE-007", loc: "l-TE-007", vtype: "trailer", unit: "TE-007", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-equipment-yard-24002", foreman: "e-fm002", lat: "32.7766", lng: "-96.7970" },
-  { key: "v-TE-009", loc: "l-TE-009", vtype: "trailer", unit: "TE-009", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm003", lat: "32.7766", lng: "-96.7970" },
-  { key: "v-TE-010", loc: "l-TE-010", vtype: "trailer", unit: "TE-010", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-colony-phase-12-23004", foreman: "e-fm004", lat: "32.7766", lng: "-96.7970" },
-  { key: "v-TE-011", loc: "l-TE-011", vtype: "trailer", unit: "TE-011", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-nex-22017", foreman: "e-fm005", lat: "32.7766", lng: "-96.7970" },
-  { key: "v-TE-012", loc: "l-TE-012", vtype: "trailer", unit: "TE-012", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-plano-arterial-renewal-2-24003", foreman: "e-fm006", lat: "32.7766", lng: "-96.7970" },
-  { key: "v-TE-013", loc: "l-TE-013", vtype: "trailer", unit: "TE-013", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-garland-22015", foreman: "e-fm007", lat: "32.7766", lng: "-96.7970" },
+  { key: "v-TE-009", loc: "l-TE-009", vtype: "trailer", unit: "TE-009", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm003", lat: "32.7766", lng: "-96.7971" },
+  { key: "v-TE-010", loc: "l-TE-010", vtype: "trailer", unit: "TE-010", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-colony-phase-12-23004", foreman: "e-fm004", lat: null, lng: null },
+  { key: "v-TE-011", loc: "l-TE-011", vtype: "trailer", unit: "TE-011", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-nex-22017", foreman: "e-fm005", lat: "32.8500", lng: "-96.8500" },
+  { key: "v-TE-012", loc: "l-TE-012", vtype: "trailer", unit: "TE-012", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-plano-arterial-renewal-2-24003", foreman: "e-fm006", lat: "29.7604", lng: "-95.3698" },
+  { key: "v-TE-013", loc: "l-TE-013", vtype: "trailer", unit: "TE-013", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-garland-22015", foreman: "e-fm007", lat: "29.7604", lng: "-95.3699" },
   { key: "v-TE-014", loc: "l-TE-014", vtype: "trailer", unit: "TE-014", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-austin-lane-24007", foreman: "e-fm008", lat: "32.7766", lng: "-96.7970" },
   { key: "v-TE-015", loc: "l-TE-015", vtype: "trailer", unit: "TE-015", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: null, foreman: "e-fm009", lat: "32.7766", lng: "-96.7970" },
   { key: "v-TE-016", loc: "l-TE-016", vtype: "trailer", unit: "TE-016", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm010", lat: "32.7766", lng: "-96.7970" },

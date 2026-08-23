@@ -157,10 +157,10 @@
       "breakpoints": true
     },
     {
-      "idx": 22,
+      "idx": 23,
       "version": "7",
-      "when": 1787485313373,
-      "tag": "0022_shocking_baron_strucker",
+      "when": 1787485000000,
+      "tag": "0023_clear_stranded_pending_verification",
       "breakpoints": true
     }
   ]
