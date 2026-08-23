@@ -2,7 +2,7 @@
 
 **Phase:** 4 — Foundation entity load
 **Size:** 1 unit
-**Status:** READY
+**Status:** **PARTIAL — 2026-08-22.** `packages/api-contracts/src/import-validation.test.ts`, 25 cases, closes **AC 1** (the validation layer: required, coercion, rejection, per column type), **AC 2** (dedup both within a file and against existing rows, case-insensitively) and **AC 7** (runs in `pnpm test`). **Still open: AC 3, 4, 5.** Those three all need the COMMIT path against a real database — preview-equals-commit, a failed row rolling back the whole commit, and one case per entity — and the pure validation layer cannot reach them. That is a session's work, not a follow-up line: the rollback property (AC 4) is the one most likely to break under later change, and STI-403's Foundation loader is going to reuse this transactional pattern.
 **Depends on:** nothing
 
 ---
