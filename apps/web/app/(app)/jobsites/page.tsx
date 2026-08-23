@@ -663,8 +663,26 @@ export default function JobsitesPage() {
             const teamCandidates = (employees.data ?? [])
               .filter((e) => e.employmentStatus === "active")
               .map((e) => ({ id: e.id, name: e.name, externalId: e.externalId, employeeRole: e.role }));
+            /* The edge accent (design readme, "The edge accent") — the system's
+               most distinctive pattern and the reason a long column of job cards
+               is scannable at all: a 3px bar carrying the card's state down its
+               whole left side. Accent = normal, amber = a gap somebody has to
+               close, muted = not a job at all (the yard, the between-jobs pool).
+               Whole class strings because Tailwind scans source text. */
+            const edge = !card.isJob
+              ? "before:bg-muted-foreground/40"
+              : card.gaps.length
+                ? "before:bg-warn"
+                : "before:bg-primary";
             return (
-              <section key={card.id} className="overflow-visible rounded-md border bg-card">
+              <section
+                key={card.id}
+                className={cn(
+                  "relative overflow-visible rounded-md border bg-card pl-[3px]",
+                  "before:absolute before:inset-y-0 before:left-0 before:w-[3px]",
+                  edge,
+                )}
+              >
                 <header className={cn("flex flex-wrap items-center gap-3 px-3 py-2.5", card.tint)}>
                   <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", card.isJob ? "bg-accent text-primary" : "bg-muted/70 text-muted-foreground")}>
                     <CardIcon className="size-4.5" aria-hidden />

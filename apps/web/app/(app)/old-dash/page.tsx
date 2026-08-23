@@ -55,7 +55,13 @@ import { cn } from "@/lib/utils";
 import { BlockyDashboardView } from "@/components/sti/dashboard/blocky-dashboard-view";
 
 /*
-  The desk dashboard (docs/20, B).
+  The previous desk dashboard (docs/20, B) — kept, unchanged, at /old-dash.
+
+  The project monitor took over /home on 2026-08-23. This page is not
+  deprecated-by-comment and then left to rot: it is the fallback while the
+  monitor is being lived with, it is still in the Overview group as "Old Dash",
+  and every query behind it is one the monitor does not make. Delete it when
+  nobody opens it, not before.
 
   Two tabs instead of one wall:
   - Fleet at a Glance — greeting+weather bar, the work queue beside the fleet
@@ -86,7 +92,7 @@ const FleetMapPanel = dynamic(
 type DefaultTab = "fleet" | "command";
 type Tab = DefaultTab | "blocky";
 
-export default function HomePage() {
+export default function OldDashPage() {
   const router = useRouter();
   const { role, has } = usePermissions();
   /*

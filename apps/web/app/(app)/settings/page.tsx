@@ -7,6 +7,7 @@ import { ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppearanceSettings } from "@/components/appearance-settings";
+import { MonitorSettings } from "@/components/monitor-settings";
 import { dateTime } from "@/lib/format";
 
 /*
@@ -95,9 +96,37 @@ export default function SettingsPage() {
      reason to keep keys in a text file. */
   const canTest = !!(baseUrl.trim() && model.trim() && (apiKey.trim() || s?.llmApiKeyHint));
 
+  /*
+    Personal preferences survive a tenant-config failure.
+
+    This page mixes two unrelated things: tenant configuration, which needs
+    `config.manage`, and the viewer's own appearance and monitor pace, which
+    need no permission at all — `preferences.set` writes the caller's own row.
+    Bailing out of the whole page when `settings.get` 403s put both behind an
+    administrator permission, so a foreman could not change their own font size
+    and nobody without `config.manage` could set the pace of the board on the
+    screen in front of them. The personal sections render either way; only the
+    tenant half is gated.
+  */
+  const personal = (
+    <>
+      {/* Appearance saves through its own preferences.set — it is a per-user
+          preference, not tenant config, and mixing the two save buttons would
+          make the tenant Save silently overwrite the theme. */}
+      <AppearanceSettings />
+      {/* Monitor pace is per-device and never leaves localStorage. */}
+      <MonitorSettings />
+    </>
+  );
+
   if (settings.isLoading) return <TableSkeleton rows={8} cols={2} />;
   if (settings.isError) {
-    return <ErrorNote message="Settings could not be loaded. This page needs the config.manage permission." />;
+    return (
+      <div className="flex flex-col gap-6">
+        {personal}
+        <ErrorNote message="Tenant settings could not be loaded — that half of this page needs the config.manage permission. Your own appearance and monitor settings above are unaffected." />
+      </div>
+    );
   }
 
   return (
@@ -342,11 +371,8 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ---- appearance ---- */}
-      {/* Appearance saves through its own preferences.set — it is a per-user
-          preference, not tenant config, and mixing the two save buttons would
-          make the tenant Save silently overwrite the theme. */}
-      <AppearanceSettings />
+      {/* ---- appearance + monitor (see `personal` above) ---- */}
+      {personal}
 
       {/* ---- notifications ---- */}
       <section className="flex flex-col gap-4 rounded-md border bg-card p-5">

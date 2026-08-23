@@ -7,7 +7,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 /* Blocky type pairing (ADR-7): Inter Tight for human text, JetBrains Mono for
    machine-readable values. Both are variable fonts, so the weight axes the
-   components use (400–700) resolve without loading extra files. */
+   components use (400–700) resolve without loading extra files.
+
+   The variable classes go on <html>, NOT <body>, and that placement is the
+   whole reason the font-family preference works at all. next/font declares
+   `--font-sans` inside the class it generates; with the class on <body>, the
+   variable was defined on <body>, so the theme engine setting it on <html>
+   could never reach anything — every font choice in Settings silently rendered
+   Inter Tight. Defined at :root, an inline `--font-sans` from applyTheme sits
+   on the same element and wins, which is what makes the picker real. */
 const interTight = Inter_Tight({ subsets: ["latin"], variable: "--font-sans" });
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
@@ -34,7 +42,11 @@ try {
   if (a) {
     for (var k in a.vars) r.style.setProperty(k, a.vars[k]);
     if (a.fontSize) r.style.fontSize = a.fontSize;
-    if (a.fontFamily) r.style.fontFamily = a.fontFamily;
+    /* fontVars, not fontFamily: the family is applied by overriding --font-sans
+       at :root so every font-sans utility follows it. A cache written before
+       2026-08-23 carries the old fontFamily key, which is ignored here on
+       purpose - it named a font next/font never registered. */
+    for (var f in a.fontVars || {}) r.style.setProperty(f, a.fontVars[f]);
     if (a.density) r.dataset.density = a.density;
     if (a.themeName) r.dataset.theme = a.themeName;
   }
@@ -43,11 +55,11 @@ try {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={cn(interTight.variable, jetbrainsMono.variable)} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_THEME }} />
       </head>
-      <body className={cn(interTight.variable, jetbrainsMono.variable, "font-sans antialiased")}>
+      <body className="font-sans antialiased">
         <TooltipProvider>
           <Providers>{children}</Providers>
         </TooltipProvider>

@@ -139,8 +139,14 @@ export function AppShell({
   const railGroups: NavGroup[] = groups
     .map((g) => ({ ...g, items: g.items.filter((n) => !n.perm || perms.includes(n.perm)) }))
     .filter((g) => g.items.length > 0);
-  const activeGroup = groups.find((g) => g.items.some((i) => i === current));
+  const activeGroup = railGroups.find((g) => g.items.some((i) => i.href === current?.href));
   const activeGroupKey = activeGroup ? groupKey(activeGroup) : undefined;
+
+  /* Wall surfaces (the project monitor) own the whole region: no max-width, no
+     padding, and no scroll — the readme is explicit that a scrolling embed
+     needs a definite height at every link in the chain, and the centred content
+     box below is auto-height, so `h-full` inside it would resolve to nothing. */
+  const fullBleed = current?.fullBleed ?? false;
 
   const userName = `${me.data?.firstName ?? ""} ${me.data?.lastName ?? ""}`.trim();
 
@@ -165,8 +171,8 @@ export function AppShell({
         onToggleAi={() => setAiOpen((v) => !v)}
       />
       <AppSidebar
-        userRole={role}
-        permissions={perms}
+        groups={railGroups}
+        activeGroupKey={activeGroupKey}
         inboxCount={inboxCount}
       />
       <SidebarInset>
@@ -191,10 +197,14 @@ export function AppShell({
         {/* The one scroll region. min-h-0 lets it actually shrink to the space
             the header leaves — without it a flex child refuses to go below its
             content height and the overflow escapes to the document again. */}
-        <div className="sti-scroll min-h-0 flex-1">
-          <div className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8">
-            {children}
-          </div>
+        <div className={cn("min-h-0 flex-1", fullBleed ? "overflow-hidden" : "sti-scroll")}>
+          {fullBleed ? (
+            children
+          ) : (
+            <div className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8">
+              {children}
+            </div>
+          )}
         </div>
       </SidebarInset>
       <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />

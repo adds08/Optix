@@ -1,6 +1,6 @@
 "use client";
 
-import { FONT_FAMILIES, THEMES, type ThemePrefs } from "./themes";
+import { ALL_FONT_KEYS, FONT_FAMILIES, THEMES, type ThemePrefs } from "./themes";
 
 /*
   Apply the active preferences to the document.
@@ -35,7 +35,7 @@ const ALL_THEME_KEYS = [
 
 export function applyTheme(prefs: ThemePrefs, dark: boolean) {
   const root = document.documentElement;
-  const theme = THEMES[prefs.themeName] ?? THEMES["drafting-ink"];
+  const theme = THEMES[prefs.themeName] ?? THEMES.blocky;
   const vars = dark ? theme.dark : theme.light;
 
   for (const key of ALL_THEME_KEYS) root.style.removeProperty(key);
@@ -43,10 +43,15 @@ export function applyTheme(prefs: ThemePrefs, dark: boolean) {
 
   const scale = parseFloat(prefs.fontScale);
   const fontSize = Number.isFinite(scale) ? `${scale}rem` : "1rem";
-  const fontFamily = FONT_FAMILIES[prefs.fontFamily] ?? FONT_FAMILIES.system;
+  /* The family overrides `--font-sans` at :root, where next/font defined it, so
+     every `font-sans` utility follows the choice. Setting `style.fontFamily`
+     here did nothing at all — see the note on FONT_FAMILIES. */
+  const fontVars = FONT_FAMILIES[prefs.fontFamily] ?? FONT_FAMILIES.system;
 
   root.style.fontSize = fontSize;
-  root.style.fontFamily = fontFamily;
+  root.style.removeProperty("font-family");
+  for (const key of ALL_FONT_KEYS) root.style.removeProperty(key);
+  for (const [key, value] of Object.entries(fontVars)) root.style.setProperty(key, value);
   root.dataset.density = prefs.density;
   root.dataset.theme = prefs.themeName;
   root.classList.toggle("dark", dark);
@@ -59,7 +64,7 @@ export function applyTheme(prefs: ThemePrefs, dark: boolean) {
   try {
     localStorage.setItem(
       "sti-appearance",
-      JSON.stringify({ vars, fontSize, fontFamily, density: prefs.density, themeName: prefs.themeName }),
+      JSON.stringify({ vars, fontSize, fontVars, density: prefs.density, themeName: prefs.themeName }),
     );
   } catch {
     /* Private mode, quota, disabled storage — the app still works, it just

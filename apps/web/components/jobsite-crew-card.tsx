@@ -76,8 +76,29 @@ export function CrewCard({
   const aboard = rig.trailer ? crew.tools.filter((t) => t.locationId === rig.trailer!.locationId).length : 0;
   const value = crew.tools.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0);
 
+  /* The crew tick (design readme, "The edge accent"): crews get a short 3x20px
+     mark rather than the full-height bar a job card carries, so a column of
+     crews inside one job never competes with the job's own edge. It states the
+     rig, which is the crew-level question the board exists to answer — amber
+     the moment a crew cannot haul, accent once truck and trailer are both on. */
+  /* Whole class strings, never `before:${tone}`: Tailwind scans source text, so
+     a class assembled at runtime is simply never generated and the tick renders
+     with no colour at all. */
+  const tick = !rig.truck
+    ? "before:bg-warn"
+    : !rig.trailer
+      ? "before:bg-idle"
+      : "before:bg-primary";
+
   return (
-    <div className={cn("overflow-hidden rounded-md border", striped ? "bg-muted/15" : "bg-card")}>
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-md border",
+        "before:absolute before:left-0 before:top-3 before:h-5 before:w-[3px] before:rounded-r-sm",
+        tick,
+        striped ? "bg-muted/15" : "bg-card",
+      )}
+    >
       {/* The crew header reads left to right the way the yard works — foreman,
          then the rig, then the tools/value — with each zone keeping its own
          width. A long foreman name truncates inside its zone, the rig chips

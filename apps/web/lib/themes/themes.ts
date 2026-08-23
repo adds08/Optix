@@ -162,29 +162,30 @@ function expand(s: Side, mode: "light" | "dark"): Record<string, string> {
 
 const RECIPES: Recipe[] = [
   {
-    /* The product's visual language (ADR-7). Dark-first: a near-black surface
-       ladder under a desaturated drafting-blue accent. Light mode inverts the
-       paper; the 48px rail stays dark either way (see --rail in globals.css).
-       Status hues stay fixed here exactly like every other theme — they are
-       the one vocabulary that must mean the same thing everywhere. */
-    name: "blocky",
-    label: "Blocky",
-    description: "The house look — near-black instrument surfaces, drafting-blue accent, mono numerals.",
+    /* The ORIGINAL palette, and no longer the base.
+
+       Until 2026-08-23 this was the base token set in globals.css and carried
+       no overrides, while `blocky` — the actual product look — was an override
+       layer switched on by the default preference. That inversion is what made
+       the design language feel like a theme you could accidentally leave. The
+       base is now Blocky; these are the old values, kept as a real palette so
+       anyone who had chosen Drafting Ink still gets Drafting Ink. */
+    name: "drafting-ink",
+    label: "Drafting Ink",
+    description: "The original look. Deep blue-teal ink on near-white paper.",
     light: {
-      /* #F4F5F7 paper, #FFFFFF cards, #1A1E24 ink, #3A6E9E accent. */
-      paper: [0.965, 0.003, 240],
+      paper: [0.988, 0.003, 240],
       card: [1, 0, 0],
-      ink: [0.245, 0.008, 245],
-      primary: [0.5, 0.085, 235],
-      onPrimary: [0.965, 0.003, 240],
+      ink: [0.195, 0.016, 245],
+      primary: [0.505, 0.093, 227],
+      onPrimary: [0.99, 0.002, 240],
     },
     dark: {
-      /* #090B0E paper, #11151A cards, #EAEDEF ink, #7FB0E4 accent. */
-      paper: [0.066, 0.004, 250],
-      card: [0.105, 0.008, 250],
-      ink: [0.925, 0.004, 235],
-      primary: [0.72, 0.1, 235],
-      onPrimary: [0.066, 0.004, 250],
+      paper: [0.172, 0.012, 245],
+      card: [0.212, 0.014, 245],
+      ink: [0.948, 0.005, 240],
+      primary: [0.715, 0.105, 222],
+      onPrimary: [0.172, 0.012, 245],
     },
   },
   {
@@ -445,14 +446,21 @@ const RECIPES: Recipe[] = [
 ];
 
 export const THEMES: Record<ThemeName, ThemeDef> = {
-  /* The original palette — drafting ink on paper. Default, so it carries no
-     overrides: the base tokens in globals.css ARE this theme, and a user with
-     no preference gets byte-identical rendering to the pre-engine app. */
-  "drafting-ink": {
-    name: "drafting-ink",
-    label: "Drafting Ink",
-    description: "The original look. Deep blue-teal ink on near-white paper.",
-    swatch: { light: "oklch(0.505 0.093 227)", dark: "oklch(0.715 0.105 222)" },
+  /*
+    The house palette. It carries NO overrides because the base tokens in
+    globals.css are it — selecting it means clearing every override, which is
+    the only way a "default" can be a real destination rather than one more
+    layer. Everything below is an alternative palette over this ground.
+
+    It is listed here so the picker has something to show as selected, not
+    because the design language is optional: radii, type and the shell are
+    global and no palette can touch them.
+  */
+  blocky: {
+    name: "blocky",
+    label: "Default",
+    description: "The house palette — near-black instrument surfaces under a drafting-blue accent.",
+    swatch: { light: "oklch(0.5 0.085 235)", dark: "oklch(0.72 0.1 235)" },
     light: {},
     dark: {},
   },
@@ -468,19 +476,54 @@ export const THEMES: Record<ThemeName, ThemeDef> = {
         dark: expand(r.dark, "dark"),
       } satisfies ThemeDef,
     ]),
-  ) as Record<Exclude<ThemeName, "drafting-ink">, ThemeDef>),
+  ) as Record<Exclude<ThemeName, "blocky">, ThemeDef>),
 };
 
+/*
+  Font family choices, expressed as :root variable overrides rather than as a
+  `font-family` string.
+
+  A family has to be applied by overriding `--font-sans`, because that is the
+  variable every `font-sans` utility in the app resolves against. Writing
+  `style.fontFamily` instead — which this did until 2026-08-23 — set the family
+  on <html> only for `<body>`'s own `font-sans` class to override it one element
+  later, so every choice here rendered identically and the picker did nothing.
+
+  "system" deliberately emits NOTHING. The house pairing is loaded by next/font,
+  whose generated family name is a build hash rather than "Inter Tight", so the
+  only correct way to ask for it is to leave the variables next/font already set
+  on :root alone. Naming it literally is what made the old default resolve to
+  `system-ui`.
+
+  The keys are the three the API contract accepts (`preferences.ts`
+  FONT_FAMILIES); changing one changes an enum both clients validate against.
+*/
 export const FONT_FAMILIES = {
-  /* Inter Tight is loaded by next/font as --font-sans and JetBrains Mono as
-     --font-mono (see app/layout.tsx); the theme engine's "system" and "mono"
-     presets re-point at them so the appearance picker stays honest. */
-  system: "'Inter Tight', system-ui, sans-serif",
-  serif: "Georgia, 'Times New Roman', serif",
-  mono: "'JetBrains Mono', ui-monospace, 'SF Mono', monospace",
-} as const;
+  system: {},
+  serif: { "--font-sans": "Georgia, 'Times New Roman', serif" },
+  /* Everything mono, including prose: dense and unambiguous, and a real request
+     from screens that are read as instrument panels rather than documents. */
+  mono: { "--font-sans": "var(--font-mono)" },
+  /* `satisfies`, not an annotation: an annotation widens the keys to `string`
+     and `FontFamilyName` below stops being the three-value union the API
+     contract validates against. */
+} satisfies Record<string, Record<string, string>>;
 
 export type FontFamilyName = keyof typeof FONT_FAMILIES;
+
+export const FONT_FAMILY_LABELS: Record<FontFamilyName, { label: string; hint: string }> = {
+  system: { label: "Inter Tight", hint: "The house pairing — Inter Tight with JetBrains Mono for values" },
+  serif: { label: "Serif", hint: "Georgia for prose, values stay mono" },
+  mono: { label: "All mono", hint: "JetBrains Mono everywhere" },
+};
+
+/* Every variable any font choice can set — the union, so switching back to the
+   house pairing clears what the previous choice wrote. Same reasoning as
+   ALL_THEME_KEYS in apply-theme.ts, and the same bug if it is ever narrowed to
+   just the incoming choice's keys. */
+export const ALL_FONT_KEYS: string[] = [
+  ...new Set(Object.values(FONT_FAMILIES).flatMap((v) => Object.keys(v))),
+];
 
 /* 0.9–1.4: from condensed for dense screens to extra large for poorer
    eyesight. The whole app is rem-based, so these really scale — the settings

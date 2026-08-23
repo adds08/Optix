@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useThemeStore } from "@/lib/themes/store";
 import {
   DEFAULT_PREFS,
+  FONT_FAMILY_LABELS,
   FONT_SCALES,
   THEMES,
   type Density,
@@ -128,10 +129,15 @@ export function AppearanceSettings() {
             onChange={(e) => { const v = e.target.value as FontFamilyName; setFontFamily(v); preview({ fontFamily: v }); }}
             className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            <option value="system">System</option>
-            <option value="serif">Serif</option>
-            <option value="mono">Monospace</option>
+            {Object.entries(FONT_FAMILY_LABELS).map(([value, f]) => (
+              <option key={value} value={value}>
+                {f.label}
+              </option>
+            ))}
           </select>
+          <p className="text-xs text-muted-foreground">
+            {FONT_FAMILY_LABELS[fontFamily]?.hint}
+          </p>
         </div>
 
         <div className="space-y-2">

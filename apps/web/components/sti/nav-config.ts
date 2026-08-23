@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Radio, Settings, ShieldCheck, UserCog, Users, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Radio, Settings, ShieldCheck, UserCog, Users, Wrench } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -8,6 +8,11 @@ export type NavItem = {
   perm?: Permission;
   /* Shown in the field layout as a large primary action rather than a nav row. */
   hint?: string;
+  /* Wall surfaces: the page owns the whole content region — the shell drops its
+     max-width, its padding and its scroll box for these. Declared beside the
+     route rather than sniffed from the pathname in app-shell.tsx, so adding a
+     second wall screen is one field and not another branch in the shell. */
+  fullBleed?: boolean;
 };
 
 export type NavGroup = { label: string; items: NavItem[] };
@@ -48,7 +53,11 @@ export const DESK_NAV: NavGroup[] = [
     label: "Overview",
     items: [
       { href: "/desk", label: "Desk", icon: LayoutGrid, hint: "Composed from your permissions" },
-      { href: "/home", label: "Dashboard", icon: LayoutDashboard },
+      /* The project monitor — a wall surface, cycling one job at a time. It
+         replaced the widget dashboard on 2026-08-23; that page still exists,
+         unchanged, one row down, until this one has been lived with. */
+      { href: "/home", label: "Dashboard", icon: LayoutDashboard, fullBleed: true },
+      { href: "/old-dash", label: "Old Dash", icon: History },
     ],
   },
   {

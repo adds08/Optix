@@ -85,7 +85,7 @@ export function ToolTable({
     <div>
       <div className="overflow-x-auto"><table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="border-b bg-accent/35 text-foreground">
+          <tr className="border-b bg-muted/50 text-foreground">
             {selectable ? <th className="w-8 px-3 py-1.5" aria-hidden /> : null}
             <th className="label-xs w-32 px-3 py-1.5 text-left">Serial / ID</th>
             <th className="label-xs px-3 py-1.5 text-left">Tool name</th>
@@ -96,8 +96,17 @@ export function ToolTable({
           </tr>
         </thead>
         <tbody>
-          {visible.map((t) => (
-            <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30">
+          {visible.map((t, i) => (
+            /* Alternating fills, not a rule under every row: the design sections
+               a table by tone rather than by lines, which is what lets a wide
+               row be followed across without the grid closing in. */
+            <tr
+              key={t.id}
+              className={cn(
+                "transition-colors hover:bg-accent/40",
+                i % 2 ? "bg-muted/25" : "bg-transparent",
+              )}
+            >
               {selectable && onToggle ? (
                 <td className="px-3 py-2">
                   <input
@@ -130,7 +139,11 @@ export function ToolTable({
                         (STI-501). A tool riding a foreman's own truck is the
                         case the departure path cares about. */}
                     {t.currentTruckUnit && t.currentTruckOwnership === "personal_allowance" ? (
-                      <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                      /* warn tokens, not raw amber-100/amber-950: a hardcoded
+                         Tailwind hue is the one thing in this file no palette
+                         and no mode can follow, and "riding a personal truck"
+                         is precisely a needs-attention state. */
+                      <span className="ml-1 rounded-sm border border-warn/30 bg-warn-bg px-1 text-[10px] font-medium text-warn">
                         personal
                       </span>
                     ) : null}

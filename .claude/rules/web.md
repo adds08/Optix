@@ -12,7 +12,9 @@ Next.js 15 App Router, shadcn/new-york, TanStack Query via tRPC.
 The README says routes live under `/d02`. They do not, and never do now. Real tree, all under
 the `(app)` route group:
 
-`/home` (dashboard) · `/tools` + `/tools/[id]` · `/custody` · `/jobsites` · `/map` ·
+`/home` (the project monitor — the wall board, see below) · `/old-dash` (the widget dashboard
+`/home` used to be, kept until the monitor has been lived with) ·
+`/tools` + `/tools/[id]` · `/custody` · `/jobsites` · `/map` ·
 `/reports` + `/reports/[slug]` + `/reports/charts/[slug]` + `/reports/audit-trail` ·
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/job-groups` ·
 `/my-tools` · `/profile` · `/settings` · `/design/*`
@@ -33,7 +35,10 @@ Login is at `/`, not `/login`.
 
 `components/sti/nav-config.ts` defines two disjoint sets: `FIELD_NAV` (My Tools, Hand Off,
 Alerts) for `foreman`/`superintendent`, and `DESK_NAV` for everyone else. Items carry an
-optional permission, filtered against `me.permissions` in `components/app-sidebar.tsx`.
+optional permission, filtered against `me.permissions` in `components/sti/app-shell.tsx` —
+ONCE, into the array both the rail and the sidebar draw from, so a rail glyph and the pane it
+opens can never disagree about what a group contains. `app-sidebar.tsx` does no filtering of
+its own; give it a group it should not show and it will show it.
 Add a route → add it here, with its permission.
 
 > **This split still branches on the role NAME**, which STI-307 removed everywhere else.
@@ -43,6 +48,26 @@ Add a route → add it here, with its permission.
 > `office_admin` added by STI-304 it is **already wrong for three roles**: a mechanic gets
 > the desk navigation. Fixing it is STI-501's registry (`DESK_NAV`/`FIELD_NAV` chosen by
 > permission), not a patch here.
+
+## The two-pane shell, and the offset that has to be right
+
+`app-rail.tsx` is the 48px primary rail — one glyph per nav GROUP, near-black in both themes
+because it is chassis, not page. `app-sidebar.tsx` is the secondary pane and shows **only the
+active group's rows**. The rail answers "which part of the product"; the sidebar answers
+"which screen".
+
+The shadcn `Sidebar` renders a `position: fixed; left: 0` column, so it has to be pushed right
+of the rail. That offset lives in `globals.css` and **must target
+`[data-slot="sidebar-container"]`**. `[data-slot="sidebar"]` is the outer `md:block` wrapper
+holding the layout gap; it is statically positioned, so `left` on it is silently inert. That
+exact mistake shipped on 2026-08-23: the rail rendered on every page and the sidebar painted
+over all 48px of it, which read as "the two-pane shell was never built" and got the
+active-group-only sidebar reverted as collateral damage. If the rail is invisible, check this
+selector before you touch a component.
+
+`fullBleed` on a `NavItem` drops the shell's centred max-width box and its scroll region for
+that route. Wall surfaces need it: the content box is auto-height, so a `h-full` board inside
+it resolves to nothing and its bottom band lands below the fold.
 
 ## Visibility: the ladder, client-side
 
@@ -75,13 +100,32 @@ that, it is the right behaviour for "select everything this foreman holds".
 
 ## Theming
 
-Named themes are enumerated in `lib/themes/themes.ts`, applied as **inline CSS custom
+**A theme is a colour palette and nothing else.** The design language — 3/4/6px radii, the
+Inter Tight + JetBrains Mono pairing, the two-pane shell, `label-xs`, the primitives, the
+reserved status hues — is global by construction and no palette can reach it. If a change
+would let a theme alter structure, it belongs in `globals.css` instead.
+
+Base tokens are in `app/globals.css` (`:root` / `.dark`) — that pair *is* the Blocky palette,
+which is why `blocky` carries **empty overrides** in `themes.ts` and is labelled "Default".
+Selecting it clears every override rather than adding a layer. It was the other way round
+until 2026-08-23 (base = Drafting Ink, blocky = an override layer switched on by the default
+preference), which meant the product's own look was a theme you could accidentally leave and
+any token a palette forgot fell through to a different design. `drafting-ink` is now an
+ordinary palette carrying the old values.
+
+Palettes are enumerated in `lib/themes/themes.ts` and applied as **inline CSS custom
 properties on `<html>`** (not class swaps) by `lib/themes/apply-theme.ts`, with a boot script in
-`app/layout.tsx` replaying the cached choice to avoid a flash. Base tokens are in
-`app/globals.css` (`:root` / `.dark`) — that pair *is* the default `drafting-ink` theme.
+`app/layout.tsx` replaying the cached choice to avoid a flash.
 
 `apply-theme` clears the **union** of all theme keys before setting the active ones; keep that
-or switching themes will leak variables from the previous one.
+or switching themes will leak variables from the previous one. The same rule and the same
+reasoning apply to `ALL_FONT_KEYS`.
+
+The font family is applied by overriding `--font-sans` at `:root`, NOT by setting
+`style.fontFamily`. next/font declares that variable inside the class it generates, so that
+class lives on `<html>` — move it to `<body>` and every font choice in Settings silently
+renders the default again. Never name the house fonts literally: next/font's family name is a
+build hash, and `'Inter Tight'` resolves to `system-ui`.
 
 > There is no `packages/design-system` — it was deleted after going unimported. Theming lives
 > here, in `apps/web/lib/themes` + `globals.css`. Don't recreate a shared token package
