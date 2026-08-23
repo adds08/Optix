@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { ROLES, authFile } from "../roles.js";
 
 /*
@@ -16,6 +16,73 @@ import { ROLES, authFile } from "../roles.js";
   is invisible to a source grep. This is the half that needs a browser.
 */
 
+/*
+  Every route this role is offered anywhere in the shell.
+
+  The shell is two panes: the rail says which MODULE you are in, and the sidebar
+  lists that module's screens and only that module's screens. So "what
+  navigation is this role offered" is not readable from a single page load — it
+  is the union across every rail group, and asking `/home` alone quietly reduced
+  the question to "what is in Overview".
+
+  That is what broke these two tests on 2026-08-23, when the sidebar stopped
+  listing every group. The visible half failed loudly: owner is offered /tools,
+  but from /home the Equipment group's rows are not in the DOM at all. The other
+  half failed silently and is the more dangerous one — with a single group
+  rendered, almost any forbidden href is absent no matter what the permissions
+  say, so the assertion that catches a permission WIDENING had been passing
+  vacuously ever since.
+
+  Walking the rail restores both. Hrefs are read from the DOM rather than from
+  `nav-config.ts`: a test that imports the thing it is testing proves only that
+  the file parses.
+*/
+async function offeredRoutes(page: Page, start: string): Promise<string[]> {
+  const hrefsIn = (selector: string) =>
+    page
+      .locator(selector)
+      .evaluateAll((els) =>
+        els.map((e) => (e as HTMLAnchorElement).getAttribute("href") ?? "").filter(Boolean),
+      );
+
+  /*
+    Waiting for `[data-sidebar]` to be VISIBLE is not enough, and getting that
+    wrong reads as a permission bug rather than a race.
+
+    The shell filters both panes against `me.permissions`, which arrives from
+    `identity.me` after the first paint. Until it resolves, `perms` is `[]` and
+    the only rows that survive the filter are the ones carrying no `perm` at
+    all. Collected at that moment, an owner who can see everything reports
+    exactly `/desk`, `/home`, `/old-dash` and `/settings/appearance` — the four
+    ungated rows — and every gated group looks forbidden.
+
+    `networkidle` is what the console-error test below already waits for, and it
+    is the honest signal here: the nav is settled once the queries behind it
+    have stopped.
+  */
+  const settledNav = async (href: string) => {
+    await page.goto(href);
+    await expect(page.locator("[data-sidebar]").first()).toBeVisible({ timeout: 10_000 });
+    await page.waitForLoadState("networkidle");
+  };
+
+  await settledNav(start);
+
+  /* The rail links one row per group — its FIRST visible row — so this is the
+     set of groups the permission filter left standing, not the set of screens. */
+  const groups = await hrefsIn('nav[aria-label="Sections"] a[href]');
+
+  const offered = new Set<string>();
+  for (const href of [start, ...groups]) {
+    await settledNav(href);
+    /* Scoped to `[data-sidebar]`, never the page body: the dashboard links to
+       /reports/idle, and counting that would make a forbidden route look
+       offered. */
+    for (const h of await hrefsIn("[data-sidebar] a[href]")) offered.add(h);
+  }
+  return [...offered];
+}
+
 for (const role of ROLES) {
   test.describe(`as ${role.key}`, () => {
     test.use({ storageState: authFile(role.key) });
@@ -29,37 +96,25 @@ for (const role of ROLES) {
          a proxy for one. STI-304 criterion 4: a role that logs in to a crash
          is not delivered. */
       await expect(page.getByText(/Something went wrong/i)).toHaveCount(0);
-      await expect(page.locator("main, body")).toBeVisible();
+      /* `.first()` because the shell renders BOTH — `<body>` and the
+         SidebarInset `<main>` — and a bare `main, body` is a strict-mode
+         violation. It read as flaky rather than broken: before hydration only
+         `body` matches and the assertion passes, so whether it failed depended
+         on how fast the page settled. */
+      await expect(page.locator("main, body").first()).toBeVisible();
     });
 
-    /* The sidebar is not a <nav> — shadcn builds it from divs carrying
-       `data-sidebar`. Scoped to that rather than to the whole page, so a link
-       in the page BODY (the dashboard links to /reports/idle, for instance)
-       cannot make a forbidden route look offered. */
-    const sidebarLink = (page: import("@playwright/test").Page, href: string) =>
-      page.locator(`[data-sidebar] a[href="${href}"]`);
-
     test("is offered the navigation its permissions imply", async ({ page }) => {
-      await page.goto(role.landsOn);
-      await expect(page.locator("[data-sidebar]").first()).toBeVisible({ timeout: 10_000 });
-
+      const offered = await offeredRoutes(page, role.landsOn);
       for (const href of role.expectsRoutes) {
-        await expect(
-          sidebarLink(page, href),
-          `${role.key} should be offered ${href}`,
-        ).toHaveCount(1);
+        expect(offered, `${role.key} should be offered ${href}`).toContain(href);
       }
     });
 
     test("is NOT offered navigation its permissions forbid", async ({ page }) => {
-      await page.goto(role.landsOn);
-      await expect(page.locator("[data-sidebar]").first()).toBeVisible({ timeout: 10_000 });
-
+      const offered = await offeredRoutes(page, role.landsOn);
       for (const href of role.forbidsRoutes) {
-        await expect(
-          sidebarLink(page, href),
-          `${role.key} must NOT be offered ${href}`,
-        ).toHaveCount(0);
+        expect(offered, `${role.key} must NOT be offered ${href}`).not.toContain(href);
       }
     });
 
