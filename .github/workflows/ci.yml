@@ -144,6 +144,12 @@ jobs:
   e2e:
     name: browser suite (STI-001)
     runs-on: ubuntu-latest
+    # A ceiling, because this job has already run for 2h30m once: the stack
+    # came up, `seed` lost a race, and the failure handler below then followed
+    # the logs of a perfectly healthy idle stack until it was cancelled by
+    # hand. Both causes are fixed below; this is the backstop for the next one
+    # nobody predicted. The suite itself takes about four minutes.
+    timeout-minutes: 20
     #
     # NOT in `deploy.needs` yet, and that is a decision with an expiry date.
     #
@@ -174,6 +180,17 @@ jobs:
           # example. Locally it already exists and this is a no-op.
           [ -f .env.local ] || cp .env.example .env.local
           make ENV=local up
+          # `up` returns when the containers have STARTED, and the API applies
+          # migrations during its own boot — so seeding immediately is a race the
+          # seed loses: `relation "tenant" does not exist` (42P01), two seconds
+          # before `[api] migrations complete`. It is a race, so it passed
+          # sometimes, which is worse than failing every time. `make reset` has
+          # carried a `sleep 6` here for exactly this reason; poll instead, so a
+          # slow runner waits longer and a fast one does not wait at all.
+          for _ in $(seq 1 60); do
+            curl -sf http://localhost:4100/health >/dev/null 2>&1 && break
+            sleep 2
+          done
           make ENV=local seed
 
       # Chromium only. The suite asserts routing, permissions and console
@@ -195,7 +212,13 @@ jobs:
 
       - name: Show what the stack said, if it failed
         if: failure()
-        run: make ENV=local logs || true
+        # NOT `make ENV=local logs`: that target is `logs -f`, which FOLLOWS.
+        # On a stack that is alive and idle it never returns, so the step meant
+        # to explain a failure instead hung this job for two and a half hours
+        # (run 32625840444) until it was cancelled by hand. `-f` is right for a
+        # human tailing logs locally and wrong in CI, so the target keeps it and
+        # this step bypasses the target.
+        run: docker compose --env-file .env.local logs --tail=200 || true
 
   deploy:
     name: deploy to production
