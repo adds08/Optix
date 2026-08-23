@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700;800&amp;family=Be+Vietnam+Pro:wght@300;400;500;600;700&amp;family=Urbanist:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    .fc-scroll::-webkit-scrollbar { width: 4px; }
+    .fc-scroll::-webkit-scrollbar-thumb { background: #CBD3DA; border-radius: 6px; }
+    .fc-chips::-webkit-scrollbar { display: none; }
+    @keyframes fcBlink { 0%,80%,100%{opacity:.25;} 40%{opacity:1;} }
+  </style>
+</helmet>
+<div style="{{ rootStyle }}" data-screen-label="Field Chat">
+
+  <!-- TABLET SIDE PANE -->
+  <sc-if value="{{ showSidePane }}" hint-placeholder-val="{{ false }}">
+    <aside style="width:288px; flex:none; background:#F4F6F8; border-right:1px solid #DCE1E5; display:flex; flex-direction:column;">
+      <div style="padding:20px 20px 14px 20px; border-bottom:1px solid #E4E9ED;">
+        <div style="display:flex; align-items:center; gap:11px;">
+          <div style="width:40px; height:40px; flex:none; border-radius:50%; background:#0C1319; color:#E5EBF0; display:flex; align-items:center; justify-content:center; font-family:'Urbanist',sans-serif; font-weight:700; font-size:14px;">MT</div>
+          <div style="min-width:0;">
+            <div style="font-family:'Bitter',serif; font-size:15px; font-weight:700; color:#16212B;">M. Torres</div>
+            <div style="font-size:11.5px; color:#8A97A3;">Legacy West Utilities</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:16px 20px 8px 20px; font-family:'Urbanist',sans-serif; font-size:10px; font-weight:700; letter-spacing:0.14em; color:#8A97A3;">LOGGED TODAY</div>
+      <div class="fc-scroll" style="flex:1; overflow:auto; padding:0 14px 16px 14px; display:flex; flex-direction:column; gap:8px;">
+        <sc-for list="{{ logItems }}" as="l" hint-placeholder-count="3">
+          <div style="background:#FFFFFF; border:1px solid #E4E9ED; border-radius:10px; padding:11px 13px;">
+            <div style="display:flex; align-items:center; gap:8px;"><span style="{{ l.eventStyle }}">{{ l.eventLabel }}</span><span class="num" style="font-size:11px; font-weight:600; color:#0068C4;">{{ l.tag }}</span></div>
+            <div style="font-size:12px; color:#5D6C7B; margin-top:6px; line-height:1.4;">{{ l.text }}</div>
+            <div class="num" style="font-size:10.5px; color:#AEB8C1; margin-top:5px;">{{ l.time }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </aside>
+  </sc-if>
+
+  <!-- CHAT COLUMN -->
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column; background:#EDF0F2;">
+
+    <div style="flex:none; background:#FFFFFF; border-bottom:1px solid #E1E6EA; padding:13px 18px; display:flex; align-items:center; gap:12px;">
+      <div style="width:38px; height:38px; flex:none; border-radius:11px; background:linear-gradient(135deg,#0082F3,#0059AE); color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:17px;">✦</div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-family:'Bitter',serif; font-size:15px; font-weight:700; color:#101820;">STInventory</div>
+        <div style="display:flex; align-items:center; gap:6px; font-size:11.5px; color:#1E7A4C;"><span style="width:6px; height:6px; border-radius:50%; background:#1E7A4C;"></span>Escribe lo que pasó · ES / EN</div>
+      </div>
+    </div>
+
+    <div class="fc-scroll" ref="{{ scrollRef }}" style="flex:1; overflow:auto; padding:18px 16px 8px 16px; display:flex; flex-direction:column; gap:12px;">
+      <sc-for list="{{ messages }}" as="m" hint-placeholder-count="4">
+
+        <sc-if value="{{ m.isDay }}" hint-placeholder-val="{{ false }}">
+          <div style="text-align:center; margin:2px 0;"><span style="display:inline-block; background:#DDE3E8; color:#6B7B8A; font-family:'Urbanist',sans-serif; font-size:10.5px; font-weight:700; letter-spacing:0.05em; padding:4px 12px; border-radius:999px;">{{ m.dayLabel }}</span></div>
+        </sc-if>
+
+        <sc-if value="{{ m.isText }}" hint-placeholder-val="{{ true }}">
+          <div style="{{ m.rowStyle }}"><div style="{{ m.bubbleStyle }}">{{ m.text }}</div></div>
+        </sc-if>
+
+        <sc-if value="{{ m.isTyping }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; justify-content:flex-start;"><div style="background:#FFFFFF; border:1px solid #E1E6EA; border-radius:16px 16px 16px 5px; padding:13px 16px; display:flex; gap:5px;"><span style="width:7px; height:7px; border-radius:50%; background:#9AA7B1; animation:fcBlink 1.2s infinite;"></span><span style="width:7px; height:7px; border-radius:50%; background:#9AA7B1; animation:fcBlink 1.2s infinite .2s;"></span><span style="width:7px; height:7px; border-radius:50%; background:#9AA7B1; animation:fcBlink 1.2s infinite .4s;"></span></div></div>
+        </sc-if>
+
+        <sc-if value="{{ m.isCard }}" hint-placeholder-val="{{ false }}">
+          <div style="{{ m.cardWrap }}">
+            <div style="background:#FFFFFF; border:1px solid #DBE1E6; border-radius:16px; overflow:hidden; box-shadow:0 4px 16px rgba(16,33,43,0.08); width:100%;">
+              <div style="display:flex; align-items:center; gap:7px; padding:9px 15px; background:#F1F7FE; border-bottom:1px solid #E4EEF8;"><span style="color:#0082F3; font-size:12px;">✦</span><span style="font-family:'Urbanist',sans-serif; font-size:10px; font-weight:700; letter-spacing:0.09em; color:#0068C4;">{{ m.cHeader }}</span></div>
+              <div style="padding:15px 16px;">
+                <div style="display:flex; align-items:center; gap:9px; margin-bottom:13px;"><span style="{{ m.cEventStyle }}">{{ m.cEventLabel }}</span><span class="num" style="font-size:13px; font-weight:700; color:#0068C4;">{{ m.cTag }}</span></div>
+                <div style="font-family:'Bitter',serif; font-size:14px; font-weight:700; color:#16212B; margin-bottom:12px;">{{ m.cModel }}</div>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <sc-for list="{{ m.cRows }}" as="r" hint-placeholder-count="2">
+                    <div style="display:flex; align-items:baseline; gap:12px;">
+                      <div style="width:96px; flex:none; font-family:'Urbanist',sans-serif; font-size:10px; font-weight:700; letter-spacing:0.05em; color:#8A97A3;">{{ r.k }}</div>
+                      <div style="{{ r.vStyle }}">{{ r.v }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ m.cNote }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:13px; background:#FBE5E8; color:#A8172A; font-size:12px; line-height:1.45; padding:9px 12px; border-radius:9px;">{{ m.cNote }}</div>
+                </sc-if>
+
+                <sc-if value="{{ m.cPending }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex; gap:9px; margin-top:16px;">
+                    <div onClick="{{ m.cReject }}" style="flex:none; height:44px; padding:0 16px; border:1px solid #D4DBE0; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; color:#5D6C7B; cursor:pointer;" style-hover="background:#F4F6F7;">No es así</div>
+                    <div onClick="{{ m.cConfirm }}" style="flex:1; height:44px; border-radius:10px; background:#0082F3; color:#FFFFFF; display:flex; align-items:center; justify-content:center; gap:7px; font-size:13.5px; font-weight:600; cursor:pointer;" style-hover="background:#006FD0;">Confirmar y registrar</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ m.cLogged }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:15px; display:flex; align-items:center; gap:8px; background:#E4F3EA; color:#1E7A4C; border-radius:10px; padding:11px 14px; font-size:12.5px; font-weight:600;"><span style="width:19px; height:19px; flex:none; border-radius:50%; background:#1E7A4C; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:12px;">✓</span>Registrado en el audit trail · {{ m.cLoggedText }}</div>
+                </sc-if>
+                <sc-if value="{{ m.cRejected }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:15px; display:flex; align-items:center; gap:8px; background:#EEF1F3; color:#8A97A3; border-radius:10px; padding:11px 14px; font-size:12.5px; font-weight:600;">Descartado — nada se registró</div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+      </sc-for>
+    </div>
+
+    <div class="fc-chips" style="flex:none; display:flex; gap:8px; overflow-x:auto; padding:10px 16px 4px 16px;">
+      <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="3">
+        <div onClick="{{ s.go }}" style="flex:none; background:#FFFFFF; border:1px solid #DBE1E6; border-radius:999px; padding:8px 14px; font-size:12.5px; color:#3D4B58; cursor:pointer; white-space:nowrap;" style-hover="border-color:#0082F3; color:#0082F3;">{{ s.text }}</div>
+      </sc-for>
+    </div>
+
+    <div style="flex:none; padding:10px 16px 16px 16px; display:flex; align-items:center; gap:10px;">
+      <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="Escribe qué pasó con el equipo…" style="flex:1; min-width:0; height:48px; padding:0 18px; border:1px solid #D4DBE0; border-radius:999px; font-family:'Be Vietnam Pro',sans-serif; font-size:14px; background:#FFFFFF; color:#16212B;">
+      <div onClick="{{ send }}" style="width:48px; height:48px; flex:none; border-radius:50%; background:#0082F3; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:19px; cursor:pointer;" style-hover="background:#006FD0;">↑</div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 392, &quot;height&quot;: 812 },
+  &quot;variant&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;phone&quot;, &quot;tablet&quot;], &quot;default&quot;: &quot;phone&quot;, &quot;tsType&quot;: &quot;string&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    tick: 0,
+    draft: '',
+    thread: [
+      { t: 'day', label: 'Hoy · Jul 10' },
+      { t: 'text', role: 'bot', text: 'Hola Miguel 👋 Dime qué pasó con el equipo y yo lo registro. Puedes escribir en español o inglés.' },
+      { t: 'text', role: 'user', text: 'mandé el breaker 89 pa Trinity, se lo di a Jorge' },
+      { t: 'card', id: 'seed', status: 'logged', loggedAt: '07:42', spec: {
+        eventKey: 'transfer', tag: 'ST-00089', model: 'Milwaukee MX FUEL Breaker',
+        rows: [['Desde', 'Legacy West Utilities', false], ['Hacia', 'Trinity River Levee Ph 2', true], ['Nuevo custodio', 'J. Cardenas', false]]
+      } }
+    ]
+  };
+
+  ASSETS = {
+    '89': ['ST-00089', 'Milwaukee MX FUEL Breaker'], '278': ['ST-00278', 'Honda EU7000is Generator'],
+    '61': ['ST-00061', 'Wacker WP1550 Plate Compactor'], '256': ['ST-00256', 'Wacker BS60-4s Rammer'],
+    '147': ['ST-00147', 'Hilti TE 60-ATC/AVR'], '244': ['ST-00244', 'Topcon TP-L6 Pipe Laser'],
+    '195': ['ST-00195', 'Hilti DD 150-U Core Rig'], '104': ['ST-00104', 'Bosch GRL2000-40HVK Laser']
+  };
+  PROJ_KW = [['trinity', 'Trinity River Levee Ph 2'], ['legacy', 'Legacy West Utilities'], ['dfw', 'DFW Water Main Ph 2'], ['water main', 'DFW Water Main Ph 2'], ['mckinney', 'McKinney Pump Station']];
+
+  parse(text) {
+    const low = text.toLowerCase();
+    const num = (low.match(/\b(\d{2,3})\b/) || [])[1];
+    const known = num && this.ASSETS[num];
+    const tag = known ? known[0] : (num ? 'ST-00' + num.padStart(3, '0') : 'ST-00???');
+    const model = known ? known[1] : 'Equipo sin identificar';
+    let proj = null;
+    for (const [kw, name] of this.PROJ_KW) { if (low.includes(kw)) { proj = name; break; } }
+
+    if (/no arranca|no prende|no sirve|se da[ñn]|roto|falla|broke|won'?t start|repair|damag/.test(low)) {
+      return { eventKey: 'repair', tag, model, rows: [['Reporte', 'No arranca / falla', false], ['Acción', 'Enviar a taller', false], ['Destino', 'Almacén Dallas', true]] };
+    }
+    if (/perd|no encuentro|no aparece|se qued|lost|missing/.test(low)) {
+      return { eventKey: 'lost', tag, model, rows: [['Visto por última vez', proj || 'Trinity Levee laydown', false]], note: 'Esto abre una investigación y notifica al supervisor. Confirma solo si de verdad no aparece.' };
+    }
+    if (/devolv|regres|entregu|return|al warehouse|al almac|de vuelta/.test(low)) {
+      return { eventKey: 'return', tag, model, rows: [['Hacia', 'Almacén Regional (Houston)', true], ['Condición', 'Buena', false]] };
+    }
+    return { eventKey: 'transfer', tag, model, rows: [['Desde', 'Legacy West Utilities', false], ['Hacia', proj || 'Trinity River Levee Ph 2', true], ['Custodio', 'sin cambio', false]] };
+  }
+
+  respond(text) {
+    if (!text || !text.trim()) return;
+    const spec = this.parse(text);
+    this.setState(s => ({ draft: '', thread: [...s.thread, { t: 'text', role: 'user', text: text.trim() }, { t: 'typing' }] }));
+    setTimeout(() => {
+      this.setState(s => {
+        const th = s.thread.filter(m => m.t !== 'typing');
+        return { thread: [...th, { t: 'card', id: 'c' + Date.now(), status: 'pending', spec }] };
+      });
+    }, 850);
+  }
+
+  timeNow() { const m = 44 + this.state.tick * 4; return '07:' + String(m).padStart(2, '0'); }
+
+  confirmCard(id) {
+    const t = this.timeNow();
+    this.setState(s => ({
+      tick: s.tick + 1,
+      thread: s.thread.map(m => (m.id === id ? { ...m, status: 'logged', loggedAt: t } : m)).concat([{ t: 'text', role: 'bot', text: 'Listo ✅ Ya quedó registrado. Avísame si mueves algo más.' }])
+    }));
+  }
+  rejectCard(id) {
+    this.setState(s => ({
+      thread: s.thread.map(m => (m.id === id ? { ...m, status: 'rejected' } : m)).concat([{ t: 'text', role: 'bot', text: 'Ok, cuéntame otra vez con más detalle y lo corrijo.' }])
+    }));
+  }
+
+  scrollRef = (el) => { this._scroll = el; };
+  componentDidMount() { if (this._scroll) this._scroll.scrollTop = this._scroll.scrollHeight; }
+  componentDidUpdate() { if (this._scroll) this._scroll.scrollTop = this._scroll.scrollHeight; }
+
+  eventMeta(key) {
+    const M = {
+      transfer: ['Traslado', '#EAF3FD', '#0068C4'], return: ['Devolución', '#E4F3EA', '#1E7A4C'],
+      repair: ['Reparación', '#FBEFD6', '#B0730A'], lost: ['Reporte de pérdida', '#FBE5E8', '#C31D31'],
+      assign: ['Asignación', '#EAF3FD', '#0068C4']
+    };
+    const x = M[key] || M.transfer;
+    return { label: x[0], style: { display: 'inline-block', padding: '4px 12px', borderRadius: '999px', background: x[1], color: x[2], fontFamily: "'Urbanist',sans-serif", fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap' } };
+  }
+  logChip(key) {
+    const em = this.eventMeta(key);
+    return { ...em.style, padding: '2px 9px', fontSize: '10px' };
+  }
+
+  renderVals() {
+    const variant = this.props.variant || 'phone';
+    const showSidePane = variant === 'tablet';
+
+    const bubbleBase = { maxWidth: '80%', padding: '11px 15px', fontSize: '14px', lineHeight: 1.45, wordBreak: 'break-word' };
+    const messages = this.state.thread.map((m, i) => {
+      if (m.t === 'day') return { isDay: true, dayLabel: m.label };
+      if (m.t === 'typing') return { isTyping: true };
+      if (m.t === 'text') {
+        const isUser = m.role === 'user';
+        return {
+          isText: true, text: m.text,
+          rowStyle: { display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' },
+          bubbleStyle: isUser
+            ? { ...bubbleBase, background: '#0082F3', color: '#FFFFFF', borderRadius: '16px 16px 5px 16px' }
+            : { ...bubbleBase, background: '#FFFFFF', color: '#16212B', border: '1px solid #E1E6EA', borderRadius: '16px 16px 16px 5px' }
+        };
+      }
+      // card
+      const em = this.eventMeta(m.spec.eventKey);
+      return {
+        isCard: true,
+        cardWrap: { display: 'flex', justifyContent: 'flex-start', width: '92%' },
+        cHeader: m.status === 'pending' ? 'STINVENTORY ENTENDIÓ — CONFIRMA' : 'EVENTO',
+        cEventLabel: em.label, cEventStyle: em.style,
+        cTag: m.spec.tag, cModel: m.spec.model,
+        cRows: m.spec.rows.map(r => ({ k: r[0], v: r[1], vStyle: { fontSize: '13.5px', fontWeight: 600, color: r[2] ? '#0068C4' : '#16212B' } })),
+        cNote: m.status === 'pending' ? (m.spec.note || null) : null,
+        cPending: m.status === 'pending', cLogged: m.status === 'logged', cRejected: m.status === 'rejected',
+        cLoggedText: m.loggedAt || '',
+        cConfirm: () => this.confirmCard(m.id), cReject: () => this.rejectCard(m.id)
+      };
+    });
+
+    const logItems = this.state.thread.filter(m => m.t === 'card' && m.status === 'logged').map(m => {
+      const em = this.eventMeta(m.spec.eventKey);
+      const to = (m.spec.rows.find(r => r[0] === 'Hacia' || r[0] === 'Destino') || [null, null])[1];
+      return { eventLabel: em.label, eventStyle: this.logChip(m.spec.eventKey), tag: m.spec.tag, text: m.spec.model + (to ? ' → ' + to : ''), time: m.loggedAt };
+    }).reverse();
+
+    const SUG = [
+      'El generador 278 no arranca, lo mandé al yard',
+      'Devolví el compactador 61 al warehouse',
+      'No encuentro el rammer 256, se quedó en Trinity'
+    ];
+    const suggestions = SUG.map(text => ({ text, go: () => this.respond(text) }));
+
+    return {
+      rootStyle: { width: '100%', height: '100%', display: 'flex', fontFamily: "'Be Vietnam Pro',sans-serif" },
+      showSidePane, messages, logItems, suggestions,
+      scrollRef: this.scrollRef,
+      draft: this.state.draft,
+      onDraft: (e) => this.setState({ draft: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter') this.respond(this.state.draft); },
+      send: () => this.respond(this.state.draft)
+    };
+  }
+}
+</script>
+</body>
+</html>

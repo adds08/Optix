@@ -9,25 +9,33 @@ export function formatAssetModel(a: {
   return [a.make, a.modelNumber, a.description].filter(Boolean).join(" ");
 }
 
-/* A date-only column (`warrantyExpiresOn`, `startDate`, `acquisitionDate`)
-   arrives as "2026-08-23". `new Date("2026-08-23")` parses that as UTC
-   midnight, which west of Greenwich is the PREVIOUS DAY locally — so a
-   warranty expiring today reads as expired in Dallas and not in London. A
-   date-only string means a calendar day in the reader's own timezone, so it is
-   parsed as local midnight. A full timestamp is a real instant and is left
-   alone. */
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+/*
+  Parse a value from the API the way the column it came from means it.
 
-function toDate(v: string | Date): Date {
+  A `date` column ("2027-10-09") is a CALENDAR day — a warranty expires on the
+  9th of October wherever you are reading from. `new Date("2027-10-09")` does
+  not say that: the ES spec reads a date-only string as UTC midnight, which in
+  Dallas (`America/Chicago`, where Urban Infraconstruction is) is 19:00 on the
+  8th. Every date-only field rendered a day early for every Urban user —
+  warranty expiry, `acquisitionDate`, project and assignment `startDate`,
+  posting `startedOn`/`endedOn`. That is UI-60, and it hid for so long because
+  the tester sits in Asia/Katmandu: at UTC+05:45 the same instant lands inside
+  the intended day, so the bug is invisible east of Greenwich.
+
+  So: a date-only string is built as LOCAL midnight on that calendar day. A
+  full timestamp is a real instant — an `occurredAt` happened at a moment, not
+  on a day — and is left to `new Date` untouched.
+*/
+export function toDate(v: string | Date): Date {
   if (v instanceof Date) return v;
-  const m = DATE_ONLY.exec(v);
-  if (!m) return new Date(v);
-  const [y, mo, d] = v.split("-").map(Number);
-  return new Date(y!, mo! - 1, d!);
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!ymd) return new Date(v);
+  return new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
 }
 
-/* Midnight local on whatever calendar day this instant falls in. */
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+export function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
 
 /*
   Days SINCE a date: positive means already past, negative means still ahead.
@@ -36,27 +44,30 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
   subtlety and it needs a test suite around it — the web app has none. See
   `relative` below for the bug that convention caused.
 
-  **CALENDAR days, not elapsed time.** This used to be
-  `Math.floor((Date.now() - d.getTime()) / 86_400_000)`, which measures how
-  much TIME has passed and then floors it — so the answer moved with the clock:
+  It counts CALENDAR days, not elapsed milliseconds. It used to be
+  `Math.floor((Date.now() - d.getTime()) / 86_400_000)`, which measures how much
+  TIME has passed and then floors it — so the answer moved with the wall clock,
+  and where the day boundary landed depended entirely on the reader's timezone.
 
-    - a tool tagged at noon today read as "today" after noon and **"tomorrow"
-      all morning**, because 07:00 minus 12:00 is negative and floors to -1;
-    - "10 days ago at noon" read as 9 until noon came round again.
+  In Dallas (`America/Chicago`, where Urban is) it landed at 19:00 local, inside
+  a yard's working evening: between 19:00 and midnight a warranty expiring today
+  read "expires yesterday", and one that expired yesterday still wore the amber
+  "ends soon" badge instead of the red "expired" one (UI-60). The same defect
+  read a tool tagged at noon as "today" after lunch and **"tomorrow" all
+  morning**, and "10 days ago at noon" as 9 until noon came round again.
 
-  Nobody asks "how many 24-hour periods since this happened". They ask which
-  day it was, and that answer must not change because somebody opened the
-  screen before lunch. Flooring both instants to local midnight first makes it
-  a calendar-day difference.
+  Nobody asks "how many 24-hour periods since this happened". They ask which day
+  it was, and that answer must not change because somebody opened the screen
+  before lunch. Flooring both instants to local midnight first makes it a
+  calendar-day difference.
 
-  `Math.round`, not `floor`, on the result: a DST boundary makes a local day 23
-  or 25 hours, so the division lands on 0.958 or 1.042 rather than exactly 1,
-  and flooring would lose a day twice a year.
+  `Math.round`, not `Math.floor`: a DST boundary makes a local day 23 or 25
+  hours, so the division lands on 1.042 or 0.958 rather than exactly 1, and
+  flooring would lose a day twice a year.
 
-  Found on 2026-08-23 by the suite failing overnight — the tests were right,
-  the implementation was wrong, and it only showed because the run happened to
-  land before noon. It is the same family as the UI-60/62/63/64/65 bug
-  described below, and was sitting next to it.
+  Found on 2026-08-23 by the suite failing overnight — the tests were right, the
+  implementation was wrong, and it only showed because the run happened to land
+  before noon.
 */
 export function daysFrom(v: string | Date | null | undefined): number | null {
   if (!v) return null;

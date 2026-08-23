@@ -132,6 +132,25 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
     return ctxFor(perms.map((p) => p.name as Permission), row!.employeeId);
   };
 
+  /* Throwaway people and team rows for the crew-derivation tests, written
+     against the seeded tenant and cleaned up by the test. */
+  const newScopedEmployee = async (name: string, role: string): Promise<string> => {
+    const [row] = await db
+      .insert(schema.employee)
+      .values({ tenantId, name, role })
+      .returning({ id: schema.employee.id });
+    return row!.id;
+  };
+  const newScopedTeamRow = async (employeeId: string, projectId: string, role: string) => {
+    await db.insert(schema.projectTeamMember).values({
+      tenantId,
+      projectId,
+      employeeId,
+      role,
+      startedOn: "2026-08-23",
+    });
+  };
+
   // -------------------------------------------------------------------------
   // 1. The matrix
   // -------------------------------------------------------------------------
@@ -269,6 +288,70 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
 
       expect(onlyPm.length, "the PM sees nothing the superintendent cannot — crew has collapsed into project").toBeGreaterThan(0);
       expect(onlySup.length, "the superintendent sees nothing the PM cannot — crew has collapsed into project").toBeGreaterThan(0);
+    });
+
+    it("derives the crew from the project team, one level deep (2026-08-23)", async () => {
+      /* The crew edge changed from `reportsToEmployeeId` to the project team.
+         These pin the per-member semantics the seeded ladder counts cannot:
+         a super on project A sees A's foremen and not B's; two supers on one
+         job both see all its foremen; a foreman with no team row is invisible;
+         the super always sees their own tools (`self`). */
+      const [p1] = await db.insert(schema.project).values({ tenantId, name: "crew A" }).returning({ id: schema.project.id });
+      const [p2] = await db.insert(schema.project).values({ tenantId, name: "crew B" }).returning({ id: schema.project.id });
+
+      const superA = await newScopedEmployee("Super A", "superintendent");
+      const superB = await newScopedEmployee("Super B", "superintendent");
+      const fmA = await newScopedEmployee("Foreman A", "foreman");
+      const fmB = await newScopedEmployee("Foreman B", "foreman");
+      const loner = await newScopedEmployee("Loner Foreman", "foreman");
+      const otherSup = await newScopedEmployee("Other Super", "superintendent");
+
+      await newScopedTeamRow(superA, p1!.id, "superintendent");
+      await newScopedTeamRow(fmA, p1!.id, "foreman");
+      await newScopedTeamRow(superB, p1!.id, "superintendent");
+      await newScopedTeamRow(fmB, p2!.id, "foreman");
+      await newScopedTeamRow(superA, p2!.id, "superintendent");
+      /* `otherSup` has a team row but NO foremen beneath them. */
+      await newScopedTeamRow(otherSup, p2!.id, "superintendent");
+      /* `loner` holds tools but is on no project team. */
+
+      /* Resolve via the real entrypoint for a hand-built session. */
+      const ctxForEmp = (employeeId: string): Context =>
+        ctxFor(["assets.view.crew", "asset.read"], employeeId);
+
+      const a = await assetVisibility(db, ctxForEmp(superA).session!);
+      const b = await assetVisibility(db, ctxForEmp(superB).session!);
+      const lone = await assetVisibility(db, ctxForEmp(loner).session!);
+      const other = await assetVisibility(db, ctxForEmp(otherSup).session!);
+
+      expect(a).toMatchObject({ tier: "assets.view.crew" });
+      const aIds = new Set((a as { custodianIds: string[] }).custodianIds);
+      expect(aIds).toContain(superA); // self
+      expect(aIds).toContain(fmA); // A's foreman
+      expect(aIds).toContain(fmB); // superA also oversees p2
+      expect(aIds).not.toContain(superB); // other super is not a foreman
+      expect(aIds).not.toContain(loner); // no team row
+
+      const bIds = new Set((b as { custodianIds: string[] }).custodianIds);
+      expect(bIds).toContain(superB);
+      expect(bIds).toContain(fmA); // superB shares p1 with superA
+      expect(bIds).not.toContain(fmB); // not on p1
+
+      /* A foreman with no team row sees only themselves. */
+      expect((lone as { custodianIds: string[] }).custodianIds).toEqual([loner]);
+
+      /* A super on a project WITH foremen sees them — otherSup is on p2 with
+         fmB, so their crew is [self, fmB]. */
+      expect((other as { custodianIds: string[] }).custodianIds.sort()).toEqual([otherSup, fmB].sort());
+
+      /* Clean up the throwaway rows. */
+      await db.delete(schema.projectTeamMember).where(
+        inArray(schema.projectTeamMember.employeeId, [superA, superB, fmA, fmB, loner, otherSup]),
+      );
+      await db.delete(schema.employee).where(
+        inArray(schema.employee.id, [superA, superB, fmA, fmB, loner, otherSup]),
+      );
+      await db.delete(schema.project).where(inArray(schema.project.id, [p1!.id, p2!.id]));
     });
 
     it("a foreman cannot read a tool outside his own custody, by id", async () => {

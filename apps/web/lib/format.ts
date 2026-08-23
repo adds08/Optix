@@ -2,6 +2,8 @@
    a report that formats currency differently from the dashboard is a report
    people stop trusting. */
 
+import { toDate } from "@stinventory/types";
+
 const USD = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -37,9 +39,15 @@ export function assetNumberDisplay(v: number | null | undefined): string {
   return "A-" + String(v).padStart(6, "0");
 }
 
+/* Parses through `toDate`, not `new Date`, because most of what reaches here is
+   a `date` column — a calendar day, not an instant. `new Date("2027-10-09")` is
+   UTC midnight, which in Dallas is the evening of the 8th, so a warranty running
+   to 9 Oct 2027 rendered "Oct 8, 2027" all day, every day, for every Urban user
+   (UI-60). `toDate` leaves a full timestamp alone, so the callers passing a real
+   `createdAt`/`completedAt` are unaffected. */
 export function shortDate(v: string | Date | null | undefined): string {
   if (!v) return "—";
-  const d = v instanceof Date ? v : new Date(v);
+  const d = toDate(v);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -62,8 +70,12 @@ export function dateTime(v: string | Date | null | undefined): string {
   (warranty expiry) is exactly the kind of sign-convention detail that needs
   one. Re-exported here so the call sites keep importing from `@/lib/format`
   alongside the other formatters.
+
+  `toDate` rides along for the same reason: `shortDate` above parses with it, and
+  a second local copy of "a date-only column is a calendar day" is exactly how
+  UI-60 would come back.
 */
-export { daysFrom, relative } from "@stinventory/types";
+export { daysFrom, relative, toDate } from "@stinventory/types";
 
 /*
   Entity identifiers everywhere read as "<ID> - <Entity name>" — the job ID is

@@ -72,25 +72,56 @@ export function viewTierOf(session: ResolvedSession): ViewTier {
 }
 
 /*
-  Foremen reporting to this person, plus the person themselves.
+  Foremen in this person's crew, plus the person themselves.
 
   A superintendent holds tools of their own as well as overseeing a crew, so
   omitting `self` here would hide a superintendent's own tools from the
   superintendent — which is what "crew" meant before anyone wrote it down.
 
+  THE EDGE, AND WHY IT CHANGED (2026-08-23): the crew used to be
+  `employee.reportsToEmployeeId = actor` — a manual org-chart link, editable
+  by nobody in particular and able to disagree with the roster. The user's
+  operating rule is simpler and is now the only source: a foreman on a project
+  IS working it, so a superintendent's crew is the foremen on the projects the
+  superintendent is on the team of. "All supers on a job see that job's
+  foremen", decided at planning. `reportsToEmployeeId` remains a display field
+  on the employee record; it is no longer read for scoping here, in
+  `myForemen`, or in the departure successor.
+
   One level deep, deliberately. `employee.myForemen` (routers/project.ts) walks
   the same edge and stops at the same place; Urban's structure is
-  PM -> superintendent -> foreman, and a recursive walk would let a mis-set
-  `reportsToEmployeeId` cycle quietly widen someone's view. If a deeper chain
-  ever becomes real, change it here and in `myForemen` together — they are the
-  same question asked twice.
+  PM -> superintendent -> foreman. If a deeper chain ever becomes real, change
+  it here and in `myForemen` together — they are the same question asked twice.
 */
 async function crewOf(db: Database, tid: string, employeeId: string): Promise<string[]> {
-  const rows = await db
-    .select({ id: schema.employee.id })
-    .from(schema.employee)
-    .where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.reportsToEmployeeId, employeeId)));
-  return [employeeId, ...rows.map((r) => r.id)];
+  /* The projects this person currently oversees. A `superintendent` team row is
+     the fact; `endedOn` being null is what makes it current. */
+  const supers = await db
+    .select({ projectId: schema.projectTeamMember.projectId })
+    .from(schema.projectTeamMember)
+    .where(
+      and(
+        eq(schema.projectTeamMember.tenantId, tid),
+        eq(schema.projectTeamMember.employeeId, employeeId),
+        eq(schema.projectTeamMember.role, "superintendent"),
+        isNull(schema.projectTeamMember.endedOn),
+      ),
+    );
+  if (supers.length === 0) return [employeeId];
+
+  const projectIds = supers.map((s) => s.projectId);
+  const foremen = await db
+    .select({ id: schema.projectTeamMember.employeeId })
+    .from(schema.projectTeamMember)
+    .where(
+      and(
+        eq(schema.projectTeamMember.tenantId, tid),
+        eq(schema.projectTeamMember.role, "foreman"),
+        isNull(schema.projectTeamMember.endedOn),
+        inArray(schema.projectTeamMember.projectId, projectIds),
+      ),
+    );
+  return [employeeId, ...new Set(foremen.map((f) => f.id))];
 }
 
 /*

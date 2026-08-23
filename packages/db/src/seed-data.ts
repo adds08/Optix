@@ -21,7 +21,7 @@ export type TeamSeed = { emp: string; proj: string; role: string; from: string; 
 export type LocSeed = { key: string; type: string; name: string; warehouse: string | null; project: string | null; custodian: string | null };
 export type VehLocSeed = { key: string; type: string; name: string; project: string | null; custodian: string | null };
 export type VehSeed = { key: string; loc: string; vtype: 'truck' | 'trailer'; unit: string; plate: string | null; make: string | null; own: string; payee: string | null; allow: string | null; freq: string | null; proj: string | null; foreman: string | null; lat: string; lng: string };
-export type AssetSeed = { tag: string; make: string | null; modelNumber: string | null; description: string | null; serial: string | null; isSerialized: boolean; quantity: number; cost: string | null; own: string | null; dept: boolean; status: string; cust: string | null; cur: string | null; loc: string };
+export type AssetSeed = { tag: string | null; make: string | null; modelNumber: string | null; description: string | null; serial: string | null; isSerialized: boolean; quantity: number; cost: string | null; own: string | null; dept: boolean; status: string; cust: string | null; cur: string | null; loc: string };
 export type AssignSeed = { tag: string; cust: string; proj: string | null; loc: string; type: string; start: string; end: string | null };
 export type TxSeed = { tag: string; event: string; at: string; note: string; ref: string };
 export type DeptSeed = { name: string; code: string };
@@ -210,6 +210,15 @@ export const teamSpecs: TeamSeed[] = [
      that held it. */
   { emp: "e-pm001", proj: "p-lone-star-22018", role: "pm", from: "2025-01-06", note: "Project manager" },
   { emp: "e-eng001", proj: "p-dart-20011", role: "pm", from: "2025-01-06", note: "Project engineer — login role `engineer`, employee role `pm`" },
+  /*
+    2026-08-23: Marcus's crew now comes from the PROJECT TEAM, not
+    `reportsToEmployeeId` (scope.ts crewOf, myForemen, departure successor). His
+    foremen work Lone Star and DART, so he needs a superintendent row on both —
+    this is what keeps "crew" and "project" from meaning the same thing: Dana
+    sees only Lone Star, Marcus's crew spans two jobs.
+  */
+  { emp: "e-sup001", proj: "p-lone-star-22018", role: "superintendent", from: "2025-01-06", note: "Superintendent" },
+  { emp: "e-sup001", proj: "p-dart-20011", role: "superintendent", from: "2025-01-06", note: "Superintendent" },
 ];
 
 export const locSpecs: LocSeed[] = [
@@ -314,6 +323,27 @@ export const vehSpecs: VehSeed[] = [
 ];
 
 export const assetSpecs: AssetSeed[] = [
+  /*
+    Two tools nobody has labelled yet (UI-68).
+
+    `asset.tag` has always been nullable — an untagged tool is a normal state,
+    and the "Needs a Tag" report exists to be the label gun's worklist. But
+    every seeded row carried a tag, so that report was structurally EMPTY on
+    every machine in the project: its non-empty rendering, its serial split and
+    its CSV export had never once been exercised, and the QA tester read the
+    correctly-disabled export button as a broken one.
+
+    That is CLAUDE.md rule 8 exactly — data the seed cannot produce is
+    behaviour nobody tests — so the edge that trips the rule is seeded here,
+    not just the happy path. One has a serial and one has none, because the
+    report's own summary metric splits on precisely that.
+
+    Both are deliberately unassigned (`cust: null`) and are referenced by no
+    AssignSeed or TxSeed: the assignment and ledger writers key on tag, and a
+    null tag is not a key.
+  */
+  { tag: null, make: "MILWAUKEE", modelNumber: "2767-20", description: "1/2\" IMPACT WRENCH (UNLABELLED)", serial: "MW7729341", isSerialized: true, quantity: 1, cost: "429.00", own: null, dept: true, status: "available", cust: null, cur: null, loc: "l-dal" },
+  { tag: null, make: "DEWALT", modelNumber: "DWE4011", description: "4-1/2\" ANGLE GRINDER (UNLABELLED)", serial: null, isSerialized: false, quantity: 1, cost: "89.00", own: null, dept: true, status: "available", cust: null, cur: null, loc: "l-dal" },
   { tag: "TOOL-0001", make: "BOSCH", modelNumber: "11255VSR", description: "HAMMER DRILL EXTREME BULL DOG (8A)", serial: "331009023", isSerialized: true, quantity: 1, cost: null, own: null, dept: true, status: "assigned", cust: "e-fm001", cur: "p-lone-star-22018", loc: "l-TE-006" },
   { tag: "TOOL-0002", make: "BOSCH", modelNumber: "GWS10-450P", description: "4- 1/2\" ANGEL GRAINDER", serial: "329033250", isSerialized: true, quantity: 1, cost: null, own: null, dept: true, status: "assigned", cust: "e-fm001", cur: "p-lone-star-22018", loc: "l-TE-006" },
   { tag: "TOOL-0003", make: "BOSCH", modelNumber: "GWS10-450P", description: "4- 1/2\" ANGEL GRAINDER", serial: "130007194", isSerialized: true, quantity: 1, cost: null, own: null, dept: true, status: "assigned", cust: "e-fm001", cur: "p-lone-star-22018", loc: "l-TE-006" },

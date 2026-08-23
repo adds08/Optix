@@ -29,6 +29,9 @@ export type ToolRow = {
   categoryName: string | null;
   status: string | null;
   acquisitionCost: string | null;
+  /* asset.list returns the register's condition (new/good/fair/poor/damaged);
+     declared here because the Blocky concept view reads it. */
+  condition?: string | null;
   /* asset.list names these `custodianId` / `locationId` (no current_ prefix). */
   custodianId?: string | null;
   custodianName?: string | null;

@@ -366,13 +366,13 @@ async function main() {
   const seedPersonalTruckId = vehicleRows[vehSpecs.findIndex((v) => v.own === "personal_allowance")]!.id;
   const personalTruckTag =
     assignSpecs.find((s) => s.tag !== "TOOL-0001" && s.tag !== modelCorrectTag)?.tag ?? null;
-  const truckIdFor = (tag: string) =>
+  const truckIdFor = (tag: string | null) =>
     tag === "TOOL-0001" ? seedTruckId : tag === personalTruckTag ? seedPersonalTruckId : null;
   const YARD_LOC_KEY = "l-dal";
   /* The location the three writers below agree on. `trailerId` deliberately
      keeps using the ORIGINAL key — that is the whole point: the trailer is
      still recorded, the location no longer names it. */
-  const locKeyOf = (tag: string, loc: string) => (tag === modelCorrectTag ? YARD_LOC_KEY : loc);
+  const locKeyOf = (tag: string | null, loc: string) => (tag === modelCorrectTag ? YARD_LOC_KEY : loc);
   const trailerCount = vehSpecs.filter((v) => v.vtype === "trailer").length;
   console.log(`[seed] ${trailerCount} trailers (no trucks in source) + 2 synthetic trucks (1 company, 1 personal-allowance)`);
 
@@ -424,12 +424,12 @@ async function main() {
         serialNumber: a.serial,
         isSerialized: a.isSerialized,
         quantity: a.quantity,
-        acquisitionCost: SEED_COSTS[a.tag] ?? a.cost,
+        acquisitionCost: (a.tag ? SEED_COSTS[a.tag] : null) ?? a.cost,
         acquisitionDate: null,
         owningProjectId: a.own ? projectByKey[a.own]! : null,
         costTarget: a.dept ? "department" : "project",
         owningDepartmentId: a.dept ? deptByCode["EQ"]! : null,
-        warrantyExpiresOn: WARRANTY_BY_TAG[a.tag] ?? null,
+        warrantyExpiresOn: (a.tag ? WARRANTY_BY_TAG[a.tag] : null) ?? null,
         currentStatus: a.status,
         currentCustodianId: a.cust ? empByKey[a.cust]! : null,
         currentProjectId: a.cur ? projectByKey[a.cur]! : null,
@@ -439,10 +439,14 @@ async function main() {
       })),
     )
     .returning();
-  const assetByTag = Object.fromEntries(assetRows.map((a) => [a.tag, a]));
+  /* Untagged tools (UI-68) are deliberately absent from both tag maps: a null
+     tag is not a key, and letting two of them collide on one "null" entry would
+     hand the assignment and ledger writers below the wrong asset. Nothing
+     references them, so skipping is correct rather than merely safe. */
+  const assetByTag = Object.fromEntries(assetRows.filter((a) => a.tag).map((a) => [a.tag!, a]));
   // Tag -> spec, so the ledger events below can snapshot the same state the
   // projection was written from. One source of truth for both sides.
-  const assetSpecByTag = Object.fromEntries(assetSpecs.map((a) => [a.tag, a]));
+  const assetSpecByTag = Object.fromEntries(assetSpecs.filter((a) => a.tag).map((a) => [a.tag!, a]));
   console.log(`[seed] ${assetSpecs.length} assets`);
 
   // ---- Assignments (active custody). One per tool with a foreman. ----

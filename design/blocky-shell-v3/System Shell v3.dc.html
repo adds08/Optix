@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;overflow:hidden;font-family:'Inter Tight',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#7FB0E4;text-decoration:none}a:hover{color:#A9CDF2;text-decoration:underline}
+input,textarea{font-family:inherit}
+::-webkit-scrollbar{width:7px;height:7px}
+::-webkit-scrollbar-thumb{background:#242A31;border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+
+<div style="{{ shellStyle }}">
+<div style="{{ railStyle }}">
+<div style="{{ logoStyle }}">ST</div>
+<div style="{{ railListStyle }}">
+<sc-for list="{{ railApps }}" as="app" hint-placeholder-count="9">
+<div onClick="{{ app.onClick }}" style="{{ app.style }}" title="{{ app.label }}">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+<sc-for list="{{ app.paths }}" as="p" hint-placeholder-count="2"><path d="{{ p }}"></path></sc-for>
+<sc-for list="{{ app.circles }}" as="c" hint-placeholder-count="0"><circle cx="{{ c.cx }}" cy="{{ c.cy }}" r="{{ c.r }}"></circle></sc-for>
+</svg>
+
+</div>
+</sc-for>
+</div>
+<div onClick="{{ toggleAI }}" style="{{ aiToggleStyle }}" title="AI Assistant">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z"></path><circle cx="9" cy="14" r="1"></circle><circle cx="15" cy="14" r="1"></circle></svg>
+</div>
+</div>
+
+<div style="{{ navStyle }}">
+<div style="{{ navInnerStyle }}">
+<div style="{{ navTopStyle }}">
+<div style="{{ projBtnStyle }}">
+<span style="{{ projIconStyle }}">⊞</span>
+<span style="{{ projTextStyle }}">{{ projLabel }}</span>
+<span style="{{ projCountStyle }}">{{ projCount }}</span>
+<span style="{{ projChevStyle }}">▾</span>
+</div>
+</div>
+<div style="{{ navScrollStyle }}">
+<div style="{{ navAppNameStyle }}">{{ activeAppLabel }}</div>
+<sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="3">
+<div style="{{ g.gStyle }}">
+<sc-if value="{{ g.showLabel }}" hint-placeholder-val="{{ false }}">
+<div style="{{ g.lStyle }}">{{ g.label }}</div>
+</sc-if>
+<sc-for list="{{ g.items }}" as="n" hint-placeholder-count="3">
+<div onClick="{{ n.onClick }}" style="{{ n.style }}" style-hover="{{ n.hoverStyle }}">
+<span style="{{ n.txtStyle }}">{{ n.label }}</span>
+<sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.bStyle }}">{{ n.badge }}</span></sc-if>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+<div style="{{ navFootStyle }}">
+<div style="{{ roleStyle }}">{{ seatLabel }}</div>
+<div style="{{ roleHintStyle }}">{{ seatScope }}</div>
+</div>
+</div>
+</div>
+
+<div style="{{ mainStyle }}">
+<div style="{{ topBarStyle }}">
+<div onClick="{{ toggleNav }}" style="{{ navToggleStyle }}" title="Toggle sidebar">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></svg>
+</div>
+<span style="{{ pageTitleStyle }}">{{ pageTitle }}</span>
+<span style="{{ pageSubStyle }}">{{ pageSub }}</span>
+<div style="flex:1"></div>
+<sc-if value="{{ showSearch }}" hint-placeholder-val="{{ true }}">
+<div style="{{ searchBoxStyle }}">
+<span style="{{ searchIconStyle }}">⌕</span>
+<input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Search tools, people, jobs…" style="{{ searchInputStyle }}">
+</div>
+</sc-if>
+<div onClick="{{ toggleTheme }}" style="{{ themeBtnStyle }}">{{ themeIcon }}</div>
+<div style="{{ bellStyle }}"><span>🔔</span><span style="{{ bellDotStyle }}"></span></div>
+<div style="{{ avatarStyle }}">DM</div>
+</div>
+
+<div key="{{ pageKey }}" style="{{ contentStyle }}">
+<sc-if value="{{ showDashboard }}" hint-placeholder-val="{{ true }}">
+<div style="{{ monitorEmbedStyle }}">
+<dc-import name="Project Monitor" embedded="{{ true }}" theme="{{ themeKey }}" hint-size="100%,100%"></dc-import>
+</div>
+</sc-if>
+<sc-if value="{{ showToolsByJobsite }}" hint-placeholder-val="{{ false }}">
+<div style="{{ embeddedStyle }}">
+<dc-import name="Tools by Jobsite Blocky" embedded="{{ true }}" theme="{{ themeKey }}" hint-size="100%,800px"></dc-import>
+</div>
+</sc-if>
+<sc-if value="{{ showFieldChat }}" hint-placeholder-val="{{ false }}">
+<div style="{{ embeddedStyle }}">
+<dc-import name="FieldChat" hint-size="100%,800px"></dc-import>
+</div>
+</sc-if>
+<sc-if value="{{ showPlaceholder }}" hint-placeholder-val="{{ false }}">
+<div style="{{ placeholderStyle }}">
+<div style="{{ phTitleStyle }}">{{ activePageLabel }}</div>
+<div style="{{ phSubStyle }}">{{ placeholderText }}</div>
+</div>
+</sc-if>
+</div>
+</div>
+
+<sc-if value="{{ aiOpen }}" hint-placeholder-val="{{ false }}">
+<div style="{{ aiOverlayStyle }}">
+<div style="{{ aiPanelStyle }}">
+<div style="{{ aiHeaderStyle }}">
+<span style="{{ aiTitleStyle }}">AI Assistant</span>
+<div style="{{ aiSessionBtnStyle }}">
+<span onClick="{{ toggleSessions }}" style="{{ aiSessionToggleStyle }}">{{ sessionToggleLabel }}</span>
+<span onClick="{{ newSession }}" style="{{ aiNewBtnStyle }}">+ New</span>
+</div>
+<span onClick="{{ toggleAI }}" style="{{ aiCloseStyle }}">✕</span>
+</div>
+<sc-if value="{{ showSessions }}" hint-placeholder-val="{{ false }}">
+<div style="{{ aiSessionListStyle }}">
+<sc-for list="{{ sessions }}" as="ses" hint-placeholder-count="3">
+<div onClick="{{ ses.onClick }}" style="{{ ses.style }}">
+<div style="{{ ses.titleStyle }}">{{ ses.title }}</div>
+<div style="{{ ses.timeStyle }}">{{ ses.time }}</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<div style="{{ aiMessagesStyle }}">
+<sc-for list="{{ aiMessages }}" as="msg" hint-placeholder-count="2">
+<div style="{{ msg.wrapStyle }}">
+<div style="{{ msg.style }}">{{ msg.text }}</div>
+</div>
+</sc-for>
+</div>
+<div style="{{ aiInputAreaStyle }}">
+<textarea value="{{ aiDraft }}" onChange="{{ onAiDraft }}" onKeyDown="{{ onAiKey }}" placeholder="Ask about tools, people, jobs…" style="{{ aiTextareaStyle }}" rows="2"></textarea>
+<div onClick="{{ sendAiMsg }}" style="{{ aiSendBtnStyle }}">Send</div>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1440, &quot;height&quot;: 900 },
+  &quot;role&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;owner&quot;, &quot;equipment_admin&quot;, &quot;warehouse&quot;, &quot;project_manager&quot;, &quot;superintendent&quot;, &quot;foreman&quot;, &quot;read_only&quot;],
+    &quot;default&quot;: &quot;equipment_admin&quot;,
+    &quot;tsType&quot;: &quot;RoleName&quot;,
+    &quot;section&quot;: &quot;Session (RBAC)&quot;
+  },
+  &quot;permissions&quot;: {
+    &quot;editor&quot;: &quot;text&quot;,
+    &quot;default&quot;: &quot;&quot;,
+    &quot;tsType&quot;: &quot;Permission[]&quot;,
+    &quot;section&quot;: &quot;Session (RBAC)&quot;
+  },
+  &quot;theme&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;dark&quot;, &quot;light&quot;],
+    &quot;default&quot;: &quot;dark&quot;,
+    &quot;tsType&quot;: &quot;'dark'|'light'&quot;
+  },
+  &quot;navCollapsed&quot;: {
+    &quot;editor&quot;: &quot;boolean&quot;,
+    &quot;default&quot;: false,
+    &quot;tsType&quot;: &quot;boolean&quot;,
+    &quot;section&quot;: &quot;Navigation&quot;
+  },
+  &quot;defaultApp&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;overview&quot;, &quot;equipment&quot;, &quot;insight&quot;, &quot;entity&quot;, &quot;field&quot;],
+    &quot;default&quot;: &quot;overview&quot;,
+    &quot;tsType&quot;: &quot;string&quot;,
+    &quot;section&quot;: &quot;Navigation&quot;
+  },
+  &quot;defaultPage&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;Dashboard&quot;, &quot;Tools by Jobsite&quot;, &quot;Custody&quot;, &quot;Fleet &amp; Small Tools Map&quot;, &quot;Reports &amp; Logs&quot;, &quot;Activity&quot;, &quot;Tool Register&quot;, &quot;Inbox&quot;, &quot;People&quot;, &quot;Projects / Jobs&quot;, &quot;Settings&quot;, &quot;My Tools&quot;, &quot;Hand Off&quot;, &quot;Alerts&quot;],
+    &quot;default&quot;: &quot;Dashboard&quot;,
+    &quot;tsType&quot;: &quot;string&quot;,
+    &quot;section&quot;: &quot;Navigation&quot;
+  }
+}">
+class Component extends DCLogic {
+  state = {
+    dark: null, activeApp: null, activePage: null, query: '', navCollapsed: null,
+    aiOpen: false, aiDraft: '', showSessions: false, activeSession: 0,
+    sessions: [
+      { id: 0, title: 'Tool custody questions', time: 'Today',
+        messages: [
+          { role:'ai', text:'Two hand-offs came in overnight — both temporary loans needing verification. Whitaker left Friday still holding 4 tools, HR sign-off blocked. The laser level on TXDOT is 11 days past due and nobody has extended it.' },
+          { role:'user', text:'Which tools does Whitaker still have?' },
+          { role:'ai', text:'James Whitaker holds 4 tools:\n• UIC-1042 — Hilti TE 70 rotary hammer\n• UIC-0431 — Generator 6.5kW\n• UIC-1301 — Concrete vibrator\n• UIC-0774 — Quikie saw\n\nAll are charged to Legacy West Ph 3. HR sign-off is blocked until every tool is returned, transferred or written off.' }
+        ]
+      },
+      { id: 1, title: 'Idle tools in the yard', time: 'Yesterday',
+        messages: [
+          { role:'user', text:'How many tools are sitting idle?' },
+          { role:'ai', text:'62 tools are currently in the yard with status "available". 22 of them came free when Frisco North closed phase 2 six days ago. Total idle value: $84,200.' }
+        ]
+      },
+      { id: 2, title: 'TXDOT overdue items', time: '2 days ago',
+        messages: [
+          { role:'user', text:'What is overdue on TXDOT?' },
+          { role:'ai', text:'One item overdue on TXDOT 114 Ramp:\n• UIC-1190 — DeWalt DW088 laser level, held by D. Delgado, 11 days past due. Last touched 31 days ago. Nobody has returned or extended it.' }
+        ]
+      }
+    ]
+  };
+
+  /* Navigation is NOT a designer's invention here — it is
+     apps/web/components/sti/nav-config.ts verbatim. Upstream ships exactly two
+     shapes (FIELD_NAV, DESK_NAV) chosen by role, and app-sidebar.tsx then hides
+     any row whose `perm` is missing from the signed-in user's permission set.
+     There is no role switcher in the product: role and permissions arrive from
+     the session (identity.me) and are administered through RBAC. They are props
+     here so a designer can preview a seat, not because the UI can change them.
+
+     The 48px rail carries the nav GROUPS; the sidebar carries that group's rows. */
+
+  DESK_NAV = [
+    { key:'overview', label:'Overview', color:'#7FB0E4',
+      paths:['M3 3h7v7H3z','M14 3h7v7h-7z','M14 14h7v7h-7z','M3 14h7v7H3z'], circles:[],
+      nav:[{ label:'OVERVIEW', items:[
+        { label:'Dashboard', href:'/home' }
+      ] }] },
+    { key:'equipment', label:'Equipment', color:'#7FB0E4',
+      paths:['M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z'], circles:[],
+      nav:[{ label:'EQUIPMENT', items:[
+        { label:'Tools by Jobsite', href:'/jobsites', perm:'asset.read' },
+
+        { label:'Custody', href:'/custody', perm:'assignment.read' },
+        { label:'Fleet & Small Tools Map', href:'/map', perm:'location.read' }
+      ] }] },
+    { key:'insight', label:'Insight', color:'#4FA97A',
+      paths:['M3 3v18h18','M7 15v3','M12 9v9','M17 5v13'], circles:[],
+      nav:[{ label:'INSIGHT', items:[
+        { label:'Reports & Logs', href:'/reports', perm:'report.read' },
+        { label:'Activity', href:'/activity', perm:'asset.read' }
+      ] }] },
+    { key:'entity', label:'Entity', color:'#E4A13B',
+      paths:['M21 8l-9-5-9 5 9 5 9-5z','M3 13l9 5 9-5','M3 18l9 5 9-5'], circles:[],
+      nav:[{ label:'ENTITY', items:[
+        { label:'Tool Register', href:'/tools', perm:'asset.read' },
+        { label:'Inbox', href:'/inbox', perm:'assignment.read', badge:'5' },
+        { label:'People', href:'/people', perm:'employee.read' },
+        { label:'Projects / Jobs', href:'/projects', perm:'project.read' },
+        { label:'Settings', href:'/settings', perm:'config.manage' }
+      ] }] }
+  ];
+
+  /* A foreman is standing in a yard holding a phone: see what they hold, hand
+     something over, flag a problem. Upstream refuses to give them the desk
+     surface with two thirds greyed out, and so does this. */
+  FIELD_NAV = [
+    { key:'field', label:'Field', color:'#E4A13B',
+      paths:['M2 18h20','M4 18a8 8 0 0 1 16 0','M12 4v3','M6.5 7.5l1.8 1.8','M17.5 7.5l-1.8 1.8'], circles:[],
+      nav:[{ label:'FIELD', items:[
+        { label:'My Tools', href:'/my-tools' },
+        { label:'Hand Off', href:'/chat' },
+        { label:'Alerts', href:'/inbox', badge:'5' }
+      ] }] }
+  ];
+
+  FIELD_ROLES = ['foreman', 'superintendent'];
+
+  /* Seeded to match the upstream role seed. owner/equipment_admin/warehouse/
+     foreman/read_only are the MVP-active roles; the rest exist in ROLES but are
+     not seeded, so they fall through to a read-only desk. */
+  ROLE_PERMS = {
+    owner: ['asset.read','assignment.read','location.read','report.read','employee.read','project.read','config.manage'],
+    equipment_admin: ['asset.read','assignment.read','location.read','report.read','employee.read','project.read'],
+    warehouse: ['asset.read','assignment.read','location.read'],
+    project_manager: ['asset.read','assignment.read','location.read','report.read','project.read'],
+    superintendent: ['asset.read','assignment.read'],
+    foreman: ['asset.read','assignment.read'],
+    read_only: ['asset.read','report.read']
+  };
+
+  /* How each seat reads in the sidebar footer, and what it can actually see.
+     Scope is not cosmetic: project visibility comes from employeeProjectAssignment
+     / projectTeamMember, so only the yard-wide roles see everything. */
+  SEAT = {
+    owner: ['Owner', 'All projects visible'],
+    equipment_admin: ['Equipment desk', 'All projects visible'],
+    warehouse: ['Warehouse', 'Yard and transfers'],
+    project_manager: ['Project manager', 'Assigned projects only'],
+    superintendent: ['Superintendent', 'Assigned projects only'],
+    foreman: ['Foreman', 'Your crew and your tools'],
+    read_only: ['Read only', 'No actions available']
+  };
+
+  isFieldRole(role) { return this.FIELD_ROLES.indexOf(role) > -1; }
+
+  navFor(role) { return this.isFieldRole(role) ? this.FIELD_NAV : this.DESK_NAV; }
+
+  /* app-sidebar.tsx: visible = items.filter(n => !n.perm || permissions.includes(n.perm)) */
+  permsFor(role) {
+    const given = this.props.permissions;
+    if (Array.isArray(given) && given.length) return given;
+    if (typeof given === 'string' && given.trim()) return given.split(/[,\s]+/).filter(Boolean);
+    return this.ROLE_PERMS[role] || this.ROLE_PERMS.read_only;
+  }
+
+  visibleNav(role) {
+    const perms = this.permsFor(role);
+    return this.navFor(role).map(a => ({
+      ...a,
+      nav: a.nav.map(g => ({ ...g, items: g.items.filter(n => !n.perm || perms.indexOf(n.perm) > -1) }))
+                .filter(g => g.items.length)
+    })).filter(a => a.nav.length);
+  }
+
+  NEEDS = [
+    { mark:'CHECK', tag:'UIC-1042', desc:'Ruiz gave rotary hammer to Barnes — temp loan', age:'2h' },
+    { mark:'CHECK', tag:'UIC-0902', desc:'Okafor handed total station to Vega', age:'5h' },
+    { mark:'APPROVE', tag:'UIC-1355', desc:'Torque wrench requested for Cedar Hill', age:'1d' },
+    { mark:'APPROVE', tag:'GB-2', desc:'Gang box moving to Frisco — 14 tools follow', age:'1d' },
+    { mark:'CLEAR', tag:'—', desc:'Whitaker left Friday, HR blocked on 4 tools', age:'4d' }
+  ];
+
+  STUCK = [
+    { mark:'OVERDUE', tag:'UIC-1190', desc:'Laser level 11d past due, nobody returned it', age:'11d' },
+    { mark:'OVERDUE', tag:'UIC-0774', desc:'Quikie saw due back Tuesday', age:'3d' },
+    { mark:'MISSING', tag:'UIC-1477', desc:'Plate tamper damaged 14d ago, never came in', age:'14d' },
+    { mark:'IDLE', tag:'—', desc:'Phase 2 closed — 22 tools sitting idle', age:'6d' },
+    { mark:'NO SN', tag:'UIC-0774', desc:'2 tagged tools have no serial number', age:'—' }
+  ];
+
+  METRICS = [
+    { value:'1,284', label:'In register', hint:'total tools', tone:'' },
+    { value:'62', label:'In the yard', hint:'available', tone:'' },
+    { value:'4', label:'Unaccounted', hint:'missing', tone:'crit' },
+    { value:'2', label:'No serial', hint:'at risk', tone:'warn' },
+    { value:'$1.42M', label:'On jobs', hint:'capital', tone:'' },
+    { value:'$84.2K', label:'Idle value', hint:'in yard', tone:'warn' }
+  ];
+
+  AI_RESPONSES = {
+    default: 'I can help with tool lookups, custody questions, overdue items, and project reports. Try asking about a specific tool tag, person, or project.',
+    tool: 'Looking up that tool... UIC-1042 is a Hilti TE 70 rotary hammer, currently held by K. Barnes on Legacy West Ph 3. Condition: Good. Last touched today.',
+    overdue: 'There are 2 overdue items right now:\n• UIC-1190 — Laser level, 11 days past due (TXDOT 114 Ramp)\n• UIC-0774 — Quikie saw, 3 days past due (Cedar Hill WWTP)',
+    idle: '62 tools sitting available in the yard, worth $84,200. 22 came free when Frisco North closed phase 2.'
+  };
+
+  /* Only the pages that actually exist as designs. Everything else in the real
+     nav renders the honest placeholder rather than a fake screen. */
+  EMBEDDED_PAGES = {
+    'Tools by Jobsite': 'toolsByJobsite',
+    'Hand Off': 'fieldChat'
+  };
+
+  isDark() {
+    return this.state.dark ?? (this.props.theme ?? 'dark') === 'dark';
+  }
+
+  /* One canonical palette for the whole system — the same scale Tools by Jobsite
+     resolves against, so an embedded board and its shell never disagree on a
+     surface. Names match tokens/colors.css. */
+  theme() {
+    return this.isDark() ? {
+      bg:'#090B0E', rail:'#060809',
+      surface1:'#0D1015', surface2:'#0E1218', surface3:'#11151A', surface4:'#12161C',
+      surface5:'#141A21', surface6:'#151A21', surface7:'#1A1F26', surface8:'#222A33',
+      border0:'#1B2027', border1:'#232A32', border2:'#262E37', border3:'#2A323B', border4:'#2E3742',
+      heading:'#FFFFFF', text:'#EAEDEF', text2:'#A6AEB6', text3:'#8A939C',
+      accent:'#7FB0E4', accentBright:'#A9CDF2', accentBg:'#162233', accentFg:'#C8DFFA',
+      ok:'#4FA97A', warn:'#E4A13B', crit:'#D2694A',
+      rowA:'#0A0D11', rowB:'#0C1014',
+      accentFgDim:'#090B0E',
+      railText:'#8A939C', railActiveBg:'#162233', railActiveFg:'#C8DFFA',
+      logoBg:'#7FB0E4', logoFg:'#090B0E',
+      /* aliases kept so existing style code reads naturally */
+      panel:'#0D1015', card:'#11151A', line:'#232A32', line2:'#1B2027', stop:'#D2694A'
+    } : {
+      bg:'#F4F5F7', rail:'#1A1E24',
+      surface1:'#FFFFFF', surface2:'#F8F9FA', surface3:'#FFFFFF', surface4:'#F0F1F4',
+      surface5:'#E8E9EC', surface6:'#FFFFFF', surface7:'#E4E6EA', surface8:'#D8DBE0',
+      border0:'#E0E3E8', border1:'#D8DBE0', border2:'#D0D4DA', border3:'#C8CCD2', border4:'#C0C4CA',
+      heading:'#0F1216', text:'#1A1E24', text2:'#505860', text3:'#6E7681',
+      accent:'#3A6E9E', accentBright:'#2B5A82', accentBg:'#E8F0F8', accentFg:'#1E3A54',
+      ok:'#2F7D52', warn:'#B37A18', crit:'#B8492A',
+      rowA:'#FFFFFF', rowB:'#F7F8FA',
+      accentFgDim:'#FFFFFF',
+      /* The rail stays dark in light mode, so it needs its own palette —
+         the light-theme accentBg/accentFg would put a pale chip on near-black. */
+      railText:'#8A939C', railActiveBg:'rgba(127,176,228,.16)', railActiveFg:'#A9CDF2',
+      logoBg:'#7FB0E4', logoFg:'#0F1216',
+      panel:'#FFFFFF', card:'#FFFFFF', line:'#D8DBE0', line2:'#E0E3E8', stop:'#B8492A'
+    };
+  }
+
+  markTone(t, m) {
+    return ({ CHECK:t.accent, APPROVE:t.warn, CLEAR:t.stop, OVERDUE:t.stop,
+      MISSING:t.stop, IDLE:t.warn, 'NO SN':t.warn })[m] || t.text3;
+  }
+
+  getAiResponse(text) {
+    const l = text.toLowerCase();
+    if (l.includes('overdue') || l.includes('past due')) return this.AI_RESPONSES.overdue;
+    if (l.includes('idle') || l.includes('yard') || l.includes('available')) return this.AI_RESPONSES.idle;
+    if (l.includes('uic') || l.includes('tool') || l.includes('hammer')) return this.AI_RESPONSES.tool;
+    return this.AI_RESPONSES.default;
+  }
+
+  renderVals() {
+    const t = this.theme();
+    const d = this.state;
+    const mono = "'JetBrains Mono',monospace";
+    const defaultApp = this.props.defaultApp ?? 'overview';
+    const defaultPage = this.props.defaultPage ?? 'Dashboard';
+    const seatFirst = () => {
+      const a = this.visibleNav(this.props.role ?? 'equipment_admin')[0];
+      return a ? a.nav[0].items[0].label : 'Dashboard';
+    };
+    const navCollapsed = d.navCollapsed ?? (this.props.navCollapsed ?? false);
+    const role = this.props.role ?? 'equipment_admin';
+    const APPS = this.visibleNav(role);
+    const field = this.isFieldRole(role);
+    const curApp = d.activeApp ?? defaultApp;
+    const allowed = this.visibleNav(this.props.role ?? 'equipment_admin')
+      .some(a => a.nav.some(g => g.items.some(n => n.label === defaultPage)));
+    const curPage = d.activePage ?? (allowed ? defaultPage : seatFirst());
+    const activeApp = APPS.find(a => a.key === curApp) || APPS[0];
+
+    const currentSession = d.sessions[d.activeSession] || d.sessions[0];
+
+    const feedRow = (r) => {
+      const mt = this.markTone(t, r.mark);
+      return {
+        mark:r.mark, tag:r.tag, desc:r.desc, age:r.age,
+        rowStyle:{ display:'flex', alignItems:'center', gap:'8px', padding:'0 12px', height:'34px',
+          borderBottom:'1px solid ' + t.line2 },
+        markStyle:{ flex:'none', width:'56px', fontSize:'9px', fontWeight:700, letterSpacing:'.04em',
+          textTransform:'uppercase', color:mt, padding:'2px 6px', borderRadius:'3px', textAlign:'center',
+          background:this.isDark() ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.03)', border:'1px solid ' + mt + '44' },
+        tagStyle:{ flex:'none', width:'68px', fontFamily:mono, fontSize:'10.5px',
+          color:r.tag === '—' ? t.text3 : t.text2 },
+        descStyle:{ flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+          fontSize:'11.5px', color:t.text },
+        ageStyle:{ flex:'none', fontSize:'10.5px', fontWeight:600,
+          color:r.age.indexOf('d') > -1 && r.age !== '—' ? t.warn : t.text3 }
+      };
+    };
+
+    /* The real nav is one level: DESK_NAV's four groups sit stacked in a single
+       17rem rail upstream. Splitting them across a rail + sidebar means the
+       group name is already on screen as the rail's section heading, so
+       repeating it verbatim above the rows is noise. */
+    const navGroups = activeApp.nav.map(g => ({
+      label:g.label,
+      showLabel:activeApp.nav.length > 1 || g.label !== activeApp.label.toUpperCase(),
+      gStyle:{ marginBottom:'12px' },
+      lStyle:{ padding:'0 10px 5px', fontSize:'10px', fontWeight:700, letterSpacing:'.09em',
+        color:t.text3, fontFamily:mono },
+      items:g.items.map(n => {
+        const label = n.label;
+        const badge = n.badge || '';
+        const isActive = label === curPage;
+        return {
+          label, badge, hasBadge:!!badge,
+          onClick:() => this.setState({ activePage:label, dark:d.dark }),
+          txtStyle:{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+          bStyle:{ fontFamily:mono, fontSize:'10px', fontWeight:700, color:t.text3 },
+          hoverStyle:{ background:isActive ? t.accentBg : t.surface4, color:isActive ? t.accentFg : t.text },
+          style:{ display:'flex', alignItems:'center', gap:'8px', height:'30px', padding:'0 10px',
+            borderRadius:'5px', cursor:'pointer', fontSize:'12px', fontWeight:isActive ? 650 : 400,
+            background:isActive ? t.accentBg : 'transparent', color:isActive ? t.accentFg : t.text2,
+            transition:'background .14s ease, color .14s ease' }
+        };
+      })
+    }));
+
+    const embeddedKey = this.EMBEDDED_PAGES[curPage] || null;
+    const showDash = curPage === 'Dashboard';
+    const pageTitle = showDash ? 'Dashboard' : curPage;
+    const pageSub = showDash ? 'What changed, what is stuck, what needs you' :
+      activeApp.label + ' · ' + curPage;
+
+    return {
+      themeKey:this.isDark() ? 'dark' : 'light',
+      showSearch:!field,
+      /* The seat, named honestly. A foreman is not "all projects visible" —
+         project scope follows the employee_project_assignment rows. */
+      seatLabel:this.SEAT[role] ? this.SEAT[role][0] : role.replace(/_/g, ' '),
+      seatScope:this.SEAT[role] ? this.SEAT[role][1] : 'Scope set by assignment',
+
+      shellStyle:{ display:'flex', height:'100vh', background:t.bg, color:t.text,
+        fontFamily:"'Inter Tight',system-ui,sans-serif", fontSize:'12.5px' },
+
+      railStyle:{ width:'48px', flex:'none', display:'flex', flexDirection:'column', alignItems:'center',
+        padding:'10px 0', background:t.rail, borderRight:'1px solid ' + t.line },
+      logoStyle:{ display:'flex', alignItems:'center', justifyContent:'center', width:'30px', height:'30px',
+        borderRadius:'6px', background:t.logoBg, color:t.logoFg, fontSize:'10px', fontWeight:800,
+        fontFamily:mono, marginBottom:'10px' },
+      railListStyle:{ display:'flex', flexDirection:'column', gap:'2px', flex:1 },
+      railApps:APPS.map(a => ({
+        label:a.label, paths:a.paths, circles:a.circles || [],
+        onClick:() => this.setState({ activeApp:a.key, activePage:a.nav[0].items[0].label, dark:d.dark }),
+        dotStyle:{ position:'absolute', bottom:'2px', left:'50%', transform:'translateX(-50%)',
+          width:'4px', height:'4px', borderRadius:'50%', background:a.color },
+        style:{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center',
+          width:'36px', height:'36px', borderRadius:'6px', cursor:'pointer',
+          background:a.key === curApp ? t.railActiveBg : 'transparent',
+          color:a.key === curApp ? t.railActiveFg : t.railText,
+          transition:'background .16s ease, color .16s ease' }
+      })),
+      aiToggleStyle:{ display:'flex', alignItems:'center', justifyContent:'center', width:'36px', height:'36px',
+        borderRadius:'6px', cursor:'pointer', marginTop:'auto',
+        background:d.aiOpen ? t.railActiveBg : 'transparent', color:d.aiOpen ? t.railActiveFg : t.railText,
+        marginBottom:'6px' },
+      toggleAI:() => this.setState({ aiOpen:!d.aiOpen }),
+
+      navCollapsed:navCollapsed,
+      toggleNav:() => this.setState({ navCollapsed:!navCollapsed, dark:d.dark }),
+      navToggleStyle:{ display:'flex', alignItems:'center', justifyContent:'center',
+        width:'26px', height:'26px', flex:'none', marginRight:'2px', borderRadius:'4px',
+        cursor:'pointer', color:navCollapsed ? t.accent : t.text3,
+        background:navCollapsed ? t.accentBg : 'transparent',
+        border:'1px solid ' + (navCollapsed ? t.accent : 'transparent'), transition:'all .14s' },
+
+      navStyle:{ width:navCollapsed ? '0px' : '200px', flex:'none', overflow:'hidden',
+        background:t.panel, borderRight:navCollapsed ? 'none' : '1px solid ' + t.line,
+        transition:'width .2s cubic-bezier(.4,0,.2,1)' },
+      navInnerStyle:{ width:'200px', height:'100%', display:'flex', flexDirection:'column' },
+      navTopStyle:{ padding:'10px 10px 8px', borderBottom:'1px solid ' + t.line, flex:'none' },
+      projBtnStyle:{ display:'flex', alignItems:'center', gap:'6px', padding:'7px 10px',
+        borderRadius:'5px', border:'1px solid ' + t.line, cursor:'pointer', background:t.card },
+      projIconStyle:{ fontSize:'14px', color:t.accent },
+      projTextStyle:{ flex:1, fontSize:'12px', fontWeight:600, color:t.text },
+      projCountStyle:{ fontFamily:mono, fontSize:'10px', fontWeight:700, color:t.text3,
+        background:t.accentBg, padding:'1px 5px', borderRadius:'3px' },
+      projChevStyle:{ fontSize:'10px', color:t.text3 },
+      projLabel:'All projects', projCount:'5',
+      navScrollStyle:{ flex:1, overflow:'auto', padding:'10px 6px' },
+      navAppNameStyle:{ padding:'0 10px 8px', fontSize:'13px', fontWeight:700, color:t.text,
+        borderBottom:'1px solid ' + t.line2, marginBottom:'10px' },
+      activeAppLabel:activeApp.label,
+      navGroups,
+      navFootStyle:{ padding:'10px 12px', borderTop:'1px solid ' + t.line, flex:'none' },
+      roleStyle:{ fontSize:'11px', fontWeight:600, color:t.text2 },
+      roleHintStyle:{ fontSize:'10px', color:t.text3, marginTop:'1px' },
+
+      mainStyle:{ flex:1, minWidth:0, display:'flex', flexDirection:'column' },
+      topBarStyle:{ height:'46px', flex:'none', display:'flex', alignItems:'center', gap:'10px',
+        padding:'0 18px', borderBottom:'1px solid ' + t.line, background:t.panel },
+      pageTitleStyle:{ fontSize:'14px', fontWeight:700, color:t.text },
+      pageSubStyle:{ fontSize:'11px', color:t.text3, marginLeft:'8px' },
+      pageTitle, pageSub,
+      searchBoxStyle:{ display:'flex', alignItems:'center', gap:'6px', width:'220px', height:'30px',
+        padding:'0 10px', borderRadius:'4px', border:'1px solid ' + t.line, background:t.card },
+      searchIconStyle:{ fontSize:'13px', color:t.text3 },
+      searchInputStyle:{ flex:1, border:'none', outline:'none', background:'transparent',
+        color:t.text, fontSize:'11.5px' },
+      query:d.query, onQuery:e => this.setState({ query:e.target.value }),
+      themeBtnStyle:{ width:'30px', height:'30px', display:'flex', alignItems:'center', justifyContent:'center',
+        borderRadius:'4px', border:'1px solid ' + t.line, cursor:'pointer', color:t.text2, fontSize:'14px' },
+      themeIcon:this.isDark() ? '☀' : '🌙',
+      toggleTheme:() => this.setState({ dark:!this.isDark() }),
+      bellStyle:{ position:'relative', width:'30px', height:'30px', display:'flex', alignItems:'center',
+        justifyContent:'center', cursor:'pointer', color:t.text2, fontSize:'13px' },
+      bellDotStyle:{ position:'absolute', top:'5px', right:'4px', width:'5px', height:'5px',
+        borderRadius:'50%', background:t.stop },
+      avatarStyle:{ width:'28px', height:'28px', borderRadius:'50%', display:'flex', alignItems:'center',
+        justifyContent:'center', background:t.card, border:'1px solid ' + t.line, color:t.text2,
+        fontSize:'10px', fontWeight:700 },
+
+      contentStyle:{ flex:1, minHeight:0, display:'flex', animation:'pageIn .22s ease-out' },
+      pageKey:curApp + '/' + curPage,
+      showDashboard:showDash,
+      showToolsByJobsite:!showDash && embeddedKey === 'toolsByJobsite',
+      showFieldChat:!showDash && embeddedKey === 'fieldChat',
+      showPlaceholder:!showDash && !embeddedKey,
+      embeddedStyle:{ flex:1, minHeight:0, overflow:'auto' },
+
+      dashStyle:{ flex:1, overflow:'auto', padding:'14px 18px', display:'flex', flexDirection:'column', gap:'14px' },
+      aiBriefStyle:{ padding:'12px 14px', background:t.card, border:'1px solid ' + t.line,
+        borderRadius:'6px', borderLeft:'3px solid ' + t.accent },
+      aiBriefTopStyle:{ display:'flex', alignItems:'center', justifyContent:'space-between' },
+      aiBriefKickStyle:{ fontSize:'9.5px', fontWeight:700, letterSpacing:'.08em',
+        textTransform:'uppercase', color:t.text3, fontFamily:mono },
+      aiBriefExpandStyle:{ fontSize:'11px', color:t.accent, cursor:'pointer' },
+      aiBriefBodyStyle:{ marginTop:'6px', fontSize:'12px', lineHeight:'1.55', color:t.text2, textWrap:'pretty' },
+      briefingText:'Two hand-offs came in overnight — both temporary loans needing verification. Whitaker left Friday still holding 4 tools, HR sign-off blocked. The laser level on TXDOT is 11 days past due.',
+
+      metricsRowStyle:{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:'8px' },
+      metrics:this.METRICS.map(m => ({
+        value:m.value, label:m.label, hint:m.hint,
+        style:{ padding:'10px 12px', background:t.card, border:'1px solid ' + t.line, borderRadius:'6px' },
+        valStyle:{ fontFamily:mono, fontSize:'18px', fontWeight:700, lineHeight:1.1,
+          color:m.tone === 'crit' ? t.stop : m.tone === 'warn' ? t.warn : t.text },
+        lblStyle:{ marginTop:'3px', fontSize:'10.5px', fontWeight:600, color:t.text2 },
+        hintStyle:{ fontSize:'9.5px', color:t.text3, marginTop:'1px' }
+      })),
+
+      feedsStyle:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', minHeight:'220px', flex:'none' },
+      monitorEmbedStyle:{ flex:1, minHeight:0, position:'relative', overflow:'hidden' },
+      feedCardStyle:{ background:t.card, border:'1px solid ' + t.line, borderRadius:'6px', overflow:'hidden' },
+      feedHeadStyle:{ display:'flex', alignItems:'center', gap:'8px', padding:'10px 12px',
+        fontSize:'12px', fontWeight:700, color:t.text, borderBottom:'1px solid ' + t.line2 },
+      feedCountBadge:{ fontFamily:mono, fontSize:'10px', fontWeight:700, color:t.text3 },
+      needs:this.NEEDS.map(feedRow), needsCount:this.NEEDS.length + '',
+      stuck:this.STUCK.map(feedRow), stuckCount:this.STUCK.length + '',
+
+      placeholderStyle:{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+        justifyContent:'center', gap:'8px' },
+      phTitleStyle:{ fontSize:'18px', fontWeight:700, color:t.text },
+      phSubStyle:{ fontSize:'13px', color:t.text3 },
+      activePageLabel:curPage,
+      placeholderText:'This screen will show the ' + curPage + ' view for ' + activeApp.label,
+
+      aiOpen:d.aiOpen,
+      aiOverlayStyle:{ position:'absolute', top:0, right:0, bottom:0, width:'400px',
+        zIndex:100, animation:'slideIn .2s ease-out' },
+      aiPanelStyle:{ display:'flex', flexDirection:'column', height:'100%',
+        background:t.panel, borderLeft:'1px solid ' + t.line, boxShadow:'-4px 0 16px rgba(0,0,0,.2)' },
+      aiHeaderStyle:{ display:'flex', alignItems:'center', gap:'8px', padding:'12px 16px',
+        borderBottom:'1px solid ' + t.line, flex:'none' },
+      aiTitleStyle:{ fontSize:'13px', fontWeight:700, color:t.text },
+      aiSessionBtnStyle:{ display:'flex', gap:'8px', marginLeft:'auto' },
+      aiSessionToggleStyle:{ fontSize:'11px', color:t.accent, cursor:'pointer' },
+      sessionToggleLabel:d.showSessions ? 'Hide history' : 'History',
+      toggleSessions:() => this.setState({ showSessions:!d.showSessions }),
+      aiNewBtnStyle:{ fontSize:'11px', color:t.accent, cursor:'pointer', fontWeight:600 },
+      newSession:() => {
+        const ns = [...d.sessions];
+        const id = ns.length;
+        ns.push({ id, title:'New conversation', time:'Just now', messages:[] });
+        this.setState({ sessions:ns, activeSession:id, showSessions:false });
+      },
+      aiCloseStyle:{ fontSize:'16px', color:t.text3, cursor:'pointer', padding:'2px 4px' },
+
+      showSessions:d.showSessions,
+      aiSessionListStyle:{ padding:'8px', borderBottom:'1px solid ' + t.line, flex:'none',
+        maxHeight:'200px', overflow:'auto' },
+      sessions:d.sessions.map((s, i) => ({
+        title:s.title, time:s.time,
+        onClick:() => this.setState({ activeSession:i, showSessions:false }),
+        style:{ padding:'8px 10px', borderRadius:'5px', cursor:'pointer', marginBottom:'2px',
+          background:i === d.activeSession ? t.accentBg : 'transparent' },
+        titleStyle:{ fontSize:'12px', fontWeight:i === d.activeSession ? 650 : 400,
+          color:i === d.activeSession ? t.accentFg : t.text },
+        timeStyle:{ fontSize:'10px', color:t.text3, marginTop:'2px' }
+      })),
+
+      aiMessagesStyle:{ flex:1, overflow:'auto', padding:'16px', display:'flex',
+        flexDirection:'column', gap:'12px' },
+      aiMessages:currentSession.messages.map(m => ({
+        text:m.text,
+        wrapStyle:{ display:'flex', justifyContent:m.role === 'user' ? 'flex-end' : 'flex-start' },
+        style:{ maxWidth:'85%', padding:'10px 14px', borderRadius:'8px', fontSize:'12px',
+          lineHeight:'1.55', whiteSpace:'pre-wrap',
+          background:m.role === 'user' ? t.accentBg : t.card,
+          color:m.role === 'user' ? t.accentFg : t.text2,
+          border:m.role === 'user' ? 'none' : '1px solid ' + t.line }
+      })),
+
+      aiInputAreaStyle:{ padding:'12px 16px', borderTop:'1px solid ' + t.line, flex:'none' },
+      aiTextareaStyle:{ width:'100%', border:'1px solid ' + t.line, borderRadius:'6px',
+        padding:'8px 12px', background:t.card, color:t.text, fontSize:'12px', resize:'none',
+        outline:'none', fontFamily:"'Inter Tight',system-ui,sans-serif" },
+      aiDraft:d.aiDraft,
+      onAiDraft:e => this.setState({ aiDraft:e.target.value }),
+      onAiKey:e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendMsg(); } },
+      sendAiMsg:() => this.sendMsg(),
+      aiSendBtnStyle:{ marginTop:'8px', padding:'6px 16px', borderRadius:'5px', background:t.accent,
+        color:t.accentFgDim, fontSize:'12px', fontWeight:650, cursor:'pointer', textAlign:'center' }
+    };
+  }
+
+  sendMsg() {
+    const d = this.state;
+    if (!d.aiDraft.trim()) return;
+    const sessions = [...d.sessions];
+    const s = { ...sessions[d.activeSession] };
+    s.messages = [...s.messages,
+      { role:'user', text:d.aiDraft.trim() },
+      { role:'ai', text:this.getAiResponse(d.aiDraft) }
+    ];
+    s.title = d.aiDraft.trim().slice(0, 30) + (d.aiDraft.length > 30 ? '…' : '');
+    sessions[d.activeSession] = s;
+    this.setState({ sessions, aiDraft:'' });
+  }
+}
+</script>
+</body>
+</html>

@@ -262,6 +262,36 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
           action.projectId ??
           (await projectForCustodian(db, tenantId, toCustodianId, asset.currentProjectId));
 
+        /*
+          One open hand-off per tool — the same rule `transfer.create` enforces
+          (routers/transfer.ts).
+
+          STI-120's `refMessageId` guard above cannot cover this branch: it asks
+          the ledger whether this message already moved this asset, and this
+          branch writes NO ledger row at all — nothing has moved yet, only a
+          queue row exists. So a re-confirmed message, or a second message
+          naming the same tool, appended a second identical `handoff` row and
+          the desk got two queue entries for one physical event (UI-66).
+          Approve one and the other waits forever, pointing at a hand-off that
+          already happened.
+
+          `continue`, not a throw: this is inside the per-asset loop, and
+          throwing on asset three of five recreates exactly the partial-failure
+          retry STI-120 exists to survive. Counting it as already-awaiting is
+          how the skip path above reports too — the desk entry IS there.
+        */
+        const openTransfer = await db.query.transfer.findFirst({
+          where: and(
+            eq(schema.transfer.tenantId, tenantId),
+            eq(schema.transfer.assetId, assetId),
+            eq(schema.transfer.status, "pending_approval"),
+          ),
+        });
+        if (openTransfer) {
+          awaitingApproval++;
+          continue;
+        }
+
         const [transferRow] = await db
           .insert(schema.transfer)
           .values({

@@ -40,15 +40,31 @@ describe.skipIf(!url)("chat retry does not duplicate ledger events (STI-120)", (
   let projectId: string;
   let assetOne: string;
   let assetTwo: string;
+  let assetHighValue: string;
   let messageId: string;
+  let handoffMessageOne: string;
+  let handoffMessageTwo: string;
 
-  const perms = new Set<Permission>(["assignment.create", "assignment.approve", "asset.manage"]);
+  const perms = new Set<Permission>([
+    "assignment.create",
+    "assignment.approve",
+    "transfer.create",
+    "asset.manage",
+  ]);
 
   const eventsFor = async (assetId: string) =>
     db
       .select({ id: schema.transaction.id })
       .from(schema.transaction)
       .where(and(eq(schema.transaction.tenantId, tenantId), eq(schema.transaction.assetId, assetId)));
+
+  /* UI-66 counts ROWS, not the reported `awaitingApproval` — an implementation
+     that writes twice and reports once would pass the return value. */
+  const transfersFor = async (assetId: string) =>
+    db
+      .select({ id: schema.transfer.id })
+      .from(schema.transfer)
+      .where(and(eq(schema.transfer.tenantId, tenantId), eq(schema.transfer.assetId, assetId)));
 
   beforeAll(async () => {
     db = createDb(url!);
@@ -72,15 +88,24 @@ describe.skipIf(!url)("chat retry does not duplicate ledger events (STI-120)", (
     const [p] = await db.insert(schema.project).values({ tenantId, name: "STI-120 job" }).returning({ id: schema.project.id });
     projectId = p!.id;
 
+    /* Pin the gate here rather than leaning on DEFAULT_HIGH_VALUE_THRESHOLD, so
+       the UI-66 fixture below is high-value because this test says so. */
+    await db.insert(schema.tenantSettings).values({ tenantId, highValueThreshold: 5000 });
+
     const rows = await db
       .insert(schema.asset)
       .values([
         { tenantId, tag: `STI120-A-${suffix}`, currentStatus: "available", createdBy: userId },
         { tenantId, tag: `STI120-B-${suffix}`, currentStatus: "available", createdBy: userId },
+        /* Priced over the threshold, so `custodyOutcome` returns "approve" and
+           the hand-off is withheld for a second signature — the branch UI-66
+           lives in, which writes a `transfer` row and NO ledger row. */
+        { tenantId, tag: `UI66-${suffix}`, currentStatus: "available", acquisitionCost: "9500.00", createdBy: userId },
       ])
       .returning({ id: schema.asset.id });
     assetOne = rows[0]!.id;
     assetTwo = rows[1]!.id;
+    assetHighValue = rows[2]!.id;
 
     /* A real message row: `refId` is an FK-free uuid on `transaction`, but the
        guard is only meaningful if the id names something that exists. */
@@ -93,6 +118,18 @@ describe.skipIf(!url)("chat retry does not duplicate ledger events (STI-120)", (
       .values({ tenantId, channelId: ch!.id, authorUserId: userId, body: "took both of these", processingStatus: "action_proposed" })
       .returning({ id: schema.message.id });
     messageId = m!.id;
+
+    /* Two messages naming the same tool: one is re-confirmed, the other is a
+       second sentence about the same hand-off (UI-66). */
+    const handoffs = await db
+      .insert(schema.message)
+      .values([
+        { tenantId, channelId: ch!.id, authorUserId: userId, body: "give the generator to the foreman", processingStatus: "action_proposed" },
+        { tenantId, channelId: ch!.id, authorUserId: userId, body: "generator goes to the foreman", processingStatus: "action_proposed" },
+      ])
+      .returning({ id: schema.message.id });
+    handoffMessageOne = handoffs[0]!.id;
+    handoffMessageTwo = handoffs[1]!.id;
   });
 
   afterAll(async () => {
@@ -187,5 +224,48 @@ describe.skipIf(!url)("chat retry does not duplicate ledger events (STI-120)", (
     });
 
     expect((await eventsFor(assetTwo)).length).toBe(before + 1);
+  });
+
+  /*
+    UI-66 — the withheld hand-off branch, which the guard above cannot reach.
+
+    A high-value hand-off writes a `pending_approval` transfer row and NO ledger
+    event, so "has this message already moved this asset" is a question the log
+    can never answer yes to. Nothing else stopped a second row: there is no
+    unique index on `transfer`. The desk got two queue entries for one physical
+    event — approve one and the other waits forever.
+  */
+  it("a re-confirmed hand-off does not queue a second pending transfer (UI-66)", async () => {
+    const opts = {
+      tenantId,
+      actorUserId: userId,
+      actorEmployeeId: null,
+      permissions: perms,
+      action: { type: "transfer", assetIds: [assetHighValue], custodianId, projectId },
+      refMessageId: handoffMessageOne,
+    };
+
+    await applyChatAction(db, opts);
+    await applyChatAction(db, opts); // the retry, after an un-claim
+
+    expect(await transfersFor(assetHighValue), "a retry queued a duplicate hand-off").toHaveLength(1);
+    /* Nothing moved: the register still waits on the desk. */
+    expect(await eventsFor(assetHighValue)).toHaveLength(0);
+  });
+
+  it("a SECOND message about the same tool does not queue one either", async () => {
+    /* The reproduction that needs no crash and no retry: two sentences about
+       one hand-off. Keyed on the message, the STI-120 guard is blind to this
+       even in principle — the ids differ. */
+    await applyChatAction(db, {
+      tenantId,
+      actorUserId: userId,
+      actorEmployeeId: null,
+      permissions: perms,
+      action: { type: "transfer", assetIds: [assetHighValue], custodianId, projectId },
+      refMessageId: handoffMessageTwo,
+    });
+
+    expect(await transfersFor(assetHighValue), "a second message queued a duplicate hand-off").toHaveLength(1);
   });
 });

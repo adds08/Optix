@@ -86,7 +86,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
 
   async function newEmployee(
     name: string,
-    opts: { status?: string; reportsTo?: string | null; role?: string; tid?: string } = {},
+    opts: { status?: string; reportsTo?: string | null; role?: string; tid?: string; primaryProjectId?: string | null } = {},
   ): Promise<string> {
     const [row] = await db
       .insert(schema.employee)
@@ -96,9 +96,21 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
         role: opts.role ?? "foreman",
         employmentStatus: opts.status ?? "active",
         reportsToEmployeeId: opts.reportsTo ?? null,
+        primaryProjectId: opts.primaryProjectId ?? null,
       })
       .returning({ id: schema.employee.id });
     return row!.id;
+  }
+
+  /** A project-team row (STI-308): the team is the successor source since 2026-08-23. */
+  async function newTeamRow(employeeId: string, projectId: string, role: "superintendent" | "pm") {
+    await db.insert(schema.projectTeamMember).values({
+      tenantId,
+      projectId,
+      employeeId,
+      role,
+      startedOn: "2026-08-23",
+    });
   }
 
   /*
@@ -270,6 +282,20 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
 
     successorId = await newEmployee("Superintendent Reyes", { role: "superintendent" });
     leaverId = await newEmployee("Departing Foreman", { status: "terminated", reportsTo: successorId });
+
+    /* The successor now comes from the PROJECT TEAM, not `reportsTo` — the
+       departure rule changed 2026-08-23 to match the crew ladder. So the leaver
+       needs a project, and the successor needs a superintendent row on it. */
+    const [proj] = await db
+      .insert(schema.project)
+      .values({ tenantId, name: "STI-306 test job" })
+      .returning({ id: schema.project.id });
+    const projectId = proj!.id;
+    await db
+      .update(schema.employee)
+      .set({ primaryProjectId: projectId })
+      .where(eq(schema.employee.id, leaverId));
+    await newTeamRow(successorId, projectId, "superintendent");
 
     const company = await newVehicle({ unit: "T-306", vehicleType: "truck", custodianId: leaverId });
     companyTruckId = company.vehicleId;
@@ -514,20 +540,40 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
 
   it("steps over a terminated superintendent and lands on the Project Manager", async () => {
     const pm = await newEmployee("Project Manager Ortiz", { role: "pm" });
-    const goneSuper = await newEmployee("Departed Superintendent", { status: "terminated", reportsTo: pm, role: "superintendent" });
-    const foreman = await newEmployee("Second Foreman", { status: "terminated", reportsTo: goneSuper });
+    const goneSuper = await newEmployee("Departed Superintendent", { status: "terminated", role: "superintendent" });
+    const foreman = await newEmployee("Second Foreman", { status: "terminated" });
+
+    /* Team rows are the successor source: a terminated superintendent's row is
+       stepped over (the query filters active employees), the PM's row wins. */
+    const [proj] = await db
+      .insert(schema.project)
+      .values({ tenantId, name: "STI-306 step-over job" })
+      .returning({ id: schema.project.id });
+    const projectId = proj!.id;
+    await newTeamRow(goneSuper, projectId, "superintendent");
+    await newTeamRow(pm, projectId, "pm");
+    await db.update(schema.employee).set({ primaryProjectId: projectId }).where(eq(schema.employee.id, foreman));
 
     const successor = await resolveSuccessor(db, tenantId, {
       id: foreman,
       name: "Second Foreman",
-      reportsToEmployeeId: goneSuper,
+      primaryProjectId: projectId,
     });
     expect(successor?.id).toBe(pm);
-    expect(successor?.source).toBe("reports_to");
+    expect(successor?.source).toBe("team");
   });
 
   it("moves nothing at all when one item fails", async () => {
-    const solo = await newEmployee("Third Foreman", { status: "terminated", reportsTo: successorId });
+    const solo = await newEmployee("Third Foreman", { status: "terminated" });
+    /* Needs a successor from the team (the 2026-08-23 rule), so the move gets
+       past the successor check and fails on the poisoned ride instead. */
+    const [proj] = await db
+      .insert(schema.project)
+      .values({ tenantId, name: "STI-306 rollback job" })
+      .returning({ id: schema.project.id });
+    const projectId = proj!.id;
+    await newTeamRow(successorId, projectId, "superintendent");
+    await db.update(schema.employee).set({ primaryProjectId: projectId }).where(eq(schema.employee.id, solo));
     const a = await newHeldAsset(solo, "STI-306 all-or-nothing A");
     const b = await newHeldAsset(solo, "STI-306 all-or-nothing B");
     const c = await newHeldAsset(solo, "STI-306 all-or-nothing C");

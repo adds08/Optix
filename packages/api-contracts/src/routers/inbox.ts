@@ -82,12 +82,20 @@ export const inboxRouter = router({
           .where(
             and(
               eq(schema.message.tenantId, tid),
+              /* UI-72: "dismissed" belongs here. `dismiss` writes that status,
+                 but this SELECT never fetched it and the completed filter below
+                 never counted it, so a dismissed MESSAGE fell out of all three
+                 buckets and vanished from the desk — the header comment above
+                 has always promised it in `completed`. `processing_status` is
+                 plain text with no enum, so nothing at the DB level catches a
+                 status this list forgets. */
               inArray(schema.message.processingStatus, [
                 "action_proposed",
                 "action_executed",
                 "action_requested",
                 "pending_manual",
                 "error",
+                "dismissed",
               ]),
             ),
           )
@@ -179,7 +187,12 @@ export const inboxRouter = router({
           })),
         ...messages
           .filter(
-            (m) => m.processingStatus === "action_executed" || m.processingStatus === "action_requested",
+            (m) =>
+              m.processingStatus === "action_executed" ||
+              m.processingStatus === "action_requested" ||
+              /* UI-72: dismissed is history, not work — the same place a
+                 dismissed TASK lands via TERMINAL_TASK_STATUSES. */
+              m.processingStatus === "dismissed",
           )
           .map((m) => ({
             id: m.id,

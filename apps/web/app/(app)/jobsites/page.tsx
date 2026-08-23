@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, ChevronDown, EllipsisVertical, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye } from "lucide-react";
+import { Building2, ChevronDown, EllipsisVertical, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
@@ -11,9 +11,11 @@ import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { FilterPills, FilterField } from "@/components/sti/facets";
 import { isHighValue } from "@/components/sti/flags";
 import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
+import { JobsiteTeamStrip } from "@/components/jobsite-team-strip";
 import { RigPicker, type PickerRequest } from "@/components/rig-picker";
 import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assign-dialog";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
+import { JobsiteBlockyView } from "@/components/jobsite-blocky-view";
 import { Highlight } from "@/components/highlight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,8 +66,16 @@ export default function JobsitesPage() {
   const assets = trpc.asset.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const vehicles = trpc.vehicle.list.useQuery();
+  /* The project roster (pm/superintendent/foreman per job), for the team strip
+     on each card. Loaded once, keyed by project — see projectTeam.all. */
+  const team = trpc.projectTeam.all.useQuery();
   const utils = trpc.useUtils();
   const { has } = usePermissions();
+
+  /* Two renderings of the same yard, switchable for the client to compare:
+     "cards" is the long-running workhorse view; "blocky" is the concept
+     ported from design/claude-design/Tools by Jobsite Blocky.dc.html. */
+  const [view, setView] = useState<"cards" | "blocky">("cards");
 
   /* What this viewer may actually drive. The picker actions are each backed
      by a server permission — a foreman browsing the yard must not see buttons
@@ -79,6 +89,10 @@ export default function JobsitesPage() {
   /* The per-tool ⋯ menu (return / hand over / status) needs any of the custody
      or manage permissions to be worth showing. */
   const canActTools = has("assignment.create") || has("transfer.create") || has("asset.manage");
+  /* Team strip: PM/super assignment is roster-only and each carries its own
+     permission (projectTeam.ts PERM_FOR_ROLE). */
+  const canAssignPm = has("project.assign.pm");
+  const canAssignSuper = has("project.assign.superintendent");
 
   const { projectIds: scope } = useJobScope();
 
@@ -94,6 +108,27 @@ export default function JobsitesPage() {
      trailer can still carry tools in the bed. They are different problems and
      the desk chases them separately. */
   const [gapFilter, setGapFilter] = useState<"" | "no_crew" | "no_truck" | "no_trailer">("");
+  /* Blocky concept delta: job-level sort. Crews already sort by name; the
+     cards themselves had no ordering, which left the yard reading in whatever
+     order the projects happened to arrive in. Sort keys come from the Blocky
+     board (tools, value, gaps, name). */
+  const [cardSort, setCardSort] = useState<"tools" | "value" | "gaps" | "name">("tools");
+  /* Blocky concept delta: the Unassigned pool view. The design's board split
+     into a Jobs tab and an Unassigned pool tab; the pool here is the yard and
+     the project-less groups, which the page ALREADY renders as cards — this
+     toggle just narrows the list to those cards instead of re-querying. */
+  /*
+    Renamed from `view` on 2026-08-23. The merge that brought the Blocky concept
+    onto main landed a SECOND `const [view, setView]` in this same function —
+    one for the render style ("cards" | "blocky", declared above) and this one
+    for the content filter ("jobs" | "pool"). Two const bindings of one name in
+    one scope is not a conflict TypeScript can shrug at: `pnpm typecheck` failed
+    on main from that merge onward, and since next.config.mjs does not ignore
+    build errors, the production image could not be built either. The two states
+    are independent features that simply chose the same name, so telling them
+    apart is the whole fix.
+  */
+  const [poolView, setPoolView] = useState<"jobs" | "pool">("jobs");
   const [openJobs, setOpenJobs] = useState<Record<string, boolean>>({});
   const [openCrews, setOpenCrews] = useState<Record<string, boolean>>({});
   /* Everything is expanded by default; this flips the default for cards AND
@@ -166,6 +201,9 @@ export default function JobsitesPage() {
       value: number;
       gaps: string[];
       tint: string;
+      trucks: number;
+      trailers: number;
+      fullyRigged: number;
     }[] = [];
 
     const forProject = (projectId: string | null) =>
@@ -226,7 +264,21 @@ export default function JobsitesPage() {
         loose.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0);
       const noTruck = crews.filter((c) => !c.rig.truck).length;
       const gaps = crews.length === 0 ? ["no crew"] : noTruck ? [`${noTruck} crew${noTruck === 1 ? "" : "s"} without a truck`] : [];
-      out.push({ id: p.id, name: p.name, code: p.externalId, isJob: true, crews, loose, toolCount, value, gaps, tint: "bg-primary/5" });
+      out.push({
+        id: p.id,
+        name: p.name,
+        code: p.externalId,
+        isJob: true,
+        crews,
+        loose,
+        toolCount,
+        value,
+        gaps,
+        tint: "bg-primary/5",
+        trucks: crews.filter((c) => c.rig.truck).length,
+        trailers: crews.filter((c) => c.rig.trailer).length,
+        fullyRigged: crews.filter((c) => c.rig.truck && c.rig.trailer).length,
+      });
     }
 
     if (!scope && !foremanFilter && (!jobFilter || jobFilter === YARD || jobFilter === NOJOB)) {
@@ -280,6 +332,9 @@ export default function JobsitesPage() {
         value: yardTools.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0),
         gaps: [],
         tint: CARD_TINT[YARD] ?? "",
+        trucks: 0,
+        trailers: 0,
+        fullyRigged: 0,
       });
 
       /* The not-assigned group comes last, even when it is empty — it is the
@@ -297,10 +352,17 @@ export default function JobsitesPage() {
         value: noJobCrews.reduce((n, c) => n + c.tools.reduce((m, t) => m + (Number(t.acquisitionCost) || 0), 0), 0),
         gaps: [],
         tint: CARD_TINT[NOJOB] ?? "",
+        trucks: noJobCrews.filter((c) => c.rig.truck).length,
+        trailers: noJobCrews.filter((c) => c.rig.trailer).length,
+        fullyRigged: noJobCrews.filter((c) => c.rig.truck && c.rig.trailer).length,
       });
     }
 
     return out.filter((c) => {
+      /* Pool view shows the unassigned groups only — the yard and the
+         project-less people. Jobs drop out entirely (the design's "Unassigned
+         pool" tab), but NOJOB keeps its pinned-bottom rule below. */
+      if (poolView === "pool" && c.id !== YARD && c.id !== NOJOB) return false;
       /* The not-assigned group is pinned at the bottom permanently — it must
          survive filters that prune everything else. */
       if (c.id === NOJOB) return true;
@@ -310,8 +372,17 @@ export default function JobsitesPage() {
       /* A card filtered down to nothing is noise, not information. */
       if (anyFilter && c.toolCount === 0 && c.crews.length === 0) return false;
       return true;
+    }).sort((a, b) => {
+      /* NOJOB stays pinned last; the yard sorts with the jobs by the same key
+         so the list never splits the two apart mid-sort. */
+      if (a.id === NOJOB) return 1;
+      if (b.id === NOJOB) return -1;
+      if (cardSort === "name") return a.name.localeCompare(b.name);
+      if (cardSort === "gaps") return b.gaps.length - a.gaps.length || b.toolCount - a.toolCount;
+      if (cardSort === "value") return b.value - a.value || b.toolCount - a.toolCount;
+      return b.toolCount - a.toolCount || a.name.localeCompare(b.name);
     });
-  }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, scope, q, jobFilter, foremanFilter, statusFilter, categoryFilter, highValueOnly, gapFilter, anyFilter]);
+  }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, scope, q, jobFilter, foremanFilter, statusFilter, categoryFilter, highValueOnly, gapFilter, anyFilter, cardSort, poolView]);
 
   /* Categories actually present in the register, so the filter never offers a
      choice that returns nothing. */
@@ -346,7 +417,55 @@ export default function JobsitesPage() {
       />
 
       <div className="flex min-w-0 flex-col gap-3">
-          {/* ---- one filter bar: search hits every noun in the list ---- */}
+          {/* ---- view switcher: two renderings of the same yard ---- */}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {view === "cards"
+                ? "Cards view — the workhorse jobsite hub."
+                : "Blocky view — concept from design/claude-design, dark theme."}
+            </p>
+            <div className="flex rounded-md border bg-muted/40 p-0.5" role="tablist" aria-label="Jobsite view">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "cards"}
+                onClick={() => setView("cards")}
+                className={cn(
+                  "rounded px-3 py-1 text-xs font-medium transition-colors",
+                  view === "cards" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Cards
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "blocky"}
+                onClick={() => setView("blocky")}
+                className={cn(
+                  "rounded px-3 py-1 text-xs font-medium transition-colors",
+                  view === "blocky" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Blocky
+              </button>
+            </div>
+          </div>
+
+          {view === "blocky" ? (
+            <JobsiteBlockyView
+              assets={(assets.data ?? []) as ToolRow[]}
+              projects={projects.data ?? []}
+              vehicles={vehicles.data ?? []}
+              employees={employees.data ?? []}
+              foremen={foremen}
+              scope={scope}
+              canAssignCrew={canAssignCrew}
+              canManageRig={canManageRig}
+              onPick={setPicker}
+            />
+          ) : (
+          <>
           <section className="flex flex-col gap-2 rounded-md border bg-card p-3">
             {/* Search stays on the bar because it is the one control used on
                 every visit. The other six live in the sheet — as loose
@@ -519,6 +638,41 @@ export default function JobsitesPage() {
                 </Button>
               ) : null}
               <div className="ml-auto flex items-center gap-2">
+                {/* Blocky concept delta: the Jobs / Unassigned pool split. */}
+                <div className="flex overflow-hidden rounded-md border" role="group" aria-label="View">
+                  {([["jobs", "Jobs"], ["pool", "Pool"]] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setPoolView(key)}
+                      aria-pressed={poolView === key}
+                      className={cn(
+                        "px-2.5 py-1.5 text-xs transition-colors",
+                        poolView === key
+                          ? "bg-muted font-medium text-foreground"
+                          : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {/* Blocky concept delta: job-level sort. The one control the
+                    design's board adds that the page did not have. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1.5" aria-label="Sort jobs">
+                      <ArrowDownWideNarrow className="size-3.5" />
+                      {cardSort === "tools" ? "Most tools" : cardSort === "value" ? "Most value" : cardSort === "gaps" ? "Most gaps" : "Name"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setCardSort("tools")}>Most tools</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setCardSort("value")}>Most value</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setCardSort("gaps")}>Most gaps</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setCardSort("name")}>Name</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button
                   variant="outline"
                   size="sm"
@@ -548,6 +702,21 @@ export default function JobsitesPage() {
             /* Each card kind has its own icon: jobs are sites, the yard is the
                warehouse, the project-less people are a crew waiting for work. */
             const CardIcon = card.id === NOJOB ? Users : card.id === YARD ? Warehouse : Building2;
+
+            /* The team strip for this job: its roster rows from projectTeam.all
+               (only for jobs — the yard and the project-less group have no PM
+               or superintendent), plus the candidate PMs/supers for the add
+               menus, restricted to active employees. */
+            const roster = card.isJob
+              ? team.data?.find((t) => t.projectId === card.id)?.members ?? []
+              : [];
+            const teamLeaders = roster.filter(
+              (m): m is (typeof roster)[number] & { role: "pm" | "superintendent" } =>
+                m.role === "pm" || m.role === "superintendent",
+            );
+            const teamCandidates = (employees.data ?? [])
+              .filter((e) => e.employmentStatus === "active")
+              .map((e) => ({ id: e.id, name: e.name, externalId: e.externalId, employeeRole: e.role }));
             return (
               <section key={card.id} className="overflow-visible rounded-md border bg-card">
                 <header className={cn("flex flex-wrap items-center gap-3 px-3 py-2.5", card.tint)}>
@@ -566,6 +735,15 @@ export default function JobsitesPage() {
                       <span className="flex items-center gap-1.5 rounded-full bg-warn-bg px-2 py-0.5 text-xs font-medium text-warn">
                         <TriangleAlert className="size-3" aria-hidden /> {card.gaps.join(" · ")}
                       </span>
+                    ) : null}
+                    {card.isJob ? (
+                      <JobsiteTeamStrip
+                        projectId={card.id}
+                        members={teamLeaders}
+                        candidates={teamCandidates}
+                        canAssignPm={canAssignPm}
+                        canAssignSuper={canAssignSuper}
+                      />
                     ) : null}
                   </span>
                   <span className="ml-auto flex items-center gap-2">
@@ -603,6 +781,23 @@ export default function JobsitesPage() {
 
                 {open ? (
                   <div className="flex flex-col gap-2.5 border-t bg-muted/25 p-3">
+                    {/* Blocky concept delta: the per-job metric strip. The
+                        design's board led each job with TOOLS · CREWS · TRUCKS
+                        n/N · TRAILERS n/N · FULLY RIGGED n/N · VALUE so the gap
+                        was visible before opening anything. The page already
+                        carried these numbers on the summary line; this is the
+                        same data, laid out per card, one line, not a grid of
+                        cards (which is what pushed them below the fold once). */}
+                    {card.isJob ? (
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b pb-2 text-[11px]">
+                        <MetricCell label="TOOLS" value={String(card.toolCount)} />
+                        <MetricCell label="CREWS" value={String(card.crews.length)} />
+                        <MetricCell label="TRUCKS" value={`${card.trucks}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.trucks < card.crews.length} />
+                        <MetricCell label="TRAILERS" value={`${card.trailers}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.trailers < card.crews.length} />
+                        <MetricCell label="RIGGED" value={`${card.fullyRigged}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.fullyRigged < card.crews.length} />
+                        <MetricCell label="VALUE" value={money(card.value)} />
+                      </div>
+                    ) : null}
                     {card.crews.map((crew, i) => (
                       <CrewCard
                         key={crew.id}
@@ -666,6 +861,8 @@ export default function JobsitesPage() {
               </section>
             );
           })}
+          </>
+          )}
       </div>
     </div>
   );
@@ -742,5 +939,27 @@ function LooseSection({
         actions={canAct}
       />
     </div>
+  );
+}
+
+/* The Blocky metric strip cell — mono label over a tabular value. The value
+   colors warn when a ratio is not at parity (a job where every crew is fully
+   rigged shows plain foreground; anything less reads amber). */
+function MetricCell({
+  label,
+  value,
+  warn,
+}: {
+  label: string;
+  value: string;
+  warn?: boolean;
+}) {
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className="label-xs text-muted-foreground">{label}</span>
+      <span className={cn("tnum font-semibold", warn ? "text-warn" : "text-foreground")}>
+        {value}
+      </span>
+    </span>
   );
 }

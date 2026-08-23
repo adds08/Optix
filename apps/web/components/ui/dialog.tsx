@@ -60,8 +60,29 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        /*
+          `max-h` + `overflow-y-auto` are load-bearing, not styling.
+
+          This is `position: fixed` and centred by `translate-y-[-50%]`, so a
+          dialog taller than the viewport bleeds equally off the TOP and the
+          BOTTOM — and Radix's modal locks body scroll, so the overflow is not
+          merely hidden, it is unreachable by wheel, trackpad or keyboard.
+          Without a cap the tall dialogs in this app simply lose their ends.
+
+          Measured at 1280x720 before this line existed: the New Tool dialog was
+          994px tall, clipping 137px off each end. The Create button sat at
+          y=796 — Playwright itself refused to click it, "element is outside of
+          the viewport" — and the validation error renders BELOW that button.
+          So a user filled the form in, could not reach Create, and when they
+          did reach it could not see why nothing happened. That is UI-75, and
+          the same trap is UI-71, where the import column guide's last four rows
+          (other, column_8, location, owning_project) fall off the bottom.
+
+          A dialog that already fits is unaffected: a max-height only engages
+          once the content exceeds it.
+        */
         className={cn(
-          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          "fixed top-[50%] left-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
           className
         )}
         {...props}

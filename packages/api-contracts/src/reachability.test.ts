@@ -66,8 +66,6 @@ const NO_UI_BY_DESIGN: Record<string, string> = {
     "TODO: the STI-106 report half, same missing page. Invariant 4 is fully built and only observable from a log line.",
   "assignment.return":
     "TODO: returning a tool to the yard IS reachable — through chat, via apply-action's `return` case — but there is no button anywhere. The capability exists; the desk affordance does not.",
-  "projectTeam.remove":
-    "TODO: `projectTeam.assign` has a UI and its inverse does not. Taking somebody off a job is an ordinary act.",
   "category.rename": "TODO: no category management screen exists; only create and list are wired.",
   "category.delete": "TODO: the same missing screen. Note it already refuses to delete a category still in use, so the hard part is built and only the button is absent.",
   "category.adoptInUse": "TODO: the same missing screen. It promotes a free-text category somebody typed on a tool into a real one — the tidy-up step for a register that accepts either.",

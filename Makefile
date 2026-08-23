@@ -42,14 +42,15 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
-up: ## Build + start postgres, api, web, desktop (detached)
+up: ## Build + start postgres, api, web (detached); seeds on first boot
 	$(COMPOSE) up -d --build
+	@$(COMPOSE) exec -T api sh -c "cd /workspace/packages/db && pnpm seed" >/dev/null 2>&1 || true
 	@echo ""
 	@echo "  api      → http://localhost:4100  (health: /health)"
 	@echo "  web      → http://localhost:3100  (Next.js - shadcn new-york)"
 	@echo "  db       → postgres://postgres:stinventory@localhost:5433/stinventory"
 	@echo ""
-	@echo "  next: \`make seed\` to populate sample data."
+	@echo "  seeded sample data (idempotent — skips if the tenant already exists)."
 
 build: ## Build images without starting
 	$(COMPOSE) build
