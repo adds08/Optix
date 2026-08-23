@@ -44,16 +44,30 @@ export function startOfDay(d: Date): number {
   subtlety and it needs a test suite around it — the web app has none. See
   `relative` below for the bug that convention caused.
 
-  It counts CALENDAR days, not elapsed milliseconds. Measuring elapsed time made
-  the answer move with the wall clock: the day boundary landed at 19:00 local in
-  Dallas, inside a yard's working evening, so between 19:00 and midnight a
-  warranty expiring today read "expires yesterday" and one that expired
-  yesterday still wore the amber "ends soon" badge instead of the red "expired"
-  one (UI-60).
+  It counts CALENDAR days, not elapsed milliseconds. It used to be
+  `Math.floor((Date.now() - d.getTime()) / 86_400_000)`, which measures how much
+  TIME has passed and then floors it — so the answer moved with the wall clock,
+  and where the day boundary landed depended entirely on the reader's timezone.
+
+  In Dallas (`America/Chicago`, where Urban is) it landed at 19:00 local, inside
+  a yard's working evening: between 19:00 and midnight a warranty expiring today
+  read "expires yesterday", and one that expired yesterday still wore the amber
+  "ends soon" badge instead of the red "expired" one (UI-60). The same defect
+  read a tool tagged at noon as "today" after lunch and **"tomorrow" all
+  morning**, and "10 days ago at noon" as 9 until noon came round again.
+
+  Nobody asks "how many 24-hour periods since this happened". They ask which day
+  it was, and that answer must not change because somebody opened the screen
+  before lunch. Flooring both instants to local midnight first makes it a
+  calendar-day difference.
 
   `Math.round`, not `Math.floor`: a DST boundary makes a local day 23 or 25
   hours, so the division lands on 1.042 or 0.958 rather than exactly 1, and
   flooring would lose a day twice a year.
+
+  Found on 2026-08-23 by the suite failing overnight — the tests were right, the
+  implementation was wrong, and it only showed because the run happened to land
+  before noon.
 */
 export function daysFrom(v: string | Date | null | undefined): number | null {
   if (!v) return null;

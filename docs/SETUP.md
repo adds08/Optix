@@ -53,6 +53,21 @@ Urban, is `docs/workings/PERMISSION_MATRIX.md`.
 
 `SEED_RESET=1 make ENV=local seed` wipes first.
 
+### The browser suite
+
+```bash
+make ENV=local e2e-install   # once — fetches Chromium
+make ENV=local e2e           # needs the stack already up
+```
+
+It drives a real browser against `:3100` from OUTSIDE the containers, which is the only way
+to test the stack rather than a process's opinion of itself. `make ENV=local up` must be
+running first; the auth setup fails with a readable message if it is not.
+
+**Read-only by design.** That is what lets it run in parallel against the shared database
+with no isolation mechanism — and it means the first spec that CHANGES a row needs one
+chosen first. The reasoning is in `e2e/playwright.config.ts`.
+
 ## The chat parser
 
 No separate process. Configure a model at **Settings → Chat parser** — any OpenAI-compatible

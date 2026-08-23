@@ -2,7 +2,7 @@
 
 **Phase:** 4 — Foundation entity load
 **Size:** 1 unit
-**Status:** READY
+**Status:** **DONE — 2026-08-23.** All seven criteria. `import-validation.test.ts` (25 cases) covers the checking; `import-commit.test.ts` (11) covers the writing — preview-equals-commit including the re-validation that stops the preview becoming a forgeable token, the rollback property, and one case per entity. **AC 4 is met from two directions, and the reason is worth reading before extending it:** there is currently NO input that passes validation and then fails at insert — the only unique constraint on the five importable tables is `vehicle (id, vehicle_type)`, which an import cannot violate. So end-to-end rollback is not reachable from the public API today, and it is pinned instead by asserting `commit` wraps its inserts in `db.transaction` (source) and that the wrapper genuinely undoes committed work including the asset+ledger pair (real Postgres). **That changes the moment STI-403 lands** — the Foundation loader writes rows the validator does not model.
 **Depends on:** nothing
 
 ---

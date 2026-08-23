@@ -159,3 +159,67 @@ describe("formatAssetModel", () => {
     expect(formatAssetModel({})).toBe("");
   });
 });
+
+describe("daysFrom is a CALENDAR difference, not elapsed time", () => {
+  /*
+    The bug this caught, on 2026-08-23: `daysFrom` measured milliseconds since
+    the date and floored them, so its answer moved with the wall clock. A tool
+    tagged at noon read as "today" after lunch and "tomorrow" all morning, and
+    "10 days ago" read as 9 until noon came round.
+
+    These build their fixtures at a fixed hour and assert the answer is the
+    same regardless — which the old implementation cannot satisfy.
+  */
+  function at(hour: number, daysOffset: number): Date {
+    const d = new Date();
+    d.setHours(hour, 0, 0, 0);
+    d.setDate(d.getDate() + daysOffset);
+    return d;
+  }
+
+  it("says today for any hour of today", () => {
+    /* 00:01 and 23:59 are the same calendar day and must read the same. The
+       old code returned 0 for one and -1 ("tomorrow") for the other,
+       depending on when you looked. */
+    for (const hour of [0, 6, 12, 18, 23]) {
+      expect(daysFrom(at(hour, 0)), `${hour}:00 today`).toBe(0);
+      expect(relative(at(hour, 0)), `${hour}:00 today`).toBe("today");
+    }
+  });
+
+  it("says yesterday for any hour of yesterday", () => {
+    for (const hour of [0, 12, 23]) {
+      expect(daysFrom(at(hour, -1)), `${hour}:00 yesterday`).toBe(1);
+      expect(relative(at(hour, -1))).toBe("yesterday");
+    }
+  });
+
+  it("counts ten days as ten from any hour", () => {
+    for (const hour of [1, 12, 22]) {
+      expect(daysFrom(at(hour, -10)), `${hour}:00, ten days back`).toBe(10);
+    }
+  });
+
+  it("reads a date-only string as a day in the reader's timezone, not UTC", () => {
+    /*
+      `warrantyExpiresOn` is a `date` column and arrives as "2026-08-23".
+      `new Date("2026-08-23")` is UTC midnight, which west of Greenwich is the
+      previous day locally — so a warranty expiring today reads as already
+      expired in Dallas and not in London. The same string must mean the same
+      calendar day wherever it is read.
+    */
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    expect(daysFrom(iso)).toBe(0);
+    expect(relative(iso)).toBe("today");
+  });
+
+  it("still returns null for rubbish rather than NaN", () => {
+    /* `Math.round(NaN)` is NaN, which would render as "NaN days ago" instead
+       of the em-dash `relative` promises for an unknown date. */
+    expect(daysFrom("not a date")).toBeNull();
+    expect(daysFrom("")).toBeNull();
+    expect(daysFrom(null)).toBeNull();
+    expect(relative("not a date")).toBe("—");
+  });
+});
