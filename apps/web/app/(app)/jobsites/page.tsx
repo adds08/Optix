@@ -117,7 +117,18 @@ export default function JobsitesPage() {
      into a Jobs tab and an Unassigned pool tab; the pool here is the yard and
      the project-less groups, which the page ALREADY renders as cards — this
      toggle just narrows the list to those cards instead of re-querying. */
-  const [view, setView] = useState<"jobs" | "pool">("jobs");
+  /*
+    Renamed from `view` on 2026-08-23. The merge that brought the Blocky concept
+    onto main landed a SECOND `const [view, setView]` in this same function —
+    one for the render style ("cards" | "blocky", declared above) and this one
+    for the content filter ("jobs" | "pool"). Two const bindings of one name in
+    one scope is not a conflict TypeScript can shrug at: `pnpm typecheck` failed
+    on main from that merge onward, and since next.config.mjs does not ignore
+    build errors, the production image could not be built either. The two states
+    are independent features that simply chose the same name, so telling them
+    apart is the whole fix.
+  */
+  const [poolView, setPoolView] = useState<"jobs" | "pool">("jobs");
   const [openJobs, setOpenJobs] = useState<Record<string, boolean>>({});
   const [openCrews, setOpenCrews] = useState<Record<string, boolean>>({});
   /* Everything is expanded by default; this flips the default for cards AND
@@ -351,7 +362,7 @@ export default function JobsitesPage() {
       /* Pool view shows the unassigned groups only — the yard and the
          project-less people. Jobs drop out entirely (the design's "Unassigned
          pool" tab), but NOJOB keeps its pinned-bottom rule below. */
-      if (view === "pool" && c.id !== YARD && c.id !== NOJOB) return false;
+      if (poolView === "pool" && c.id !== YARD && c.id !== NOJOB) return false;
       /* The not-assigned group is pinned at the bottom permanently — it must
          survive filters that prune everything else. */
       if (c.id === NOJOB) return true;
@@ -371,7 +382,7 @@ export default function JobsitesPage() {
       if (cardSort === "value") return b.value - a.value || b.toolCount - a.toolCount;
       return b.toolCount - a.toolCount || a.name.localeCompare(b.name);
     });
-  }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, scope, q, jobFilter, foremanFilter, statusFilter, categoryFilter, highValueOnly, gapFilter, anyFilter, cardSort, view]);
+  }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, scope, q, jobFilter, foremanFilter, statusFilter, categoryFilter, highValueOnly, gapFilter, anyFilter, cardSort, poolView]);
 
   /* Categories actually present in the register, so the filter never offers a
      choice that returns nothing. */
@@ -633,11 +644,11 @@ export default function JobsitesPage() {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setView(key)}
-                      aria-pressed={view === key}
+                      onClick={() => setPoolView(key)}
+                      aria-pressed={poolView === key}
                       className={cn(
                         "px-2.5 py-1.5 text-xs transition-colors",
-                        view === key
+                        poolView === key
                           ? "bg-muted font-medium text-foreground"
                           : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                       )}
