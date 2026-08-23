@@ -8,16 +8,19 @@ import { ROLE_PERMS } from "./role-perms.js";
 import {
   asset,
   assignment,
+  category,
   channel,
   department,
   employee,
   employeeProjectAssignment,
   location,
+  message,
   permission,
   project,
   projectTeamMember,
   role,
   rolePermission,
+  task,
   tenant,
   tenantSettings,
   transaction,
@@ -30,6 +33,7 @@ import {
 import {
   assetSpecs,
   assignSpecs,
+  categorySpecs,
   departmentSpecs,
   employeeSpecs,
   locSpecs,
@@ -62,6 +66,39 @@ const TODAY = "2026-07-09";
   the seed demonstrates the edge, and TOOL-0255 at 4999.99 demonstrates the
   other side of it. Values are realistic street prices for the tool named.
 */
+/*
+  Which shelf a tool goes on, read off its description (STI-104).
+
+  The imported tools list has no category column, so every asset was seeded
+  with `categoryName: null` — which left the register's Category column reading
+  "—" on all 756 rows and `category.list` returning nothing at all. The bulk
+  re-file picker then had zero options, so the feature could not be exercised
+  from a clean database.
+
+  Keyword matching, not a lookup table, because the descriptions are free text
+  typed by whoever built the spreadsheet ("ANGEL GRAINDER", "QUIKIE SAW") and a
+  per-tag map would rot the moment the list is reloaded. Anything unmatched
+  stays NULL — an honest "not filed yet", which is also what gives the desk
+  something to actually re-file.
+*/
+const CATEGORY_KEYWORDS: [RegExp, string][] = [
+  [/\b(DRILL|DRIVER|IMPACT WRENCH|HAMMER)\b/i, "Drills & Drivers"],
+  [/\b(GRINDER|GRAINDER)\b/i, "Grinders"],
+  [/\b(SAW)\b/i, "Saws"],
+  [/\b(COMPACTOR|PLATE|RAMMER|TAMPER)\b/i, "Compaction"],
+  [/\b(GENERATOR|POWER STATION|CORD)\b/i, "Generators & Power"],
+  [/\b(BLOWER|TRIMMER|EDGER)\b/i, "Blowers & Yard"],
+  [/\b(LEVEL|TRANSIT|GNSS|RECEIVER|WALLSCANNER|LASER)\b/i, "Survey & Layout"],
+];
+
+function categoryFor(description: string | null): string | null {
+  if (!description) return null;
+  for (const [pattern, name] of CATEGORY_KEYWORDS) {
+    if (pattern.test(description)) return name;
+  }
+  return null;
+}
+
 const SEED_COSTS: Record<string, string> = {
   "TOOL-0001": "289.00", // BOSCH 11255VSR hammer drill
   "TOOL-0002": "129.00", // BOSCH GWS10-450P angle grinder
@@ -169,6 +206,12 @@ async function main() {
     .values(departmentSpecs.map((dd) => ({ tenantId: tid, name: dd.name, code: dd.code, isActive: true })))
     .returning();
   const deptByCode = Object.fromEntries(deptRows.map((d) => [d.code, d.id]));
+
+  // ---- Categories ----
+  /* STI-104. The tools list has no category column, so these are the shelves
+     the descriptions fall into. Without them `category.list` is empty and the
+     bulk re-file picker has nothing to offer — see the note in seed-data.ts. */
+  await db.insert(category).values(categorySpecs.map((name) => ({ tenantId: tid, name })));
 
   // ---- Employees (domain persons; custody holders) ----
   // Insert projects first (employees reference primaryProjectId).
@@ -420,7 +463,7 @@ async function main() {
         make: a.make,
         modelNumber: a.modelNumber,
         description: a.description,
-        categoryName: null,
+        categoryName: categoryFor(a.description),
         serialNumber: a.serial,
         isSerialized: a.isSerialized,
         quantity: a.quantity,
@@ -596,14 +639,119 @@ async function main() {
   });
 
   // ---- Messaging: Equipment Department channel ----
-  await db.insert(channel).values({
-    tenantId: tid,
-    name: "Equipment Department",
-    slug: "equipment-department",
-    kind: "department",
-    memberRole: "equipment_admin",
-  });
+  const [channelRow] = await db
+    .insert(channel)
+    .values({
+      tenantId: tid,
+      name: "Equipment Department",
+      slug: "equipment-department",
+      kind: "department",
+      memberRole: "equipment_admin",
+    })
+    .returning();
   console.log("[seed] 1 channel");
+
+  /*
+    The inbox, with something actually in it.
+
+    Until now the seed created a channel and then nothing to put in it: no
+    messages and no tasks on any machine in the project. That made all three
+    inbox buckets permanently empty, so Dismiss, Try again and Decline were
+    never clickable without hand-made rows — and UI-72 is exactly what that
+    costs. Two defects shipped in the dismiss path (copy written for a different
+    button, and a dismissed MESSAGE falling out of every bucket) because nobody
+    could reach the screen to look at it.
+
+    That is CLAUDE.md rule 8: data the seed cannot produce is behaviour nobody
+    tests. So each bucket the inbox renders gets a row that lands in it.
+
+    `pending_manual` and `error` are the Unrecognized bucket; `action_proposed`
+    and a `pending` task with an `actionType` are the Recognized one; the
+    executed message is history. Statuses are written directly rather than by
+    running the worker, because the parse needs a model and the seed must work
+    with no LLM configured at all.
+  */
+  const deskUserId = userByEmail["admin@stinventory.local"]!.id;
+  const foremanEmpId = empByKey["e-fm001"]!;
+  const repairAsset = assetByTag["TOOL-0004"]!;
+
+  await db.insert(message).values([
+    {
+      tenantId: tid,
+      channelId: channelRow!.id,
+      authorEmployeeId: foremanEmpId,
+      body: "the little green one is acting up again",
+      /* Nothing resolvable in it — no tag, no verb the catalog knows. This is
+         the shape the desk has to settle by hand, and the shape Dismiss exists
+         for. */
+      processingStatus: "pending_manual",
+      attempts: 4,
+      errorNote: "No tool could be resolved from this message.",
+    },
+    {
+      tenantId: tid,
+      channelId: channelRow!.id,
+      authorEmployeeId: foremanEmpId,
+      body: "TOOL-0004 needs a new blade",
+      /* Reached the parser and failed there, which is the retryable half of
+         Unrecognized — this is the row that makes "Try again" reachable. */
+      processingStatus: "error",
+      attempts: 2,
+      errorNote: "The language model was unreachable.",
+    },
+    {
+      tenantId: tid,
+      channelId: channelRow!.id,
+      authorEmployeeId: foremanEmpId,
+      body: "sending TOOL-0004 in for repair",
+      /* Parsed, understood, and waiting for a second signature. */
+      processingStatus: "action_proposed",
+      intentType: "repair",
+      proposedAction: { type: "repair", assetIds: [repairAsset.id] },
+    },
+    {
+      tenantId: tid,
+      channelId: channelRow!.id,
+      authorEmployeeId: foremanEmpId,
+      body: "TOOL-0003 back in the yard",
+      /* History — the Completed bucket needs an occupant too, or "signed off"
+         is another state nobody has ever seen rendered. */
+      processingStatus: "action_executed",
+      intentType: "return",
+      handledByUserId: deskUserId,
+      handledAt: new Date(),
+    },
+  ]);
+
+  await db.insert(task).values([
+    {
+      tenantId: tid,
+      title: "Repair requested: TOOL-0004",
+      description: "Blade is worn through. Raised from the yard by the foreman.",
+      status: "pending",
+      priority: "high",
+      assignedToEmployeeId: foremanEmpId,
+      createdByUserId: deskUserId,
+      relatedAssetId: repairAsset.id,
+      source: "chat",
+      /* `actionType` is what makes this ACTIONABLE rather than prose: the inbox
+         only offers Decline (and, when it is wired, Approve) on a task that
+         carries the verb it would replay. A task without it is a sentence the
+         desk can read and not act on. */
+      actionType: "repair",
+      pendingAction: { type: "repair", assetIds: [repairAsset.id] },
+    },
+    {
+      tenantId: tid,
+      title: "Tag the two unlabelled tools in the Dallas yard",
+      description: "Both came in without a label. They are on the Needs a Tag report.",
+      status: "completed",
+      priority: "low",
+      createdByUserId: deskUserId,
+      source: "manual",
+    },
+  ]);
+  console.log("[seed] 4 messages + 2 tasks — every inbox bucket has an occupant");
 
   console.log(`
 [seed] DONE.

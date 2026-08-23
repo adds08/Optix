@@ -125,8 +125,9 @@ export default function JobsitesPage() {
   const [poolView, setPoolView] = useState<"jobs" | "pool">("jobs");
   const [openJobs, setOpenJobs] = useState<Record<string, boolean>>({});
   const [openCrews, setOpenCrews] = useState<Record<string, boolean>>({});
-  /* Everything is expanded by default; this flips the default for cards AND
-     crew tool tables at once, and per-item toggles still override it. */
+  /* Jobs are expanded by default and CREWS ARE NOT (STI-401) — a job with
+     nine crews should show you its nine crews, not nine tool tables. This
+     flips the job-card default; per-item toggles still override it. */
   const [collapseAll, setCollapseAll] = useState(false);
   const [picker, setPicker] = useState<PickerRequest | null>(null);
   const [assign, setAssign] = useState<CrewAssignRequest | null>(null);
@@ -766,8 +767,14 @@ export default function JobsitesPage() {
                       <CrewCard
                         key={crew.id}
                         crew={crew}
-                        expanded={collapseAll ? (openCrews[crew.id] ?? false) : (openCrews[crew.id] ?? true)}
-                        onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(collapseAll ? (o[crew.id] ?? false) : (o[crew.id] ?? true)) }))}
+                        /* STI-401: jobs open, CREWS CLOSED by default. Urban
+                           runs ~28 crews, so expanding every crew's tool
+                           table turned the department's morning question
+                           ("who needs a vehicle") into a scroll. `collapseAll`
+                           still closes the jobs above; a crew the desk opens
+                           stays open via `openCrews`. */
+                        expanded={openCrews[crew.id] ?? false}
+                        onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(o[crew.id] ?? false) }))}
                         onPick={setPicker}
                         onAddTools={
                           canAssignTools

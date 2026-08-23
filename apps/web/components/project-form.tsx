@@ -4,6 +4,17 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PROJECT_STATUSES, type ProjectStatus } from "@stinventory/types";
+
+/* Sentence case for the select; the values themselves come from the shared
+   enum, so a new status appears here without an edit and cannot appear here
+   WITHOUT the server accepting it. */
+const STATUS_LABELS: Record<ProjectStatus, string> = {
+  awarded: "Awarded",
+  active: "Active",
+  closing: "Closing",
+  complete: "Complete",
+};
 
 export type ProjectEditable = {
   id: string;
@@ -23,7 +34,12 @@ export function ProjectForm({ open, onClose, edit }: Props) {
 
   const [name, setName] = useState(edit?.name ?? "");
   const [externalId, setExternalId] = useState(edit?.externalId ?? "");
-  const [status, setStatus] = useState(edit?.status ?? "active");
+  /* A job loaded from an older row could carry anything — the column is plain
+     text and only became an enum in STI-105 — so an unrecognised value falls
+     back to "active" rather than rendering a select with no selection. */
+  const [status, setStatus] = useState<ProjectStatus>(
+    PROJECT_STATUSES.includes(edit?.status as ProjectStatus) ? (edit!.status as ProjectStatus) : "active",
+  );
   const [costCenter, setCostCenter] = useState(edit?.costCenter ?? "");
   const [siteAddress, setSiteAddress] = useState(edit?.siteAddress ?? "");
   const [startDate, setStartDate] = useState(edit?.startDate ?? "");
@@ -80,11 +96,10 @@ export function ProjectForm({ open, onClose, edit }: Props) {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="awarded">Awarded</option>
-                <option value="active">Active</option>
-                <option value="closing">Closing</option>
-                <option value="complete">Complete</option>
+              <select value={status} onChange={(e) => setStatus(e.target.value as ProjectStatus)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                {PROJECT_STATUSES.map((s) => (
+                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                ))}
               </select>
             </div>
           </div>

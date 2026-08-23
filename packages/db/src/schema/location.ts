@@ -1,4 +1,5 @@
-import { boolean, decimal, index, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, decimal, index, pgTable, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { tenant } from "./identity";
 import { employee } from "./employee";
 import { project } from "./project";
@@ -83,5 +84,40 @@ export const vehicle = pgTable(
       in schema/asset.ts.
     */
     idTypeUq: unique("vehicle_id_type_uq").on(t.id, t.vehicleType),
+    /*
+      One COMPANY truck per foreman, enforced at the database (STI-502).
+
+      A rig is one truck, one trailer, one foreman. The rule was stated in the
+      plan and in three documents and enforced nowhere, so nothing stopped a
+      second truck being stamped onto the same person — at which point
+      `rigOf()` picks whichever row the query happens to return first and two
+      screens can disagree about what a crew drives.
+
+      Three deliberate narrowings, each one a case that would otherwise be
+      broken by this index:
+
+      PARTIAL on `foreman_employee_id IS NOT NULL` — a yard full of unheld
+      trucks is the normal resting state, and NULLs must not collide.
+
+      COMPANY-OWNED ONLY. A foreman may draw a personal-allowance truck AND
+      drive a company one; that pair is the entire premise of STI-306, where a
+      departure reassigns the company vehicle and the personal one leaves with
+      the person. Constraining across both would forbid the arrangement the
+      departure logic exists to handle — caught by departure.test.ts, whose
+      fixture builds exactly that foreman. A vehicle somebody owns is also
+      simply not the rig, and not this system's to ration.
+
+      TRUCKS ONLY. The same index for trailers would be wrong on Urban's real
+      data: FELIPE PORTILLO holds TE-017 (22 tools) and TE-027 (30 tools),
+      both imported from the tools list, and the seed carries his posting note
+      "Assigned with trailer TE-017, TE-027". One foreman really does run two
+      loaded trailers, so a unique index there would fail the migration on
+      correct production data rather than prevent a defect. See STI-502.
+    */
+    oneTruckPerForemanUq: uniqueIndex("vehicle_one_truck_per_foreman_uq")
+      .on(t.tenantId, t.foremanEmployeeId)
+      .where(
+        sql`${t.vehicleType} = 'truck' AND ${t.foremanEmployeeId} IS NOT NULL AND ${t.ownershipType} = 'company_owned'`,
+      ),
   }),
 );
