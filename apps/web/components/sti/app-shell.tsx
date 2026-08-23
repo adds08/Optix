@@ -19,7 +19,7 @@ import { WorkingBar } from "@/components/working-bar";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
-import { allItems, groupKey, isFieldRole, navFor, type NavGroup } from "./nav-config";
+import { allItems, groupKey, isFieldRole, matchItem, navFor, type NavGroup } from "./nav-config";
 
 /*
   The app shell on the shadcn sidebar-07 skeleton.
@@ -133,7 +133,7 @@ export function AppShell({
   const role = me.data?.role ?? null;
   const perms = me.data?.permissions ?? [];
   const field = isFieldRole(role);
-  const current = allItems(role).find((n) => pathname === n.href || pathname.startsWith(n.href + "/"));
+  const current = matchItem(allItems(role), pathname);
 
   /* Two-pane shell (Blocky): the rail draws one glyph per group, the sidebar
      shows the active group's rows. A group reaches the rail only if at least

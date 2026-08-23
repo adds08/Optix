@@ -16,7 +16,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { groupKey, type NavGroup } from "@/components/sti/nav-config";
+import { groupKey, matchItem, type NavGroup } from "@/components/sti/nav-config";
 
 /*
   The secondary pane of the two-pane shell: the job scope selector at its head,
@@ -48,14 +48,17 @@ export function AppSidebar({
   inboxCount: number;
 }) {
   const pathname = usePathname();
-  /* A nav row is current for its own page and everything under it, so a tool's
-     detail page keeps Tool Register lit rather than leaving the rail blank. */
-  const isCurrent = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   /* Pages outside the navigation — /profile, /account/password — resolve to no
      group. Falling back to the first one keeps the pane populated instead of
      showing an empty column on the screen a password reset forces you onto. */
   const active = groups.find((g) => groupKey(g) === activeGroupKey) ?? groups[0];
+
+  /* A nav row is current for its own page and everything under it, so a tool's
+     detail page keeps Tool Register lit. `matchItem` resolves the LONGEST
+     match rather than the first, which is what stops `/settings` from claiming
+     `/settings/ai` and lighting two rows at once. */
+  const currentHref = matchItem(active?.items ?? [], pathname)?.href;
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -77,7 +80,7 @@ export function AppSidebar({
             </SidebarGroupLabel>
             <SidebarMenu>
               {active.items.map((n) => {
-                const current = isCurrent(n.href);
+                const current = n.href === currentHref;
                 return (
                   <SidebarMenuItem key={n.href}>
                     <SidebarMenuButton

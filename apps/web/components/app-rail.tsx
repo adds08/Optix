@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Bot } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { groupKey, type NavGroup } from "@/components/sti/nav-config";
+import { footGroups, groupKey, mainGroups, type NavGroup } from "@/components/sti/nav-config";
 
 /*
   The primary rail (System Shell v3).
@@ -22,6 +22,11 @@ import { groupKey, type NavGroup } from "@/components/sti/nav-config";
       selector. Clicking Equipment has to land you somewhere; a rail that only
       swaps the sidebar's contents leaves the page you are reading behind and
       makes the two columns disagree about where you are.
+    - the foot is not the flow. The assistant and Settings sit below the
+      spacer because neither is a part of the product you work IN — one is a
+      tool you summon over the page, the other is where you go to change how
+      the product behaves. A gear sitting between Equipment and Insight reads
+      as a sixth module.
 
   The groups arriving here are already permission-filtered — an empty group is
   never drawn, because a glyph that opens an empty sidebar is worse than a
@@ -53,52 +58,66 @@ export function AppRail({
         ST
       </Link>
 
-      {groups.map((g) => {
-        const key = groupKey(g);
-        const active = key === activeKey;
-        const first = g.items[0];
-        if (!first) return null;
-        return (
-          <Tooltip key={key}>
-            <TooltipTrigger asChild>
-              <Link
-                href={first.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "grid size-9 shrink-0 place-items-center rounded-md transition-colors",
-                  active
-                    ? "bg-rail-accent text-rail-accent-foreground"
-                    : "text-rail-foreground hover:bg-rail-accent/60 hover:text-rail-accent-foreground",
-                )}
-              >
-                <first.icon className="size-[17px]" aria-hidden />
-                <span className="sr-only">{g.label}</span>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">{g.label}</TooltipContent>
-          </Tooltip>
-        );
-      })}
+      {mainGroups(groups).map((g) => (
+        <RailGroup key={groupKey(g)} group={g} active={groupKey(g) === activeKey} />
+      ))}
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={onToggleAi}
-            aria-pressed={aiOpen}
-            className={cn(
-              "mt-auto grid size-9 shrink-0 place-items-center rounded-md transition-colors",
-              aiOpen
-                ? "bg-rail-accent text-rail-accent-foreground"
-                : "text-rail-foreground hover:bg-rail-accent/60 hover:text-rail-accent-foreground",
-            )}
-          >
-            <Bot className="size-[17px]" aria-hidden />
-            <span className="sr-only">Assistant</span>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">Assistant</TooltipContent>
-      </Tooltip>
+      {/* The foot cluster. `mt-auto` moves here from the assistant button so
+          Settings stays welded underneath it rather than floating up when a
+          role has few groups. */}
+      <div className="mt-auto flex flex-col items-center gap-0.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onToggleAi}
+              aria-pressed={aiOpen}
+              className={cn(
+                "grid size-9 shrink-0 place-items-center rounded-md transition-colors",
+                aiOpen
+                  ? "bg-rail-accent text-rail-accent-foreground"
+                  : "text-rail-foreground hover:bg-rail-accent/60 hover:text-rail-accent-foreground",
+              )}
+            >
+              <Bot className="size-[17px]" aria-hidden />
+              <span className="sr-only">Assistant</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Assistant</TooltipContent>
+        </Tooltip>
+
+        {footGroups(groups).map((g) => (
+          <RailGroup key={groupKey(g)} group={g} active={groupKey(g) === activeKey} />
+        ))}
+      </div>
     </nav>
+  );
+}
+
+/* One glyph, wherever it sits. The group's own `icon` rather than its first
+   row's, so reordering rows cannot move the target somebody aims at. */
+function RailGroup({ group, active }: { group: NavGroup; active: boolean }) {
+  const first = group.items[0];
+  if (!first) return null;
+  const Icon = group.icon;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          href={first.href}
+          aria-current={active ? "page" : undefined}
+          className={cn(
+            "grid size-9 shrink-0 place-items-center rounded-md transition-colors",
+            active
+              ? "bg-rail-accent text-rail-accent-foreground"
+              : "text-rail-foreground hover:bg-rail-accent/60 hover:text-rail-accent-foreground",
+          )}
+        >
+          <Icon className="size-[17px]" aria-hidden />
+          <span className="sr-only">{group.label}</span>
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent side="right">{group.label}</TooltipContent>
+    </Tooltip>
   );
 }
