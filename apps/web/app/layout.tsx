@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter_Tight, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
+/* Blocky type pairing (ADR-7): Inter Tight for human text, JetBrains Mono for
+   machine-readable values. Both are variable fonts, so the weight axes the
+   components use (400–700) resolve without loading extra files. */
+const interTight = Inter_Tight({ subsets: ["latin"], variable: "--font-sans" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = { title: "STInventory", description: "Small tools & equipment management" };
 
@@ -44,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_THEME }} />
       </head>
-      <body className={cn(geist.variable, geistMono.variable, "font-sans antialiased")}>
+      <body className={cn(interTight.variable, jetbrainsMono.variable, "font-sans antialiased")}>
         <TooltipProvider>
           <Providers>{children}</Providers>
         </TooltipProvider>

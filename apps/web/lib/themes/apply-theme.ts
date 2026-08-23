@@ -24,6 +24,10 @@ import { FONT_FAMILIES, THEMES, type ThemePrefs } from "./themes";
   unreachable until a reload.
 */
 const ALL_THEME_KEYS = [
+  /* Radius is pinned in globals.css (Blocky 4px) and is no longer emitted by
+     any theme. It stays in the clear-set so a pre-existing cached appearance
+     that once carried a per-theme radius cannot keep overriding the base. */
+  "--radius",
   ...new Set(
     Object.values(THEMES).flatMap((t) => [...Object.keys(t.light), ...Object.keys(t.dark)]),
   ),

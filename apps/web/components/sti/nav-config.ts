@@ -121,3 +121,12 @@ export function navFor(role: string | null | undefined): NavGroup[] {
 export function allItems(role: string | null | undefined): NavItem[] {
   return navFor(role).flatMap((g) => g.items);
 }
+
+/*
+  Stable key for a nav group, shared by the rail (which draws one glyph per
+  group) and the sidebar (which shows the active group's rows). Derived from
+  the label because `NavGroup` carries no key of its own.
+*/
+export function groupKey(g: NavGroup): string {
+  return g.label.toLowerCase().replace(/[^a-z]+/g, "-");
+}

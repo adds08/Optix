@@ -33,6 +33,7 @@
 
 export type ThemeName =
   | "drafting-ink"
+  | "blocky"
   | "field-amber"
   | "concrete"
   | "blueprint"
@@ -94,12 +95,11 @@ type Recipe = {
   name: ThemeName;
   label: string;
   description: string;
-  radius: string;
   light: Side;
   dark: Side;
 };
 
-function expand(s: Side, radius: string, mode: "light" | "dark"): Record<string, string> {
+function expand(s: Side, mode: "light" | "dark"): Record<string, string> {
   const [, , paperHue] = s.paper;
   const [pl, pc, ph] = s.primary;
   const down = mode === "light" ? -1 : 1; /* "away from paper" flips in dark */
@@ -124,8 +124,6 @@ function expand(s: Side, radius: string, mode: "light" | "dark"): Record<string,
   const tint = (h: number, ch: number): C => [tintL, ch, h];
 
   return {
-    "--radius": radius,
-
     "--background": c(s.paper),
     "--foreground": c(s.ink),
     "--card": c(s.card),
@@ -164,10 +162,35 @@ function expand(s: Side, radius: string, mode: "light" | "dark"): Record<string,
 
 const RECIPES: Recipe[] = [
   {
+    /* The product's visual language (ADR-7). Dark-first: a near-black surface
+       ladder under a desaturated drafting-blue accent. Light mode inverts the
+       paper; the 48px rail stays dark either way (see --rail in globals.css).
+       Status hues stay fixed here exactly like every other theme — they are
+       the one vocabulary that must mean the same thing everywhere. */
+    name: "blocky",
+    label: "Blocky",
+    description: "The house look — near-black instrument surfaces, drafting-blue accent, mono numerals.",
+    light: {
+      /* #F4F5F7 paper, #FFFFFF cards, #1A1E24 ink, #3A6E9E accent. */
+      paper: [0.965, 0.003, 240],
+      card: [1, 0, 0],
+      ink: [0.245, 0.008, 245],
+      primary: [0.5, 0.085, 235],
+      onPrimary: [0.965, 0.003, 240],
+    },
+    dark: {
+      /* #090B0E paper, #11151A cards, #EAEDEF ink, #7FB0E4 accent. */
+      paper: [0.066, 0.004, 250],
+      card: [0.105, 0.008, 250],
+      ink: [0.925, 0.004, 235],
+      primary: [0.72, 0.1, 235],
+      onPrimary: [0.066, 0.004, 250],
+    },
+  },
+  {
     name: "field-amber",
     label: "Field Amber",
     description: "Warm cream paper, amber ink, soft corners. Built for bright daylight.",
-    radius: "0.5rem",
     light: {
       paper: [0.985, 0.014, 85],
       card: [0.998, 0.006, 85],
@@ -187,7 +210,6 @@ const RECIPES: Recipe[] = [
     name: "concrete",
     label: "Concrete",
     description: "Grey paper with white cards lifted off it. Slate accents, sharp corners.",
-    radius: "0.25rem",
     light: {
       /* The only light theme where paper is clearly grey and cards are white —
          the register reads as sheets on a desk rather than ink on one page. */
@@ -209,7 +231,6 @@ const RECIPES: Recipe[] = [
     name: "blueprint",
     label: "Blueprint",
     description: "Navy rail against pale blue paper. The strongest silhouette here.",
-    radius: "0.375rem",
     light: {
       paper: [0.976, 0.012, 255],
       card: [1, 0.002, 255],
@@ -231,7 +252,6 @@ const RECIPES: Recipe[] = [
     name: "forest",
     label: "Forest",
     description: "Deep green rail on warm off-white. Low glare, quiet contrast.",
-    radius: "0.375rem",
     light: {
       paper: [0.979, 0.01, 130],
       card: [0.999, 0.004, 130],
@@ -252,7 +272,6 @@ const RECIPES: Recipe[] = [
     name: "clay",
     label: "Clay",
     description: "Beige paper and terracotta, generously rounded. The warmest of the set.",
-    radius: "0.625rem",
     light: {
       paper: [0.968, 0.019, 60],
       card: [0.995, 0.008, 60],
@@ -272,7 +291,6 @@ const RECIPES: Recipe[] = [
     name: "graphite",
     label: "Graphite",
     description: "Zero chroma anywhere. The only colour left on screen is status.",
-    radius: "0.25rem",
     light: {
       paper: [0.968, 0, 0],
       card: [1, 0, 0],
@@ -294,7 +312,6 @@ const RECIPES: Recipe[] = [
     name: "high-contrast",
     label: "High Contrast",
     description: "Pure white, black ink, heavy borders. For a phone at arm's length in the sun.",
-    radius: "0.25rem",
     light: {
       paper: [1, 0, 0],
       card: [1, 0, 0],
@@ -335,7 +352,6 @@ const RECIPES: Recipe[] = [
     name: "site-green",
     label: "Site Green",
     description: "Urban's real brand: their button green, off-white paper, near-black dark mode.",
-    radius: "0.5rem",
     light: {
       paper: [0.979, 0, 90],
       card: [1, 0, 90],
@@ -360,7 +376,6 @@ const RECIPES: Recipe[] = [
     name: "site-cream",
     label: "Site Cream",
     description: "The same green, on Urban's warm off-white. Dark mode is their real footer green-black.",
-    radius: "0.5rem",
     light: {
       /* #fffaee — the site's own light section background, not the body's
          default. Promoted here to the paper itself. */
@@ -384,7 +399,6 @@ const RECIPES: Recipe[] = [
     name: "site-slate",
     label: "Site Slate",
     description: "The cooler read: the same green against Urban's own blue-grey rail, not an invented navy.",
-    radius: "0.5rem",
     light: {
       paper: [0.979, 0, 90],
       card: [1, 0, 90],
@@ -407,7 +421,6 @@ const RECIPES: Recipe[] = [
     name: "hi-vis",
     label: "Hi-Vis",
     description: "Their yellow, promoted from a minor accent to primary — a deliberate departure, not a faithful read.",
-    radius: "0.25rem",
     light: {
       paper: [0.979, 0, 90],
       card: [1, 0, 90],
@@ -451,17 +464,20 @@ export const THEMES: Record<ThemeName, ThemeDef> = {
         label: r.label,
         description: r.description,
         swatch: { light: c(r.light.primary), dark: c(r.dark.primary) },
-        light: expand(r.light, r.radius, "light"),
-        dark: expand(r.dark, r.radius, "dark"),
+        light: expand(r.light, "light"),
+        dark: expand(r.dark, "dark"),
       } satisfies ThemeDef,
     ]),
   ) as Record<Exclude<ThemeName, "drafting-ink">, ThemeDef>),
 };
 
 export const FONT_FAMILIES = {
-  system: "ui-sans-serif, system-ui, sans-serif",
+  /* Inter Tight is loaded by next/font as --font-sans and JetBrains Mono as
+     --font-mono (see app/layout.tsx); the theme engine's "system" and "mono"
+     presets re-point at them so the appearance picker stays honest. */
+  system: "'Inter Tight', system-ui, sans-serif",
   serif: "Georgia, 'Times New Roman', serif",
-  mono: "ui-monospace, 'SF Mono', monospace",
+  mono: "'JetBrains Mono', ui-monospace, 'SF Mono', monospace",
 } as const;
 
 export type FontFamilyName = keyof typeof FONT_FAMILIES;
@@ -487,7 +503,7 @@ export type ThemePrefs = {
 };
 
 export const DEFAULT_PREFS: ThemePrefs = {
-  themeName: "forest",
+  themeName: "blocky",
   fontFamily: "system",
   fontScale: "1.0",
   density: "comfortable",

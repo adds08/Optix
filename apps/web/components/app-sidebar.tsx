@@ -16,33 +16,41 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { navFor, type NavGroup } from "@/components/sti/nav-config";
+import { groupKey, navFor, type NavItem } from "@/components/sti/nav-config";
 
 /*
-  The app sidebar on the shadcn sidebar-07 skeleton:
-
-    header — the system-wide job selector
-    content — the role's navigation
-    no footer — identity lives in the top bar's account menu
-
-  Collapses to icons on a desk layout and folds into a sheet on a phone.
+  The secondary sidebar: the job scope selector at its head, then the ACTIVE
+  group's rows. The primary rail (app-rail.tsx) owns which group is active —
+  the sidebar only answers "which screen in this group". Collapses to icons on
+  a desk layout and folds into a sheet on a phone.
 */
 
 export function AppSidebar({
   userRole,
   permissions,
   inboxCount,
+  activeGroupKey,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   userRole: string | null;
   permissions: string[];
   inboxCount: number;
+  activeGroupKey?: string;
 }) {
   const groups = navFor(userRole);
   const pathname = usePathname();
   /* A nav row is current for its own page and everything under it, so a tool's
      detail page keeps Tool Register lit rather than leaving the rail blank. */
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(href + "/");
+
+  const activeGroup =
+    groups.find((g) => groupKey(g) === activeGroupKey) ??
+    groups.find((g) => g.items.some((n) => !n.perm || permissions.includes(n.perm))) ??
+    groups[0];
+
+  const visible = (activeGroup?.items ?? []).filter(
+    (n: NavItem) => !n.perm || permissions.includes(n.perm),
+  );
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -54,52 +62,48 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent className="overscroll-contain pb-2">
-        {groups.map((g: NavGroup) => {
-          const visible = g.items.filter((n) => !n.perm || permissions.includes(n.perm));
-          if (!visible.length) return null;
-          return (
-            <SidebarGroup key={g.label}>
-              <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
-              <SidebarMenu>
-                {visible.map((n) => {
-                  const active = isCurrent(n.href);
-                  return (
-                    <SidebarMenuItem key={n.href}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={active}
-                        tooltip={n.label}
-                        /* The accent fill alone is a weak signal at this value
-                           range; the marker on the leading edge is what the eye
-                           actually finds, and it survives the icon-only rail. */
-                        className={cn(
-                          "relative transition-colors before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px]",
-                          "before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary before:transition-opacity",
-                          active ? "before:opacity-100" : "before:opacity-0",
-                        )}
-                      >
-                        <Link href={n.href}>
-                          <n.icon
-                            className={cn(
-                              "size-4 shrink-0 transition-colors",
-                              active
-                                ? "text-sidebar-primary"
-                                : "text-sidebar-foreground/55 group-hover/menu-item:text-sidebar-accent-foreground",
-                            )}
-                          />
-                          <span className="truncate">{n.label}</span>
-                          {n.href === "/inbox" && inboxCount > 0 ? (
-                            <SidebarMenuBadge>{inboxCount > 99 ? "99+" : inboxCount}</SidebarMenuBadge>
-                          ) : null}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroup>
-          );
-        })}
+        {activeGroup && visible.length ? (
+          <SidebarGroup key={activeGroup.label}>
+            <SidebarGroupLabel>{activeGroup.label}</SidebarGroupLabel>
+            <SidebarMenu>
+              {visible.map((n) => {
+                const active = isCurrent(n.href);
+                return (
+                  <SidebarMenuItem key={n.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={n.label}
+                      /* The accent fill alone is a weak signal at this value
+                         range; the marker on the leading edge is what the eye
+                         actually finds, and it survives the icon-only rail. */
+                      className={cn(
+                        "relative transition-colors before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px]",
+                        "before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary before:transition-opacity",
+                        active ? "before:opacity-100" : "before:opacity-0",
+                      )}
+                    >
+                      <Link href={n.href}>
+                        <n.icon
+                          className={cn(
+                            "size-4 shrink-0 transition-colors",
+                            active
+                              ? "text-sidebar-primary"
+                              : "text-sidebar-foreground/55 group-hover/menu-item:text-sidebar-accent-foreground",
+                          )}
+                        />
+                        <span className="truncate">{n.label}</span>
+                        {n.href === "/inbox" && inboxCount > 0 ? (
+                          <SidebarMenuBadge>{inboxCount > 99 ? "99+" : inboxCount}</SidebarMenuBadge>
+                        ) : null}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ) : null}
       </SidebarContent>
 
       <SidebarRail />

@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AppRail } from "@/components/app-rail";
+import { AiPanel } from "@/components/ai-panel";
 import { NotificationCenter } from "@/components/notification-center";
 import { UserMenu } from "@/components/user-menu";
 import { GlobalSearch } from "@/components/global-search";
@@ -16,7 +18,7 @@ import { WorkingBar } from "@/components/working-bar";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
-import { allItems, isFieldRole } from "./nav-config";
+import { allItems, groupKey, isFieldRole, navFor, type NavGroup } from "./nav-config";
 
 /*
   The app shell on the shadcn sidebar-07 skeleton.
@@ -59,6 +61,7 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   /* Guard: no session, no app. Runs before any query fires. */
   useEffect(() => {
@@ -127,6 +130,18 @@ export function AppShell({
   const perms = me.data?.permissions ?? [];
   const field = isFieldRole(role);
   const current = allItems(role).find((n) => pathname === n.href || pathname.startsWith(n.href + "/"));
+
+  /* Two-pane shell (Blocky): the rail draws one glyph per group, the sidebar
+     shows the active group's rows. A group reaches the rail only if at least
+     one of its rows survives the permission filter — a glyph that opens an
+     empty sidebar is worse than no glyph at all. */
+  const groups = navFor(role);
+  const railGroups: NavGroup[] = groups
+    .map((g) => ({ ...g, items: g.items.filter((n) => !n.perm || perms.includes(n.perm)) }))
+    .filter((g) => g.items.length > 0);
+  const activeGroup = groups.find((g) => g.items.some((i) => i === current));
+  const activeGroupKey = activeGroup ? groupKey(activeGroup) : undefined;
+
   const userName = `${me.data?.firstName ?? ""} ${me.data?.lastName ?? ""}`.trim();
 
   async function onLogout() {
@@ -143,7 +158,18 @@ export function AppShell({
   return (
     <SidebarProvider defaultOpen={defaultSidebarOpen} className="h-dvh overflow-hidden">
       <WorkingBar />
-      <AppSidebar userRole={role} permissions={perms} inboxCount={inboxCount} />
+      <AppRail
+        groups={railGroups}
+        activeKey={activeGroupKey}
+        aiOpen={aiOpen}
+        onToggleAi={() => setAiOpen((v) => !v)}
+      />
+      <AppSidebar
+        userRole={role}
+        permissions={perms}
+        inboxCount={inboxCount}
+        activeGroupKey={activeGroupKey}
+      />
       <SidebarInset>
         {/* Top bar — page context, search, notifications, account. h-14 is
             shared with the rail's header so the two bottom borders meet as a
@@ -172,6 +198,7 @@ export function AppShell({
           </div>
         </div>
       </SidebarInset>
+      <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
     </SidebarProvider>
   );
 }
