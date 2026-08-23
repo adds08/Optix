@@ -328,7 +328,7 @@ After `make ENV=local reset`:
 | Boot sweep | `2 divergent asset(s)`, both `kind: "no_evidence"` |
 | Append-only triggers | both `tgenabled = 'O'` |
 | `assignment_one_active_uq` | present |
-| `vehicle_one_truck_per_foreman_uq` | present (migration `0022`, STI-502) |
+| `vehicle_one_truck_per_foreman_uq` | present (migration `0024`, STI-502 — was `0022`, orphaned by a merge) |
 | Project statuses reachable | all four — Richardson `closing`, Mesquite `complete`, City of Kemp `awarded` |
 | Categories | 8 seeded; 414 of 756 tools filed, 342 unfiled |
 | Desk queue | 1 pending assignment (carries the personal-allowance truck) + 1 pending transfer (trailer only) |

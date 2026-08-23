@@ -162,6 +162,13 @@
       "when": 1787485000000,
       "tag": "0023_clear_stranded_pending_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1787516962999,
+      "tag": "0024_recover_orphaned_0022",
+      "breakpoints": true
     }
   ]
 }

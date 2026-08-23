@@ -1,6 +1,6 @@
 {
-  "id": "73fbd54b-9bd0-45ac-bc4d-c546d029db2b",
-  "prevId": "b7e62429-aa6b-4ca3-a202-1c46dee874c7",
+  "id": "fea7a007-1ebd-4796-8cde-168cb17faf31",
+  "prevId": "73fbd54b-9bd0-45ac-bc4d-c546d029db2b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1484,6 +1484,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "vehicle_one_truck_per_foreman_uq": {
+          "name": "vehicle_one_truck_per_foreman_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "foreman_employee_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"vehicle\".\"vehicle_type\" = 'truck' AND \"vehicle\".\"foreman_employee_id\" IS NOT NULL AND \"vehicle\".\"ownership_type\" = 'company_owned'",
           "concurrently": false,
           "method": "btree",
           "with": {}
