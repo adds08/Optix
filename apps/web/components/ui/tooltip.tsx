@@ -5,8 +5,17 @@ import { Tooltip as TooltipPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/*
+  300ms, not 0.
+
+  shadcn ships this at zero, which means every tooltip in the product fires the
+  instant the pointer crosses it — moving the mouse across a row of crews set
+  off a trail of panels nobody asked for. A short delay makes a tooltip the
+  result of pausing on something rather than of passing over it. Set here so it
+  is one number for the whole app instead of a prop every caller forgets.
+*/
 function TooltipProvider({
-  delayDuration = 0,
+  delayDuration = 300,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return (

@@ -785,12 +785,24 @@ export default function JobsitesPage() {
                         cards (which is what pushed them below the fold once). */}
                     {card.isJob ? (
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b pb-2 text-[11px]">
-                        <MetricCell label="TOOLS" value={String(card.toolCount)} />
-                        <MetricCell label="CREWS" value={String(card.crews.length)} />
+                        {/*
+                          Rig readiness only — TOOLS, CREWS and VALUE are gone
+                          from this bar because the header two centimetres above
+                          already carries all three, and printing 210 and $3.8k
+                          twice in one strip is noise the eye has to resolve
+                          before it can read either.
+
+                          The header keeps them rather than this bar because the
+                          bar is inside the collapsed section: a shut card would
+                          otherwise show a name and nothing to judge it by. So
+                          the split is by STATE, not preference — headline totals
+                          live where they survive collapsing, and the breakdown
+                          that only means something once you can see the crews
+                          lives with the crews.
+                        */}
                         <MetricCell label="TRUCKS" value={`${card.trucks}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.trucks < card.crews.length} />
                         <MetricCell label="TRAILERS" value={`${card.trailers}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.trailers < card.crews.length} />
                         <MetricCell label="RIGGED" value={`${card.fullyRigged}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.fullyRigged < card.crews.length} />
-                        <MetricCell label="VALUE" value={moneyShort(card.value)} />
                       </div>
                     ) : null}
                     {card.crews.map((crew, i) => (
@@ -945,6 +957,15 @@ function LooseSection({
 /* The Blocky metric strip cell — mono label over a tabular value. The value
    colors warn when a ratio is not at parity (a job where every crew is fully
    rigged shows plain foreground; anything less reads amber). */
+/*
+  The inline metric pair used in the job card's readiness strip.
+
+  A shared `sti/metric-cell.tsx` also existed and was imported by nothing: it
+  was a different component wearing the same name — a full-width bar cell with
+  the label and value pushed apart, not this inline pair. Deleted rather than
+  merged, because forcing one component to be both is how a primitive ends up
+  serving neither. If a second caller ever wants THIS shape, lift this one.
+*/
 function MetricCell({
   label,
   value,

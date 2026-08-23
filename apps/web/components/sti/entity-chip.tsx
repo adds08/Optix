@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Briefcase, HardHat, ShieldCheck, Wrench, type LucideIcon } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ArrowRight, Briefcase, HardHat, ShieldCheck, Wrench, type LucideIcon } from "lucide-react";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 
 /*
@@ -84,17 +84,19 @@ export function PersonChip({
 
   const body = (
     /*
-      The design's layout: name on top, a mono uppercase kicker under it. The
-      bordered (ID · Name) pill this replaced is gone because the design does not
-      have one — but the id has not gone with it, it moved into the kicker, so
-      "id first, then who" still holds and the row is a line shorter.
+      The name is TEXT, not a link.
+
+      It was a link, and on the jobsite board that made the one word people
+      naturally aim at the only part of the strip that did not expand the row —
+      you went to click a crew open and landed on a profile page instead. The
+      row owns the click; opening the person moved into the panel below as an
+      explicit action, which is also where it belongs, because navigating away
+      should be something you choose rather than something you hit.
     */
     <span className={cn("flex min-w-0 items-center gap-2", className)}>
       <Icon className={cn("size-4 shrink-0", r.hat)} aria-hidden />
       <span className="min-w-0">
-        <span className="block truncate text-[13.5px] font-semibold leading-tight group-hover/person:text-primary">
-          {name}
-        </span>
+        <span className="block truncate text-[13.5px] font-semibold leading-tight">{name}</span>
         <span className="label-xs block truncate">
           {externalId ? `${externalId} · ` : ""}
           {roleLabel || "—"}
@@ -103,28 +105,35 @@ export function PersonChip({
     </span>
   );
 
-  const tip = (
-    <TooltipContent side="top" className="max-w-64">
-      <span className="block font-semibold">{name}</span>
-      {roleLabel ? <span className="block capitalize opacity-80">{roleLabel}</span> : null}
-      {externalId ? <span className="block font-mono opacity-80">{externalId}</span> : null}
-      {detail ? <span className="mt-1 block opacity-80">{detail}</span> : null}
-      {id ? <span className="mt-1 block opacity-60">Click to open</span> : null}
-    </TooltipContent>
-  );
-
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
+    <HoverCard>
+      <HoverCardTrigger asChild>
+        {/* A span, not a button: the row behind it is the control, and nesting
+            an interactive element inside it would both steal the click and be
+            invalid. */}
+        <span className="min-w-0 cursor-pointer">{body}</span>
+      </HoverCardTrigger>
+      <HoverCardContent>
+        <span className="block text-sm font-semibold">{name}</span>
+        {roleLabel ? (
+          <span className="block text-xs capitalize text-muted-foreground">{roleLabel}</span>
+        ) : null}
+        {externalId ? (
+          <span className="tnum block font-mono text-xs text-muted-foreground">{externalId}</span>
+        ) : null}
+        {detail ? (
+          <span className="mt-2 block text-xs leading-relaxed text-muted-foreground">{detail}</span>
+        ) : null}
         {id ? (
-          <Link href={`/people/${id}`} className="group/person block min-w-0 max-w-full">
-            {body}
+          <Link
+            href={`/people/${id}`}
+            className="mt-3 flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+          >
+            Open profile
+            <ArrowRight className="size-3" aria-hidden />
           </Link>
-        ) : (
-          body
-        )}
-      </TooltipTrigger>
-      {tip}
-    </Tooltip>
+        ) : null}
+      </HoverCardContent>
+    </HoverCard>
   );
 }

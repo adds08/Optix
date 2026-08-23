@@ -4,7 +4,7 @@ import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { EntityField } from "@/components/ui/entity-picker";
 import { RidePicker } from "./ride-picker";
 import { usePermissions, useViewTier } from "./use-permissions";
 
@@ -109,28 +109,48 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Asset</label>
-            <select value={assetId} onChange={(e) => setAssetId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Select asset...</option>
-              {assets.data?.map((a) => (
-                <option key={a.id} value={a.id}>{a.tag ?? "Untagged"} — {formatAssetModel(a) || "No description"}</option>
-              ))}
-            </select>
+            <EntityField
+              value={assetId}
+              onChange={setAssetId}
+              placeholder="Select asset…"
+              searchPlaceholder="Search tag, make or model…"
+              emptyLabel="No tool matches."
+              options={(assets.data ?? []).map((a) => ({
+                value: a.id,
+                label: a.tag ?? "Untagged",
+                hint: formatAssetModel(a) || "No description",
+              }))}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Custodian</label>
-            <select value={custodianId} onChange={(e) => setCustodianId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Select custodian...</option>
-              {custodianOptions.map((e) => (
-                <option key={e.id} value={e.id}>{e.name} {e.externalId ? `#${e.externalId}` : ""}</option>
-              ))}
-            </select>
+            <EntityField
+              value={custodianId}
+              onChange={setCustodianId}
+              placeholder="Select custodian…"
+              searchPlaceholder="Search people…"
+              emptyLabel="Nobody matches."
+              options={custodianOptions.map((e) => ({
+                value: e.id,
+                label: e.name,
+                hint: e.externalId ?? undefined,
+              }))}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Project</label>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Default (custodian's primary)</option>
-              {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <EntityField
+              value={projectId}
+              onChange={setProjectId}
+              placeholder="Default (custodian's primary)"
+              searchPlaceholder="Search jobs…"
+              emptyLabel="No job matches."
+              options={(projects.data ?? []).map((p) => ({
+                value: p.id,
+                label: p.name,
+                hint: p.externalId ?? undefined,
+              }))}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Where it goes</label>

@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { EntityField } from "@/components/ui/entity-picker";
 import { Input } from "@/components/ui/input";
 import { ErrorNote } from "@/components/sti/page";
 
@@ -130,15 +131,21 @@ export function DepartureForm({ open, onClose }: { open: boolean; onClose: () =>
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Who has left</label>
-              <select value={leaverId} onChange={(e) => { setLeaverId(e.target.value); setSuccessorId(""); }} className={selectClass}>
-                <option value="">Pick a terminated employee</option>
-                {leavers.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                    {e.primaryProjectName ? ` — ${e.primaryProjectName}` : ""}
-                  </option>
-                ))}
-              </select>
+              <EntityField
+                value={leaverId}
+                onChange={(v) => {
+                  setLeaverId(v);
+                  setSuccessorId("");
+                }}
+                placeholder="Pick a terminated employee"
+                searchPlaceholder="Search people…"
+                emptyLabel="Nobody matches."
+                options={leavers.map((e) => ({
+                  value: e.id,
+                  label: e.name,
+                  hint: e.primaryProjectName ?? undefined,
+                }))}
+              />
               {leavers.length === 0 && !employees.isLoading ? (
                 <p className="text-xs text-muted-foreground">Nobody is marked terminated right now.</p>
               ) : null}
@@ -147,19 +154,22 @@ export function DepartureForm({ open, onClose }: { open: boolean; onClose: () =>
             {leaverId ? (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Who takes it on</label>
-                <select value={successorId} onChange={(e) => setSuccessorId(e.target.value)} className={selectClass}>
-                  <option value="">
-                    {p?.successor && p.successor.source === "team"
+                <EntityField
+                  value={successorId}
+                  onChange={setSuccessorId}
+                  placeholder={
+                    p?.successor && p.successor.source === "team"
                       ? `${p.successor.name} — from the project team`
-                      : "Pick who takes the tools"}
-                  </option>
-                  {receivers.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}
-                      {e.role ? ` — ${e.role}` : ""}
-                    </option>
-                  ))}
-                </select>
+                      : "Pick who takes the tools"
+                  }
+                  searchPlaceholder="Search people…"
+                  emptyLabel="Nobody matches."
+                  options={receivers.map((e) => ({
+                    value: e.id,
+                    label: e.name,
+                    hint: e.role ? e.role.replace(/_/g, " ") : undefined,
+                  }))}
+                />
                 {blocked ? (
                   <p className="text-sm text-destructive">
                     Nobody active was found on the project team. Choose who takes the tools — this

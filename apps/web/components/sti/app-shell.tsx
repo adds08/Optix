@@ -13,7 +13,8 @@ import { AppRail } from "@/components/app-rail";
 import { AiPanel } from "@/components/ai-panel";
 import { NotificationCenter } from "@/components/notification-center";
 import { UserMenu } from "@/components/user-menu";
-import { GlobalSearch } from "@/components/global-search";
+import { CommandPalette, useCommandPalette } from "@/components/command-palette";
+import { Search } from "lucide-react";
 import { WorkingBar } from "@/components/working-bar";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
@@ -62,6 +63,9 @@ export function AppShell({
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  /* ⌘K and "/" live in the hook so the button and the key handler cannot
+     disagree about what opens the palette. */
+  const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette();
 
   /* Guard: no session, no app. Runs before any query fires. */
   useEffect(() => {
@@ -185,7 +189,21 @@ export function AppShell({
             {current?.label ?? "STInventory"}
           </span>
           <div className="ml-auto flex items-center gap-1.5">
-            {!field ? <GlobalSearch /> : null}
+            {!field ? (
+              /* The trigger is a button, not an input: the palette owns the
+                 field, so a second one here would take focus from it. */
+              <Button
+                variant="outline"
+                onClick={() => setPaletteOpen(true)}
+                className="h-8 w-64 max-w-[40vw] justify-start gap-2 px-2.5 text-sm font-normal text-muted-foreground"
+              >
+                <Search className="size-4 shrink-0" aria-hidden />
+                <span className="truncate">Search tools, people, jobs…</span>
+                <kbd className="ml-auto hidden shrink-0 rounded-sm border bg-muted px-1.5 font-mono text-[11px] text-muted-foreground sm:inline">
+                  ⌘K
+                </kbd>
+              </Button>
+            ) : null}
             <NotificationCenter />
             <ThemeToggle />
             {me.data ? (
@@ -208,6 +226,7 @@ export function AppShell({
         </div>
       </SidebarInset>
       <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
+      {!field ? <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} /> : null}
     </SidebarProvider>
   );
 }

@@ -1,17 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { cn } from "@/lib/utils";
 
 /*
@@ -58,14 +50,11 @@ export function JobsiteTeamStrip({
   canAssignSuper: boolean;
 }) {
   const utils = trpc.useUtils();
-  const [openRole, setOpenRole] = useState<"pm" | "superintendent" | null>(null);
-  const [pending, setPending] = useState<string | null>(null);
 
   const assign = trpc.projectTeam.assign.useMutation({
-    onSuccess: () => {
-      setOpenRole(null);
-      utils.projectTeam.all.invalidate();
-    },
+    /* EntityPicker closes itself on select, so there is no panel left to close
+       here — only the roster to refetch. */
+    onSuccess: () => utils.projectTeam.all.invalidate(),
   });
   const remove = trpc.projectTeam.remove.useMutation({
     onSuccess: () => {
@@ -105,7 +94,6 @@ export function JobsiteTeamStrip({
           aria-label={`Remove ${m.name} from the ${m.role} role`}
           disabled={remove.isPending}
           onClick={() => {
-            setPending(m.id);
             remove.mutate({ projectId, employeeId: m.employeeId, role: m.role });
           }}
           className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
@@ -116,45 +104,47 @@ export function JobsiteTeamStrip({
     </span>
   );
 
-  const addButton = (role: "pm" | "superintendent") =>
-    canAssign(role) ? (
-      <DropdownMenu
-        open={openRole === role}
-        onOpenChange={(open) => setOpenRole(open ? role : null)}
-      >
-        <DropdownMenuTrigger asChild>
+  const addButton = (role: "pm" | "superintendent") => {
+    if (!canAssign(role)) return null;
+    const noun = role === "pm" ? "project manager" : "superintendent";
+    const opts = pickOptions(role).map((c) => ({
+      value: c.id,
+      label: c.name,
+      /*
+        The hint is what makes this list usable at all.
+
+        This register has several people sharing a display name and many with no
+        external id, so the old menu rendered rows that read identically — eight
+        superintendents, three of them literally "Other Super", with no way to
+        tell which one you were assigning. The id when there is one, the role
+        when there is not, and EntityPicker searches this string as well as the
+        name.
+      */
+      hint: c.externalId ? c.externalId : c.employeeRole.replace(/_/g, " "),
+    }));
+
+    return (
+      <EntityPicker
+        options={opts}
+        placeholder={`Search ${noun}s…`}
+        empty={opts.length ? `No ${noun} matches.` : "None left to add."}
+        onSelect={(id) => {
+          assign.mutate({ projectId, employeeId: id, role });
+        }}
+        trigger={
           <Button
             variant="ghost"
             size="sm"
             className="h-6 gap-0.5 rounded-sm border border-dashed border-muted-foreground/40 px-2 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground"
-            aria-label={`Add a ${role === "pm" ? "project manager" : "superintendent"}`}
+            aria-label={`Add a ${noun}`}
           >
             <Plus className="size-2.5" aria-hidden />
             {role === "pm" ? "PM" : "SUP"}
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="max-h-72 overflow-auto">
-          <DropdownMenuLabel>Add a {role === "pm" ? "project manager" : "superintendent"}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {pickOptions(role).length === 0 ? (
-            <DropdownMenuItem disabled>None left to add</DropdownMenuItem>
-          ) : (
-            pickOptions(role).map((c) => (
-              <DropdownMenuItem
-                key={c.id}
-                disabled={pending === c.id}
-                onSelect={() => {
-                  setPending(c.id);
-                  assign.mutate({ projectId, employeeId: c.id, role });
-                }}
-              >
-                {c.externalId ? `${c.externalId} · ${c.name}` : c.name}
-              </DropdownMenuItem>
-            ))
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ) : null;
+        }
+      />
+    );
+  };
 
   const leaderCount = pm.length + supers.length;
   if (leaderCount === 0 && !canAssignPm && !canAssignSuper) return null;
