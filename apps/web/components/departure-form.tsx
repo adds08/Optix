@@ -20,10 +20,10 @@ import { ErrorNote } from "@/components/sti/page";
 
   Two things it is deliberate about:
 
-  - The successor is proposed from the reporting line, never invented. Where
-    the chain yields nobody the confirm stays disabled until a person is
-    picked — leaving the tools with the leaver and guessing a holder are both
-    wrong, and the second one is worse because it looks like it worked.
+  - The successor is proposed from the project team, never invented. Where the
+    team yields nobody the confirm stays disabled until a person is picked —
+    leaving the tools with the leaver and guessing a holder are both wrong, and
+    the second one is worse because it looks like it worked.
   - Personal vehicles appear in their own list with the reason spelled out.
     "Why is his truck not moving" has to be answerable on the screen.
 
@@ -149,8 +149,8 @@ export function DepartureForm({ open, onClose }: { open: boolean; onClose: () =>
                 <label className="text-sm font-medium">Who takes it on</label>
                 <select value={successorId} onChange={(e) => setSuccessorId(e.target.value)} className={selectClass}>
                   <option value="">
-                    {p?.successor && p.successor.source === "reports_to"
-                      ? `${p.successor.name} — from the reporting line`
+                    {p?.successor && p.successor.source === "team"
+                      ? `${p.successor.name} — from the project team`
                       : "Pick who takes the tools"}
                   </option>
                   {receivers.map((e) => (
@@ -162,7 +162,7 @@ export function DepartureForm({ open, onClose }: { open: boolean; onClose: () =>
                 </select>
                 {blocked ? (
                   <p className="text-sm text-destructive">
-                    Nobody active was found above them in the reporting line. Choose who takes the tools — this
+                    Nobody active was found on the project team. Choose who takes the tools — this
                     will not be guessed.
                   </p>
                 ) : null}

@@ -210,6 +210,15 @@ export const teamSpecs: TeamSeed[] = [
      that held it. */
   { emp: "e-pm001", proj: "p-lone-star-22018", role: "pm", from: "2025-01-06", note: "Project manager" },
   { emp: "e-eng001", proj: "p-dart-20011", role: "pm", from: "2025-01-06", note: "Project engineer — login role `engineer`, employee role `pm`" },
+  /*
+    2026-08-23: Marcus's crew now comes from the PROJECT TEAM, not
+    `reportsToEmployeeId` (scope.ts crewOf, myForemen, departure successor). His
+    foremen work Lone Star and DART, so he needs a superintendent row on both —
+    this is what keeps "crew" and "project" from meaning the same thing: Dana
+    sees only Lone Star, Marcus's crew spans two jobs.
+  */
+  { emp: "e-sup001", proj: "p-lone-star-22018", role: "superintendent", from: "2025-01-06", note: "Superintendent" },
+  { emp: "e-sup001", proj: "p-dart-20011", role: "superintendent", from: "2025-01-06", note: "Superintendent" },
 ];
 
 export const locSpecs: LocSeed[] = [

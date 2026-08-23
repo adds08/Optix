@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, isNull, notInArray, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
 import type { Database, Transaction } from "@stinventory/db";
 import * as schema from "@stinventory/db/schema";
 import { formatAssetModel, type VehicleOwnership } from "@stinventory/types";
@@ -399,7 +399,7 @@ function assertHasLeft(leaver: { name: string; employmentStatus: string }): void
 async function loadLeaver(db: Database | Transaction, tenantId: string, leaverEmployeeId: string) {
   const leaver = await db.query.employee.findFirst({
     where: and(eq(schema.employee.id, leaverEmployeeId), eq(schema.employee.tenantId, tenantId)),
-    columns: { id: true, name: true, employmentStatus: true, reportsToEmployeeId: true },
+    columns: { id: true, name: true, employmentStatus: true, primaryProjectId: true },
   });
   if (!leaver) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant." });
   return leaver;

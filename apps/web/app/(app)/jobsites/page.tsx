@@ -11,6 +11,7 @@ import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { FilterPills, FilterField } from "@/components/sti/facets";
 import { isHighValue } from "@/components/sti/flags";
 import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
+import { JobsiteTeamStrip } from "@/components/jobsite-team-strip";
 import { RigPicker, type PickerRequest } from "@/components/rig-picker";
 import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assign-dialog";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
@@ -64,6 +65,9 @@ export default function JobsitesPage() {
   const assets = trpc.asset.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const vehicles = trpc.vehicle.list.useQuery();
+  /* The project roster (pm/superintendent/foreman per job), for the team strip
+     on each card. Loaded once, keyed by project — see projectTeam.all. */
+  const team = trpc.projectTeam.all.useQuery();
   const utils = trpc.useUtils();
   const { has } = usePermissions();
 
@@ -79,6 +83,10 @@ export default function JobsitesPage() {
   /* The per-tool ⋯ menu (return / hand over / status) needs any of the custody
      or manage permissions to be worth showing. */
   const canActTools = has("assignment.create") || has("transfer.create") || has("asset.manage");
+  /* Team strip: PM/super assignment is roster-only and each carries its own
+     permission (projectTeam.ts PERM_FOR_ROLE). */
+  const canAssignPm = has("project.assign.pm");
+  const canAssignSuper = has("project.assign.superintendent");
 
   const { projectIds: scope } = useJobScope();
 
@@ -629,6 +637,21 @@ export default function JobsitesPage() {
             /* Each card kind has its own icon: jobs are sites, the yard is the
                warehouse, the project-less people are a crew waiting for work. */
             const CardIcon = card.id === NOJOB ? Users : card.id === YARD ? Warehouse : Building2;
+
+            /* The team strip for this job: its roster rows from projectTeam.all
+               (only for jobs — the yard and the project-less group have no PM
+               or superintendent), plus the candidate PMs/supers for the add
+               menus, restricted to active employees. */
+            const roster = card.isJob
+              ? team.data?.find((t) => t.projectId === card.id)?.members ?? []
+              : [];
+            const teamLeaders = roster.filter(
+              (m): m is (typeof roster)[number] & { role: "pm" | "superintendent" } =>
+                m.role === "pm" || m.role === "superintendent",
+            );
+            const teamCandidates = (employees.data ?? [])
+              .filter((e) => e.employmentStatus === "active")
+              .map((e) => ({ id: e.id, name: e.name, externalId: e.externalId, employeeRole: e.role }));
             return (
               <section key={card.id} className="overflow-visible rounded-md border bg-card">
                 <header className={cn("flex flex-wrap items-center gap-3 px-3 py-2.5", card.tint)}>
@@ -647,6 +670,15 @@ export default function JobsitesPage() {
                       <span className="flex items-center gap-1.5 rounded-full bg-warn-bg px-2 py-0.5 text-xs font-medium text-warn">
                         <TriangleAlert className="size-3" aria-hidden /> {card.gaps.join(" · ")}
                       </span>
+                    ) : null}
+                    {card.isJob ? (
+                      <JobsiteTeamStrip
+                        projectId={card.id}
+                        members={teamLeaders}
+                        candidates={teamCandidates}
+                        canAssignPm={canAssignPm}
+                        canAssignSuper={canAssignSuper}
+                      />
                     ) : null}
                   </span>
                   <span className="ml-auto flex items-center gap-2">
