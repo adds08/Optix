@@ -2,7 +2,7 @@
 
 **Phase:** cross-cutting
 **Size:** 2 units
-**Status:** BLOCKED by STI-001, STI-105
+**Status:** **READY — unblocked 2026-08-22.** STI-001's harness exists and STI-105's desk queue is wired, so both blockers are gone. **Read the isolation note in `e2e/playwright.config.ts` FIRST:** STI-001's suite is read-only and deliberately has no per-worker database. Every journey this ticket describes MUTATES, so choosing an isolation mechanism is the opening problem, not a detail — the two constraints already established are that per-test rollback is unavailable (the server owns the connection across HTTP) and truncating `transaction` needs the STI-104 trigger disabled. Criterion 7's permission-denial spec is also no longer blocked: STI-304 seeded an account per role, so it can be written rather than skipped.
 **Depends on:** STI-001 (harness), STI-105 (the desk queue must exist first)
 
 ---

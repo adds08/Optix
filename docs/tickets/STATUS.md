@@ -258,11 +258,17 @@ rather than deleted, because the *before* is what makes the change legible.
   Departure reassignment shipped (STI-306); the Desk is at `/desk`, composed from the panel
   registry by permission (STI-501/502). **Foundation load remains — it is Phase 4 and is
   blocked on Urban**, who owns the interface question.
-- **No E2E harness — still true, and now the largest single gap.** Everything above was
-  verified by agents driving the real stack and by a per-role sweep against the running API,
-  but nothing automated will catch it if a later change makes the desk queue unreachable
-  again — which is exactly how it became unreachable the first time. `STI-001`/`STI-002` are
-  written and ready.
+- ~~**No E2E harness.**~~ **Built (STI-001).** `e2e/` is its own workspace package; run it
+  with `make ENV=local e2e` against the running stack. 27 specs across five roles: each
+  lands where it should, is offered the routes its permissions imply, is **not** offered the
+  ones they forbid, and loads with no console error. Plus a named spec for the desk approval
+  queue, because that is the regression the whole harness exists for.
+
+  Two things to know before extending it. **It is read-only by design** — that is what lets
+  it run in parallel against a shared database with no isolation mechanism, and the first
+  mutating spec needs one chosen first (the note is in `e2e/playwright.config.ts`). And the
+  **CI job is deliberately non-blocking** for now; STI-122 makes it blocking once it has a
+  fortnight of clean history, because a permanently non-blocking job decays into noise.
 
 ### Reachability: a set of procedures still have no UI caller
 
