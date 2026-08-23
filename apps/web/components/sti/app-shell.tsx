@@ -168,7 +168,6 @@ export function AppShell({
         userRole={role}
         permissions={perms}
         inboxCount={inboxCount}
-        activeGroupKey={activeGroupKey}
       />
       <SidebarInset>
         {/* Top bar — page context, search, notifications, account. h-14 is

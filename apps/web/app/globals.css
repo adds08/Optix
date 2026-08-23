@@ -185,6 +185,15 @@
   --rail-accent-foreground: oklch(0.84 0.05 240);
 }
 
+/* Two-pane shell (Blocky): the 48px primary rail (app-rail.tsx) owns the left
+   edge, so the fixed secondary shadcn sidebar must sit beside it instead of
+   covering it. `data-mobile` marks the phone sheet, which keeps its own
+   behaviour — only the desktop fixed column is offset. Unlayered, so it beats
+   the utility's `left-0`. */
+[data-slot="sidebar-wrapper"] [data-slot="sidebar"]:not([data-mobile="true"]) {
+  left: 3rem;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

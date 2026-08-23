@@ -1,0 +1,60 @@
+@font-face {
+  font-family: 'Inter Tight';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+}
+
+:root {
+  /* ── Font families ── */
+  --font-sans: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+
+  /* ── Font sizes ── */
+  --text-2xs: 9.5px;
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-base: 12.5px;
+  --text-md: 13px;
+  --text-lg: 15px;
+  --text-xl: 16.5px;
+  --text-2xl: 19px;
+  --text-3xl: 26px;
+
+  /* ── Font weights ── */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ── Line heights ── */
+  --leading-tight: 1;
+  --leading-snug: 1.1;
+  --leading-normal: 1.4;
+  --leading-relaxed: 1.55;
+
+  /* ── Letter spacing ── */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-label: 0.14em;
+  --tracking-wide: 0.2em;
+
+  /* ── Composite type styles ── */
+  /* Label: mono uppercase -- apply as:
+     font-family: var(--font-mono);
+     font-size: var(--text-2xs);
+     font-weight: var(--weight-medium);
+     letter-spacing: var(--tracking-label);
+     text-transform: uppercase;
+     color: var(--text-muted);
+  */
+}

@@ -1,0 +1,59 @@
+<!-- @dsCard group="Components" viewport="700x130" name="Label, MetricCell" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<div id="root"></div>
+<script>
+window.__ds = function(names) {
+  var out = {}, miss = [];
+  var pools = [];
+  // Prefer an explicit namespace if the bundle set one
+  for (var k in window) {
+    try {
+      var v = window[k];
+      if (v && typeof v === 'object' && !Array.isArray(v) && k[0] === k[0].toUpperCase() && k.length > 2) {
+        for (var i = 0; i < names.length; i++) if (typeof v[names[i]] === 'function') { pools.push(v); break; }
+      }
+    } catch (e) {}
+  }
+  pools.push(window);
+  names.forEach(function(n) {
+    for (var p = 0; p < pools.length; p++) {
+      if (typeof pools[p][n] === 'function') { out[n] = pools[p][n]; return; }
+    }
+    miss.push(n);
+  });
+  if (miss.length) {
+    document.getElementById('root').innerHTML =
+      '<div style="padding:16px;background:var(--surface-3);border:1px solid var(--warn-border);' +
+      'border-radius:4px;color:var(--warn);font-family:var(--font-mono);font-size:11px;">' +
+      'Bundle not built yet — missing: ' + miss.join(', ') + '</div>';
+    return null;
+  }
+  return out;
+};
+</script>
+<script type="text/babel">
+const __c = window.__ds(['Label', 'MetricCell']);
+if (__c) {
+const { Label, MetricCell } = __c;
+function Demo() {
+  return <div style={{background:'var(--surface-0)', padding:12, display:'flex', flexDirection:'column', gap:10}}>
+    <div style={{display:'flex', gap:16, alignItems:'center'}}>
+      <Label>FLEET · DISTRIBUTION</Label>
+      <Label>TOOLS OUT</Label>
+      <Label>CONDITION</Label>
+    </div>
+    <div style={{display:'flex', background:'var(--surface-2)', border:'1px solid var(--border-0)', borderRadius:'var(--radius-md)', overflow:'hidden'}}>
+      <MetricCell label="TOOLS OUT" value="47" />
+      <MetricCell label="CREWS" value="3" />
+      <MetricCell label="TRUCKS" value="2" suffix="/ 3" warn />
+      <MetricCell label="VALUE" value="$12.4k" style={{borderRight:'none'}} />
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+}
+</script>

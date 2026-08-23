@@ -1,0 +1,55 @@
+:root {
+  /* ── Surface scale ── */
+  --surface-0: #090B0E;        /* deepest bg, body */
+  --surface-1: #0D1015;        /* panel, header, sidebar */
+  --surface-2: #0E1218;        /* alt panel, table header */
+  --surface-3: #11151A;        /* card, row alt */
+  --surface-4: #12161C;        /* input bg, toolbar */
+  --surface-5: #141A21;        /* hover */
+  --surface-6: #151A21;        /* dropdown, popover */
+  --surface-7: #1A1F26;        /* chip bg */
+  --surface-8: #222A33;        /* active chip */
+
+  /* ── Border scale ── */
+  --border-0: #1B2027;         /* subtle divider */
+  --border-1: #232A32;         /* card border, section */
+  --border-2: #262E37;         /* input border */
+  --border-3: #2A323B;         /* strong border */
+  --border-4: #2E3742;         /* heavy, tag border */
+
+  /* ── Text scale ── */
+  --text-heading: #FFFFFF;
+  --text-primary: #EAEDEF;
+  --text-secondary: #A6AEB6;
+  --text-muted: #8A939C;
+
+  /* ── Accent / Primary ── */
+  --accent: #7FB0E4;
+  --accent-dim: #3A6E9E;
+  --accent-bright: #A9CDF2;
+  --accent-bg: #162233;
+  --accent-fg: #C8DFFA;
+
+  /* ── Semantic status ── */
+  --ok: #4FA97A;
+  --ok-bg: rgba(79, 169, 122, 0.11);
+  --ok-border: rgba(79, 169, 122, 0.3);
+
+  --warn: #E4A13B;
+  --warn-bg: rgba(228, 161, 59, 0.11);
+  --warn-border: rgba(228, 161, 59, 0.3);
+
+  --crit: #D2694A;
+  --crit-bg: rgba(210, 105, 74, 0.11);
+  --crit-border: rgba(210, 105, 74, 0.3);
+
+  /* ── Extended palette ── */
+  --purple: #B89AE0;
+  --purple-bg: rgba(184, 154, 224, 0.11);
+
+  /* ── Misc ── */
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  --scrim: rgba(9, 11, 14, 0.66);
+  --row-alt: #0C1014;
+  --row-base: #0A0D11;
+}
