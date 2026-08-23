@@ -24,7 +24,7 @@ export function MetricCell({
   return (
     <div
       className={cn(
-        "flex flex-1 items-center justify-between gap-2.5 px-5 py-2",
+        "flex flex-1 items-center justify-between gap-2.5 px-5 py-2.5",
         className,
       )}
       style={style}
@@ -33,14 +33,14 @@ export function MetricCell({
       <span className="flex items-baseline gap-0.5">
         <span
           className={cn(
-            "tag-num text-[15px] font-semibold tracking-tight",
+            "tag-num text-base font-semibold tracking-tight",
             warn ? "text-warn" : "text-foreground",
           )}
         >
           {value}
         </span>
         {suffix ? (
-          <span className="tag-num text-[11.5px] text-muted-foreground">{suffix}</span>
+          <span className="tag-num text-[13px] text-muted-foreground">{suffix}</span>
         ) : null}
       </span>
     </div>

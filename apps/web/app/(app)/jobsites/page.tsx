@@ -52,12 +52,13 @@ import { cn } from "@/lib/utils";
 const YARD = "__yard";
 const NOJOB = "__nojob";
 
-/* Every header gets its own subtle color so the page reads as sections, not a
-   wall of identical strips: jobs are primary-tinted, the yard muted, and the
-   project-less people accent-tinted. */
+/* Headers are one band (`bg-muted` + a rule) across every card. Only the two
+   cards that are NOT jobs carry a tint on top, because there the colour says
+   something — this pile is the yard, this one is people between jobs. Jobs
+   themselves are the default and get no wash: they were all tinted the same
+   primary, which made twenty-six identical strips and told you nothing. */
 const CARD_TINT: Record<string, string> = {
-  [YARD]: "bg-muted/30",
-  [NOJOB]: "bg-accent/30",
+  [NOJOB]: "bg-accent/40",
 };
 
 export default function JobsitesPage() {
@@ -269,7 +270,11 @@ export default function JobsitesPage() {
         toolCount,
         value,
         gaps,
-        tint: "bg-primary/5",
+        /* No tint. The card already carries an accent edge, a bordered header
+           and an icon chip; a primary wash behind all of it was the fourth use
+           of the same hue in one strip. The header is separated by its border
+           and the metric bar under it, not by colour. */
+        tint: "",
         trucks: crews.filter((c) => c.rig.truck).length,
         trailers: crews.filter((c) => c.rig.trailer).length,
         fullyRigged: crews.filter((c) => c.rig.truck && c.rig.trailer).length,
@@ -664,41 +669,61 @@ export default function JobsitesPage() {
             const teamCandidates = (employees.data ?? [])
               .filter((e) => e.employmentStatus === "active")
               .map((e) => ({ id: e.id, name: e.name, externalId: e.externalId, employeeRole: e.role }));
-            /* The edge accent (design readme, "The edge accent") — the system's
-               most distinctive pattern and the reason a long column of job cards
-               is scannable at all: a 3px bar carrying the card's state down its
-               whole left side. Accent = normal, amber = a gap somebody has to
-               close, muted = not a job at all (the yard, the between-jobs pool).
-               Whole class strings because Tailwind scans source text. */
+            /*
+              The edge bar marks a card out, so it only renders when there is
+              something to mark.
+
+              It shipped on every job in the accent colour, which meant a column
+              of identical stripes down the whole page — the same hue, on every
+              card, saying nothing. A signal that never varies is decoration,
+              and it competed with the one bar that did mean something. Now:
+              amber for a job with NO CREW (nobody can work it), a muted bar for
+              the two cards that are not jobs at all, and nothing for a job that
+              is simply running normally.
+              Whole class strings because Tailwind scans source text.
+            */
             const edge = !card.isJob
               ? "before:bg-muted-foreground/40"
-              : card.gaps.length
+              : card.crews.length === 0
                 ? "before:bg-warn"
-                : "before:bg-primary";
+                : null;
             return (
               <section
                 key={card.id}
                 className={cn(
-                  "relative overflow-visible rounded-md border bg-card pl-[3px]",
-                  "before:absolute before:inset-y-0 before:left-0 before:w-[3px]",
+                  "relative overflow-visible rounded-md border bg-card",
+                  edge && "pl-[3px] before:absolute before:inset-y-0 before:left-0 before:w-[3px]",
                   edge,
                 )}
               >
-                <header className={cn("flex flex-wrap items-center gap-3 px-3 py-2.5", card.tint)}>
-                  <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", card.isJob ? "bg-accent text-primary" : "bg-muted/70 text-muted-foreground")}>
+                <header
+                  className={cn(
+                    /* A distinct band with a rule under it, the same treatment
+                       the tool table's head gets. Both sides of the pair move
+                       with the palette, so this reads identically in light and
+                       dark instead of needing a second set of values. */
+                    "flex flex-wrap items-center gap-3 border-b-2 border-border bg-muted px-3.5 py-3",
+                    card.tint,
+                  )}
+                >
+                  {/* The chip identifies the KIND of card (job / yard / between jobs). That
+                      is not a state, so it does not take the accent — with the
+                      edge bar right beside it, an accent chip made the same point
+                      twice in 12px. */}
+                  <span className="grid size-9 shrink-0 place-items-center rounded-md bg-muted/70 text-muted-foreground">
                     <CardIcon className="size-4.5" aria-hidden />
                   </span>
                   <span className="flex min-w-40 flex-1 flex-wrap items-center gap-2">
-                    <span className="text-[15px] font-semibold">
+                    <span className="text-[17px] font-semibold tracking-tight">
                       <Highlight text={card.name} q={q} />
                     </span>
-                    {card.code ? <span className="rounded border bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground">{card.code}</span> : null}
+                    {card.code ? <span className="tnum rounded-sm border bg-muted/60 px-2 py-0.5 font-mono text-sm text-foreground/75">{card.code}</span> : null}
                     <span className="text-sm text-muted-foreground">
                       {card.isJob ? (card.crews.length ? `${card.crews.length} crew${card.crews.length === 1 ? "" : "s"}` : "no crew yet") : "between jobs"}
                     </span>
                     {card.gaps.length ? (
-                      <span className="flex items-center gap-1.5 rounded-full bg-warn-bg px-2 py-0.5 text-xs font-medium text-warn">
-                        <TriangleAlert className="size-3" aria-hidden /> {card.gaps.join(" · ")}
+                      <span className="flex items-center gap-1.5 rounded-sm border border-warn/30 bg-warn-bg px-2 py-1 text-[13px] font-medium text-warn">
+                        <TriangleAlert className="size-3.5" aria-hidden /> {card.gaps.join(" · ")}
                       </span>
                     ) : null}
                     {card.isJob ? (
@@ -713,13 +738,13 @@ export default function JobsitesPage() {
                   </span>
                   <span className="ml-auto flex items-center gap-2">
                     <span className="text-right whitespace-nowrap">
-                      <span className="block rounded-md border bg-muted/50 px-2 py-0.5 text-xs">
-                        <span className="tnum font-semibold text-foreground">{card.toolCount}</span> tool{card.toolCount === 1 ? "" : "s"}
+                      <span className="block rounded-sm border bg-muted/50 px-2.5 py-1 text-[13px]">
+                        <span className="tnum text-sm font-semibold text-foreground">{card.toolCount}</span> tool{card.toolCount === 1 ? "" : "s"}
                       </span>
-                      <span className="tnum mt-0.5 block text-[11px] text-muted-foreground">{money(card.value)}</span>
+                      <span className="tnum mt-1 block text-[13px] text-muted-foreground">{money(card.value)}</span>
                     </span>
                     {card.isJob && canAssignCrew ? (
-                      <Button variant="outline" size="sm" className="border-dashed text-primary" onClick={() => setPicker({ kind: "crew", projectId: card.id })}>
+                      <Button variant="outline" size="sm" className="border-dashed border-muted-foreground/40 text-primary hover:border-primary/50" onClick={() => setPicker({ kind: "crew", projectId: card.id })}>
                         <Plus className="size-3.5" /> Add crew
                       </Button>
                     ) : null}
@@ -793,7 +818,7 @@ export default function JobsitesPage() {
                       <button
                         type="button"
                         onClick={() => setPicker({ kind: "crew", projectId: card.id })}
-                        className="rounded-md border border-dashed bg-card p-4 text-left text-sm font-medium text-primary"
+                        className="rounded-md border border-dashed border-muted-foreground/40 bg-card p-4 text-left text-sm font-medium text-primary hover:border-primary/50"
                       >
                         No crew on this job yet — add a foreman with a truck or trailer.
                       </button>

@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatAssetModel } from "@stinventory/types";
-import { StatusPill } from "@/components/sti/status";
+import { StatusPill, humanize } from "@/components/sti/status";
 import { Highlight } from "@/components/highlight";
 import { ToolMenu } from "@/components/tool-menu";
 import { money } from "@/lib/format";
+import Link from "next/link";
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /*
@@ -78,21 +81,50 @@ export function ToolTable({
   actions?: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? rows : rows.slice(0, TOOL_LIMIT);
+  /*
+    Sorting lives here rather than coming from DataTable.
+
+    This is a hand-rolled table on purpose — it carries selection, a per-row
+    menu and a "show N more" fold that the register's DataTable does not, and
+    swapping it for DataTable to gain three sortable columns would be a rewrite
+    of the screen the whole product is driven from. Four keys, one comparator.
+  */
+  const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "tag", desc: false });
+
+  const sorted = useMemo(() => {
+    const dir = sort.desc ? -1 : 1;
+    /* Slice first: sorting in place would reorder the caller's array, and the
+       crew card hands us the same array it uses for its own count. */
+    return [...rows].sort((a, b) => dir * compare(a, b, sort.key));
+  }, [rows, sort]);
+
+  const visible = showAll ? sorted : sorted.slice(0, TOOL_LIMIT);
   const remaining = rows.length - TOOL_LIMIT;
+
+  const onSort = (key: SortKey) =>
+    setSort((s) => ({ key, desc: s.key === key ? !s.desc : false }));
 
   return (
     <div>
       <div className="overflow-x-auto"><table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b bg-muted/50 text-foreground">
-            {selectable ? <th className="w-8 px-3 py-1.5" aria-hidden /> : null}
-            <th className="label-xs w-32 px-3 py-1.5 text-left">Serial / ID</th>
-            <th className="label-xs px-3 py-1.5 text-left">Tool name</th>
-            <th className="label-xs w-36 px-3 py-1.5 text-left">Rides in</th>
-            <th className="label-xs w-36 px-3 py-1.5 text-left">Status</th>
-            <th className="label-xs w-24 px-3 py-1.5 text-right">Value</th>
-            {actions ? <th className="w-10 px-3 py-1.5" aria-hidden /> : null}
+        {/*
+          The header is a distinct band, not a slightly tinted first row.
+
+          `bg-muted/50` against a card put roughly two percent of lightness
+          between the head and the rows beneath it, so a long list read as one
+          undifferentiated block with no obvious top. It now takes the full
+          muted surface and a stronger bottom rule, which is the same treatment
+          in both modes because both tokens move together.
+        */}
+        <thead className="bg-muted">
+          <tr className="border-b-2 border-border text-foreground">
+            {selectable ? <th className="w-8 px-3 py-2" aria-hidden /> : null}
+            <SortHead className="w-36" k="tag" sort={sort} onSort={onSort}>Serial / ID</SortHead>
+            <SortHead k="name" sort={sort} onSort={onSort}>Tool name</SortHead>
+            <SortHead className="w-36" k="rides" sort={sort} onSort={onSort}>Rides in</SortHead>
+            <SortHead className="w-36" k="status" sort={sort} onSort={onSort}>Status</SortHead>
+            <SortHead className="w-24" align="right" k="value" sort={sort} onSort={onSort}>Value</SortHead>
+            {actions ? <th className="w-10 px-3 py-2" aria-hidden /> : null}
           </tr>
         </thead>
         <tbody>
@@ -108,7 +140,7 @@ export function ToolTable({
               )}
             >
               {selectable && onToggle ? (
-                <td className="px-3 py-2">
+                <td className="px-3 py-2.5">
                   <input
                     type="checkbox"
                     checked={selectedIds?.has(t.id) ?? false}
@@ -118,10 +150,34 @@ export function ToolTable({
                   />
                 </td>
               ) : null}
-              <td className="px-3 py-2 font-mono text-[13px] text-muted-foreground">
-                <Highlight text={t.tag ?? t.serialNumber ?? "Untagged"} q={highlight} />
+              <td className="px-3 py-2.5">
+                {/* The tag is the tool's identity in the yard, so it is the
+                    handle: hover for what it is, click to open it. An untagged
+                    tool still links — it has an id even when nobody has put a
+                    label on it — but it is not dressed up as a code. */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={`/tools/${t.id}`}
+                      className="font-mono text-sm text-foreground/75 underline-offset-4 hover:text-primary hover:underline"
+                    >
+                      <Highlight text={t.tag ?? t.serialNumber ?? "Untagged"} q={highlight} />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-64">
+                    <span className="block font-semibold">{formatAssetModel(t) || "No description"}</span>
+                    {t.serialNumber ? (
+                      <span className="block font-mono opacity-80">{t.serialNumber}</span>
+                    ) : null}
+                    <span className="block capitalize opacity-80">{humanize(t.status)}</span>
+                    {t.custodianName ? (
+                      <span className="block opacity-80">Held by {t.custodianName}</span>
+                    ) : null}
+                    <span className="mt-1 block opacity-60">Click to open</span>
+                  </TooltipContent>
+                </Tooltip>
               </td>
-              <td className="px-3 py-2">
+              <td className="px-3 py-2.5">
                 <span className="font-medium">
                   <Highlight text={formatAssetModel(t) || "No description"} q={highlight} />
                 </span>
@@ -131,7 +187,7 @@ export function ToolTable({
                   </span>
                 ) : null}
               </td>
-              <td className="px-3 py-2 text-xs text-muted-foreground">
+              <td className="px-3 py-2.5 text-[13px] text-muted-foreground">
                 {t.currentTruckUnit || t.currentTrailerUnit ? (
                   <>
                     {t.currentTruckUnit ?? ""}
@@ -154,10 +210,10 @@ export function ToolTable({
                   "—"
                 )}
               </td>
-              <td className="px-3 py-2"><StatusPill status={t.status} /></td>
-              <td className="tnum px-3 py-2 text-right text-muted-foreground">{money(t.acquisitionCost)}</td>
+              <td className="px-3 py-2.5"><StatusPill status={t.status} /></td>
+              <td className="tnum px-3 py-2.5 text-right text-muted-foreground">{money(t.acquisitionCost)}</td>
               {actions ? (
-                <td className="px-2 py-2 text-right">
+                <td className="px-2 py-2.5 text-right">
                   <ToolMenu assetId={t.id} assetTag={t.tag ?? t.serialNumber ?? "Untagged"} heldBySomeone={!!t.custodianId} />
                 </td>
               ) : null}
@@ -184,5 +240,68 @@ export function ToolTable({
         </button>
       ) : null}
     </div>
+  );
+}
+
+
+type SortKey = "tag" | "name" | "rides" | "status" | "value";
+
+/* Nulls sort last in BOTH directions — an untagged tool or one with no value is
+   missing data, and missing data belongs at the end whichever way the arrow
+   points, not alternately at the top. */
+function compare(a: ToolRow, b: ToolRow, key: SortKey): number {
+  if (key === "value") {
+    const x = Number(a.acquisitionCost) || 0;
+    const y = Number(b.acquisitionCost) || 0;
+    return x - y;
+  }
+  const pick = (t: ToolRow) =>
+    key === "tag"
+      ? (t.tag ?? t.serialNumber ?? "")
+      : key === "name"
+        ? formatAssetModel(t)
+        : key === "rides"
+          ? (t.currentTruckUnit ?? t.currentTrailerUnit ?? "")
+          : (t.status ?? "");
+  const x = pick(a);
+  const y = pick(b);
+  if (!x && !y) return 0;
+  if (!x) return 1;
+  if (!y) return -1;
+  return x.localeCompare(y, undefined, { numeric: true });
+}
+
+function SortHead({
+  k,
+  sort,
+  onSort,
+  align,
+  className,
+  children,
+}: {
+  k: SortKey;
+  sort: { key: SortKey; desc: boolean };
+  onSort: (k: SortKey) => void;
+  align?: "right";
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const active = sort.key === k;
+  const Icon = !active ? ChevronsUpDown : sort.desc ? ArrowDown : ArrowUp;
+  return (
+    <th className={cn("px-3 py-2", align === "right" ? "text-right" : "text-left", className)}>
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        aria-label={`Sort by ${String(children)}`}
+        className={cn(
+          "label-xs inline-flex items-center gap-1 transition-colors hover:text-foreground",
+          active && "text-foreground",
+        )}
+      >
+        {children}
+        <Icon className={cn("size-3 shrink-0", active ? "opacity-100" : "opacity-40")} aria-hidden />
+      </button>
+    </th>
   );
 }

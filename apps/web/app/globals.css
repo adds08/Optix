@@ -40,6 +40,12 @@
   --color-idle: var(--idle);
   --color-idle-bg: var(--idle-bg);
 
+  /* Role, not status — see the --hat-* note in :root. */
+  --color-hat-white: var(--hat-white);
+  --color-hat-foreman: var(--hat-foreman);
+  --color-hat-trade: var(--hat-trade);
+  --color-hat-office: var(--hat-office);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -70,50 +76,53 @@
 /*
   The base tokens ARE the Blocky palette (ADR-7).
 
-  This is the product's colour, not a theme sitting on top of one. Until
-  2026-08-23 the base here was Drafting Ink and `blocky` was an override layer
-  the default preference switched on, which meant the look everybody saw was a
-  theme they could accidentally leave, and any token a palette forgot fell
-  through to a different design. Themes are now purely alternative palettes over
-  this ground.
+  This is the product's colour, not a theme sitting on top of one. Themes are
+  alternative palettes over this ground; `blocky` in lib/themes/themes.ts
+  therefore carries empty overrides, and selecting it clears every override
+  rather than adding a layer.
 
   Structure is NOT here and must never be: radii, the type pairing, the two-pane
   shell and the primitives are global by construction, so switching palette
-  changes colour and nothing else. Values are the oklch expansion of the recipe
-  in lib/themes/themes.ts — regenerate rather than hand-edit if the recipe moves.
+  changes colour and nothing else.
 
-  Status hues (ok/warn/crit/idle) and the rail are deliberately absent from every
-  palette: they mean the same thing in all of them.
+  EVERY value below is a real conversion of the hex in the design system's
+  tokens/colors.css, not an estimate. That distinction cost a full dark mode:
+  the recipe these were first generated from carried hand-guessed oklch — it
+  labelled `oklch(0.066 …)` as #090B0E when #090B0E is L 0.149 — so every dark
+  surface shipped ~0.085 too dark, crushed toward black, and the card stopped
+  separating from the page. Convert, never estimate; the numbers in the comments
+  are the source of truth and the oklch is derived from them.
+
+  Status hues (ok/warn/crit/idle) and the rail are deliberately fixed across
+  every palette: they mean the same thing in all of them.
 */
 :root {
   --radius: 0.25rem;
 
-  /* #F4F5F7 paper, #FFFFFF cards, #1A1E24 ink, #3A6E9E accent. */
-  --background: oklch(0.965 0.003 240);
-  --foreground: oklch(0.245 0.008 245);
+  --background: oklch(0.970 0.003 265);         /* #F4F5F7 */
+  --foreground: oklch(0.234 0.013 258);         /* #1A1E24 */
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.245 0.008 245);
+  --card: oklch(1 0 0);                         /* #FFFFFF */
+  --card-foreground: oklch(0.234 0.013 258);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.245 0.008 245);
+  --popover-foreground: oklch(0.234 0.013 258);
 
-  /* Accent: the design's desaturated drafting blue, darkened for white paper. */
-  --primary: oklch(0.5 0.085 235);
-  --primary-foreground: oklch(0.965 0.003 240);
+  --primary: oklch(0.524 0.095 248);            /* #3A6E9E */
+  --primary-foreground: oklch(0.970 0.003 265);
 
-  --secondary: oklch(0.935 0.004 240);
-  --secondary-foreground: oklch(0.325 0.008 245);
-  --muted: oklch(0.935 0.004 240);
-  --muted-foreground: oklch(0.505 0.014 240);
-  --accent: oklch(0.94 0.03 235);
-  --accent-foreground: oklch(0.33 0.07 235);
+  --secondary: oklch(0.958 0.004 271);          /* #F0F1F4 */
+  --secondary-foreground: oklch(0.234 0.013 258);
+  --muted: oklch(0.958 0.004 271);              /* #F0F1F4 */
+  --muted-foreground: oklch(0.563 0.020 256);   /* #6E7681 */
+  --accent: oklch(0.951 0.014 248);             /* #E8F0F8 */
+  --accent-foreground: oklch(0.339 0.057 248);  /* #1E3A54 */
 
   --destructive: oklch(0.545 0.163 28);
-  --border: oklch(0.875 0.005 240);
-  --input: oklch(0.875 0.005 240);
-  --ring: oklch(0.5 0.085 235);
+  /* #D8DBE0 — the design's card border, 0.109 clear of white. */
+  --border: oklch(0.891 0.008 261);
+  --input: oklch(0.844 0.009 258);              /* #C8CCD2, one step stronger */
+  --ring: oklch(0.524 0.095 248);
 
-  /* Reserved, never decorative, and identical in every palette. */
   --ok: oklch(0.505 0.092 168);
   --ok-bg: oklch(0.93 0.024 168);
   --warn: oklch(0.545 0.115 62);
@@ -123,58 +132,70 @@
   --idle: oklch(0.545 0.012 245);
   --idle-bg: oklch(0.93 0.005 240);
 
-  --chart-1: oklch(0.5 0.085 235);
+  /* Hard-hat colours, following site convention: white for supervision, yellow
+     for foremen, blue for trades. Kept separate from the status tokens on
+     purpose — amber means "needs attention" everywhere else in this product,
+     and a foreman is not a warning. "White" is the hat's outline, so it is
+     near-black on paper and near-white on the dark surface. */
+  --hat-white: oklch(0.30 0.010 250);
+  --hat-foreman: oklch(0.62 0.130 75);
+  --hat-trade: oklch(0.52 0.095 235);
+  --hat-office: oklch(0.60 0.014 250);
+
+  --chart-1: oklch(0.524 0.095 248);
   --chart-2: oklch(0.505 0.092 168);
   --chart-3: oklch(0.545 0.115 62);
   --chart-4: oklch(0.525 0.163 28);
   --chart-5: oklch(0.545 0.012 245);
 
-  /* Sidebar is a panel, not part of the page: close enough in value to stay
-     light, different enough that the edge is obvious at a glance. */
-  --sidebar: oklch(0.92 0.005 240);
-  --sidebar-foreground: oklch(0.305 0.008 245);
-  --sidebar-primary: oklch(0.5 0.085 235);
-  --sidebar-primary-foreground: oklch(0.965 0.003 240);
-  --sidebar-accent: oklch(0.875 0.006 240);
-  --sidebar-accent-foreground: oklch(0.33 0.07 235);
-  --sidebar-border: oklch(0.86 0.006 240);
-  --sidebar-ring: oklch(0.5 0.085 235);
+  /* The sidebar is a panel, not part of the page. In the design's light mode it
+     is white like the cards and the PAGE is the grey — the edge comes from the
+     border, not from a tinted panel. */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.234 0.013 258);
+  --sidebar-primary: oklch(0.524 0.095 248);
+  --sidebar-primary-foreground: oklch(0.970 0.003 265);
+  --sidebar-accent: oklch(0.951 0.014 248);
+  --sidebar-accent-foreground: oklch(0.339 0.057 248);
+  --sidebar-border: oklch(0.891 0.008 261);
+  --sidebar-ring: oklch(0.524 0.095 248);
 
   /* The 48px primary rail is instrument chassis — near-black in BOTH modes
-     (Blocky readme, "Light mode"). It therefore carries its own tokens rather
-     than the theme's sidebar/accent set, or a light palette would paint a pale
-     chip and dark-on-dark text onto near-black. */
-  --rail: oklch(0.155 0.01 250);
-  --rail-foreground: oklch(0.60 0.012 250);
-  --rail-accent: oklch(0.24 0.045 240);
-  --rail-accent-foreground: oklch(0.82 0.055 240);
+     (design readme, "Light mode"), so it carries its own tokens rather than the
+     palette's sidebar/accent set, or a light palette would paint a pale chip
+     and dark-on-dark text onto near-black. #12161B is the design's light-mode
+     rail; it is deliberately NOT the dark mode's #060809. */
+  --rail: oklch(0.198 0.012 254);
+  --rail-foreground: oklch(0.620 0.018 250);
+  --rail-accent: oklch(0.250 0.037 257);
+  --rail-accent-foreground: oklch(0.820 0.050 252);
 }
 
 .dark {
-  /* #090B0E paper, #11151A cards, #EAEDEF ink, #7FB0E4 accent. Dark is the
-     design's first-class mode, not an inversion of the light one. */
-  --background: oklch(0.066 0.004 250);
-  --foreground: oklch(0.925 0.004 235);
+  --background: oklch(0.149 0.007 258);         /* #090B0E */
+  --foreground: oklch(0.944 0.004 236);         /* #EAEDEF */
 
-  --card: oklch(0.105 0.008 250);
-  --card-foreground: oklch(0.925 0.004 235);
-  --popover: oklch(0.105 0.008 250);
-  --popover-foreground: oklch(0.925 0.004 235);
+  --card: oklch(0.194 0.012 254);               /* #11151A */
+  --card-foreground: oklch(0.944 0.004 236);
+  --popover: oklch(0.216 0.016 257);            /* #151A21 */
+  --popover-foreground: oklch(0.944 0.004 236);
 
-  --primary: oklch(0.72 0.1 235);
-  --primary-foreground: oklch(0.066 0.004 250);
+  --primary: oklch(0.742 0.092 251);            /* #7FB0E4 */
+  --primary-foreground: oklch(0.149 0.007 258);
 
-  --secondary: oklch(0.096 0.005 250);
-  --secondary-foreground: oklch(1 0.004 235);
-  --muted: oklch(0.096 0.005 250);
-  --muted-foreground: oklch(0.688 0.014 250);
-  --accent: oklch(0.3 0.05 235);
-  --accent-foreground: oklch(0.89 0.06 235);
+  --secondary: oklch(0.199 0.014 258);          /* #12161C */
+  --secondary-foreground: oklch(0.944 0.004 236);
+  --muted: oklch(0.181 0.014 258);              /* #0E1218 */
+  --muted-foreground: oklch(0.659 0.017 248);   /* #8A939C */
+  --accent: oklch(0.250 0.037 257);             /* #162233 */
+  --accent-foreground: oklch(0.895 0.045 252);  /* #C8DFFA */
 
   --destructive: oklch(0.665 0.152 27);
-  --border: oklch(0.156 0.007 250);
-  --input: oklch(0.156 0.007 250);
-  --ring: oklch(0.72 0.1 235);
+  /* #232A32 — 0.088 clear of the card. This is the line that vanished: it
+     shipped at 0.156, only 0.051 above a card that was itself too dark. */
+  --border: oklch(0.282 0.018 252);
+  --input: oklch(0.297 0.020 252);              /* #262E37 */
+  --ring: oklch(0.742 0.092 251);
 
   --ok: oklch(0.735 0.105 168);
   --ok-bg: oklch(0.28 0.038 168);
@@ -185,25 +206,30 @@
   --idle: oklch(0.665 0.012 245);
   --idle-bg: oklch(0.28 0.008 250);
 
-  --chart-1: oklch(0.72 0.1 235);
+  --hat-white: oklch(0.93 0.004 250);
+  --hat-foreman: oklch(0.80 0.125 80);
+  --hat-trade: oklch(0.72 0.090 240);
+  --hat-office: oklch(0.62 0.014 250);
+
+  --chart-1: oklch(0.742 0.092 251);
   --chart-2: oklch(0.735 0.105 168);
   --chart-3: oklch(0.762 0.112 68);
   --chart-4: oklch(0.688 0.135 28);
   --chart-5: oklch(0.665 0.012 245);
 
-  --sidebar: oklch(0.111 0.006 250);
-  --sidebar-foreground: oklch(0.985 0.004 235);
-  --sidebar-primary: oklch(0.72 0.1 235);
-  --sidebar-primary-foreground: oklch(0.066 0.004 250);
-  --sidebar-accent: oklch(0.156 0.008 250);
-  --sidebar-accent-foreground: oklch(0.89 0.06 235);
-  --sidebar-border: oklch(0.171 0.008 250);
-  --sidebar-ring: oklch(0.72 0.1 235);
+  --sidebar: oklch(0.172 0.012 261);            /* #0D1015 */
+  --sidebar-foreground: oklch(0.944 0.004 236);
+  --sidebar-primary: oklch(0.742 0.092 251);
+  --sidebar-primary-foreground: oklch(0.149 0.007 258);
+  --sidebar-accent: oklch(0.250 0.037 257);
+  --sidebar-accent-foreground: oklch(0.895 0.045 252);
+  --sidebar-border: oklch(0.242 0.015 257);     /* #1B2027 */
+  --sidebar-ring: oklch(0.742 0.092 251);
 
-  --rail: oklch(0.055 0.003 250);
-  --rail-foreground: oklch(0.60 0.012 250);
-  --rail-accent: oklch(0.24 0.045 240);
-  --rail-accent-foreground: oklch(0.84 0.05 240);
+  --rail: oklch(0.132 0.005 226);               /* #060809 */
+  --rail-foreground: oklch(0.659 0.017 248);
+  --rail-accent: oklch(0.250 0.037 257);
+  --rail-accent-foreground: oklch(0.895 0.045 252);
 }
 
 /* Two-pane shell (Blocky): the 48px primary rail (app-rail.tsx) owns the left
@@ -255,8 +281,20 @@
   .tag-num {
     @apply font-mono text-[0.8125rem] tracking-tight;
   }
+  /*
+    The mono uppercase label — the design's signature, and the single most
+    common piece of text in the product: every metric, every column head, every
+    section kicker.
+
+    The design sets it at 9.5px/.14em, which is a specimen-card value. This app
+    raised it to 11px and it was still the hardest thing on the page to read:
+    wide tracking on uppercase monospace fights legibility hardest at small
+    sizes, because the letterforms stop grouping into words. 12px with .1em
+    keeps the same voice and stops people leaning toward the monitor. Our users
+    are running jobs, not inspecting type.
+  */
   .label-xs {
-    @apply font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted-foreground;
+    @apply font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground;
   }
 
   /* Compact density (docs/19): the data grid and the metric tiles tighten up
@@ -272,6 +310,30 @@
   }
   html[data-density="compact"] .metric-card {
     padding: 0.75rem;
+  }
+  /*
+    Compact is now where the design system's own density lives.
+
+    Comfortable — the default — was tightened to the design's specimen values
+    and that is what the people running jobs actually look at all day: 11px mono
+    labels at .14em tracking and 26px controls are a dispatch-board aesthetic,
+    not a working density for someone reading a screen between site visits. The
+    default now has room, and anyone who wants the dense board can choose it
+    here rather than everyone getting it by default.
+
+    Scoped to the label and the row paddings rather than a global font-size
+    change, because shrinking type wholesale is how a compact mode becomes an
+    unusable mode.
+  */
+  html[data-density="compact"] .label-xs {
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+  }
+  html[data-density="compact"] .crew-row {
+    padding-block: 0.375rem;
+  }
+  html[data-density="compact"] .crew-row .rig-chip {
+    height: 1.625rem;
   }
 
   /* Construction-panel animations (docs/20, E+F). `motion-safe:` gates them

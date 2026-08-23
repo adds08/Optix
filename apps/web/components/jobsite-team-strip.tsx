@@ -126,7 +126,7 @@ export function JobsiteTeamStrip({
           <Button
             variant="ghost"
             size="sm"
-            className="h-5 gap-0.5 rounded-full border border-dashed px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+            className="h-6 gap-0.5 rounded-sm border border-dashed border-muted-foreground/40 px-2 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground"
             aria-label={`Add a ${role === "pm" ? "project manager" : "superintendent"}`}
           >
             <Plus className="size-2.5" aria-hidden />

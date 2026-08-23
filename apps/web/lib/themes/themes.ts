@@ -113,7 +113,17 @@ function expand(s: Side, mode: "light" | "dark"): Record<string, string> {
     : shift(railBase, down * 0.045, 1.3);
 
   const muted = shift(s.paper, down * 0.03, 1.3);
-  const border = s.border ?? shift(s.paper, down * 0.09, 1.8);
+  /*
+    Border is derived from the CARD, not from the paper.
+
+    It outlines a surface, so it has to clear the surface it sits on — deriving
+    it from the page behind that surface makes the contrast depend on how far
+    the card is lifted, which is exactly backwards. On a dark palette with a
+    lifted card the two collapsed: the design puts its card border 0.088 above
+    its card, and paper + 0.09 was landing 0.051 above it, which is the
+    difference between a visible outline and none at all.
+  */
+  const border = s.border ?? shift(s.card, down * 0.09, 1.5);
   const mutedInk = s.mutedInk ?? [mode === "light" ? 0.505 : 0.688, 0.014, paperHue];
   const accent: C = [mode === "light" ? 0.94 : 0.3, mode === "light" ? 0.03 : 0.05, ph];
   const accentInk: C = [mode === "light" ? 0.33 : 0.89, mode === "light" ? 0.07 : 0.06, ph];
