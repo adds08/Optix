@@ -652,9 +652,24 @@ export const dashboardRouter = router({
       .groupBy(sql`1`)
       .orderBy(sql`1`);
 
+    /* UI-70: the split names BOTH sides, including one that is currently zero.
+       `GROUP BY` only emits kinds that have rows, so a tenant whose tools are
+       all charged to projects got a single-row result — and a chart headed
+       "projects versus departments" then had no way to answer the literal
+       question on the ticket, "how is the $77,710 divided", because the other
+       half of the comparison was not in the payload at all. Zero is an answer;
+       absent is not — and on the deployed tenant, where every tool is charged to
+       a project, "absent" is exactly what the department side was. The legend
+       reads "Department $0 · Project $77,710" now, which is the sentence the
+       ticket asked for. */
+    const capitalByKind = new Map(capital.map((c) => [c.kind, c.value]));
+
     return {
       statusDistribution: statuses.map((s) => ({ status: s.status, count: Number(s.count) })),
-      capitalSplit: capital.map((c) => ({ kind: c.kind, value: c.value })),
+      capitalSplit: (["project", "department"] as const).map((kind) => ({
+        kind,
+        value: capitalByKind.get(kind) ?? "0",
+      })),
       movementsByWeek: movements.map((m) => ({ week: m.week, count: Number(m.count) })),
     };
   }),
