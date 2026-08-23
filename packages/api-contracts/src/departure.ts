@@ -46,9 +46,6 @@ import { applyContainerCustody } from "./routers/location.js";
 */
 export const PERSONAL_VEHICLE = "personal_allowance" satisfies VehicleOwnership;
 
-/** How far up `reportsToEmployeeId` to walk before giving up. */
-const MAX_REPORTING_HOPS = 10;
-
 /*
   Held tools only, and "held" here means EXACTLY what the clearance queue means
   by it: `current_status != 'available'`. Both `dashboard.clearanceQueue` and
@@ -99,8 +96,8 @@ export type Successor = {
   id: string;
   name: string;
   role: string;
-  /** `chosen` = the caller named them; `reports_to` = walked up the org chart. */
-  source: "chosen" | "reports_to";
+  /** `chosen` = the caller named them; `team` = resolved from the project team. */
+  source: "chosen" | "team";
 };
 
 export type DeparturePreview = {
@@ -117,12 +114,22 @@ export type DeparturePreview = {
 /*
   Who takes the tools.
 
-  Defaults to the leaver's superintendent and falls back to the Project
-  Manager, which on this org chart is one rule and not two: `reportsTo` runs
-  foreman -> superintendent -> PM, so walking it upward reaches the PM exactly
-  when the superintendent is gone. Terminated links are stepped over rather
-  than accepted — handing a departing foreman's tools to another departed
-  employee re-creates the queue entry this action exists to clear.
+  Defaults to the leaver's project team, in the order the hierarchy is drawn:
+  an active superintendent on the leaver's project first, then the PM(s) on
+  that project. Engineers are covered by the PM arm — Urban's engineers are
+  seeded as `employee.role = 'pm'` with a `pm` team row (seed-data.ts,
+  `e-eng001`), so "PM or engineer" is one lookup, not two. Terminated links are
+  stepped over rather than accepted — handing a departing foreman's tools to
+  another departed employee re-creates the queue entry this action exists to
+  clear.
+
+  The leaver's project is their `primaryProjectId` (the fact the roster and the
+  tools-follow-the-foreman engine keep current); if that is unset, the project
+  named by their active `project_team_member` row is used. This is the SAME
+  source the crew ladder now uses (2026-08-23): `reportsToEmployeeId` was
+  removed as the source of the superintendent edge everywhere, including here —
+  a manual org-chart link that could disagree with the roster is no longer the
+  basis for putting tools on somebody.
 
   Returns null rather than guessing. There is no safe default at the top of the
   chain: picking "some active superintendent" would put a $12k plate compactor
@@ -132,7 +139,7 @@ export type DeparturePreview = {
 export async function resolveSuccessor(
   db: Database | Transaction,
   tenantId: string,
-  leaver: { id: string; name: string; reportsToEmployeeId: string | null },
+  leaver: { id: string; name: string; primaryProjectId: string | null },
   chosenId?: string | null,
 ): Promise<Successor | null> {
   if (chosenId) {
@@ -153,25 +160,73 @@ export async function resolveSuccessor(
     return { id: emp.id, name: emp.name, role: emp.role, source: "chosen" };
   }
 
-  /* Cycle guard as well as a hop limit: `reportsToEmployeeId` is a self
-     reference with no constraint against A -> B -> A, and this walk runs
-     inside the transaction that moves the tools. */
-  const seen = new Set<string>([leaver.id]);
-  let nextId = leaver.reportsToEmployeeId;
-  for (let hop = 0; nextId && hop < MAX_REPORTING_HOPS; hop++) {
-    if (seen.has(nextId)) break;
-    seen.add(nextId);
+  /* The leaver's project: primary first, then the project of their current
+     team row. A foreman's tools follow the foreman, so where they WORKED is
+     where the replacement must come from — not wherever `reportsTo` happened
+     to point. */
+  let projectIds: string[] = [];
+  if (leaver.primaryProjectId) {
+    projectIds = [leaver.primaryProjectId];
+  } else {
+    const rows = await db
+      .select({ projectId: schema.projectTeamMember.projectId })
+      .from(schema.projectTeamMember)
+      .where(
+        and(
+          eq(schema.projectTeamMember.tenantId, tenantId),
+          eq(schema.projectTeamMember.employeeId, leaver.id),
+          eq(schema.projectTeamMember.role, "foreman"),
+          isNull(schema.projectTeamMember.endedOn),
+        ),
+      );
+    projectIds = rows.map((r) => r.projectId);
+  }
+  if (projectIds.length === 0) return null;
+
+  /* The ladder: superintendents on the leaver's project first, then the PMs
+     (which covers engineers — Urban's engineers are seeded with employee role
+     `pm` and a `pm` team row). Deterministic: first by the fixed role order,
+     then by employee id, so the same departure always previews the same
+     person. Never the leaver themselves. */
+  const [supers, pms] = await Promise.all([
+    activeTeamMembersOfRole(db, tenantId, projectIds, "superintendent", leaver.id),
+    activeTeamMembersOfRole(db, tenantId, projectIds, "pm", leaver.id),
+  ]);
+
+  for (const id of [...supers, ...pms]) {
     const emp = await db.query.employee.findFirst({
-      where: and(eq(schema.employee.id, nextId), eq(schema.employee.tenantId, tenantId)),
-      columns: { id: true, name: true, role: true, employmentStatus: true, reportsToEmployeeId: true },
+      where: and(eq(schema.employee.id, id), eq(schema.employee.tenantId, tenantId)),
+      columns: { id: true, name: true, role: true },
     });
-    if (!emp) break;
-    if (emp.employmentStatus === "active") {
-      return { id: emp.id, name: emp.name, role: emp.role, source: "reports_to" };
-    }
-    nextId = emp.reportsToEmployeeId;
+    if (emp) return { id: emp.id, name: emp.name, role: emp.role, source: "team" };
   }
   return null;
+}
+
+/** Active employees holding `role` on any of `projectIds`, excluding `excludeId`, ordered by id. */
+async function activeTeamMembersOfRole(
+  db: Database | Transaction,
+  tenantId: string,
+  projectIds: string[],
+  role: "superintendent" | "pm",
+  excludeId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ employeeId: schema.projectTeamMember.employeeId })
+    .from(schema.projectTeamMember)
+    .innerJoin(schema.employee, eq(schema.employee.id, schema.projectTeamMember.employeeId))
+    .where(
+      and(
+        eq(schema.projectTeamMember.tenantId, tenantId),
+        eq(schema.projectTeamMember.role, role),
+        eq(schema.employee.employmentStatus, "active"),
+        isNull(schema.projectTeamMember.endedOn),
+        inArray(schema.projectTeamMember.projectId, projectIds),
+        notInArray(schema.projectTeamMember.employeeId, [excludeId]),
+      ),
+    )
+    .orderBy(asc(schema.projectTeamMember.employeeId));
+  return rows.map((r) => r.employeeId);
 }
 
 /** The tools the register says the leaver is holding, in a stable lock order. */

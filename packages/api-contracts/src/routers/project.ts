@@ -1,5 +1,5 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
@@ -466,8 +466,33 @@ export const employeeRouter = router({
       return { ok: true };
     }),
 
+  /*
+    The foremen in this person's crew — the same edge `scope.ts crewOf` resolves,
+    asked the same way, so the "my foremen" picker and the crew visibility tier
+    can never disagree (2026-08-23: both now derive from the PROJECT TEAM, not
+    from `reportsToEmployeeId`). A superintendent's crew is the foremen on the
+    projects they are a superintendent of; `scope.ts crewOf` carries the full
+    rationale and the one-level-deep rule.
+  */
   myForemen: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session.employeeId) return [];
+    const tid = ctx.session.tenantId;
+    const employeeId = ctx.session.employeeId;
+
+    const supers = await ctx.db
+      .select({ projectId: schema.projectTeamMember.projectId })
+      .from(schema.projectTeamMember)
+      .where(
+        and(
+          eq(schema.projectTeamMember.tenantId, tid),
+          eq(schema.projectTeamMember.employeeId, employeeId),
+          eq(schema.projectTeamMember.role, "superintendent"),
+          isNull(schema.projectTeamMember.endedOn),
+        ),
+      );
+    if (supers.length === 0) return [];
+
+    const projectIds = supers.map((s) => s.projectId);
     return ctx.db
       .select({
         id: schema.employee.id,
@@ -480,12 +505,16 @@ export const employeeRouter = router({
         primaryProjectId: schema.employee.primaryProjectId,
       })
       .from(schema.employee)
-      .where(
+      .innerJoin(
+        schema.projectTeamMember,
         and(
-          eq(schema.employee.tenantId, ctx.session.tenantId),
-          eq(schema.employee.reportsToEmployeeId, ctx.session.employeeId),
-          eq(schema.employee.employmentStatus, "active"),
+          eq(schema.projectTeamMember.employeeId, schema.employee.id),
+          eq(schema.projectTeamMember.tenantId, tid),
+          eq(schema.projectTeamMember.role, "foreman"),
+          isNull(schema.projectTeamMember.endedOn),
+          inArray(schema.projectTeamMember.projectId, projectIds),
         ),
-      );
+      )
+      .where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.employmentStatus, "active")));
   }),
 });
