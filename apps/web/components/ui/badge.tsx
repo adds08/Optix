@@ -5,7 +5,9 @@ import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
+  /* Blocky (ADR-7): square 3px tag, not a pill. Status hues (ok/warn/crit)
+     are reserved for meaning and never decoration. */
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-sm border border-transparent px-2 py-0.5 text-xs font-semibold whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3",
   {
     variants: {
       variant: {
@@ -18,6 +20,10 @@ const badgeVariants = cva(
           "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
+        accent: "border-accent/30 bg-accent/10 text-accent [a&]:hover:bg-accent/20",
+        ok: "border-ok/30 bg-ok-bg text-ok [a&]:hover:bg-ok-bg/80",
+        warn: "border-warn/30 bg-warn-bg text-warn [a&]:hover:bg-warn-bg/80",
+        crit: "border-crit/30 bg-crit-bg text-crit [a&]:hover:bg-crit-bg/80",
       },
     },
     defaultVariants: {

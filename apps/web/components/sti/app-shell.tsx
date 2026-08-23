@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AppRail } from "@/components/app-rail";
+import { AiPanel } from "@/components/ai-panel";
 import { NotificationCenter } from "@/components/notification-center";
 import { UserMenu } from "@/components/user-menu";
 import { GlobalSearch } from "@/components/global-search";
@@ -16,7 +18,7 @@ import { WorkingBar } from "@/components/working-bar";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
-import { allItems, isFieldRole } from "./nav-config";
+import { allItems, groupKey, isFieldRole, navFor, type NavGroup } from "./nav-config";
 
 /*
   The app shell on the shadcn sidebar-07 skeleton.
@@ -59,6 +61,7 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   /* Guard: no session, no app. Runs before any query fires. */
   useEffect(() => {
@@ -127,6 +130,24 @@ export function AppShell({
   const perms = me.data?.permissions ?? [];
   const field = isFieldRole(role);
   const current = allItems(role).find((n) => pathname === n.href || pathname.startsWith(n.href + "/"));
+
+  /* Two-pane shell (Blocky): the rail draws one glyph per group, the sidebar
+     shows the active group's rows. A group reaches the rail only if at least
+     one of its rows survives the permission filter — a glyph that opens an
+     empty sidebar is worse than no glyph at all. */
+  const groups = navFor(role);
+  const railGroups: NavGroup[] = groups
+    .map((g) => ({ ...g, items: g.items.filter((n) => !n.perm || perms.includes(n.perm)) }))
+    .filter((g) => g.items.length > 0);
+  const activeGroup = railGroups.find((g) => g.items.some((i) => i.href === current?.href));
+  const activeGroupKey = activeGroup ? groupKey(activeGroup) : undefined;
+
+  /* Wall surfaces (the project monitor) own the whole region: no max-width, no
+     padding, and no scroll — the readme is explicit that a scrolling embed
+     needs a definite height at every link in the chain, and the centred content
+     box below is auto-height, so `h-full` inside it would resolve to nothing. */
+  const fullBleed = current?.fullBleed ?? false;
+
   const userName = `${me.data?.firstName ?? ""} ${me.data?.lastName ?? ""}`.trim();
 
   async function onLogout() {
@@ -143,7 +164,17 @@ export function AppShell({
   return (
     <SidebarProvider defaultOpen={defaultSidebarOpen} className="h-dvh overflow-hidden">
       <WorkingBar />
-      <AppSidebar userRole={role} permissions={perms} inboxCount={inboxCount} />
+      <AppRail
+        groups={railGroups}
+        activeKey={activeGroupKey}
+        aiOpen={aiOpen}
+        onToggleAi={() => setAiOpen((v) => !v)}
+      />
+      <AppSidebar
+        groups={railGroups}
+        activeGroupKey={activeGroupKey}
+        inboxCount={inboxCount}
+      />
       <SidebarInset>
         {/* Top bar — page context, search, notifications, account. h-14 is
             shared with the rail's header so the two bottom borders meet as a
@@ -166,12 +197,17 @@ export function AppShell({
         {/* The one scroll region. min-h-0 lets it actually shrink to the space
             the header leaves — without it a flex child refuses to go below its
             content height and the overflow escapes to the document again. */}
-        <div className="sti-scroll min-h-0 flex-1">
-          <div className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8">
-            {children}
-          </div>
+        <div className={cn("min-h-0 flex-1", fullBleed ? "overflow-hidden" : "sti-scroll")}>
+          {fullBleed ? (
+            children
+          ) : (
+            <div className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8">
+              {children}
+            </div>
+          )}
         </div>
       </SidebarInset>
+      <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
     </SidebarProvider>
   );
 }

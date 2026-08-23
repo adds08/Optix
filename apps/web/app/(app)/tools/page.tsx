@@ -16,6 +16,7 @@ import { ImportButton } from "@/components/import-dialog";
 import { AssetForm, type AssetEditable } from "@/components/asset-form";
 import { ToolMenu } from "@/components/tool-menu";
 import { BulkMoveForm } from "@/components/bulk-move-form";
+import { BulkEditForm } from "@/components/bulk-edit-form";
 import { SavedFilters } from "@/components/saved-filters";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
@@ -70,6 +71,9 @@ export default function ToolsPage() {
   /* Bulk selection — drives the Move / Return action bar. */
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
+  /* Re-filing (category / department) is a separate dialog from moving, so a
+     book-keeping edit can never be reached by aiming at the custody one. */
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const utils = trpc.useUtils();
   const { has } = usePermissions();
@@ -461,6 +465,14 @@ export default function ToolsPage() {
           onApplied={() => setSelectedIds(new Set())}
         />
       ) : null}
+      {bulkEditOpen ? (
+        <BulkEditForm
+          open
+          onClose={() => setBulkEditOpen(false)}
+          assetIds={[...selectedIds]}
+          onApplied={() => setSelectedIds(new Set())}
+        />
+      ) : null}
       <div className="flex flex-col gap-3">
         {/* One toolbar: job scope, search, the filter sheet (the former facet
             rail), and the saved-view menu. */}
@@ -544,6 +556,13 @@ export default function ToolsPage() {
                   disabled={returnBulk.isPending}
                 >
                   {returnBulk.isPending ? "Returning…" : "Return to yard"}
+                </Button>
+              ) : null}
+              {/* STI-104. `asset.manage`, not a custody permission — re-filing
+                  changes the books, not who holds the tool. */}
+              {has("asset.manage") ? (
+                <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>
+                  Re-file…
                 </Button>
               ) : null}
               <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>

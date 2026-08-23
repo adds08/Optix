@@ -16,6 +16,7 @@ import { protectedProcedure, router } from "../trpc.js";
    — this enum is what stops an unknown theme reaching the preferences row. */
 export const THEME_NAMES = [
   "drafting-ink",
+  "blocky",
   "field-amber",
   "concrete",
   "blueprint",
@@ -53,7 +54,7 @@ export const preferencesRouter = router({
     });
     if (!row) {
       return {
-        themeName: "forest" as const,
+        themeName: "blocky" as const,
         fontFamily: "system" as const,
         fontScale: "1.0",
         density: "comfortable" as const,

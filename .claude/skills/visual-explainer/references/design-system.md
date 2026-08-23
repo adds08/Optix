@@ -14,10 +14,11 @@ sed -n '/^:root {/,/^}/p'  apps/web/app/globals.css   # light
 sed -n '/^\.dark {/,/^}/p' apps/web/app/globals.css   # dark
 ```
 
-The app ships **12 named themes** (`apps/web/lib/themes/themes.ts:34-46`) —
-drafting-ink, field-amber, concrete, blueprint, forest, clay, graphite,
-high-contrast, site-green, site-cream, site-slate, hi-vis. Explainers use
-drafting-ink because it is the default the reader already knows.
+The named palettes are listed in `apps/web/lib/themes/themes.ts` (`ThemeName`).
+Explainers use the **default** palette — `blocky`, labelled "Default" — because
+it is the one the reader already knows, and because it carries no overrides:
+the `:root` / `.dark` blocks above ARE it. A theme is colour only; radii, type
+and layout are global and no palette changes them.
 
 The palette's own comment states the intent, and it is worth honouring:
 *"Neutrals carry a slight cool bias toward the accent so they read as chosen,

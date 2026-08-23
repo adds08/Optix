@@ -1,5 +1,5 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
@@ -425,6 +425,92 @@ export const assetRouter = router({
         details: { changed: Object.keys(patch) },
       });
       return row;
+    }),
+
+  /*
+    Re-file a selection: category and department, in one write (STI-104).
+
+    Deliberately NARROW. This is not a multi-row `update`: the only fields
+    here are the two the desk actually re-files in bulk. Tag, serial and cost
+    identify ONE tool, so writing the same value across a selection is never
+    what anybody meant, and offering it would only make that mistake possible.
+
+    Cost target moves WITH the department because `assetRefine` makes them a
+    single decision — a tool charged to a department must name one and must
+    not also name a project. Setting `owningDepartmentId` alone would leave
+    every row in the selection failing that rule the next time somebody opened
+    it in the single-row editor.
+
+    No ledger event: category and cost coding are not custody. Nothing here
+    touches custodian, project, location or status, so there is no `toState`
+    to write — this is the audit log's job, and it gets one entry naming the
+    whole selection rather than one per row.
+  */
+  bulkUpdate: requirePermission("asset.manage")
+    .input(
+      z
+        .object({
+          /* Bounded so one call cannot rewrite the whole register by
+             accident. The register is ~750 tools; 500 is a deliberate
+             selection, not a slipped "select all". */
+          ids: z.array(z.string().uuid()).min(1).max(500),
+          categoryName: z.string().max(120).nullable().optional(),
+          owningDepartmentId: z.string().uuid().nullable().optional(),
+        })
+        .superRefine((v, ctx) => {
+          if (v.categoryName === undefined && v.owningDepartmentId === undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "Nothing to change — pick a category or a department.",
+            });
+          }
+        }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const { ids, categoryName, owningDepartmentId } = input;
+
+      /* The department must be this tenant's. The FK proves the row exists;
+         it says nothing about WHOSE it is — the composite-FK lesson from
+         STI-202, and the reason this predicate is the only isolation there
+         is. */
+      if (owningDepartmentId) {
+        const dept = await ctx.db.query.department.findFirst({
+          where: and(eq(schema.department.id, owningDepartmentId), eq(schema.department.tenantId, tid)),
+        });
+        if (!dept) throw new TRPCError({ code: "NOT_FOUND", message: "No such department in this tenant" });
+      }
+
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (categoryName !== undefined) patch.categoryName = categoryName;
+      if (owningDepartmentId !== undefined) {
+        patch.owningDepartmentId = owningDepartmentId;
+        /* Both directions, so the pair is always consistent: charging to a
+           department clears the project, and clearing the department hands
+           the tool back to project costing. */
+        patch.costTarget = owningDepartmentId ? "department" : "project";
+        if (owningDepartmentId) patch.owningProjectId = null;
+      }
+
+      const rows = await ctx.db
+        .update(schema.asset)
+        .set(patch)
+        .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)))
+        .returning({ id: schema.asset.id });
+
+      await logEvent(ctx, {
+        category: "asset",
+        action: "bulk_update",
+        entityType: "asset",
+        /* No single entity — the selection IS the subject. `entityId` carries
+           the first so the row is still clickable, and `details` carries the
+           whole set for anyone auditing what moved together. */
+        entityId: rows[0]?.id ?? ids[0]!,
+        entityLabel: `${rows.length} tool${rows.length === 1 ? "" : "s"}`,
+        details: { changed: Object.keys(patch).filter((k) => k !== "updatedAt"), ids: rows.map((r) => r.id) },
+      });
+
+      return { updated: rows.length };
     }),
 
   /*

@@ -15,7 +15,6 @@ import { JobsiteTeamStrip } from "@/components/jobsite-team-strip";
 import { RigPicker, type PickerRequest } from "@/components/rig-picker";
 import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assign-dialog";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
-import { JobsiteBlockyView } from "@/components/jobsite-blocky-view";
 import { Highlight } from "@/components/highlight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,11 +71,6 @@ export default function JobsitesPage() {
   const utils = trpc.useUtils();
   const { has } = usePermissions();
 
-  /* Two renderings of the same yard, switchable for the client to compare:
-     "cards" is the long-running workhorse view; "blocky" is the concept
-     ported from design/claude-design/Tools by Jobsite Blocky.dc.html. */
-  const [view, setView] = useState<"cards" | "blocky">("cards");
-
   /* What this viewer may actually drive. The picker actions are each backed
      by a server permission — a foreman browsing the yard must not see buttons
      that can only fail, nor the tenant-wide vehicle list behind them. */
@@ -131,8 +125,9 @@ export default function JobsitesPage() {
   const [poolView, setPoolView] = useState<"jobs" | "pool">("jobs");
   const [openJobs, setOpenJobs] = useState<Record<string, boolean>>({});
   const [openCrews, setOpenCrews] = useState<Record<string, boolean>>({});
-  /* Everything is expanded by default; this flips the default for cards AND
-     crew tool tables at once, and per-item toggles still override it. */
+  /* Jobs are expanded by default and CREWS ARE NOT (STI-401) — a job with
+     nine crews should show you its nine crews, not nine tool tables. This
+     flips the job-card default; per-item toggles still override it. */
   const [collapseAll, setCollapseAll] = useState(false);
   const [picker, setPicker] = useState<PickerRequest | null>(null);
   const [assign, setAssign] = useState<CrewAssignRequest | null>(null);
@@ -417,54 +412,6 @@ export default function JobsitesPage() {
       />
 
       <div className="flex min-w-0 flex-col gap-3">
-          {/* ---- view switcher: two renderings of the same yard ---- */}
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
-              {view === "cards"
-                ? "Cards view — the workhorse jobsite hub."
-                : "Blocky view — concept from design/claude-design, dark theme."}
-            </p>
-            <div className="flex rounded-md border bg-muted/40 p-0.5" role="tablist" aria-label="Jobsite view">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "cards"}
-                onClick={() => setView("cards")}
-                className={cn(
-                  "rounded px-3 py-1 text-xs font-medium transition-colors",
-                  view === "cards" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                Cards
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "blocky"}
-                onClick={() => setView("blocky")}
-                className={cn(
-                  "rounded px-3 py-1 text-xs font-medium transition-colors",
-                  view === "blocky" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                Blocky
-              </button>
-            </div>
-          </div>
-
-          {view === "blocky" ? (
-            <JobsiteBlockyView
-              assets={(assets.data ?? []) as ToolRow[]}
-              projects={projects.data ?? []}
-              vehicles={vehicles.data ?? []}
-              employees={employees.data ?? []}
-              foremen={foremen}
-              scope={scope}
-              canAssignCrew={canAssignCrew}
-              canManageRig={canManageRig}
-              onPick={setPicker}
-            />
-          ) : (
           <>
           <section className="flex flex-col gap-2 rounded-md border bg-card p-3">
             {/* Search stays on the bar because it is the one control used on
@@ -717,8 +664,26 @@ export default function JobsitesPage() {
             const teamCandidates = (employees.data ?? [])
               .filter((e) => e.employmentStatus === "active")
               .map((e) => ({ id: e.id, name: e.name, externalId: e.externalId, employeeRole: e.role }));
+            /* The edge accent (design readme, "The edge accent") — the system's
+               most distinctive pattern and the reason a long column of job cards
+               is scannable at all: a 3px bar carrying the card's state down its
+               whole left side. Accent = normal, amber = a gap somebody has to
+               close, muted = not a job at all (the yard, the between-jobs pool).
+               Whole class strings because Tailwind scans source text. */
+            const edge = !card.isJob
+              ? "before:bg-muted-foreground/40"
+              : card.gaps.length
+                ? "before:bg-warn"
+                : "before:bg-primary";
             return (
-              <section key={card.id} className="overflow-visible rounded-md border bg-card">
+              <section
+                key={card.id}
+                className={cn(
+                  "relative overflow-visible rounded-md border bg-card pl-[3px]",
+                  "before:absolute before:inset-y-0 before:left-0 before:w-[3px]",
+                  edge,
+                )}
+              >
                 <header className={cn("flex flex-wrap items-center gap-3 px-3 py-2.5", card.tint)}>
                   <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", card.isJob ? "bg-accent text-primary" : "bg-muted/70 text-muted-foreground")}>
                     <CardIcon className="size-4.5" aria-hidden />
@@ -802,8 +767,14 @@ export default function JobsitesPage() {
                       <CrewCard
                         key={crew.id}
                         crew={crew}
-                        expanded={collapseAll ? (openCrews[crew.id] ?? false) : (openCrews[crew.id] ?? true)}
-                        onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(collapseAll ? (o[crew.id] ?? false) : (o[crew.id] ?? true)) }))}
+                        /* STI-401: jobs open, CREWS CLOSED by default. Urban
+                           runs ~28 crews, so expanding every crew's tool
+                           table turned the department's morning question
+                           ("who needs a vehicle") into a scroll. `collapseAll`
+                           still closes the jobs above; a crew the desk opens
+                           stays open via `openCrews`. */
+                        expanded={openCrews[crew.id] ?? false}
+                        onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(o[crew.id] ?? false) }))}
                         onPick={setPicker}
                         onAddTools={
                           canAssignTools
@@ -862,7 +833,6 @@ export default function JobsitesPage() {
             );
           })}
           </>
-          )}
       </div>
     </div>
   );

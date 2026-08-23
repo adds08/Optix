@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Bot } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { NavGroup } from "@/components/sti/nav-config";
+import { groupKey, type NavGroup } from "@/components/sti/nav-config";
 
 /*
   The primary rail (System Shell v3).
@@ -26,14 +26,7 @@ import type { NavGroup } from "@/components/sti/nav-config";
   The groups arriving here are already permission-filtered — an empty group is
   never drawn, because a glyph that opens an empty sidebar is worse than a
   missing one.
-
-  Adaptations for main's nav-config (which ships `NavGroup = { label, items }`
-  with per-ITEM icons and no group key): the group key is derived from the
-  label and the rail glyph is the first item's icon, since that is the one
-  glyph that always exists for a visible group.
 */
-
-const groupKey = (g: NavGroup) => g.label.toLowerCase().replace(/[^a-z]+/g, "-");
 
 export function AppRail({
   groups,
@@ -49,7 +42,7 @@ export function AppRail({
   return (
     <nav
       aria-label="Sections"
-      className="flex w-12 shrink-0 flex-col items-center gap-0.5 border-r border-sidebar-border bg-rail py-2.5"
+      className="hidden w-12 shrink-0 flex-col items-center gap-0.5 border-r border-rail-accent/20 bg-rail py-2.5 md:flex"
     >
       {/* The monogram stands in for a real logo — there isn't one yet. */}
       <Link
@@ -74,8 +67,8 @@ export function AppRail({
                 className={cn(
                   "grid size-9 shrink-0 place-items-center rounded-md transition-colors",
                   active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-rail-foreground hover:bg-white/5 hover:text-sidebar-accent-foreground",
+                    ? "bg-rail-accent text-rail-accent-foreground"
+                    : "text-rail-foreground hover:bg-rail-accent/60 hover:text-rail-accent-foreground",
                 )}
               >
                 <first.icon className="size-[17px]" aria-hidden />
@@ -96,8 +89,8 @@ export function AppRail({
             className={cn(
               "mt-auto grid size-9 shrink-0 place-items-center rounded-md transition-colors",
               aiOpen
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-rail-foreground hover:bg-white/5 hover:text-sidebar-accent-foreground",
+                ? "bg-rail-accent text-rail-accent-foreground"
+                : "text-rail-foreground hover:bg-rail-accent/60 hover:text-rail-accent-foreground",
             )}
           >
             <Bot className="size-[17px]" aria-hidden />
