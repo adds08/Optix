@@ -303,6 +303,60 @@ export const locationCustodyRouter = {
         });
         if (!emp) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
         custodianName = emp.name;
+
+        /*
+          One truck per foreman (STI-502). The partial unique index
+          `vehicle_one_truck_per_foreman_uq` is the guarantee; this check is
+          the MESSAGE.
+
+          Without it the index still holds, but the desk sees a raw
+          constraint violation as an INTERNAL_SERVER_ERROR — the same
+          unreadable failure STI-104's delete guard was written to avoid. The
+          ticket asks for "an error naming the current holder", and a
+          constraint cannot name anything.
+
+          Read the vehicle at THIS location first: only a truck can trip the
+          index, so a trailer or a gang box skips the query entirely.
+        */
+        const [thisVehicle] = await ctx.db
+          .select({
+            id: schema.vehicle.id,
+            vehicleType: schema.vehicle.vehicleType,
+            ownershipType: schema.vehicle.ownershipType,
+          })
+          .from(schema.vehicle)
+          .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, input.locationId)))
+          .limit(1);
+
+        /* Company trucks only — the index is narrowed the same way, and the
+           two MUST agree. A personal-allowance truck is the foreman's own
+           vehicle: they may draw one and still drive a company truck, which
+           is the pair STI-306's departure logic is built around. */
+        if (thisVehicle?.vehicleType === "truck" && thisVehicle.ownershipType === "company_owned") {
+          const [heldTruck] = await ctx.db
+            .select({ id: schema.vehicle.id, unit: schema.vehicle.unit })
+            .from(schema.vehicle)
+            .where(
+              and(
+                eq(schema.vehicle.tenantId, tid),
+                eq(schema.vehicle.vehicleType, "truck"),
+                eq(schema.vehicle.ownershipType, "company_owned"),
+                eq(schema.vehicle.foremanEmployeeId, input.custodianEmployeeId),
+              ),
+            )
+            .limit(1);
+
+          /* Re-assigning the truck they already hold is a no-op, not a
+             conflict — the index would not fire either. */
+          if (heldTruck && heldTruck.id !== thisVehicle.id) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                `${emp.name} already has truck ${heldTruck.unit}. A foreman drives one truck — ` +
+                `detach ${heldTruck.unit} first, then assign this one.`,
+            });
+          }
+        }
       }
 
       const result = await ctx.db.transaction(async (tx: any) => {

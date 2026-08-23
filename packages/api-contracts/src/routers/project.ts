@@ -7,6 +7,7 @@ import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { visibleProjectScope } from "../scope.js";
 import { moveEmployeeToProject } from "../project-assign.js";
+import { PROJECT_STATUSES } from "@stinventory/types";
 
 export const projectRouter = router({
   /*
@@ -50,7 +51,10 @@ export const projectRouter = router({
       z.object({
         name: z.string().min(1).max(200),
         externalId: z.string().optional(),
-        status: z.string().optional(),
+        /* Same enum as `update` — a job could otherwise be BORN with a status
+           no screen understands, which no amount of validation on update
+           would ever catch. */
+        status: z.enum(PROJECT_STATUSES).optional(),
         costCenter: z.string().optional(),
         siteAddress: z.string().max(400).optional(),
         startDate: z.string().optional(),
@@ -72,7 +76,12 @@ export const projectRouter = router({
         id: z.string().uuid(),
         name: z.string().min(1).max(200).optional(),
         externalId: z.string().max(60).nullable().optional(),
-        status: z.string().max(30).optional(),
+        /* STI-105: was `z.string().max(30)`, so "compleet" — or any other
+           string — was a valid job status and every screen that switches on
+           it silently fell through. PROJECT_STATUSES already existed in
+           packages/types and nothing referenced it. The DB column is plain
+           text, so this enum is the only thing that stops a bad write. */
+        status: z.enum(PROJECT_STATUSES).optional(),
         costCenter: z.string().max(60).nullable().optional(),
         siteAddress: z.string().max(400).nullable().optional(),
         startDate: z.string().nullable().optional(),
@@ -86,6 +95,51 @@ export const projectRouter = router({
         where: and(eq(schema.project.id, id), eq(schema.project.tenantId, tid)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such project in this tenant" });
+
+      /*
+        A job cannot be completed while tools are still out on it (STI-105).
+
+        Completing is the desk's way of saying "this job is finished". If a
+        foreman is still holding twenty tools booked to it, completing strands
+        them: the register keeps naming a job nobody is working, and the
+        "what did this job spend" report stops matching what is physically
+        still on site. The ledger is what gets asked, so the ACTIVE ASSIGNMENT
+        is what this counts — not `asset.current_project_id`, which is a
+        projection of it.
+
+        Deliberately a refusal rather than a bulk hand-back. Moving custody
+        from here would be a SECOND way to write custody, which is the most
+        expensive pattern this codebase has paid for (CLAUDE.md non-negotiable
+        2) — the desk moves the tools through the surfaces that already do it
+        correctly, then completes the job.
+      */
+      if (changes.status === "complete" && existing.status !== "complete") {
+        const held = await ctx.db
+          .select({ tag: schema.asset.tag, assetId: schema.assignment.assetId })
+          .from(schema.assignment)
+          .innerJoin(schema.asset, eq(schema.asset.id, schema.assignment.assetId))
+          .where(
+            and(
+              eq(schema.assignment.tenantId, tid),
+              eq(schema.assignment.projectId, id),
+              eq(schema.assignment.status, "active"),
+            ),
+          );
+
+        if (held.length) {
+          /* Name a few, so the desk knows where to start rather than being
+             told a number and left to find them. */
+          const sample = held.slice(0, 3).map((h) => h.tag ?? "untagged").join(", ");
+          const more = held.length > 3 ? `, and ${held.length - 3} more` : "";
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              `${held.length} tool${held.length === 1 ? " is" : "s are"} still out on this job (${sample}${more}). ` +
+              `Move ${held.length === 1 ? "it" : "them"} to another job or back to the yard before completing it — ` +
+              `completing now would leave ${held.length === 1 ? "it" : "them"} booked to a finished job.`,
+          });
+        }
+      }
 
       const patch = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
       if (!Object.keys(patch).length) return existing;

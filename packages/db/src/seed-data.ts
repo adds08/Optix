@@ -27,6 +27,34 @@ export type TxSeed = { tag: string; event: string; at: string; note: string; ref
 export type DeptSeed = { name: string; code: string };
 export type UserSeed = { email: string; first: string; last: string; role: string; employeeKey: string | null; isActive?: boolean };
 
+/*
+  STI-104: the register's categories.
+
+  The tools list carries no category column, so every imported asset has
+  `category_name` NULL and `category` was seeded EMPTY. That made the whole
+  category surface dead from a clean database — `category.list` returned
+  nothing, so the bulk re-file picker and the register's category filter both
+  offered zero options and could not be exercised without hand-inserting rows
+  in psql. CLAUDE.md rule 8: data the seed cannot produce is behaviour nobody
+  tests.
+
+  These are the shelves Urban's list actually falls into, read off the tool
+  descriptions (drills, grinders, quikie saws, compactors, generators,
+  blowers, survey kit). Deliberately a short flat list, not a taxonomy: a
+  category is a shelf label, and a hierarchy nobody asked for is a migration
+  waiting to happen.
+*/
+export const categorySpecs: string[] = [
+  "Drills & Drivers",
+  "Grinders",
+  "Saws",
+  "Compaction",
+  "Generators & Power",
+  "Blowers & Yard",
+  "Survey & Layout",
+  "Hand Tools",
+];
+
 export const departmentSpecs: DeptSeed[] = [
   { name: "Repair & Maintenance", code: "RM" },
   { name: "Equipment Department", code: "EQ" },
@@ -43,12 +71,27 @@ export const projectSpecs: ProjectSeed[] = [
   { key: "p-garland-22015", extId: "22015", name: "Garland", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-austin-lane-24007", extId: "24007", name: "Austin Lane", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-dart-20011", extId: "20011", name: "DART", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-richardson-23002", extId: "23002", name: "Richardson", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
+  /*
+    STI-105: three jobs carry a status other than `active`, because every one
+    of the sixteen used to be `active` and the other three states were
+    unreachable from a clean database — the enum, the status pill and the
+    completion guard could only be exercised by hand-editing rows in psql.
+
+    Richardson is `closing` WITH tools still out (55 active links), so the
+    completion guard is one click away in the UI rather than a code path
+    nobody can reach. Mesquite below is `complete` with none, which is the
+    other side of the same rule.
+  */
+  { key: "p-richardson-23002", extId: "23002", name: "Richardson", status: "closing", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-bell-23010", extId: "23010", name: "Bell", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-little-elm-23009", extId: "23009", name: "Little Elm", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-traffic-control", extId: null, name: "Traffic Control", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-mesquite-24005", extId: "24005", name: "Mesquite", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-city-of-kemp", extId: null, name: "City of Kemp", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
+  /* Finished, and holding nothing — the state a completed job is supposed to
+     be in. Picked because it genuinely has zero active custody links, so the
+     seed is not asserting something the ledger contradicts. */
+  { key: "p-mesquite-24005", extId: "24005", name: "Mesquite", status: "complete", costCenter: null, start: "2025-01-06", end: "2026-06-30", site: null },
+  /* Won, not started. */
+  { key: "p-city-of-kemp", extId: null, name: "City of Kemp", status: "awarded", costCenter: null, start: "2026-09-01", end: "2030-12-31", site: null },
   { key: "p-mechanic", extId: null, name: "Mechanic", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
 ];
 

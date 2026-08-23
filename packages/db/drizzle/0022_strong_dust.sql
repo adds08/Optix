@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "vehicle_one_truck_per_foreman_uq" ON "vehicle" USING btree ("tenant_id","foreman_employee_id") WHERE "vehicle"."vehicle_type" = 'truck' AND "vehicle"."foreman_employee_id" IS NOT NULL AND "vehicle"."ownership_type" = 'company_owned';

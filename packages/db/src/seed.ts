@@ -8,6 +8,7 @@ import { ROLE_PERMS } from "./role-perms.js";
 import {
   asset,
   assignment,
+  category,
   channel,
   department,
   employee,
@@ -30,6 +31,7 @@ import {
 import {
   assetSpecs,
   assignSpecs,
+  categorySpecs,
   departmentSpecs,
   employeeSpecs,
   locSpecs,
@@ -62,6 +64,39 @@ const TODAY = "2026-07-09";
   the seed demonstrates the edge, and TOOL-0255 at 4999.99 demonstrates the
   other side of it. Values are realistic street prices for the tool named.
 */
+/*
+  Which shelf a tool goes on, read off its description (STI-104).
+
+  The imported tools list has no category column, so every asset was seeded
+  with `categoryName: null` — which left the register's Category column reading
+  "—" on all 756 rows and `category.list` returning nothing at all. The bulk
+  re-file picker then had zero options, so the feature could not be exercised
+  from a clean database.
+
+  Keyword matching, not a lookup table, because the descriptions are free text
+  typed by whoever built the spreadsheet ("ANGEL GRAINDER", "QUIKIE SAW") and a
+  per-tag map would rot the moment the list is reloaded. Anything unmatched
+  stays NULL — an honest "not filed yet", which is also what gives the desk
+  something to actually re-file.
+*/
+const CATEGORY_KEYWORDS: [RegExp, string][] = [
+  [/\b(DRILL|DRIVER|IMPACT WRENCH|HAMMER)\b/i, "Drills & Drivers"],
+  [/\b(GRINDER|GRAINDER)\b/i, "Grinders"],
+  [/\b(SAW)\b/i, "Saws"],
+  [/\b(COMPACTOR|PLATE|RAMMER|TAMPER)\b/i, "Compaction"],
+  [/\b(GENERATOR|POWER STATION|CORD)\b/i, "Generators & Power"],
+  [/\b(BLOWER|TRIMMER|EDGER)\b/i, "Blowers & Yard"],
+  [/\b(LEVEL|TRANSIT|GNSS|RECEIVER|WALLSCANNER|LASER)\b/i, "Survey & Layout"],
+];
+
+function categoryFor(description: string | null): string | null {
+  if (!description) return null;
+  for (const [pattern, name] of CATEGORY_KEYWORDS) {
+    if (pattern.test(description)) return name;
+  }
+  return null;
+}
+
 const SEED_COSTS: Record<string, string> = {
   "TOOL-0001": "289.00", // BOSCH 11255VSR hammer drill
   "TOOL-0002": "129.00", // BOSCH GWS10-450P angle grinder
@@ -169,6 +204,12 @@ async function main() {
     .values(departmentSpecs.map((dd) => ({ tenantId: tid, name: dd.name, code: dd.code, isActive: true })))
     .returning();
   const deptByCode = Object.fromEntries(deptRows.map((d) => [d.code, d.id]));
+
+  // ---- Categories ----
+  /* STI-104. The tools list has no category column, so these are the shelves
+     the descriptions fall into. Without them `category.list` is empty and the
+     bulk re-file picker has nothing to offer — see the note in seed-data.ts. */
+  await db.insert(category).values(categorySpecs.map((name) => ({ tenantId: tid, name })));
 
   // ---- Employees (domain persons; custody holders) ----
   // Insert projects first (employees reference primaryProjectId).
@@ -420,7 +461,7 @@ async function main() {
         make: a.make,
         modelNumber: a.modelNumber,
         description: a.description,
-        categoryName: null,
+        categoryName: categoryFor(a.description),
         serialNumber: a.serial,
         isSerialized: a.isSerialized,
         quantity: a.quantity,
