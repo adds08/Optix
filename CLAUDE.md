@@ -25,6 +25,7 @@ it now) are separate axes, and tools follow the person, not the site.
 | Any bug, test failure, wrong state, stuck message | **`systematic-debugging`**, before proposing a fix |
 | "Explain this", "I want visuals", a subsystem too big for chat | **`visual-explainer`** |
 | Delivering a whole ticket or feature end to end | **`/feature-delivery <TICKET-ID>`** — ticket, branch, implement, adversarial QA, correctness + security review, PR |
+| A task that produced a diff, as the last step before you report done | **`changelog`** — reconstructs the entry from `git`, appends to `changelogs/YYYY-MM.md` |
 
 `/feature-delivery` never fires on its own; it runs only when you invoke it. Tunables
 and the off switch are in `.claude/workflow.config.json`. Agents review and comment —
@@ -77,7 +78,11 @@ If minimalism or convenience conflicts with any of these, they win — say so ou
 6. **Run `pnpm typecheck` and `pnpm test` before committing.** tRPC types flow straight into
    both clients; typecheck is the only thing standing between a router change and a broken app.
 7. **Find root causes.** No try/catch workarounds without understanding the failure.
-8. **Docs and seed data are part of the change, not follow-up work.** If the work you just did
+8. **Every diff ends with a changelog entry.** Invoke the `changelog` skill before you
+   report the task done — not for read-only work, and not once per file. Commit subjects
+   in this repo have been `#` more than once, so `git log` alone does not tell the next
+   session why anything changed or what was verified.
+9. **Docs and seed data are part of the change, not follow-up work.** If the work you just did
    made a document wrong, fix the document. If it needs data the seed cannot produce, add it to
    the seed. Both happen in the same change — not in a ticket for later, and never by leaving a
    note that says someone should.
@@ -130,6 +135,7 @@ If minimalism or convenience conflicts with any of these, they win — say so ou
 | ~~Overdue alert fires a day early~~ | **Gone, not fixed.** Removed 2026-08-09 with the borrow model: `assignment.expected_end_date` was DROPPED in migration `0012`, `isOverdueLoan` was deleted from `packages/domain`, and no `dashboard.overdueLoans` procedure exists. **Nothing falls due, so nothing goes overdue.** Verified 2026-08-22. If a doc, ticket or plan asks for an overdue view, it is describing a deleted feature — say so rather than inventing a due date. |
 | Chat message stuck in `pending_manual` | No model configured, low confidence, or no asset resolved |
 | Stale deps after a `package.json` change | Anonymous volumes survive rebuilds — `make ENV=local reset` |
+| A migration exists but never runs, or `generate` re-emits the same SQL forever | Two branches generated the same idx; the merge dropped the entry from `meta/_journal.json`. `migrate` reads only the journal, `generate` diffs only the newest snapshot. Check both after any merge touching `packages/db/drizzle` |
 
 ---
 
