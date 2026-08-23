@@ -36,7 +36,12 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell
+# `e2e` and `e2e-install` MUST be listed here: there is a directory called
+# `e2e/`, so without .PHONY make sees a target that is already satisfied by a
+# file of the same name and prints "'e2e' is up to date" without running
+# anything. The browser suite silently did not run for anyone invoking it
+# through make. CI calls playwright directly, so CI never noticed.
+.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint e2e e2e-install mobile deploy prod-status prod-logs prod-shell
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
