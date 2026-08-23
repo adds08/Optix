@@ -34,8 +34,12 @@ export const metadata: Metadata = { title: "STInventory", description: "Small to
 const BOOT_THEME = `
 try {
   var r = document.documentElement;
-  if (localStorage.getItem('sti-theme') === 'dark' ||
-      (!localStorage.getItem('sti-theme') && matchMedia('(prefers-color-scheme: dark)').matches)) {
+  /* Dark is the product's mode, not the OS's. The design is dark-first — light
+     is a supported second theme, not the baseline — so an unset preference means
+     dark, and only an explicit 'light' turns it off. Reading prefers-color-scheme
+     here meant a laptop on the default light OS setting opened the app in the
+     secondary theme and made it look like the wrong product. */
+  if (localStorage.getItem('sti-theme') !== 'light') {
     r.classList.add('dark');
   }
   var a = JSON.parse(localStorage.getItem('sti-appearance') || 'null');

@@ -2,10 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { formatAssetModel } from "@stinventory/types";
-import { StatusPill, humanize } from "@/components/sti/status";
+import { humanize } from "@/components/sti/status";
 import { Highlight } from "@/components/highlight";
 import { ToolMenu } from "@/components/tool-menu";
-import { money } from "@/lib/format";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -104,6 +103,12 @@ export function ToolTable({
   const onSort = (key: SortKey) =>
     setSort((s) => ({ key, desc: s.key === key ? !s.desc : false }));
 
+  /* Counted, not spelled out as nested ternaries. The old expression hardcoded
+     a column count that stopped being true the moment the columns changed, and
+     a wrong colSpan fails silently — the empty row just stops spanning. */
+  const colCount =
+    5 + (selectable ? 1 : 0) + (showWhere ? 1 : 0) + (actions ? 1 : 0);
+
   return (
     <div>
       <div className="overflow-x-auto"><table className="w-full border-collapse text-sm">
@@ -119,12 +124,14 @@ export function ToolTable({
         <thead className="bg-muted">
           <tr className="border-b-2 border-border text-foreground">
             {selectable ? <th className="w-8 px-3 py-2" aria-hidden /> : null}
-            <SortHead className="w-36" k="tag" sort={sort} onSort={onSort}>Serial / ID</SortHead>
-            <SortHead k="name" sort={sort} onSort={onSort}>Tool name</SortHead>
-            <SortHead className="w-36" k="rides" sort={sort} onSort={onSort}>Rides in</SortHead>
-            <SortHead className="w-36" k="status" sort={sort} onSort={onSort}>Status</SortHead>
-            <SortHead className="w-24" align="right" k="value" sort={sort} onSort={onSort}>Value</SortHead>
-            {actions ? <th className="w-10 px-3 py-2" aria-hidden /> : null}
+            <SortHead className="w-28" k="tag" sort={sort} onSort={onSort}>Tag</SortHead>
+            <SortHead k="name" sort={sort} onSort={onSort}>Tool</SortHead>
+            <SortHead className="w-32" k="category" sort={sort} onSort={onSort}>Category</SortHead>
+            {showWhere ? (
+              <SortHead className="w-44" k="rides" sort={sort} onSort={onSort}>Where</SortHead>
+            ) : null}
+            <SortHead className="w-28" k="status" sort={sort} onSort={onSort}>Status</SortHead>
+            <SortHead className="w-28" align="right" k="condition" sort={sort} onSort={onSort}>Condition</SortHead>
           </tr>
         </thead>
         <tbody>
@@ -178,40 +185,35 @@ export function ToolTable({
                 </Tooltip>
               </td>
               <td className="px-3 py-2.5">
-                <span className="font-medium">
+                <span className="block truncate text-[13px] text-foreground">
                   <Highlight text={formatAssetModel(t) || "No description"} q={highlight} />
                 </span>
-                {showWhere && t.locationName ? (
-                  <span className="block text-xs text-muted-foreground">
-                    <Highlight text={t.locationName} q={highlight} />
-                  </span>
-                ) : null}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-muted-foreground">
-                {t.currentTruckUnit || t.currentTrailerUnit ? (
-                  <>
-                    {t.currentTruckUnit ?? ""}
-                    {/* Company vs personal, wherever a truck is shown
-                        (STI-501). A tool riding a foreman's own truck is the
-                        case the departure path cares about. */}
-                    {t.currentTruckUnit && t.currentTruckOwnership === "personal_allowance" ? (
-                      /* warn tokens, not raw amber-100/amber-950: a hardcoded
-                         Tailwind hue is the one thing in this file no palette
-                         and no mode can follow, and "riding a personal truck"
-                         is precisely a needs-attention state. */
-                      <span className="ml-1 rounded-sm border border-warn/30 bg-warn-bg px-1 text-[10px] font-medium text-warn">
-                        personal
-                      </span>
-                    ) : null}
-                    {t.currentTruckUnit && t.currentTrailerUnit ? " · " : ""}
-                    {t.currentTrailerUnit ?? ""}
-                  </>
-                ) : (
-                  "—"
+              <td className="truncate px-3 py-2.5 font-mono text-[11px] text-muted-foreground">
+                {t.categoryName ?? "—"}
+              </td>
+              {showWhere ? (
+                <td className="truncate px-3 py-2.5 text-[13px] text-muted-foreground">
+                  {t.locationName ?? t.currentTruckUnit ?? t.currentTrailerUnit ?? "—"}
+                  {/* Company vs personal, wherever a truck is shown (STI-501).
+                      A tool riding a foreman's own truck is the case the
+                      departure path cares about. */}
+                  {t.currentTruckUnit && t.currentTruckOwnership === "personal_allowance" ? (
+                    <span className="ml-1 rounded-sm border border-warn/30 bg-warn-bg px-1 text-[10px] font-medium text-warn">
+                      personal
+                    </span>
+                  ) : null}
+                </td>
+              ) : null}
+              <td className="px-3 py-2.5 text-[12px] text-muted-foreground">{humanize(t.status)}</td>
+              <td
+                className={cn(
+                  "px-3 py-2.5 text-right text-[12px] font-semibold capitalize",
+                  CONDITION_TONE[(t.condition ?? "").toLowerCase()] ?? "text-muted-foreground",
                 )}
+              >
+                {t.condition ?? "—"}
               </td>
-              <td className="px-3 py-2.5"><StatusPill status={t.status} /></td>
-              <td className="tnum px-3 py-2.5 text-right text-muted-foreground">{money(t.acquisitionCost)}</td>
               {actions ? (
                 <td className="px-2 py-2.5 text-right">
                   <ToolMenu assetId={t.id} assetTag={t.tag ?? t.serialNumber ?? "Untagged"} heldBySomeone={!!t.custodianId} />
@@ -221,7 +223,7 @@ export function ToolTable({
           ))}
           {visible.length === 0 ? (
             <tr>
-              <td className="px-3 py-2.5 text-sm text-muted-foreground" colSpan={selectable && actions ? 7 : selectable || actions ? 6 : 5}>
+              <td className="px-3 py-2.5 text-sm text-muted-foreground" colSpan={colCount}>
                 Nothing here.
               </td>
             </tr>
@@ -244,25 +246,42 @@ export function ToolTable({
 }
 
 
-type SortKey = "tag" | "name" | "rides" | "status" | "value";
+/* Worst first. Anything unrecognised sorts last — see the null rule below. */
+const CONDITION_RANK: Record<string, number> = { damaged: 0, poor: 1, fair: 2, good: 3, new: 4 };
+
+/* Good reads calm, fair wants attention, anything worse is a problem — the
+   design's condColor, on this product's reserved status tokens. */
+const CONDITION_TONE: Record<string, string> = {
+  good: "text-ok",
+  new: "text-ok",
+  fair: "text-warn",
+  poor: "text-crit",
+  damaged: "text-crit",
+};
+
+type SortKey = "tag" | "name" | "category" | "rides" | "status" | "condition";
 
 /* Nulls sort last in BOTH directions — an untagged tool or one with no value is
    missing data, and missing data belongs at the end whichever way the arrow
    points, not alternately at the top. */
 function compare(a: ToolRow, b: ToolRow, key: SortKey): number {
-  if (key === "value") {
-    const x = Number(a.acquisitionCost) || 0;
-    const y = Number(b.acquisitionCost) || 0;
-    return x - y;
+  if (key === "condition") {
+    /* Condition sorts by how bad it is, not alphabetically: "Damaged, Fair,
+       Good" is the order somebody chasing problems wants, and alphabetically
+       that happens to be exactly backwards from useful. */
+    const rank = (t: ToolRow) => CONDITION_RANK[(t.condition ?? "").toLowerCase()] ?? 99;
+    return rank(a) - rank(b);
   }
   const pick = (t: ToolRow) =>
     key === "tag"
       ? (t.tag ?? t.serialNumber ?? "")
       : key === "name"
         ? formatAssetModel(t)
-        : key === "rides"
-          ? (t.currentTruckUnit ?? t.currentTrailerUnit ?? "")
-          : (t.status ?? "");
+        : key === "category"
+          ? (t.categoryName ?? "")
+          : key === "rides"
+            ? (t.locationName ?? t.currentTruckUnit ?? t.currentTrailerUnit ?? "")
+            : (t.status ?? "");
   const x = pick(a);
   const y = pick(b);
   if (!x && !y) return 0;

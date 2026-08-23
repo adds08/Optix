@@ -22,7 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { SearchSelect } from "@/components/ui/search-select";
 import { humanize } from "@/components/sti/status";
 import { rigOf } from "@/lib/rig";
-import { money } from "@/lib/format";
+import { moneyShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*
@@ -565,7 +565,7 @@ export default function JobsitesPage() {
               {/* The whole card-row summary in one line — the numbers that used
                   to sit in metric cards above, where they only pushed the cards
                   themselves below the fold. */}
-              <span className="tnum">
+              <span className="tnum font-mono">
                 {shownTools} tool{shownTools === 1 ? "" : "s"} · {shownCrews} crew{shownCrews === 1 ? "" : "s"} · {cards.length} card{cards.length === 1 ? "" : "s"}
               </span>
               {/* The count is also the way in: seeing that eleven crews cannot
@@ -717,7 +717,12 @@ export default function JobsitesPage() {
                     <span className="text-[17px] font-semibold tracking-tight">
                       <Highlight text={card.name} q={q} />
                     </span>
-                    {card.code ? <span className="tnum rounded-sm border bg-muted/60 px-2 py-0.5 font-mono text-sm text-foreground/75">{card.code}</span> : null}
+                    {card.code ? (
+                      <span className="tnum rounded-sm border bg-muted/60 px-2 py-0.5 font-mono text-sm text-foreground/75">
+                        {card.isJob ? <span className="text-muted-foreground">JOB </span> : null}
+                        {card.code}
+                      </span>
+                    ) : null}
                     <span className="text-sm text-muted-foreground">
                       {card.isJob ? (card.crews.length ? `${card.crews.length} crew${card.crews.length === 1 ? "" : "s"}` : "no crew yet") : "between jobs"}
                     </span>
@@ -741,7 +746,7 @@ export default function JobsitesPage() {
                       <span className="block rounded-sm border bg-muted/50 px-2.5 py-1 text-[13px]">
                         <span className="tnum text-sm font-semibold text-foreground">{card.toolCount}</span> tool{card.toolCount === 1 ? "" : "s"}
                       </span>
-                      <span className="tnum mt-1 block text-[13px] text-muted-foreground">{money(card.value)}</span>
+                      <span className="tnum mt-1 block font-mono text-[13px] text-muted-foreground">{moneyShort(card.value)}</span>
                     </span>
                     {card.isJob && canAssignCrew ? (
                       <Button variant="outline" size="sm" className="border-dashed border-muted-foreground/40 text-primary hover:border-primary/50" onClick={() => setPicker({ kind: "crew", projectId: card.id })}>
@@ -785,7 +790,7 @@ export default function JobsitesPage() {
                         <MetricCell label="TRUCKS" value={`${card.trucks}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.trucks < card.crews.length} />
                         <MetricCell label="TRAILERS" value={`${card.trailers}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.trailers < card.crews.length} />
                         <MetricCell label="RIGGED" value={`${card.fullyRigged}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.fullyRigged < card.crews.length} />
-                        <MetricCell label="VALUE" value={money(card.value)} />
+                        <MetricCell label="VALUE" value={moneyShort(card.value)} />
                       </div>
                     ) : null}
                     {card.crews.map((crew, i) => (

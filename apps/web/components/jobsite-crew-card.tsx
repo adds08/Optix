@@ -1,11 +1,13 @@
 "use client";
 
-import { ChevronDown, Container, EllipsisVertical, Pencil, Plus, Truck } from "lucide-react";
+import { ChevronRight, Container, EllipsisVertical, Pencil, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
 import { PersonChip } from "@/components/sti/entity-chip";
 import type { PickerRequest } from "@/components/rig-picker";
+import { moneyShort } from "@/lib/format";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 /*
@@ -72,7 +74,6 @@ export function CrewCard({
   highlight?: string;
 }) {
   const { rig } = crew;
-  const aboard = rig.trailer ? crew.tools.filter((t) => t.locationId === rig.trailer!.locationId).length : 0;
 
   /* The crew tick (design readme, "The edge accent"): crews get a short 3x20px
      mark rather than the full-height bar a job card carries, so a column of
@@ -97,136 +98,179 @@ export function CrewCard({
     a class assembled at runtime is never generated and the tick renders with no
     colour at all.
   */
-  const tick = rig.truck && rig.trailer ? "before:bg-primary" : "before:bg-border";
+  /*
+    The crew row, 1:1 with the design (App.jsx CrewCard).
+
+    Rigged is the whole signal on the left edge: a 3x22 bar, GREEN when the crew
+    has both a truck and a trailer and AMBER when it does not. That is the one
+    piece of state a foreman's row carries, and unlike the earlier version it
+    actually varies down a list, because most crews are missing one or the other.
+
+    The header is the toggle. There is no separate chevron button on the right —
+    the whole strip is clickable and the caret on the left rotates. A row that
+    opens a table should not need you to find a 32px target at the far edge.
+  */
+  const rigged = !!rig.truck && !!rig.trailer;
+  const value = crew.tools.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0);
+
+  /* A trailer with no truck is legal here — assigning one hands it straight to
+     the foreman — but it is a rig that cannot move, so the hitch says so. */
+  const brokenHitch = !rig.truck && !!rig.trailer;
+
+  /*
+    A rig slot is either the unit in mono, or an amber prompt to fill it. The
+    amber IS the point: a crew with no trailer cannot carry tools, and that
+    belongs on the row rather than in a legend.
+
+    An ASSIGNED unit stays changeable. It briefly was not — replacing the old
+    Chip dropped its pencil, which quietly removed the only way to swap a truck
+    from this screen. The pencil is hidden until hover but reappears on
+    keyboard focus, because `opacity-0` hides it from a mouse and from nobody
+    else; without that it would be unreachable by keyboard entirely.
+  */
+  const slot = (unit: string | null | undefined, kind: "truck" | "trailer", onClick: () => void) =>
+    unit ? (
+      <span className="group/rig flex items-center gap-1.5 rounded-sm border px-2 py-1 font-mono text-xs text-muted-foreground">
+        {kind === "truck" ? <Truck className="size-3.5 shrink-0" aria-hidden /> : <Container className="size-3.5 shrink-0" aria-hidden />}
+        <span className="truncate">{unit}</span>
+        {canManage ? (
+          <button
+            type="button"
+            aria-label={`Change ${kind}`}
+            onClick={(e) => {
+              /* The whole row toggles the tool table; without this the picker
+                 opens and the row expands underneath it in the same click. */
+              e.stopPropagation();
+              onClick();
+            }}
+            className="grid size-4 shrink-0 place-items-center rounded-sm text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/rig:opacity-100"
+          >
+            <Pencil className="size-3" />
+          </button>
+        ) : null}
+      </span>
+    ) : canManage ? (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        className="flex items-center gap-1 rounded-sm border border-warn/30 bg-warn-bg px-2 py-1 text-xs font-semibold text-warn transition-colors hover:bg-warn-bg/70"
+      >
+        + {kind}
+      </button>
+    ) : (
+      <span className="text-xs text-muted-foreground">no {kind}</span>
+    );
 
   return (
-    <div
-      className={cn(
-        "relative overflow-hidden rounded-md border",
-        "before:absolute before:left-0 before:top-1/2 before:h-6 before:w-[3px] before:-translate-y-1/2 before:rounded-r-sm",
-        tick,
-        striped ? "bg-muted/15" : "bg-card",
-      )}
-    >
-      {/*
-        Three COLUMNS, not three flex zones.
-
-        The zones were sized by their contents — the foreman span had a minimum
-        width but no maximum, so it grew with the name and every row started its
-        rig chain at a different x. Down a list of fifty crews that ragged edge
-        is the thing that reads as "not aligned", and no amount of spacing fixes
-        it while the columns are elastic. A grid pins the tracks, so the rigs
-        line up with each other and the counts line up with each other whatever
-        the names do.
-
-        The track widths are FIXED, and that part is load-bearing. Every crew is
-        its own grid container, so `auto` tracks would size to each row's own
-        content and the columns would go right back to being ragged — grid only
-        aligns tracks within one grid, and these cannot share one without
-        subgrid across separately bordered cards. Fixed tracks give every row
-        the same geometry. `minmax(0, …)` lets them shrink on a narrow window,
-        which is safe precisely because all the rows in a card shrink together.
-
-        The rig is justified to the END of its track, so the chain finishes
-        against the counts rather than trailing off mid-row. Below md the grid
-        collapses to stacked rows, where alignment is not the problem.
-      */}
-      <div className="crew-row grid grid-cols-1 items-center gap-x-5 gap-y-2.5 bg-muted/30 px-3.5 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,21rem)_12rem]">
-        {/* The foreman as ONE identity — id and name inside one border, with the
-            role and the rest on hover. See PersonChip; the role used to sit
-            beside the name and was what squeezed the name off a narrow row. */}
-        <PersonChip
-          id={crew.foremanId}
-          externalId={crew.foremanExternalId}
-          name={crew.foremanName}
-          role={crew.foremanRole}
-          detail={[
-            `${crew.tools.length} tool${crew.tools.length === 1 ? "" : "s"}`,
-            rig.truck ? `truck ${rig.truck.unit}` : "no truck",
-            rig.trailer ? `trailer ${rig.trailer.unit}` : null,
-            crew.otherJobs ? `also on ${crew.otherJobs} other job${crew.otherJobs === 1 ? "" : "s"}` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+    <div className={cn("overflow-visible rounded-md border", striped ? "bg-muted/15" : "bg-card")}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+        aria-expanded={expanded}
+        className="crew-row flex cursor-pointer flex-wrap items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-muted/40"
+      >
+        <span
+          aria-hidden
+          className={cn("h-[22px] w-[3px] shrink-0 rounded-sm", rigged ? "bg-ok" : "bg-warn")}
+        />
+        <ChevronRight
+          aria-hidden
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform duration-150",
+            expanded && "rotate-90",
+          )}
         />
 
-        {/* the rig chain — truck → trailer reads as one unit, closed up against
-            the counts. No band behind it: a tinted box stretched across an
-            elastic track was drawing a shape that had nothing to do with the
-            content sitting in it. */}
-        <span className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <span className="justify-self-start">
-          {rig.truck ? (
-            <Chip
-              tone="truck"
-              icon={Truck}
-              label={rig.truck.unit}
-              onEdit={canManage ? () => onPick({ kind: "truck", foremanId: crew.foremanId }) : undefined}
-            />
-          ) : canManage ? (
-            <Button variant="outline" size="sm" className="h-8 border-dashed border-muted-foreground/40 px-2.5 text-[13px] text-muted-foreground hover:border-primary/50 hover:text-primary" onClick={() => onPick({ kind: "truck", foremanId: crew.foremanId })}>
-              <Plus className="size-3" /> Truck
-            </Button>
-          ) : (
-            <span className="text-[13px] text-muted-foreground">no truck</span>
-          )}
+        {/* Name over a mono role kicker, per the design. The name is still the
+            link and still carries the hover detail — the design describes a
+            layout, not a decision to make people uninteractive. */}
+        <span className="min-w-0 flex-[1_1_150px]">
+          <PersonChip
+            id={crew.foremanId}
+            externalId={crew.foremanExternalId}
+            name={crew.foremanName}
+            role={crew.foremanRole}
+            detail={[
+              `${crew.tools.length} tool${crew.tools.length === 1 ? "" : "s"}`,
+              rig.truck ? `truck ${rig.truck.unit}` : "no truck",
+              rig.trailer
+                ? `trailer ${rig.trailer.unit} · ${crew.tools.filter((t) => t.locationId === rig.trailer!.locationId).length} aboard`
+                : "no trailer",
+              crew.otherJobs ? `also on ${crew.otherJobs} other job${crew.otherJobs === 1 ? "" : "s"}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          />
+        </span>
+
+        {/*
+          The rig zone is a FIXED width split into three tracks: the truck grows
+          leftward from the centre, the hitch owns the centre, the trailer grows
+          rightward. That is what puts the join on one vertical line down the
+          whole list — the two tags used to sit adjacent in the flex flow, so a
+          long unit name like ZZ-SEED-TRUCK shoved the pair sideways and every
+          row broke at a different x.
+
+          It only holds while the tracks either side are deterministic too, which
+          is why the trailing counts below are fixed-width rather than shrink-to-
+          fit: "1 tool $289" and "154 tools $4.6k" are different widths, and a
+          flexible trailing zone would feed that difference straight back into
+          where the rig starts.
+        */}
+        <span className="grid w-[23rem] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <span className="flex min-w-0 justify-self-end">
+            {slot(rig.truck?.unit, "truck", () => onPick({ kind: "truck", foremanId: crew.foremanId }))}
           </span>
-          <span className="text-[13px] text-muted-foreground" aria-hidden>→</span>
-          <span className="justify-self-end">
-          {rig.trailer ? (
-            <Chip
-              tone="trailer"
-              icon={Container}
-              label={rig.trailer.unit}
-              meta={`· ${aboard} aboard`}
-              onEdit={canManage ? () => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id }) : undefined}
-            />
-          ) : !canManage ? (
-            <span className="text-[13px] text-muted-foreground">no trailer</span>
-          ) : (
-            /* A trailer does not need a truck: assigning one hands it straight
-               to the foreman (the picker takes it off any truck it rides). */
-            <Button variant="outline" size="sm" className="h-8 border-dashed border-muted-foreground/40 px-2.5 text-[13px] text-muted-foreground hover:border-primary/50 hover:text-primary" onClick={() => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id })}>
-              <Plus className="size-3" /> Trailer
-            </Button>
-          )}
+          <Hitch broken={brokenHitch} />
+          <span className="flex min-w-0 justify-self-start">
+            {slot(rig.trailer?.unit, "trailer", () =>
+              onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id }),
+            )}
           </span>
         </span>
 
-        {/* tools/value + actions — its own track, so the counts form a column */}
-        <span className="flex shrink-0 items-center gap-2.5 justify-self-end whitespace-nowrap">
-          <span className="tnum whitespace-nowrap text-sm font-semibold">
-            {crew.tools.length} tool{crew.tools.length === 1 ? "" : "s"}
-          </span>
-          {canManage ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="size-8" aria-label={`Actions for ${crew.foremanName}`}>
-                  <EllipsisVertical className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => onPick({ kind: "truck", foremanId: crew.foremanId })}>
-                  {rig.truck ? "Change truck" : "Assign truck"}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id })}>
-                  {rig.trailer ? "Change trailer" : rig.truck ? "Hitch a trailer" : "Assign a trailer"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => onPick({ kind: "move", foremanId: crew.foremanId, projectId })}>
-                  Move this crew to another job
-                </DropdownMenuItem>
-                {onAddTools ? (
-                  <DropdownMenuItem onSelect={onAddTools}>Add tools to this crew</DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem onSelect={onToggle}>{expanded ? "Hide tools" : "Show tools"}</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-          <Button variant="outline" size="icon" className="size-8" aria-label="Show tools" onClick={onToggle}>
-            <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
-          </Button>
+        <span className="w-14 shrink-0 text-right whitespace-nowrap">
+          <span className="tnum font-mono text-sm font-bold text-foreground">{crew.tools.length}</span>
+          <span className="text-xs text-muted-foreground"> tools</span>
         </span>
+        <span className="tnum w-14 shrink-0 text-right whitespace-nowrap font-mono text-xs text-muted-foreground">
+          {moneyShort(value)}
+        </span>
+
+        {canManage ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="outline" size="icon" className="size-7 shrink-0" aria-label={`Actions for ${crew.foremanName}`}>
+                <EllipsisVertical className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onSelect={() => onPick({ kind: "truck", foremanId: crew.foremanId })}>
+                {rig.truck ? "Change truck" : "Assign truck"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id })}>
+                {rig.trailer ? "Change hitched trailer" : rig.truck ? "Hitch a trailer" : "Assign a trailer"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => onPick({ kind: "move", foremanId: crew.foremanId, projectId })}>
+                Move this crew to another job
+              </DropdownMenuItem>
+              {onAddTools ? (
+                <DropdownMenuItem onSelect={onAddTools}>Add tools to this crew</DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
       </div>
 
       {expanded ? (
@@ -242,36 +286,35 @@ export function CrewCard({
   );
 }
 
-function Chip({
-  icon: Icon,
-  label,
-  meta,
-  onEdit,
-  tone,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  meta?: string;
-  onEdit?: () => void;
-  /* Truck and trailer chips carry slightly different fills so the rig chain
-     is scannable at a glance: the truck reads primary, the trailer accent. */
-  tone?: "truck" | "trailer";
-}) {
-  return (
+/*
+  The hitch: a tow bar between the truck and the trailer.
+
+  Muted while the chain makes sense. Amber when a trailer has nothing to pull
+  it — this system lets you hand a trailer straight to a foreman without a
+  truck, so it is a real state rather than an impossible one, and it is exactly
+  the kind of thing that is invisible unless the connector says it.
+*/
+function Hitch({ broken }: { broken: boolean }) {
+  const bar = (
     <span
+      aria-hidden
       className={cn(
-        "rig-chip flex h-8 max-w-full items-center gap-2 rounded-md border pl-2.5 pr-1.5 text-[13px]",
-        tone === "truck" ? "border-primary/25 bg-primary/5" : tone === "trailer" ? "border-accent/25 bg-accent/10" : "bg-card",
+        "flex items-center",
+        broken ? "text-warn" : "text-muted-foreground/50",
       )}
     >
-      <Icon className={cn("size-4 shrink-0", tone === "truck" ? "text-primary" : "text-ok")} aria-hidden />
-      <span className="truncate font-medium">{label}</span>
-      {meta ? <span className="shrink-0 text-muted-foreground">{meta}</span> : null}
-      {onEdit ? (
-        <button type="button" onClick={onEdit} className="grid size-4.5 shrink-0 place-items-center text-muted-foreground hover:text-foreground" aria-label={`Change ${label}`}>
-          <Pencil className="size-3" />
-        </button>
-      ) : null}
+      <span className="h-px w-3 bg-current" />
+      <ChevronRight className="-ml-0.5 size-3" />
     </span>
+  );
+
+  if (!broken) return bar;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="cursor-help">{bar}</span>
+      </TooltipTrigger>
+      <TooltipContent side="top">Trailer with no truck — this rig cannot move</TooltipContent>
+    </Tooltip>
   );
 }

@@ -24,6 +24,25 @@ export function money(v: string | number | null | undefined, cents = false): str
   return cents ? USD_CENTS.format(n) : USD.format(n);
 }
 
+/*
+  Money at a glance — "$7.2k", not "$7,231.00".
+
+  The board shows a value on every job card and every crew row; at full
+  precision that is a column of eleven-character numbers nobody reads and every
+  one of them competes with the tool count beside it, which is the number people
+  actually came for. Whole dollars under a thousand, one decimal above.
+  `money()` stays the exact form for anywhere a figure is the subject — a tool
+  record, a report — rather than a scale.
+*/
+export function moneyShort(v: string | number | null | undefined): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = typeof v === "string" ? Number(v) : v;
+  if (!Number.isFinite(n)) return "—";
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}m`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
+  return `$${Math.round(n)}`;
+}
+
 export function num(v: string | number | null | undefined): string {
   if (v === null || v === undefined || v === "") return "—";
   const n = typeof v === "string" ? Number(v) : v;

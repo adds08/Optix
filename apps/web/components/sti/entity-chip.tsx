@@ -83,20 +83,23 @@ export function PersonChip({
   const roleLabel = r.label || (role ? role.replace(/_/g, " ") : "");
 
   const body = (
-    <span
-      className={cn(
-        "inline-flex min-w-0 max-w-full items-center gap-2 rounded-sm border bg-card/80 py-1 pl-2 pr-2.5",
-        "transition-colors hover:border-primary/40 hover:bg-accent",
-        className,
-      )}
-    >
+    /*
+      The design's layout: name on top, a mono uppercase kicker under it. The
+      bordered (ID · Name) pill this replaced is gone because the design does not
+      have one — but the id has not gone with it, it moved into the kicker, so
+      "id first, then who" still holds and the row is a line shorter.
+    */
+    <span className={cn("flex min-w-0 items-center gap-2", className)}>
       <Icon className={cn("size-4 shrink-0", r.hat)} aria-hidden />
-      {externalId ? (
-        <span className="tnum shrink-0 font-mono text-[13px] text-muted-foreground">
-          {externalId}
+      <span className="min-w-0">
+        <span className="block truncate text-[13.5px] font-semibold leading-tight group-hover/person:text-primary">
+          {name}
         </span>
-      ) : null}
-      <span className="min-w-0 truncate text-sm font-semibold">{name}</span>
+        <span className="label-xs block truncate">
+          {externalId ? `${externalId} · ` : ""}
+          {roleLabel || "—"}
+        </span>
+      </span>
     </span>
   );
 
@@ -114,7 +117,7 @@ export function PersonChip({
     <Tooltip>
       <TooltipTrigger asChild>
         {id ? (
-          <Link href={`/people/${id}`} className="min-w-0 max-w-full">
+          <Link href={`/people/${id}`} className="group/person block min-w-0 max-w-full">
             {body}
           </Link>
         ) : (

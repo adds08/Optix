@@ -480,7 +480,7 @@ export function ProjectMonitor() {
       </div>
 
       {/* ───── band 5: transport ───── */}
-      <div className="relative flex h-[68px] shrink-0 items-center gap-6 border-t bg-card px-6">
+      <div className="relative flex min-h-[68px] shrink-0 items-center gap-6 border-t bg-card px-6 py-2">
         {/* Progress runs along the top edge of the band, so the eye finds it
             without it competing with the names either side. */}
         <div className="absolute inset-x-0 top-0 h-0.5 bg-muted/40">
@@ -490,12 +490,19 @@ export function ProjectMonitor() {
         <button
           type="button"
           onClick={() => step(-1)}
-          className="flex min-w-0 max-w-[22%] items-center gap-2 text-left text-muted-foreground transition-colors hover:text-foreground"
+          className="flex min-w-0 max-w-[28%] items-center gap-2 text-left text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronLeft className="size-5 shrink-0" />
+          {/* Code on top, name beneath. It showed one OR the other — a coalesce
+              on `code ?? name` — so a job with a cost code never showed what it
+              was called, and somebody who arrived mid-cycle got a bare number
+              for the thing coming next. Both, always. */}
           <span className="min-w-0">
             <span className="label-xs block">Previous</span>
-            <span className="block truncate text-sm">{prev.code ?? prev.name}</span>
+            <span className="tnum block truncate font-mono text-sm font-semibold">
+              {prev.code ?? "No code"}
+            </span>
+            <span className="block truncate text-[13px] text-muted-foreground">{prev.name}</span>
           </span>
         </button>
 
@@ -522,11 +529,14 @@ export function ProjectMonitor() {
         <button
           type="button"
           onClick={() => step(1)}
-          className="flex min-w-0 max-w-[22%] items-center justify-end gap-2 text-right text-muted-foreground transition-colors hover:text-foreground"
+          className="flex min-w-0 max-w-[28%] items-center justify-end gap-2 text-right text-muted-foreground transition-colors hover:text-foreground"
         >
           <span className="min-w-0">
             <span className="label-xs block">Next up</span>
-            <span className="block truncate text-sm">{next.code ?? next.name}</span>
+            <span className="tnum block truncate font-mono text-sm font-semibold">
+              {next.code ?? "No code"}
+            </span>
+            <span className="block truncate text-[13px] text-muted-foreground">{next.name}</span>
           </span>
           <ChevronRight className="size-5 shrink-0" />
         </button>
