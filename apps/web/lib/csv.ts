@@ -15,14 +15,44 @@ export function toCsv(rows: unknown[][]): string {
   return rows.map((r) => r.map(csvEscape).join(",")).join("\n");
 }
 
+/*
+  The ONLY download path in the web app — report tables, the Tool Register
+  export and the import template all end up here — which is why it is worth
+  getting right and why it is not changed casually.
+
+  Two defects lived in this function, neither of which produces an error when it
+  fires. Both were found while investigating UI-68/69 and are fixed here rather
+  than inside that bug's change, because a fault in this function reaches every
+  export button in the product.
+
+  1. **The anchor was never attached to the document.** Following a hyperlink is
+     specified against the node's document being fully active rather than
+     against the node being connected, so Chromium and WebKit download a
+     detached anchor happily — Gecko historically has not. Appending costs
+     nothing and removes a browser-dependent failure.
+
+  2. **The object URL was revoked synchronously.** `click()` dispatches the
+     event synchronously, but the download itself runs on the task the
+     activation behaviour queues afterwards. Revoking in the same synchronous
+     block can delete the blob before that task reads it, and the failure is
+     silent: no file, no error, nothing in the console. Deferring the revoke by
+     one task lets the download start first, and the blob is still released, so
+     nothing leaks.
+
+  Neither defect caused UI-68/69 — those reports were simply empty and their
+  button correctly disabled — but a silent, racy, browser-dependent failure in
+  the app's only download path is worth closing on its own.
+*/
 export function downloadCsv(filename: string, rows: unknown[][]): void {
   const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename.endsWith(".csv") ? filename : `${filename}.csv`;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 /*
