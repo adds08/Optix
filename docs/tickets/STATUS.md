@@ -317,17 +317,41 @@ After `make ENV=local reset`:
 
 | Check | Expected |
 |---|---|
-| Assets / ledger rows / rows with complete four-key `to_state` | 754 / 754 / 754 |
-| `asset.verifyProjection` divergences | 0 |
-| Boot sweep | `754 assets checked against 754 events, 0 divergences` |
+| Assets / ledger rows / rows with complete four-key `to_state` | 756 / 754 / 754 |
+| `asset.verifyProjection` divergences | **2 — see the open defect below** |
+| Boot sweep | `2 divergent asset(s)`, both `kind: "no_evidence"` |
 | Append-only triggers | both `tgenabled = 'O'` |
 | `assignment_one_active_uq` | present |
+| `vehicle_one_truck_per_foreman_uq` | present (migration `0022`, STI-502) |
+| Project statuses reachable | all four — Richardson `closing`, Mesquite `complete`, City of Kemp `awarded` |
+| Categories | 8 seeded; 414 of 756 tools filed, 342 unfiled |
 | Desk queue | 1 pending assignment (carries the personal-allowance truck) + 1 pending transfer (trailer only) |
-| Tests | 182 passing |
+| Tests | 390 passing (228 in `api-contracts`) |
 | Typecheck | 12/12 |
 
 If the boot sweep reports ~754 divergences, the seed has regressed — run
 `make ENV=local test`; `seeded-ledger-fold.test.ts` is the gate for exactly that.
+
+> ### ⚠️ Open defect: two seeded assets have NO ledger evidence
+>
+> **This is a regression on `main`, found 2026-08-23 and NOT fixed here.** The boot
+> sweep and the 6-hourly reconciliation both report 2 divergent assets, kind
+> `no_evidence` — the unrepairable class, which `asset.rebuild` deliberately refuses to
+> touch because blanking a live row on zero evidence would *be* the corruption.
+>
+> Cause: commit `b3c0526` (UI-68/69) added two untagged tools to `assetSpecs` —
+> `1/2" IMPACT WRENCH (UNLABELLED)` and `4-1/2" ANGLE GRINDER (UNLABELLED)` — so the
+> "Needs a Tag" report would have rows. They were added **without the opening `tag`
+> ledger event every other creation path writes**, so 756 assets fold from 754 events.
+>
+> It is left alone deliberately: it is a different ticket's concern from the six this
+> branch delivers, and folding it in would put an unrelated seed change in the same
+> review. The fix is small — give those two rows the same baseline event the other 754
+> get in `seed.ts` — but it wants its own ticket, because the interesting question is
+> *how a seeded asset got created without one* and whether anything else can.
+>
+> Until then the ERROR on every boot is expected, and "0 divergences" is no longer the
+> health signal. **2, both `no_evidence`, is.** Anything else is new.
 
 ---
 
