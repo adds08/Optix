@@ -125,8 +125,8 @@ If minimalism or convenience conflicts with any of these, they win — say so ou
 |---|---|
 | Tests fail only inside Docker | Missing `node_modules` anonymous volume for that package |
 | A rebuild blanks everything | A writer emitted a partial `toState` |
-| Two custodians for one tool | A write bypassed `custody.ts` — check `assignment.approve` and `/api/*` |
-| A permission check "does nothing" | You are on the `/api/*` REST surface, which has none |
+| Two custodians for one tool | A write bypassed `custody.ts` — check `assignment.approve` |
+| ~~A permission check "does nothing"~~ | **Gone, not fixed.** The `/api/*` REST surface no longer exists. The Hono app serves `/health`, `/auth/login`, `/auth/logout`, the two asset-photo endpoints and tRPC — nothing else. Both photo endpoints check the session (401), then `asset.manage` (403), then scope every read and write by `tenantId`. Verified 2026-08-24. If you are looking for an ungated mutation, it is not there. |
 | ~~Overdue alert fires a day early~~ | **Gone, not fixed.** Removed 2026-08-09 with the borrow model: `assignment.expected_end_date` was DROPPED in migration `0012`, `isOverdueLoan` was deleted from `packages/domain`, and no `dashboard.overdueLoans` procedure exists. **Nothing falls due, so nothing goes overdue.** Verified 2026-08-22. If a doc, ticket or plan asks for an overdue view, it is describing a deleted feature — say so rather than inventing a due date. |
 | Chat message stuck in `pending_manual` | No model configured, low confidence, or no asset resolved |
 | Stale deps after a `package.json` change | Anonymous volumes survive rebuilds — `make ENV=local reset` |

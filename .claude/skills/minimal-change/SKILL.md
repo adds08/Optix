@@ -75,9 +75,10 @@ A rung you skipped is a decision you owe the reviewer an explanation for.
 
 Use these as the argument when someone says "I'll just write a new one":
 
-- **`asset.rebuild` reimplements the fold inline** (`routers/asset.ts:450-459`)
-  instead of calling `foldAssetState` from `packages/domain`. The tested
-  implementation and the production one are now different code that merely agree.
+- ~~**`asset.rebuild` reimplements the fold inline**~~ — **fixed.** `routers/asset.ts`
+  imports `foldAssetState` from `@stinventory/domain` (line 9). Kept here as the
+  worked example it was: a tested implementation and a production one that merely
+  agreed, until they would not have. Verified 2026-08-24.
 - **`packages/frontend-shared` and `packages/design-system` are dead** — imported
   by nothing. The live theming lives in `apps/web/lib/themes`.
 - **The `/api/*` REST surface** duplicates tRPC procedures, without their

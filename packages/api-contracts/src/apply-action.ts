@@ -349,27 +349,32 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
         case "assign": {
           if (!action.custodianId)
             throw new TRPCError({ code: "BAD_REQUEST", message: "Assign needs a custodian" });
-          /* Assigning a tool that is already out closes the previous link first,
-             or the tool ends up in two people's custody at once. The project
-             defaults to the custodian's current job when the action says nothing. */
-          await closeActiveCustody(tx, tenantId, assetId);
+          /* Through moveCustody, not a hand-rolled close-then-insert.
+
+             This path used to call `closeActiveCustody` and then write the
+             `assignment` row itself. It closed before opening, so it never
+             produced the two-custodian bug — but it was a second implementation
+             of opening custody, and the one thing custody.ts exists to
+             guarantee is that there is only ever one. It also skipped the
+             chokepoint's own `assertVehicleContext`; that is covered here by
+             the edge check above, which is exactly the kind of coincidence that
+             stops being true later.
+
+             The project still resolves before the move: `projectForCustodian`
+             reads the employee's primaryProjectId and nothing custody-shaped,
+             so it is order-independent. */
           const assignProjectId =
             action.projectId ?? (await projectForCustodian(tx, tenantId, action.custodianId, asset.currentProjectId));
-          const [assignment] = await tx
-            .insert(schema.assignment)
-            .values({
-              tenantId,
-              assetId,
-              custodianId: action.custodianId,
-              projectId: assignProjectId,
-              locationId: action.locationId ?? asset.currentLocationId ?? null,
-              truckId: action.truckId ?? null,
-              trailerId: action.trailerId ?? null,
-              startDate: new Date().toISOString().slice(0, 10),
-              status: "active",
-              approvedBy: actorUserId,
-            })
-            .returning();
+          const { openedId: assignmentId } = await moveCustody(tx, {
+            tenantId,
+            assetId,
+            toCustodianId: action.custodianId,
+            projectId: assignProjectId,
+            locationId: action.locationId ?? asset.currentLocationId ?? null,
+            truckId: action.truckId,
+            trailerId: action.trailerId,
+            actorUserId,
+          });
           after = {
             status: "assigned",
             custodianId: action.custodianId,
@@ -382,7 +387,7 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
           };
           eventType = "assign";
           refType = "assignment";
-          refId = assignment?.id ?? null;
+          refId = assignmentId;
           note = note || "Assigned via chat";
           break;
         }
@@ -398,11 +403,29 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
               code: "INTERNAL_SERVER_ERROR",
               message: "This hand-off has no identifiable requester",
             });
-          // Close any assignment the previous holder had.
-          await closeActiveCustody(tx, tenantId, assetId);
+          /* Same chokepoint as the assign branch: one call closes the previous
+             holder's link and opens the receiver's, under the asset-row lock
+             custody.ts takes. `toCustodianId: null` — a hand-off to a place
+             rather than a person — closes and opens nothing, which is what the
+             two separate statements here used to do between them.
+
+             Ordered before the transfer record on purpose: the record reads
+             from the `asset` snapshot taken outside this transaction, so it is
+             unaffected, and holding the lock across the whole custody change is
+             strictly safer than opening it afterwards. */
           const transferProjectId =
             action.projectId ??
             (await projectForCustodian(tx, tenantId, action.custodianId, asset.currentProjectId));
+          await moveCustody(tx, {
+            tenantId,
+            assetId,
+            toCustodianId: action.custodianId ?? null,
+            projectId: transferProjectId,
+            locationId: action.locationId ?? asset.currentLocationId ?? null,
+            truckId: action.truckId,
+            trailerId: action.trailerId,
+            actorUserId,
+          });
           const [transfer] = await tx
             .insert(schema.transfer)
             .values({
@@ -423,21 +446,6 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
               completedAt: new Date(),
             })
             .returning();
-          // A transfer with a new custodian opens their assignment.
-          if (action.custodianId) {
-            await tx.insert(schema.assignment).values({
-              tenantId,
-              assetId,
-              custodianId: action.custodianId,
-              projectId: transferProjectId,
-              locationId: action.locationId ?? asset.currentLocationId ?? null,
-              truckId: action.truckId ?? null,
-              trailerId: action.trailerId ?? null,
-              startDate: new Date().toISOString().slice(0, 10),
-              status: "active",
-              approvedBy: actorUserId,
-            });
-          }
           after = {
             status: "assigned",
             custodianId: action.custodianId ?? asset.currentCustodianId,
