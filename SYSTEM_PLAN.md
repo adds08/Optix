@@ -44,6 +44,27 @@ Two organisational groups plus the engineering team.
 
 > **Terminology trap.** "Admin" is ambiguous in Urban's usage and must never be a single role in code. It resolves to at least three distinct things: *System Administrator* (Bodhi Labs engineering), *Equipment Administrator* (owns tools), *Office Administrator* (business admin). Permissions must be checked, never role names — see §6.3.
 
+### Tiers of administration
+
+Five tiers, of which four exist. See ADR-12 for why the fifth is designed but not built.
+
+| Tier | Reach | In code today |
+|---|---|---|
+| Platform administrator | every organisation | **does not exist** — deferred to the second tenant |
+| Organisation administrator | one organisation, including configuration | `owner` |
+| Business administrator | one organisation, business records only | `office_admin` |
+| Functional roles | one organisation, by permission | the rest of `ROLES` |
+| Guest | one organisation, narrow and time-boxed | later |
+
+`EMPLOYEE_ROLES` is **not** on this ladder. It describes employment — who is a foreman on a
+crew — and `ROLES` describes authorisation. They are separate axes and the one sanctioned
+crossing between them is `PM_EMPLOYEE_ROLE` / `PM_LOGIN_ROLE` in `packages/types`.
+
+When the platform tier is built it is a **separate identity that impersonates into an
+organisation**, never a role that skips the tenant predicate. There is no RLS; the `WHERE`
+clause is the isolation, and a privileged role would need an exception in every query in the
+system.
+
 ### Organisational hierarchy
 
 ```mermaid
@@ -455,6 +476,35 @@ Registry-driven so Release 2 adds panels without touching role logic. Tools-by-j
 ---
 
 ## 7. Roadmap
+
+### How the product is organised as it grows
+
+Small tools are the first module, not the shape of the system. Everything Urban has asked
+for next — timesheets, purchase orders and invoices, project operations — fits one grid:
+
+> **Resource × Activity → charged to a project.**
+>
+> **Resources:** Labour · Small Tools · Equipment · Materials · Subcontract
+> **Activities:** Register (keep the record) · Deploy (where it is, who holds it) ·
+> Consume (hours, fuel, quantity) · Acquire (purchase, invoice) · Analyse (cost)
+
+Timesheets are Labour × Consume. Tools by Jobsite is Small Tools × Deploy. An equipment
+purchase order is Equipment × Acquire. Concrete poured is Materials × Consume. Every one of
+them ends by charging a project, because in construction the project id *is* the cost code.
+
+Three rules follow, recorded as ADR-9, ADR-10 and ADR-11:
+
+1. **Navigation is grouped by resource, not by department.** Departments reorganise and
+   cross-cutting records have two of them; resources are stable. Departments are not
+   modelled at all — somebody's permissions already say which part of the product is theirs,
+   and the shell hides the rest.
+2. **A navigation row is a route plus a preset.** Tool purchase orders and equipment
+   purchase orders are one screen and one table with a `resource_kind`, not two of each.
+3. **What an organisation uses is a setting; what a person may use is a permission.** Hiding
+   a module never removes a check.
+
+None of this is speculative structure to build now. It is the rule for where the next thing
+goes, so that the answer is the same whoever is asked.
 
 ### Release 2 — next engagement
 

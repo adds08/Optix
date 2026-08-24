@@ -84,7 +84,7 @@ sentence is shown to a user who cannot act on it.
 | Cost code | FoundationSoft's term, and the accounting team's. Real vocabulary. |
 | Cat class | United Rentals' own catalogue term. Changing it breaks the match to their paperwork. |
 | Charged to / Owning project | Already plain, and the distinction from "who's using it" is the point. |
-| Gang box, yard, job site | Actual field words. |
+| Job site | Actual field word. |
 | Transfer | Understood, and it is what the paperwork says. |
 | Overdue, Missing, Damaged | Plain already. |
 | STInventory | Product name. |
@@ -101,3 +101,17 @@ makes "Small Tools" as a nav label slightly redundant — like a folder called
 - Nav says **All Tools**, to distinguish it from a foreman's **My Tools**
 
 The third reads best against the existing "My Tools", and is what I would pick.
+
+## Words this document used to assert, and should not have
+
+Checked against the code and with Urban, 2026-08-24.
+
+| Word | Standing |
+|---|---|
+| **Gang box** | Real trade word — a shared lockable site chest. **Urban does not use it.** It survives as one of five `LOCATION_TYPES` with **zero rows in the seed**, alongside `site_container` and `project_site`. This document listed it under "actual field words" and nobody had checked. Do not put it on a screen |
+| **Yard** | Kept in the phrases above — "in the yard", "money sitting in the yard" — where it reads as *not out on a job*. That is the only meaning it carries. **There is no yard entity**, no yard register and no yard screen. A tool with no project is in the pool, and the Pool tab on Tools by Jobsite is where it shows |
+| **Warehouse** | A table, and the only `LOCATION_TYPE` the seed creates. Not a user-facing word — say **pool** |
+
+The general point, which cost a review cycle: this file describes **what screens say**. A row
+here that asserts what Urban's people *call* something is a claim about the world, and it
+needs the same verification as a claim about the code. Two of the three above were wrong.
