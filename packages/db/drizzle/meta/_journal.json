@@ -169,6 +169,20 @@
       "when": 1787516962999,
       "tag": "0024_recover_orphaned_0022",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787544806781,
+      "tag": "0025_daffy_longshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1787545888982,
+      "tag": "0026_chief_falcon",
+      "breakpoints": true
     }
   ]
 }

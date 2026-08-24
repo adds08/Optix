@@ -19,7 +19,12 @@ the `(app)` route group:
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/job-groups` ·
 `/my-tools` · `/profile` · `/settings` + `/settings/ai` + `/settings/appearance` · `/design/*`
 
-Login is at `/`, not `/login`.
+Login is at `/`, not `/login`. Three more routes sit OUTSIDE `(app)`, unauthenticated by
+construction, added with the invite/reset work: `/forgot-password`, `/invite/[token]` and
+`/reset/[token]` (the last two share `AuthTokenForm`,
+`apps/web/components/auth-token-form.tsx`). They call `apps/api`'s auth endpoints directly
+via `lib/auth.ts`, the same way the login form does — not tRPC, because there is no session
+yet for a `protectedProcedure` to check.
 
 ## Data flow
 

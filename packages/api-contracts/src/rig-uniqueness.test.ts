@@ -47,6 +47,8 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
       actorLabel: null,
     },
     sessionSecret: "sti502-test-secret",
+    mailFallback: null,
+    webOrigin: "http://localhost:3100",
     request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
   });
 

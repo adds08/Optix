@@ -297,6 +297,8 @@ describe.skipIf(!url)("assignment.return keeps the ledger and the projection in 
         actorLabel: null,
       },
       sessionSecret: "sti113-test-secret",
+      mailFallback: null,
+      webOrigin: "http://localhost:3100",
       request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
     };
     const caller = assignmentRouter.createCaller(ctx);
@@ -444,6 +446,8 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
         actorLabel: null,
       },
       sessionSecret: "sti203-test-secret",
+      mailFallback: null,
+      webOrigin: "http://localhost:3100",
       request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
     };
   });

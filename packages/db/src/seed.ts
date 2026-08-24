@@ -2,12 +2,14 @@ import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import bcrypt from "bcryptjs";
+import { createHash, randomBytes } from "node:crypto";
 import { PERMISSIONS, ROLES } from "@stinventory/types";
 import * as schema from "./schema/index.js";
 import { ROLE_PERMS } from "./role-perms.js";
 import {
   asset,
   assignment,
+  authToken,
   category,
   channel,
   department,
@@ -294,6 +296,11 @@ async function main() {
 
   // ---- Login users ----
   const passwordHash = await bcrypt.hash("stinventory-demo", 10);
+  /* The one pending-invite row (see the comment on `userSpecs`) gets a
+     password nobody was ever shown rather than the shared demo one — sharing
+     it would let this "invited" account sign in the normal way, which is
+     exactly the state an invite is supposed to prevent until accepted. */
+  const unusablePasswordHash = await bcrypt.hash(randomBytes(24).toString("base64url"), 10);
   const userRows = await db
     .insert(user)
     .values(
@@ -301,12 +308,13 @@ async function main() {
         tenantId: tid,
         employeeId: u.employeeKey ? empByKey[u.employeeKey]! : null,
         email: u.email,
-        passwordHash,
+        passwordHash: u.pendingInvite ? unusablePasswordHash : passwordHash,
         firstName: u.first,
         lastName: u.last,
         /* Defaults to active; one seeded account is deactivated so STI-303's
            Deactivated badge and Reactivate button are reachable from a clean
-           database. */
+           database, and one more is a pending invite (isActive false for a
+           different reason — see `pendingInvite` below). */
         isActive: u.isActive ?? true,
       })),
     )
@@ -317,6 +325,31 @@ async function main() {
     await db.insert(userRole).values({ userId: u.id, roleId: roleByName[spec.role]!.id });
   }
   console.log(`[seed] ${userRows.length} users, ${employeeRows.length} employees`);
+
+  /*
+    The invite token itself. `hashAuthToken` in packages/auth is not imported
+    here on purpose — packages/auth already depends on packages/db (for
+    `Database`/schema types), so importing it back would be a circular
+    workspace dependency. SHA-256 of the raw token is the whole of that
+    function; reproduced inline rather than restructured for one caller.
+  */
+  for (const spec of userSpecs) {
+    if (!spec.pendingInvite) continue;
+    const u = userByEmail[spec.email]!;
+    const token = randomBytes(32).toString("base64url");
+    await db.insert(authToken).values({
+      tenantId: tid,
+      userId: u.id,
+      tokenHash: createHash("sha256").update(token).digest("hex"),
+      kind: "invite",
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+    /* The plaintext exists nowhere else — same rule as a real invite email —
+       so it is printed here for whoever is exercising this path locally.
+       Never logged for the other seeded users; this is the one row where
+       there is deliberately no working password otherwise. */
+    console.log(`[seed] pending invite for ${spec.email}: /invite/${token}`);
+  }
 
   // ---- Warehouses + locations + vehicles ----
   const whRows = await db

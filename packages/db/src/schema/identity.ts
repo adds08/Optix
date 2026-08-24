@@ -134,3 +134,53 @@ export const userPreferences = pgTable(
     tenantIdx: index("user_preferences_tenant_idx").on(t.tenantId),
   }),
 );
+
+/*
+  Invite and password-reset links.
+
+  A token table rather than a second `must_change_password`-style flag,
+  because the flag's whole design depends on the account already being able
+  to log in — an invite is issued to somebody with NO account yet, and a reset
+  is issued to somebody locked out of the one they have. Neither can be
+  satisfied by a boolean on a row the recipient cannot reach.
+
+  `tokenHash` stores a SHA-256 digest, never the token itself. This table is
+  read by an UNAUTHENTICATED endpoint (spending the token), so a leaked row —
+  a backup, a `pg_dump` — must not hand out a live credential the way a stored
+  plaintext token would. The email is the only place the plaintext exists.
+
+  One table for both kinds because both are the same shape — a single-use,
+  time-boxed, unauthenticated action tied to one user — and the consume
+  endpoint is one code path either way; `kind` is what it branches on for the
+  different consume-time effect (activate an account vs. just set a password).
+*/
+export const authToken = pgTable(
+  "auth_token",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    /* "invite" | "reset" — see AUTH_TOKEN_KINDS in packages/types. Plain text
+       like every other status column in this schema (see database.md): the
+       database will not stop an unlisted value, Zod at the router/endpoint
+       edge does. */
+    kind: text("kind").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    /* Null until spent. Kept rather than deleted on consume — it is what lets
+       the consume endpoint and `resend` tell "already used" apart from
+       "never existed", and it is the audit trail that a reset actually
+       happened. */
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("auth_token_tenant_idx").on(t.tenantId),
+    userIdx: index("auth_token_user_idx").on(t.userId),
+    /* The consume endpoint has no session and therefore nothing to scope a
+       lookup by — the same shape `login()` is in when it reads `user` by
+       email alone. It looks up by hash only; this unique index is what makes
+       "the hash is the whole credential" actually true rather than aspirational. */
+    hashUq: uniqueIndex("auth_token_hash_uq").on(t.tokenHash),
+  }),
+);

@@ -25,6 +25,7 @@ import { userRouter } from "./routers/user.js";
 import { roleRouter } from "./routers/role.js";
 import { departureRouter } from "./routers/custody-reassign.js";
 export { llmConfigFor } from "./routers/settings.js";
+export { mailConfigFor } from "./mail-config.js";
 
 export const appRouter = router({
   identity: identityRouter,

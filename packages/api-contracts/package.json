@@ -18,6 +18,7 @@
     "@stinventory/db": "workspace:*",
     "@stinventory/domain": "workspace:*",
     "@stinventory/intent": "workspace:*",
+    "@stinventory/mail": "workspace:*",
     "@stinventory/types": "workspace:*",
     "@trpc/server": "^11.0.0-rc.660",
     "drizzle-orm": "^0.36.4",

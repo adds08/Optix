@@ -130,6 +130,8 @@ describe.skipIf(!url)("decline paths: real message, agreed ledger behaviour (STI
         actorLabel: null,
       },
       sessionSecret: "sti112-test-secret",
+      mailFallback: null,
+      webOrigin: "http://localhost:3100",
       request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
     };
   });

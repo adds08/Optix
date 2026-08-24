@@ -42,6 +42,8 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
       actorLabel: null,
     },
     sessionSecret: "sti105-test-secret",
+    mailFallback: null,
+    webOrigin: "http://localhost:3100",
     request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
   });
 

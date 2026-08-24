@@ -55,18 +55,16 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
   equipment_admin: [...PERMISSIONS],
   /*
     Office Administrator: operations, accounts, general business
-    administration. Business records — NOT custody, NOT platform config.
+    administration. Business records and accounts — NOT custody, NOT platform
+    config.
 
-    Deliberately WITHOUT `config.manage`, which is PERMISSION_MATRIX §5
-    decision 4 taken at its default. That permission is also what gates the LLM
-    configuration and the high-value approval threshold, so granting it here to
-    let an office administrator add a user would also hand them the power to
-    change what needs a second signature. Splitting `config.manage` into a
-    separate `user.manage` is the alternative and it is a real change, not a
-    rename — it is not made on a default.
-
-    Consequence, stated plainly: an Office Administrator CANNOT create users or
-    reset passwords. If Urban wants that, answer question 8.
+    Question 8 is answered: `user.manage` was split out of `config.manage`
+    (2026-08-24, the invite/reset build) specifically so this role could
+    create users, invite them and reset passwords without also inheriting the
+    power to change the high-value approval threshold or the LLM/SMTP config,
+    which stay behind `config.manage` alone. This role deliberately does NOT
+    hold `config.manage` — an office administrator manages who has an account,
+    not what a tenant's operational thresholds are.
   */
   office_admin: [
     "asset.read",
@@ -83,6 +81,7 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "project.assign.pm",
     "employee.read",
     "employee.manage",
+    "user.manage",
     "department.read",
     "report.read",
     "audit.read",

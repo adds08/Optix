@@ -58,6 +58,8 @@ const NO_UI_BY_DESIGN: Record<string, string> = {
     "Exists to REFUSE. It throws a sentence explaining tools are never deleted because the ledger is the audit trail — a procedure whose only job is to say no does not need a button.",
   "vehicle.updateGps":
     "Written for a GPS provider to call, not a person. There is no screen where somebody types a latitude.",
+  "user.create":
+    "Superseded in the UI by `user.invite` (2026-08-24) — the product now has no direct signup, so the only way an account becomes usable is by its owner consuming an emailed link. Offering both a screen for this AND for invite would mean choosing between a credential an admin typed out loud and one nobody but the recipient ever sees, which is the exact split the invite work exists to close. Kept, not deleted: `user-admin.test.ts` uses it as the fast, no-email way to seed a fully active test account, and it is a legitimate escape hatch when SMTP is not configured on this server at all.",
 
   // ---- knowingly unbuilt, ticketed, NOT blessed ----
   "asset.rebuild":

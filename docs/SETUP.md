@@ -22,8 +22,9 @@ make ENV=local seed            # sample data from the real trailer sheets
 
 ### Sign-in accounts
 
-Password `stinventory-demo` for every account. **Development credentials only** — the seed
-refuses to run against `NODE_ENV=production` for exactly this reason.
+Password `stinventory-demo` for every account except `invited@` (below), which has none yet
+by design. **Development credentials only** — the seed refuses to run against
+`NODE_ENV=production` for exactly this reason.
 
 Since STI-304 there is **one account per role**, which is what makes a permission denial
 observable at all: until then the only three accounts were `owner`, `equipment_admin` and
@@ -45,6 +46,7 @@ observable at all: until then the only three accounts were `owner`, `equipment_a
 | `finance@stinventory.local` | Finance | Everything, plus the audit trail |
 | `readonly@stinventory.local` | Read-only | Everything, read-only |
 | `jobani@stinventory.local` | Foreman | **Deactivated** — refuses to sign in, by design |
+| `invited@stinventory.local` | Read-only | **Invited, not yet accepted** — no working password; `make ENV=local seed` prints the accept link (`/invite/<token>`) to the console |
 
 To see the visibility ladder do something, sign in as `pm@` and `super@` side by side: each
 sees tools the other cannot. The authoritative role→permission table is

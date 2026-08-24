@@ -25,7 +25,19 @@ export type AssetSeed = { tag: string | null; make: string | null; modelNumber: 
 export type AssignSeed = { tag: string; cust: string; proj: string | null; loc: string; type: string; start: string; end: string | null };
 export type TxSeed = { tag: string; event: string; at: string; note: string; ref: string };
 export type DeptSeed = { name: string; code: string };
-export type UserSeed = { email: string; first: string; last: string; role: string; employeeKey: string | null; isActive?: boolean };
+export type UserSeed = {
+  email: string;
+  first: string;
+  last: string;
+  role: string;
+  employeeKey: string | null;
+  isActive?: boolean;
+  /* True only for the one seeded account that exercises the invite flow
+     (STI-3xx auth work) — see the comment on `userSpecs` below. Distinct from
+     plain `isActive: false`: a deactivated account has a real, usable
+     password on purpose (STI-303), a pending invite deliberately does not. */
+  pendingInvite?: boolean;
+};
 
 /*
   STI-104: the register's categories.
@@ -2732,4 +2744,19 @@ export const userSpecs: UserSeed[] = [
   { email: "hr@stinventory.local", first: "Tomas", last: "Reyes", role: "hr", employeeKey: null },
   { email: "finance@stinventory.local", first: "Grace", last: "Lin", role: "finance", employeeKey: null },
   { email: "readonly@stinventory.local", first: "Read", last: "Only", role: "read_only", employeeKey: null },
+  /*
+    One PENDING INVITE (the invite/reset build, 2026-08-24). Every account
+    above is either active or STI-303's one deactivated example — neither
+    exercises `isActive: false` for the OTHER reason a row has it now: invited
+    but never yet accepted. Without this one, the "Invited" badge, the Resend
+    button and the whole accept-invite page were only reachable by sending a
+    real invite by hand, which is exactly the "seed something that reaches it"
+    rule in CLAUDE.md behaviour rule 9.
+
+    `pendingInvite: true` tells `seed.ts` to give this row an UNUSABLE random
+    password (never the shared demo one — a pending account must not be able
+    to sign in the normal way, that is the whole point of the state) and to
+    write a live, unconsumed `auth_token` row of kind `invite` alongside it.
+  */
+  { email: "invited@stinventory.local", first: "Casey", last: "Nolan", role: "read_only", employeeKey: null, isActive: false, pendingInvite: true },
 ];

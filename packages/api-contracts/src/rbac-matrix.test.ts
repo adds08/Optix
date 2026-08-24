@@ -108,6 +108,8 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       actorLabel: null,
     },
     sessionSecret: "sti308-test-secret",
+    mailFallback: null,
+    webOrigin: "http://localhost:3100",
     request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
   });
 

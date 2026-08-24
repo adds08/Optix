@@ -52,6 +52,8 @@ describe.skipIf(!url)("what a PM and a superintendent can see (STI-403)", () => 
       actorLabel: null,
     },
     sessionSecret: "sti403-test-secret",
+    mailFallback: null,
+    webOrigin: "http://localhost:3100",
     request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
   });
 

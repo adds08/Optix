@@ -122,6 +122,8 @@ describe.skipIf(!url)("double decisions write exactly one ledger event (STI-109,
         actorLabel: null,
       },
       sessionSecret: "sti109-test-secret",
+      mailFallback: null,
+      webOrigin: "http://localhost:3100",
       request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
     };
   });

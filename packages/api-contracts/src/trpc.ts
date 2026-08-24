@@ -11,6 +11,15 @@ export type Context = {
   /* Needed to decrypt tenant-held secrets (see routers/settings.ts). Passed in
      rather than read here, so this package never loads env of its own. */
   sessionSecret: string;
+  /* The `SMTP_*` env vars, already resolved into a `MailConfig | null` by
+     apps/api. Same reasoning as `sessionSecret`: a plain value passed in, not
+     the env module itself, so this package stays env-free. `mailConfigFor`
+     (mail-config.ts) uses this as the fallback when a tenant has configured no
+     SMTP of its own. */
+  mailFallback: import("@stinventory/mail").MailConfig | null;
+  /* `WEB_ORIGIN`, for building an invite/reset link the email can point at.
+     Same reasoning as the above two — a value, not the env. */
+  webOrigin: string;
   request: {
     method: string | null;
     path: string | null;

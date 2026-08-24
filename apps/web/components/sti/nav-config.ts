@@ -67,7 +67,7 @@ const SETTINGS_GROUP: NavGroup = {
        with "holds tools" is how a foreman gets forced into a login he does
        not need. It sits under Settings because administering accounts is
        configuration, not a register anyone works out of daily. */
-    { href: "/admin/users", label: "User Accounts", icon: UserCog, perm: "config.manage" },
+    { href: "/admin/users", label: "User Accounts", icon: UserCog, perm: "user.manage" },
     { href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage" },
   ],
 };
