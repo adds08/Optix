@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: Record what changed in changelogs/ after any code or file change in STInventory. Use at the end of every task that produced a diff -- implementation, fix, refactor, migration, doc edit -- and whenever the user says "log this", "changelog", "what changed", or asks what happened in a past session. Reconstructs the entry from git rather than from memory.
+description: Record what changed in docs/changelogs/ after any code or file change in STInventory. Use at the end of every task that produced a diff -- implementation, fix, refactor, migration, doc edit -- and whenever the user says "log this", "changelog", "what changed", or asks what happened in a past session. Reconstructs the entry from git rather than from memory.
 ---
 
 # Changelog
@@ -54,26 +54,38 @@ Two traps this repo has already hit:
   Attribute only what this task touched; note the rest as concurrent activity if it
   matters to the reader.
 
-### 2. Append to the month file
+### 2. Write one file per body of work
 
-`changelogs/YYYY-MM.md`, e.g. `changelogs/2026-08.md`. Create it if absent with a
-single `# YYYY-MM` heading. Newest date section at the **top** of the file, under
-that heading — a reader opening the file wants today, not January.
-
-Within a date, append entries in the order they happened.
+`docs/changelogs/YYYY-MM-DD-short-slug.md`, dated the day the work landed. One file
+per body of work — not one per month, and not one per file touched.
 
 ### 3. The entry shape
 
+Match the neighbours. A `# Title` that states the outcome rather than naming the
+component, then prose under these headings:
+
 ```markdown
-## 2026-08-24
+# The rail describes modules, and Settings stops being an entity
 
-### One line saying what changed, in the imperative
+One or two paragraphs of context: what problem this was, in the reader's terms.
 
-**Files:** `path/one.ts`, `path/two.tsx` (or "12 files under `apps/web/components`" when the list is long)
-**Why:** The problem this solved, and the cause if it was a bug. Not the mechanics — the diff has those.
-**Verified:** What you actually ran, and what it printed. "Not verified" is an acceptable and useful value.
-**Left undone:** Anything deliberately out of scope, with the reason. Omit the line if nothing was.
-**Commit:** `abc1234` if it was committed, otherwise "working tree".
+## What changed
+### Sub-headed by change, with the reasoning attached to each
+
+## What was found while building it
+The things nobody knew when the work started. This is the section the next person
+actually needs — it is where a latent bug, a wrong assumption or a surprising
+constraint gets recorded.
+
+## Verified
+What you ran and what it printed. Say plainly what you did NOT verify.
+
+## Deliberately not done
+So it is not rediscovered later as an oversight.
+
+## Where it is
+The commit, the branch, and whether it is deployed — committed and running are
+different states in this project.
 ```
 
 Follow the repo's doc voice: why over what, no emojis, no TL;DR, imperative subjects,
@@ -81,18 +93,20 @@ and **no counts that will go stale** — "the register pages" not "the 6 registe
 
 ### 4. Stage it with the change
 
-`changelogs/` is tracked. Stage the month file **by name** alongside the rest of the
-work — never `git add -A`; this tree routinely carries root-owned `node_modules/` and
-`.turbo/` from container-run make targets.
+Stage the entry **by name** alongside the rest of the work — never `git add -A`; this
+tree routinely carries root-owned `node_modules/` and `.turbo/` from container-run make
+targets.
+
+If the work implemented a `docs/NN-*.md` spec, move that spec to `docs/built/` in the
+same commit, keeping its number. `docs/changelogs/README.md` explains why.
 
 ## Reading it back
 
-When picking up unfamiliar work, `changelogs/` is the cheapest orientation available:
+When picking up unfamiliar work, `docs/changelogs/` is the cheapest orientation available:
 
 ```bash
-ls changelogs/                             # what months exist
-head -60 changelogs/$(date +%Y-%m).md      # this month, newest first
-grep -rn "data-table\|custody.ts" changelogs/   # everything that ever touched a file
+ls docs/changelogs/ | tail -20                    # what landed most recently
+grep -rln "data-table\|custody.ts" docs/changelogs/   # everything that ever touched a file
 ```
 
 Prefer it over reconstructing intent from `git log` — that is the whole point of it.
@@ -102,6 +116,8 @@ Prefer it over reconstructing intent from `git log` — that is the whole point 
 - **Not a substitute for a memory.** A durable preference or a standing instruction
   goes in the memory directory. The changelog is a dated record of events.
 - **Not a substitute for docs.** If the change made a document wrong, fix the
-  document — CLAUDE.md rule 8. A changelog entry does not discharge that.
+  document — CLAUDE.md rule 9. `.claude/rules/*.md` is the file agents are told to
+  read before touching an area, so a stale one there misleads every future change.
+  A changelog entry does not discharge that.
 - **Not a place for secrets.** No tokens, no keys, no connection strings, no
   `llmApiKeyEnc`.

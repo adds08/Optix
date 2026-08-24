@@ -17,7 +17,7 @@ the `(app)` route group:
 `/tools` + `/tools/[id]` · `/custody` · `/jobsites` · `/map` ·
 `/reports` + `/reports/[slug]` + `/reports/charts/[slug]` + `/reports/audit-trail` ·
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/job-groups` ·
-`/my-tools` · `/profile` · `/settings` · `/design/*`
+`/my-tools` · `/profile` · `/settings` + `/settings/ai` + `/settings/appearance` · `/design/*`
 
 Login is at `/`, not `/login`.
 
@@ -34,12 +34,39 @@ Login is at `/`, not `/login`.
 ## Navigation is role-split
 
 `components/sti/nav-config.ts` defines two disjoint sets: `FIELD_NAV` (My Tools, Hand Off,
-Alerts) for `foreman`/`superintendent`, and `DESK_NAV` for everyone else. Items carry an
-optional permission, filtered against `me.permissions` in `components/sti/app-shell.tsx` —
-ONCE, into the array both the rail and the sidebar draw from, so a rail glyph and the pane it
-opens can never disagree about what a group contains. `app-sidebar.tsx` does no filtering of
-its own; give it a group it should not show and it will show it.
-Add a route → add it here, with its permission.
+Alerts) for `foreman`/`superintendent`/`mechanic`, and `DESK_NAV` for everyone else. Items
+carry an optional permission, filtered against `me.permissions` in
+`components/sti/app-shell.tsx` — ONCE, into the array both the rail and the sidebar draw
+from, so a rail glyph and the pane it opens can never disagree about what a group contains.
+`app-sidebar.tsx` does no filtering of its own; give it a group it should not show and it
+will show it. Add a route → add it here, with its permission.
+
+**A group is a MODULE, not a screen list.** This shell is the frame the rest of the product
+gets built into, so a function lives with the other functions and a record with the other
+records: Operations holds Custody/jobsites/map, Equipment holds the register, Organization
+holds people and projects. `Equipment` once named the group holding Custody and the map
+while the register sat under `Entity`, which meant a new module had nowhere obvious to land.
+
+Three rules that are load-bearing:
+
+- **A group carries its own `icon`.** The rail used to borrow `items[0].icon`, so reordering
+  a group's rows silently moved the glyph somebody had learned to aim at.
+- **`placement: "foot"` pins a group under the assistant** — Settings uses it. Pinning is a
+  config field so a future module can choose the foot without a branch in `app-rail.tsx`.
+- **Never gate a whole group.** Settings mixes `config.manage` rows with Appearance, which
+  writes the caller's own row through `preferences.set` and needs no permission at all.
+  Gating the group would put a foreman's font size behind an admin permission — the
+  regression the old combined settings page defended against with a `personal` escape hatch.
+  Per-row `perm` plus the shell's drop-empty-groups rule reproduces that structurally.
+
+**Match a pathname with `matchItem`, never with `startsWith` over the list.** All three
+consumers used to take the first prefix hit in declaration order, which is correct only
+while no nav href is a prefix of another. The moment Settings gained sub-pages, `/settings`
+claimed `/settings/ai`: wrong row lit, wrong group resolved. `matchItem` returns the longest
+match.
+
+Inbox is deliberately absent from `DESK_NAV` — a queue, not a record, reached from the bell,
+which carries the same count. It stays in `FIELD_NAV` as "Alerts", where it is the job.
 
 > **This split still branches on the role NAME**, which STI-307 removed everywhere else.
 > It was left alone deliberately — deciding which *navigation* a role sees is a layout
@@ -95,8 +122,16 @@ only narrow what the API already returned; it cannot widen it.
 `components/sti/data-table/data-table.tsx` is dual-mode. Default is client-side
 sorting/filtering/pagination; passing `server` flips on `manualPagination`/`manualSorting`/
 `manualFiltering` and the parent owns `{page, pageSize, sortKey, sortDir, search}`. Row
-selection and CSV export operate over **all filtered rows**, not just the visible page — keep
-that, it is the right behaviour for "select everything this foreman holds".
+selection operates over **all filtered rows**, not just the visible page — keep that, it is
+the right behaviour for "select everything this foreman holds".
+
+**CSV export does not, and that is a defect, not a design.** `exportCsv` reads
+`table.getRowModel()`, which in client mode is the model *after* pagination, so the tools
+register hands back 25 rows out of 754. It also writes column **ids** rather than header
+labels and emits an empty column for any cell rendered without an `accessorFn`.
+`getPrePaginationRowModel()` is the fix. `report-table.tsx` gets all three right, which is
+the reference. `xlsx` is a dependency but is used only by `import-dialog.tsx`; there is no
+Excel or PDF export path anywhere.
 
 ## Theming
 

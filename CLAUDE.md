@@ -25,7 +25,7 @@ it now) are separate axes, and tools follow the person, not the site.
 | Any bug, test failure, wrong state, stuck message | **`systematic-debugging`**, before proposing a fix |
 | "Explain this", "I want visuals", a subsystem too big for chat | **`visual-explainer`** |
 | Delivering a whole ticket or feature end to end | **`/feature-delivery <TICKET-ID>`** — ticket, branch, implement, adversarial QA, correctness + security review, PR |
-| A task that produced a diff, as the last step before you report done | **`changelog`** — reconstructs the entry from `git`, appends to `changelogs/YYYY-MM.md` |
+| A task that produced a diff, as the last step before you report done | **`changelog`** — reconstructs the entry from `git`, writes `docs/changelogs/YYYY-MM-DD-slug.md` |
 
 `/feature-delivery` never fires on its own; it runs only when you invoke it. Tunables
 and the off switch are in `.claude/workflow.config.json`. Agents review and comment —
@@ -79,9 +79,11 @@ If minimalism or convenience conflicts with any of these, they win — say so ou
    both clients; typecheck is the only thing standing between a router change and a broken app.
 7. **Find root causes.** No try/catch workarounds without understanding the failure.
 8. **Every diff ends with a changelog entry.** Invoke the `changelog` skill before you
-   report the task done — not for read-only work, and not once per file. Commit subjects
-   in this repo have been `#` more than once, so `git log` alone does not tell the next
-   session why anything changed or what was verified.
+   report the task done — not for read-only work, and not once per file. It writes to
+   `docs/changelogs/`, which predates the skill; `docs/changelogs/README.md` is the
+   authority on the format and on how entries relate to specs and the sprint plan. Commit
+   subjects in this repo have been `#` more than once, so `git log` alone does not tell the
+   next session why anything changed or what was verified.
 9. **Docs and seed data are part of the change, not follow-up work.** If the work you just did
    made a document wrong, fix the document. If it needs data the seed cannot produce, add it to
    the seed. Both happen in the same change — not in a ticket for later, and never by leaving a
