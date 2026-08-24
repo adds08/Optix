@@ -50,6 +50,9 @@ importers:
       '@stinventory/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@stinventory/mail':
+        specifier: workspace:*
+        version: link:../../packages/mail
       '@stinventory/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -341,6 +344,9 @@ importers:
       '@stinventory/intent':
         specifier: workspace:*
         version: link:../intent
+      '@stinventory/mail':
+        specifier: workspace:*
+        version: link:../mail
       '@stinventory/types':
         specifier: workspace:*
         version: link:../types

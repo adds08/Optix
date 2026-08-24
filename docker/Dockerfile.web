@@ -23,6 +23,10 @@ COPY packages/api-contracts/package.json packages/api-contracts/
 COPY packages/auth/package.json packages/auth/
 COPY packages/env/package.json packages/env/
 COPY packages/logger/package.json packages/logger/
+# `mail` is a transitive dependency of `api-contracts`, not of `web` — which is
+# exactly why it was missed. This image installs the whole workspace from one
+# lockfile, so a package `web` never imports still has to be linkable.
+COPY packages/mail/package.json packages/mail/
 COPY packages/types/package.json packages/types/
 # `design-system` was deleted (with `frontend-shared`) after going unimported by
 # either client — its COPY line outlived it and broke this image. A removed
