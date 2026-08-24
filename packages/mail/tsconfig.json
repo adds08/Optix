@@ -1,0 +1,5 @@
+{
+  "extends": "@stinventory/config-tsconfig/library.json",
+  "compilerOptions": { "rootDir": "src" },
+  "include": ["src/**/*"]
+}

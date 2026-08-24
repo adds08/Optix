@@ -24,6 +24,7 @@
     "@stinventory/env": "workspace:*",
     "@stinventory/intent": "workspace:*",
     "@stinventory/logger": "workspace:*",
+    "@stinventory/mail": "workspace:*",
     "@stinventory/types": "workspace:*",
     "@trpc/server": "^11.0.0-rc.660",
     "dotenv": "^16.4.5",

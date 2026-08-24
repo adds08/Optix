@@ -17,6 +17,35 @@ jobs:
   check:
     name: typecheck · lint · test
     runs-on: ubuntu-latest
+    # STI-1102. This job used to run `pnpm test` with no database, and every
+    # DB-backed suite guards itself with `describe.skipIf(!process.env.DATABASE_URL)`
+    # — so 178 of 245 tests silently skipped and the job went green. Custody,
+    # tenant-scoped login, ledger append-only, project scope and the RBAC matrix
+    # were among them: precisely the suites this workflow's header says nothing
+    # reaches main without.
+    #
+    # The service below is the same Postgres the `smoke` job already uses. The
+    # guard test in packages/api-contracts/src/db-suites-run.test.ts is what
+    # stops this regressing quietly if the env var is ever dropped again — the
+    # skip is invisible by design, so something has to assert on it.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: stinventory_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/stinventory_ci
+      SESSION_SECRET: ci-session-secret-at-least-32-characters-long
+      CI: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +62,11 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      # The suites create their own throwaway tenants but expect the schema to
+      # exist. Same command the smoke job runs, against a fresh database.
+      - name: Migrate
+        run: pnpm db:migrate
 
       - name: Test
         run: pnpm test

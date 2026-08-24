@@ -38,7 +38,7 @@ export default function AdminUsersPage() {
      that only says yes/no reports "no" for the first paint, and the screen
      would flash "you do not have access" at the person who does. */
   const me = trpc.identity.me.useQuery();
-  const canManage = (me.data?.permissions ?? []).includes("config.manage");
+  const canManage = (me.data?.permissions ?? []).includes("user.manage");
   const users = trpc.user.list.useQuery(undefined, { enabled: canManage });
   const roles = trpc.user.roles.useQuery(undefined, { enabled: canManage });
 
@@ -94,6 +94,15 @@ export default function AdminUsersPage() {
       setResetting(null);
     },
   });
+  const [resent, setResent] = useState<{ email: string; emailSent: boolean; emailError: string | null } | null>(null);
+  const resendInvite = trpc.user.resendInvite.useMutation({
+    onSuccess: (res, vars) => {
+      setError(null);
+      const target = rows.find((r) => r.id === vars.userId);
+      setResent({ email: target?.email ?? "", emailSent: res.emailSent, emailError: res.emailError });
+    },
+    onError: (e) => setError(shown(e, "The invite could not be resent. Try again, or ask another administrator.")),
+  });
 
   /* The rail hides this page from anyone without the permission, and the
      procedures refuse the calls regardless. This is the third layer, for the
@@ -104,7 +113,7 @@ export default function AdminUsersPage() {
       <EmptyState
         icon={UserCog}
         title="Accounts are managed by the equipment desk"
-        description="You need the configuration permission to see who can sign in."
+        description="You need the accounts permission to see who can sign in."
       />
     );
   }
@@ -117,15 +126,17 @@ export default function AdminUsersPage() {
           Users &amp; Access
         </h1>
         <div className="ml-auto flex items-center gap-2">
-          <CreateAction perm="config.manage" label="New user" Form={UserForm} />
+          <CreateAction perm="user.manage" label="Invite user" Form={UserForm} />
         </div>
       </div>
 
       <p className="max-w-[76ch] text-sm text-muted-foreground">
         These are sign-in accounts. The people who hold tools live on{" "}
         <Link href="/people" className="underline underline-offset-4">People</Link> and do not need
-        an account — link one here only when somebody actually signs in. Accounts are deactivated,
-        never deleted: they are named as the actor on history that cannot be rewritten.
+        an account — link one here only when somebody actually signs in. There is no direct signup:
+        an invited account cannot sign in until the recipient opens the link and sets their own
+        password. Accounts are deactivated, never deleted: they are named as the actor on history
+        that cannot be rewritten.
       </p>
 
       {error ? <ErrorNote message={error} /> : null}
@@ -164,7 +175,7 @@ export default function AdminUsersPage() {
                     {/* Picking does NOT commit. A dropdown that mutated on
                         change meant one mis-click silently rewrote somebody's
                         permissions — and picking "No role" on your own row took
-                        `config.manage` off the account doing the picking, with
+                        `user.manage` off the account doing the picking, with
                         no undo and, if you were the last administrator, nobody
                         left who could put it back. The server refuses that case
                         outright; this dialog is what stops the other cases
@@ -204,30 +215,48 @@ export default function AdminUsersPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={u.isActive ? "secondary" : "outline"}>
-                      {u.isActive ? "Active" : "Deactivated"}
+                      {u.isActive ? "Active" : u.pendingInvite ? "Invited" : "Deactivated"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setResetting(u)}>
-                        <KeyRound className="size-3.5" aria-hidden />
-                        Reset
-                      </Button>
-                      {u.isActive ? (
-                        <Button size="sm" variant="outline" onClick={() => setConfirming(u)}>
-                          <ShieldOff className="size-3.5" aria-hidden />
-                          Deactivate
-                        </Button>
-                      ) : (
+                      {/* A pending invite has no working password to reset and
+                          is already inactive — the only useful action on it is
+                          a fresh link. Reset and Deactivate reappear the moment
+                          the invite is accepted. */}
+                      {u.pendingInvite ? (
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={setActive.isPending}
-                          onClick={() => setActive.mutate({ userId: u.id, isActive: true })}
+                          disabled={resendInvite.isPending}
+                          onClick={() => resendInvite.mutate({ userId: u.id })}
                         >
-                          <ShieldCheck className="size-3.5" aria-hidden />
-                          Reactivate
+                          <KeyRound className="size-3.5" aria-hidden />
+                          Resend invite
                         </Button>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setResetting(u)}>
+                            <KeyRound className="size-3.5" aria-hidden />
+                            Reset
+                          </Button>
+                          {u.isActive ? (
+                            <Button size="sm" variant="outline" onClick={() => setConfirming(u)}>
+                              <ShieldOff className="size-3.5" aria-hidden />
+                              Deactivate
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={setActive.isPending}
+                              onClick={() => setActive.mutate({ userId: u.id, isActive: true })}
+                            >
+                              <ShieldCheck className="size-3.5" aria-hidden />
+                              Reactivate
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </TableCell>
@@ -265,7 +294,7 @@ export default function AdminUsersPage() {
               ) : null}
               {me.data?.id === roleChange.user.id ? (
                 <div className="rounded-md border border-warn/30 bg-warn-bg px-3 py-2 text-warn">
-                  This is your own account. Changing it to a role without the configuration
+                  This is your own account. Changing it to a role without the accounts
                   permission would leave you unable to reach this screen, so the server refuses it —
                   ask another administrator instead.
                 </div>
@@ -366,6 +395,28 @@ export default function AdminUsersPage() {
           {issued ? <CredentialNote email={issued.email} password={issued.password} /> : null}
           <DialogFooter>
             <Button onClick={() => setIssued(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!resent} onOpenChange={(o) => !o && setResent(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Invite resent</DialogTitle>
+          </DialogHeader>
+          {resent?.emailSent ? (
+            <p className="text-sm">
+              A fresh invite was sent to <span className="font-medium">{resent.email}</span>. Any
+              earlier link for this account no longer works.
+            </p>
+          ) : (
+            <div className="rounded-md border border-warn/30 bg-warn-bg px-3 py-2 text-sm text-warn">
+              <p className="font-medium">A new link was issued, but the email failed to send.</p>
+              <p className="mt-1">{resent?.emailError ?? "No SMTP is configured on this server."}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setResent(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

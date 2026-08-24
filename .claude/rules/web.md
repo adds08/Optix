@@ -19,7 +19,12 @@ the `(app)` route group:
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/job-groups` ·
 `/my-tools` · `/profile` · `/settings` + `/settings/ai` + `/settings/appearance` · `/design/*`
 
-Login is at `/`, not `/login`.
+Login is at `/`, not `/login`. Three more routes sit OUTSIDE `(app)`, unauthenticated by
+construction, added with the invite/reset work: `/forgot-password`, `/invite/[token]` and
+`/reset/[token]` (the last two share `AuthTokenForm`,
+`apps/web/components/auth-token-form.tsx`). They call `apps/api`'s auth endpoints directly
+via `lib/auth.ts`, the same way the login form does — not tRPC, because there is no session
+yet for a `protectedProcedure` to check.
 
 ## Data flow
 
@@ -32,6 +37,19 @@ Login is at `/`, not `/login`.
   (`components/sti/app-shell.tsx:96-101`). Don't add a second mechanism.
 
 ## Navigation is role-split
+
+> **Before restructuring anything here, read ADR-9, ADR-10 and ADR-11 in
+> `docs/06-decisions.md`.** The rule for where a new module goes is now decided and written
+> down: groups are named after the **resource** (Small Tools, Equipment, Labour), never after
+> a department; a nav row is a **route plus a preset**, so two resources sharing a record
+> type share one route; and what an organisation *uses* is a tenant setting while what a
+> person *may* use stays a permission.
+>
+> **The rest of this section describes the shell as it is built today — two levels, two
+> hard-coded arrays, no ids, no pins.** It is accurate. The three-level version with stable
+> ids, pinned rows and module visibility is specified in
+> `docs/workings/RELEASE_2_SPRINT_PLAN.md` E12 and is **not built yet**; STI-1207 rewrites
+> this section when it lands. Do not describe it here before then.
 
 `components/sti/nav-config.ts` defines two disjoint sets: `FIELD_NAV` (My Tools, Hand Off,
 Alerts) for `foreman`/`superintendent`/`mechanic`, and `DESK_NAV` for everyone else. Items

@@ -75,6 +75,25 @@ export const notification = pgTable(
     body: text("body"),
     channel: text("channel").default("in_app"), // in_app | email | sms
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    /*
+      Delivery failure and retry (the invite/reset build, 2026-08-24).
+
+      Before this, `deliverPendingNotifications` stamped `deliveredAt`
+      unconditionally — a `console.log` "succeeded" every time, so once real
+      SMTP existed a failed send would vanish just as silently as a fake one
+      always had. Nothing here changes what `deliveredAt` means to the
+      in-app bell: it is read by no router and no screen (verified), so
+      bounding retries can never make an alert disappear from the desk —
+      only ever change whether its OUTSIDE-the-app copy went anywhere.
+
+      `deliveryAttempts` caps at `MAX_DELIVERY_ATTEMPTS` (notifications.ts) so
+      a relay that is down forever does not retry forever; `deliveryError`
+      carries the provider's own words for whoever is diagnosing it, the same
+      shape `smtpLastCheckError` already uses on `tenant_settings`.
+    */
+    deliveryAttempts: integer("delivery_attempts").notNull().default(0),
+    deliveryError: text("delivery_error"),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
     readAt: timestamp("read_at", { withTimezone: true }),
     escalatedAt: timestamp("escalated_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -127,6 +146,35 @@ export const tenantSettings = pgTable("tenant_settings", {
   llmLastCheckedAt: timestamp("llm_last_checked_at", { withTimezone: true }),
   llmLastCheckOk: boolean("llm_last_check_ok"),
   llmLastCheckError: text("llm_last_check_error"),
+
+  /*
+    SMTP, per tenant — the same shape as the LLM config above, for the same
+    reason: which mail relay sends a tenant's invites used to be a question
+    only whoever held the container's environment could answer.
+
+    Every column here is optional, and that is deliberate: `smtpConfigFor`
+    (apps/api/src/mail.ts) falls back to the `SMTP_*` env vars when a tenant
+    has set none of these, so a fresh stack and every tenant that has not
+    visited Settings keep working exactly as before this existed. Once a
+    tenant sets a host here, the row wins outright — no per-field merging with
+    the environment, so a half-configured row can never be silently completed
+    from a relay some other tenant's admin does not know exists.
+
+    `smtpPassEnc`/`smtpPassHint` mirror `llmApiKeyEnc`/`llmApiKeyHint` exactly:
+    AES-256-GCM at rest, decrypted only server-side, never returned to a
+    browser. See the rationale comment above `llmApiKeyEnc`.
+  */
+  smtpHost: text("smtp_host"),
+  smtpPort: integer("smtp_port"),
+  smtpUser: text("smtp_user"),
+  smtpPassEnc: text("smtp_pass_enc"),
+  smtpPassHint: text("smtp_pass_hint"),
+  smtpFrom: text("smtp_from"),
+  /* Result of the last "send test email", so the page can say something
+     truthful about whether this config has ever actually delivered. */
+  smtpLastCheckedAt: timestamp("smtp_last_checked_at", { withTimezone: true }),
+  smtpLastCheckOk: boolean("smtp_last_check_ok"),
+  smtpLastCheckError: text("smtp_last_check_error"),
 
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

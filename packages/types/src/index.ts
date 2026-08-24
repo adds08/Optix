@@ -142,6 +142,16 @@ export const PERMISSIONS = [
      cost of getting the second one wrong is a daily invoice. */
   "notification.read",
   "notification.manage",
+  /*
+    Login accounts — create, deactivate, reset a password, assign a role.
+    Split out of `config.manage` for the invite work: that permission also
+    gates the chat model and the high-value approval threshold, and "may add a
+    user" was never the same authority as "may change what needs a second
+    signature". `role-perms.ts` used to grant `office_admin` the accounts screen
+    by lending it `config.manage` outright — see the comment there and in
+    `routers/user.ts` for why that was a placeholder rather than the design.
+  */
+  "user.manage",
   "config.manage",
   "audit.read",
 ] as const;
@@ -228,7 +238,8 @@ export const PERMISSION_GROUPS = [
     label: "Administration",
     hint: "The powerful ones. `config.manage` is also what lets somebody reach this screen.",
     permissions: [
-      ["config.manage", "Manage accounts, roles, the chat model and the approval threshold"],
+      ["user.manage", "Invite and manage login accounts, reset passwords, assign roles"],
+      ["config.manage", "Manage roles, the chat model, SMTP and the approval threshold"],
     ],
   },
 ] as const satisfies readonly {
@@ -371,6 +382,12 @@ export const NOTIFICATION_TYPES = [
      tool, this one is costing money every day it stays open. */
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+/* `auth_token.kind` — see the schema comment in packages/db/src/schema/identity.ts.
+   One table, two lifetimes: an invite is what creates an account, a reset only
+   replaces a credential on one that already exists. */
+export const AUTH_TOKEN_KINDS = ["invite", "reset"] as const;
+export type AuthTokenKind = (typeof AUTH_TOKEN_KINDS)[number];
 
 // ---------------------------------------------------------------------------
 // SLA / tenant config keys (tenant-scoped, not code).

@@ -104,6 +104,8 @@ describe.skipIf(!url)("dismissing from the inbox lands in Completed (UI-72)", ()
         actorLabel: null,
       },
       sessionSecret: "ui72-test-secret",
+      mailFallback: null,
+      webOrigin: "http://localhost:3100",
       request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
     };
   });

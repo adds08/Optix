@@ -1,12 +1,22 @@
 import { randomBytes } from "node:crypto";
-import { and, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
-import { hashPassword, verifyPassword } from "@stinventory/auth";
+import { generateAuthToken, hashAuthToken, hashPassword, verifyPassword } from "@stinventory/auth";
+import { inviteEmail, sendMail } from "@stinventory/mail";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
+import { mailConfigFor } from "../mail-config.js";
+
+/* Seven days: long enough that somebody who is out sick does not lose their
+   invite, short enough that a link sitting unread in an inbox is not a live
+   credential six months later. Chosen independently of the 1-hour password
+   reset window — a reset answers "I am locked out right now", an invite
+   answers "come join when you get a chance", and the two have no reason to
+   share a number. */
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /*
   User administration — the login accounts, and nothing else.
@@ -36,15 +46,17 @@ import { logEvent } from "../audit.js";
   departure reassignment (STI-306); conflating the two is how a tool silently
   vanishes from the register while its holder's account quietly goes dark.
 
-  Permission: `config.manage` on every ADMINISTRATIVE procedure, reads
-  included — the account list is the list of who can get in. There is no
-  `user.manage` in `packages/types/src/index.ts`; inventing one would need a
-  seed change, so `config.manage` (held by `owner` and `equipment_admin`) is
-  the closest existing fit, exactly as the ticket allows.
+  Permission: `user.manage` on every ADMINISTRATIVE procedure, reads
+  included — the account list is the list of who can get in. Split out of
+  `config.manage` on 2026-08-24 (the invite/reset build) specifically so
+  `office_admin` could hold accounts without also holding the chat model and
+  the high-value approval threshold — see the comment on `office_admin` in
+  `packages/db/src/role-perms.ts`. `owner` and `equipment_admin` still hold it
+  through their `[...PERMISSIONS]` spread.
 
   The one deliberate exception is `changePassword`, which is `protectedProcedure`
   and scoped to the caller's OWN `ctx.session.userId`. Gating it on
-  `config.manage` would mean nobody but an administrator could change their own
+  `user.manage` would mean nobody but an administrator could change their own
   password — which is not a stricter control, it is a broken one, because
   `mustChangePassword` would then be unsatisfiable for every ordinary account.
   Its scope check is written out at the procedure and is what stands in for a
@@ -64,6 +76,15 @@ import { logEvent } from "../audit.js";
   `apps/api` to spend it; the flag needs one boolean column. The flag won on
   size for the same guarantee, and it is `user.must_change_password`.
 
+  The `auth_token` table now exists anyway — the invite flow below needs it,
+  and self-service "forgot password" (apps/api's `/auth/forgot-password` and
+  `/auth/tokens/:token/consume`) reuses it for an unauthenticated user resetting
+  their OWN password. This admin-driven `resetPassword` is deliberately left on
+  the flag design rather than switched to a token: it is issued by somebody who
+  already holds `user.manage` to a person they can call or walk over to, so
+  there is no "prove you own this inbox" problem for a link to solve, and
+  changing it now would be a rewrite with no new guarantee to show for it.
+
   The three moving parts, and why each is where it is:
 
     - `create` and `resetPassword` SET the flag. Both hand a credential to
@@ -74,7 +95,7 @@ import { logEvent } from "../audit.js";
     - `changePassword` CLEARS it, and is the reason the flag is a prompt rather
       than a lockout. A flag with no self-service way to satisfy it is not a
       security control, it is a bricked account: the ONLY procedure that could
-      clear it would be `resetPassword`, which needs `config.manage`, so every
+      clear it would be `resetPassword`, which needs `user.manage`, so every
       user would need an admin to change their own password.
     - `login()` (packages/auth) REPORTS the flag and does not refuse on it,
       because changing a password needs a session.
@@ -141,7 +162,7 @@ const duplicateEmail = (email: string) =>
   returned, never logged and never joined to anything. Nothing about the other
   tenant's row reaches the caller except the fact that the address is taken —
   which the refusal has to disclose to be actionable, and which is disclosed
-  only to a `config.manage` holder. `login()` still fails CLOSED for anonymous
+  only to a `user.manage` holder. `login()` still fails CLOSED for anonymous
   callers, which is the surface STI-305's non-disclosure rule was written for.
 
   Revisit when sign-in identifies the tenant (a slug on the login form, or a
@@ -191,7 +212,7 @@ async function requireUser(db: Database, tid: string, id: string) {
 }
 
 export const userRouter = router({
-  list: requirePermission("config.manage").query(async ({ ctx }) => {
+  list: requirePermission("user.manage").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
 
     const users = await ctx.db
@@ -227,6 +248,25 @@ export const userRouter = router({
       .groupBy(schema.asset.currentCustodianId);
     const heldBy = new Map(held.map((h) => [h.employeeId, h.count]));
 
+    /* An invited-but-not-yet-accepted account and a deactivated one look
+       identical on `isActive` alone — both are `false`. This is the only
+       other signal: a live, unconsumed invite token names exactly the
+       accounts still waiting on their first sign-in, and it clears itself the
+       moment `consume` fires or the token ages out — no separate "pending"
+       flag to keep in sync by hand. */
+    const pending = await ctx.db
+      .select({ userId: schema.authToken.userId })
+      .from(schema.authToken)
+      .where(
+        and(
+          eq(schema.authToken.tenantId, tid),
+          eq(schema.authToken.kind, "invite"),
+          isNull(schema.authToken.consumedAt),
+          gt(schema.authToken.expiresAt, new Date()),
+        ),
+      );
+    const pendingSet = new Set(pending.map((p) => p.userId));
+
     return users.map((u) => {
       /* One role per account: `resolveSession` reads `roleName` off the first
          permission row it gets, so a second role would make the displayed role
@@ -237,13 +277,14 @@ export const userRouter = router({
         roleId: r?.roleId ?? null,
         roleName: r?.roleName ?? null,
         heldToolCount: u.employeeId ? (heldBy.get(u.employeeId) ?? 0) : 0,
+        pendingInvite: !u.isActive && pendingSet.has(u.id),
       };
     });
   }),
 
   /* The roles this tenant can hand out. `role.tenantId` is nullable — null
      means a system role — so both are offered. */
-  roles: requirePermission("config.manage").query(async ({ ctx }) => {
+  roles: requirePermission("user.manage").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
     return ctx.db
       .select({ id: schema.role.id, name: schema.role.name, description: schema.role.description })
@@ -252,7 +293,7 @@ export const userRouter = router({
       .orderBy(schema.role.name);
   }),
 
-  create: requirePermission("config.manage")
+  create: requirePermission("user.manage")
     .input(
       z.object({
         email: z.string().email().max(200),
@@ -348,7 +389,226 @@ export const userRouter = router({
       return { user: row, temporaryPassword: issued };
     }),
 
-  setRole: requirePermission("config.manage")
+  /*
+    Invite: create the account in a state nobody can sign into yet, and mail
+    the one link that activates it.
+
+    Its own procedure rather than `create` with an optional password — the two
+    end in different states (`create` is usable the moment it returns; an
+    invite is not, until the token is spent) and folding "make it work now"
+    into "grant a credential nobody can use yet" would need an `if (isInvite)`
+    running through every line below.
+
+    `isActive: false` costs nothing new: `login()`'s existing "inactive"
+    refusal already stops anyone signing into this row, so there is no new
+    gate to write, only a state this codebase could already represent. The
+    password hash is a random value nobody was ever shown, because the column
+    is NOT NULL and generating one to discard is smaller than making it
+    nullable for a state that is, in every other respect, exactly `create`'s.
+  */
+  invite: requirePermission("user.manage")
+    .input(
+      z.object({
+        email: z.string().email().max(200),
+        firstName: z.string().min(1).max(80),
+        lastName: z.string().min(1).max(80),
+        roleId: z.string().uuid().optional(),
+        employeeId: z.string().uuid().nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const email = input.email.trim();
+
+      const [clash] = await ctx.db
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(and(eq(schema.user.tenantId, tid), eq(schema.user.email, email)))
+        .limit(1);
+      if (clash) throw duplicateEmail(email);
+
+      /* Deliberately UNSCOPED — same reasoning as `create`, see `takenElsewhere`. */
+      const [elsewhere] = await ctx.db
+        .select({ id: schema.user.id })
+        .from(schema.user)
+        .where(eq(schema.user.email, email))
+        .limit(1);
+      if (elsewhere) throw takenElsewhere(email);
+
+      if (input.employeeId) {
+        const [person] = await ctx.db
+          .select({ id: schema.employee.id })
+          .from(schema.employee)
+          .where(and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)))
+          .limit(1);
+        if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
+      }
+
+      /* Fetches the name in the same query `requireTenantRole` elsewhere uses
+         only to check existence — the invite email names the role, so this
+         procedure needs the name anyway and a second query for it would be
+         redundant. */
+      let roleName: string | null = null;
+      if (input.roleId) {
+        const [r] = await ctx.db
+          .select({ name: schema.role.name })
+          .from(schema.role)
+          .where(and(eq(schema.role.id, input.roleId), or(eq(schema.role.tenantId, tid), isNull(schema.role.tenantId))))
+          .limit(1);
+        if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "No such role in this tenant" });
+        roleName = r.name;
+      }
+
+      const [tenantRow] = await ctx.db
+        .select({ name: schema.tenant.name })
+        .from(schema.tenant)
+        .where(eq(schema.tenant.id, tid))
+        .limit(1);
+
+      const token = generateAuthToken();
+      const row = await ctx.db
+        .transaction(async (tx) => {
+          const [created] = await tx
+            .insert(schema.user)
+            .values({
+              tenantId: tid,
+              email,
+              /* Unusable by construction — see the header comment above. */
+              passwordHash: await hashPassword(generatePassword()),
+              firstName: input.firstName.trim(),
+              lastName: input.lastName.trim(),
+              employeeId: input.employeeId ?? null,
+              isActive: false,
+              mustChangePassword: true,
+            })
+            .returning(publicColumns);
+          if (input.roleId) {
+            await tx.insert(schema.userRole).values({ userId: created!.id, roleId: input.roleId });
+          }
+          await tx.insert(schema.authToken).values({
+            tenantId: tid,
+            userId: created!.id,
+            tokenHash: hashAuthToken(token),
+            kind: "invite",
+            expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+          });
+          return created!;
+        })
+        .catch((err) => {
+          if (isDuplicateEmail(err)) throw duplicateEmail(email);
+          throw err;
+        });
+
+      const config = await mailConfigFor(ctx.db, tid, ctx.sessionSecret, ctx.mailFallback);
+      const sent = await sendMail(config, {
+        to: email,
+        ...inviteEmail({
+          tenantName: tenantRow?.name ?? "STInventory",
+          recipientFirstName: row.firstName,
+          inviterLabel: ctx.session.actorLabel ?? "An administrator",
+          roleName,
+          inviteUrl: `${ctx.webOrigin}/invite/${token}`,
+          expiresHuman: "7 days",
+        }),
+      });
+
+      /* `details` names what was done, never the token — the plaintext exists
+         only in the email itself, same rule as `temporaryPassword` above. */
+      await logEvent(ctx, {
+        category: "auth",
+        action: "user.invite",
+        entityType: "user",
+        entityId: row.id,
+        entityLabel: email,
+        result: sent.ok ? "success" : "failure",
+        errorMessage: sent.ok ? null : sent.error,
+        details: { roleId: input.roleId ?? null, employeeId: input.employeeId ?? null },
+      });
+
+      return { user: row, emailSent: sent.ok, emailError: sent.ok ? null : sent.error };
+    }),
+
+  /*
+    Resend: supersede whatever invite link is outstanding and mail a fresh
+    one. Refuses on an already-activated account — "resend" only makes sense
+    for a pending invite, and applying it to a live account would be a
+    confusing way to spell `resetPassword`.
+  */
+  resendInvite: requirePermission("user.manage")
+    .input(z.object({ userId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+
+      const [target] = await ctx.db
+        .select({ id: schema.user.id, email: schema.user.email, firstName: schema.user.firstName, isActive: schema.user.isActive })
+        .from(schema.user)
+        .where(and(eq(schema.user.id, input.userId), eq(schema.user.tenantId, tid)))
+        .limit(1);
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "No such account in this tenant" });
+      if (target.isActive) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This account has already been activated. Resend only applies to a pending invite.",
+        });
+      }
+
+      const [tenantRow] = await ctx.db
+        .select({ name: schema.tenant.name })
+        .from(schema.tenant)
+        .where(eq(schema.tenant.id, tid))
+        .limit(1);
+
+      const token = generateAuthToken();
+      await ctx.db.transaction(async (tx) => {
+        /* Supersede every earlier unconsumed invite for this user first, so a
+           copy of an old link forwarded or left in an inbox stops working the
+           moment a fresh one is issued — only the newest should be live. */
+        await tx
+          .update(schema.authToken)
+          .set({ consumedAt: new Date() })
+          .where(
+            and(
+              eq(schema.authToken.userId, input.userId),
+              eq(schema.authToken.kind, "invite"),
+              isNull(schema.authToken.consumedAt),
+            ),
+          );
+        await tx.insert(schema.authToken).values({
+          tenantId: tid,
+          userId: input.userId,
+          tokenHash: hashAuthToken(token),
+          kind: "invite",
+          expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+        });
+      });
+
+      const config = await mailConfigFor(ctx.db, tid, ctx.sessionSecret, ctx.mailFallback);
+      const sent = await sendMail(config, {
+        to: target.email,
+        ...inviteEmail({
+          tenantName: tenantRow?.name ?? "STInventory",
+          recipientFirstName: target.firstName,
+          inviterLabel: ctx.session.actorLabel ?? "An administrator",
+          roleName: null,
+          inviteUrl: `${ctx.webOrigin}/invite/${token}`,
+          expiresHuman: "7 days",
+        }),
+      });
+
+      await logEvent(ctx, {
+        category: "auth",
+        action: "user.resendInvite",
+        entityType: "user",
+        entityId: input.userId,
+        entityLabel: target.email,
+        result: sent.ok ? "success" : "failure",
+        errorMessage: sent.ok ? null : sent.error,
+      });
+
+      return { ok: true, emailSent: sent.ok, emailError: sent.ok ? null : sent.error };
+    }),
+
+  setRole: requirePermission("user.manage")
     .input(
       z.object({
         userId: z.string().uuid(),
@@ -363,7 +623,7 @@ export const userRouter = router({
       const target = await requireUser(ctx.db, tid, input.userId);
       if (input.roleId) await requireTenantRole(ctx.db, tid, input.roleId);
 
-      /* You may not take `config.manage` off yourself.
+      /* You may not take `user.manage` off yourself.
 
          This used to be unguarded, with the reasoning "another admin can put
          the role back" — which assumes another admin exists. On a tenant whose
@@ -373,11 +633,11 @@ export const userRouter = router({
          below and it deserves the same answer.
 
          The test is the permission, not the role: swapping owner for
-         equipment_admin keeps `config.manage` and is allowed, because it locks
+         equipment_admin keeps `user.manage` and is allowed, because it locks
          nobody out. Clearing the role (`roleId: null`) never keeps it, which is
          the exact click this guard exists to stop. */
       if (input.userId === ctx.session.userId) {
-        const keepsAdmin = input.roleId ? await roleGrantsConfigManage(ctx.db, input.roleId) : false;
+        const keepsAdmin = input.roleId ? await roleGrantsUserManage(ctx.db, input.roleId) : false;
         if (!keepsAdmin) {
           throw new TRPCError({
             code: "FORBIDDEN",
@@ -404,7 +664,7 @@ export const userRouter = router({
       return { ok: true };
     }),
 
-  setActive: requirePermission("config.manage")
+  setActive: requirePermission("user.manage")
     .input(z.object({ userId: z.string().uuid(), isActive: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
@@ -440,7 +700,7 @@ export const userRouter = router({
       return row!;
     }),
 
-  resetPassword: requirePermission("config.manage")
+  resetPassword: requirePermission("user.manage")
     .input(
       z.object({
         userId: z.string().uuid(),
@@ -483,7 +743,7 @@ export const userRouter = router({
     The other half of `mustChangePassword`, and the only procedure here that is
     not an administrative one.
 
-    `protectedProcedure`, NOT `requirePermission("config.manage")`. A person
+    `protectedProcedure`, NOT `requirePermission("user.manage")`. A person
     changing their own password is not performing an act of administration, and
     gating it on the admin permission would make the flag set by `create` and
     `resetPassword` impossible for an ordinary account to satisfy — every
@@ -554,17 +814,17 @@ export const userRouter = router({
     }),
 });
 
-/* Does this role carry `config.manage`? Read after `requireTenantRole` has
+/* Does this role carry `user.manage`? Read after `requireTenantRole` has
    already proved the role is reachable from this tenant — `role_permission` has
    no tenant column of its own, so the ordering is the isolation. */
-async function roleGrantsConfigManage(db: Database, roleId: string): Promise<boolean> {
+async function roleGrantsUserManage(db: Database, roleId: string): Promise<boolean> {
   const [p] = await db
     .select({ name: schema.rolePermission.permissionName })
     .from(schema.rolePermission)
     .where(
       and(
         eq(schema.rolePermission.roleId, roleId),
-        eq(schema.rolePermission.permissionName, "config.manage"),
+        eq(schema.rolePermission.permissionName, "user.manage"),
       ),
     )
     .limit(1);

@@ -234,7 +234,7 @@ anything a human must review before trusting it is in
 
 | File | Purpose |
 |---|---|
-| `docs/workings/SYSTEM_PLAN.md` | **Start here before building** — what the system is, what exists, what is being built. Verify claims against the repo before acting |
+| `SYSTEM_PLAN.md` (repo root) | **Start here before building** — what the system is, what exists, what is being built. Verify claims against the repo before acting |
 | `docs/workings/RELEASE_1_SPRINT_PLAN.md` | The delivery plan — Sprint 1 ships 24 Aug 2026: epics, stories, points, mechanisms, cases. Jira import files sit beside it |
 | `docs/initialPlan.md` | Urban's original brief in their own words — the requirements every spec traces back to |
 | `design/README.md` | The two UI concept screens and what to take from each. Neither is an implementation target |

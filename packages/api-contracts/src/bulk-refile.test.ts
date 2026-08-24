@@ -43,6 +43,8 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
       actorLabel: null,
     },
     sessionSecret: "sti104-test-secret",
+    mailFallback: null,
+    webOrigin: "http://localhost:3100",
     request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
   });
 

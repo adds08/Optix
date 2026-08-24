@@ -50,6 +50,8 @@ describe.skipIf(!url)("role administration", () => {
       actorLabel: null,
     },
     sessionSecret: "role-admin-test-secret",
+    mailFallback: null,
+    webOrigin: "http://localhost:3100",
     request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
   });
 

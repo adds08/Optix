@@ -63,6 +63,8 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
       actorLabel: null,
     },
     sessionSecret: "sti405-test-secret",
+    mailFallback: null,
+    webOrigin: "http://localhost:3100",
     request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
   });
 

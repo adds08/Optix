@@ -10,8 +10,10 @@ import {
   type ParseContext,
   type ParsedIntent,
 } from "@stinventory/intent";
+import { sendMail } from "@stinventory/mail";
 import { requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
+import { mailConfigFor } from "../mail-config.js";
 
 /*
   The sentence the connection test parses.
@@ -39,16 +41,17 @@ const TEST_CONTEXT: ParseContext = {
   Tenant configuration, editable by the people who own the decisions.
 
   Everything here used to be either a constant in the code or an environment
-  variable on a container — which meant "what counts as high value" and "which
-  model parses the chat" were both questions only whoever held the SSH key
-  could answer. They are operational decisions, not deployment ones.
+  variable on a container — which meant "what counts as high value", "which
+  model parses the chat" and "which relay sends our invites" were all
+  questions only whoever held the SSH key could answer. They are operational
+  decisions, not deployment ones.
 
-  The API key is the reason this file is careful. It is encrypted at rest, it
-  is never returned to a browser, and the only thing the page ever sees is the
-  last four characters.
+  The LLM key and the SMTP password are why this file is careful. Both are
+  encrypted at rest, neither is ever returned to a browser, and the only thing
+  the page ever sees of either is the last four characters.
 */
 
-/** Never widened to include the key itself. */
+/** Never widened to include either secret itself. */
 const PUBLIC_FIELDS = {
   highValueThreshold: schema.tenantSettings.highValueThreshold,
   custodyApproverRole: schema.tenantSettings.custodyApproverRole,
@@ -65,6 +68,14 @@ const PUBLIC_FIELDS = {
   llmLastCheckedAt: schema.tenantSettings.llmLastCheckedAt,
   llmLastCheckOk: schema.tenantSettings.llmLastCheckOk,
   llmLastCheckError: schema.tenantSettings.llmLastCheckError,
+  smtpHost: schema.tenantSettings.smtpHost,
+  smtpPort: schema.tenantSettings.smtpPort,
+  smtpUser: schema.tenantSettings.smtpUser,
+  smtpPassHint: schema.tenantSettings.smtpPassHint,
+  smtpFrom: schema.tenantSettings.smtpFrom,
+  smtpLastCheckedAt: schema.tenantSettings.smtpLastCheckedAt,
+  smtpLastCheckOk: schema.tenantSettings.smtpLastCheckOk,
+  smtpLastCheckError: schema.tenantSettings.smtpLastCheckError,
   updatedAt: schema.tenantSettings.updatedAt,
 };
 
@@ -139,13 +150,22 @@ export const settingsRouter = router({
           cannot send back a value it was never given. Empty string clears it.
         */
         llmApiKey: z.string().max(400).optional(),
+
+        /* SMTP — same write-only-secret shape as the LLM key above, for the
+           same reason. `smtpHost` empty clears the row back to the env
+           fallback (`mailConfigFor` treats no host as "not configured"). */
+        smtpHost: z.string().max(200).nullable().optional(),
+        smtpPort: z.number().int().min(1).max(65535).nullable().optional(),
+        smtpUser: z.string().max(200).nullable().optional(),
+        smtpFrom: z.string().max(200).nullable().optional(),
+        smtpPass: z.string().max(400).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       await ensureRow(ctx.db, tid);
 
-      const { llmApiKey, ...rest } = input;
+      const { llmApiKey, smtpPass, ...rest } = input;
       const patch: Record<string, unknown> = Object.fromEntries(
         Object.entries(rest).filter(([, v]) => v !== undefined),
       );
@@ -162,6 +182,31 @@ export const settingsRouter = router({
           patch.llmLastCheckOk = null;
           patch.llmLastCheckError = null;
         }
+      }
+
+      if (smtpPass !== undefined) {
+        if (smtpPass.trim() === "") {
+          patch.smtpPassEnc = null;
+          patch.smtpPassHint = null;
+        } else {
+          patch.smtpPassEnc = encryptSecret(smtpPass.trim(), ctx.sessionSecret);
+          patch.smtpPassHint = secretHint(smtpPass);
+        }
+        /* A new password invalidates whatever the last test-send proved, same
+           reasoning as the LLM key above — and also whenever the host, port,
+           user or from-address changes, since any of those can be the reason
+           delivery stops working. */
+      }
+      if (
+        smtpPass !== undefined ||
+        patch.smtpHost !== undefined ||
+        patch.smtpPort !== undefined ||
+        patch.smtpUser !== undefined ||
+        patch.smtpFrom !== undefined
+      ) {
+        patch.smtpLastCheckedAt = null;
+        patch.smtpLastCheckOk = null;
+        patch.smtpLastCheckError = null;
       }
 
       if (!Object.keys(patch).length) return { ok: true, changed: [] as string[] };
@@ -296,5 +341,58 @@ export const settingsRouter = router({
         project: parsed?.entities.project?.raw ?? null,
         reply: parsed?.replyText ?? null,
       };
+    }),
+
+  /*
+    Send an actual test email, to an actual inbox. Same reasoning as `testLlm`:
+    "saved" proves nothing about whether a host, a port or a password is
+    right, and those failures all look identical on this screen until
+    something tries to use them. Uses whatever is currently stored on the row
+    (not the unsaved form state — a password field is never sent back to the
+    client to resubmit here, unlike `testLlm`'s optional overrides), so
+    "Save" before "Send test email" is required and the page should say so.
+  */
+  testEmail: requirePermission("config.manage")
+    .input(z.object({ to: z.string().email().max(200) }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const config = await mailConfigFor(ctx.db, tid, ctx.sessionSecret, ctx.mailFallback);
+
+      if (!config) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No SMTP host is configured for this tenant, and no server-wide default is set either.",
+        });
+      }
+
+      const started = Date.now();
+      const result = await sendMail(config, {
+        to: input.to,
+        subject: "STInventory test email",
+        html: `<p>This is a test email from STInventory's Settings page. If this arrived, the configured SMTP relay works.</p>`,
+        text: "This is a test email from STInventory's Settings page. If this arrived, the configured SMTP relay works.",
+      });
+
+      await ctx.db
+        .update(schema.tenantSettings)
+        .set({
+          smtpLastCheckedAt: new Date(),
+          smtpLastCheckOk: result.ok,
+          smtpLastCheckError: result.ok ? null : result.error.slice(0, 500),
+        })
+        .where(eq(schema.tenantSettings.tenantId, tid));
+
+      await logEvent(ctx, {
+        category: "system",
+        action: "settings.testEmail",
+        entityType: "tenant_settings",
+        result: result.ok ? "success" : "failure",
+        errorMessage: result.ok ? null : result.error,
+        details: { to: input.to, ms: Date.now() - started },
+      });
+
+      return result.ok
+        ? { ok: true as const, error: null }
+        : { ok: false as const, error: result.error };
     }),
 });

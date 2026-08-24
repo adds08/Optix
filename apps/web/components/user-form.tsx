@@ -6,17 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 /*
-  New login account.
+  New login account — by invite, not by a password an admin hands over.
 
-  The form is deliberately about the ACCOUNT and nothing else. Somebody who
-  holds tools is an `employee`, created on the People screen and perfectly able
-  to exist with no account at all — the field below links an existing person,
-  it does not create one, and leaving it blank is the normal case for office
+  There is no direct signup in this product: the only way an account becomes
+  usable is by its owner consuming the link this form sends them. That is a
+  deliberate narrowing from the old shape, where an admin typed or generated a
+  password and read it out — the invite link proves the recipient controls the
+  inbox before they ever see a credential, and `user.invite` creates the
+  account `isActive: false` until they do.
+
+  The form is otherwise about the ACCOUNT and nothing else. Somebody who holds
+  tools is an `employee`, created on the People screen and perfectly able to
+  exist with no account at all — the field below links an existing person, it
+  does not create one, and leaving it blank is the normal case for office
   staff who sign in but never carry a grinder.
-
-  Leaving the password blank asks the server to generate one. It comes back
-  exactly once, in the response, so the dialog switches to showing it rather
-  than closing — closing on create would throw away the only copy.
 */
 const SELECT_CLASS =
   "flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -67,13 +70,13 @@ export function UserForm({ open, onClose }: { open: boolean; onClose: () => void
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [password, setPassword] = useState("");
   const [roleId, setRoleId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
   const [error, setError] = useState("");
-  /* Set once the account exists. Non-null means "we are on the second step" —
-     the credential is on screen and the only Close is an acknowledgement. */
-  const [issued, setIssued] = useState<{ email: string; password: string | null } | null>(null);
+  /* Set once the invite is sent. Non-null means "we are on the second step" —
+     there is no credential to show, only confirmation of where the link went
+     and whether the email actually left the building. */
+  const [sent, setSent] = useState<{ email: string; emailSent: boolean; emailError: string | null } | null>(null);
 
   /*
     `useMutation` rather than `utils.client.…mutate` inside a try/catch, because
@@ -85,25 +88,24 @@ export function UserForm({ open, onClose }: { open: boolean; onClose: () => void
     makes the duplicate-email and cross-tenant refusals in `routers/user.ts`
     worth having been written in words.
   */
-  const create = trpc.user.create.useMutation({
+  const invite = trpc.user.invite.useMutation({
     onSuccess: (res) => {
       setError("");
       utils.user.list.invalidate();
-      setIssued({ email: res.user.email, password: res.temporaryPassword });
+      setSent({ email: res.user.email, emailSent: res.emailSent, emailError: res.emailError });
     },
     onError: (e) =>
-      setError(e.data?.userMessage ?? "Could not create the account. Try again, or ask another administrator."),
+      setError(e.data?.userMessage ?? "Could not create the invite. Try again, or ask another administrator."),
   });
-  const submitting = create.isPending;
+  const submitting = invite.isPending;
 
   const submit = () => {
     if (!email || !firstName || !lastName) return;
     setError("");
-    create.mutate({
+    invite.mutate({
       email,
       firstName,
       lastName,
-      password: password || undefined,
       roleId: roleId || undefined,
       employeeId: employeeId || null,
     });
@@ -113,11 +115,26 @@ export function UserForm({ open, onClose }: { open: boolean; onClose: () => void
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{issued ? "Account created" : "New user account"}</DialogTitle>
+          <DialogTitle>{sent ? "Invite sent" : "Invite a user"}</DialogTitle>
         </DialogHeader>
 
-        {issued ? (
-          <CredentialNote email={issued.email} password={issued.password} />
+        {sent ? (
+          <div className="space-y-3 text-sm">
+            {sent.emailSent ? (
+              <p>
+                An invite was sent to <span className="font-medium">{sent.email}</span>. The account
+                cannot sign in until they open it and choose a password — nothing to hand over here.
+              </p>
+            ) : (
+              <div className="rounded-md border border-warn/30 bg-warn-bg px-3 py-2 text-warn">
+                <p className="font-medium">The account was created, but the invite email failed to send.</p>
+                <p className="mt-1">{sent.emailError ?? "No SMTP is configured on this server."}</p>
+                <p className="mt-1">
+                  Fix delivery in Settings → Notifications, then use Resend on this row.
+                </p>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -134,10 +151,10 @@ export function UserForm({ open, onClose }: { open: boolean; onClose: () => void
               <label className="text-sm font-medium">Email *</label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               <p className="text-xs text-muted-foreground">
-                This is the sign-in address, matched exactly — case included. It must be unique
-                within Urban, and also unused by any other organisation on this system: sign-in
-                does not yet ask which one you belong to, so a shared address locks both accounts
-                out.
+                The invite goes here. Any address works, including personal ones — this system does
+                not restrict sign-in to a company domain. It must be unique within Urban, and also
+                unused by any other organisation on this system: sign-in does not yet ask which one
+                you belong to, so a shared address locks both accounts out.
               </p>
             </div>
             <div className="space-y-2">
@@ -162,30 +179,18 @@ export function UserForm({ open, onClose }: { open: boolean; onClose: () => void
                 register needs no account, and this account needs no person.
               </p>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Password</label>
-              <Input
-                type="password"
-                value={password}
-                placeholder="Leave blank to generate one"
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Shown once, on the next screen. Ten characters or more.
-              </p>
-            </div>
             {error ? <p className="text-sm text-crit">{error}</p> : null}
           </div>
         )}
 
         <DialogFooter>
-          {issued ? (
+          {sent ? (
             <Button onClick={onClose}>Done</Button>
           ) : (
             <>
               <Button variant="outline" onClick={onClose} disabled={submitting}>Cancel</Button>
               <Button onClick={submit} disabled={submitting || !email || !firstName || !lastName}>
-                {submitting ? "Creating…" : "Create account"}
+                {submitting ? "Sending…" : "Send invite"}
               </Button>
             </>
           )}

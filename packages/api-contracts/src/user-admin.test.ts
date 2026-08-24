@@ -15,7 +15,7 @@ import type { Context } from "./trpc.js";
        no user router at all, so the first version of one is exactly where a
        bare `protectedProcedure` slips in — and a bare one here means any signed
        in account can mint an owner. Every procedure is asserted against a
-       session that holds a permission but not `config.manage`.
+       session that holds a permission but not `user.manage`.
     2. **Deactivating an account moving custody.** It must not. Tools follow the
        employee, not the login; STI-306 moves them. The test asserts the
        register and the assignment table are byte-for-byte untouched across a
@@ -80,14 +80,16 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
       actorLabel: null,
     },
     sessionSecret: "sti303-test-secret",
+    mailFallback: null,
+    webOrigin: "http://localhost:3100",
     request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
   });
 
-  const admin = () => userRouter.createCaller(makeCtx(["config.manage"]));
+  const admin = () => userRouter.createCaller(makeCtx(["user.manage"]));
   /* An administrator of the OTHER tenant — the party the cross-tenant tests
      act as. Same permission, different `session.tenantId`. */
   const otherAdmin = () =>
-    userRouter.createCaller(makeCtx(["config.manage"], outsiderUserId, otherTenantId));
+    userRouter.createCaller(makeCtx(["user.manage"], outsiderUserId, otherTenantId));
   /* An ordinary signed-in account with no administrative permission at all.
      `changePassword` must be reachable from exactly this. */
   const self = (userId: string) => userRouter.createCaller(makeCtx([], userId));
@@ -139,14 +141,14 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
     /* `permission` is a global table the seed already fills; this only makes the
        suite independent of whether it has been. The two roles below are what
        makes the self-demotion guard testable at all — it asks whether the NEW
-       role still grants `config.manage`, so a role that grants it and a role
+       role still grants `user.manage`, so a role that grants it and a role
        that does not are both needed. `foreman` deliberately gets neither. */
-    await db.insert(schema.permission).values({ name: "config.manage" }).onConflictDoNothing();
+    await db.insert(schema.permission).values({ name: "user.manage" }).onConflictDoNothing();
     await db
       .insert(schema.rolePermission)
       .values([
-        { roleId: ownerRoleId, permissionName: "config.manage" },
-        { roleId: deskRoleId, permissionName: "config.manage" },
+        { roleId: ownerRoleId, permissionName: "user.manage" },
+        { roleId: deskRoleId, permissionName: "user.manage" },
       ])
       .onConflictDoNothing();
 
@@ -213,11 +215,11 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
   });
 
   /*
-    Criterion 8, and the reason this file leads with it. `config.manage` is the
+    Criterion 8, and the reason this file leads with it. `user.manage` is the
     gate; a session holding a different permission is the realistic attacker
     here — every signed in account has some permission.
   */
-  it("every procedure refuses a session that lacks config.manage", async () => {
+  it("every procedure refuses a session that lacks user.manage", async () => {
     const caller = userRouter.createCaller(makeCtx(["asset.read"]));
     const calls: Array<[string, () => Promise<unknown>]> = [
       ["create", () => caller.create({ email: emailFor("nope"), firstName: "N", lastName: "O", password: "not-allowed-1" })],
@@ -235,7 +237,7 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
        unsatisfiable for every ordinary account. Its scope, which is what stands
        in for the permission, is pinned in the mustChangePassword block below. */
     for (const [name, run] of calls) {
-      await expect(run(), `${name} must be permission-gated`).rejects.toThrow(/missing permission: config.manage/);
+      await expect(run(), `${name} must be permission-gated`).rejects.toThrow(/missing permission: user.manage/);
     }
 
     /* And nothing landed: a FORBIDDEN that still wrote would be worse than no
@@ -508,7 +510,7 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
     the same hazard — the last administrator locking the tenant out — and the
     only recovery from the unguarded one was an UPDATE in psql.
   */
-  describe("an administrator cannot take config.manage off themselves", () => {
+  describe("an administrator cannot take user.manage off themselves", () => {
     it("refuses to clear their own role, and the role survives", async () => {
       await expect(
         admin().setRole({ userId: adminUserId, roleId: null }),
@@ -516,14 +518,14 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
       expect(await rolesOf(adminUserId)).toEqual([ownerRoleId]);
     });
 
-    it("refuses a role that does not carry config.manage", async () => {
+    it("refuses a role that does not carry user.manage", async () => {
       await expect(
         admin().setRole({ userId: adminUserId, roleId: foremanRoleId }),
       ).rejects.toThrow(/cannot remove your own administrator role/i);
       expect(await rolesOf(adminUserId)).toEqual([ownerRoleId]);
     });
 
-    it("allows a self role change that KEEPS config.manage", async () => {
+    it("allows a self role change that KEEPS user.manage", async () => {
       /* The guard is about the permission, not about self-service. Swapping
          owner for equipment_admin locks nobody out, so refusing it would be a
          guard that had stopped reading what it is guarding. */
@@ -589,7 +591,7 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
       expect(before.mustChangePassword).toBe(true);
 
       /* The session carries NO permissions at all. Gating this on
-         `config.manage` is what would make the flag unsatisfiable. */
+         `user.manage` is what would make the flag unsatisfiable. */
       const res = await self(user.id).changePassword({
         currentPassword: "issued-to-them-1",
         newPassword: "their-own-choice-1",

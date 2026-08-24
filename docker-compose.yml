@@ -70,6 +70,7 @@ services:
       - /workspace/packages/auth/node_modules
       - /workspace/packages/env/node_modules
       - /workspace/packages/logger/node_modules
+      - /workspace/packages/mail/node_modules
       - /workspace/packages/types/node_modules
       - /workspace/packages/config-eslint/node_modules
       - /workspace/packages/config-tsconfig/node_modules

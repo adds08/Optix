@@ -4,9 +4,9 @@ import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
 import { serve } from "@hono/node-server";
 import { trpcServer } from "@hono/trpc-server";
-import { appRouter } from "@stinventory/api-contracts";
+import { appRouter, mailConfigFor } from "@stinventory/api-contracts";
 import { createDb } from "@stinventory/db";
-import { resolveSession, login, logout } from "@stinventory/auth";
+import { resolveSession, login, logout, createSession, generateAuthToken, hashAuthToken, hashPassword } from "@stinventory/auth";
 import { serverEnv } from "@stinventory/env";
 import { createLogger } from "@stinventory/logger";
 import { createNotification, deliverPendingNotifications } from "./notifications.js";
@@ -17,6 +17,7 @@ import { isAllowedImage, MAX_PHOTO_BYTES, storageFor } from "./storage.js";
 import { sweepRequests } from "./request-worker.js";
 import * as schema from "@stinventory/db/schema";
 import { and, eq } from "drizzle-orm";
+import { sendMail, passwordResetEmail, passwordChangedEmail, type MailConfig } from "@stinventory/mail";
 
 function detectSource(userAgent: string | undefined): "web" | "mobile" | "api" {
   if (!userAgent) return "api";
@@ -28,6 +29,24 @@ function detectSource(userAgent: string | undefined): "web" | "mobile" | "api" {
 const env = serverEnv();
 const log = createLogger("api");
 const db = createDb(env.DATABASE_URL);
+
+/*
+  The env-side half of `mailConfigFor` (packages/api-contracts/src/mail-config.ts):
+  resolved once here, where `env` lives, and passed into the tRPC context and
+  the unauthenticated auth endpoints below as a plain value — the same
+  pattern `sessionSecret` already uses so `packages/api-contracts` never loads
+  env of its own. `null` when `SMTP_HOST` is unset, which is exactly the
+  "print, don't send" case `sendMail` already handles.
+*/
+const mailFallback: MailConfig | null = env.SMTP_HOST
+  ? {
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      user: env.SMTP_USER ?? null,
+      pass: env.SMTP_PASS ?? null,
+      from: env.SMTP_FROM ?? "STInventory <no-reply@stinventory.local>",
+    }
+  : null;
 
 const app = new Hono();
 app.use("*", honoLogger());
@@ -126,6 +145,218 @@ app.post("/auth/login", async (c) => {
     tenantId: result.tenantId,
     mustChangePassword: result.mustChangePassword,
   });
+});
+
+/*
+  Self-service password reset and invite acceptance.
+
+  Both are unauthenticated by necessity — the whole point is to let in someone
+  who cannot already sign in — so they sit here next to `/auth/login` rather
+  than as tRPC procedures, the same reasoning STI-303's design note gives for
+  why the admin-driven reset stayed a flag instead of a link: reachability, not
+  cryptography, is the distinguishing feature of this half of the file.
+
+  `RESET_LIMIT`/`CONSUME_LIMIT` reuse the same in-memory, per-instance limiter
+  as login, with the same honestly-stated weakness (see rate-limit.ts).
+*/
+const RESET_LIMIT = 5;
+const RESET_WINDOW_MS = 15 * 60_000;
+const CONSUME_LIMIT = 20;
+const CONSUME_WINDOW_MS = 15 * 60_000;
+
+/*
+  Forgot password. Always answers `{ ok: true }` — whether or not the address
+  matches an account, and regardless of `tenantSlug` ambiguity — for the same
+  reason `login()` fails closed on an ambiguous address (STI-305): a response
+  that differed would let a caller learn whether an email exists here at all,
+  in this tenant or another one.
+*/
+app.post("/auth/forgot-password", async (c) => {
+  const body = await c.req.json<{ email: string; tenantSlug?: string }>().catch(() => null);
+  const email = body?.email?.trim();
+  if (!email) return c.json({ ok: true });
+
+  const key = `forgot:${clientIp(c.req.raw.headers)}:${email.toLowerCase()}`;
+  const limited = rateLimit(key, RESET_LIMIT, RESET_WINDOW_MS);
+  if (!limited.allowed) {
+    return c.json({ ok: true }); // same response either way — see header comment
+  }
+
+  /* Ambiguous without a tenant hint, exactly like login: refuse to guess. Two
+     rows are enough to know it is ambiguous. */
+  const matches = await db
+    .select({ id: schema.user.id, tenantId: schema.user.tenantId, firstName: schema.user.firstName, isActive: schema.user.isActive })
+    .from(schema.user)
+    .innerJoin(schema.tenant, eq(schema.tenant.id, schema.user.tenantId))
+    .where(
+      body?.tenantSlug
+        ? and(eq(schema.user.email, email), eq(schema.tenant.slug, body.tenantSlug))
+        : eq(schema.user.email, email),
+    )
+    .limit(2);
+
+  if (matches.length === 1 && matches[0]!.isActive) {
+    const u = matches[0]!;
+    const [tenantRow] = await db.select({ name: schema.tenant.name }).from(schema.tenant).where(eq(schema.tenant.id, u.tenantId)).limit(1);
+    const token = generateAuthToken();
+    await db.insert(schema.authToken).values({
+      tenantId: u.tenantId,
+      userId: u.id,
+      tokenHash: hashAuthToken(token),
+      kind: "reset",
+      expiresAt: new Date(Date.now() + 60 * 60_000), // 1 hour
+    });
+    const config = await mailConfigFor(db, u.tenantId, env.SESSION_SECRET, mailFallback);
+    await sendMail(config, {
+      to: email,
+      ...passwordResetEmail({
+        tenantName: tenantRow?.name ?? "STInventory",
+        recipientFirstName: u.firstName,
+        resetUrl: `${env.WEB_ORIGIN}/reset/${token}`,
+        expiresHuman: "1 hour",
+      }),
+    });
+    await db.insert(schema.eventLog).values({
+      tenantId: u.tenantId,
+      actorUserId: null,
+      category: "auth",
+      action: "user.forgotPassword",
+      entityType: "user",
+      entityId: u.id,
+      result: "success",
+      source: detectSource(c.req.header("user-agent") ?? undefined),
+      httpMethod: "POST",
+      httpPath: "/auth/forgot-password",
+    }).catch((err) => log.error("[audit] forgot-password insert", { err: String(err) }));
+  }
+  // Inactive account, no match, or an ambiguous one: say nothing, do nothing.
+  return c.json({ ok: true });
+});
+
+/*
+  What the invite/reset pages show before asking for a password — whose name,
+  which tenant, which kind of link this is. Looking a token up by its hash is
+  safe to expose unauthenticated: a valid token is 256 random bits nobody
+  could have guessed, so knowing one already proves the caller received the
+  email it was sent in.
+*/
+app.get("/auth/tokens/:token", async (c) => {
+  const raw = c.req.param("token");
+  const [row] = await db
+    .select({
+      kind: schema.authToken.kind,
+      expiresAt: schema.authToken.expiresAt,
+      consumedAt: schema.authToken.consumedAt,
+      firstName: schema.user.firstName,
+      email: schema.user.email,
+      tenantName: schema.tenant.name,
+    })
+    .from(schema.authToken)
+    .innerJoin(schema.user, eq(schema.user.id, schema.authToken.userId))
+    .innerJoin(schema.tenant, eq(schema.tenant.id, schema.authToken.tenantId))
+    .where(eq(schema.authToken.tokenHash, hashAuthToken(raw)))
+    .limit(1);
+
+  if (!row || row.consumedAt || row.expiresAt < new Date()) {
+    return c.json({ ok: false, error: "invalid_or_expired" }, 404);
+  }
+  return c.json({
+    ok: true,
+    kind: row.kind,
+    firstName: row.firstName,
+    email: row.email,
+    tenantName: row.tenantName,
+  });
+});
+
+/*
+  Spend the token: set the password, activate an invited account, sign the
+  caller in, and burn the link behind them — a token is single-use because
+  `consumedAt` is checked here and stamped in the same transaction that
+  changes the password.
+*/
+app.post("/auth/tokens/:token/consume", async (c) => {
+  const raw = c.req.param("token");
+  const key = `consume:${clientIp(c.req.raw.headers)}:${raw.slice(0, 16)}`;
+  const limited = rateLimit(key, CONSUME_LIMIT, CONSUME_WINDOW_MS);
+  if (!limited.allowed) {
+    return c.json({ error: "too_many_attempts" }, 429, { "Retry-After": String(limited.retryAfter) });
+  }
+
+  const body = await c.req.json<{ password: string }>().catch(() => null);
+  if (!body?.password || body.password.length < 10) {
+    return c.json({ error: "Password must be at least 10 characters." }, 400);
+  }
+
+  const tokenHash = hashAuthToken(raw);
+  const [row] = await db
+    .select({
+      id: schema.authToken.id,
+      userId: schema.authToken.userId,
+      tenantId: schema.authToken.tenantId,
+      kind: schema.authToken.kind,
+      expiresAt: schema.authToken.expiresAt,
+      consumedAt: schema.authToken.consumedAt,
+    })
+    .from(schema.authToken)
+    .where(eq(schema.authToken.tokenHash, tokenHash))
+    .limit(1);
+
+  if (!row || row.consumedAt || row.expiresAt < new Date()) {
+    return c.json({ error: "invalid_or_expired" }, 400);
+  }
+
+  const passwordHash = await hashPassword(body.password);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.user)
+      .set({
+        passwordHash,
+        mustChangePassword: false,
+        /* Only an invite activates a dormant account. A reset never flips
+           `isActive` — an account somebody deactivated stays deactivated even
+           if the person locked out of it also happens to know the old
+           mailbox. Reactivating is `user.setActive`, a decision for whoever
+           holds `user.manage`, not a side effect of a password reset. */
+        ...(row.kind === "invite" ? { isActive: true } : {}),
+      })
+      .where(and(eq(schema.user.id, row.userId), eq(schema.user.tenantId, row.tenantId)));
+    /* Same revocation the admin-driven reset already does — an old bearer
+       token must not outlive the credential it was issued under. An invited
+       account has none yet, so this is a no-op there. Tenant-scoped like the
+       update above: `row.tenantId` came off the `auth_token` row this token
+       hashed to, not off caller input, so this is the STI-119 predicate in
+       its normal shape, not the login-lookup exception. */
+    await tx
+      .delete(schema.session)
+      .where(and(eq(schema.session.userId, row.userId), eq(schema.session.tenantId, row.tenantId)));
+    await tx.update(schema.authToken).set({ consumedAt: new Date() }).where(eq(schema.authToken.id, row.id));
+  });
+
+  const u = await db.query.user.findFirst({ where: eq(schema.user.id, row.userId) });
+  if (row.kind === "reset" && u) {
+    const [tenantRow] = await db.select({ name: schema.tenant.name }).from(schema.tenant).where(eq(schema.tenant.id, row.tenantId)).limit(1);
+    const config = await mailConfigFor(db, row.tenantId, env.SESSION_SECRET, mailFallback);
+    await sendMail(config, {
+      to: u.email,
+      ...passwordChangedEmail({ tenantName: tenantRow?.name ?? "STInventory", recipientFirstName: u.firstName }),
+    });
+  }
+
+  await db.insert(schema.eventLog).values({
+    tenantId: row.tenantId,
+    actorUserId: row.userId,
+    actorLabel: u ? `${u.firstName} ${u.lastName} (${u.email})` : null,
+    category: "auth",
+    action: row.kind === "invite" ? "user.acceptInvite" : "user.resetPasswordSelf",
+    result: "success",
+    source: detectSource(c.req.header("user-agent") ?? undefined),
+    httpMethod: "POST",
+    httpPath: "/auth/tokens/:token/consume",
+  }).catch((err) => log.error("[audit] token-consume insert", { err: String(err) }));
+
+  const sessionId = await createSession(db, row.userId, row.tenantId);
+  return c.json({ sessionId, userId: row.userId, tenantId: row.tenantId });
 });
 
 /*
@@ -291,6 +522,8 @@ app.use(
         db,
         session,
         sessionSecret: env.SESSION_SECRET,
+        mailFallback,
+        webOrigin: env.WEB_ORIGIN,
         request: {
           method: c.req.method,
           path: url.pathname,
@@ -314,7 +547,7 @@ serve({ fetch: app.fetch, port }, (info) => {
 const SCAN_INTERVAL_MS = 60_000;
 setInterval(async () => {
   try {
-    await deliverPendingNotifications(db, env);
+    await deliverPendingNotifications(db, env.SESSION_SECRET, mailFallback);
   } catch (err) {
     log.error("[notifications] delivery failed", { err: String(err) });
   }

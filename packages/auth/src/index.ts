@@ -116,14 +116,7 @@ export async function login(
     }
   }
 
-  /* 32 bytes, not 24. This is the bearer token for the whole session. */
-  const sessionId = randomBytes(32).toString("hex");
-  await db.insert(schema.session).values({
-    id: sessionId,
-    userId: u.id,
-    tenantId: u.tenantId,
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
-  });
+  const sessionId = await createSession(db, u.id, u.tenantId);
   /* Reported, NOT enforced as a refusal (STI-303 criterion 5). An admin who
      resets a password knows it, so the user must be made to change it — but
      refusing the login would leave them unable to, since changing a password
@@ -133,6 +126,23 @@ export async function login(
 
 export async function logout(db: Database, sessionId: string): Promise<void> {
   await db.delete(schema.session).where(eq(schema.session.id, sessionId));
+}
+
+/*
+  The bearer token for a whole session — 32 bytes, not 24. Extracted out of
+  `login()` so the invite-accept and password-reset consume endpoints (which
+  sign the caller in the moment they finish, the same way a fresh login does)
+  create a session the identical way rather than a second inline copy of this.
+*/
+export async function createSession(db: Database, userId: string, tenantId: string): Promise<string> {
+  const sessionId = randomBytes(32).toString("hex");
+  await db.insert(schema.session).values({
+    id: sessionId,
+    userId,
+    tenantId,
+    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+  });
+  return sessionId;
 }
 
 export type ResolvedSession = {
@@ -178,3 +188,4 @@ export function hasPermission(session: ResolvedSession | null, perm: Permission)
 }
 
 export { encryptSecret, decryptSecret, secretHint } from "./secrets.js";
+export { generateAuthToken, hashAuthToken } from "./tokens.js";

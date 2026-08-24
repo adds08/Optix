@@ -161,14 +161,16 @@ before answering.
 | `notification.manage` | ● | ● | — | ● | — | — | — | — | — | — | — | — | — |
 | `config.manage` | ● | ● | — | — | — | — | — | — | — | — | — | — | — |
 
-**† `user.manage` does not exist in the codebase.** User administration shipped in STI-303
-gated on **`config.manage`** (`routers/user.ts` — `create`, `setRole`, `setActive`,
-`resetPassword`). This table grants `user.manage` to Office Administrator but grants
-`config.manage` only to System and Equipment Admin — so as drafted, an Office Administrator
-would be *unable* to create a user or reset a password. Splitting the two is a real change,
-not a rename: `config.manage` also controls the LLM configuration and the high-value
-threshold, and "may add a user" and "may change the approval threshold" are not obviously
-the same authority. **This is open decision 4 in §5.**
+**† `user.manage` now exists — decision 4 in §5 is answered.** Shipped 2026-08-24 with the
+invite/reset build: `routers/user.ts`'s administrative procedures (`list`, `roles`, `create`,
+`invite`, `resendInvite`, `setRole`, `setActive`, `resetPassword`) moved off `config.manage`
+onto this new permission, granted to System Admin, Equipment Admin **and Office
+Administrator** — exactly the row this table already drafted, once corrected. `config.manage`
+kept the LLM/SMTP configuration and the high-value threshold, and stayed off Office
+Administrator, per the reasoning in this section. Migration `0025` back-grants `user.manage`
+to those three roles on an existing database, the same shape `0020` used for the visibility
+ladder — see its header comment for why a permission this new needs a data migration and not
+just a seed change.
 
 ---
 
@@ -254,12 +256,10 @@ because placing a PM on a job reads as an administrative act. If that is an Equi
 department decision at Urban, it moves.
 - **Default if unanswered:** as drafted — Office Admin may.
 
-**4. May an Office Administrator create users and reset passwords?** Today that power is
-`config.manage`, which also controls the LLM configuration and the high-value approval
-threshold. Granting it to Office Admin grants all three; keeping them separate means
-splitting the permission.
-- **Default if unanswered:** keep them together and do **not** grant Office Admin
-  `config.manage` — so user administration stays with System and Equipment Admin.
+**4. May an Office Administrator create users and reset passwords? — ANSWERED, shipped
+2026-08-24.** `user.manage` was split out of `config.manage` and granted to Office
+Administrator; `config.manage` (the LLM/SMTP configuration and the high-value approval
+threshold) was not. See the footnote on the table above.
 
 Everything else in this table follows from the role definitions in §1 and needs a reason,
 not a review, to change.
@@ -280,7 +280,7 @@ correction, in whatever words are convenient.
 | 5 | Who may reassign everything a leaver holds | Equipment desk only (as shipped) | |
 | 6 | What a mechanic sees | their own custody only | |
 | 7 | May Office Admin place a PM on a job | yes | |
-| 8 | May Office Admin create users and reset passwords | no — stays with System / Equipment Admin | |
+| 8 | May Office Admin create users and reset passwords | **shipped 2026-08-24, opposite of the default below:** yes, via a new `user.manage` split from `config.manage` | |
 
 **Silence is an answer.** Every default above is what gets built if this document is not
 returned. Each is reversible cheaply *now* and expensively later — after the roles ship,
