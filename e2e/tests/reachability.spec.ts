@@ -56,14 +56,23 @@ async function offeredRoutes(page: Page, start: string): Promise<string[]> {
     exactly `/desk`, `/home`, `/old-dash` and `/settings/appearance` — the four
     ungated rows — and every gated group looks forbidden.
 
-    `networkidle` is what the console-error test below already waits for, and it
-    is the honest signal here: the nav is settled once the queries behind it
-    have stopped.
+    The account button is the signal: `app-shell.tsx` renders it only once
+    `identity.me` has resolved, which is the same fact the nav filter is waiting
+    on. It is a statement about this shell rather than a guess about the
+    network.
+
+    `networkidle` was tried first and is wrong here. The shell polls
+    `dashboard.notifications` on an interval and the desk pages hold live
+    queries, so "the network went quiet for 500ms" is a condition this app
+    reaches late or not at all: the same suite that runs in ninety seconds with
+    the wait below took twenty-two minutes with `networkidle`, and still failed.
   */
   const settledNav = async (href: string) => {
     await page.goto(href);
+    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(page.locator("[data-sidebar]").first()).toBeVisible({ timeout: 10_000 });
-    await page.waitForLoadState("networkidle");
   };
 
   await settledNav(start);
@@ -104,15 +113,24 @@ for (const role of ROLES) {
       await expect(page.locator("main, body").first()).toBeVisible();
     });
 
-    test("is offered the navigation its permissions imply", async ({ page }) => {
+    /* Both halves in one test because the walk is the expensive part — a
+       navigation per rail group — and running it twice per role doubled a cost
+       CI was already close to timing out on. The assertion messages carry the
+       role and the route, so a failure still says which half broke. */
+    test("is offered exactly the navigation its permissions imply", async ({ page }) => {
+      /* Six navigations against a dev server that compiles each route on first
+         hit. The default 30s is not enough on CI and pretending otherwise is
+         how a suite becomes something people re-run rather than read. */
+      test.slow();
+
       const offered = await offeredRoutes(page, role.landsOn);
+
       for (const href of role.expectsRoutes) {
         expect(offered, `${role.key} should be offered ${href}`).toContain(href);
       }
-    });
-
-    test("is NOT offered navigation its permissions forbid", async ({ page }) => {
-      const offered = await offeredRoutes(page, role.landsOn);
+      /* The half that catches a widening. A missing link is a bug somebody
+         reports; an extra one is a permission leak nobody notices until it is
+         used. */
       for (const href of role.forbidsRoutes) {
         expect(offered, `${role.key} must NOT be offered ${href}`).not.toContain(href);
       }

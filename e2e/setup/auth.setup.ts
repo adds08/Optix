@@ -30,8 +30,15 @@ for (const role of ROLES) {
     await page.getByRole("button", { name: "Sign in" }).click();
 
     /* The shell decides where a role lands, so this assertion is load-bearing:
-       a foreman arriving at /home would mean the field redirect regressed. */
-    await page.waitForURL((url) => url.pathname === role.landsOn, { timeout: 15_000 });
+       a foreman arriving at /home would mean the field redirect regressed.
+
+       The timeout is generous because the stack under test is `next dev`, which
+       compiles a route on its first hit. The two roles that flaked here — the
+       foreman and the mechanic — are exactly the two that land on `/my-tools`,
+       so one of them always paid for that route's first compile and 15s was
+       occasionally not enough. Read a failure here as "the redirect is wrong",
+       not "the machine was slow", which is only true because of this line. */
+    await page.waitForURL((url) => url.pathname === role.landsOn, { timeout: 45_000 });
 
     await page.context().storageState({ path: authFile(role.key) });
   });
