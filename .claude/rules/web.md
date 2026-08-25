@@ -32,9 +32,15 @@ yet for a `protectedProcedure` to check.
   (`lib/trpc.ts:16-18`). One `QueryClient`, `staleTime: 10s` (`lib/providers.tsx`).
 - The bearer token is read per-request from `localStorage["sti-session"]` and is
   window-guarded, so SSR sends no header (`lib/trpc.ts:19-22`).
-- **There is no 401 interceptor.** Auth failure is handled in the shell: if `identity.me`
-  errors, `AppShell` clears the session and redirects to `/`
-  (the error effect in `components/sti/app-shell.tsx`). Don't add a second mechanism.
+- **There is no 401 interceptor.** Auth failure is handled in the shell, and **only an
+  `UNAUTHORIZED` counts as auth failure**: `AppShell` reads
+  `me.error.data?.code === "UNAUTHORIZED"` and only then clears the session and redirects
+  to `/`. Any other failure — unreachable API, 500, timeout — retries, then renders a
+  "cannot reach the server" wall with the credential left intact. The two were conflated
+  under a bare `me.isError` with `retry: false`, which signed people out because one
+  request lost the network and made them retype a password to fix a problem that was
+  never about their password. Don't add a second mechanism, and don't widen this one back
+  to "any error".
 - **The QueryClient is built in the ROOT layout, so it outlives sign-out.** It spans both
   `/` and the `(app)` group, which means a cached *error* survives a failed sign-in. That
   made login a loop: `identity.me` reported `isError` from cache on the next mount, before

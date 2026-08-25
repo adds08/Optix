@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Moon, Sun } from "lucide-react";
+import { Moon, RotateCw, Sun, TriangleAlert } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -73,7 +73,26 @@ export function AppShell({
     else setReady(true);
   }, [router]);
 
-  const me = trpc.identity.me.useQuery(undefined, { enabled: ready, retry: false });
+  /*
+    `identity.me` decides whether the caller is still signed in, so its failure
+    mode has to separate two things the old `retry: false` conflated:
+
+      - UNAUTHORIZED — the session really is gone (expired, revoked, the user
+        deactivated mid-session). Retrying cannot help; the credential is dead
+        and belongs in the bin.
+      - anything else — the API is unreachable, or answered 500, or the request
+        timed out. The credential is FINE. Deleting it here signed people out
+        because a wifi hop dropped one request, and made them type a password
+        to recover from a problem that had nothing to do with their password.
+
+    So: never retry an UNAUTHORIZED, do retry the rest, and only the first kind
+    is allowed to touch stored credentials.
+  */
+  const me = trpc.identity.me.useQuery(undefined, {
+    enabled: ready,
+    retry: (failureCount, error) => error.data?.code !== "UNAUTHORIZED" && failureCount < 2,
+  });
+  const sessionIsDead = me.isError && me.error?.data?.code === "UNAUTHORIZED";
   const prefs = trpc.preferences.get.useQuery(undefined, { enabled: ready });
   /* Sidebar badge — the queue count the bell shows, mirrored on the nav row. */
   const notif = trpc.dashboard.notifications.useQuery(undefined, { enabled: ready, refetchInterval: 15_000 });
@@ -101,11 +120,11 @@ export function AppShell({
   }, [storePrefs, dark]);
 
   useEffect(() => {
-    if (me.isError) {
+    if (sessionIsDead) {
       clearSession();
       router.replace("/");
     }
-  }, [me.isError, router]);
+  }, [sessionIsDead, router]);
 
   /*
     A credential somebody else chose is a credential somebody else knows.
@@ -164,6 +183,48 @@ export function AppShell({
   }
 
   if (!ready) return null;
+
+  /* Dead session: the effect above is already redirecting to `/`. Paint
+     nothing on the way out rather than a frame with no navigation in it. */
+  if (sessionIsDead) return null;
+
+  /*
+    Signed in, but the API is not answering — the retries above are spent.
+
+    This is a wall rather than a sign-out, which is the whole point of the
+    change: the credential is untouched, so "Try again" is genuinely all that
+    is needed, and a foreman does not have to remember a password because the
+    yard wifi dropped. The shell itself cannot render behind this — without
+    `me.data` there are no permissions, so the navigation would come out empty
+    and every panel inside it would be failing too. Borrowed from
+    `(app)/error.tsx` deliberately: to the person looking at it this is the
+    same kind of event, and it should not look like a different product.
+  */
+  if (me.isError) {
+    return (
+      <div className="grid min-h-svh place-items-center px-6">
+        <div className="flex max-w-[46ch] flex-col items-center gap-3 rounded-md border bg-card px-6 py-14 text-center">
+          <span
+            aria-hidden
+            className="flex size-11 items-center justify-center rounded-full bg-crit-bg text-crit"
+          >
+            <TriangleAlert className="size-5" />
+          </span>
+          <div className="flex flex-col gap-1">
+            <p className="font-medium">Cannot reach the server</p>
+            <p className="text-sm text-muted-foreground text-pretty">
+              You are still signed in and nothing was lost. This is usually the
+              connection — try again in a moment.
+            </p>
+          </div>
+          <Button onClick={() => me.refetch()} size="sm" variant="outline" disabled={me.isFetching}>
+            <RotateCw className={cn("size-4", me.isFetching && "animate-spin")} />
+            {me.isFetching ? "Trying…" : "Try again"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider defaultOpen={defaultSidebarOpen} className="h-dvh overflow-hidden">
