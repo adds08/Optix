@@ -12,7 +12,7 @@ import { usePermissions } from "@/components/use-permissions";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
-import { shortDate, daysFrom, relative, idName } from "@/lib/format";
+import { shortDate, relative, idName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*

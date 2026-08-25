@@ -198,7 +198,12 @@ export function RigPicker({
         const here = request.truckId ? v.attachedToVehicleId === request.truckId : false;
         const rehitchFrom = !here && v.attachedToVehicleId ? v.attachedToUnit : null;
         const foreman = foremanNameOf(request.foremanId);
-        const heldByOther = !here && v.foremanEmployeeId && v.foremanEmployeeId !== request.foremanId;
+        /* Mirrors `takenFrom` in the truck branch above, and holds the NAME for
+           the same reason: the row has to say who it would be taken from. */
+        const heldByOther =
+          !here && v.foremanEmployeeId && v.foremanEmployeeId !== request.foremanId
+            ? v.foremanName
+            : null;
         const applyHitch = (truckId: string | null) =>
           run(() => updateVehicle.mutateAsync({ id: v.id, attachedToVehicleId: truckId }));
         const applyDirect = () =>
@@ -227,7 +232,15 @@ export function RigPicker({
               ? "Their trailer"
               : rehitchFrom
                 ? `Hitched to ${rehitchFrom} — giving it to ${foreman} takes it off that truck`
-                : "Unhitched, in the yard",
+                : /* A trailer can be held by a foreman with no truck under it —
+                     that is what `applyDirect` below exists for — and this row
+                     used to call that "Unhitched, in the yard", which is only
+                     half true and hides the person it would be taken from. The
+                     truck branch above has always said "With X — taking it
+                     moves it"; this is the same warning for the same state. */
+                  heldByOther
+                  ? `With ${heldByOther} — giving it to ${foreman} takes it off them`
+                  : "Unhitched, in the yard",
             selected: theirTrailer,
             onSelect: () => {
               if (theirTrailer) {
@@ -242,6 +255,17 @@ export function RigPicker({
                   `Give ${v.unit} to ${foreman}?`,
                   `${v.unit} is hitched to ${rehitchFrom}. Giving it to ${foreman} takes it off that truck first and hands it to them — the tools aboard follow.`,
                   "Give it over",
+                  applyDirect,
+                );
+              } else if (heldByOther) {
+                /* Taking a trailer off another foreman, which the row above now
+                   says out loud. The truck branch has always confirmed this
+                   case separately; without it the dialog read "no truck needed"
+                   over an action that takes somebody's trailer away. */
+                ask(
+                  `Take ${v.unit} from ${heldByOther}?`,
+                  `${v.unit} is currently with ${heldByOther}. Giving it to ${foreman} takes it off them first — the tools aboard go too.`,
+                  "Take it over",
                   applyDirect,
                 );
               } else {

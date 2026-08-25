@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Area,
@@ -18,7 +17,7 @@ import {
 } from "recharts";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { useThemeStore } from "@/lib/themes/store";
+import type { useThemeStore } from "@/lib/themes/store";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

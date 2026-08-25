@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RidePicker } from "@/components/ride-picker";
 import { money } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 /*
   The two directions of "give a tool to a person", behind one dialog:
