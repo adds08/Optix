@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { login, getSession, setSession } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ const DEMO = [
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState(SHOW_DEMO ? "admin@stinventory.local" : "");
   const [password, setPassword] = useState(SHOW_DEMO ? "stinventory-demo" : "");
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +65,25 @@ export default function LoginPage() {
     try {
       const res = await login(email, password);
       setSession(res.sessionId);
+      /*
+        A new session must not inherit the previous one's query cache.
+
+        `Providers` builds the QueryClient in the ROOT layout, so it outlives
+        the `/` → `/home` navigation and keeps every cached result — including
+        a cached ERROR. That made sign-in self-defeating: once `identity.me`
+        had failed, its error stayed in the cache, so on the next sign-in
+        `AppShell` remounted, read `isError: true` straight from cache before
+        any request went out, and ran the `clearSession()` in its error effect
+        — deleting the token this line had just stored. The tRPC batch then
+        dispatched with no Authorization header at all and came back 401 in
+        26µs, which bounced the user back here to do it all again. Twelve
+        rounds of that on production 2026-08-24 14:47, and it only broke when
+        the tab was hard-reloaded into a fresh cache.
+
+        Clearing here also stops one person's cached rows being served to the
+        next person to sign in on the same browser.
+      */
+      queryClient.clear();
       router.replace("/home");
     } catch {
       setError("That email and password combination did not work. Check both and try again.");

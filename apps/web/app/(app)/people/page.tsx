@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Users } from "lucide-react";
+import { FolderInput, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
@@ -14,8 +14,6 @@ import { ImportButton } from "@/components/import-dialog";
 import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
 import { PostingForm } from "@/components/posting-form";
 import { RowActions } from "@/components/sti/row-actions";
-import { Can } from "@/components/can";
-import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 import { money, idName } from "@/lib/format";
@@ -79,26 +77,23 @@ export default function PeoplePage() {
         id: "actions",
         header: "",
         sortable: false,
-        /* Move project + Edit + delete — three controls, not the two the 9rem
-           here was sized for. */
-        width: "14rem",
+        /* One trigger, so this no longer grows with the number of actions. It
+           was 9rem for two controls, then 14rem when "Move project" arrived,
+           and the last control was still clipped. */
+        width: "4rem",
         cell: (e) => (
           <RowActions
             perm="employee.manage"
             label={e.name}
-            /* Moving somebody to a job is its own action, not an edit — it
-               takes their tools with them. */
-            extra={
-              <Can perm="employee.manage">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setMoving({ id: e.id, name: e.name, projectId: e.primaryProjectId })}
-                >
-                  Move project
-                </Button>
-              </Can>
-            }
+            actions={[
+              {
+                /* Moving somebody to a job is its own action, not an edit — it
+                   takes their tools with them. */
+                label: "Move project",
+                icon: FolderInput,
+                onSelect: () => setMoving({ id: e.id, name: e.name, projectId: e.primaryProjectId }),
+              },
+            ]}
             onEdit={() =>
               setEditing({
                 id: e.id,

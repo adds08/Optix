@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronRight, Container, EllipsisVertical, Pencil, Truck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ChevronRight, Container, Pencil, Truck } from "lucide-react";
+import { ActionMenuTrigger } from "@/components/sti/action-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
 import { PersonChip } from "@/components/sti/entity-chip";
 import type { PickerRequest } from "@/components/rig-picker";
@@ -249,11 +249,10 @@ export function CrewCard({
 
         {canManage ? (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="outline" size="icon" className="size-7 shrink-0" aria-label={`Actions for ${crew.foremanName}`}>
-                <EllipsisVertical className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
+            <ActionMenuTrigger
+              label={crew.foremanName}
+              onClick={(e) => e.stopPropagation()}
+            />
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               <DropdownMenuItem onSelect={() => onPick({ kind: "truck", foremanId: crew.foremanId })}>
                 {rig.truck ? "Change truck" : "Assign truck"}

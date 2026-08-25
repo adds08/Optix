@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { trpc } from "@/lib/trpc";
+import { trpc, retryUnlessUnauthorized } from "@/lib/trpc";
 
 /*
   Job scope — the jobs the signed-in user is looking at, system-wide.
@@ -63,13 +63,20 @@ export function useJobScope() {
 export function JobScopeProvider({ children }: { children: React.ReactNode }) {
   const [selectedGroup, setSelectedGroupState] = useState("");
   const [selectedProject, setSelectedProjectState] = useState("");
+  /* These two are what the saved selection is validated against below. Giving
+     up on the first failure left both lists empty, so a stored group or project
+     matched nothing and the session silently fell back to Show All — every
+     page unfiltered, from one dropped request. The stored value survives (only
+     the setters write), so it comes back on a load that succeeds; retrying
+     means the user does not watch their scope evaporate in the meantime.
+     Not a security question — the server scopes every read on its own. */
   const mine = trpc.projectGroup.mine.useQuery(undefined, {
     refetchOnWindowFocus: false,
-    retry: false,
+    retry: retryUnlessUnauthorized,
   });
   const projectsQuery = trpc.project.list.useQuery(undefined, {
     refetchOnWindowFocus: false,
-    retry: false,
+    retry: retryUnlessUnauthorized,
   });
   const groups = mine.data ?? [];
   const projects = projectsQuery.data ?? [];

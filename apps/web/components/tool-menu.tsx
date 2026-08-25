@@ -5,7 +5,6 @@ import {
   ArrowLeftRight,
   BadgeCheck,
   CornerUpLeft,
-  Ellipsis,
   Loader2,
   Pencil,
   StickyNote,
@@ -20,6 +19,7 @@ import { AssignForm } from "@/components/assign-form";
 import { TransferForm } from "@/components/transfer-form";
 import { ReportForm } from "@/components/report-form";
 import { Button } from "@/components/ui/button";
+import { ActionMenuTrigger } from "@/components/sti/action-menu";
 import { humanize } from "@/components/sti/status";
 import {
   DropdownMenu,
@@ -27,7 +27,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -94,22 +93,18 @@ export function ToolMenu({
           if (!o) setConfirming(null);
         }}
       >
-        <DropdownMenuTrigger
-          aria-label={`Actions for ${assetTag}`}
-          className="flex size-7 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-[state=open]:bg-accent data-[state=open]:text-foreground"
+        <ActionMenuTrigger
+          label={assetTag}
+          busy={
+            submit.isPending || deleting ? <Loader2 className="size-3.5 animate-spin" /> : undefined
+          }
           onClick={(e) => {
             /* Cards wrap their body in a link — opening the menu must not
                navigate to the tool. */
             e.stopPropagation();
             e.preventDefault();
           }}
-        >
-          {submit.isPending || deleting ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Ellipsis className="size-4" />
-          )}
-        </DropdownMenuTrigger>
+        />
 
         <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
           <DropdownMenuLabel>{assetTag}</DropdownMenuLabel>

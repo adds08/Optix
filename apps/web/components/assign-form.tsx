@@ -6,12 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { EntityField } from "@/components/ui/entity-picker";
 import { RidePicker } from "./ride-picker";
-import { usePermissions, useViewTier } from "./use-permissions";
+import { useViewTier } from "./use-permissions";
 
 type Props = { open: boolean; onClose: () => void; preselectedAssetId?: string };
 
 export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
-  const { has } = usePermissions();
   const tier = useViewTier();
   const utils = trpc.useUtils();
   const assets = trpc.asset.list.useQuery({ status: "available" });

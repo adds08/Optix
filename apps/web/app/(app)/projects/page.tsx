@@ -102,10 +102,11 @@ export default function ProjectsPage() {
         id: "actions",
         header: "",
         sortable: false,
-        /* Edit + delete, and the wider "Keep / Delete" pair once the delete
-           confirmation opens. At 3rem the buttons overflowed the cell and their
-           opaque backgrounds covered the status pill next door. */
-        width: "10rem",
+        /* One trigger. The 10rem here was sized for Edit + delete plus the
+           wider "Keep / Delete" pair the old inline confirmation swapped in;
+           the confirmation now happens inside the menu, so nothing in this
+           cell changes width when it opens. */
+        width: "4rem",
         cell: (p) => (
           <RowActions
             perm="project.manage"

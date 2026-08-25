@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { Check, CheckCircle2, CircleAlert, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
-import { StatusPill, Tag } from "@/components/sti/status";
+import { StatusPill } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
 import { dateTime, relative } from "@/lib/format";
 
@@ -45,8 +44,6 @@ export default function InboxPage() {
   const dismiss = trpc.inbox.dismiss.useMutation({ onSuccess: invalidate });
   const retry = trpc.inbox.retryClassify.useMutation({ onSuccess: invalidate });
   const decline = trpc.task.decline.useMutation({ onSuccess: invalidate });
-
-  const [declining, setDeclining] = useState<{ id: string; title: string } | null>(null);
 
   const c = classified.data;
   const unread = [...(alerts.data ?? [])].filter((n) => !n.readAt);

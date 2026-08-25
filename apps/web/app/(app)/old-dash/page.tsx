@@ -36,7 +36,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { dateTime, money, num, relative } from "@/lib/format";
+import { dateTime, num, relative } from "@/lib/format";
 import { DepartureReassignButton } from "@/components/departure-form";
 import { FleetLegend } from "@/components/fleet-map-view";
 import { GreetingBar } from "@/components/greeting-bar";

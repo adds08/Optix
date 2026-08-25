@@ -32,9 +32,24 @@ yet for a `protectedProcedure` to check.
   (`lib/trpc.ts:16-18`). One `QueryClient`, `staleTime: 10s` (`lib/providers.tsx`).
 - The bearer token is read per-request from `localStorage["sti-session"]` and is
   window-guarded, so SSR sends no header (`lib/trpc.ts:19-22`).
-- **There is no 401 interceptor.** Auth failure is handled in the shell: if `identity.me`
-  errors, `AppShell` clears the session and redirects to `/`
-  (`components/sti/app-shell.tsx:96-101`). Don't add a second mechanism.
+- **There is no 401 interceptor.** Auth failure is handled in the shell, and **only an
+  `UNAUTHORIZED` counts as auth failure**: `AppShell` reads
+  `me.error.data?.code === "UNAUTHORIZED"` and only then clears the session and redirects
+  to `/`. Any other failure — unreachable API, 500, timeout — retries, then renders a
+  "cannot reach the server" wall with the credential left intact. The two were conflated
+  under a bare `me.isError` with `retry: false`, which signed people out because one
+  request lost the network and made them retype a password to fix a problem that was
+  never about their password. Don't add a second mechanism, and don't widen this one back
+  to "any error".
+- **The QueryClient is built in the ROOT layout, so it outlives sign-out.** It spans both
+  `/` and the `(app)` group, which means a cached *error* survives a failed sign-in. That
+  made login a loop: `identity.me` reported `isError` from cache on the next mount, before
+  any request went out; the shell's error effect ran `clearSession()` and deleted the token
+  the login form had just stored; the batch then dispatched with no `Authorization` header
+  and came back 401. **A new session must therefore start by clearing the cache** — both
+  places that call `setSession` (`app/page.tsx` and `components/auth-token-form.tsx`) call
+  `queryClient.clear()` immediately after. Keep that when adding a third sign-in path; it
+  is also what stops one person's cached rows reaching the next person on the same browser.
 
 ## Navigation is role-split
 
@@ -134,6 +149,44 @@ ledger feed, every report, every dashboard tile and chart — through the visibi
 `packages/api-contracts/src/scope.ts`. (This rule used to say "only two read paths", which
 was true when it was written and is the reason the dashboard totals leaked.) The selector can
 only narrow what the API already returned; it cannot widen it.
+
+## Row actions: one menu, one trigger
+
+**Anything you can do to a row lives behind `ActionMenuTrigger`
+(`components/sti/action-menu.tsx`), not in a strip of buttons in the cell.**
+
+A strip does not fit and cannot be made to. The actions column ends up sized for
+the widest row's worst case, the trailing control is clipped by the cell, and
+widening is not a fix that converges — People went `9rem` → `14rem` and the
+delete bin was still unreachable. A trigger is one width no matter how many
+actions hang off it.
+
+The trigger is shared because it had already forked four ways: `ToolMenu` and
+`RowActions` drew a horizontal `Ellipsis` from hand-written classes, while
+`JobsiteCrewCard` and the jobsites page drew `EllipsisVertical` from `Button`,
+at two sizes. **Vertical is the house glyph** — `MoreHorizontal` already means
+"there are hidden items here" in `ui/breadcrumb.tsx`, so the horizontal one is
+spoken for.
+
+Two components consume it, and which you want depends on the row:
+
+- `RowActions` (`components/sti/row-actions.tsx`) — register rows. Takes
+  `actions: RowAction[]`, **not** JSX. It used to take a `ReactNode` and each
+  page passed its own styled `<Button>` wrapped in its own `<Can>`, which is
+  precisely why the strip could not be moved into a menu without editing every
+  caller. Pass `{ label, icon, onSelect, perm? }` and let the component render
+  and gate it.
+- `ToolMenu` (`components/tool-menu.tsx`) — tools specifically, because which
+  actions apply depends on where the tool is.
+
+Both arm destructive items in place: the first select calls `preventDefault()`
+and swaps the row for "Really delete X?", and `onOpenChange` disarms on close so
+a menu can never reopen already armed. Keep that if you add a destructive item.
+
+**Not everything is a row action.** Custody's Approve/Decline stays as two
+buttons — it is an approval queue, and its primary action should not cost a
+click to reach. Panel headers (`admin/roles`, `job-groups`) keep their buttons
+too; a primary Save behind an ellipsis is a regression, not consistency.
 
 ## DataTable
 
