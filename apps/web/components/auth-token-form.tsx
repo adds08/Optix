@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { consumeAuthToken, getAuthToken, setSession, type AuthTokenInfo } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export function AuthTokenForm({
   };
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [info, setInfo] = useState<AuthTokenInfo | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -64,6 +66,11 @@ export function AuthTokenForm({
     try {
       const res = await consumeAuthToken(token, password);
       setSession(res.sessionId);
+      /* Signing in here starts a session exactly as the login form does, so it
+         inherits the same trap — see the long note in `app/page.tsx`. This
+         path is the more exposed of the two: an invited person lands on it in
+         a tab that has already been sitting on the app. */
+      queryClient.clear();
       setDone(true);
       router.replace("/home");
     } catch (e) {

@@ -34,7 +34,16 @@ yet for a `protectedProcedure` to check.
   window-guarded, so SSR sends no header (`lib/trpc.ts:19-22`).
 - **There is no 401 interceptor.** Auth failure is handled in the shell: if `identity.me`
   errors, `AppShell` clears the session and redirects to `/`
-  (`components/sti/app-shell.tsx:96-101`). Don't add a second mechanism.
+  (the error effect in `components/sti/app-shell.tsx`). Don't add a second mechanism.
+- **The QueryClient is built in the ROOT layout, so it outlives sign-out.** It spans both
+  `/` and the `(app)` group, which means a cached *error* survives a failed sign-in. That
+  made login a loop: `identity.me` reported `isError` from cache on the next mount, before
+  any request went out; the shell's error effect ran `clearSession()` and deleted the token
+  the login form had just stored; the batch then dispatched with no `Authorization` header
+  and came back 401. **A new session must therefore start by clearing the cache** — both
+  places that call `setSession` (`app/page.tsx` and `components/auth-token-form.tsx`) call
+  `queryClient.clear()` immediately after. Keep that when adding a third sign-in path; it
+  is also what stops one person's cached rows reaching the next person on the same browser.
 
 ## Navigation is role-split
 
