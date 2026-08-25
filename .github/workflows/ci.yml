@@ -63,10 +63,33 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      # The suites create their own throwaway tenants but expect the schema to
-      # exist. Same command the smoke job runs, against a fresh database.
+      # Most suites create their own throwaway tenants and need only the schema.
+      # Same command the smoke job runs, against a fresh database.
       - name: Migrate
         run: pnpm db:migrate
+
+      # But not all of them, and the exception is deliberate: `rbac-matrix.test.ts`
+      # reads the SEEDED `urban` tenant on purpose, because a permission matrix
+      # asserted against the test's own fixtures only proves the fixtures are
+      # self-consistent — it has to be the database people actually log into.
+      #
+      # That suite had never once run in CI. Every DB-backed suite guards itself
+      # with `describe.skipIf(!process.env.DATABASE_URL)`, so before b367c1f
+      # (STI-1102) they all skipped silently and the job went green. b367c1f gave
+      # CI a database and a Migrate step but no seed, so the first run in which
+      # this suite executed was also the first in which it failed:
+      # `tenantId = t!.id` on a tenant that was never created, which surfaces as
+      # `TypeError: Cannot read properties of undefined (reading 'id')` and reads
+      # like a broken test rather than a missing fixture.
+      #
+      # `deploy` needs `check`, so that failure stopped shipping outright:
+      # production sat four commits behind main for a day, without the invite
+      # migrations, while main looked merged and fine.
+      #
+      # Idempotent (skips when the tenant exists), and it refuses to touch a
+      # production database without SEED_ALLOW_PRODUCTION.
+      - name: Seed
+        run: pnpm db:seed
 
       - name: Test
         run: pnpm test

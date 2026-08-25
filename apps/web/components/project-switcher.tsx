@@ -5,7 +5,7 @@ import { Check, ChevronRight, ChevronsUpDown, FolderKanban, Pencil, Plus, Search
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
 import { JobGroupModal, type JobGroupEditable } from "@/components/job-group-modal";
-import { trpc } from "@/lib/trpc";
+import { trpc, retryUnlessUnauthorized } from "@/lib/trpc";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -60,7 +60,7 @@ export function ProjectSwitcher() {
      users); `mine` carries jobs only. */
   const all = trpc.projectGroup.list.useQuery(undefined, {
     enabled: open && has("project.manage"),
-    retry: false,
+    retry: retryUnlessUnauthorized,
   });
 
   /* The pencil must not open the edit modal until the full row (with users)

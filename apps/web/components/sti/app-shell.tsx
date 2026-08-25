@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Moon, RotateCw, Sun, TriangleAlert } from "lucide-react";
-import { trpc } from "@/lib/trpc";
+import { trpc, retryUnlessUnauthorized } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -74,23 +74,19 @@ export function AppShell({
   }, [router]);
 
   /*
-    `identity.me` decides whether the caller is still signed in, so its failure
-    mode has to separate two things the old `retry: false` conflated:
+    `identity.me` is what decides whether the caller is still signed in, so it
+    is the one query whose failure is allowed to touch stored credentials — and
+    only when the failure says the session is gone.
 
-      - UNAUTHORIZED — the session really is gone (expired, revoked, the user
-        deactivated mid-session). Retrying cannot help; the credential is dead
-        and belongs in the bin.
-      - anything else — the API is unreachable, or answered 500, or the request
-        timed out. The credential is FINE. Deleting it here signed people out
-        because a wifi hop dropped one request, and made them type a password
-        to recover from a problem that had nothing to do with their password.
-
-    So: never retry an UNAUTHORIZED, do retry the rest, and only the first kind
-    is allowed to touch stored credentials.
+    UNAUTHORIZED means exactly that: expired, revoked, or deactivated
+    mid-session. Anything else — unreachable API, 500, timeout — leaves a
+    perfectly good credential in place. Conflating the two (a bare `me.isError`
+    with `retry: false`) signed people out because one request lost the network,
+    then asked them for a password to fix it.
   */
   const me = trpc.identity.me.useQuery(undefined, {
     enabled: ready,
-    retry: (failureCount, error) => error.data?.code !== "UNAUTHORIZED" && failureCount < 2,
+    retry: retryUnlessUnauthorized,
   });
   const sessionIsDead = me.isError && me.error?.data?.code === "UNAUTHORIZED";
   const prefs = trpc.preferences.get.useQuery(undefined, { enabled: ready });
