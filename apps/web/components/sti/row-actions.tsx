@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Ellipsis, Loader2, Pencil, Trash2, type LucideIcon } from "lucide-react";
+import { Loader2, Pencil, Trash2, type LucideIcon } from "lucide-react";
 import type { Permission } from "@stinventory/types";
 import { usePermissions } from "@/components/use-permissions";
+import { ActionMenuTrigger } from "@/components/sti/action-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 /*
@@ -28,9 +28,10 @@ import {
 
   A menu is a fixed-width trigger no matter how many actions hang off it, which
   is the property the strip never had. `ToolMenu` reached the same conclusion
-  for tools and this is deliberately the same component in miniature — same
-  ellipsis trigger, same armed confirmation, same danger styling — so a row in
-  the register and a row in People do not answer the same gesture differently.
+  for tools and this is deliberately the same component in miniature — shared
+  `ActionMenuTrigger`, same armed confirmation, same danger styling — so a row
+  in the register and a row in People do not answer the same gesture
+  differently.
 
   Delete asks twice, and the server asks harder: the routers refuse to remove
   anything carrying history and say what to do instead (dispose, terminate,
@@ -87,22 +88,16 @@ export function RowActions({
   /* No rights, no actions, no trigger. An ellipsis that opens an empty menu is
      worse than no ellipsis — it advertises something that is not there. */
   if (!allowed.length && !showEdit && !showDelete) {
-    return error ? <ErrorNote error={error} /> : null;
+    return error ? <RefusalNote error={error} /> : null;
   }
 
   return (
     <div className="flex flex-col items-end gap-1">
       <DropdownMenu onOpenChange={(o) => !o && setConfirming(false)}>
-        <DropdownMenuTrigger
-          aria-label={`Actions for ${label}`}
-          className="flex size-7 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-[state=open]:bg-accent data-[state=open]:text-foreground"
-        >
-          {deleting ? (
-            <Loader2 className="size-3.5 animate-spin" />
-          ) : (
-            <Ellipsis className="size-4" />
-          )}
-        </DropdownMenuTrigger>
+        <ActionMenuTrigger
+          label={label}
+          busy={deleting ? <Loader2 className="size-3.5 animate-spin" /> : undefined}
+        />
 
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{label}</DropdownMenuLabel>
@@ -147,14 +142,18 @@ export function RowActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {error ? <ErrorNote error={error} /> : null}
+      {error ? <RefusalNote error={error} /> : null}
     </div>
   );
 }
 
-/* Kept in the cell rather than inside the menu: a refusal arrives after the
+/* Named for what it carries, and NOT the page-level `ErrorNote` in `sti/page`:
+   that one is a full-width banner for "this screen failed to load". This is the
+   server refusing one delete, in a table cell.
+
+   Kept in the cell rather than inside the menu: a refusal arrives after the
    menu has closed, and a message nobody is looking at explains nothing. Narrow
    and wrapping, because the column this sits in is now a trigger wide. */
-function ErrorNote({ error }: { error: string }) {
+function RefusalNote({ error }: { error: string }) {
   return <span className="max-w-[14rem] text-right text-xs text-balance text-crit">{error}</span>;
 }

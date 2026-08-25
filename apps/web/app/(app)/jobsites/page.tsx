@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, ChevronDown, EllipsisVertical, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
+import { Building2, ChevronDown, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
@@ -17,6 +17,7 @@ import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assi
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
 import { Highlight } from "@/components/highlight";
 import { Button } from "@/components/ui/button";
+import { ActionMenuTrigger } from "@/components/sti/action-menu";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SearchSelect } from "@/components/ui/search-select";
@@ -754,11 +755,7 @@ export default function JobsitesPage() {
                       </Button>
                     ) : null}
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon" className="size-8" aria-label="Jobsite actions">
-                          <EllipsisVertical className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
+                      <ActionMenuTrigger label={card.name} className="size-8" />
                       <DropdownMenuContent>
                         {card.isJob && canAssignCrew ? (
                           <DropdownMenuItem onSelect={() => setPicker({ kind: "crew", projectId: card.id })}>Add a foreman and truck/trailer</DropdownMenuItem>

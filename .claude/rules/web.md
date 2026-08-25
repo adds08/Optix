@@ -150,6 +150,44 @@ ledger feed, every report, every dashboard tile and chart — through the visibi
 was true when it was written and is the reason the dashboard totals leaked.) The selector can
 only narrow what the API already returned; it cannot widen it.
 
+## Row actions: one menu, one trigger
+
+**Anything you can do to a row lives behind `ActionMenuTrigger`
+(`components/sti/action-menu.tsx`), not in a strip of buttons in the cell.**
+
+A strip does not fit and cannot be made to. The actions column ends up sized for
+the widest row's worst case, the trailing control is clipped by the cell, and
+widening is not a fix that converges — People went `9rem` → `14rem` and the
+delete bin was still unreachable. A trigger is one width no matter how many
+actions hang off it.
+
+The trigger is shared because it had already forked four ways: `ToolMenu` and
+`RowActions` drew a horizontal `Ellipsis` from hand-written classes, while
+`JobsiteCrewCard` and the jobsites page drew `EllipsisVertical` from `Button`,
+at two sizes. **Vertical is the house glyph** — `MoreHorizontal` already means
+"there are hidden items here" in `ui/breadcrumb.tsx`, so the horizontal one is
+spoken for.
+
+Two components consume it, and which you want depends on the row:
+
+- `RowActions` (`components/sti/row-actions.tsx`) — register rows. Takes
+  `actions: RowAction[]`, **not** JSX. It used to take a `ReactNode` and each
+  page passed its own styled `<Button>` wrapped in its own `<Can>`, which is
+  precisely why the strip could not be moved into a menu without editing every
+  caller. Pass `{ label, icon, onSelect, perm? }` and let the component render
+  and gate it.
+- `ToolMenu` (`components/tool-menu.tsx`) — tools specifically, because which
+  actions apply depends on where the tool is.
+
+Both arm destructive items in place: the first select calls `preventDefault()`
+and swaps the row for "Really delete X?", and `onOpenChange` disarms on close so
+a menu can never reopen already armed. Keep that if you add a destructive item.
+
+**Not everything is a row action.** Custody's Approve/Decline stays as two
+buttons — it is an approval queue, and its primary action should not cost a
+click to reach. Panel headers (`admin/roles`, `job-groups`) keep their buttons
+too; a primary Save behind an ellipsis is a regression, not consistency.
+
 ## DataTable
 
 `components/sti/data-table/data-table.tsx` is dual-mode. Default is client-side
