@@ -31,6 +31,17 @@ const EVENT_TONE: Record<string, string> = {
   status_change: "border-muted-foreground bg-muted-foreground",
 };
 
+/*
+  The accountability chain is a list per role because a job can carry two
+  superintendents, and picking one of them to display would be arbitrary in a
+  way nobody would notice. Joined with commas rather than truncated: three names
+  is a real answer, "Ruben Ortiz +1" is a puzzle.
+*/
+function names(team: { role: string; name: string }[] | undefined, role: string) {
+  const found = (team ?? []).filter((m) => m.role === role).map((m) => m.name);
+  return found.length ? found.join(", ") : <span className="text-muted-foreground">—</span>;
+}
+
 export default function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const utils = trpc.useUtils();
@@ -174,6 +185,15 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 value={a.currentProjectName ?? <span className="text-muted-foreground">—</span>}
                 hint="operational"
               />
+              {/* Who to call above the person holding it. Read off the current
+                  project's team, never stored on the tool — see asset.get.
+                  Several people can hold one role, so these are lists. */}
+              <Field
+                label="Superintendent"
+                value={names(a.team, "superintendent")}
+                hint="from the job's team"
+              />
+              <Field label="Project manager" value={names(a.team, "pm")} hint="from the job's team" />
               <Field
                 label="Charged to"
                 value={a.owningDepartmentName ?? a.owningProjectName ?? <span className="text-muted-foreground">—</span>}

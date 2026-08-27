@@ -249,7 +249,49 @@ export const assetRouter = router({
            "forbidden", so the response cannot be used to confirm that a tag
            exists on a job the caller has no business knowing about. */
         .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId), ...(scoped ? [scoped] : [])));
-      return row ?? null;
+      if (!row) return null;
+
+      /*
+        Who is accountable for this tool above the person holding it.
+
+        Custody answers "who has it" — a foreman. It does not answer "who do I
+        call", which on a job is the superintendent and then the PM. That chain
+        already exists as `project_team_member` rows on the tool's CURRENT
+        project, so this reads it rather than storing anything new: a tool
+        follows its custodian, the custodian's project follows them, and the
+        team follows the project. Nothing here is a projection to keep in sync.
+
+        A SEPARATE QUERY, not two more left joins on the select above, and that
+        is the whole reason this is not inline. A project can have several
+        superintendents and several foremen — `ptm_one_active_uq` is unique on
+        (tenant, project, employee, role), which permits exactly that — so
+        joining would multiply the asset row and `[row]` would then pick an
+        arbitrary one of them. A silently arbitrary superintendent is worse than
+        none, because nobody checks a field that is usually right.
+
+        Empty when the tool is on nobody's job: available stock in the yard has
+        a location and no project, and that is not a gap to fill in.
+      */
+      const team = row.currentProjectId
+        ? await ctx.db
+            .select({
+              employeeId: schema.projectTeamMember.employeeId,
+              role: schema.projectTeamMember.role,
+              name: schema.employee.name,
+              externalId: schema.employee.externalId,
+            })
+            .from(schema.projectTeamMember)
+            .innerJoin(schema.employee, eq(schema.projectTeamMember.employeeId, schema.employee.id))
+            .where(
+              and(
+                eq(schema.projectTeamMember.tenantId, ctx.session.tenantId),
+                eq(schema.projectTeamMember.projectId, row.currentProjectId),
+                isNull(schema.projectTeamMember.endedOn),
+              ),
+            )
+        : [];
+
+      return { ...row, team };
     }),
 
   create: requirePermission("asset.manage")
