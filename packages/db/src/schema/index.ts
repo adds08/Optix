@@ -4,6 +4,9 @@ export * from "./identity";
 export * from "./catalog";
 export * from "./project";
 export * from "./department";
+/* Reference data (units of measure, company roles). Before ./employee, which
+   references companyRole. */
+export * from "./reference";
 export * from "./location";
 export * from "./employee";
 export * from "./asset";

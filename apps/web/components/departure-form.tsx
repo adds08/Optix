@@ -11,6 +11,20 @@ import { Input } from "@/components/ui/input";
 import { ErrorNote } from "@/components/sti/page";
 
 /*
+  PARKED, DELIBERATELY — nothing renders this as of 2026-08-27.
+
+  Read this before deleting it as dead code. The offboarding gate was removed on
+  a product call (Urban does not want one), and the only entry point to this form
+  was the HR clearance card on `/old-dash`, which went with it. The decision was
+  explicitly "nothing deleted, nothing on screen": keep the engine, drop the
+  surface, decide later where it belongs. `packages/api-contracts/src/departure.ts`
+  and its ~600 lines of tests are the half worth keeping, and they still run.
+
+  This repo has twice carried packages nobody imported and treated that as
+  evidence they should go. This is NOT that — it is a parked feature with a date
+  and a reason. If it is still unreferenced when Equipment lands, that is the
+  moment to decide, because a departure will then have to move plant too.
+
   Somebody has left, and the register still has their name on nineteen tools.
 
   The clearance queue has always been able to say that and nothing more, so the

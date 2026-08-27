@@ -122,7 +122,7 @@ export const FIELD_NAV: NavGroup[] = [
       records. "Equipment" used to name the group holding Custody and the map,
       which are things you DO; the register, which is the thing you KEEP, sat
       three groups away under "Entity". Operations now holds the doing and
-      Equipment holds the equipment, so a new module lands in an obvious place
+      Registry holds the records, so a new module lands in an obvious place
       instead of extending whichever group is nearest.
     - configuration is not a module. Users, roles, theming and the API keys are
       all Settings, reached from the rail's foot — see SETTINGS_GROUP.
@@ -156,10 +156,30 @@ export const DESK_NAV: NavGroup[] = [
       { id: "fleet-map", href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read" },
     ],
   },
+  /*
+    REGISTRY is the entity shelf: one row per kind of thing the business keeps a
+    record of. Small Tools is the only one built.
+
+    It was called "Equipment" until 2026-08-27, and that name read as correct
+    while being wrong, which is why it survived a rebuild. The single row under
+    it is the SMALL TOOLS register: the data is drills, saws, generators,
+    grinders, blowers, survey gear and compaction plant, and there is no
+    excavator, loader, backhoe, dozer, skid steer, forklift or crane anywhere in
+    `asset`. The menu advertised a resource the product does not have and hid the
+    one it does.
+
+    Equipment is a real and separate entity — trucks and trailers ARE equipment,
+    small tools are not — and it lands here as its own row when it is built. It
+    is not the same register. See `docs/10-entity-model.md` for the attachment
+    model and for why `vehicle` is already that register in embryo.
+
+    `id` is deliberately still `tool-register`. Labels are free to change and ids
+    are not: renaming this row must not empty anybody's pins.
+  */
   {
-    label: "Equipment",
+    label: "Registry",
     icon: Boxes,
-    items: [{ id: "tool-register", href: "/tools", label: "Tool Register", icon: Boxes, perm: "asset.read" }],
+    items: [{ id: "tool-register", href: "/tools", label: "Small Tools", icon: Wrench, perm: "asset.read" }],
   },
   {
     label: "Organization",

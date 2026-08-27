@@ -73,6 +73,60 @@ export const departmentSpecs: DeptSeed[] = [
   { name: "Purchased Department", code: "PUR" },
 ];
 
+/*
+  Units of measure, and the categories they sort into (2026-08-27).
+
+  Seeded rather than left to an administrator because a table nobody has put a
+  row in is indistinguishable from a table nobody needs — which is the argument
+  that eventually deleted `project_phase`. These are the units a Texas civil
+  contractor's takeoff actually uses.
+
+  `lump-sum` is a category of its own on purpose. LS measures nothing, and
+  filing it under "count" would make it look convertible to EA, which it is not.
+*/
+export const uomCategorySpecs: { code: string; name: string }[] = [
+  { code: "length", name: "Length" },
+  { code: "area", name: "Area" },
+  { code: "volume", name: "Volume" },
+  { code: "mass", name: "Mass" },
+  { code: "count", name: "Count" },
+  { code: "time", name: "Time" },
+  { code: "lump-sum", name: "Lump Sum" },
+];
+
+export const uomSpecs: { symbol: string; name: string; category: string }[] = [
+  { symbol: "LF", name: "Linear Foot", category: "length" },
+  { symbol: "FT", name: "Foot", category: "length" },
+  { symbol: "YD", name: "Yard", category: "length" },
+  { symbol: "SF", name: "Square Foot", category: "area" },
+  { symbol: "SY", name: "Square Yard", category: "area" },
+  { symbol: "AC", name: "Acre", category: "area" },
+  { symbol: "CY", name: "Cubic Yard", category: "volume" },
+  { symbol: "GAL", name: "Gallon", category: "volume" },
+  { symbol: "TON", name: "Ton", category: "mass" },
+  { symbol: "LB", name: "Pound", category: "mass" },
+  { symbol: "EA", name: "Each", category: "count" },
+  { symbol: "HR", name: "Hour", category: "time" },
+  { symbol: "LS", name: "Lump Sum", category: "lump-sum" },
+];
+
+/*
+  Company roles — the job title HR uses. Distinct from `employee.role`, which is
+  the operational role the system branches on; see `company_role` in the schema.
+  Seeded so the join on `employee.company_role_id` has something to resolve.
+*/
+export const companyRoleSpecs: { name: string; code: string }[] = [
+  { name: "Foreman", code: "FRMN" },
+  { name: "Superintendent", code: "SUPT" },
+  { name: "Project Manager", code: "PM" },
+  { name: "Equipment Manager", code: "EQMGR" },
+  { name: "Mechanic", code: "MECH" },
+  { name: "Operator", code: "OPER" },
+  { name: "Carpenter", code: "CARP" },
+  { name: "Labourer", code: "LABR" },
+  { name: "Yard Hand", code: "YARD" },
+];
+
 export const projectSpecs: ProjectSeed[] = [
   { key: "p-equipment-yard", extId: null, name: "Equipment Yard", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-lone-star-22018", extId: "22018", name: "Lone Star", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },

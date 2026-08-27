@@ -13,6 +13,10 @@ import {
   category,
   channel,
   department,
+  companyRole,
+  uomCategory,
+  unitOfMeasure,
+  employeeContact,
   employee,
   employeeProjectAssignment,
   location,
@@ -37,6 +41,9 @@ import {
   assignSpecs,
   categorySpecs,
   departmentSpecs,
+  companyRoleSpecs,
+  uomCategorySpecs,
+  uomSpecs,
   employeeSpecs,
   locSpecs,
   postingSpecs,
@@ -209,6 +216,35 @@ async function main() {
     .returning();
   const deptByCode = Object.fromEntries(deptRows.map((d) => [d.code, d.id]));
 
+  // ---- Company roles (job titles) ----
+  /* Distinct from `employee.role`: this is what HR calls the job, and nothing
+     branches on it. Seeded so `employee.company_role_id` resolves to a name. */
+  const roleRows = await db
+    .insert(companyRole)
+    .values(companyRoleSpecs.map((r) => ({ tenantId: tid, name: r.name, code: r.code, isActive: true })))
+    .returning();
+  const companyRoleByCode = Object.fromEntries(roleRows.map((r) => [r.code!, r.id]));
+
+  // ---- Units of measure ----
+  /* Seeded rather than left empty, so the category axis is exercised by real
+     rows: LS sits alone under lump-sum precisely because it converts to
+     nothing, and SF/SY share an area category while FT/YD share length —
+     which is the distinction that stops "add square feet to yards". */
+  const uomCatRows = await db
+    .insert(uomCategory)
+    .values(uomCategorySpecs.map((c) => ({ tenantId: tid, code: c.code, name: c.name, isActive: true })))
+    .returning();
+  const uomCatByCode = Object.fromEntries(uomCatRows.map((c) => [c.code, c.id]));
+  await db.insert(unitOfMeasure).values(
+    uomSpecs.map((u) => ({
+      tenantId: tid,
+      symbol: u.symbol,
+      name: u.name,
+      categoryId: uomCatByCode[u.category] ?? null,
+      isActive: true,
+    })),
+  );
+
   // ---- Categories ----
   /* STI-104. The tools list has no category column, so these are the shelves
      the descriptions fall into. Without them `category.list` is empty and the
@@ -248,9 +284,39 @@ async function main() {
         terminatedAt: e.status === "terminated" ? new Date("2026-07-05") : null,
         email: e.email,
         phone: e.phone,
+        /* The HR job title, mapped from the operational role where the two
+           happen to line up. They are different axes and this is only a seed
+           convenience — nothing in the product may branch on it. */
+        companyRoleId:
+          companyRoleByCode[
+            ({ foreman: "FRMN", superintendent: "SUPT", pm: "PM", equipment_admin: "EQMGR",
+               mechanic: "MECH", warehouse: "YARD" } as Record<string, string>)[e.role] ?? "LABR"
+          ] ?? null,
       })),
     )
     .returning();
+
+  /*
+    Contact numbers, one row per number.
+
+    Backfilled from `employee.phone` as the primary, plus a second number for
+    the two people the field screens are demonstrated on — because a table that
+    only ever holds one row per person tests nothing that `employee.phone` did
+    not already do, and the partial unique index (`one primary per employee`)
+    would never be exercised.
+  */
+  const contactValues = employeeSpecs.flatMap((e, i) => {
+    const employeeId = employeeRows[i]!.id;
+    const rows: { tenantId: string; employeeId: string; kind: string; value: string; isPrimary: boolean }[] = [];
+    if (e.phone) rows.push({ tenantId: tid, employeeId, kind: "mobile", value: e.phone, isPrimary: true });
+    /* A work line as well, so at least one person has two numbers and the
+       "exactly one primary" rule has something to be true about. */
+    if (e.key === "e-fm001" || e.key === "e-mech001") {
+      rows.push({ tenantId: tid, employeeId, kind: "work", value: "214-555-0400", isPrimary: false });
+    }
+    return rows;
+  });
+  if (contactValues.length) await db.insert(employeeContact).values(contactValues);
   const empByKey: Record<string, string> = {};
   employeeSpecs.forEach((e, i) => (empByKey[e.key] = employeeRows[i]!.id));
 
@@ -384,6 +450,15 @@ async function main() {
       tenantId: tid,
       locationId: locByKey[v.loc]!,
       vehicleType: v.vtype,
+      /* Every seeded row is a road vehicle; heavy plant is not in the source
+         data. The column exists so the register can hold it — see `vehicle` in
+         the schema for why classifying was the point rather than renaming. */
+      equipmentClass: "vehicle",
+      /* CAPABILITY, not current state: a truck can tow, a trailer can be towed.
+         What is hitched to what right now lives in `assignment.trailerId`,
+         where it is ledger-derived like every other "where is it". */
+      canAttach: v.vtype === "truck",
+      isAttachable: v.vtype === "trailer",
       unit: v.unit,
       plate: v.plate,
       makeModel: v.make,

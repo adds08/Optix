@@ -123,7 +123,6 @@ export function CommandPalette({
       { label: "Add a tool to the register…", to: "/tools", perm: "asset.manage" },
       { label: "Add a job…", to: "/projects", perm: "project.manage" },
       { label: "Import from a spreadsheet…", to: "/tools", perm: "asset.manage" },
-      { label: "Review the clearance queue…", to: "/inbox", perm: "assignment.read" },
     ].filter((a) => has(a.perm as Parameters<typeof has>[0]));
   }, [role, has]);
 

@@ -136,8 +136,8 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
           {p.employmentStatus === "terminated" && tools.length ? (
             <p className="rounded-md border border-crit/30 bg-crit-bg px-3 py-2 text-sm text-crit">
               This person is terminated and still holds {tools.length}{" "}
-              {tools.length === 1 ? "tool" : "tools"}. Each must be returned, transferred, or
-              marked lost before offboarding can be signed off.
+              {tools.length === 1 ? "tool" : "tools"}. Stated as a fact, not a gate: nothing
+              blocks an offboarding, and the ledger keeps the history either way.
             </p>
           ) : null}
 

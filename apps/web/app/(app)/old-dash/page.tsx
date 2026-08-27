@@ -25,7 +25,7 @@ import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { isFieldRole } from "@/components/sti/nav-config";
 import { Metric, EmptyState } from "@/components/sti/page";
-import { StatusPill, Tag } from "@/components/sti/status";
+import { Tag } from "@/components/sti/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +37,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { dateTime, num, relative } from "@/lib/format";
-import { DepartureReassignButton } from "@/components/departure-form";
 import { FleetLegend } from "@/components/fleet-map-view";
 import { GreetingBar } from "@/components/greeting-bar";
 import { MovementChart } from "@/components/movement-chart";
@@ -116,7 +115,6 @@ export default function OldDashPage() {
      a real error stops being visible among the expected ones. The gate and the
      fetch answer to the same permission. */
   const kpis = trpc.dashboard.kpis.useQuery(undefined, { enabled: seesTools });
-  const clearance = trpc.dashboard.clearanceQueue.useQuery(undefined, { enabled: seesTools });
   const approvals = trpc.dashboard.pendingApprovals.useQuery(undefined, { enabled: seesTools });
   const activity = trpc.dashboard.recentActivity.useQuery(undefined, { enabled: seesTools });
   const idleReport = trpc.report.idle.useQuery(undefined, { enabled: seesTools });
@@ -162,7 +160,7 @@ export default function OldDashPage() {
      the only writer of movements now. */
   const holds = approvals.data ?? [];
 
-  const attention = (clearance.data?.length ?? 0) + holds.length;
+  const attention = holds.length;
 
   const idleCount = idleReport.data?.length ?? 0;
 
@@ -221,7 +219,7 @@ export default function OldDashPage() {
             <section className="flex flex-col gap-3 lg:col-span-3">
               <h2 className="text-sm font-medium">Needs a person</h2>
 
-              {clearance.isLoading || approvals.isLoading ? (
+              {approvals.isLoading ? (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-40" />)}
                 </div>
@@ -229,30 +227,14 @@ export default function OldDashPage() {
                 <EmptyState
                   icon={CheckCircle2}
                   title="Nothing is waiting"
-                  description="No clearance queue and nothing waiting for approval. The yard is square."
+                  description="Nothing is waiting for approval. The yard is square."
                 />
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <AttentionCard
-                    tone="crit"
-                    icon={UserMinus}
-                    title="HR clearance"
-                    count={clearance.data?.length ?? 0}
-                    href="/people"
-                    empty="No terminated employee is still holding a tool."
-                  >
-                    {(clearance.data ?? []).slice(0, 4).map((c, i) => (
-                      <Row
-                        key={i}
-                        left={<Tag>{c.tag}</Tag>}
-                        mid={c.custodianName ?? "—"}
-                        right={<StatusPill status={c.status} />}
-                      />
-                    ))}
-                    {/* The queue named the ex-employee and stopped there (STI-306). */}
-                    <DepartureReassignButton />
-                  </AttentionCard>
-
+                  {/* The "HR clearance" card stood beside Awaiting approval until
+                      2026-08-27, listing tools still on a terminated person's name
+                      and offering departure reassignment. Removed with the rest of
+                      the offboarding gate — Urban does not want one. */}
                   <AttentionCard
                     tone="warn"
                     icon={AlertTriangle}
@@ -329,7 +311,6 @@ export default function OldDashPage() {
                 />
               </Link>
               <Metric icon={UserMinus} label="Terminated staff" value={num(k?.terminatedCount)} loading={kpis.isLoading} />
-              <Metric icon={AlertTriangle} label="Held by terminated" value={num(k?.clearanceCount)} loading={kpis.isLoading} tone={k?.clearanceCount ? "crit" : "ok"} />
             </div>
           </section>
           ) : (

@@ -95,9 +95,25 @@ will show it. Add a route → add it here, with its permission.
 
 **A group is a MODULE, not a screen list.** This shell is the frame the rest of the product
 gets built into, so a function lives with the other functions and a record with the other
-records: Operations holds Custody/jobsites/map, Equipment holds the register, Organization
-holds people and projects. `Equipment` once named the group holding Custody and the map
-while the register sat under `Entity`, which meant a new module had nowhere obvious to land.
+records: Operations holds Custody/jobsites/map, **Registry** holds the entity registers, and
+Organization holds people and projects. `Equipment` once named the group holding Custody and
+the map while the register sat under `Entity`, which meant a new module had nowhere obvious
+to land.
+
+**The Registry group was called `Equipment` until 2026-08-27, and the rename matters.** Its
+one row is the SMALL TOOLS register: `asset` holds drills, saws, generators, grinders,
+survey gear and compaction plant, and no excavator, loader, backhoe, dozer, skid steer,
+forklift or crane. The menu was advertising a resource the product does not have and hiding
+the one it does. Equipment is a real and separate entity — **trucks and trailers are
+equipment, small tools are not** — and it gets its own Registry row when it is built.
+
+The equipment register already exists as the table named `vehicle`, now carrying
+`equipment_class` (`vehicle` | `heavy`) plus `can_attach` / `is_attachable`. Those two are
+CAPABILITY (a truck can tow, a trailer can be towed), never current state — what is hitched
+to what lives in `assignment.truckId`/`trailerId` and stays ledger-derived. Do not add an
+`attached_to_id` column; that is a second way to write custody. The table keeps the wrong
+name on purpose: renaming it reaches `assignment`'s composite foreign keys, `transfer`,
+every router and the seed, and that is its own change.
 
 **Every `NavItem` carries a stable `id`.** It is never derived from the route, and it is
 what a pin stores — see below. Renaming a route must leave every pin where it was, so

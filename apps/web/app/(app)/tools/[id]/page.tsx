@@ -68,7 +68,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Tool Register
+        Small Tools
       </Link>
 
       {asset.isLoading ? (
@@ -92,7 +92,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         <>
           <PageHeader
             icon={toolCategoryIcon(a.categoryName)}
-            eyebrow={a.categoryName ?? "Equipment"}
+            eyebrow={a.categoryName ?? "Uncategorised"}
             title={formatAssetModel(a) || "Untagged tool"}
             description={a.serialNumber ? `Serial ${a.serialNumber}` : undefined}
             actions={
