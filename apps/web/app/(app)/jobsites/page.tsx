@@ -923,7 +923,20 @@ function LooseSection({
         {isJob ? "On site, nobody holding" : "Waiting in the yard"}
         <span className="tnum font-normal text-muted-foreground">{rows.length}</span>
         {canAssign ? (
-          <span className="ml-auto flex items-center gap-1.5">
+          /* `h-6` on the SLOT, not a min-height on the header.
+
+             The row is sized by its tallest child. Empty, that was a text line;
+             with a selection it became an `h-6` button, so ticking a checkbox
+             grew the header 8px and shunted the table down — measured, not
+             guessed. Reserving on the header instead was tried and left 1px,
+             because `border-box` counts the `border-b` inside a `min-h-*` while
+             the button state adds it on top. Sizing the slot that actually
+             varies has no such arithmetic: the tallest child is 24px whether or
+             not anything is in it.
+
+             The rule this is an instance of: space for a control that comes and
+             goes is RESERVED, never created on arrival. */
+          <span className="ml-auto flex h-6 items-center gap-1.5">
             {n > 0 ? (
               <>
                 <span className="tnum text-primary">{n} selected</span>

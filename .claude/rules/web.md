@@ -268,6 +268,37 @@ buttons — it is an approval queue, and its primary action should not cost a
 click to reach. Panel headers (`admin/roles`, `job-groups`) keep their buttons
 too; a primary Save behind an ellipsis is a regression, not consistency.
 
+## Nothing moves when you tick a checkbox
+
+**Space for a control that comes and goes is RESERVED, never created on arrival.**
+Both selectable surfaces broke this and both were measured before and after, because a
+layout jump is the class of bug that gets made smaller and called fixed:
+
+- `/jobsites` — the "Waiting in the yard" header was sized by a text line when empty and
+  by an `h-6` button when something was ticked. **33px to 41px on the first click.**
+- `/tools` — the bulk action bar was its own block that did not exist until the first
+  tick, so the table dropped **58px** under it.
+
+Two fixes, one principle, and which one applies depends on where the control lives:
+
+- **A control inside a row that is always there** — reserve on the SLOT, not on the row.
+  `<span className="ml-auto flex h-6 …">` sizes the tallest child whether or not anything
+  is in it. Reserving on the row instead (`min-h-10`) was tried and left exactly 1px:
+  `border-box` counts a `border-b` inside a `min-h-*`, while the button state adds it on
+  top. Sizing the slot has no such arithmetic.
+- **A control that is a whole new block** — do not insert it. Swap it into a row that
+  already exists. `/tools` puts the bulk actions where Import/Export/New live, keyed on
+  one `selecting` flag that both halves of the row read, so the two can never disagree.
+  This costs no vertical space and puts the actions where the eye already is.
+
+`e2e/tests/no-layout-shift.spec.ts` asserts **equality**, not a tolerance — one pixel of
+movement is the same bug as fifty. It was checked against the un-fixed code first and
+fails there with `Expected: 33, Received: 41`.
+
+What is still allowed to change height: a genuine error message (`bulkError`). It appears
+on a failed write rather than on every tick, so reserving a permanent blank row for a
+message that usually never comes would trade a real jump for permanent dead space.
+
 ## DataTable
 
 `components/sti/data-table/data-table.tsx` is dual-mode. Default is client-side
