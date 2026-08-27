@@ -39,6 +39,26 @@ export const user = pgTable(
        force the change; it does NOT refuse the login, because a user who
        cannot log in also cannot change their password. */
     mustChangePassword: boolean("must_change_password").notNull().default(false),
+    /*
+      When this person proved they own the address — by accepting an invite or
+      completing a reset, both of which arrive only in the mailbox.
+
+      Null means the account was created by an administrator and nobody has
+      confirmed the address is real. That is a normal state, not an error, and
+      the people register shows it as its own thing: an account nobody can reach
+      is different from one nobody has used.
+    */
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    /*
+      Stamped by `login()`. Null means the account exists and has never been
+      used, which is the state an administrator actually wants to see — a login
+      handed out three months ago and never touched is either a person who does
+      not need it or a person who never got the message.
+
+      Deliberately not a login COUNT: the question is "is this account live",
+      and a count invites treating it as activity analytics, which it is not.
+    */
+    lastSignInAt: timestamp("last_sign_in_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -65,6 +85,20 @@ export const session = pgTable("session", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
+/*
+  A ROLE is what a person is in this system: what they may do, whether they need
+  a login at all, and how the product behaves for them.
+
+  It replaced three overlapping ideas on 2026-08-28. `employee.role` was an enum
+  deciding custody and layout; `user_role` decided permissions; `company_role`
+  is the job title HR uses. The first two are the same idea and are now this
+  table; `company_role` stays exactly what it was, a label with no behaviour.
+
+  The three booleans are behaviour that used to be hard-coded name lists in the
+  client — `FIELD_ROLES` in `nav-config.ts` and the custody-capable set. A new
+  role needed a code edit in two places to behave correctly, and the lists had
+  already drifted apart once. Data means a role you add works without one.
+*/
 export const role = pgTable(
   "role",
   {
@@ -72,6 +106,37 @@ export const role = pgTable(
     tenantId: uuid("tenant_id").references(() => tenant.id, { onDelete: "cascade" }), // null = system role
     name: text("name").notNull(),
     description: text("description"),
+    /*
+      Whether people in this role are expected to sign in.
+
+      False is the normal case for most of a yard: a labourer or an operator
+      holds tools and never touches the product. Without this, the people
+      register cannot tell "we have not got round to inviting them" from
+      "they will never have an account", and every uninvited labourer reads as
+      an outstanding task forever.
+
+      It is a STATEMENT OF INTENT, not a control. It changes what the register
+      shows and what it nags about. Nothing about authentication reads it — a
+      role flipped to false does not disable an account that already exists,
+      because a flag on a lookup table must never be load-bearing for access.
+    */
+    needsLogin: boolean("needs_login").notNull().default(true),
+    /* May be named as a tool's custodian. Was a hard-coded set in the domain
+       package that three custodian pickers had each copied and drifted from. */
+    canHoldCustody: boolean("can_hold_custody").notNull().default(false),
+    /* Gets the field layout rather than the desk one — a phone in a yard, not a
+       screen at a desk. Was `FIELD_ROLES` in `nav-config.ts`, a literal set of
+       role names that had to be edited every time a role was added, and whose
+       own comment called itself "wrong by construction". */
+    usesFieldLayout: boolean("uses_field_layout").notNull().default(false),
+    /*
+      A built-in role. Its NAME and its `isSystem` mark cannot be edited away,
+      because the seed and the permission matrix in `role-perms.ts` refer to
+      these by name. Its permissions and description remain editable — that is
+      the point of the roles screen — but renaming `owner` out from under the
+      matrix would leave the tenant with no route back.
+    */
+    isSystem: boolean("is_system").notNull().default(false),
   },
   (t) => ({
     tenantIdx: index("role_tenant_idx").on(t.tenantId),

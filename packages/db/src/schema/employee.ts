@@ -1,6 +1,6 @@
 import { boolean, date, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { tenant, user } from "./identity";
+import { role, tenant, user } from "./identity";
 import { companyRole } from "./reference";
 import { project } from "./project";
 
@@ -30,11 +30,32 @@ export const employee = pgTable(
     externalId: text("external_id"),
     name: text("name").notNull(),
     /*
-      The OPERATIONAL role — who may hold a tool, who gets the field layout, who
-      appears in a custodian picker. An enum in `packages/types` because code
-      branches on it. Not a job title: see `companyRoleId` below.
+      LEGACY. `roleId` below is the source of truth as of 2026-08-28.
+
+      Kept because the import spec still reads it and because deleting a column
+      in the same change that backfills its replacement leaves no way back if the
+      backfill is wrong. It holds whatever it held; where a row's role has a
+      legacy equivalent the two agree, and where it does not — `crew` has no
+      entry in the old nine-value enum — this column keeps its old value and
+      means nothing. Read `roleId`.
+
+      Do not add a new reader.
     */
     role: text("role").notNull().default("foreman"), // EmployeeRole
+    /*
+      THE person's role, and the source of truth for it.
+
+      Lives on the PERSON rather than on the account, which is the whole point:
+      a labourer has a role, holds tools, and will never have a login. Putting
+      it on `user` made "what is this person" unanswerable for most of the yard.
+
+      `user_role` still carries the same role for anyone who has an account, and
+      is the row `resolveSession` reads — auth was deliberately not rewritten
+      for this. `user.setRole` is the single writer that keeps the pair in step,
+      exactly as `custody.ts` is the single writer for custody. Anything else
+      setting one without the other is a bug, and `role-sync.test.ts` says so.
+    */
+    roleId: uuid("role_id").references(() => role.id, { onDelete: "set null" }),
     /*
       The COMPANY role — the job title HR uses (Carpenter, Operator, Labourer).
       Data, not an enum, and nothing branches on it. Null is normal: most of the

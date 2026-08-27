@@ -75,6 +75,38 @@ export default function AdminRolesPage() {
     }
   }, [selectedId, selected?.permissions.join(",")]);
 
+  /* The three behaviour flags, drafted the same way the permission set is and
+     saved separately — they are a different kind of statement and a different
+     mutation, so one Save button for both would claim an atomicity that is not
+     there. */
+  const [flags, setFlags] = useState({ needsLogin: true, canHoldCustody: false, usesFieldLayout: false });
+  useEffect(() => {
+    if (selected) {
+      setFlags({
+        needsLogin: selected.needsLogin,
+        canHoldCustody: selected.canHoldCustody,
+        usesFieldLayout: selected.usesFieldLayout,
+      });
+    }
+  }, [selectedId, selected?.needsLogin, selected?.canHoldCustody, selected?.usesFieldLayout]);
+
+  const flagsDirty =
+    !!selected &&
+    (flags.needsLogin !== selected.needsLogin ||
+      flags.canHoldCustody !== selected.canHoldCustody ||
+      flags.usesFieldLayout !== selected.usesFieldLayout);
+
+  const saveFlags = trpc.role.setFlags.useMutation({
+    onSuccess: async () => {
+      setError(null);
+      await utils.role.list.invalidate();
+      /* The People register reads `needsLogin` to decide whether a person is
+         waiting on an invitation, so it has to be refetched too. */
+      await utils.employee.list.invalidate();
+    },
+    onError: (e) => setError(e.data?.userMessage ?? "Could not save those settings."),
+  });
+
   const save = trpc.role.setPermissions.useMutation({
     onSuccess: async () => {
       setError(null);
@@ -193,6 +225,11 @@ export default function AdminRolesPage() {
                 <h2 className="text-base font-medium">{selected.name}</h2>
                 {selected.isBuiltIn ? <Badge variant="secondary">Built in</Badge> : null}
                 <span className="text-sm text-muted-foreground">
+                  {/* People, then accounts. The role sits on the PERSON now, so
+                      accounts alone would report `crew` as empty while forty
+                      labourers hold it. */}
+                  {selected.peopleCount} {selected.peopleCount === 1 ? "person" : "people"}
+                  {" · "}
                   {selected.userCount} account{selected.userCount === 1 ? "" : "s"}
                 </span>
                 <div className="ml-auto flex items-center gap-2">
@@ -212,6 +249,58 @@ export default function AdminRolesPage() {
                     onClick={() => save.mutate({ roleId: selected.id, permissions: [...draft] as never })}
                   >
                     {save.isPending ? "Saving…" : dirty ? "Save changes" : saved ? "Saved" : "No changes"}
+                  </Button>
+                </div>
+              </div>
+
+              {selected.description ? (
+                <p className="text-sm text-muted-foreground">{selected.description}</p>
+              ) : null}
+
+              {/*
+                What a role IS, as opposed to what it may do.
+
+                Kept apart from the permission grid below on purpose. A
+                permission answers "may they"; these answer "what kind of person
+                is this" — do they sign in at all, can a tool be booked to them,
+                do they get the phone layout. Putting "is a foreman" in a grid
+                next to "may approve a transfer" invites reading the first as
+                access control, and `needsLogin` explicitly is not: nothing in
+                authentication reads it. It changes what the People register
+                shows and what it asks you to chase.
+              */}
+              <div className="flex flex-col gap-3 rounded-md border bg-muted/20 p-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-medium">What this role is</h3>
+                  <span className="text-xs text-muted-foreground">Not permissions — see below for those.</span>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  <FlagToggle
+                    label="Signs in"
+                    hint="Off for people who hold tools and never open the product. Their row stops asking to be invited."
+                    checked={flags.needsLogin}
+                    onChange={(v) => setFlags((f) => ({ ...f, needsLogin: v }))}
+                  />
+                  <FlagToggle
+                    label="Can hold tools"
+                    hint="Appears in a custodian picker."
+                    checked={flags.canHoldCustody}
+                    onChange={(v) => setFlags((f) => ({ ...f, canHoldCustody: v }))}
+                  />
+                  <FlagToggle
+                    label="Field layout"
+                    hint="Gets the phone navigation rather than the desk."
+                    checked={flags.usesFieldLayout}
+                    onChange={(v) => setFlags((f) => ({ ...f, usesFieldLayout: v }))}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto self-start"
+                    disabled={!flagsDirty || saveFlags.isPending}
+                    onClick={() => saveFlags.mutate({ roleId: selected.id, ...flags })}
+                  >
+                    {saveFlags.isPending ? "Saving…" : flagsDirty ? "Save" : "Saved"}
                   </Button>
                 </div>
               </div>
@@ -312,5 +401,39 @@ export default function AdminRolesPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/*
+  A labelled checkbox with its reasoning underneath.
+
+  Deliberately not the permission grid's control: these three are not
+  permissions, and making them look identical would be the visual claim that
+  they are.
+*/
+function FlagToggle({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex max-w-56 cursor-pointer items-start gap-2">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 size-4 shrink-0 accent-primary"
+      />
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm font-medium leading-none">{label}</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
+      </span>
+    </label>
   );
 }

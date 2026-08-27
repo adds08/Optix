@@ -190,6 +190,13 @@
       "when": 1787854355414,
       "tag": "0027_massive_sleeper",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1787861039281,
+      "tag": "0028_thin_supernaut",
+      "breakpoints": true
     }
   ]
 }

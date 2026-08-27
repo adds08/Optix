@@ -326,6 +326,21 @@ app.post("/auth/tokens/:token/consume", async (c) => {
       .delete(schema.session)
       .where(and(eq(schema.session.userId, row.userId), eq(schema.session.tenantId, row.tenantId)));
     await tx.update(schema.authToken).set({ consumedAt: new Date() }).where(eq(schema.authToken.id, row.id));
+    /*
+      Consuming an invite or reset token IS the email verification: the token
+      only ever existed in that mailbox, so following it proves the address is
+      real and reachable. There is no separate "verify your email" round trip
+      and there should not be one — it would ask a person to prove the same
+      thing twice.
+
+      Inside the transaction with the token consume, so the two cannot come
+      apart: an address is verified exactly when the token that proved it was
+      spent.
+    */
+    await tx
+      .update(schema.user)
+      .set({ emailVerifiedAt: new Date() })
+      .where(and(eq(schema.user.id, row.userId), eq(schema.user.tenantId, row.tenantId)));
   });
 
   const u = await db.query.user.findFirst({ where: eq(schema.user.id, row.userId) });

@@ -117,6 +117,24 @@ export async function login(
   }
 
   const sessionId = await createSession(db, u.id, u.tenantId);
+
+  /*
+    "Has this account ever actually been used."
+
+    Swallowed like the rehash above and for the same reason: a login must not
+    fail because of bookkeeping alongside it. A missed stamp costs the people
+    register one stale "never signed in", which is recoverable; a failed login
+    is not.
+
+    Not a counter. The question this answers is whether an account is live —
+    a login handed out months ago and never touched is either somebody who does
+    not need it or somebody who never got the message, and both need chasing.
+  */
+  try {
+    await db.update(schema.user).set({ lastSignInAt: new Date() }).where(eq(schema.user.id, u.id));
+  } catch {
+    /* keep going; the next login stamps it */
+  }
   /* Reported, NOT enforced as a refusal (STI-303 criterion 5). An admin who
      resets a password knows it, so the user must be made to change it — but
      refusing the login would leave them unable to, since changing a password

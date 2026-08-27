@@ -42,7 +42,7 @@ export const ROLES: Role[] = [
     key: "owner",
     email: "owner@stinventory.local",
     landsOn: "/home",
-    expectsRoutes: ["/home", "/tools", "/admin/users", "/admin/roles", "/desk"],
+    expectsRoutes: ["/home", "/tools", "/admin/roles", "/desk"],
     forbidsRoutes: [],
   },
   {
@@ -52,7 +52,7 @@ export const ROLES: Role[] = [
     expectsRoutes: ["/home", "/jobsites", "/custody", "/desk"],
     /* The yard desk runs custody and does NOT administer accounts — it lacks
        `config.manage`. If these appear, somebody widened the desk. */
-    forbidsRoutes: ["/admin/users", "/admin/roles", "/settings"],
+    forbidsRoutes: ["/admin/roles", "/settings"],
   },
   {
     key: "foreman",
@@ -60,7 +60,7 @@ export const ROLES: Role[] = [
     /* Field roles are redirected away from the dashboard by the shell. */
     landsOn: "/my-tools",
     expectsRoutes: ["/my-tools", "/desk", "/chat"],
-    forbidsRoutes: ["/tools", "/admin/users", "/reports", "/custody"],
+    forbidsRoutes: ["/tools", "/reports", "/custody"],
   },
   {
     key: "mechanic",
@@ -70,7 +70,7 @@ export const ROLES: Role[] = [
        because the desk's twelve-item navigation is the wrong shelf for
        somebody who works out of the shop. */
     expectsRoutes: ["/my-tools", "/desk"],
-    forbidsRoutes: ["/tools", "/admin/users", "/custody"],
+    forbidsRoutes: ["/tools", "/custody"],
   },
   {
     key: "hr",

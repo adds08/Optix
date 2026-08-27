@@ -30,6 +30,21 @@ import type { NavGroup, NavItem } from "./nav-config";
 
 const KEY = "sti-pins";
 
+/*
+  One-shot marker meaning "this navigation to /home is a fresh sign-in".
+
+  `sessionStorage`, not `localStorage`: it must not survive the tab, or the
+  redirect would fire again on a reload a week later. Set by the sign-in paths,
+  consumed by `AppShell` on the first render of /home.
+*/
+export const LAND_ON_PIN = "sti-land-on-pin";
+
+/* The stored order, for callers outside the hook — `AppShell` resolves the
+   landing route before the sidebar (and therefore `useNavPins`) has mounted. */
+export function readPinOrder(): string[] {
+  return read();
+}
+
 /* Storage can be unavailable (private mode), full, or hold whatever a previous
    version of this code wrote. None of that is allowed to take the navigation
    down with it, so both sides swallow and fall back to "no pins" — the sidebar
@@ -61,9 +76,13 @@ function write(ids: string[]): void {
   "unknown ids are ignored" a property of the data flow rather than a branch
   somebody has to remember to write.
 
-  Ordered by the NAVIGATION, not by when each was pinned: the tree's order is
-  stable and already learned, and it means the stored value never has to carry
-  an ordering to be correct.
+  Ordered by the STORED ORDER as of 2026-08-28, not by the navigation.
+
+  It used to sort by the tree, on the reasoning that the tree's order is stable
+  and already learned. That was right until pins could be rearranged: a list you
+  can drag but which re-sorts itself is worse than one you cannot drag at all.
+  The stored array has always been an array, so nothing about the format
+  changed — only whether its order was believed.
 
   The `seen` set is not defensive padding. `NavItem.id` uniqueness is a
   convention, not a type — and `FIELD_NAV` and `DESK_NAV` already share the id
@@ -72,17 +91,43 @@ function write(ids: string[]): void {
   duplicate React key and two identical pinned rows rather than as anything
   that names the real mistake.
 */
-export function pinnedItems(groups: NavGroup[], pins: Set<string>): NavItem[] {
+export function pinnedItems(groups: NavGroup[], order: readonly string[]): NavItem[] {
+  /* Built from the groups the shell has ALREADY permission-filtered, which is
+     what keeps a hand-edited storage key from conjuring a link. Walking the
+     stored order and looking each id up here means an unknown id resolves to
+     nothing and simply falls out — the same property as before, arrived at from
+     the other direction. */
+  const byId = new Map<string, NavItem>();
+  for (const g of groups) {
+    for (const item of g.items) if (!byId.has(item.id)) byId.set(item.id, item);
+  }
   const seen = new Set<string>();
   const out: NavItem[] = [];
-  for (const g of groups) {
-    for (const item of g.items) {
-      if (!pins.has(item.id) || seen.has(item.id)) continue;
-      seen.add(item.id);
-      out.push(item);
-    }
+  for (const id of order) {
+    if (seen.has(id)) continue;
+    const item = byId.get(id);
+    if (!item) continue;
+    seen.add(id);
+    out.push(item);
   }
   return out;
+}
+
+/*
+  The row a session should land on.
+
+  "The first pin opens by default" — so the top of somebody's own list is where
+  the product starts, rather than a fixed route chosen for everybody. Returns
+  null when there are no pins, or when the first pinned id no longer resolves,
+  and the caller keeps its existing destination in that case.
+
+  Resolved through `pinnedItems`, so it inherits the permission intersection
+  rather than reimplementing it: a pin naming a route the actor may not open
+  cannot become a redirect, which would be the same forgeability bug in a more
+  damaging place.
+*/
+export function defaultPinnedHref(groups: NavGroup[], order: readonly string[]): string | null {
+  return pinnedItems(groups, order)[0]?.href ?? null;
 }
 
 export function useNavPins() {
@@ -93,20 +138,50 @@ export function useNavPins() {
     The cost is one frame with no Pinned section; the fade on the section
     covers it.
   */
-  const [pins, setPins] = useState<Set<string>>(() => new Set());
+  const [order, setOrder] = useState<string[]>(() => []);
 
   useEffect(() => {
-    setPins(new Set(read()));
+    setOrder(read());
   }, []);
 
   const toggle = useCallback((id: string) => {
-    setPins((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      write([...next]);
+    setOrder((prev) => {
+      /* Appended, not inserted: a new pin goes to the BOTTOM so it cannot
+         silently take over the landing route from the one already at the top. */
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      write(next);
       return next;
     });
   }, []);
 
-  return { pins, toggle };
+  /*
+    Move one pin up or down by a place.
+
+    Up/down rather than drag-and-drop, deliberately. The list is three or four
+    rows in a 48px-wide rail's companion pane, dragging inside a scrollable
+    sidebar is fiddly on a touchpad and impossible on the phone sheet, and the
+    only ordering anybody actually wants is "put that one at the top". Two
+    buttons do that in two clicks and need no library.
+
+    Out-of-range moves are a no-op rather than a wrap: the first item's "up"
+    doing nothing is what a person expects; jumping to the bottom is not.
+  */
+  const move = useCallback((id: string, delta: -1 | 1) => {
+    setOrder((prev) => {
+      const from = prev.indexOf(id);
+      if (from < 0) return prev;
+      const to = from + delta;
+      if (to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      [next[from], next[to]] = [next[to]!, next[from]!];
+      write(next);
+      return next;
+    });
+  }, []);
+
+  /* Membership, for the star's filled state. Derived rather than stored beside
+     the array so the two can never disagree about what is pinned. */
+  const pins = new Set(order);
+
+  return { pins, order, toggle, move };
 }

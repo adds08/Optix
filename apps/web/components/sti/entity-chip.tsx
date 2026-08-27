@@ -19,10 +19,9 @@ import { cn } from "@/lib/utils";
   the thing pushing the name out of the row on smaller screens, and it is
   qualifying detail — you look it up, you do not scan it fifty times.
 
-  Clicking opens the person. `/people/[id]` is the employee register: the domain
-  person who holds tools, which is NOT the same as the account register under
-  /admin/users (see nav-config.ts). This links to the former, because the
-  question behind a name on this screen is always "what is this person holding".
+  Clicking opens the person. `/people/[id]` is the whole answer now — the
+  separate account register at `/admin/users` was removed on 2026-08-28 and a
+  person's login is a column on their own row. There is one place a name goes.
 */
 
 /*

@@ -1,9 +1,9 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, requirePermission, router } from "../trpc.js";
+import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { visibleProjectScope } from "../scope.js";
 import { moveEmployeeToProject } from "../project-assign.js";
@@ -212,6 +212,36 @@ export const projectRouter = router({
     }),
 });
 
+/*
+  A `roleId` arriving from a client must be proved to belong to this tenant
+  BEFORE it is written.
+
+  Found in the audit of this change, not by a test: `employee.update` took the
+  id as a bare uuid, and the `user_role` sync then wrote it straight into the
+  table `resolveSession` reads — and that read has no tenant predicate of its
+  own, because until now nothing could put a foreign role there. The result was
+  cross-tenant privilege escalation reachable by anyone holding
+  `employee.manage`: point a person at another tenant's `owner` role and their
+  next request carries that role's permissions.
+
+  `user.setRole` has always guarded this (`requireTenantRole`); the new writer
+  did not. A system role — `tenant_id IS NULL` — is shared by every tenant by
+  design and is allowed, exactly as it is there.
+*/
+async function assertRoleInTenant(db: Context["db"], tid: string, roleId: string) {
+  const [row] = await db
+    .select({ id: schema.role.id })
+    .from(schema.role)
+    .where(
+      and(
+        eq(schema.role.id, roleId),
+        or(eq(schema.role.tenantId, tid), isNull(schema.role.tenantId)),
+      ),
+    )
+    .limit(1);
+  if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "No such role in this tenant" });
+}
+
 export const employeeRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
     const reportsTo = alias(schema.employee, "reports_to");
@@ -230,10 +260,35 @@ export const employeeRouter = router({
         primaryProjectExternalId: schema.project.externalId,
         reportsToEmployeeId: schema.employee.reportsToEmployeeId,
         reportsToName: reportsTo.name,
+        /* The role register, and the three facts about the PERSON that come
+           with it. `roleNeedsLogin` is what lets the register tell "nobody has
+           invited them yet" apart from "they will never sign in" — without it
+           every labourer reads as an outstanding task forever. */
+        roleId: schema.employee.roleId,
+        roleName: schema.role.name,
+        roleNeedsLogin: schema.role.needsLogin,
+        /*
+          The account, joined in rather than listed on a second screen.
+
+          `/admin/users` was a separate register of the same people, which is
+          the thing that confused everyone: a person and their login are one
+          subject. `userId` null means no account exists at all; the two
+          timestamps are what turn that into a real answer — invited but never
+          verified, verified but never used, or live.
+        */
+        userId: schema.user.id,
+        userIsActive: schema.user.isActive,
+        emailVerifiedAt: schema.user.emailVerifiedAt,
+        lastSignInAt: schema.user.lastSignInAt,
       })
       .from(schema.employee)
       .leftJoin(schema.project, eq(schema.employee.primaryProjectId, schema.project.id))
       .leftJoin(reportsTo, eq(schema.employee.reportsToEmployeeId, reportsTo.id))
+      .leftJoin(schema.role, eq(schema.employee.roleId, schema.role.id))
+      /* One account per person by construction — `user.employeeId` is how an
+         account names its person, and nothing creates two. A left join is safe
+         here for that reason; if that ever stops being true this multiplies. */
+      .leftJoin(schema.user, eq(schema.user.employeeId, schema.employee.id))
       .where(eq(schema.employee.tenantId, ctx.session.tenantId))
       /* UI-73. Heap order put a new hire at whatever offset the row landed on —
          with 45 people and a 25-row page, page two — so "the employee does not
@@ -246,7 +301,10 @@ export const employeeRouter = router({
     .input(
       z.object({
         name: z.string().min(1).max(200),
+        /* Legacy enum, still written so the import spec and anything not yet
+           moved over keep working. `roleId` is the one that means something. */
         role: z.string().default("foreman"),
+        roleId: z.string().uuid().optional(),
         email: z.string().email().optional(),
         phone: z.string().optional(),
         primaryProjectId: z.string().uuid().optional(),
@@ -256,6 +314,7 @@ export const employeeRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.roleId) await assertRoleInTenant(ctx.db, ctx.session.tenantId, input.roleId);
       const [row] = await ctx.db
         .insert(schema.employee)
         .values({ tenantId: ctx.session.tenantId, ...input })
@@ -429,6 +488,7 @@ export const employeeRouter = router({
         id: z.string().uuid(),
         name: z.string().min(1).max(200).optional(),
         role: z.string().max(40).optional(),
+        roleId: z.string().uuid().nullable().optional(),
         email: z.string().email().nullable().optional(),
         phone: z.string().max(40).nullable().optional(),
         externalId: z.string().max(60).nullable().optional(),
@@ -451,6 +511,7 @@ export const employeeRouter = router({
       if (changes.reportsToEmployeeId === id) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Somebody cannot report to themselves." });
       }
+      if (changes.roleId) await assertRoleInTenant(ctx.db, tid, changes.roleId);
 
       const patch: Record<string, unknown> = Object.fromEntries(
         Object.entries(changes).filter(([, v]) => v !== undefined),
@@ -466,16 +527,55 @@ export const employeeRouter = router({
         patch.terminatedAt = null;
       }
 
-      const [row] = await ctx.db
-        .update(schema.employee)
-        .set({ ...patch, updatedAt: new Date() })
-        .where(and(eq(schema.employee.id, id), eq(schema.employee.tenantId, tid)))
-        .returning();
+      /*
+        The role lives on the PERSON, and the account inherits it.
+
+        `user_role` is what `resolveSession` reads, so changing somebody's role
+        here without touching it would leave the register saying "office admin"
+        while their session still held a foreman's permissions — the register
+        and the truth disagreeing silently, which is the exact failure mode the
+        old two-role split produced and this change exists to end.
+
+        One transaction with the employee write: a role change that half-applied
+        would be worse than one that failed. `user_role` is REPLACED rather than
+        added to, because a person has one role — the table is a many-to-many
+        for historical reasons and nothing in this product grants two.
+
+        Accounts with no person are untouched: they have no `employee` row to
+        change, and `user.setRole` remains the way to move those.
+      */
+      const roleChanged = "roleId" in patch && patch.roleId !== existing.roleId;
+
+      const [row] = await ctx.db.transaction(async (tx) => {
+        const [updated] = await tx
+          .update(schema.employee)
+          .set({ ...patch, updatedAt: new Date() })
+          .where(and(eq(schema.employee.id, id), eq(schema.employee.tenantId, tid)))
+          .returning();
+
+        if (roleChanged) {
+          const [account] = await tx
+            .select({ id: schema.user.id })
+            .from(schema.user)
+            .where(and(eq(schema.user.employeeId, id), eq(schema.user.tenantId, tid)))
+            .limit(1);
+          if (account) {
+            await tx.delete(schema.userRole).where(eq(schema.userRole.userId, account.id));
+            if (patch.roleId) {
+              await tx
+                .insert(schema.userRole)
+                .values({ userId: account.id, roleId: patch.roleId as string })
+                .onConflictDoNothing();
+            }
+          }
+        }
+        return [updated];
+      });
 
       await logEvent(ctx, {
         category: "assignment", action: "employee.update", entityType: "employee",
         entityId: id, entityLabel: row?.name ?? existing.name,
-        details: { changed: Object.keys(patch) },
+        details: { changed: Object.keys(patch), roleSynced: roleChanged },
       });
       return row;
     }),

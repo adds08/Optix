@@ -9,6 +9,7 @@ export type EmployeeEditable = {
   id: string;
   name: string;
   role: string;
+  roleId?: string | null;
   email?: string | null;
   phone?: string | null;
   externalId?: string | null;
@@ -21,9 +22,38 @@ export type EmployeeEditable = {
    them. Editing the column alone would change the answer without any of it. */
 type Props = { open: boolean; onClose: () => void; edit?: EmployeeEditable };
 
+/*
+  The legacy `employee.role` enum, kept in step where the new role register has
+  an equivalent name.
+
+  It is still written because the import spec and a handful of unmigrated
+  readers use it, and because dropping a NOT NULL column in the same change that
+  backfills its replacement leaves no way back. `crew` and any role somebody
+  invents on the Roles screen have no legacy equivalent, so those keep whatever
+  the row already had — which means nothing, and is why nothing new should read
+  this column. `employee.roleId` is the answer.
+*/
+const LEGACY_ROLE_NAMES = new Set([
+  "foreman", "superintendent", "equipment_admin", "warehouse",
+  "mechanic", "procurement", "hr", "finance",
+]);
+
+function legacyRoleFor(roleName: string | undefined, fallback: string) {
+  if (!roleName) return fallback;
+  if (roleName === "project_manager") return "pm";
+  return LEGACY_ROLE_NAMES.has(roleName) ? roleName : fallback;
+}
+
+/* `office_admin` -> "Office Admin". The role register stores snake_case so the
+   seed and the permission matrix can name rows; people should never see it. */
+function humanizeRole(name: string) {
+  return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function EmployeeForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
   const projects = trpc.project.list.useQuery();
+  const roleOptions = trpc.role.options.useQuery();
   const allEmployees = trpc.employee.list.useQuery();
   /* STI-307 — DOMAIN DATA. `e.role` is the employee register's answer to "what
      kind of worker is this", so filtering the superintendent picker by it is a
@@ -34,12 +64,13 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
 
   const [name, setName] = useState(edit?.name ?? "");
   const [externalId, setExternalId] = useState(edit?.externalId ?? "");
-  const [role, setRole] = useState(edit?.role ?? "foreman");
+  const [roleId, setRoleId] = useState(edit?.roleId ?? "");
   const [email, setEmail] = useState(edit?.email ?? "");
   const [phone, setPhone] = useState(edit?.phone ?? "");
   const [primaryProjectId, setPrimaryProjectId] = useState("");
   const [reportsToEmployeeId, setReportsToEmployeeId] = useState(edit?.reportsToEmployeeId ?? "");
   const [employmentStatus, setEmploymentStatus] = useState(edit?.employmentStatus ?? "active");
+  const chosen = (roleOptions.data ?? []).find((r) => r.id === roleId);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
 
@@ -50,7 +81,7 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
     try {
       if (edit) {
         await utils.client.employee.update.mutate({
-          id: edit.id, name, role,
+          id: edit.id, name, roleId: roleId || null, role: legacyRoleFor(chosen?.name, edit.role),
           externalId: externalId || null,
           email: email || null,
           phone: phone || null,
@@ -60,7 +91,8 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
         utils.employee.get.invalidate({ id: edit.id });
       } else {
         await utils.client.employee.create.mutate({
-          name, externalId: externalId || undefined, role,
+          name, externalId: externalId || undefined,
+          roleId: roleId || undefined, role: legacyRoleFor(chosen?.name, "foreman"),
           email: email || undefined, phone: phone || undefined,
           primaryProjectId: primaryProjectId || undefined,
           reportsToEmployeeId: reportsToEmployeeId || undefined,
@@ -95,14 +127,34 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
               <p className="text-xs text-muted-foreground">As issued by HR — the number on the badge.</p>
             </div>
             <div className="space-y-2">
+              {/* The role register, not a hard-coded five. This list used to name
+                  five of the thirteen roles that exist, so a person could not be
+                  made an office administrator from the only screen that creates
+                  people. It reads `role.options` — gated on `employee.manage`
+                  rather than `config.manage`, because choosing somebody's role
+                  is not the same authority as changing what a role may do. */}
               <label className="text-sm font-medium">Role</label>
-              <select value={role} onChange={(e) => setRole(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="foreman">Foreman</option>
-                <option value="superintendent">Superintendent</option>
-                <option value="equipment_admin">Equipment Admin</option>
-                <option value="warehouse">Warehouse</option>
-                <option value="mechanic">Mechanic</option>
+              <select
+                value={roleId}
+                onChange={(e) => setRoleId(e.target.value)}
+                className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <option value="">Choose a role…</option>
+                {(roleOptions.data ?? []).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {humanizeRole(r.name)}
+                  </option>
+                ))}
               </select>
+              {chosen ? (
+                <p className="text-xs text-muted-foreground">
+                  {chosen.description}
+                  {/* Said here rather than left to be discovered: this is what
+                      decides whether the register expects this person to have a
+                      login at all. */}
+                  {chosen.needsLogin ? " Signs in." : " Does not sign in."}
+                </p>
+              ) : null}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -136,10 +188,16 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
               {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          {/* DOMAIN DATA again — `role` here is the FORM's role field, the
-              employee being edited, not the signed-in user. Only a foreman
-              reports to a superintendent, so only a foreman gets the field. */}
-          {role === "foreman" && (
+          {/* DOMAIN DATA again — the role of the person being edited, not of the
+              signed-in user. Only a foreman reports to a superintendent, so
+              only a foreman gets the field.
+
+              Still keyed on the role NAME rather than on a flag, deliberately:
+              "reports to a superintendent" is a fact about foremen specifically,
+              not about holding custody (a mechanic does neither) or about the
+              field layout. Inventing a flag for one form would be a worse lie
+              than a name check that is honest about being one. */}
+          {chosen?.name === "foreman" && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Reports to (superintendent)</label>
               <select value={reportsToEmployeeId} onChange={(e) => setReportsToEmployeeId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">

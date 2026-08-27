@@ -91,7 +91,13 @@ export const roleRouter = router({
     const tid = ctx.session.tenantId;
 
     const roles = await ctx.db
-      .select({ id: schema.role.id, name: schema.role.name, description: schema.role.description, tenantId: schema.role.tenantId })
+      .select({
+        id: schema.role.id, name: schema.role.name, description: schema.role.description,
+        tenantId: schema.role.tenantId,
+        needsLogin: schema.role.needsLogin,
+        canHoldCustody: schema.role.canHoldCustody,
+        usesFieldLayout: schema.role.usesFieldLayout,
+      })
       .from(schema.role)
       .where(or(eq(schema.role.tenantId, tid), isNull(schema.role.tenantId)))
       .orderBy(schema.role.name);
@@ -115,6 +121,18 @@ export const roleRouter = router({
           .groupBy(schema.userRole.roleId)
       : [];
 
+    /* Accounts are not the only holders any more: a role sits on the PERSON,
+       and most people in a yard have no account at all. A count of accounts
+       alone would report `crew` as empty while forty labourers hold it. */
+    const people = roleIds.length
+      ? await ctx.db
+          .select({ roleId: schema.employee.roleId, c: count() })
+          .from(schema.employee)
+          .where(and(eq(schema.employee.tenantId, tid), inArray(schema.employee.roleId, roleIds)))
+          .groupBy(schema.employee.roleId)
+      : [];
+    const peopleByRole = new Map(people.map((p) => [p.roleId!, Number(p.c)]));
+
     const byRole = new Map<string, string[]>();
     for (const g of grants) byRole.set(g.roleId, [...(byRole.get(g.roleId) ?? []), g.name]);
     const countByRole = new Map(holders.map((h) => [h.roleId, Number(h.c)]));
@@ -131,8 +149,78 @@ export const roleRouter = router({
       isBuiltIn: seeded.has(r.name),
       userCount: countByRole.get(r.id) ?? 0,
       permissions: (byRole.get(r.id) ?? []).sort(),
+      needsLogin: r.needsLogin,
+      canHoldCustody: r.canHoldCustody,
+      usesFieldLayout: r.usesFieldLayout,
+      peopleCount: peopleByRole.get(r.id) ?? 0,
     }));
   }),
+
+  /*
+    The role picker for the person form.
+
+    Separate from `list` because `list` is gated on `config.manage` — the
+    authority to CHANGE what a role may do. Choosing a person's role needs
+    `employee.manage`, which is a different and much commoner authority, and
+    reusing `list` would have meant either handing the permission editor to
+    anyone who can add a person or refusing them the dropdown.
+
+    Returns no permissions for the same reason: which boxes a role ticks is not
+    this caller's business.
+  */
+  options: requirePermission("employee.manage").query(async ({ ctx }) => {
+    const tid = ctx.session.tenantId;
+    return ctx.db
+      .select({
+        id: schema.role.id,
+        name: schema.role.name,
+        description: schema.role.description,
+        needsLogin: schema.role.needsLogin,
+        canHoldCustody: schema.role.canHoldCustody,
+      })
+      .from(schema.role)
+      .where(or(eq(schema.role.tenantId, tid), isNull(schema.role.tenantId)))
+      .orderBy(schema.role.name);
+  }),
+
+  /*
+    The three behaviour flags, which are NOT permissions and are edited apart
+    from them on purpose.
+
+    A permission answers "may they". These answer "what are they" — does this
+    kind of person sign in at all, can a tool be booked to them, do they get the
+    phone layout. Mixing them into the permission grid would put "is a foreman"
+    next to "may approve a transfer" and invite reading the first as access
+    control, which `needsLogin` explicitly is not: it changes what the register
+    shows and nags about, and nothing in authentication reads it.
+  */
+  setFlags: requirePermission("config.manage")
+    .input(
+      z.object({
+        roleId: z.string().uuid(),
+        needsLogin: z.boolean(),
+        canHoldCustody: z.boolean(),
+        usesFieldLayout: z.boolean(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const role = await requireTenantRole(ctx.db, tid, input.roleId);
+      await ctx.db
+        .update(schema.role)
+        .set({
+          needsLogin: input.needsLogin,
+          canHoldCustody: input.canHoldCustody,
+          usesFieldLayout: input.usesFieldLayout,
+        })
+        .where(and(eq(schema.role.id, input.roleId), eq(schema.role.tenantId, tid)));
+      await logEvent(ctx, {
+        category: "auth", action: "role.setFlags", entityType: "role",
+        entityId: input.roleId, entityLabel: role.name,
+        details: { needsLogin: input.needsLogin, canHoldCustody: input.canHoldCustody, usesFieldLayout: input.usesFieldLayout },
+      });
+      return { ok: true };
+    }),
 
   setPermissions: requirePermission("config.manage")
     .input(
