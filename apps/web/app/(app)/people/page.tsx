@@ -4,11 +4,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { FolderInput, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
-import { HazardBand } from "@/components/sti/construction";
-import { StatusPill, Tag, humanize } from "@/components/sti/status";
+import { StatusPill, humanize } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
 import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
@@ -34,24 +32,11 @@ export default function PeoplePage() {
 
   const employees = trpc.employee.list.useQuery();
   const byForeman = trpc.report.byForeman.useQuery();
-  const clearance = trpc.dashboard.clearanceQueue.useQuery();
 
   const rows = employees.data ?? [];
   const held = new Map((byForeman.data ?? []).map((f) => [f.employeeId, f]));
 
   type EmployeeRow = (typeof rows)[number];
-  type ClearanceRow = NonNullable<(typeof clearance.data)>[number];
-
-  const CLEARANCE_COLUMNS: ColumnDef<ClearanceRow>[] = useMemo(
-    () => [
-      col<ClearanceRow>({ header: "Tag", accessorFn: (c) => c.tag ?? "", cell: (c) => <Tag>{c.tag}</Tag> }),
-      col<ClearanceRow>({ header: "Model", accessorFn: (c) => formatAssetModel(c), cell: (c) => <span className="font-medium">{formatAssetModel(c) || "Untagged tool"}</span> }),
-      col<ClearanceRow>({ header: "Last custodian", accessorFn: (c) => c.custodianName ?? "", cell: (c) => c.custodianName ?? "—" }),
-      col<ClearanceRow>({ header: "Status", accessorFn: (c) => c.status ?? "", width: "8rem", cell: (c) => <StatusPill status={c.status} /> }),
-      col<ClearanceRow>({ header: "Value", accessorFn: (c) => Number(c.cost ?? 0), numeric: true, width: "7rem", cell: (c) => <span className="tnum">{money(c.cost)}</span> }),
-    ],
-    [],
-  );
 
   const EVERYONE_COLUMNS: ColumnDef<EmployeeRow>[] = useMemo(
     () => [
@@ -139,27 +124,15 @@ export default function PeoplePage() {
         </div>
       </div>
 
-      {/* Clearance first — it's the thing with a deadline attached. The
-          hazard band is what "blocks offboarding" actually means: not an
-          error, a condition that keeps blocking until somebody acts. */}
-      {clearance.data?.length ? (
-        <section className="flex flex-col gap-3">
-          <HazardBand title="Blocks offboarding">
-            {clearance.data.length} tool{clearance.data.length === 1 ? "" : "s"} worth{" "}
-            {money(clearance.data.reduce((n, c) => n + Number(c.cost ?? 0), 0))} must be returned,
-            transferred, or marked lost before offboarding is signed off. The blocking gate itself
-            is specified but not yet built.
-          </HazardBand>
-          <DataTable<ClearanceRow>
-            mode="client"
-            columns={CLEARANCE_COLUMNS}
-            rows={clearance.data}
-            rowId={(c) => c.tag ?? `${c.modelNumber ?? "tool"}-${Math.random()}`}
-            searchPlaceholder="Search the clearance queue…"
-            filename="hr-clearance-queue"
-          />
-        </section>
-      ) : null}
+      {/* The HR clearance queue and its "Blocks offboarding" hazard band stood
+          here until 2026-08-27. Removed on the product call that Urban does not
+          want an offboarding gate: a tool can be marked lost, or left on a
+          departed person's name, and the ledger is append-only so either is
+          reversible. Nothing enforced it anyway — the band's own copy said the
+          blocking gate was "specified but not yet built".
+
+          `dashboard.clearanceQueue` and the departure reassignment engine are
+          NOT deleted, only unreached. See docs/10-entity-model.md. */}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium">Everyone</h2>

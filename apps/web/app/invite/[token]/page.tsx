@@ -17,7 +17,7 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       expectedKind="invite"
       copy={{
         heading: (info) => `Welcome, ${info.firstName}`,
-        subheading: (info) => `Choose a password to join ${info.tenantName} on STInventory.`,
+        subheading: (info) => `Choose a password to join ${info.tenantName} on Optix.`,
         submitLabel: "Create account",
         submittingLabel: "Creating account…",
         successLabel: "Account created. Taking you in…",

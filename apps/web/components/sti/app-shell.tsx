@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { Moon, RotateCw, Sun, TriangleAlert } from "lucide-react";
 import { trpc, retryUnlessUnauthorized } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
@@ -16,6 +17,8 @@ import { UserMenu } from "@/components/user-menu";
 import { CommandPalette, useCommandPalette } from "@/components/command-palette";
 import { Search } from "lucide-react";
 import { WorkingBar } from "@/components/working-bar";
+import { AppSplash } from "./app-splash";
+import { DUR, EASE } from "@/lib/motion";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
@@ -63,6 +66,10 @@ export function AppShell({
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  /* Whether the light/dark preference has been read out of storage yet. It is
+     a separate flag from `dark` itself because `false` is a legitimate value
+     for that and "not asked yet" has to be distinguishable from "light". */
+  const [darkKnown, setDarkKnown] = useState(false);
   /* ⌘K and "/" live in the hook so the button and the key handler cannot
      disagree about what opens the palette. */
   const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette();
@@ -105,15 +112,39 @@ export function AppShell({
     /* Dark unless explicitly turned off — matches the boot script in
        layout.tsx, which must agree with this or the first paint flips. */
     setDark(localStorage.getItem("sti-theme") !== "light");
+    setDarkKnown(true);
   }, [setDark]);
 
   useEffect(() => {
     if (prefs.data) setPrefs(prefs.data as ThemePrefs);
-  }, [prefs.data, setPrefs]);
+    /* A failed preferences read must still settle, or the shell waits behind
+       the splash forever on a request that is never coming back. The defaults
+       are the honest answer at that point. */
+    else if (prefs.isError) setPrefs(DEFAULT_PREFS);
+  }, [prefs.data, prefs.isError, setPrefs]);
+
+  /*
+    Do not repaint until BOTH facts are in — this is the whole theme-flash fix.
+
+    The boot script in `layout.tsx` has already painted the cached appearance
+    onto <html> before first paint, and it is CORRECT. This effect used to run
+    on mount regardless, with `dark` still at its initial `false` and no
+    preferences yet, so `applyTheme(DEFAULT_PREFS, false)` cleared every inline
+    variable the boot script had set and dropped the `dark` class. That is the
+    flash: not a theme arriving late, but the right theme being actively wiped
+    and then restored a few hundred milliseconds later once the query landed.
+
+    So the shell now leaves the boot script's paint alone until it can improve
+    on it, and `AppSplash` covers the gap. `storePrefs` rather than
+    `prefs.data` is what is waited on, because the appearance settings page
+    writes the store directly for instant preview and must keep winning here.
+  */
+  const appearanceSettled = darkKnown && storePrefs !== null;
 
   useEffect(() => {
-    applyTheme(storePrefs ?? DEFAULT_PREFS, dark);
-  }, [storePrefs, dark]);
+    if (!appearanceSettled || !storePrefs) return;
+    applyTheme(storePrefs, dark);
+  }, [appearanceSettled, storePrefs, dark]);
 
   useEffect(() => {
     if (sessionIsDead) {
@@ -178,11 +209,12 @@ export function AppShell({
     }
   }
 
-  if (!ready) return null;
-
-  /* Dead session: the effect above is already redirecting to `/`. Paint
-     nothing on the way out rather than a frame with no navigation in it. */
-  if (sessionIsDead) return null;
+  /* No session read yet, and a dead session on its way to `/`. Both used to
+     paint nothing, which is a flash of bare canvas in whatever colour the
+     boot script left behind. The mask is the same element the booting shell
+     shows, so the hand-off between them is invisible. */
+  if (!ready) return <AppSplash show />;
+  if (sessionIsDead) return <AppSplash show />;
 
   /*
     Signed in, but the API is not answering — the retries above are spent.
@@ -223,7 +255,22 @@ export function AppShell({
   }
 
   return (
-    <SidebarProvider defaultOpen={defaultSidebarOpen} className="h-dvh overflow-hidden">
+    /*
+      Two classes here are load-bearing, not tidiness.
+
+      `relative` makes this the containing block for the assistant panel's
+      `absolute`, so the panel's 400px of travel is clipped here instead of
+      overflowing the document.
+
+      `overflow-clip` rather than `overflow-hidden` clips the same way but does
+      NOT make this a scroll container — so nothing inside the shell can ask an
+      ancestor to scroll it sideways. `overflow-hidden` is scrollable
+      programmatically, and one `scrollIntoView()` in the assistant was enough
+      to drag the rail and the content column off-screen while the fixed
+      sidebar stayed behind. See the note in `ai-panel.tsx`.
+    */
+    <SidebarProvider defaultOpen={defaultSidebarOpen} className="relative h-dvh overflow-clip">
+      <AppSplash show={!me.data || !appearanceSettled} />
       <WorkingBar />
       <AppRail
         groups={railGroups}
@@ -243,7 +290,7 @@ export function AppShell({
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
           <SidebarTrigger className="-ml-1.5" />
           <span className={cn("truncate text-sm font-medium", pathname === "/home" && "hidden")}>
-            {current?.label ?? "STInventory"}
+            {current?.label ?? "Optix"}
           </span>
           <div className="ml-auto flex items-center gap-1.5">
             {!field ? (
@@ -274,11 +321,26 @@ export function AppShell({
             content height and the overflow escapes to the document again. */}
         <div className={cn("min-h-0 flex-1", fullBleed ? "overflow-hidden" : "sti-scroll")}>
           {fullBleed ? (
+            /* Wall surfaces are deliberately NOT faded. The monitor is a board
+               somebody has left running on a screen across the room; a
+               transition on every cycle would be a flicker in the corner of
+               the room, and the `h-full` chain it needs must not gain a
+               wrapper that breaks it. */
             children
           ) : (
-            <div className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8">
+            /* Keyed on the pathname so each route fades up rather than
+               snapping in. Short on purpose — this sits in front of every
+               navigation in the product, and it is the one transition capable
+               of making the whole thing feel slow. */
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: DUR.route, ease: EASE.out }}
+              className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8"
+            >
               {children}
-            </div>
+            </motion.div>
           )}
         </div>
       </SidebarInset>

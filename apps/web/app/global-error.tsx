@@ -43,7 +43,7 @@ export default function GlobalError({
       >
         <main style={{ maxWidth: "34rem", padding: "2rem", textAlign: "center" }}>
           <h1 style={{ fontSize: "1.125rem", fontWeight: 600, margin: "0 0 0.5rem" }}>
-            STInventory could not start
+            Optix could not start
           </h1>
           <p style={{ fontSize: "0.875rem", lineHeight: 1.6, color: "#52525b", margin: "0 0 1.5rem" }}>
             Something failed before the app finished loading. Nothing was changed

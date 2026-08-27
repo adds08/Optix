@@ -145,7 +145,7 @@ function Body({ slug, data }: { slug: string; data: Bundle }) {
         ]} />
         <ReportTable rows={rows} cols={cols} filename="asset-register"
           emptyTitle="No assets registered yet"
-          emptyDescription="Import the fleet or add the first tool from the Tool Register." />
+          emptyDescription="Import the register or add the first tool from Small Tools." />
       </>
     );
   }

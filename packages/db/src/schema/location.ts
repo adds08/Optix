@@ -43,16 +43,57 @@ export const location = pgTable(
   }),
 );
 
-// Vehicle — a tracking location (truck/trailer). 1:1 with a vehicle-type `location`.
-// Carries GPS so tools "on" it inherit geolocation. ownership_type + allowance are
-// recorded for reports only; STInventory does not compute/pay the allowance.
+/*
+  EQUIPMENT — the register of things the company owns that are not small tools.
+
+  Still called `vehicle` because trucks and trailers were the only kind when it
+  was written, and renaming it reaches `assignment`'s composite foreign keys
+  (`truck_id, truck_kind` and `trailer_id, trailer_kind` both point at
+  `vehicle(id, vehicle_type)`), `transfer`, every router and the seed. The name
+  is wrong and the shape is right; rename it in its own change when Equipment
+  gets a screen, not in the middle of widening it.
+
+  Small tools are NOT here and are not equipment. `asset` is the small-tools
+  register — drills, saws, generators, grinders, survey gear — and holds no
+  plant at all. The two are separate entities that happen to both be owned.
+
+  1:1 with a `location`, and that stays true for heavy equipment: `location` is
+  "a place an asset can be", and an excavator parked at a yard is exactly that.
+  It is also what makes "tools riding on it" expressible without a second
+  mechanism.
+*/
 export const vehicle = pgTable(
   "vehicle",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
     locationId: uuid("location_id").notNull().references(() => location.id, { onDelete: "cascade" }),
-    vehicleType: text("vehicle_type").notNull(), // truck | trailer
+    /*
+      Which half of the register this row is: a road vehicle, or plant.
+
+      Defaulted to 'vehicle' so every existing truck and trailer keeps its
+      meaning without a backfill. `vehicleType` below stays the truck|trailer
+      discriminator the composite FKs depend on — a heavy row can never be
+      referenced in a truck or trailer slot, which is correct: you do not tow a
+      gang box with an excavator.
+    */
+    equipmentClass: text("equipment_class").notNull().default("vehicle"), // vehicle | heavy
+    vehicleType: text("vehicle_type").notNull(), // truck | trailer (class 'vehicle'); plant type for 'heavy'
+    /*
+      CAPABILITY, not state. `canAttach` means this thing can tow or carry
+      another piece of equipment; `isAttachable` means it can be towed or
+      carried. A truck is the first, a trailer the second, and some plant is
+      either or both — which is why these are two booleans rather than one enum.
+
+      What is actually attached to what RIGHT NOW is deliberately not here. That
+      is `assignment.truckId` + `assignment.trailerId`, which is ledger-derived
+      like every other piece of "where is it" in this system. A current
+      `attached_to_id` column would be a second way to write custody, and this
+      codebase has paid for that pattern more than once — see
+      `packages/api-contracts/src/custody.ts`.
+    */
+    canAttach: boolean("can_attach").notNull().default(false),
+    isAttachable: boolean("is_attachable").notNull().default(false),
     unit: text("unit").notNull(),
     plate: text("plate"),
     makeModel: text("make_model"),

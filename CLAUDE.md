@@ -3,6 +3,14 @@
 Internal small-tools & equipment **custody** platform for Urban Infraconstruction.
 pnpm + Turbo monorepo · Hono + tRPC API · Next.js 15 web · Expo mobile · Drizzle/Postgres.
 
+**The product is called Optix** (Optix Technologies) in the interface, as of 2026-08-27.
+STInventory is the repo, the package scope `@stinventory/*`, the seeded `*.local` email
+domain and the `sti-*` storage keys — all of which stay. The rename is user-facing text and
+the mark only, and `apps/web/components/optix-mark.tsx` is its single definition. Docs and
+tickets written before that date still say STInventory and are not wrong about anything but
+the name; don't rename the world to make them agree, and don't put "STInventory" back on a
+screen.
+
 **The one idea that explains the codebase:** where a tool is, is *calculated* from an
 append-only ledger — never typed into a field. `transaction` is the system of record; every
 `asset.current_*` column is a projection of it. Ownership (who paid) and custody (who holds

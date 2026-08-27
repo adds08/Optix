@@ -2,6 +2,17 @@ import type { Permission } from "@stinventory/types";
 import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, UserCog, Users, Workflow, Wrench } from "lucide-react";
 
 export type NavItem = {
+  /*
+    Stable identity, never derived from the route.
+
+    A pin stores THIS, not the href — see `nav-pins.ts`. Renaming `/old-dash`
+    or moving Custody under a different prefix has to leave everybody's pins
+    where they were; keying on the route means a rename silently empties a
+    sidebar section nobody edited, and nothing fails loudly enough for anyone
+    to connect the two. Change a label, change a route, change a permission —
+    never change an `id`.
+  */
+  id: string;
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -56,19 +67,19 @@ const SETTINGS_GROUP: NavGroup = {
   icon: Settings,
   placement: "foot",
   items: [
-    { href: "/settings", label: "General", icon: SlidersHorizontal, perm: "config.manage" },
-    { href: "/settings/ai", label: "AI & API", icon: Cpu, perm: "config.manage" },
+    { id: "settings-general", href: "/settings", label: "General", icon: SlidersHorizontal, perm: "config.manage" },
+    { id: "settings-ai", href: "/settings/ai", label: "AI & API", icon: Cpu, perm: "config.manage" },
     /* No `perm`: a per-user preference written through `preferences.set`, which
        writes the caller's own row. */
-    { href: "/settings/appearance", label: "Appearance", icon: Palette },
+    { id: "settings-appearance", href: "/settings/appearance", label: "Appearance", icon: Palette },
     /* STI-303. `people/` is the EMPLOYEE register — domain people who hold
        tools and mostly have no login. This is the ACCOUNT register. Keeping
        them as separate entries is deliberate: conflating "has an account"
        with "holds tools" is how a foreman gets forced into a login he does
        not need. It sits under Settings because administering accounts is
        configuration, not a register anyone works out of daily. */
-    { href: "/admin/users", label: "User Accounts", icon: UserCog, perm: "user.manage" },
-    { href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage" },
+    { id: "user-accounts", href: "/admin/users", label: "User Accounts", icon: UserCog, perm: "user.manage" },
+    { id: "roles-permissions", href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage" },
   ],
 };
 
@@ -83,9 +94,9 @@ export const FIELD_NAV: NavGroup[] = [
          people this nav serves. It carries no `perm`: the Desk composes itself
          from the registry and shows an explanation when nothing matches, so
          gating the LINK would be a second, cruder copy of that rule. */
-      { href: "/desk", label: "Desk", icon: LayoutDashboard, hint: "Everything you can act on" },
-      { href: "/my-tools", label: "My Tools", icon: Wrench, hint: "What you are holding" },
-      { href: "/chat", label: "Hand Off", icon: MessageSquare, hint: "Type it in one sentence" },
+      { id: "desk", href: "/desk", label: "Desk", icon: LayoutDashboard, hint: "Everything you can act on" },
+      { id: "my-tools", href: "/my-tools", label: "My Tools", icon: Wrench, hint: "What you are holding" },
+      { id: "handoff", href: "/chat", label: "Hand Off", icon: MessageSquare, hint: "Type it in one sentence" },
       /* ~~"Overdue and requests"~~ — nothing goes overdue; the borrow model and
          `expected_end_date` were removed on 2026-08-09 (migration 0012).
 
@@ -93,7 +104,7 @@ export const FIELD_NAV: NavGroup[] = [
          job on this layout is the alerts list, and a phone's bell icon is a
          worse place to bury it than a nav row. Say so if you want it gone from
          here too — it is a deliberate divergence, not an oversight. */
-      { href: "/inbox", label: "Alerts", icon: Inbox, hint: "Requests and notifications" },
+      { id: "alerts", href: "/inbox", label: "Alerts", icon: Inbox, hint: "Requests and notifications" },
     ],
   },
   SETTINGS_GROUP,
@@ -111,7 +122,7 @@ export const FIELD_NAV: NavGroup[] = [
       records. "Equipment" used to name the group holding Custody and the map,
       which are things you DO; the register, which is the thing you KEEP, sat
       three groups away under "Entity". Operations now holds the doing and
-      Equipment holds the equipment, so a new module lands in an obvious place
+      Registry holds the records, so a new module lands in an obvious place
       instead of extending whichever group is nearest.
     - configuration is not a module. Users, roles, theming and the API keys are
       all Settings, reached from the rail's foot — see SETTINGS_GROUP.
@@ -124,12 +135,12 @@ export const DESK_NAV: NavGroup[] = [
     label: "Overview",
     icon: LayoutGrid,
     items: [
-      { href: "/desk", label: "Desk", icon: LayoutGrid, hint: "Composed from your permissions" },
+      { id: "desk", href: "/desk", label: "Desk", icon: LayoutGrid, hint: "Composed from your permissions" },
       /* The project monitor — a wall surface, cycling one job at a time. It
          replaced the widget dashboard on 2026-08-23; that page still exists,
          unchanged, one row down, until this one has been lived with. */
-      { href: "/home", label: "Dashboard", icon: LayoutDashboard, fullBleed: true },
-      { href: "/old-dash", label: "Old Dash", icon: History },
+      { id: "dashboard", href: "/home", label: "Dashboard", icon: LayoutDashboard, fullBleed: true },
+      { id: "old-dashboard", href: "/old-dash", label: "Old Dash", icon: History },
     ],
   },
   {
@@ -138,33 +149,53 @@ export const DESK_NAV: NavGroup[] = [
     items: [
       /* The control hub: one card per job, with crews (foreman + truck/trailer)
          and the tools working it. */
-      { href: "/jobsites", label: "Tools by Jobsite", icon: Building2, perm: "asset.read" },
-      { href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read" },
+      { id: "tools-by-jobsite", href: "/jobsites", label: "Tools by Jobsite", icon: Building2, perm: "asset.read" },
+      { id: "custody", href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read" },
       /* The map is the fleet — trucks and trailers — with the small tools
          aboard them, which is why it is not called just a vehicle map. */
-      { href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read" },
+      { id: "fleet-map", href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read" },
     ],
   },
+  /*
+    REGISTRY is the entity shelf: one row per kind of thing the business keeps a
+    record of. Small Tools is the only one built.
+
+    It was called "Equipment" until 2026-08-27, and that name read as correct
+    while being wrong, which is why it survived a rebuild. The single row under
+    it is the SMALL TOOLS register: the data is drills, saws, generators,
+    grinders, blowers, survey gear and compaction plant, and there is no
+    excavator, loader, backhoe, dozer, skid steer, forklift or crane anywhere in
+    `asset`. The menu advertised a resource the product does not have and hid the
+    one it does.
+
+    Equipment is a real and separate entity — trucks and trailers ARE equipment,
+    small tools are not — and it lands here as its own row when it is built. It
+    is not the same register. See `docs/10-entity-model.md` for the attachment
+    model and for why `vehicle` is already that register in embryo.
+
+    `id` is deliberately still `tool-register`. Labels are free to change and ids
+    are not: renaming this row must not empty anybody's pins.
+  */
   {
-    label: "Equipment",
+    label: "Registry",
     icon: Boxes,
-    items: [{ href: "/tools", label: "Tool Register", icon: Boxes, perm: "asset.read" }],
+    items: [{ id: "tool-register", href: "/tools", label: "Small Tools", icon: Wrench, perm: "asset.read" }],
   },
   {
     label: "Organization",
     icon: Users,
     items: [
-      { href: "/people", label: "People", icon: Users, perm: "employee.read" },
+      { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read" },
       /* A job and a project are the same thing — the job ID is the cost code. */
-      { href: "/projects", label: "Projects / Jobs", icon: HardHat, perm: "project.read" },
+      { id: "projects", href: "/projects", label: "Projects / Jobs", icon: HardHat, perm: "project.read" },
     ],
   },
   {
     label: "Insight",
     icon: BarChart3,
     items: [
-      { href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read" },
-      { href: "/activity", label: "Activity", icon: Activity, perm: "asset.read" },
+      { id: "reports", href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read" },
+      { id: "activity", href: "/activity", label: "Activity", icon: Activity, perm: "asset.read" },
     ],
   },
   SETTINGS_GROUP,

@@ -161,7 +161,6 @@ services:
         # Inlined into the client bundle at build time, so this is the public
         # URL a browser will use — not the compose-internal hostname.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL to the public API URL}
-        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-STInventory}
         # Pre-fills the login form and lists the demo accounts. Defaults off:
         # on a reachable host it publishes valid addresses and their shared
         # password. Set to 1 deliberately while this is a demo deployment.

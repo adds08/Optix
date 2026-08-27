@@ -23,8 +23,10 @@ import { num } from "@/lib/format";
 
   Composition only: the handoff README is explicit that every number arrives
   from `trpc.dashboard.*`, and the current `/home` page already pulls the same
-  procedures — `kpis`, `clearanceQueue`, `pendingApprovals` and the `report.idle`
-  feed — so this view reuses them rather than re-querying. The one genuinely new
+  procedures — `kpis`, `pendingApprovals` and the `report.idle` feed — so this
+  view reuses them rather than re-querying. (`clearanceQueue` was in that list
+  until 2026-08-27; the offboarding gate it fed was removed and the procedure is
+  now unreached rather than gone.) The one genuinely new
   procedure is `dashboard.briefing`, which composes the prose server-side so it
   can never name a tool or a person the caller cannot see.
 
@@ -42,7 +44,6 @@ export function BlockyDashboardView() {
 
   const seesTools = has("asset.read");
   const kpis = trpc.dashboard.kpis.useQuery(undefined, { enabled: seesTools });
-  const clearance = trpc.dashboard.clearanceQueue.useQuery(undefined, { enabled: seesTools });
   const approvals = trpc.dashboard.pendingApprovals.useQuery(undefined, { enabled: seesTools });
   const briefing = trpc.dashboard.briefing.useQuery(undefined, { enabled: seesTools });
   const idleReport = trpc.report.idle.useQuery(undefined, { enabled: seesTools });
@@ -60,17 +61,10 @@ export function BlockyDashboardView() {
     ];
   }, [kpis.data, idleReport.data]);
 
+  /* The CLEAR rows — a departed employee still holding a tool, marked "HR
+     blocked" — came out on 2026-08-27 with the rest of the offboarding gate. */
   const needs: FeedRow[] = useMemo(() => {
     const rows: FeedRow[] = [];
-    for (const c of clearance.data ?? []) {
-      rows.push({
-        mark: "CLEAR",
-        tag: c.tag ?? "—",
-        desc: `${c.custodianName ?? "A departed employee"} still holds this tool — HR blocked`,
-        age: "—",
-        href: "/people",
-      });
-    }
     for (const p of approvals.data ?? []) {
       rows.push({
         mark: "APPROVE",
@@ -81,7 +75,7 @@ export function BlockyDashboardView() {
       });
     }
     return rows;
-  }, [clearance.data, approvals.data]);
+  }, [approvals.data]);
 
   const stuck: FeedRow[] = useMemo(() => {
     const rows: FeedRow[] = [];

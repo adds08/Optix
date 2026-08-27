@@ -12,6 +12,7 @@ import { createLogger } from "@stinventory/logger";
 import { createNotification, deliverPendingNotifications } from "./notifications.js";
 import { reconcileProjections, type EventEnvelope } from "@stinventory/domain";
 import { processQueuedMessages } from "./messaging-worker.js";
+import { corsOptions } from "./cors.js";
 import { clearRateLimit, clientIp, rateLimit } from "./rate-limit.js";
 import { isAllowedImage, MAX_PHOTO_BYTES, storageFor } from "./storage.js";
 import { sweepRequests } from "./request-worker.js";
@@ -50,14 +51,8 @@ const mailFallback: MailConfig | null = env.SMTP_HOST
 
 const app = new Hono();
 app.use("*", honoLogger());
-app.use(
-  "*",
-  cors({
-    origin: (origin) => origin ?? env.WEB_ORIGIN,
-    credentials: true,
-    allowHeaders: ["Authorization", "Content-Type"],
-  }),
-);
+/* The allow-list and the reason it is a list live in ./cors.ts (STI-1601). */
+app.use("*", cors(corsOptions(env)));
 
 app.get("/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
 

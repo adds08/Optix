@@ -24,7 +24,10 @@ const QUEUE_LABELS: { key: keyof ReturnType<typeof queuesOf>; label: string; hre
   { key: "approvals", label: "Approvals & hand-offs", href: "/custody?tab=queue" },
   { key: "tasks", label: "Open tasks", href: "/inbox" },
   { key: "messages", label: "Unresolved messages", href: "/inbox" },
-  { key: "clearance", label: "HR clearance", href: "/people" },
+  /* No "HR clearance" row: the offboarding gate was removed on 2026-08-27.
+     `dashboard.notifications` still RETURNS a clearance count — the procedure
+     was left intact — so this list, not the backend, is what decides it is not
+     a queue anybody is asked to work. */
 ];
 
 function queuesOf(n: { queues: { approvals: number; tasks: number; messages: number; clearance: number } }) {
@@ -43,7 +46,7 @@ export function NotificationCenter() {
   const n = bell.data;
   const queues = n ? queuesOf(n) : null;
   const queueTotal = queues
-    ? queues.approvals + queues.tasks + queues.messages + queues.clearance
+    ? queues.approvals + queues.tasks + queues.messages
     : 0;
 
   return (

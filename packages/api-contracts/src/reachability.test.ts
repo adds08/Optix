@@ -53,6 +53,24 @@ const CLIENT_ROOTS = ["apps/web", "apps/mobile"];
   was, and went).
 */
 const NO_UI_BY_DESIGN: Record<string, string> = {
+  /*
+    Parked 2026-08-27, not unbuilt. Urban does not want an offboarding gate, so
+    the clearance queue and the departure form came off every screen. The ENGINE
+    was deliberately kept: `departure.ts` moves a leaver's tools, their company
+    truck and trailer and everything riding in them to a named successor in one
+    transaction, with ~600 lines of tests that still run.
+
+    These three were counted as reachable until 2026-08-28 purely because the
+    dead `departure-form.tsx` still referenced them — a false green of exactly
+    the kind the note at the top of this file warns about, and the reason that
+    file was finally deleted rather than left parked. They are `TODO:` because a
+    screen for them is a real decision somebody still has to make, not because
+    nobody got round to it.
+  */
+  "departure.preview": "TODO: parked with the offboarding gate (2026-08-27). The engine and its tests are kept; where a 'reassign a leaver's tools' action belongs is undecided.",
+  "departure.reassign": "TODO: parked with the offboarding gate (2026-08-27). One-transaction move of a leaver's tools, truck and trailer to a successor — kept because marking tools lost does not replace it.",
+  "dashboard.clearanceQueue": "TODO: parked with the offboarding gate (2026-08-27). Lists tools still on a terminated person's name; nothing enforced it and no screen shows it now.",
+
   // ---- legitimately reachable by nothing a person clicks ----
   "asset.delete":
     "Exists to REFUSE. It throws a sentence explaining tools are never deleted because the ledger is the audit trail — a procedure whose only job is to say no does not need a button.",
@@ -174,6 +192,11 @@ describe("reachability (STI-121)", () => {
        drift: it may go DOWN as screens get built, never up without somebody
        changing this line and explaining why. */
     const todo = Object.values(NO_UI_BY_DESIGN).filter((r) => r.startsWith("TODO:"));
-    expect(todo.length).toBeLessThanOrEqual(18);
+    /* Raised from 18 to 21 on 2026-08-28, with the reason this line demands.
+       The three are the departure trio above, and they did not become
+       unreachable — they always were. Deleting the dead `departure-form.tsx`
+       stopped it propping them up, so this ceiling going UP is the test
+       becoming more honest rather than less. */
+    expect(todo.length).toBeLessThanOrEqual(21);
   });
 });

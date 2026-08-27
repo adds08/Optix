@@ -19,7 +19,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 const interTight = Inter_Tight({ subsets: ["latin"], variable: "--font-sans" });
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
-export const metadata: Metadata = { title: "STInventory", description: "Small tools & equipment management" };
+export const metadata: Metadata = {
+  title: "Optix",
+  description: "AI-assisted tool and equipment custody for construction.",
+};
 
 /*
   Repaint the saved appearance before first paint.

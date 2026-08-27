@@ -87,8 +87,12 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">External ID</label>
+              {/* The HR-issued number, not this system's `id`. Labelled as HR
+                  calls it, because "External ID" told the person typing it
+                  nothing about which of their several ids was wanted. */}
+              <label className="text-sm font-medium">Employee ID</label>
               <Input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
+              <p className="text-xs text-muted-foreground">As issued by HR — the number on the badge.</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Role</label>
@@ -120,7 +124,8 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
                 <option value="terminated">Terminated</option>
               </select>
               <p className="text-xs text-muted-foreground">
-                Terminating opens the HR clearance queue for anything they still hold.
+                Terminating stamps the date. Anything they hold stays on their name until
+                somebody moves it — nothing is blocked, and the ledger keeps the history.
               </p>
             </div>
           ) : null}
