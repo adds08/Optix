@@ -23,6 +23,7 @@ import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
 import { allItems, groupKey, isFieldRole, matchItem, navFor, type NavGroup } from "./nav-config";
+import { LAND_ON_PIN, defaultPinnedHref, readPinOrder } from "./nav-pins";
 
 /*
   The app shell on the shadcn sidebar-07 skeleton.
@@ -191,6 +192,48 @@ export function AppShell({
     .filter((g) => g.items.length > 0);
   const activeGroup = railGroups.find((g) => g.items.some((i) => i.href === current?.href));
   const activeGroupKey = activeGroup ? groupKey(activeGroup) : undefined;
+
+  /*
+    The first pinned row is where a session starts.
+
+    Sign-in always lands on `/home` — it has to, because the login page has no
+    session yet and therefore no permissions to resolve a pin against. This is
+    the earliest point that changes: `railGroups` is the permission-filtered
+    array, so a pin naming a route this actor may not open resolves to nothing
+    and the redirect simply does not happen. A pin must never be able to conjure
+    a destination any more than it can conjure a link.
+
+    One-shot, keyed on a `sessionStorage` marker set at sign-in. Without it this
+    would fire on every visit to `/home` and nobody could ever open the
+    dashboard again — the redirect would eat its own destination.
+  */
+  useEffect(() => {
+    if (pathname !== "/home") return;
+    /*
+      Wait for `identity.me`. `perms` is `[]` until it resolves, so `railGroups`
+      has every permission-gated row filtered out and the pin resolves to
+      nothing — and because the marker below is consumed on the first pass, an
+      unguarded effect spends it on a render that could never have succeeded.
+      That is not a race that shows up sometimes: it is every sign-in, and it is
+      why this line exists rather than the obvious version.
+    */
+    if (!me.data) return;
+    let marked = false;
+    try {
+      marked = sessionStorage.getItem(LAND_ON_PIN) === "1";
+      if (marked) sessionStorage.removeItem(LAND_ON_PIN);
+    } catch {
+      /* Private mode or disabled storage: no marker, no redirect, `/home`
+         stands. Landing on the dashboard is a perfectly good outcome. */
+      return;
+    }
+    if (!marked) return;
+    const href = defaultPinnedHref(railGroups, readPinOrder());
+    if (href && href !== "/home") router.replace(href);
+    /* Deliberately not depending on `railGroups`: it is rebuilt every render,
+       and the marker — consumed once permissions have landed — is the real
+       guard. */
+  }, [pathname, router, me.data]);
 
   /* Wall surfaces (the project monitor) own the whole region: no max-width, no
      padding, and no scroll — the readme is explicit that a scrolling embed

@@ -42,6 +42,8 @@ import {
   categorySpecs,
   departmentSpecs,
   companyRoleSpecs,
+  roleSpecs,
+  legacyEmployeeRoleToRole,
   uomCategorySpecs,
   uomSpecs,
   employeeSpecs,
@@ -194,7 +196,24 @@ async function main() {
 
   // ---- Permissions + roles ----
   await db.insert(permission).values(PERMISSIONS.map((name) => ({ name }))).onConflictDoNothing();
-  const roles = await db.insert(role).values(ROLES.map((name) => ({ tenantId: tid, name }))).returning();
+  /* Roles carry their description and their behaviour flags now, not just a
+     name. `roleSpecs` is the register; `ROLE_PERMS` in role-perms.ts is still
+     what each one GRANTS, seeded here as the default an administrator then
+     edits on the Roles screen. */
+  const roles = await db
+    .insert(role)
+    .values(
+      roleSpecs.map((r) => ({
+        tenantId: tid,
+        name: r.name,
+        description: r.description,
+        needsLogin: r.needsLogin,
+        canHoldCustody: r.canHoldCustody,
+        usesFieldLayout: r.usesFieldLayout,
+        isSystem: r.isSystem,
+      })),
+    )
+    .returning();
   const roleByName = Object.fromEntries(roles.map((r) => [r.name, r]));
   for (const r of roles) {
     const perms = ROLE_PERMS[r.name as (typeof ROLES)[number]] ?? [];
@@ -319,6 +338,28 @@ async function main() {
   if (contactValues.length) await db.insert(employeeContact).values(contactValues);
   const empByKey: Record<string, string> = {};
   employeeSpecs.forEach((e, i) => (empByKey[e.key] = employeeRows[i]!.id));
+
+  /*
+    The person's role, from the role register.
+
+    Everyone who is not a custodian and has no desk account is `crew` — the
+    no-login role — which is what makes that flag reachable from a clean
+    database rather than a column nobody has ever set. Everyone else maps from
+    the legacy nine-value enum, which only needed `pm` -> `project_manager`.
+  */
+  const accountEmployeeKeys = new Set(userSpecs.map((u) => u.employeeKey).filter(Boolean) as string[]);
+  for (let i = 0; i < employeeSpecs.length; i++) {
+    const e = employeeSpecs[i]!;
+    const mapped = legacyEmployeeRoleToRole[e.role];
+    /* A plain foreman with no login is crew: he holds tools and never signs in.
+       A foreman WITH an account keeps the foreman role and its permissions. */
+    const isCrew = e.role === "foreman" && !accountEmployeeKeys.has(e.key);
+    const target = isCrew ? "crew" : mapped;
+    const rid = target ? roleByName[target]?.id : undefined;
+    if (rid) {
+      await db.update(employee).set({ roleId: rid }).where(eq(employee.id, employeeRows[i]!.id));
+    }
+  }
 
   // Two-pass: update reportsToEmployeeId after all employees are inserted.
   for (const e of employeeSpecs) {

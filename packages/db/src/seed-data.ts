@@ -84,6 +84,65 @@ export const departmentSpecs: DeptSeed[] = [
   `lump-sum` is a category of its own on purpose. LS measures nothing, and
   filing it under "count" would make it look convertible to EA, which it is not.
 */
+/*
+  The role register (2026-08-28), replacing three overlapping ideas.
+
+  `needsLogin` false is the case the whole flag exists for: most of a yard holds
+  tools and never signs in. Without it the people register cannot tell "not
+  invited yet" from "will never have an account", and every labourer reads as an
+  outstanding task forever.
+
+  `crew` is seeded specifically so that state is reachable from a clean database.
+  It is the only role with `needsLogin: false` and it carries NO permissions —
+  CLAUDE.md rule 9: a flag nothing seeds is behaviour nobody tests, and the edge
+  that trips the rule is the one worth having.
+
+  The booleans reproduce exactly what was hard-coded before, so this is a move
+  rather than a redesign: `canHoldCustody` is the old `CUSTODIAN_ROLES`
+  (foreman, mechanic) and `usesFieldLayout` is the old `FIELD_ROLES` (foreman,
+  superintendent, mechanic). Verify against `packages/types/src/enums.ts` and
+  `nav-config.ts` before changing either.
+*/
+export type RoleSeed = {
+  name: string;
+  description: string;
+  needsLogin: boolean;
+  canHoldCustody: boolean;
+  usesFieldLayout: boolean;
+  isSystem: boolean;
+};
+
+export const roleSpecs: RoleSeed[] = [
+  { name: "owner", description: "Full authority over the organisation, its configuration and its people.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "equipment_admin", description: "Runs the equipment department: the register, custody, and who holds what.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "office_admin", description: "Business records and accounts. Not custody, and not platform configuration.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "warehouse", description: "The yard desk. Issues and receives tools, and runs departures operationally.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "procurement", description: "Buys equipment and materials. Reads the register, does not move custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "engineer", description: "Runs work on a job. Same reach as a project manager where tools are concerned.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "superintendent", description: "Runs several crews. Sees what their foremen hold, across jobs.", needsLogin: true, canHoldCustody: false, usesFieldLayout: true, isSystem: true },
+  { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
+  { name: "mechanic", description: "Works out of the shop and keeps tools there. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
+  { name: "hr", description: "People records. No access to the register or to custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "finance", description: "Cost and value reporting across the register.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "read_only", description: "Sees the register and reports, changes nothing.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
+  { name: "crew", description: "Works on site and can be handed tools. Does not sign in.", needsLogin: false, canHoldCustody: true, usesFieldLayout: false, isSystem: false },
+];
+
+/* The old nine-value `employee.role` enum, mapped onto the role register. Only
+   `pm` needed renaming; everything else was already the same word. */
+export const legacyEmployeeRoleToRole: Record<string, string> = {
+  foreman: "foreman",
+  superintendent: "superintendent",
+  pm: "project_manager",
+  equipment_admin: "equipment_admin",
+  warehouse: "warehouse",
+  mechanic: "mechanic",
+  procurement: "procurement",
+  hr: "hr",
+  finance: "finance",
+};
+
 export const uomCategorySpecs: { code: string; name: string }[] = [
   { code: "length", name: "Length" },
   { code: "area", name: "Area" },

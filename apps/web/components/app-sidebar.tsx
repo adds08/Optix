@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { Star } from "lucide-react";
+import { ChevronDown, ChevronUp, Star } from "lucide-react";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { DUR, EASE } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,7 @@ export function AppSidebar({
   inboxCount: number;
 }) {
   const pathname = usePathname();
-  const { pins, toggle } = useNavPins();
+  const { pins, order, toggle, move } = useNavPins();
 
   /* Pages outside the navigation — /profile, /account/password — resolve to no
      group. Falling back to the first one keeps the pane populated instead of
@@ -65,7 +65,7 @@ export function AppSidebar({
 
   /* The intersection, and the only place it happens. An id in storage naming a
      route this actor cannot reach simply does not come back out. */
-  const pinned = pinnedItems(groups, pins);
+  const pinned = pinnedItems(groups, order);
 
   /* A nav row is current for its own page and everything under it, so a tool's
      detail page keeps Tool Register lit. `matchItem` resolves the LONGEST
@@ -112,7 +112,7 @@ export function AppSidebar({
                   Pinned
                 </SidebarGroupLabel>
                 <SidebarMenu>
-                  {pinned.map((n) => (
+                  {pinned.map((n, i) => (
                     <NavRow
                       key={n.id}
                       item={n}
@@ -120,6 +120,11 @@ export function AppSidebar({
                       pinned
                       onTogglePin={() => toggle(n.id)}
                       inboxCount={inboxCount}
+                      /* Reordering is offered only in the Pinned section. The
+                         same row in its own group has no order to change — the
+                         tree's order is the tree's. */
+                      onMoveUp={i > 0 ? () => move(n.id, -1) : undefined}
+                      onMoveDown={i < pinned.length - 1 ? () => move(n.id, 1) : undefined}
                     />
                   ))}
                 </SidebarMenu>
@@ -172,14 +177,21 @@ function NavRow({
   pinned,
   onTogglePin,
   inboxCount,
+  onMoveUp,
+  onMoveDown,
 }: {
   item: NavItem;
   current: boolean;
   pinned: boolean;
   onTogglePin: () => void;
   inboxCount: number;
+  /* Undefined at the ends of the list rather than disabled buttons: a control
+     that is always there and usually does nothing trains people to ignore it. */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   const showBadge = item.href === "/inbox" && inboxCount > 0;
+  const reorderable = !!(onMoveUp || onMoveDown);
 
   return (
     <SidebarMenuItem>
@@ -213,9 +225,54 @@ function NavRow({
           left out of the star's way on hover rather than the two overlapping,
           which is what a fixed offset for both produced. */}
       {showBadge ? (
-        <SidebarMenuBadge className="transition-[right] duration-150 group-hover/menu-item:right-7">
+        <SidebarMenuBadge
+          className={cn(
+            "transition-[right] duration-150",
+            /* Far enough left to clear whatever is actually there: the star
+               alone, or the star plus two chevrons on a reorderable row. */
+            reorderable ? "group-hover/menu-item:right-[4.25rem]" : "group-hover/menu-item:right-7",
+          )}
+        >
           {inboxCount > 99 ? "99+" : inboxCount}
         </SidebarMenuBadge>
+      ) : null}
+
+      {/*
+        Reordering, offered only on pinned rows.
+
+        Up/down rather than drag-and-drop: this pane is narrow and scrollable,
+        dragging inside it is awkward on a touchpad and unusable on the phone
+        sheet, and the only ordering anybody wants is "put that one at the top".
+
+        Absolutely positioned and revealed on hover, so the row's height and the
+        pane's layout are identical whether or not these are showing — the rule
+        in `.claude/rules/web.md`: space for a control that comes and goes is
+        reserved, never created. `focus-within` keeps them reachable by keyboard,
+        where there is no hover to trigger.
+      */}
+      {reorderable ? (
+        <span className="absolute right-7 top-1/2 flex -translate-y-1/2 items-center opacity-0 transition-opacity group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100">
+          <button
+            type="button"
+            onClick={onMoveUp}
+            disabled={!onMoveUp}
+            aria-label={`Move ${item.label} up`}
+            title="Move up"
+            className="flex size-5 items-center justify-center rounded text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-90 disabled:pointer-events-none disabled:opacity-25"
+          >
+            <ChevronUp className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={!onMoveDown}
+            aria-label={`Move ${item.label} down`}
+            title="Move down"
+            className="flex size-5 items-center justify-center rounded text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:scale-90 disabled:pointer-events-none disabled:opacity-25"
+          >
+            <ChevronDown className="size-3.5" />
+          </button>
+        </span>
       ) : null}
 
       {/*

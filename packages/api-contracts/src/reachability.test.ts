@@ -54,6 +54,22 @@ const CLIENT_ROOTS = ["apps/web", "apps/mobile"];
 */
 const NO_UI_BY_DESIGN: Record<string, string> = {
   /*
+    Superseded on 2026-08-28, not unbuilt — which is why this has no `TODO:`.
+
+    A role now lives on the PERSON (`employee.roleId`), and `employee.update` is
+    the single writer that keeps `user_role` in step with it, covered by
+    `role-sync.test.ts`. Changing somebody's role is therefore done on the
+    person, and `/admin/users` — the screen that used to call this — was deleted
+    with the merge.
+
+    It stays because an account with no `employee` row still exists as a
+    deliberate case (`user.create` documents it: somebody who signs in but never
+    holds a tool) and this is the only way to move one. Deleting it would leave
+    that account's role unchangeable through the API.
+  */
+  "user.setRole": "Superseded by the person's role (employee.roleId) plus the user_role sync in employee.update. Still the only path for an account with no employee row, which user.create explicitly allows.",
+
+  /*
     Parked 2026-08-27, not unbuilt. Urban does not want an offboarding gate, so
     the clearance queue and the departure form came off every screen. The ENGINE
     was deliberately kept: `departure.ts` moves a leaver's tools, their company

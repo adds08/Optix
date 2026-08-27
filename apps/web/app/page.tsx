@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRight, ChevronRight, Loader2 } from "lucide-react";
 import { login, getSession, setSession } from "@/lib/auth";
+import { LAND_ON_PIN } from "@/components/sti/nav-pins";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AuthPanel } from "@/components/auth-panel";
@@ -104,6 +105,15 @@ export default function LoginPage() {
         next person to sign in on the same browser.
       */
       queryClient.clear();
+      /* Marks this one navigation as a fresh sign-in, so the shell can send the
+         session to the first pinned row once it has the permissions to resolve
+         it against. Set here rather than in the shell because "did somebody
+         just sign in" is only knowable here. See `nav-pins.ts`. */
+      try {
+        sessionStorage.setItem(LAND_ON_PIN, "1");
+      } catch {
+        /* Storage disabled: the session lands on /home, which is fine. */
+      }
       router.replace("/home");
     } catch {
       setError("That email and password combination did not work. Check both and try again.");

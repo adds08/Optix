@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, UserCog, Users, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Users, Workflow, Wrench } from "lucide-react";
 
 export type NavItem = {
   /*
@@ -72,13 +72,18 @@ const SETTINGS_GROUP: NavGroup = {
     /* No `perm`: a per-user preference written through `preferences.set`, which
        writes the caller's own row. */
     { id: "settings-appearance", href: "/settings/appearance", label: "Appearance", icon: Palette },
-    /* STI-303. `people/` is the EMPLOYEE register — domain people who hold
-       tools and mostly have no login. This is the ACCOUNT register. Keeping
-       them as separate entries is deliberate: conflating "has an account"
-       with "holds tools" is how a foreman gets forced into a login he does
-       not need. It sits under Settings because administering accounts is
-       configuration, not a register anyone works out of daily. */
-    { id: "user-accounts", href: "/admin/users", label: "User Accounts", icon: UserCog, perm: "user.manage" },
+    /* ~~User Accounts~~ — removed 2026-08-28 with `/admin/users`.
+
+       STI-303 split it from `/people` on the reasoning that "has an account"
+       and "holds tools" are different facts, and conflating them forces a
+       foreman into a login he does not need. The fact was right; the second
+       screen was the wrong answer to it. Two registers of the same people meant
+       two searches and two places a name could be wrong.
+
+       The distinction is now kept by `role.needsLogin` — a role states whether
+       its people sign in at all — and `/people` shows each person's account
+       state in its own column. Inviting, resetting, deactivating and resending
+       all live on the person's row menu. Don't add this back. */
     { id: "roles-permissions", href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage" },
   ],
 };
