@@ -33,14 +33,14 @@ platform administrator, guests. Each has a place in the grid; none has code.
 
 | Epic | Name | Est | Ships |
 |---|---|---|---|
-| **E11 · STI-1100s** | Ship-blockers | 21h | S1 — **13h done** |
+| **E11 · STI-1100s** | Ship-blockers | 21h | S1 — **16h done** |
 | **E12 · STI-1200s** | The navigation frame | 60h | S1–S2 |
 | **E13 · STI-1300s** | Organisation records | 29h | S2 |
 | **E14 · STI-1400s** | Assigned-where dashboard | 28h | S2 |
 | **E15 · STI-1500s** | Removing what nothing uses | 24h | S3 |
-| **E16 · STI-1600s** | Security hardening | 26h | S1 (1601) · S2 (1602–3) |
+| **E16 · STI-1600s** | Security hardening | 26h | S1 (1601 — **done**) · S2 (1602–3) |
 
-**Total 188 hours ≈ 24 developer-days**, of which 13 are complete.
+**Total 188 hours ≈ 24 developer-days**, of which 27 are complete.
 
 **Done as of 2026-08-24:** STI-1101 (lockfile and the web image) and STI-1102 (the database
 suites run in CI, with a guard so they cannot stop again quietly).
@@ -49,6 +49,10 @@ suites run in CI, with a guard so they cannot stop again quietly).
 pulled forward because pins are keyed on it and there is no correct way to build one
 without the other. The rest of STI-1201 (`children`, the third level, `recordType` /
 `activity` / `description`) and all of STI-1202 are untouched.
+
+Then STI-1601 (the CORS allow-list) and STI-1103 (delete what is empty). **S1 now has
+STI-1104 and the rest of E12 left in it** — STI-1103's estimate turned out to be the wrong
+shape rather than the wrong size; see the story.
 
 ## 3. Sequencing
 
@@ -111,7 +115,7 @@ running fails the build ✓ · a developer with no stack up still gets a useful 
 **Verified.** `make test` → 245 passed, 0 skipped. Guard test proven in all three states:
 passes with no `CI`, fails with `CI=true` and no `DATABASE_URL`, passes with both.
 
-### STI-1103 — Delete what is empty · XS · 3h
+### STI-1103 — Delete what is empty · XS · 3h · **DONE 2026-08-27**
 
 **Mechanism.** `apps/web/app/(app)/rentals/` and `apps/web/app/(app)/foremen/` are empty
 directories with no links. `packages/notifications/` contains only `node_modules` — no
@@ -119,6 +123,22 @@ manifest, no source, not in the lockfile or any workspace. Remove all three.
 
 **AC.** Directories gone · `pnpm build` and `pnpm typecheck` unaffected · no grep hits for
 the removed paths.
+
+**Done, and it produced no diff — which is the finding.** All three were **untracked**.
+Git does not store empty directories, so none of them was ever in a clone: `rentals/` and
+`foremen/` were real routes deleted months ago (`git log` still has their `page.tsx`), and
+what survived was the empty folder git leaves behind in a working tree it has already
+stopped tracking. `packages/notifications/` has **no git history at all** — it is a bare
+`node_modules/` that pnpm created and nothing else, never a workspace member, never in
+`pnpm-lock.yaml`.
+
+So this story cleaned up one machine, not the repository. A fresh clone never had the
+problem, which also means nothing stops the empty folders reappearing in the next working
+tree that deletes a route. Worth knowing before anyone writes the same ticket again:
+`git status` cannot see this class of cruft, and neither can a reviewer.
+
+Verified: no grep hits for the removed paths outside this plan and the 2026-08-24
+changelog that first reported them, and `pnpm typecheck` unchanged across all 14 tasks.
 
 ### STI-1104 — Production deploy rehearsal · S · 5h
 
@@ -412,12 +432,19 @@ parameterising every query, bcrypt with a rehash-on-login path, per-tenant AES-2
 the LLM and SMTP secrets, and a tenant predicate on every write with a source-scanning test
 to keep it that way.
 
-### STI-1601 — CORS reflects any origin · XS · 3h · **do this first**
+### STI-1601 — CORS reflects any origin · XS · 3h · **DONE 2026-08-27**
 
 **Mechanism.** `apps/api/src/index.ts:56` is
 `origin: (origin) => origin ?? env.WEB_ORIGIN` with `credentials: true`. That echoes the
 caller's own `Origin` header back as `Access-Control-Allow-Origin` — every origin is
-allowed, and the `WEB_ORIGIN` fallback only applies when no `Origin` was sent at all.
+allowed.
+
+**Correction, made while fixing it (2026-08-27).** This paragraph used to end "and the
+`WEB_ORIGIN` fallback only applies when no `Origin` was sent at all". That was wrong: the
+fallback never ran. hono passes the callback `c.req.header("origin") || ""`, so a missing
+header arrives as an empty string and `??` does not catch `""` — the callback returned
+`""` and hono omitted the header. `env.WEB_ORIGIN` was dead in that expression. Measured
+against the old config before it was replaced, not read off the source.
 
 **Why it is not currently an account-takeover.** The session is a bearer token in
 `localStorage`, not a cookie, so a browser will not attach it to a cross-origin request. The
@@ -429,6 +456,38 @@ configuration that turns into full account takeover the moment anybody adds a co
 
 **AC.** A request from an unlisted origin gets no `Access-Control-Allow-Origin` · the web app
 still works · a test covers both.
+
+**Built.** `apps/api/src/cors.ts` — `allowedOrigins(env)` and `corsOptions(env)`, mounted by
+`index.ts` in one line. A separate module because `index.ts` opens a database connection and
+calls `serve()` at import, so a test cannot load it; the options had to be reachable on their
+own for the AC's test to exist at all.
+
+**It allows `MOBILE_ORIGIN` as well as `WEB_ORIGIN`, which the story did not say to do.**
+`MOBILE_ORIGIN` has sat in `packages/env`, `.env.example` and `docker-compose.prod.yml` since
+the mobile client existed with **no reader anywhere**; this is its first. Pinning to
+`WEB_ORIGIN` alone as written would have blocked Expo *web*, which is served from :8081 and
+is a real cross-origin caller. The Expo native build sends no `Origin` header and is
+unaffected either way. Production already defaults `MOBILE_ORIGIN` to empty, and empty is
+filtered out rather than passed through — `[""].includes("")` is true, so leaving it in the
+list would have matched every request that sends no `Origin` at all.
+
+An **array** rather than a function, deliberately: hono resolves an array as
+`list.includes(origin) ? origin : null`, and `null` omits the header entirely, which is
+exactly what the AC asks for.
+
+**Verified** against the running stack, not deduced: the web origin and the mobile origin are
+echoed back; `https://evil.example.com` gets `Access-Control-Allow-Credentials` and **no**
+`Access-Control-Allow-Origin`, on both a plain GET and a preflight; a request with no `Origin`
+gets none either. A real `POST /auth/login` from `http://localhost:3100` returns 200 with the
+header. `apps/api/src/cors.test.ts` (7 cases) mounts the real `corsOptions` on a throwaway
+Hono app — no database, so unlike `request-worker.test.ts` it always runs — and each case was
+checked against the OLD config first to confirm it fails there. The full browser suite (27,
+five roles) passes unchanged, which is the "web app still works" half of the AC.
+
+**Note for STI-1602.** CORS does not stop the request; it stops the attacker's page from
+*reading the answer*. That login from `evil.example.com` still returns 200 server-side. It is
+harmless only because the attacker has no credentials to send — the moment the session is a
+cookie the browser attaches automatically, this allow-list is the whole defence.
 
 ### STI-1602 — The session token lives in `localStorage` · L · 16h
 
@@ -467,7 +526,7 @@ Not urgent, and say so rather than letting the word "critical" drive the queue.
 
 | Sprint | Contents | Hours |
 |---|---|---|
-| **S1** | E11 in full · STI-1601 · STI-1201, STI-1202 | 48h — 13h done |
+| **S1** | E11 in full · STI-1601 · STI-1201, STI-1202 | 48h — 19h done |
 | **S2** | STI-1203 to STI-1207 · E13 · E14 · STI-1602, STI-1603 | 117h |
 | **S3** | E15 | 24h |
 
