@@ -19,6 +19,23 @@ the `(app)` route group:
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/job-groups` ·
 `/my-tools` · `/profile` · `/settings` + `/settings/ai` + `/settings/appearance` · `/design/*`
 
+The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory, which
+survives as the repo name, the package scope (`@stinventory/*`), the seeded email domain and
+the `sti-*` localStorage keys. Nothing user-facing says STInventory any more; the mark is
+`components/optix-mark.tsx` (`OptixGlyph` / `OptixLockup`) and it is the ONE definition,
+shared by the rail, the auth pages and the boot splash. Don't add a second copy.
+
+**The sign-in panel's subject is the OPERATION, not the toolbox.**
+`components/auth-panel.tsx` drew one tool's journey out of a gang box until
+2026-08-27 — three stations reading Yard → Truck → Job Site, a strip of five hand tools,
+and a ledger of tool transfers only. That was correct for STInventory and precisely wrong
+for the front door of a product being sold to run a construction operation. The route now
+runs between two JOBS, the strip draws ADR-9's top-level resources (crew, plant, small
+tools, materials, hours) and the ledger mixes them. Don't narrow it back. The strip is
+deliberately unlabelled and the copy names no screen: Labour, Materials and Purchasing are
+accepted architecture, not shipped surfaces, and a captioned tile would advertise a module
+that does not exist.
+
 Login is at `/`, not `/login`. Three more routes sit OUTSIDE `(app)`, unauthenticated by
 construction, added with the invite/reset work: `/forgot-password`, `/invite/[token]` and
 `/reset/[token]` (the last two share `AuthTokenForm`,
@@ -60,11 +77,13 @@ yet for a `protectedProcedure` to check.
 > type share one route; and what an organisation *uses* is a tenant setting while what a
 > person *may* use stays a permission.
 >
-> **The rest of this section describes the shell as it is built today — two levels, two
-> hard-coded arrays, no ids, no pins.** It is accurate. The three-level version with stable
-> ids, pinned rows and module visibility is specified in
-> `docs/workings/RELEASE_2_SPRINT_PLAN.md` E12 and is **not built yet**; STI-1207 rewrites
-> this section when it lands. Do not describe it here before then.
+> **Built as of 2026-08-27: stable ids and pinned rows.** Still NOT built, and still
+> specified in `docs/workings/RELEASE_2_SPRINT_PLAN.md` E12: the **third level**
+> (`children` on a `NavItem`, Operations holding Small Tools / Equipment / Purchasing as
+> collapsible sub-categories, STI-1201–1202) and **module visibility**
+> (`tenant_settings.disabled_modules`, STI-1204). The shell below is two levels and two
+> hard-coded arrays, and that is current. Do not describe the third level here before it
+> lands.
 
 `components/sti/nav-config.ts` defines two disjoint sets: `FIELD_NAV` (My Tools, Hand Off,
 Alerts) for `foreman`/`superintendent`/`mechanic`, and `DESK_NAV` for everyone else. Items
@@ -79,6 +98,11 @@ gets built into, so a function lives with the other functions and a record with 
 records: Operations holds Custody/jobsites/map, Equipment holds the register, Organization
 holds people and projects. `Equipment` once named the group holding Custody and the map
 while the register sat under `Entity`, which meant a new module had nowhere obvious to land.
+
+**Every `NavItem` carries a stable `id`.** It is never derived from the route, and it is
+what a pin stores — see below. Renaming a route must leave every pin where it was, so
+`id` is the one field on a `NavItem` you may not change. Labels, hrefs and permissions are
+all free to move.
 
 Three rules that are load-bearing:
 
@@ -109,6 +133,34 @@ which carries the same count. It stays in `FIELD_NAV` as "Alerts", where it is t
 > the desk navigation. Fixing it is STI-501's registry (`DESK_NAV`/`FIELD_NAV` chosen by
 > permission), not a patch here.
 
+### Pinned rows (STI-1203)
+
+A star on any sidebar row lifts it into a **Pinned** section at the head of the pane.
+`components/sti/nav-pins.ts` owns it: a `Set<id>` in `localStorage` under `sti-pins`, plus
+one pure function, `pinnedItems(groups, pins)`.
+
+Two rules, and they are the entire feature:
+
+- **Store the `id`, never the href.** A route rename would otherwise strand every pin that
+  named it, silently — the row just stops appearing and nobody connects that to a rename
+  three weeks earlier.
+- **Resolve pins by intersecting with the ALREADY-PERMISSION-FILTERED groups** — the same
+  array the shell hands the rail. Never render straight out of storage. Storage is
+  editable by the person holding the browser, so a pin that could conjure its own link
+  would make the sidebar forgeable; this is the same class as the job-scope rule below.
+  `pinnedItems` is the only place the intersection happens, and
+  `e2e/tests/nav-pins.spec.ts` holds it in place with an HR account whose seeded pins name
+  `/tools` and `/custody` and which must render neither.
+
+Consequences worth knowing: an unknown id renders nothing rather than erroring; a pinned
+row that is also in the active group renders in **both** places, which is correct — Pinned
+is a shortcut, not a move; and `useNavPins` starts empty and fills in an effect, because
+reading storage during render would not match the server HTML. Pinning needs no permission
+and is offered to every role.
+
+Per-browser was the explicit ask. `user_preferences.dashboard` is still there as a jsonb
+column if pins should ever follow a person between devices.
+
 ## The two-pane shell, and the offset that has to be right
 
 `app-rail.tsx` is the 48px primary rail — one glyph per nav GROUP, near-black in both themes
@@ -124,6 +176,18 @@ exact mistake shipped on 2026-08-23: the rail rendered on every page and the sid
 over all 48px of it, which read as "the two-pane shell was never built" and got the
 active-group-only sidebar reverted as collateral damage. If the rail is invisible, check this
 selector before you touch a component.
+
+**The wrapper is `relative` and `overflow-clip`, and both are load-bearing.**
+`app-shell.tsx` puts them on `SidebarProvider`. `relative` makes the wrapper the containing
+block for the assistant panel's `absolute`; without it the panel resolved against the
+viewport and its 400px enter animation put ~200px of horizontal overflow on the document.
+`overflow-clip` rather than `overflow-hidden` clips identically but does **not** make the
+wrapper a scroll container — `overflow: hidden` is still scrollable programmatically, and
+one `scrollIntoView()` inside the assistant was enough to scroll the whole shell sideways
+by up to 120px while the `position: fixed` sidebar stayed behind. That was the "everything
+jumps left when I open the assistant" report, and it was never the animation. Related:
+scroll a specific element by setting its `scrollTop`; `scrollIntoView` asks every ancestor
+to move and is almost never what a panel wants.
 
 `fullBleed` on a `NavItem` drops the shell's centred max-width box and its scroll region for
 that route. Wall surfaces need it: the content box is auto-height, so a `h-full` board inside
@@ -223,6 +287,18 @@ Palettes are enumerated in `lib/themes/themes.ts` and applied as **inline CSS cu
 properties on `<html>`** (not class swaps) by `lib/themes/apply-theme.ts`, with a boot script in
 `app/layout.tsx` replaying the cached choice to avoid a flash.
 
+**The shell must not repaint until it can improve on that boot script.** `app-shell.tsx`
+gates its `applyTheme` effect on `appearanceSettled` — the light/dark preference has been
+read AND the preferences row has reached the store. It used to run unconditionally on
+mount, with `dark` still at its initial `false` and no prefs yet, so
+`applyTheme(DEFAULT_PREFS, false)` stripped every variable the boot script had just set and
+dropped the `dark` class. **The flash on reload was not a theme arriving late; it was the
+right theme being actively wiped and restored a few hundred ms later.** `AppSplash`
+(`components/sti/app-splash.tsx`, `data-slot="app-splash"`) covers the remaining wait and
+paints from `--background`, so it is already in the user's palette on the first frame. A
+failed `preferences.get` still settles — to `DEFAULT_PREFS` — or the splash would never
+lift.
+
 `apply-theme` clears the **union** of all theme keys before setting the active ones; keep that
 or switching themes will leak variables from the previous one. The same rule and the same
 reasoning apply to `ALL_FONT_KEYS`.
@@ -236,6 +312,26 @@ build hash, and `'Inter Tight'` resolves to `system-ui`.
 > There is no `packages/design-system` — it was deleted after going unimported. Theming lives
 > here, in `apps/web/lib/themes` + `globals.css`. Don't recreate a shared token package
 > without a second consumer to justify it.
+
+## Motion
+
+`motion` (Framer Motion) is a dependency of `apps/web` as of 2026-08-27. The curves and
+durations live in **`lib/motion.ts`** — `EASE`, `DUR`, `PANEL_SPRING` — so a transition is
+a decision made once rather than a bezier typed into whichever component needed it. Import
+from there; do not inline a new cubic-bezier without adding it.
+
+The brief is the palette comment's: *this is a yard tool, not a consumer app.* Nothing
+overshoots and nothing bounces — `PANEL_SPRING` is damped hard on purpose, because the
+assistant panel butts against the shell's edge and a bounce there reads as a miss.
+`DUR.route` sits in front of **every** navigation in the product and is the one value
+capable of making the whole thing feel slow; leave it short.
+
+Wall surfaces (`fullBleed`) are deliberately NOT transitioned: the monitor is a board left
+running on a screen across the room, and it needs its `h-full` chain unbroken by a wrapper.
+
+The pre-existing CSS keyframes in `globals.css` (`sti-ink`, `sti-travel`, `sti-slide`, the
+auth panel's whole line-art system) stay as they are. They are declarative, gated on
+`prefers-reduced-motion`, and rewriting them in JS would buy nothing.
 
 ## House style
 

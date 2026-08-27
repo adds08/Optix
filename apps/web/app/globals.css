@@ -373,25 +373,6 @@
   @keyframes sti-ink {
     to { stroke-dashoffset: 0; }
   }
-  @keyframes sti-spin {
-    to { transform: rotate(360deg); }
-  }
-  @keyframes sti-bubble {
-    0%, 100% { transform: translateX(-2.6px); }
-    50% { transform: translateX(2.6px); }
-  }
-  /* Blade and hook are separate elements travelling together: the blade scales
-     from its mouth, the hook translates to wherever the blade's tip lands.
-     scaleX(0.3) on a 17-unit blade puts the tip at x=41.1, which is where the
-     hook's -12 leaves it. Change one number and you change both. */
-  @keyframes sti-tape-blade {
-    0%, 100% { transform: scaleX(0.3); }
-    42%, 64% { transform: scaleX(1); }
-  }
-  @keyframes sti-tape-hook {
-    0%, 100% { transform: translateX(-12px); }
-    42%, 64% { transform: translateX(0); }
-  }
   /* The custody route. Dashes march toward the job site so the line reads as
      a direction of travel rather than a decorative border. -24 is three whole
      1+7 periods, so the loop restart is invisible. */
@@ -434,17 +415,6 @@
     offset-rotate: 0deg;
   }
 
-  /* The blade's twelve teeth are one path of twelve strokes so the rim turns
-     as a single element. It opts out of the draw-on explicitly: `.sti-ink > *`
-     would otherwise dash it to nothing, because a raked tooth is not a shape
-     you can normalise with pathLength and still have draw in the right order.
-     Static under reduced motion is fine — a blade standing still is still
-     recognisably a blade. */
-  .sti-ink .ink-blade {
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-
   @media (prefers-reduced-motion: no-preference) {
     .sti-ink > * {
       stroke-dasharray: 1;
@@ -456,32 +426,13 @@
     .sti-ink > :nth-child(4) { animation-delay: calc(var(--ink-delay, 0s) + 0.27s); }
     .sti-ink > :nth-child(n + 5) { animation-delay: calc(var(--ink-delay, 0s) + 0.36s); }
 
-    /* Shapes that keep moving after they are drawn declare both animations;
-       the second simply waits out the first. */
-    .sti-ink .ink-bubble {
-      transform-box: view-box;
-      animation:
-        sti-ink 1.5s ease-out var(--ink-delay, 0s) forwards,
-        sti-bubble 3.4s ease-in-out 1.7s infinite;
-    }
-    .sti-ink .ink-tape-blade {
-      transform-box: view-box;
-      transform-origin: 36px 33.5px;
-      animation:
-        sti-ink 1.5s ease-out var(--ink-delay, 0s) forwards,
-        sti-tape-blade 6s ease-in-out 1.7s infinite;
-    }
-    .sti-ink .ink-tape-hook {
-      transform-box: view-box;
-      animation:
-        sti-ink 1.5s ease-out var(--ink-delay, 0s) forwards,
-        sti-tape-hook 6s ease-in-out 1.7s infinite;
-    }
-    .sti-ink .ink-blade {
-      transform-box: view-box;
-      transform-origin: 32px 32px;
-      animation: sti-spin 30s linear infinite;
-    }
+    /* ~~`.ink-bubble`, `.ink-tape-blade`, `.ink-tape-hook`, `.ink-blade`~~ —
+       the drifting spirit level, the tape measure's blade and the spinning saw
+       rim. Removed 2026-08-27 with the glyphs they animated: the auth panel's
+       strip now draws the RESOURCES a job consumes rather than five hand
+       tools, because the old strip was most of why the sign-in page read as a
+       tool crib. Their keyframes went too — see the note in `auth-panel.tsx`.
+       Nothing else ever used them; check there before reviving one. */
 
     .sti-float { animation: sti-float-y 6s ease-in-out var(--ink-delay, 0s) infinite; }
     .sti-route { animation: sti-march 1.4s linear infinite; }

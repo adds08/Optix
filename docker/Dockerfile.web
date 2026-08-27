@@ -44,14 +44,12 @@ COPY apps/web/ apps/web/
 # Baked in at build time: NEXT_PUBLIC_* are inlined into the client bundle, so
 # they cannot be supplied at run time like ordinary env vars.
 ARG NEXT_PUBLIC_API_URL=http://localhost:4100
-ARG NEXT_PUBLIC_APP_NAME=STInventory
 # Every NEXT_PUBLIC_* the app reads has to be declared here as well as passed in
 # compose. An arg the Dockerfile does not declare is simply absent at build
 # time, and `process.env.X === "1"` then compiles to false with no warning —
 # which is how the demo-login flag was silently dropped.
 ARG NEXT_PUBLIC_SHOW_DEMO_LOGINS=0
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV NEXT_PUBLIC_SHOW_DEMO_LOGINS=$NEXT_PUBLIC_SHOW_DEMO_LOGINS
 ENV NEXT_TELEMETRY_DISABLED=1
 # The production droplet is 1GB of RAM. Next's build workers happily balloon

@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "motion/react";
 import { Check, ChevronDown, Loader2, Send, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
+import { PANEL_SPRING } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { relative } from "@/lib/format";
 
@@ -36,7 +38,7 @@ export function AiPanel({ open, onClose }: { open: boolean; onClose: () => void 
   const [draft, setDraft] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showSessions, setShowSessions] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const utils = trpc.useUtils();
 
   /* Every query in here is gated on `open`: a panel nobody has opened must not
@@ -75,11 +77,30 @@ export function AiPanel({ open, onClose }: { open: boolean; onClose: () => void 
   /* Newest first from the API; render oldest first. */
   const messages = [...(thread.data?.items ?? [])].reverse();
 
-  useEffect(() => {
-    if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, open]);
+  /*
+    Scroll THIS list, not "whatever ancestors it takes".
 
-  if (!open) return null;
+    This was `endRef.current.scrollIntoView({ behavior: "smooth" })`, and
+    `scrollIntoView` walks every scrollable ancestor — including the shell
+    wrapper, which is `overflow` clipped but was still a scroll container. On
+    open the panel is one panel-width off to the right, so the browser
+    obligingly scrolled the whole shell sideways to reveal it: the rail and the
+    content column slid up to 120px left while the `position: fixed` sidebar
+    stayed put, then drifted back as the panel arrived. That is the "everything
+    shifts weirdly to the left when I open the assistant" report, and it was
+    never the panel's own animation.
+
+    Setting `scrollTop` on the list touches exactly one element and cannot
+    reach the shell. `app-shell.tsx` also marks the wrapper `overflow-clip`,
+    which takes it out of the scrollable-ancestor chain entirely — belt and
+    braces, because the next person to add a `scrollIntoView` in here should
+    not have to rediscover this.
+  */
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages.length, open]);
 
   function submit(e?: React.FormEvent) {
     e?.preventDefault();
@@ -87,99 +108,126 @@ export function AiPanel({ open, onClose }: { open: boolean; onClose: () => void 
     send.mutate({ channelId, body: draft.trim() });
   }
 
+  /*
+    The component stays mounted while closed so the exit animation has
+    something to play on — every query above is gated on `open` instead, which
+    is what actually stops a closed panel polling the thread. An early
+    `return null` here would take the panel off the tree the instant the button
+    is pressed, and there is nothing left to animate out.
+  */
   return (
-    <aside
-      /* Absolute inside the shell, not fixed: it must stop at the top bar and
-         the shell's own edges, and it must not sit over a dialog's scrim. */
-      className="absolute inset-y-0 right-0 z-30 flex w-100 max-w-full flex-col border-l bg-card shadow-[-4px_0_16px_rgba(0,0,0,.2)] duration-200 animate-in slide-in-from-right"
-      aria-label="Assistant"
-    >
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-        <span className="text-[13.5px] font-bold">Assistant</span>
-        <button
-          type="button"
-          onClick={() => setShowSessions((v) => !v)}
-          className="ml-auto flex items-center gap-1 text-xs text-primary hover:underline"
-        >
-          Channels
-          <ChevronDown className={cn("size-3 transition-transform", showSessions && "rotate-180")} />
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close the assistant"
-          className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <X className="size-4" />
-        </button>
-      </header>
+    <AnimatePresence>
+      {open ? (
+        <motion.aside
+          key="ai-panel"
+          /*
+            Absolute inside the shell, not fixed: it must stop at the top bar and
+            the shell's own edges, and it must not sit over a dialog's scrim.
 
-      {showSessions ? (
-        <div className="sti-scroll max-h-50 shrink-0 border-b p-1.5">
-          {channels.data?.map((c) => {
-            const active = c.id === channelId;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  setActiveId(c.id);
-                  setShowSessions(false);
-                }}
-                aria-pressed={active}
-                className={cn(
-                  "flex w-full items-center rounded-md px-2.5 py-2 text-left text-[13px] transition-colors",
-                  active
-                    ? "bg-accent font-semibold text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <span className="min-w-0 truncate">{c.name}</span>
-              </button>
-            );
-          })}
-        </div>
+            That only became TRUE with this change. `[data-slot="sidebar-wrapper"]`
+            was statically positioned, so this element's containing block was the
+            initial one — the viewport — and the enter animation's 400px of travel
+            landed outside the document rather than inside a clipped shell. The
+            page gained ~200px of horizontal overflow for the duration, the browser
+            scrolled it, and the rail and content column (in flow) slid left while
+            the sidebar (position: fixed) did not — the "everything jumps sideways
+            when I open the assistant" report. `app-shell.tsx` now marks the
+            wrapper `relative`; keep it there or this comes straight back.
+          */
+          className="absolute inset-y-0 right-0 z-30 flex w-100 max-w-full flex-col border-l bg-card shadow-[-4px_0_16px_rgba(0,0,0,.2)]"
+          aria-label="Assistant"
+          initial={{ x: "100%" }}
+          animate={{ x: 0 }}
+          exit={{ x: "100%" }}
+          transition={PANEL_SPRING}
+        >
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+            <span className="text-[13.5px] font-bold">Assistant</span>
+            <button
+              type="button"
+              onClick={() => setShowSessions((v) => !v)}
+              className="ml-auto flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              Channels
+              <ChevronDown className={cn("size-3 transition-transform", showSessions && "rotate-180")} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close the assistant"
+              className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          </header>
+
+          {showSessions ? (
+            <div className="sti-scroll max-h-50 shrink-0 border-b p-1.5">
+              {channels.data?.map((c) => {
+                const active = c.id === channelId;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveId(c.id);
+                      setShowSessions(false);
+                    }}
+                    aria-pressed={active}
+                    className={cn(
+                      "flex w-full items-center rounded-md px-2.5 py-2 text-left text-[13px] transition-colors",
+                      active
+                        ? "bg-accent font-semibold text-accent-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    <span className="min-w-0 truncate">{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <div ref={listRef} className="sti-scroll flex min-h-0 flex-1 flex-col gap-3 p-4">
+            {channels.isLoading ? (
+              <p className="text-[13px] text-muted-foreground">Loading channels…</p>
+            ) : !channelId ? (
+              <p className="text-[13px] text-muted-foreground">
+                No equipment channel exists yet. Seed the database or create one before using chat.
+              </p>
+            ) : !messages.length ? (
+              <p className="text-[13px] leading-relaxed text-muted-foreground">
+                Say what happened the way you would in a group chat — &ldquo;gave the rotary hammer
+                UIC-1012 to Dwayne for Trinity Bridge&rdquo;. Nothing is recorded until you confirm it.
+              </p>
+            ) : (
+              messages.map((m) => <PanelMessage key={m.id} m={m} onConfirm={() => confirm.mutate({ messageId: m.id })} confirming={confirm.isPending} />)
+            )}
+          </div>
+
+          <form onSubmit={submit} className="shrink-0 border-t p-3">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+              rows={2}
+              disabled={!channelId || send.isPending}
+              placeholder="Ask about tools, people, jobs…"
+              className="w-full resize-none rounded-md border bg-background px-3 py-2 text-[13px] outline-none focus-visible:border-ring"
+            />
+            <Button type="submit" size="sm" className="mt-2 w-full" disabled={!draft.trim() || !channelId || send.isPending}>
+              {send.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              Send
+            </Button>
+          </form>
+        </motion.aside>
       ) : null}
-
-      <div className="sti-scroll flex min-h-0 flex-1 flex-col gap-3 p-4">
-        {channels.isLoading ? (
-          <p className="text-[13px] text-muted-foreground">Loading channels…</p>
-        ) : !channelId ? (
-          <p className="text-[13px] text-muted-foreground">
-            No equipment channel exists yet. Seed the database or create one before using chat.
-          </p>
-        ) : !messages.length ? (
-          <p className="text-[13px] leading-relaxed text-muted-foreground">
-            Say what happened the way you would in a group chat — &ldquo;gave the rotary hammer
-            UIC-1012 to Dwayne for Trinity Bridge&rdquo;. Nothing is recorded until you confirm it.
-          </p>
-        ) : (
-          messages.map((m) => <PanelMessage key={m.id} m={m} onConfirm={() => confirm.mutate({ messageId: m.id })} confirming={confirm.isPending} />)
-        )}
-        <div ref={endRef} />
-      </div>
-
-      <form onSubmit={submit} className="shrink-0 border-t p-3">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          rows={2}
-          disabled={!channelId || send.isPending}
-          placeholder="Ask about tools, people, jobs…"
-          className="w-full resize-none rounded-md border bg-background px-3 py-2 text-[13px] outline-none focus-visible:border-ring"
-        />
-        <Button type="submit" size="sm" className="mt-2 w-full" disabled={!draft.trim() || !channelId || send.isPending}>
-          {send.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          Send
-        </Button>
-      </form>
-    </aside>
+    </AnimatePresence>
   );
 }
 

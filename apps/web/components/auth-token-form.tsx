@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { consumeAuthToken, getAuthToken, setSession, type AuthTokenInfo } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { OptixLockup } from "@/components/optix-mark";
 import { Input } from "@/components/ui/input";
 
 /*
@@ -106,12 +107,7 @@ export function AuthTokenForm({
   return (
     <div className="flex min-h-svh items-center justify-center px-6">
       <div className="flex w-full max-w-[380px] flex-col gap-6 rounded-md border bg-card p-6">
-        <div className="flex items-center gap-2">
-          <span className="grid size-7 place-items-center rounded-sm bg-primary text-xs font-bold text-primary-foreground">
-            ST
-          </span>
-          <span className="font-semibold tracking-tight">STInventory</span>
-        </div>
+        <OptixLockup />
 
         {done ? (
           <p className="flex items-center gap-2 text-sm text-ok">

@@ -45,6 +45,11 @@ platform administrator, guests. Each has a place in the grid; none has code.
 **Done as of 2026-08-24:** STI-1101 (lockfile and the web image) and STI-1102 (the database
 suites run in CI, with a guard so they cannot stop again quietly).
 
+**Done as of 2026-08-27:** STI-1203 (pinned rows), plus the `NavItem.id` half of STI-1201 —
+pulled forward because pins are keyed on it and there is no correct way to build one
+without the other. The rest of STI-1201 (`children`, the third level, `recordType` /
+`activity` / `description`) and all of STI-1202 are untouched.
+
 ## 3. Sequencing
 
 ```mermaid
@@ -131,11 +136,17 @@ wrong.
 This is the release's real work. ADR-9, ADR-10 and ADR-11 are the specification; the
 stories below are the build.
 
-### STI-1201 — `NavItem` gains an identity and a third level · L · 16h
+### STI-1201 — `NavItem` gains an identity and a third level · L · 16h · **PART DONE 2026-08-27**
 
 **Mechanism.** `NavItem` is keyed by `href` today. Add `id` (stable, never derived from the
 route), plus `recordType`, `activity` and a one-line plain-English `description`. Add
 `children?: NavItem[]`, rendered by `app-sidebar.tsx` as a collapsible section.
+
+**`id` is DONE.** Every item in both navs carries a unique, route-independent `id`, and the
+type documents it as the one field that may not change. It shipped with STI-1203 rather
+than here because a pin has to store an id and building pins on hrefs would have had to be
+undone. `recordType`, `activity`, `description` and `children` are **not** done — the shell
+is still two levels, and `matchItem` still resolves two.
 
 The metadata is not decoration. Release 2's generative Desk reads the navigation config as
 its map of the product — the same reason `PERMISSION_LABELS` exists in `packages/types`.
@@ -177,7 +188,7 @@ categories or models — see STI-1303 and E15 for why each one is not a register
 **AC.** Every existing route is reachable · no route string changes · empty placeholder
 groups do not render.
 
-### STI-1203 — Pinned rows · M · 8h
+### STI-1203 — Pinned rows · M · 8h · **DONE 2026-08-27**
 
 **Mechanism.** A click on a star pins a row. Pins are a `Set<id>` in `localStorage`
 under `sti-pins`, rendered as a Pinned section at the head of the sidebar.
@@ -197,6 +208,18 @@ the active group renders in both places — that is correct, not a bug.
 
 **Later, not now.** `user_preferences.dashboard` already exists as a jsonb column if pins
 should follow a user between devices. Per-browser was the explicit ask.
+
+**Built.** `apps/web/components/sti/nav-pins.ts` — `read`/`write` both swallow storage
+failures, and `pinnedItems(groups, pins)` is the pure intersection, called once from
+`app-sidebar.tsx` against the array the shell has already permission-filtered.
+`useNavPins` starts empty and fills in an effect, because reading storage during render
+would not match the server HTML.
+
+**Verified.** `e2e/tests/nav-pins.spec.ts`: a pin survives a reload; unpinning removes the
+section; an id naming nothing renders nothing; and an HR account whose seeded `sti-pins`
+names `tool-register`, `custody` and `people` gets exactly one row, `/people`. The last is
+the one that matters — it is what stops a hand-edited `localStorage` key becoming a link.
+The rest of the browser suite is unchanged and still green.
 
 ### STI-1204 — Module visibility · L · 16h
 

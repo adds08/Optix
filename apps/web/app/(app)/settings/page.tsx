@@ -152,7 +152,7 @@ export default function SettingsPage() {
           <div className="space-y-2">
             <label className="text-sm font-medium">From address</label>
             <Input
-              placeholder='STInventory <no-reply@example.com>'
+              placeholder='Optix <no-reply@example.com>'
               value={smtpFrom}
               onChange={(e) => setSmtpFrom(e.target.value)}
             />
