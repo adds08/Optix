@@ -11,7 +11,7 @@ import { department } from "./department";
 // `current_*` columns are the PROJECTION (denormalized from `transactions`); never the
 // source of truth. `owning_project_id` (financial capital owner) is immutable once set.
 export const asset = pgTable(
-  "asset",
+  "tbl_entity_asset",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -103,7 +103,7 @@ export const asset = pgTable(
   foremen. Nothing falls due, so nothing goes overdue.
 */
 export const assignment = pgTable(
-  "assignment",
+  "tbl_ops_smalltools_custody",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -222,7 +222,7 @@ export const assignment = pgTable(
 // A movement request/record between two custody states. Cross-person or high-value
 // hand-offs require approval (status = pending_approval).
 export const transfer = pgTable(
-  "transfer",
+  "tbl_ops_transfer",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

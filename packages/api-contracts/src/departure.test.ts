@@ -326,10 +326,10 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       /* Ledger rows are written here, so the cascade delete needs the
          sanctioned transactional trigger disable (migration 0014). */
       await db.transaction(async (tx) => {
-        await tx.execute(sql`ALTER TABLE "transaction" DISABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER transaction_no_update_delete`);
         await tx.delete(schema.tenant).where(eq(schema.tenant.id, tenantId));
         await tx.delete(schema.tenant).where(eq(schema.tenant.id, otherTenantId));
-        await tx.execute(sql`ALTER TABLE "transaction" ENABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" ENABLE TRIGGER transaction_no_update_delete`);
       });
     }
     await db?.$client.end();

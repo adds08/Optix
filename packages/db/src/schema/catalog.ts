@@ -4,7 +4,7 @@ import { tenant } from "./identity";
 // Catalog reference tables (tenant-scoped).
 
 export const category = pgTable(
-  "category",
+  "tbl_entity_category",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -19,7 +19,7 @@ export const category = pgTable(
 );
 
 export const manufacturer = pgTable(
-  "manufacturer",
+  "tbl_entity_manufacturer",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -33,7 +33,7 @@ export const manufacturer = pgTable(
 
 // Named `asset_model` to avoid the SQL/ORM reserved word `model`.
 export const assetModel = pgTable(
-  "asset_model",
+  "tbl_entity_asset_model",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

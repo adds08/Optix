@@ -197,6 +197,20 @@
       "when": 1787861039281,
       "tag": "0028_thin_supernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1787898529379,
+      "tag": "0029_table_naming_convention",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1787898554621,
+      "tag": "0030_rename_index_predicates",
+      "breakpoints": true
     }
   ]
 }

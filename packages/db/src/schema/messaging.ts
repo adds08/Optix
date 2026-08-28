@@ -4,7 +4,7 @@ import { user } from "./identity";
 import { employee } from "./employee";
 
 export const channel = pgTable(
-  "channel",
+  "tbl_ops_channel",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -22,7 +22,7 @@ export const channel = pgTable(
 );
 
 export const message = pgTable(
-  "message",
+  "tbl_ops_message",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

@@ -7,7 +7,7 @@ import { project } from "./project";
 // A person who can hold custody (foreman, superintendent, etc.). Separate from the
 // auth `user`; a foreman who logs in is linked via user.employeeId.
 export const employee = pgTable(
-  "employee",
+  "tbl_entity_employee",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -102,7 +102,7 @@ export const employee = pgTable(
   open row per employee.
 */
 export const employeeProjectAssignment = pgTable(
-  "employee_project_assignment",
+  "tbl_ops_employee_project_assignment",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -144,7 +144,7 @@ export const employeeProjectAssignment = pgTable(
   the physical guarantee. Closing a row means setting `endedOn`, never delete.
 */
 export const projectTeamMember = pgTable(
-  "project_team_member",
+  "tbl_ops_project_team_member",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -186,7 +186,7 @@ export const projectTeamMember = pgTable(
   "contact". It is not a contact number and does not belong in this table.
 */
 export const employeeContact = pgTable(
-  "employee_contact",
+  "tbl_entity_employee_contact",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

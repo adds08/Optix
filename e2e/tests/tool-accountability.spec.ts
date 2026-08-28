@@ -33,8 +33,15 @@ test("a tool on a job names its superintendent and PM", async ({ page }) => {
   /* Rows carry the project name, so pick one on a job with a staffed team
      rather than deep-linking a uuid — a hard-coded id makes the spec a test of
      the seed. The tag cell is the link; clicking the row itself does nothing. */
+  /* The register is the first thing this account loads after a reseed, and a
+     cold API can take well past the 5s default — this flaked exactly once that
+     way. Waiting on the shell's own ready signal first, then on the row, rather
+     than raising the timeout on every assertion below. */
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 30_000 });
+
   const row = page.locator("table tbody tr", { hasText: "Lone Star" }).first();
-  await expect(row).toBeVisible();
+  await expect(row).toBeVisible({ timeout: 30_000 });
   await row.getByRole("link").first().click();
 
   await expect(page).toHaveURL(/\/tools\/[0-9a-f-]{36}/);

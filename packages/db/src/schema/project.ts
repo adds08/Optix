@@ -2,7 +2,7 @@ import { date, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core
 import { tenant } from "./identity";
 
 export const project = pgTable(
-  "project",
+  "tbl_entity_project",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

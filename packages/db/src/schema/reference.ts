@@ -25,7 +25,7 @@ import { tenant } from "./identity";
   something does, the data is already sorted along it.
 */
 export const uomCategory = pgTable(
-  "uom_category",
+  "tbl_entity_uom_category",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -55,7 +55,7 @@ export const uomCategory = pgTable(
   case that does not fit the model is also the one with nowhere to go.
 */
 export const unitOfMeasure = pgTable(
-  "unit_of_measure",
+  "tbl_entity_unit_of_measure",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -94,7 +94,7 @@ export const unitOfMeasure = pgTable(
   whoever gets into the settings screen.
 */
 export const companyRole = pgTable(
-  "company_role",
+  "tbl_entity_company_role",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

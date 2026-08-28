@@ -108,9 +108,9 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
   afterAll(async () => {
     if (db && tenantId) {
       await db.transaction(async (tx) => {
-        await tx.execute(sql`ALTER TABLE "transaction" DISABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER transaction_no_update_delete`);
         await tx.delete(schema.tenant).where(eq(schema.tenant.id, tenantId));
-        await tx.execute(sql`ALTER TABLE "transaction" ENABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" ENABLE TRIGGER transaction_no_update_delete`);
       });
     }
     await db?.$client.end();

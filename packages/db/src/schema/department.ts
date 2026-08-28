@@ -12,7 +12,7 @@ import { tenant } from "./identity";
   `task.department` (a chat-routing label). Neither of those is this.
 */
 export const department = pgTable(
-  "department",
+  "tbl_entity_department",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

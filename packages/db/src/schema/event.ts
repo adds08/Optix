@@ -13,7 +13,7 @@ import { employee } from "./employee";
 // the append-only test's cleanup (api-contracts/src/ledger-append-only.test.ts).
 // Every projection (assets.current_*, assignments) is a fold over this table.
 export const transaction = pgTable(
-  "transaction",
+  "tbl_ops_transaction",
   {
     id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -62,7 +62,7 @@ export const transaction = pgTable(
 );
 
 export const notification = pgTable(
-  "notification",
+  "tbl_ops_notification",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -107,7 +107,7 @@ export const notification = pgTable(
 
 // Tenant-scoped settings (config, not code): high-value threshold, approver role,
 // SLA cadences, delivery channels.
-export const tenantSettings = pgTable("tenant_settings", {
+export const tenantSettings = pgTable("tbl_entity_tenant_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
   tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
   highValueThreshold: jsonb("high_value_threshold").$type<number>(),
