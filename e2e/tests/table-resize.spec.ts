@@ -11,10 +11,12 @@ import { authFile } from "../roles.js";
   row.
 
   The property that matters is in the second test. Widening a column must make
-  the TABLE wider, not steal the pixels from its neighbours. That only works
-  because the first drag converts every column to an explicit pixel width at
-  once; a half-converted table quietly redistributes instead, which looks like
-  the drag doing nothing.
+  the TABLE wider, not steal the pixels from its neighbours. An early version
+  converted every column to an explicit pixel width on the first drag on the
+  theory that this was what made it work; measured column by column, the results
+  were identical either way, and the bookkeeping was removed. A `table-fixed`
+  table already grows to fit explicit column widths, so the wrapper scrolls and
+  nothing else moves. This test is what would catch that ceasing to be true.
 
   Read-only, like every spec here.
 */

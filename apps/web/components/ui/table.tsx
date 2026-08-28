@@ -6,13 +6,22 @@ import { cn } from "@/lib/utils"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
+    /* THIS is the element that actually scrolls a wide table sideways, and it
+       took until 2026-08-28 for anyone to notice — DataTable wrapped the
+       primitive in a second `overflow-x-auto` box and styled THAT one, so the
+       horizontal scrollbar people were looking for was being drawn by an
+       unstyled container underneath it. `sti-table-scroll` carries the visible
+       scrollbar and the overscroll containment; see globals.css. */
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className="sti-table-scroll relative w-full overflow-x-auto"
     >
+      {/* `sti-grid` rules every cell on all four sides — see globals.css. It is
+          on the primitive rather than on each caller so a new table is ruled
+          the day it is written, without anyone remembering to ask for it. */}
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("sti-grid w-full caption-bottom text-sm", className)}
         {...props}
       />
     </div>

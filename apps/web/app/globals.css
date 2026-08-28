@@ -523,10 +523,13 @@
   scrollbar-gutter: stable;
 }
 
-/* Sticky table headers — the column context stays visible while a long table
-   scrolls. Each table's wrapper gets a bounded scroll container so the header
-   sticks within it (top: 0) rather than trying to track the page scroll —
-   no overlap with the app header or the bottom action toolbar, no offset math. */
+/* The scroll box a wide table lives in.
+
+   It does NOT make the header sticky, whatever this comment claimed until
+   2026-08-28 — nothing in this file or in `table.tsx` sets `position: sticky`,
+   and rows are bounded by pagination rather than by a nested scrollbox, so
+   there is nothing for a header to stick to. What it does is give the table its
+   own horizontal scroll region, painted head band included. */
 .sti-table-scroll {
   /* Horizontal only: wide tables scroll inside the box, but a table never gets
      its own vertical scrollbar. Rows flow with the page (bounded by pagination),
@@ -544,4 +547,81 @@
 }
 .sti-table-scroll thead th {
   background: var(--muted);
+}
+
+/* Ruled tables — every cell boxed on all four sides.
+
+   Asked for directly on 2026-08-28, and it replaces an earlier call that a
+   table should be sectioned "by tone rather than by lines". Alternating fills
+   read fine on the darker themes and dissolve on the pale ones, and a wide
+   register with ten columns gives the eye nothing to track along. Lines do not
+   care about the theme.
+
+   The rule hangs off the `<table>` rather than off every cell because there
+   are several tables here that are hand-rolled for good reasons (selection,
+   grouping, a per-row menu) alongside the shared primitive. One rule, five
+   class names — not the same pair of Tailwind borders copied onto forty
+   `<td>`s. `border-collapse` comes from Tailwind's preflight, so adjacent
+   cells share one line rather than stacking two. */
+.sti-grid th,
+.sti-grid td {
+  border-right: 1px solid var(--border);
+}
+.sti-grid th:last-child,
+.sti-grid td:last-child {
+  border-right: 0;
+}
+.sti-grid thead th {
+  border-bottom: 1px solid var(--border);
+}
+.sti-grid tbody tr {
+  border-bottom: 1px solid var(--border);
+}
+/* The container already draws the outer box; a line under the final row would
+   sit directly on top of it and read as a double rule. */
+.sti-grid tbody tr:last-child {
+  border-bottom: 0;
+}
+
+/* Scrollbars you can actually see.
+
+   macOS hides overlay scrollbars until something moves, so a register that
+   scrolls sideways gives no sign at all that the columns continue past the
+   right edge — which is exactly how "data is cut off" gets reported as a bug.
+   Styling `::-webkit-scrollbar` opts the element out of overlay scrollbars in
+   WebKit and Blink, so the track is permanently there whenever the content
+   overflows.
+
+   Drawn from `--foreground` rather than a fixed grey so the thumb keeps its
+   contrast on all of the themes, and rounded via `background-clip: padding-box`
+   over a transparent border, which is what insets the thumb inside its track. */
+.sti-scroll,
+.sti-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 30%, transparent) transparent;
+}
+.sti-scroll::-webkit-scrollbar,
+.sti-table-scroll::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+.sti-scroll::-webkit-scrollbar-track,
+.sti-table-scroll::-webkit-scrollbar-track {
+  background: color-mix(in oklch, var(--muted) 70%, transparent);
+}
+.sti-scroll::-webkit-scrollbar-thumb,
+.sti-table-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: color-mix(in oklch, var(--foreground) 30%, transparent);
+  background-clip: padding-box;
+}
+.sti-scroll::-webkit-scrollbar-thumb:hover,
+.sti-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--foreground) 55%, transparent);
+  background-clip: padding-box;
+}
+.sti-scroll::-webkit-scrollbar-corner,
+.sti-table-scroll::-webkit-scrollbar-corner {
+  background: transparent;
 }

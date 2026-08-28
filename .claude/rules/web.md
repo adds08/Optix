@@ -362,6 +362,67 @@ same height whether or not you are pointing at it — the rule above. It sits ab
 the sort button and stops propagation, without which every resize would also
 re-sort the table on release.
 
+### Tables are ruled, and the rule lives on the `<table>`
+
+`.sti-grid` in `globals.css` draws a line on all four sides of every cell. It is
+applied by the `<Table>` primitive itself, so anything built on it is ruled the
+day it is written, and by name on the four hand-rolled tables
+(`jobsite-tool-table`, `report-table`, `import-dialog`, `project-monitor`).
+
+This **replaces** the earlier call that a table should be sectioned by tone —
+alternating row fills and no lines. That reads well on the darker palettes and
+disappears on the pale ones, and a ten-column register gives the eye no track to
+follow across. The banding stays where it was; the two do different jobs. Don't
+put the borders back on individual `<td>`s — one CSS rule is the whole point.
+
+### The pager sits above the header
+
+Not under the last row. That is where Urban's timesheet has always put it, so it
+is where people look, and the controls stay in one place whether the page holds
+ten rows or a hundred. `DataTablePagination` therefore carries `border-b`, and
+`DataTable` renders it as a sibling of the scrolling element so the columns move
+sideways underneath it. It also carries the only exit from a column filter, since
+the menu that set one closes behind itself.
+
+### Scrollbars: style the element that actually scrolls
+
+`.sti-scroll` and `.sti-table-scroll` draw a permanently visible thumb. Styling
+`::-webkit-scrollbar` is what opts an element out of macOS overlay scrollbars,
+which otherwise vanish and take with them any hint that the columns continue.
+
+**The trap, found on 2026-08-28:** the `<Table>` primitive has an
+`overflow-x-auto` container of its own. `DataTable` used to wrap it in a second
+one and put `sti-table-scroll` on the outer box — so the styled element never
+overflowed and the box that did scroll was unstyled. Nothing fails visibly when
+that is wrong. `table-grid-and-filter.spec.ts` now walks up from the `<table>` to
+the first ancestor that genuinely overflows and asserts the class is on *that*.
+If you add a scroll wrapper around a table, delete one somewhere else.
+
+### The column menu is where filtering is found
+
+Every column with an `accessorFn` carries a caret in its header opening a
+Popover: sort, hide, and a searchable tick list of that column's distinct values
+with counts. `column-menu.tsx`. Clicking the header still sorts — the caret is an
+addition, exactly as in Excel.
+
+Three constraints worth keeping:
+
+- **No filter means every box is ticked.** Unticking the first one starts from
+  "all of them", so the click reads as "hide this" rather than "show only this".
+  Unticking the last one clears the filter rather than emptying the table.
+- **It applies on the tick, with no Apply.** `FilterSheet` drafts and commits for
+  the opposite reason: those filters travel to the server, so a keystroke there
+  is a query. This one is a pass over an array already in memory.
+- **The value list is client mode only** (`faceted={!server}`). In server mode
+  the browser holds one page, and offering twenty-five values as "the values in
+  this column" would be a lie. Sort and hide still work there.
+
+The caret is always rendered and always occupies its space — never revealed on
+hover. A control that appears under the pointer cannot be found by somebody who
+does not already know it is there, which is precisely how its absence got
+reported. It is `size-5` with `mr-1` for a reason: at `size-6` the 8rem Category
+column started truncating its own heading.
+
 ## Theming
 
 **A theme is a colour palette and nothing else.** The design language — 3/4/6px radii, the

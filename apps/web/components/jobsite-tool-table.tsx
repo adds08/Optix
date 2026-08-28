@@ -111,7 +111,7 @@ export function ToolTable({
 
   return (
     <div>
-      <div className="overflow-x-auto"><table className="w-full border-collapse text-sm">
+      <div className="sti-table-scroll overflow-x-auto"><table className="sti-grid w-full border-collapse text-sm">
         {/*
           The header is a distinct band, not a slightly tinted first row.
 
@@ -147,9 +147,13 @@ export function ToolTable({
         </thead>
         <tbody>
           {visible.map((t, i) => (
-            /* Alternating fills, not a rule under every row: the design sections
-               a table by tone rather than by lines, which is what lets a wide
-               row be followed across without the grid closing in. */
+            /* Alternating fills AND rules. The fills used to be the only thing
+               sectioning this table — "by tone rather than by lines" — which
+               held right up until somebody read it on a pale theme, where two
+               percent of lightness is nothing and a wide row has no track to
+               follow along. `sti-grid` on the table draws the lines; the banding
+               stays because the two do different jobs: the rule says where a row
+               ends, the fill says which row you are on. */
             <tr
               key={t.id}
               className={cn(

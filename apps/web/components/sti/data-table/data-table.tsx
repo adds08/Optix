@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import {
   getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
@@ -21,6 +23,7 @@ import type {
   ColumnDef,
   ColumnFiltersState,
   PaginationState,
+  Row,
   RowSelectionState,
   SortingState,
   VisibilityState,
@@ -46,6 +49,7 @@ import {
 import { EmptyState } from "@/components/sti/page";
 import { DataTablePagination } from "./pagination";
 import { FilterSheet } from "./filter-sheet";
+import { ColumnMenu, isColumnFiltered } from "./column-menu";
 import { downloadCsv } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
@@ -125,6 +129,22 @@ type Props<T> = {
 
 /* Narrow enough to be a deliberate act, wide enough to still grab. */
 const MIN_COL_PX = 56;
+
+/*
+  The filter the column menu writes: "show rows whose value is one of these".
+
+  It compares stringified values because that is what the menu's tick list is
+  built from — the faceted counts arrive keyed by the raw accessor value, so a
+  numeric column would otherwise offer `0` and match against `"0"` forever.
+  An absent filter and an empty list both mean "everything", which is what lets
+  unticking the last box read as clearing the filter rather than as hiding
+  every row.
+*/
+function inValueSet<T>(row: Row<T>, columnId: string, value: unknown): boolean {
+  if (!Array.isArray(value) || value.length === 0) return true;
+  const v = row.getValue(columnId);
+  return value.includes(v === null || v === undefined ? "" : String(v));
+}
 
 function widthsKey(k: string) {
   return `sti-colwidths:${k}`;
@@ -363,10 +383,18 @@ export function DataTable<T>({
           onStateChange?.({ ...serverStateBase(), page: next.pageIndex + 1, pageSize: next.pageSize });
         }
       : setPagination,
+    /* Every column filters by "is one of these values" unless it says otherwise,
+       because that is the only filter the column menu offers. */
+    defaultColumn: { filterFn: inValueSet },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: server ? undefined : getSortedRowModel(),
     getFilteredRowModel: server ? undefined : getFilteredRowModel(),
     getPaginationRowModel: server ? undefined : getPaginationRowModel(),
+    /* The distinct values behind the menu's tick list. Client mode only: in
+       server mode the browser holds one page, and faceting that would present
+       twenty-five values as the whole column. */
+    getFacetedRowModel: server ? undefined : getFacetedRowModel(),
+    getFacetedUniqueValues: server ? undefined : getFacetedUniqueValues(),
   });
 
   /* Keep the header checkbox's indeterminate state in step with a partial
@@ -518,11 +546,22 @@ export function DataTable<T>({
       </div>
       ) : null}
 
-      {/* table — bounded scroll container so the header sticks (see globals).
+      {/* One bordered box: the pager strip, then the table under it.
+
+          The pager sits ABOVE the header rather than beneath the last row.
+          That is where Urban's timesheet has always put it, so it is where
+          people here look for it, and it has a second virtue nobody asked for:
+          the paging controls stay in the same place whether the page holds ten
+          rows or a hundred, instead of walking down the screen.
+
+          The strip is a sibling of the scrolling element rather than inside it,
+          so the columns scroll sideways underneath it and the pager stays put.
+
           table-fixed makes columns honor their `width` and fill the container;
           columns without a width share the leftover, and long text wraps
           instead of blowing the layout out. */}
-      <div className="sti-table-scroll overflow-x-auto rounded-md border">
+      <div className="overflow-hidden rounded-md border">
+        <DataTablePagination table={table} />
         <Table className="w-full table-fixed" style={{ minWidth }}>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
@@ -533,27 +572,52 @@ export function DataTable<T>({
                   const canSort = h.column.getCanSort();
                   const sorted = h.column.getIsSorted();
                   const Icon = !sorted ? ChevronsUpDown : sorted === "asc" ? ArrowUp : ArrowDown;
+                  /* The menu belongs to columns that hold a value. The checkbox
+                     and actions columns have no `accessorFn`, so there is
+                     nothing to sort by and nothing to list. */
+                  const hasValue = Boolean(h.column.accessorFn);
                   return (
                     <TableHead
                       key={h.id}
-                      className={cn("relative p-0", numeric && "text-right")}
+                      className={cn(
+                        "relative p-0",
+                        numeric && "text-right",
+                        /* A filtered column is marked in the header itself, not
+                           only inside the menu that set it — otherwise a short
+                           list looks like a short table. */
+                        isColumnFiltered(h.column) && "bg-primary/10",
+                      )}
                       style={{ width: widthFor(h.column.id, meta.width) }}
                     >
+                      <div className="flex w-full items-center">
                       <button
                         type="button"
                         disabled={!canSort}
                         onClick={() => h.column.toggleSorting(sorted === "asc")}
                         className={cn(
-                          "flex w-full items-center gap-1.5 px-3 py-2.5 text-xs font-medium uppercase tracking-wide",
+                          "flex min-w-0 flex-1 items-center gap-1.5 py-2.5 pl-3 text-xs font-medium uppercase tracking-wide",
+                          /* The menu button supplies the trailing gap when it is
+                             there; without it the cell needs its own. */
+                          hasValue ? "pr-1" : "pr-3",
                           numeric && "justify-end",
                           canSort ? "hover:text-foreground" : "cursor-default",
                         )}
                       >
-                        {flexRender(h.column.columnDef.header, h.getContext())}
+                        <span className="truncate">
+                          {flexRender(h.column.columnDef.header, h.getContext())}
+                        </span>
                         {canSort ? (
                           <Icon className={cn("size-3 shrink-0", sorted ? "opacity-100" : "opacity-35")} />
                         ) : null}
                       </button>
+                      {hasValue ? (
+                        <ColumnMenu
+                          column={h.column}
+                          label={String(h.column.columnDef.header ?? h.column.id)}
+                          faceted={!server}
+                        />
+                      ) : null}
+                      </div>
                       {/*
                         The resize grip, on the column's trailing edge.
 
@@ -626,8 +690,6 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       </div>
-
-      <DataTablePagination table={table} />
     </div>
   );
 }
