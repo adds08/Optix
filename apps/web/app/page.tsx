@@ -67,6 +67,25 @@ function rise(i: number) {
   };
 }
 
+/*
+  Arm the one-shot pin landing.
+
+  Both routes into the app go through `/` and then to `/home`, and the shell
+  cannot tell an arriving session from an ordinary visit to the dashboard — so
+  the marker is set here, where "somebody is opening the app" is knowable, and
+  consumed once in `app-shell.tsx` after permissions land.
+
+  `sessionStorage`, not `localStorage`: it must not outlive the tab, or a reload
+  next week would redirect somebody who had deliberately navigated to /home.
+*/
+function armPinLanding() {
+  try {
+    sessionStorage.setItem(LAND_ON_PIN, "1");
+  } catch {
+    /* Storage disabled: the session lands on /home, which is fine. */
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -76,7 +95,14 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (getSession()) router.replace("/home");
+    if (getSession()) {
+      /* Returning with a session already in hand is just as much "opening the
+         app" as signing in, so it arms the pin landing too. Without this, only
+         a fresh sign-in reached the first pinned row and every subsequent visit
+         went to /home — which is not what "the default navigation" means. */
+      armPinLanding();
+      router.replace("/home");
+    }
   }, [router]);
 
   async function submit(e: React.FormEvent) {
@@ -105,15 +131,7 @@ export default function LoginPage() {
         next person to sign in on the same browser.
       */
       queryClient.clear();
-      /* Marks this one navigation as a fresh sign-in, so the shell can send the
-         session to the first pinned row once it has the permissions to resolve
-         it against. Set here rather than in the shell because "did somebody
-         just sign in" is only knowable here. See `nav-pins.ts`. */
-      try {
-        sessionStorage.setItem(LAND_ON_PIN, "1");
-      } catch {
-        /* Storage disabled: the session lands on /home, which is fine. */
-      }
+      armPinLanding();
       router.replace("/home");
     } catch {
       setError("That email and password combination did not work. Check both and try again.");

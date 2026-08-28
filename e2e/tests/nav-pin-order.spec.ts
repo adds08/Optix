@@ -70,6 +70,35 @@ test.describe("pinned order", () => {
   });
 });
 
+test.describe("returning to the app also lands on the first pin", () => {
+  test.use({ storageState: authFile("owner") });
+
+  test("opening / with a session already in hand goes to the pin, not /home", async ({ page }) => {
+    /*
+      The gap this covers: only a fresh SIGN-IN used to arm the landing, so
+      every later visit went to /home and "the first pin is the default
+      navigation" was true exactly once per session. Both routes through `/`
+      arm it now.
+    */
+    await page.addInitScript((v) => localStorage.setItem("sti-pins", v), JSON.stringify(["custody"]));
+    await page.goto("/");
+
+    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/custody$/, { timeout: 15_000 });
+  });
+
+  test("with nothing pinned it still lands on /home", async ({ page }) => {
+    /* The redirect resolves to null when there are no pins, and the caller
+       keeps its existing destination. Without this, "no pins" and "broken
+       redirect" would look identical. */
+    await page.addInitScript(() => localStorage.removeItem("sti-pins"));
+    await page.goto("/");
+
+    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/home$/);
+  });
+});
+
 test.describe("the first pin is where a session lands", () => {
   test("signing in opens the first pinned row rather than /home", async ({ page }) => {
     /* A real sign-in, because the redirect is armed by a one-shot marker that

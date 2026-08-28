@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronDown, ChevronUp, Star } from "lucide-react";
+import { ChevronDown, ChevronUp, Pin, PinOff } from "lucide-react";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { DUR, EASE } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -143,16 +143,34 @@ export function AppSidebar({
               {active.label}
             </SidebarGroupLabel>
             <SidebarMenu>
-              {active.items.map((n) => (
-                <NavRow
-                  key={n.id}
-                  item={n}
-                  current={n.href === currentHref}
-                  pinned={pins.has(n.id)}
-                  onTogglePin={() => toggle(n.id)}
-                  inboxCount={inboxCount}
-                />
-              ))}
+              {/* Pinned rows are MOVED, not copied. A pinned row is drawn in the
+                  Pinned section and nowhere else, so the pane never shows the
+                  same screen twice.
+
+                  This reversed an earlier decision on 2026-08-28. The pane used
+                  to draw a pinned row in both places on the reasoning that
+                  "Pinned is a shortcut, not a move" — but two identical rows a
+                  few pixels apart reads as a duplicate rather than as a
+                  shortcut, and pinning something you already had in view then
+                  looks like it did nothing except make a copy.
+
+                  The group itself stays on the rail even when every one of its
+                  rows is pinned: `railGroups` in `app-shell.tsx` is untouched by
+                  this filter, so pinning cannot make a whole module's glyph
+                  disappear. The pane simply shows the Pinned section, with those
+                  rows sitting directly above. */}
+              {active.items
+                .filter((n) => !pins.has(n.id))
+                .map((n) => (
+                  <NavRow
+                    key={n.id}
+                    item={n}
+                    current={n.href === currentHref}
+                    pinned={false}
+                    onTogglePin={() => toggle(n.id)}
+                    inboxCount={inboxCount}
+                  />
+                ))}
             </SidebarMenu>
           </SidebarGroup>
         ) : null}
@@ -166,10 +184,9 @@ export function AppSidebar({
 /*
   One row, drawn identically wherever it appears.
 
-  A pinned row that is ALSO in the active group renders in both places at once.
-  That is correct rather than a bug: Pinned is a shortcut, not a move, and a
-  row vanishing from its own module the moment you starred it would be the
-  more surprising behaviour.
+  A pinned row is drawn ONCE, in the Pinned section, and filtered out of its own
+  group — it moves rather than being copied. The pane used to draw it in both
+  places; two identical rows inches apart read as a duplicate, not a shortcut.
 */
 function NavRow({
   item,
@@ -293,7 +310,9 @@ function NavRow({
           pinned ? "text-sidebar-primary" : "text-sidebar-foreground/50",
         )}
       >
-        <Star className={cn(pinned && "fill-current")} />
+        {/* A pin, not a star. A star means "favourite" and invites a rating;
+            a pin means "keep this here", which is what the control does. */}
+        {pinned ? <PinOff /> : <Pin />}
       </SidebarMenuAction>
     </SidebarMenuItem>
   );

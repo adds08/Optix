@@ -62,10 +62,29 @@ test.describe("pinned navigation rows", () => {
       timeout: 30_000,
     });
     await expect(page.locator(PINNED)).toBeVisible();
-    /* Two rows now carry the route: the pin and Custody's own row in
-       Operations. That is the intended behaviour — Pinned is a shortcut, not
-       a move — so the assertion is on the count, not on "exactly one". */
-    await expect(page.locator('[data-sidebar="sidebar"] a[href="/custody"]')).toHaveCount(2);
+    /* EXACTLY ONE row carries the route: pinning MOVES a row into the Pinned
+       section rather than copying it there.
+
+       This asserted 2 until 2026-08-28, when the both-places behaviour was
+       reversed — two identical rows inches apart read as a duplicate rather
+       than as a shortcut. The count is the whole difference between the two
+       designs, so it is asserted exactly rather than loosely. */
+    await expect(page.locator('[data-sidebar="sidebar"] a[href="/custody"]')).toHaveCount(1);
+  });
+
+  test("a pinned row leaves its own group rather than appearing twice", async ({ page }) => {
+    /* Custody lives in Operations, so standing ON Operations is the case where
+       a copy would be visible — the pinned row and the group row would both be
+       in the pane at once. */
+    await seedPins(page, ["custody"]);
+    await settled(page, "/custody");
+
+    await expect(page.locator(PINNED)).toBeVisible();
+    await expect(page.locator('[data-sidebar="sidebar"] a[href="/custody"]')).toHaveCount(1);
+
+    /* And the group it left is still reachable from the rail — pinning every
+       row of a module must not make the module's glyph disappear. */
+    await expect(page.locator('nav a[href="/jobsites"]')).toBeVisible();
   });
 
   test("unpinning removes the section again", async ({ page }) => {

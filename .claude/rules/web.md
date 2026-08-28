@@ -168,11 +168,32 @@ Two rules, and they are the entire feature:
   `e2e/tests/nav-pins.spec.ts` holds it in place with an HR account whose seeded pins name
   `/tools` and `/custody` and which must render neither.
 
-Consequences worth knowing: an unknown id renders nothing rather than erroring; a pinned
-row that is also in the active group renders in **both** places, which is correct — Pinned
-is a shortcut, not a move; and `useNavPins` starts empty and fills in an effect, because
-reading storage during render would not match the server HTML. Pinning needs no permission
-and is offered to every role.
+**A pin MOVES a row, it does not copy it** (changed 2026-08-28). A pinned row is drawn in
+the Pinned section and filtered out of its own group, so the pane never shows the same
+screen twice. It used to render in both places on the reasoning that "Pinned is a shortcut,
+not a move" — two identical rows inches apart read as a duplicate instead, and pinning
+something already in view looked like it had done nothing. `nav-pins.spec.ts` asserts the
+count is exactly 1, which is the entire difference between the two designs.
+
+The filter is applied to the **sidebar's rendered rows only**, never to `railGroups` in
+`app-shell.tsx`. Pinning every row of a module must not make that module's glyph vanish
+from the rail, and it does not.
+
+**The first pinned row is the app's landing route.** Both paths through `/` — a fresh
+sign-in and a return with a session already in hand — arm a one-shot `sessionStorage`
+marker (`sti-land-on-pin`), which `app-shell.tsx` consumes on `/home` once `identity.me`
+has resolved. That wait is load-bearing: before it, `perms` is `[]`, every gated row is
+filtered out, the pin resolves to nothing and the marker is spent on a render that could
+never have worked. Arming only the sign-in path was the first cut and made the landing
+true exactly once per session.
+
+The redirect resolves through `pinnedItems`, so it inherits the permission intersection —
+a pin naming a route the actor cannot open never becomes a destination.
+
+Other consequences worth knowing: an unknown id renders nothing rather than erroring, and
+`useNavPins` starts empty and fills in an effect, because reading storage during render
+would not match the server HTML. Pinning needs no permission and is offered to every role.
+The control is a **pin**, not a star — a star means "favourite" and invites a rating.
 
 Per-browser was the explicit ask. `user_preferences.dashboard` is still there as a jsonb
 column if pins should ever follow a person between devices.
