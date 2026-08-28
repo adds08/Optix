@@ -563,23 +563,33 @@
    class names — not the same pair of Tailwind borders copied onto forty
    `<td>`s. `border-collapse` comes from Tailwind's preflight, so adjacent
    cells share one line rather than stacking two. */
+/* `separate` with zero spacing, NOT `collapse`, and the reason is column
+   freezing. Collapsed borders belong to the TABLE rather than to the cells, so
+   they are not clipped by a `position: sticky` cell — the vertical rules of the
+   columns scrolling underneath streak straight across a frozen column, once per
+   row, at the same x every time. It reads as debris rather than as a bug, which
+   is why it is worth naming here.
+
+   Zero spacing plus borders only on the right and bottom gives the same picture
+   collapse did: no doubling, because no two cells ever draw the same line. The
+   one thing it changes is that a border on a `<tr>` no longer paints at all,
+   which is why the horizontal rule below lives on the cells. */
+.sti-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+}
 .sti-grid th,
 .sti-grid td {
   border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .sti-grid th:last-child,
 .sti-grid td:last-child {
   border-right: 0;
 }
-.sti-grid thead th {
-  border-bottom: 1px solid var(--border);
-}
-.sti-grid tbody tr {
-  border-bottom: 1px solid var(--border);
-}
 /* The container already draws the outer box; a line under the final row would
    sit directly on top of it and read as a double rule. */
-.sti-grid tbody tr:last-child {
+.sti-grid tbody tr:last-child > td {
   border-bottom: 0;
 }
 
@@ -659,3 +669,39 @@ svg.size-5 { width: calc(1.25rem * var(--icon-scale)); height: calc(1.25rem * va
 svg.size-6 { width: calc(1.5rem * var(--icon-scale)); height: calc(1.5rem * var(--icon-scale)); }
 svg.size-7 { width: calc(1.75rem * var(--icon-scale)); height: calc(1.75rem * var(--icon-scale)); }
 svg.size-8 { width: calc(2rem * var(--icon-scale)); height: calc(2rem * var(--icon-scale)); }
+
+/* Frozen columns and frozen rows.
+
+   A sticky cell slides over the ones scrolling under it, so it needs a
+   background of its own — a table cell is transparent by default and a frozen
+   column without this reads as two tables printed on top of each other. The
+   values below repeat what `TableRow` paints in Tailwind rather than inheriting
+   it: `background: inherit` takes the row's computed colour, which is
+   transparent whenever the row is neither hovered nor selected, and transparent
+   is the one thing a frozen cell cannot be. */
+.sti-freeze {
+  background: var(--background);
+}
+thead .sti-freeze {
+  background: var(--muted);
+}
+tr:hover > .sti-freeze {
+  background: color-mix(in oklch, var(--muted) 50%, var(--background));
+}
+tr[data-state="selected"] > .sti-freeze {
+  background: var(--muted);
+}
+/* A frozen row keeps its own tint under the frozen columns, or the corner where
+   the two meet loses it. */
+tr.sti-freeze-row > .sti-freeze {
+  background: color-mix(in oklch, var(--primary) 5%, var(--background));
+}
+
+/* The seam. A rule alone is invisible against the grid the table already draws,
+   so the last frozen column carries a short shadow as well — that is the part
+   that says "the columns continue underneath this", which a border cannot. */
+.sti-freeze-edge {
+  box-shadow:
+    1px 0 0 0 var(--border),
+    6px 0 8px -6px color-mix(in oklch, var(--foreground) 45%, transparent);
+}

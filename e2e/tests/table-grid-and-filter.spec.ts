@@ -48,7 +48,19 @@ test("every cell is ruled horizontally and vertically", async ({ page }) => {
       headRuled: headCells.slice(0, -1).every((c) => px(c, "border-right-width") > 0),
       bodyRuled: bodyCells.slice(0, -1).every((c) => px(c, "border-right-width") > 0),
       lastHeadBare: px(headCells[headCells.length - 1], "border-right-width") === 0,
-      rowsRuled: rows.slice(0, -1).every((r) => px(r, "border-bottom-width") > 0),
+      /*
+        Measured on the CELLS, not on the `<tr>`.
+
+        The table is `border-collapse: separate` — it has to be, or the borders
+        of the columns scrolling under a frozen one streak across it — and under
+        `separate` a border declared on a row does not paint at all. `TableRow`
+        still carries Tailwind's `border-b`, so asking the row for its
+        `border-bottom-width` returns 1px whether or not a line is drawn. That
+        assertion would pass forever and prove nothing.
+      */
+      rowsRuled: rows
+        .slice(0, -1)
+        .every((r) => [...r.querySelectorAll("td")].every((c) => px(c, "border-bottom-width") > 0)),
       headUnderlined: px(headCells[0], "border-bottom-width") > 0,
       cols: headCells.length,
     };

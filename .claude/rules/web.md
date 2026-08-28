@@ -369,6 +369,16 @@ applied by the `<Table>` primitive itself, so anything built on it is ruled the
 day it is written, and by name on the four hand-rolled tables
 (`jobsite-tool-table`, `report-table`, `import-dialog`, `project-monitor`).
 
+**It is `border-collapse: separate` with zero spacing, and that is load-bearing.**
+Collapsed borders belong to the table rather than to the cells, so they are not
+clipped by a `position: sticky` cell: with `collapse`, the vertical rules of the
+columns scrolling under a frozen column streak straight across it, once per row,
+at the same x every time. The consequence to remember is that **a border declared
+on a `<tr>` does not paint at all** — the horizontal rule lives on the cells, and
+`jobsite-tool-table`'s deliberate double rule under its header band is
+`[&>th]:border-b-2` for the same reason. If you write `border-b` on a row here,
+nothing will happen and nothing will tell you.
+
 This **replaces** the earlier call that a table should be sectioned by tone —
 alternating row fills and no lines. That reads well on the darker palettes and
 disappears on the pale ones, and a ten-column register gives the eye no track to
@@ -422,6 +432,48 @@ hover. A control that appears under the pointer cannot be found by somebody who
 does not already know it is there, which is precisely how its absence got
 reported. It is `size-5` with `mr-1` for a reason: at `size-6` the 8rem Category
 column started truncating its own heading.
+
+### Freezing, on both axes
+
+**Columns freeze as a prefix** — "Freeze up to here", from the column menu.
+`DataTable` holds a count, persists it under `sti-frozen:<storageKey>`, and makes
+the leading columns `position: sticky`. Not an arbitrary subset: pinning a middle
+column raises "and where does it sit now", and every answer to that is worse than
+not offering it.
+
+The `left` offsets are **measured off the live header row in an effect**, never
+summed from `meta.width`. Those are rem strings, the app has a font scale, and a
+column can have been dragged — the rendered width is the only honest number.
+
+Sticky cells need an opaque background of their own (`.sti-freeze`), and it is
+written out rather than inherited: `background: inherit` takes the row's computed
+colour, which is transparent unless the row is hovered or selected, and
+transparent is the one thing a frozen cell cannot be.
+
+**Rows freeze individually**, through TanStack's own row pinning. `keepPinnedRows`
+is what makes a frozen row survive a page change, which is the entire reason to
+freeze one. Session-only, deliberately: a pinned row is a working note about the
+tools in front of you, not a preference.
+
+### The row menu has two groups and no more
+
+`RowActions` and `ToolMenu` both split once: **Actions** (what you do to the
+thing) and **Table** (how you look at the table it is in). Freezing a row changes
+nothing about the person or the tool and everything about the view, which is the
+line the split follows.
+
+Resist a third. Sub-grouping the entity actions by custody / account / danger was
+considered and rejected — a menu that fits on screen without scrolling does not
+need a table of contents, and `ToolMenu` had already collected three separators in
+a six-item menu that way. The only division that has ever carried meaning inside
+the group is the one before the destructive pair.
+
+Freezing reaches those menus through `data-table/row-context.tsx` rather than
+through props. `RowActions` is built by each page — the page is what knows what
+"delete" means for a person versus a project — so `DataTable` publishes the row's
+pin state and callback, and the menus pick it up. It is **null by default**, which
+is the interface: the hand-rolled tables render `RowActions` too, do not pin, and
+get no Table group rather than a dead control.
 
 ## Theming
 

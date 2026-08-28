@@ -122,7 +122,11 @@ export function ToolTable({
           in both modes because both tokens move together.
         */}
         <thead className="bg-muted">
-          <tr className="border-b-2 border-border text-foreground">
+          {/* On the cells, not on the row: the table is `border-collapse:
+              separate` (see `.sti-grid`), under which a border declared on a
+              `<tr>` does not paint at all. This is the header's deliberate
+              double rule, kept. */}
+          <tr className="text-foreground [&>th]:border-b-2 [&>th]:border-border">
             {selectable ? <th className="w-8 px-3 py-2" aria-hidden /> : null}
             <SortHead className="w-28" k="tag" sort={sort} onSort={onSort}>Tag</SortHead>
             <SortHead k="name" sort={sort} onSort={onSort}>Tool</SortHead>

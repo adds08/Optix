@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, EyeOff, Search, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, EyeOff, Search, Snowflake, X } from "lucide-react";
 import type { Column } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,14 +38,31 @@ export function isColumnFiltered<T>(column: Column<T, unknown>) {
   return Array.isArray(v) && v.length > 0;
 }
 
+/*
+  Freezing is a PREFIX, exactly as in a spreadsheet: "freeze up to this column"
+  keeps columns one through this one, and no arbitrary subset. That is not a
+  simplification of the idea — it is the idea. Pinning a middle column on its own
+  raises "where does it go now", and the honest answers are all worse than not
+  offering it.
+*/
+export type ColumnFreeze = {
+  /* This column's position among the visible ones, counting from 1. */
+  position: number;
+  /* How many leading columns are frozen right now. */
+  frozen: number;
+  setFrozen: (n: number) => void;
+};
+
 export function ColumnMenu<T>({
   column,
   label,
   faceted,
+  freeze,
 }: {
   column: Column<T, unknown>;
   label: string;
   faceted: boolean;
+  freeze?: ColumnFreeze;
 }) {
   const [open, setOpen] = useState(false);
   const filtered = isColumnFiltered(column);
@@ -75,7 +92,7 @@ export function ColumnMenu<T>({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-0">
-        <MenuBody column={column} faceted={faceted} onClose={() => setOpen(false)} />
+        <MenuBody column={column} faceted={faceted} freeze={freeze} onClose={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   );
@@ -86,10 +103,12 @@ export function ColumnMenu<T>({
 function MenuBody<T>({
   column,
   faceted,
+  freeze,
   onClose,
 }: {
   column: Column<T, unknown>;
   faceted: boolean;
+  freeze?: ColumnFreeze;
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
@@ -167,6 +186,33 @@ function MenuBody<T>({
             }}
           >
             Hide column
+          </MenuItem>
+        ) : null}
+        {/* Offered on the column that would BECOME the boundary, and on the one
+            that already is — those are the only two states worth a click. On any
+            other column the item would either repeat the current setting or ask
+            for a subset this does not do. */}
+        {freeze && freeze.frozen !== freeze.position ? (
+          <MenuItem
+            icon={Snowflake}
+            onClick={() => {
+              freeze.setFrozen(freeze.position);
+              onClose();
+            }}
+          >
+            Freeze up to here
+          </MenuItem>
+        ) : null}
+        {freeze && freeze.frozen > 0 ? (
+          <MenuItem
+            icon={Snowflake}
+            active={freeze.frozen === freeze.position}
+            onClick={() => {
+              freeze.setFrozen(0);
+              onClose();
+            }}
+          >
+            Unfreeze columns
           </MenuItem>
         ) : null}
       </div>

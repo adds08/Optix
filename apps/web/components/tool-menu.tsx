@@ -9,6 +9,8 @@ import {
   Pencil,
   StickyNote,
   Tag as TagIcon,
+  Pin,
+  PinOff,
   Trash2,
   UserPlus,
   Wrench,
@@ -20,6 +22,7 @@ import { TransferForm } from "@/components/transfer-form";
 import { ReportForm } from "@/components/report-form";
 import { Button } from "@/components/ui/button";
 import { ActionMenuTrigger } from "@/components/sti/action-menu";
+import { useRowTableOptions } from "@/components/sti/data-table/row-context";
 import { humanize } from "@/components/sti/status";
 import {
   DropdownMenu,
@@ -62,6 +65,8 @@ export function ToolMenu({
      deliberate click. */
   const [confirming, setConfirming] = useState<"return" | "delete" | null>(null);
   const { has } = usePermissions();
+  /* Null on the cards and on any table that does not pin. See `row-context.tsx`. */
+  const table = useRowTableOptions();
   const utils = trpc.useUtils();
 
   const invalidate = () => {
@@ -109,6 +114,14 @@ export function ToolMenu({
         <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
           <DropdownMenuLabel>{assetTag}</DropdownMenuLabel>
 
+          {/* Two groups and no more — the same split as `RowActions`, and the
+              reasoning is written out there. Everything above the Table heading
+              changes the TOOL; everything below changes the view of the table it
+              is sitting in. The heading only appears when there is a second
+              group to tell this one apart from: on a card, this menu is all
+              there is. */}
+          {table ? <DropdownMenuLabel className="text-muted-foreground">Actions</DropdownMenuLabel> : null}
+
           {heldBySomeone ? (
             <>
               {canTransfer ? (
@@ -154,13 +167,14 @@ export function ToolMenu({
           </DropdownMenuItem>
 
           {canManage ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setOpen("status")}>
-                <TagIcon />
-                Change status
-              </DropdownMenuItem>
-            </>
+            /* No rule above this: "change status" is one more thing you do to
+               the tool, and fencing it off on its own put three separators in a
+               six-item menu. The only division inside this group that has ever
+               carried meaning is the one before the destructive pair. */
+            <DropdownMenuItem onSelect={() => setOpen("status")}>
+              <TagIcon />
+              Change status
+            </DropdownMenuItem>
           ) : null}
 
           {canManage && (onEdit || onDelete) ? <DropdownMenuSeparator /> : null}
@@ -192,6 +206,17 @@ export function ToolMenu({
                 Delete
               </DropdownMenuItem>
             )
+          ) : null}
+
+          {table ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-muted-foreground">Table</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={table.togglePinned}>
+                {table.pinned ? <PinOff /> : <Pin />}
+                {table.pinned ? "Unfreeze this row" : "Freeze this row"}
+              </DropdownMenuItem>
+            </>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>

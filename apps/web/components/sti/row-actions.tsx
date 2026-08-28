@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Pencil, Trash2, type LucideIcon } from "lucide-react";
+import { Loader2, Pencil, Pin, PinOff, Trash2, type LucideIcon } from "lucide-react";
 import type { Permission } from "@stinventory/types";
 import { usePermissions } from "@/components/use-permissions";
 import { ActionMenuTrigger } from "@/components/sti/action-menu";
@@ -12,6 +12,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { useRowTableOptions } from "@/components/sti/data-table/row-context";
 
 /*
   Everything you can do to a register row, behind one control.
@@ -37,6 +38,22 @@ import {
   anything carrying history and say what to do instead (dispose, terminate,
   complete). That refusal is surfaced rather than swallowed — "you can't, and
   here is why" is more useful than a button that silently fails.
+
+  ## Two groups, and only two
+
+  Everything in here answers one of two questions: what do I want to do to this
+  THING, or how do I want to look at this TABLE. Moving a person to a job,
+  editing them and deleting them are all the first; freezing their row so it
+  stays put while you scan the rest is the second — it changes nothing about the
+  person and everything about the view.
+
+  So the menu is split once, under two headings, and not again. Sub-grouping the
+  entity actions further ("custody", "account", "danger") was considered and is
+  not here: a menu that fits on a screen without scrolling does not need a table
+  of contents, and every extra rule is one more thing between a pointer and the
+  item it came for. The delete confirmation already carries its own weight
+  visually, which is the only distinction that has ever mattered inside the
+  group.
 */
 
 export type RowAction = {
@@ -79,6 +96,8 @@ export function RowActions({
      already armed and delete on a stray click. */
   const [confirming, setConfirming] = useState(false);
   const { has } = usePermissions();
+  /* Null on the hand-rolled tables, which do not pin. See `row-context.tsx`. */
+  const table = useRowTableOptions();
 
   const allowed = actions.filter((a) => has(a.perm ?? perm));
   const canManage = has(perm);
@@ -87,7 +106,7 @@ export function RowActions({
 
   /* No rights, no actions, no trigger. An ellipsis that opens an empty menu is
      worse than no ellipsis — it advertises something that is not there. */
-  if (!allowed.length && !showEdit && !showDelete) {
+  if (!allowed.length && !showEdit && !showDelete && !table) {
     return error ? <RefusalNote error={error} /> : null;
   }
 
@@ -101,6 +120,11 @@ export function RowActions({
 
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>{label}</DropdownMenuLabel>
+
+          {/* The heading only earns its place when there is a second group to
+              tell this one apart FROM. On a table with no freezing, this is the
+              whole menu and a label saying so is noise. */}
+          {table ? <DropdownMenuLabel className="text-muted-foreground">Actions</DropdownMenuLabel> : null}
 
           {allowed.map((a) => (
             <DropdownMenuItem key={a.label} onSelect={a.onSelect}>
@@ -138,6 +162,17 @@ export function RowActions({
                 Delete
               </DropdownMenuItem>
             )
+          ) : null}
+
+          {table ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-muted-foreground">Table</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={table.togglePinned}>
+                {table.pinned ? <PinOff /> : <Pin />}
+                {table.pinned ? "Unfreeze this row" : "Freeze this row"}
+              </DropdownMenuItem>
+            </>
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
