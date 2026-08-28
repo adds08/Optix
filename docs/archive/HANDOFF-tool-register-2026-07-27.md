@@ -1,3 +1,13 @@
+> **ARCHIVED 2026-08-29. Historical record, not instructions.**
+>
+> Written 2026-07-27 to hand over the Tool Register redesign. That register has been
+> rebuilt several times since — the table system, the row menus, the column menu,
+> freezing and the grid all postdate this document. It is kept because the two design
+> decisions it records still explain why the register looks the way it does.
+>
+> For the table system as it is now: [`../../.claude/rules/web.md`](../../.claude/rules/web.md)
+> and [`../architecture/03-frontend.md`](../architecture/03-frontend.md).
+
 # Handoff — Tool Register redesign
 
 Written 2026-07-27. Read this first if you are picking up the Tool Register work.

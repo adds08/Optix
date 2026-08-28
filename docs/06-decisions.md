@@ -33,7 +33,8 @@ a log, the audit trail is not a feature to build; it is the storage format.
 - Every write path must append a transaction. A write that updates `asset.current_*` without
   appending is a corruption bug, not a style issue.
 - `foldAssetState` (`packages/domain/src/fold.ts`) is last-snapshot-wins, not a field-wise
-  reducer, so **every writer must emit a complete `to_state`**. See `03-data-model.md` §A8.
+  reducer, so **every writer must emit a complete `to_state`**. See
+`architecture/01-data-model.md`, and `.claude/rules/custody-and-ledger.md` for the writer buckets.
 - `assignment_history` was dropped as redundant — `transaction` with
   `ref_type = 'assignment'` answers the same question.
 
@@ -46,6 +47,12 @@ a log, the audit trail is not a feature to build; it is the storage format.
 **Decision.** tRPC (`packages/api-contracts/`) is the only API surface. The hand-rolled REST
 layer in `apps/api/src/rest-routes.ts` is transitional debt to be deleted; the mobile app
 migrates from `packages/frontend-shared/src/api-client.ts` to a tRPC client.
+
+> **Status: carried out. Both files are gone.** `apps/api/src/rest-routes.ts` no longer
+> exists — the Hono app serves `/health`, the auth endpoints, two asset-photo endpoints and
+> tRPC, and nothing else. `packages/frontend-shared` was deleted after going unimported by
+> either client. The decision below stands; everything it describes as pending is done.
+> **Do not go looking for an ungated REST mutation. There is no REST surface.**
 
 **Rationale.** The two surfaces currently implement the same queries twice — dashboard KPIs,
 assets, assignments, vehicles, employees, transactions, tasks and messaging all exist in both

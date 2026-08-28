@@ -68,6 +68,8 @@ question somebody will ask.
   jobsites page had more than doubled in length. A stale copy of live source in a
   docs folder is the most dangerous kind of stale doc, because it looks
   authoritative and diffs cleanly against nothing.
-- **`features/` — deleted.** A README describing a four-file-per-ticket convention,
-  with no ticket ever having used it. `changelogs/` does that job and is the
-  convention actually in use.
+- **`features/` — deleted, then restored the same day.** The reasoning for deleting
+  it was that no ticket had ever used the convention. That was true and beside the
+  point: `.claude/skills/feature-delivery/SKILL.md` instructs agents to write
+  records there, so deleting it broke a live workflow. Under-used is not the same
+  as dead.

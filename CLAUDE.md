@@ -21,7 +21,7 @@ it now) are separate axes, and tools follow the person, not the site.
 | To run it, seed it, or unstick the containers | `docs/SETUP.md` |
 | The domain model, roadmap, ADRs | `AGENTS.md` |
 | Rules for the area I'm editing | `.claude/rules/` — **read the file covering your area; nothing loads it for you** |
-| A verified architecture walkthrough | `STINVENTORY-EXPLAINER.md` |
+| Which document to trust, and in what order | `LLM_RECALL.md` — **read this first if you are an agent** |
 | The schema, the routers, the flows, what is built | `docs/architecture/` — derived from the code, corrected when the code moves |
 | Where a file is, and what to read before editing it | `docs/CODEMAP.md` |
 | Why something is the way it is | `docs/changelogs/INDEX.md` |

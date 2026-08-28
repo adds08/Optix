@@ -80,7 +80,8 @@ packages/
   config-eslint/   Shared ESLint flat config
   config-tsconfig/ Shared tsconfig presets
 prototype/           Single-file no-build UI mockup — design reference for the
-                     Tool Register redesign; see prototype/README.md and HANDOFF.md
+                     Tool Register redesign; see prototype/README.md and
+                     docs/archive/HANDOFF-tool-register-2026-07-27.md (archived)
 docker-compose.yml   Postgres + API + Web (dev)
 docker-compose.prod.yml  Production stack — see §12
 Makefile             ENV-driven: up / seed / logs / psql / test
@@ -132,7 +133,8 @@ anything a human must review before trusting it is in
 - **Asset Register** — serialized + bulk assets, searchable. Faceted rail (category /
   status / flags, each count computed with its own filter lifted), cards-or-table toggle,
   and value weight so a $33k total station does not read like a $260 drill.
-  See `HANDOFF.md` for why the filtering is client-side.
+  See `docs/archive/HANDOFF-tool-register-2026-07-27.md` for why the filtering is
+  client-side. Archived, but that reasoning still holds.
 - **Assignments** — custody links and the high-value approval gate. Every link is simply
   custody: there is no loan, no due date and no overdue state (removed 2026-08-09)
 - **Transfers** — hand-off reporting, high-value + cross-person approval
@@ -242,18 +244,21 @@ anything a human must review before trusting it is in
 | `docs/archive/00-executive-summary.md` | **Start here for leadership context** — one-page distilled pitch |
 | `docs/archive/01-plan.md` | Master planning & functional spec — vision, entities, lifecycle, custody model, operational scenarios, procurement, reports, modules, roadmap |
 | `docs/02-saas-architecture.md` | Multi-tenant productization path, tenancy model, convergence options with Mark 85 |
-| `docs/03-data-model.md` | Detailed schema; event-sourced core design; projection logic; rebuild guarantee |
+| `docs/architecture/01-data-model.md` | **The schema as built.** Tables, relationships, the ledger-is-truth rule |
+| `docs/archive/03-data-model.md` | The superseded schema doc — pre-rename table names, kept for its unbuilt Part B |
 | `docs/archive/04-diagrams.md` | Mermaid diagrams: ERD, lifecycle state machine, custody flows, procurement BPMN, deployment, SaaS multi-tenancy, event fold |
 | `docs/05-build-proposal.md` | Bodhi Labs scope, team, hours, pricing, delivery plan, handoff — plus the delivery-status addendum |
 | `docs/06-decisions.md` | Architecture decision records (ADR-1..6) — read before changing the API surface, the mobile stack, or the event model |
 | `docs/07-conversational-layer.md` | The chat → intent → custody-action subsystem, its state machine, and its known gaps |
-| `HANDOFF.md` | Tool Register redesign — what changed, the two decisions behind it, and what is still unverified |
+| `LLM_RECALL.md` | **Which document to trust, and in what order.** The routing layer for agents |
+| `docs/archive/HANDOFF-tool-register-2026-07-27.md` | Tool Register redesign, archived — the register has been rebuilt since |
 | `prototype/README.md` | The single-file UI mockup, and what was borrowed from United Rentals |
 | `README.md` | Human quick-start, login credentials, monorepo layout |
 
 ## 12. Production posture (as of 2026-07-26)
 
-> `HANDOFF.md` covers the Tool Register redesign specifically — read it before
+> `docs/archive/HANDOFF-tool-register-2026-07-27.md` covers the Tool Register redesign
+> specifically, and is archived rather than current — read it before
 > touching `tools/page.tsx`, `facets.tsx`, `flags.tsx` or `asset-card.tsx`.
 
 
@@ -282,13 +287,15 @@ anything a human must review before trusting it is in
 
 ## 13. Known defects (verified 2026-08-06)
 
-Items 1, 4 and 6 below are **resolved** and kept for the record; 2, 3 and 5 remain:
+Items 1, 2, 3, 4 and 6 below are **resolved** and kept for the record; 5 remains:
 
 1. ~~`make dev` fails~~ — **resolved**: the `dev`/`mobile` targets no longer reference
    `apps/desktop` (the file dropped the Flutter build); `make ENV=local up` is still the
    path. AGENTS.md §13 was stale on this.
-2. **Two API surfaces** — `apps/api/src/rest-routes.ts` duplicates the tRPC routers. Per
-   ADR-2 the routers win; fix bugs there.
+2. ~~**Two API surfaces** — `apps/api/src/rest-routes.ts` duplicates the tRPC routers~~ —
+   **resolved.** The file is gone and the REST surface with it. The Hono app serves
+   `/health`, the auth endpoints, two asset-photo endpoints and tRPC, nothing else.
+   **Do not go hunting for an ungated REST mutation; there is none.**
 3. ~~`packages/notifications/` is an empty directory~~ — **resolved** 2026-08-09: removed,
    along with `packages/design-system` and `packages/frontend-shared`. All three were
    unimported by either app; the latter two are the ones ADR-3 anticipated would serve
@@ -340,5 +347,10 @@ conversational layer and the request queue are built and working. Procurement an
 maintenance have **no tables and no code**. Mobile has real screens but no offline support.
 
 Production posture landed 2026-07-26 (§12): migrations, tests, production images, CI, auth
-hardening. Docs were reconciled against the code on 2026-07-27; `docs/03-data-model.md`
-Part A is the as-built schema and Part B is explicitly unbuilt.
+hardening.
+
+**Reconciled again on 2026-08-29, at `v1.0.0`.** The schema now lives in
+`docs/architecture/01-data-model.md`, derived from `packages/db/src/schema` rather than
+transcribed; `docs/03-data-model.md` moved to `archive/` because every table it named was
+renamed on 2026-08-28. Start at `LLM_RECALL.md` if you are an agent — it says which
+document to trust and which will lie to you.

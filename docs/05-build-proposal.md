@@ -52,7 +52,7 @@ self-serve SaaS onboarding + billing. The architecture leaves clean seams for al
 ## 2. Approach
 
 - **Greenfield, event-sourced core.** Append-only `transactions` table is the system of
-  record; all operational state is a projection (see `03-data-model.md`). Audit trail is free.
+  record; all operational state is a projection (see `architecture/01-data-model.md`). Audit trail is free.
 - **Reports-first.** Each module ships its reports before its edit UI, honoring Urban's
   "reports are the moat" and field-simplicity constraints.
 - **UR-style dashboard.** Matches the United Rentals look Urban already likes; validated in

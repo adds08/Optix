@@ -1,7 +1,7 @@
 # STInventory — System Plan
 
 **Owner:** Bodhi Labs Pvt. Ltd. for Urban Infraconstruction
-**Status:** Release 1 in delivery, target 23 August 2026
+**Status:** **v1.0.0 tagged 2026-08-29** — "Optix for small tools implemented". Release 1 shipped. What is in it, and what is knowingly not, is `CHANGELOG.md` and `docs/architecture/05-features.md`
 **Purpose of this document:** the single reference for what the system is, what exists, what is being built, and what comes next. Written to be read by both people and language models. When an AI assistant is asked to work on this codebase, this file is the intended starting context.
 
 > **Reading rule for AI assistants.** Statements under *Current state* are grounded in a file-level assessment dated 2026-08-09. Statements under *Roadmap* are intent, not fact. Pseudo-code is illustrative of intended shape, not literal source. Verify against the repository before acting on anything here.

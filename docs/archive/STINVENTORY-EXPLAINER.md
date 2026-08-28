@@ -1,3 +1,19 @@
+> **ARCHIVED 2026-08-29. Do not treat this as current.**
+>
+> It was accurate when written (2026-08-15, against commit `72cbcdc`) and it is the
+> best account of how the system was *reasoned about* at that point. Several of its
+> findings have since been fixed and one of its warnings now points at code that no
+> longer exists:
+>
+> - **§12.2 and the `/api/*` box in the architecture diagram describe a REST surface
+>   that has been deleted.** `apps/api/src/rest-routes.ts` does not exist. An agent
+>   acting on that section will go hunting for an ungated mutation that is not there.
+> - Table names throughout predate the 2026-08-28 rename.
+> - The borrow / overdue model it describes was removed on 2026-08-09.
+>
+> For the system as it is now: [`../architecture/`](../architecture/). For where to
+> look and what to trust: [`../../LLM_RECALL.md`](../../LLM_RECALL.md).
+
 # STInventory — how this repo actually works
 
 > A technical explainer built by reading the source, running the stack, and probing the

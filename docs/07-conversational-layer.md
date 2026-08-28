@@ -11,7 +11,7 @@ product a foreman actually touches, and it was built after the original planning
 written, so it appears nowhere in `01-plan.md` §1-18.
 
 Rationale for the approach is ADR-4 in `06-decisions.md`. Storage shape is
-`03-data-model.md` §A7.
+`archive/03-data-model.md` §A7 (superseded; the current schema is `architecture/01-data-model.md`).
 
 ---
 

@@ -574,4 +574,5 @@ they read as chosen, not inherited. Radius is tight (6px) — this is a yard too
 app."* Match that. Depth comes from borders, not shadows.
 
 Before touching `tools/page.tsx`, `facets.tsx`, `flags.tsx` or `asset-card.tsx`, read
-`HANDOFF.md` — it covers the Tool Register redesign and what is still unverified.
+`docs/archive/HANDOFF-tool-register-2026-07-27.md` — archived, but it covers the Tool
+Register redesign and the two decisions still visible in the code.
