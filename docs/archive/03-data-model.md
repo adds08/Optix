@@ -1,3 +1,14 @@
+> **SUPERSEDED on 2026-08-29 — do not use this as a schema reference.**
+>
+> Every table below is named as it was before the 2026-08-28 rename: `asset`,
+> `assignment`, `transaction`. **None of those names exist any more** — they now
+> carry a `tbl_entity_` or `tbl_ops_` prefix. Read
+> [`../architecture/01-data-model.md`](../architecture/01-data-model.md) instead,
+> whose foreign-key graph is extracted from the schema rather than transcribed.
+>
+> Kept rather than deleted because Part B is still the best written account of the
+> design that was deliberately not built.
+
 # STInventory — Data Model & Schema
 
 Schema reference for STInventory. Design is **event-sourced at the core**: the

@@ -1,3 +1,9 @@
+> **Table names in this document predate the 2026-08-28 rename.** Where it says
+> `asset`, `assignment`, `transaction` and so on, the physical tables are now
+> `tbl_entity_asset`, `tbl_ops_smalltools_custody`, `tbl_ops_transaction`. The
+> reasoning here is unaffected; only the names are. The current schema is
+> [`architecture/01-data-model.md`](architecture/01-data-model.md).
+
 # STInventory — Architecture Decisions
 
 Numbered decision records. Each is decision → rationale → consequence. Append, don't edit;
