@@ -5,7 +5,7 @@ import { employee } from "./employee";
 import { project } from "./project";
 
 export const warehouse = pgTable(
-  "warehouse",
+  "tbl_entity_warehouse",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -21,7 +21,7 @@ export const warehouse = pgTable(
 
 // Polymorphic "place an asset can be." A vehicle is a location that can itself move.
 export const location = pgTable(
-  "location",
+  "tbl_entity_location",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -63,7 +63,7 @@ export const location = pgTable(
   mechanism.
 */
 export const vehicle = pgTable(
-  "vehicle",
+  "tbl_entity_vehicle",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

@@ -141,7 +141,7 @@ async function main() {
        transactional in Postgres, so any abort rolls the DISABLE back along with
        the deletes — the guard cannot survive a crash in the off state. */
     await db.transaction(async (tx) => {
-      await tx.execute(sql`ALTER TABLE "transaction" DISABLE TRIGGER transaction_no_update_delete`);
+      await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER transaction_no_update_delete`);
       await tx.delete(asset);
       await tx.delete(transaction);
       await tx.delete(vehicle);
@@ -158,7 +158,7 @@ async function main() {
       await tx.delete(permission);
       await tx.delete(tenantSettings);
       await tx.delete(tenant);
-      await tx.execute(sql`ALTER TABLE "transaction" ENABLE TRIGGER transaction_no_update_delete`);
+      await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" ENABLE TRIGGER transaction_no_update_delete`);
     });
   }
 

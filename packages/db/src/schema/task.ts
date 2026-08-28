@@ -6,7 +6,7 @@ import { asset } from "./asset";
 import { project } from "./project";
 
 export const task = pgTable(
-  "task",
+  "tbl_ops_task",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

@@ -277,9 +277,9 @@ describe.skipIf(!url)("assignment.return keeps the ledger and the projection in 
          by the 0014 append-only triggers. Same sanctioned transactional
          disable/enable the STI-104 test and the seed's wipe use. */
       await db.transaction(async (tx) => {
-        await tx.execute(sql`ALTER TABLE "transaction" DISABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER transaction_no_update_delete`);
         await tx.delete(schema.tenant).where(eq(schema.tenant.id, tenantId));
-        await tx.execute(sql`ALTER TABLE "transaction" ENABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" ENABLE TRIGGER transaction_no_update_delete`);
       });
     }
     await db?.$client.end();
@@ -457,10 +457,10 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
       /* Ledger rows are written by the router tests below, so the cascade
          delete needs the sanctioned transactional trigger disable (0014). */
       await db.transaction(async (tx) => {
-        await tx.execute(sql`ALTER TABLE "transaction" DISABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER transaction_no_update_delete`);
         await tx.delete(schema.tenant).where(eq(schema.tenant.id, tenantId));
         await tx.delete(schema.tenant).where(eq(schema.tenant.id, otherTenantId));
-        await tx.execute(sql`ALTER TABLE "transaction" ENABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" ENABLE TRIGGER transaction_no_update_delete`);
       });
     }
     await db?.$client.end();

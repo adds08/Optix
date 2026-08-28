@@ -2,7 +2,7 @@ import { boolean, index, jsonb, pgTable, primaryKey, text, timestamp, uniqueInde
 
 // Tenant — multi-tenant-ready from day one. Constant for Urban in the prototype.
 export const tenant = pgTable(
-  "tenant",
+  "tbl_entity_tenant",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
@@ -18,7 +18,7 @@ export const tenant = pgTable(
 // log in. employeeId is a plain uuid (no DB FK) to keep the schema import-graph acyclic;
 // the employee↔user link is resolved in the API layer.
 export const user = pgTable(
-  "user",
+  "tbl_entity_user",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -78,7 +78,7 @@ export const user = pgTable(
 );
 
 // Lucia-compatible session table.
-export const session = pgTable("session", {
+export const session = pgTable("tbl_entity_session", {
   id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -100,7 +100,7 @@ export const session = pgTable("session", {
   already drifted apart once. Data means a role you add works without one.
 */
 export const role = pgTable(
-  "role",
+  "tbl_entity_role",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").references(() => tenant.id, { onDelete: "cascade" }), // null = system role
@@ -144,13 +144,13 @@ export const role = pgTable(
   }),
 );
 
-export const permission = pgTable("permission", {
+export const permission = pgTable("tbl_entity_permission", {
   name: text("name").primaryKey(),
   description: text("description"),
 });
 
 export const rolePermission = pgTable(
-  "role_permission",
+  "tbl_entity_role_permission",
   {
     roleId: uuid("role_id").notNull().references(() => role.id, { onDelete: "cascade" }),
     permissionName: text("permission_name").notNull().references(() => permission.name, { onDelete: "cascade" }),
@@ -161,7 +161,7 @@ export const rolePermission = pgTable(
 );
 
 export const userRole = pgTable(
-  "user_role",
+  "tbl_entity_user_role",
   {
     userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     roleId: uuid("role_id").notNull().references(() => role.id, { onDelete: "cascade" }),
@@ -181,7 +181,7 @@ export const userRole = pgTable(
   chose, it does not invent choices.
 */
 export const userPreferences = pgTable(
-  "user_preferences",
+  "tbl_entity_user_preferences",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -220,7 +220,7 @@ export const userPreferences = pgTable(
   different consume-time effect (activate an account vs. just set a password).
 */
 export const authToken = pgTable(
-  "auth_token",
+  "tbl_entity_auth_token",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

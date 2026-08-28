@@ -80,9 +80,9 @@ describe.skipIf(!url)("double decisions write exactly one ledger event (STI-109,
       .where(sql`slug like 'sti109-%'`);
     for (const staleTenant of stale) {
       await db.transaction(async (tx) => {
-        await tx.execute(sql`ALTER TABLE "transaction" DISABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER transaction_no_update_delete`);
         await tx.delete(schema.tenant).where(eq(schema.tenant.id, staleTenant.id));
-        await tx.execute(sql`ALTER TABLE "transaction" ENABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" ENABLE TRIGGER transaction_no_update_delete`);
       });
     }
     const [t] = await db
@@ -134,9 +134,9 @@ describe.skipIf(!url)("double decisions write exactly one ledger event (STI-109,
          by the 0014 append-only triggers. Same sanctioned transactional
          disable/enable the STI-113 test and the seed's wipe use. */
       await db.transaction(async (tx) => {
-        await tx.execute(sql`ALTER TABLE "transaction" DISABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER transaction_no_update_delete`);
         await tx.delete(schema.tenant).where(eq(schema.tenant.id, tenantId));
-        await tx.execute(sql`ALTER TABLE "transaction" ENABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" ENABLE TRIGGER transaction_no_update_delete`);
       });
     }
     await db?.$client.end();

@@ -17,7 +17,7 @@ import { project } from "./project";
     project_group_user      which users can see it (many-to-many)
 */
 export const projectGroup = pgTable(
-  "project_group",
+  "tbl_entity_project_group",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id")
@@ -33,7 +33,7 @@ export const projectGroup = pgTable(
 );
 
 export const projectGroupProject = pgTable(
-  "project_group_project",
+  "tbl_entity_project_group_project",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull(),
@@ -52,7 +52,7 @@ export const projectGroupProject = pgTable(
 );
 
 export const projectGroupUser = pgTable(
-  "project_group_user",
+  "tbl_entity_project_group_user",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull(),

@@ -77,9 +77,9 @@ describe.skipIf(!url)("ledger is append-only at the database (STI-104)", () => {
          so a shared dev database stays clean and the guard cannot be left off
          by an aborted cleanup. */
       await db.transaction(async (tx) => {
-        await tx.execute(sql`ALTER TABLE "transaction" DISABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER transaction_no_update_delete`);
         await tx.delete(schema.tenant).where(eq(schema.tenant.id, tenantId));
-        await tx.execute(sql`ALTER TABLE "transaction" ENABLE TRIGGER transaction_no_update_delete`);
+        await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" ENABLE TRIGGER transaction_no_update_delete`);
       });
     }
     await db?.$client.end();
