@@ -61,6 +61,7 @@ behind it is worth ten paragraphs of prose.
 | How a fact moves through the system | `docs/architecture/04-data-flow.md` |
 | What is built, unreached, or not built | `docs/architecture/05-features.md` |
 | **Why** something is the way it is | `docs/changelogs/INDEX.md`, then `grep -rln "<file>" docs/changelogs/` |
+| What is currently broken, verified open | `docs/KNOWN-ISSUES.md` |
 | Custody and ledger invariants — **mandatory** before touching either | `.claude/rules/custody-and-ledger.md` |
 | Web/UI conventions — **mandatory** before touching `apps/web` | `.claude/rules/web.md` |
 | Architecture decisions already settled | `AGENTS.md`, `docs/06-decisions.md` |
@@ -131,7 +132,7 @@ Each of these has actually cost time. Check them before you spend an hour.
 
 | If a doc mentions… | The truth |
 |---|---|
-| **The `/api/*` REST surface** | **Deleted.** `apps/api/src/rest-routes.ts` does not exist. The Hono app serves `/health`, the auth endpoints, two photo endpoints and tRPC — nothing else. `docs/archive/STINVENTORY-EXPLAINER.md` §12.2 still reports it as a live security hole; it is not |
+| **The `/api/*` REST surface** | **Deleted.** `apps/api/src/rest-routes.ts` does not exist. The Hono app serves `/health`, the auth endpoints, two photo endpoints and tRPC — nothing else. If a doc reports it as a live security hole, that doc is describing 2026-08-15 |
 | **Overdue tools, due dates, loans, borrows** | **Deleted 2026-08-09.** `expected_end_date` was dropped, `isOverdueLoan` was deleted, no `dashboard.overdueLoans` exists. **Nothing falls due, so nothing goes overdue.** A ticket asking for an overdue view is describing a deleted feature — say so rather than inventing a due date |
 | **A `verify` custody outcome** | Never exists now. `custodyOutcome` returns `approve` or `auto` and asks exactly one question: value |
 | **The HR offboarding / clearance gate** | Removed 2026-08-27. `dashboard.clearanceQueue` still exists but no screen opens it |

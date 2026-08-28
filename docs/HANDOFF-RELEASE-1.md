@@ -393,5 +393,5 @@ comment says all of this; do not read more into it than it claims.
 | To run it, seed it, unstick the containers | `docs/SETUP.md` |
 | The domain model, roadmap, ADRs | `AGENTS.md` |
 | Rules for the area I am editing | `.claude/rules/` — nothing loads these for you |
-| A verified architecture walkthrough | `STINVENTORY-EXPLAINER.md` |
+| A verified architecture walkthrough | `docs/architecture/` (the walkthrough this named was deleted 2026-08-29; its open findings are in `docs/KNOWN-ISSUES.md`) |
 | What is agreed versus what is built | `SYSTEM_PLAN.md`, then `docs/tickets/STATUS.md` |

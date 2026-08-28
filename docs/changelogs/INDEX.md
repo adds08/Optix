@@ -30,6 +30,7 @@ alone cannot explain.
 | 2026-08-29 | [One front door for agents, and five that were competing for the job](2026-08-29-one-front-door-for-agents.md) |
 | 2026-08-29 | [Icon size is its own knob, and the mobile question gets a measured answer](2026-08-29-icon-size-is-its-own-knob.md) |
 | 2026-08-29 | [Freezing on both axes, and a row menu that answers two questions](2026-08-29-freezing-on-both-axes.md) |
+| 2026-08-29 | [Seven archived documents deleted, and the six findings that were buried in one](2026-08-29-delete-the-archive-keep-the-findings.md) |
 | 2026-08-28 | [A tool says who is accountable for it, and the dead-code check stops lying](2026-08-28-tools-name-their-chain-and-a-false-green.md) |
 | 2026-08-28 | [The register stops cutting data off](2026-08-28-the-register-stops-cutting-data-off.md) |
 | 2026-08-28 | [The deploy did not fail — two tests I wrote did](2026-08-28-the-deploy-did-not-fail.md) |

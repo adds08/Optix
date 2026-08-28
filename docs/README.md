@@ -16,6 +16,7 @@ repository and in the changelogs.
 | `workings/jira-import.csv` · `.json` · `gen-jira.js` | **Release 1 only** — the generator has not been pointed at Release 2. Both files are generated: edit the plan, then run `node gen-jira.js .` |
 | `architecture/` | **The map of the system as built.** Data model, backend, frontend, data flow, features |
 | `CODEMAP.md` | Where things are and what to read before changing them. Written for somebody arriving cold |
+| `KNOWN-ISSUES.md` | **Open defects**, each verified against the code. Fix one, delete its section |
 | `changelogs/INDEX.md` | Every changelog entry, newest first, generated from the directory |
 | `initialPlan.md` | Urban's original brief, in their own words. Every spec traces back to this |
 | `06-decisions.md` | ADRs 1–12. Read before changing the API surface, the mobile stack, the event model, or where a new module goes in the menu |

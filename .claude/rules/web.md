@@ -573,6 +573,37 @@ The palette comment states the intent: *"Neutrals carry a slight cool bias towar
 they read as chosen, not inherited. Radius is tight (6px) — this is a yard tool, not a consumer
 app."* Match that. Depth comes from borders, not shadows.
 
-Before touching `tools/page.tsx`, `facets.tsx`, `flags.tsx` or `asset-card.tsx`, read
-`docs/archive/HANDOFF-tool-register-2026-07-27.md` — archived, but it covers the Tool
-Register redesign and the two decisions still visible in the code.
+## The register's two standing decisions
+
+Both date from the 2026-07-27 Tool Register redesign and both are still true. They
+were the only surviving content of a handover document that has since been deleted,
+so they live here now — which is where they should have been all along, because this
+is the file anyone editing `tools/page.tsx`, `facets.tsx` or `flags.tsx` actually reads.
+
+### Filtering is client-side, and that is not laziness
+
+`asset.list` is called with no arguments; category, status and flags are applied in
+the browser. **The facet counts are the reason.** Each count is computed with *its
+own* filter lifted, so the number answers "how many would I get if I clicked this"
+rather than "how many are showing right now". Push the status filter to the server
+and the response contains one status, so every other count reads zero — which is
+exactly what the page did before, and why it only showed counts while the filter was
+set to All.
+
+The trade is that the whole tenant's asset list comes down in one fetch. That is
+fine at Urban's fleet size. If a tenant outgrows it, `asset.list` still accepts
+`status` / `projectId` / `custodianId`, so the server-side path is there — **but the
+counts need rethinking at the same time**, probably as a separate `asset.facetCounts`
+procedure. Moving the filter without moving the counts re-creates the original bug.
+
+### The High value badge is the approval gate, wearing a badge
+
+`flags.tsx` imports `DEFAULT_HIGH_VALUE_THRESHOLD` from `@stinventory/types` — the
+same constant `apply-action.ts` uses to decide whether a hand-off needs a second
+signature. So a tool badged **High value** in the register is exactly the tool that
+will demand a signature when somebody tries to hand it over.
+
+**Keep those two tied.** If per-tenant thresholds ever need to show in the UI, the
+real value is on `tenantSettings.highValueThreshold` and is not exposed to the
+frontend today; that would need adding to `identity.me` or a settings query. Do not
+hard-code a second number.

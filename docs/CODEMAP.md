@@ -15,7 +15,8 @@ a confidently wrong number is worse than no number.
 | 2 | `.claude/rules/<your area>.md` | **Nothing loads these for you.** Read the one covering the file you are about to edit |
 | 3 | `docs/architecture/` | The map: data model, backend, frontend, data flow, features |
 | 4 | `docs/changelogs/INDEX.md` | Why the code is the way it is |
-| 5 | `AGENTS.md`, `docs/06-decisions.md` | The ADRs — read before re-opening a stack question |
+| 5 | `docs/KNOWN-ISSUES.md` | What is currently broken, so you do not rediscover it |
+| 6 | `AGENTS.md`, `docs/06-decisions.md` | The ADRs — read before re-opening a stack question |
 
 ## Repository
 

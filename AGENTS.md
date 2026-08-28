@@ -81,7 +81,7 @@ packages/
   config-tsconfig/ Shared tsconfig presets
 prototype/           Single-file no-build UI mockup — design reference for the
                      Tool Register redesign; see prototype/README.md and
-                     docs/archive/HANDOFF-tool-register-2026-07-27.md (archived)
+                     .claude/rules/web.md
 docker-compose.yml   Postgres + API + Web (dev)
 docker-compose.prod.yml  Production stack — see §12
 Makefile             ENV-driven: up / seed / logs / psql / test
@@ -133,8 +133,8 @@ anything a human must review before trusting it is in
 - **Asset Register** — serialized + bulk assets, searchable. Faceted rail (category /
   status / flags, each count computed with its own filter lifted), cards-or-table toggle,
   and value weight so a $33k total station does not read like a $260 drill.
-  See `docs/archive/HANDOFF-tool-register-2026-07-27.md` for why the filtering is
-  client-side. Archived, but that reasoning still holds.
+  See `.claude/rules/web.md` ("The register's two standing decisions") for why the
+  filtering is client-side — it is the facet counts, not laziness.
 - **Assignments** — custody links and the high-value approval gate. Every link is simply
   custody: there is no loan, no due date and no overdue state (removed 2026-08-09)
 - **Transfers** — hand-off reporting, high-value + cross-person approval
@@ -251,14 +251,13 @@ anything a human must review before trusting it is in
 | `docs/06-decisions.md` | Architecture decision records (ADR-1..6) — read before changing the API surface, the mobile stack, or the event model |
 | `docs/07-conversational-layer.md` | The chat → intent → custody-action subsystem, its state machine, and its known gaps |
 | `LLM_RECALL.md` | **Which document to trust, and in what order.** The routing layer for agents |
-| `docs/archive/HANDOFF-tool-register-2026-07-27.md` | Tool Register redesign, archived — the register has been rebuilt since |
+| `docs/KNOWN-ISSUES.md` | Defects that are open, each verified against the code |
 | `prototype/README.md` | The single-file UI mockup, and what was borrowed from United Rentals |
 | `README.md` | Human quick-start, login credentials, monorepo layout |
 
 ## 12. Production posture (as of 2026-07-26)
 
-> `docs/archive/HANDOFF-tool-register-2026-07-27.md` covers the Tool Register redesign
-> specifically, and is archived rather than current — read it before
+> `.claude/rules/web.md` covers the Tool Register and the rest of the web app — read it before
 > touching `tools/page.tsx`, `facets.tsx`, `flags.tsx` or `asset-card.tsx`.
 
 
