@@ -82,7 +82,21 @@ test.describe("the first pin is where a session lands", () => {
     await page.getByLabel(/password/i).fill("stinventory-demo");
     await page.getByRole("button", { name: /sign in/i }).click();
 
-    await expect(page).toHaveURL(/\/custody$/);
+    /*
+      Wait for the shell to be READY, then assert the URL.
+
+      The redirect cannot happen until `identity.me` resolves — that is the
+      guard in `app-shell.tsx`, without which the one-shot marker is spent on a
+      render that has no permissions yet. So the account button appearing is the
+      earliest moment the assertion can be true, and waiting on it is
+      deterministic where a longer timeout is a guess.
+
+      This is why it failed in CI and passed locally: sign-in plus the first
+      `me` round trip on a cold stack takes longer than the 5s default, so the
+      URL was still /home when the assertion gave up.
+    */
+    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/custody$/, { timeout: 15_000 });
   });
 
   test("a pin the actor may not open does not become a redirect", async ({ page }) => {
@@ -97,6 +111,15 @@ test.describe("the first pin is where a session lands", () => {
     await page.getByLabel(/password/i).fill("stinventory-demo");
     await page.getByRole("button", { name: /sign in/i }).click();
 
+    /*
+      Wait for the shell to settle BEFORE asserting nothing moved.
+
+      A test that checks "no redirect happened" immediately can pass simply by
+      looking too early, which is a pass for the wrong reason and worse than a
+      failure. The account button is the point at which the redirect would have
+      fired if it were going to — so /home surviving past it is the real claim.
+    */
+    await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 30_000 });
     await expect(page).toHaveURL(/\/home$/);
   });
 });

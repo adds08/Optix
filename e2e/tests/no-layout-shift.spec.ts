@@ -51,8 +51,34 @@ test("selecting a tool in the register does not push the table down", async ({ p
 
   const tableTop = () =>
     page.evaluate(() => {
-      const el = document.querySelector("table");
-      return el ? Math.round(el.getBoundingClientRect().top) : -1;
+      const el = document.querySelector("table") as HTMLElement | null;
+      /* Corrected by the SCROLL CONTAINER's offset, not the window's.
+
+         `getBoundingClientRect().top` is viewport-relative, so it moves when
+         the page scrolls even though the layout did not. Playwright scrolls a
+         target into view before clicking it, which is enough to make this read
+         2 instead of 171 — CI failed exactly that way while passing locally,
+         reporting a layout shift that had not happened.
+
+         `window.scrollY` does NOT fix it: this shell never scrolls the window.
+         It scrolls an inner `.sti-scroll` region, so the window offset is
+         always 0 and the correction would be a no-op. Measured: at rest the
+         table reads 171, and with the container scrolled 300 it reads -129
+         while `window.scrollY` stays 0. Walking up to the real scrollable
+         ancestor and adding its `scrollTop` gives 171 in both cases, which is
+         the number this test is actually about. */
+      if (!el) return -1;
+      let n: HTMLElement | null = el.parentElement;
+      let corrected = el.getBoundingClientRect().top;
+      while (n) {
+        const style = getComputedStyle(n);
+        if (/(auto|scroll)/.test(style.overflowY) && n.scrollHeight > n.clientHeight) {
+          corrected += n.scrollTop;
+          break;
+        }
+        n = n.parentElement;
+      }
+      return Math.round(corrected);
     });
 
   const before = await tableTop();
