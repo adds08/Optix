@@ -1,18 +1,45 @@
-> **ARCHIVED 2026-08-29. Do not treat this as current.**
+> **ARCHIVED 2026-08-29 — but §12 was re-audited that day and SIX FINDINGS ARE
+> STILL OPEN. Do not read the banner as "all of this is obsolete".**
 >
-> It was accurate when written (2026-08-15, against commit `72cbcdc`) and it is the
-> best account of how the system was *reasoned about* at that point. Several of its
-> findings have since been fixed and one of its warnings now points at code that no
-> longer exists:
+> Written 2026-08-15 against commit `72cbcdc`. §1–§11 describe the system as it was
+> then; table names throughout predate the 2026-08-28 rename, and the borrow /
+> overdue model it describes was removed on 2026-08-09.
 >
-> - **§12.2 and the `/api/*` box in the architecture diagram describe a REST surface
->   that has been deleted.** `apps/api/src/rest-routes.ts` does not exist. An agent
->   acting on that section will go hunting for an ungated mutation that is not there.
-> - Table names throughout predate the 2026-08-28 rename.
-> - The borrow / overdue model it describes was removed on 2026-08-09.
+> **Closed since it was written:**
 >
-> For the system as it is now: [`../architecture/`](../architecture/). For where to
-> look and what to trust: [`../../LLM_RECALL.md`](../../LLM_RECALL.md).
+> - **§12.2 — the `/api/*` REST surface with no permission checks.** The whole
+>   surface is deleted; `apps/api/src/rest-routes.ts` does not exist. **Do not go
+>   hunting for this.** It is the one finding here that will actively waste your time.
+> - **§12.4 — project scoping applied in 2 of ~24 read paths.** Rebuilt as the
+>   STI-302 four-tier ladder in `scope.ts`, now applied across `asset`,
+>   `assignment`, `dashboard`, `report`, `transaction`, `transfer`, `project`,
+>   `projectTeam` and `location`.
+> - **§12.5 — CORS reflecting any origin.** Now an allow-list (`apps/api/src/cors.ts`).
+> - **§12.7 — notification delivery being `console.log`.** `nodemailer` is a real
+>   dependency and `sendMail` is called, with delivery attempts and errors tracked.
+> - Plus: `notification.markRead` now checks ownership, the branded ID types are
+>   used, CI lint blocks rather than `continue-on-error`, and every overdue-related
+>   item is moot because the model was deleted.
+>
+> **Re-verified as STILL OPEN on 2026-08-29:**
+>
+> - **§12.5 (second half) — rate limiting keys off a client-supplied
+>   `X-Forwarded-For`.** `clientIp` reads the header with no trusted-proxy check, so
+>   rotating it gives a fresh bucket. It is the only rate limit in the system and it
+>   guards the only bcrypt endpoint.
+> - **§12.6 — the workers are single-instance by construction.** No
+>   `FOR UPDATE SKIP LOCKED`, and no in-flight guard on the `setInterval` callbacks.
+> - **§12.8 — `asset.setStatus` takes `z.string()`, not the enum**, so an arbitrary
+>   string reaches the ledger.
+> - **§12.8 — `asset.tag` uniqueness is checked on update but not on create.**
+>   (Import does check duplicates, both against the database and within the file.)
+> - **§12.8 — the login email lookup is case-sensitive** while the rate-limit key
+>   lowercases, so `Alice@x.com` will not match a stored `alice@x.com`.
+> - **§12.7 (partial) — there is still no SMS channel.** The `TWILIO_*` env vars are
+>   declared and read by nothing.
+>
+> For the system as it is now: [`../architecture/`](../architecture/). For what to
+> trust: [`../../LLM_RECALL.md`](../../LLM_RECALL.md).
 
 # STInventory — how this repo actually works
 
