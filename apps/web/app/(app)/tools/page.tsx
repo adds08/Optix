@@ -197,6 +197,15 @@ export default function ToolsPage() {
       col<Row>({
         header: "Tool",
         accessorFn: (r) => formatAssetModel(r),
+        /* The widest column, because it holds the longest values and is the one
+           people actually read. It had no width at all, so it absorbed whatever
+           the ten fixed columns left over — 192px on a 1440px screen, against
+           names like "BOSCH 11255VSR HAMMER DRILL EXTREME BULL DOG (8A)". Every
+           visible row was truncated.
+
+           A name can still outrun this; the `title` below is what makes the
+           full value reachable rather than lost. */
+        width: "20rem",
         /* The category icon rides on the name, not in its own column: a register
            of 400 rows is a wall of text, and the glyph is what lets someone find
            the drills without reading a single word. */
@@ -215,7 +224,13 @@ export default function ToolsPage() {
             ) : (
               <span aria-hidden className="size-4 shrink-0" />
             )}
-            <span className="truncate font-medium group-hover/tool:underline">
+            {/* `title` carries the untruncated name. The text is already in
+                the DOM — the ellipsis is a CSS effect — so this costs nothing
+                and means a clipped name is still readable rather than lost. */}
+            <span
+              className="truncate font-medium group-hover/tool:underline"
+              title={formatAssetModel(r) || "Untagged tool"}
+            >
               {formatAssetModel(r) || "Untagged tool"}
             </span>
           </Link>
@@ -230,7 +245,13 @@ export default function ToolsPage() {
       col<Row>({
         header: "Status",
         accessorFn: (r) => r.status,
-        width: "8.5rem",
+        /* Sized for the LONGEST status, not the common one. `in_maintenance`
+           renders as "IN MAINTENANCE" — fourteen mono uppercase characters with
+           0.1em tracking, a dot and a border — which needs more than the 8.5rem
+           this used to be. `StatusPill` is `whitespace-nowrap`, so it cannot
+           wrap when it does not fit: it simply overflowed the cell and printed
+           across the Holder column beside it. */
+        width: "10.5rem",
         cell: (r) => <StatusPill status={r.status} />,
       }),
       col<Row>({
