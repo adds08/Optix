@@ -132,6 +132,17 @@ export function ToolTable({
             ) : null}
             <SortHead className="w-28" k="status" sort={sort} onSort={onSort}>Status</SortHead>
             <SortHead className="w-28" align="right" k="condition" sort={sort} onSort={onSort}>Condition</SortHead>
+            {/* The actions column needs a header cell even though it has no
+                label. Without it the head was one cell SHORT of the body — the
+                row menu's column had no `th`, so `bg-muted` stopped at
+                Condition and the corner above the menus rendered as an unpainted
+                white notch hanging off the end of the header band.
+
+                `colCount` above already counted this column, which is why the
+                empty-state row spanned correctly and the gap looked like a
+                styling artefact rather than a missing element. Width matches the
+                body cell so the two line up. */}
+            {actions ? <th className="w-12 px-2 py-2" aria-hidden /> : null}
           </tr>
         </thead>
         <tbody>

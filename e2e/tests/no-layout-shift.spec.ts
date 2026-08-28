@@ -23,7 +23,11 @@ test.use({ storageState: authFile("owner") });
 
 test("selecting a tool in the yard does not resize its section header", async ({ page }) => {
   await page.goto("/jobsites");
-  await expect(page.getByText("Waiting in the yard").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 30_000 });
+  /* The yard moved to the Pool tab on 2026-08-28 — it is not a job, so it is no
+     longer drawn among them. This section only exists there now. */
+  await page.getByRole("button", { name: "Pool", exact: true }).click();
+  await expect(page.getByText("Waiting in the yard").first()).toBeVisible({ timeout: 30_000 });
   /* The cards settle after their queries land; measuring mid-render would
      compare two different layouts and pass for the wrong reason. */
   await page.waitForTimeout(600);

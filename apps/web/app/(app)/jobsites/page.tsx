@@ -51,6 +51,25 @@ import { cn } from "@/lib/utils";
 */
 
 const YARD = "__yard";
+
+/*
+  The equipment department's own holding project, which is not a job.
+
+  Urban carries a project literally called "Equipment Yard" — two of them, in
+  fact, one with the cost code 24002 and one with none — and they were drawn in
+  the Jobs tab as ordinary sites. They hold no tools, so they were two empty
+  cards padding the job list with somewhere nobody is working.
+
+  MATCHED BY NAME, which is the weak part and is called out rather than hidden:
+  nothing on `project` marks it as the department's own, so a rename or a third
+  "Equipment Yard 2" walks straight past this. The durable fix is a column on
+  the project — a kind, or a link to `department` — and until that exists this
+  is one function so there is exactly one place to change.
+*/
+const YARD_PROJECT_NAME = "equipment yard";
+function isYardProject(name: string | null | undefined): boolean {
+  return (name ?? "").trim().toLowerCase() === YARD_PROJECT_NAME;
+}
 const NOJOB = "__nojob";
 
 /* Headers are one band (`bg-muted` + a rule) across every card. Only the two
@@ -360,10 +379,22 @@ export default function JobsitesPage() {
     }
 
     return out.filter((c) => {
-      /* Pool view shows the unassigned groups only — the yard and the
-         project-less people. Jobs drop out entirely (the design's "Unassigned
-         pool" tab), but NOJOB keeps its pinned-bottom rule below. */
-      if (poolView === "pool" && c.id !== YARD && c.id !== NOJOB) return false;
+      /* The Equipment Yard is NOT a job — neither the synthetic yard card nor
+         the real project(s) Urban names that way. Both belong in the Pool.
+
+         Computed BEFORE the pool filter below, not after: that filter keeps
+         only YARD and NOJOB by id, so a real "Equipment Yard" project failed it
+         and disappeared from the Pool as well as from Jobs — out of both tabs
+         and off the screen entirely. Caught by walking the two tabs and
+         counting cards rather than by trusting the diff. */
+      const isYard = c.id === YARD || isYardProject(c.name);
+      if (poolView === "jobs" && isYard) return false;
+
+      /* Pool view shows the unassigned groups only — the yard, the yard
+         projects, and the project-less people. Jobs drop out entirely (the
+         design's "Unassigned pool" tab), but NOJOB keeps its pinned-bottom rule
+         below. */
+      if (poolView === "pool" && !isYard && c.id !== NOJOB) return false;
       /* The not-assigned group is pinned at the bottom permanently — it must
          survive filters that prune everything else. */
       if (c.id === NOJOB) return true;
@@ -384,6 +415,21 @@ export default function JobsitesPage() {
       return b.toolCount - a.toolCount || a.name.localeCompare(b.name);
     });
   }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, scope, q, jobFilter, foremanFilter, statusFilter, categoryFilter, highValueOnly, gapFilter, anyFilter, cardSort, poolView]);
+
+  /*
+    What the Pool holds, read off the cards it is about to draw.
+
+    Derived from `cards` rather than recounted from `assets`, so the label can
+    never disagree with the two cards underneath it — a summary that survives a
+    filter its own contents did not is worse than no summary.
+  */
+  const poolCounts = useMemo(
+    () => ({
+      yard: cards.find((c) => c.id === YARD)?.toolCount ?? 0,
+      noJob: cards.find((c) => c.id === NOJOB)?.toolCount ?? 0,
+    }),
+    [cards],
+  );
 
   /* Categories actually present in the register, so the filter never offers a
      choice that returns nothing. */
@@ -590,6 +636,19 @@ export default function JobsitesPage() {
                   Clear filters
                 </Button>
               ) : null}
+              {/* What the Pool actually holds, said in numbers.
+
+                  Only in the Pool tab: on Jobs it would be describing cards that
+                  are not on screen. The two figures are the two cards below it,
+                  so the label is a summary of the view rather than a statistic
+                  from somewhere else. */}
+              {poolView === "pool" ? (
+                <span className="text-xs text-muted-foreground">
+                  <span className="tnum font-medium text-foreground">{poolCounts.yard}</span> in the yard
+                  {" · "}
+                  <span className="tnum font-medium text-foreground">{poolCounts.noJob}</span> held with no job
+                </span>
+              ) : null}
               <div className="ml-auto flex items-center gap-2">
                 {/* Blocky concept delta: the Jobs / Unassigned pool split. */}
                 <div className="flex overflow-hidden rounded-md border" role="group" aria-label="View">
@@ -600,7 +659,10 @@ export default function JobsitesPage() {
                       onClick={() => setPoolView(key)}
                       aria-pressed={poolView === key}
                       className={cn(
-                        "px-2.5 py-1.5 text-xs transition-colors",
+                        /* Wide enough to read as two tabs. At `px-2.5` the pair
+                           was narrower than the sort control beside it and read
+                           as one small chip rather than a choice. */
+                        "min-w-[4.5rem] px-4 py-1.5 text-xs transition-colors",
                         poolView === key
                           ? "bg-muted font-medium text-foreground"
                           : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
