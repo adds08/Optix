@@ -632,6 +632,10 @@ export default function ToolsPage() {
                default-visible set — same headroom rule, just two columns
                wider now. */
             minWidth="1460px"
+            /* Column widths persist per browser. The register is the table
+               people live in and the one with more columns than screen, so it
+               is the one where a reader's own layout is worth keeping. */
+            storageKey="tool-register"
             filterPredicate={matches}
             searchValue={q}
             onSearchChange={setQ}

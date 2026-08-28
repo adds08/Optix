@@ -115,7 +115,46 @@ type Props<T> = {
      crushes every one of them equally — including the name column somebody
      actually reads. Registers with many columns should raise this. */
   minWidth?: string;
+  /*
+    Remembers this table's column widths per browser, under
+    `sti-colwidths:<storageKey>`. Omit it and resizing still works, it just does
+    not survive a reload — which is right for a table nobody has asked to keep.
+  */
+  storageKey?: string;
 };
+
+/* Narrow enough to be a deliberate act, wide enough to still grab. */
+const MIN_COL_PX = 56;
+
+function widthsKey(k: string) {
+  return `sti-colwidths:${k}`;
+}
+
+function readWidths(k: string | undefined): Record<string, number> {
+  if (!k) return {};
+  try {
+    const raw = JSON.parse(localStorage.getItem(widthsKey(k)) ?? "{}");
+    if (!raw || typeof raw !== "object") return {};
+    /* Storage is editable by whoever holds the browser, so a value that is not
+       a usable number is dropped rather than trusted into a style. */
+    return Object.fromEntries(
+      Object.entries(raw as Record<string, unknown>).filter(
+        ([, v]) => typeof v === "number" && Number.isFinite(v) && v >= MIN_COL_PX,
+      ),
+    ) as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
+function writeWidths(k: string | undefined, w: Record<string, number>) {
+  if (!k) return;
+  try {
+    localStorage.setItem(widthsKey(k), JSON.stringify(w));
+  } catch {
+    /* Quota or private mode. The resize still applies for this session. */
+  }
+}
 
 export function DataTable<T>({
   columns,
@@ -144,8 +183,33 @@ export function DataTable<T>({
   emptyDescription,
   filename,
   minWidth = "720px",
+  storageKey,
 }: Props<T>) {
   const server = mode === "server";
+
+  /*
+    Column widths the reader has set by dragging.
+
+    Empty until somebody drags, and that is the whole design: until then the
+    columns keep the `meta.width` each screen declared, and the table behaves
+    exactly as it did.
+
+    Only the dragged column is stored. An earlier version captured EVERY
+    column's pixel width on the first drag, on the theory that `table-fixed`
+    would otherwise redistribute a fixed table width and steal the pixels from a
+    neighbour. Measured both ways, column by column: the results are identical.
+    A `table-fixed` table already grows to fit explicit column widths, so the
+    wrapper scrolls and no neighbour moves. The extra bookkeeping bought
+    nothing, so it is not here.
+  */
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  const dragRef = useRef<{ id: string; startX: number; startW: number } | null>(null);
+
+  useEffect(() => {
+    /* In an effect, not in the initialiser: reading storage during render would
+       not match the server HTML. Same rule as `useNavPins`. */
+    setWidths(readWidths(storageKey));
+  }, [storageKey]);
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -334,6 +398,66 @@ export function DataTable<T>({
   const rowsOut = table.getRowModel().rows;
   const searching = Boolean(searchText);
 
+  /*
+    Start a drag.
+
+    Captures EVERY column's current rendered width, not just the dragged one, so
+    the table moves to explicit pixels in a single step. Measured off the live
+    header cells rather than parsed from `meta.width`, because those are rem
+    strings and the app has a font-scale preference — the rendered pixel width
+    is the only honest starting point.
+
+    Pointer capture, so a drag that leaves the header or the window still ends
+    cleanly. A pointer-up outside the element is exactly how a resize gets stuck
+    half-done.
+  */
+  const beginResize = (e: React.PointerEvent, columnId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const th = (e.currentTarget as HTMLElement).closest("th");
+    if (!th) return;
+    dragRef.current = {
+      id: columnId,
+      startX: e.clientX,
+      /* The column's CURRENT rendered width, measured rather than parsed from
+         `meta.width` — those are rem strings and the app has a font-scale
+         preference, so the rendered pixel width is the only honest start. */
+      startW: Math.round(th.getBoundingClientRect().width),
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onResizeMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const next = Math.max(MIN_COL_PX, Math.round(d.startW + (e.clientX - d.startX)));
+    setWidths((w) => (w[d.id] === next ? w : { ...w, [d.id]: next }));
+  };
+
+  const endResize = () => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setWidths((w) => {
+      writeWidths(storageKey, w);
+      return w;
+    });
+  };
+
+  /* Double-click a handle to give that column its declared width back. It undoes
+     exactly what the gesture created, which a "reset columns" button somewhere
+     else would not. */
+  const resetColumn = (columnId: string) => {
+    setWidths((w) => {
+      const next = { ...w };
+      delete next[columnId];
+      writeWidths(storageKey, next);
+      return next;
+    });
+  };
+
+  const widthFor = (id: string, declared?: string) =>
+    widths[id] !== undefined ? `${widths[id]}px` : declared;
+
   return (
     <div className="flex flex-col gap-3">
       {/* toolbar */}
@@ -412,8 +536,8 @@ export function DataTable<T>({
                   return (
                     <TableHead
                       key={h.id}
-                      className={cn("p-0", numeric && "text-right")}
-                      style={meta.width ? { width: meta.width } : undefined}
+                      className={cn("relative p-0", numeric && "text-right")}
+                      style={{ width: widthFor(h.column.id, meta.width) }}
                     >
                       <button
                         type="button"
@@ -430,6 +554,32 @@ export function DataTable<T>({
                           <Icon className={cn("size-3 shrink-0", sorted ? "opacity-100" : "opacity-35")} />
                         ) : null}
                       </button>
+                      {/*
+                        The resize grip, on the column's trailing edge.
+
+                        Absolutely positioned and only tinted on hover, so it
+                        costs no layout space and the header does not change
+                        height whether or not you are pointing at it — the rule
+                        in `.claude/rules/web.md`. `touch-none` stops a drag on a
+                        trackpad or tablet being read as a page scroll.
+
+                        It sits ABOVE the sort button and stops propagation:
+                        without that, every resize would also re-sort the table
+                        on release, which is the single most annoying way to get
+                        this wrong.
+                      */}
+                      <span
+                        role="separator"
+                        aria-orientation="vertical"
+                        aria-label={`Resize column`}
+                        onPointerDown={(e) => beginResize(e, h.column.id)}
+                        onPointerMove={onResizeMove}
+                        onPointerUp={endResize}
+                        onPointerCancel={endResize}
+                        onDoubleClick={() => resetColumn(h.column.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute inset-y-0 right-0 z-10 w-2 translate-x-1/2 cursor-col-resize touch-none select-none bg-transparent transition-colors hover:bg-primary/40"
+                      />
                     </TableHead>
                   );
                 })}
@@ -453,7 +603,7 @@ export function DataTable<T>({
                            dropdowns are unaffected. */
                         className={cn("overflow-hidden", meta.numeric && "text-right tnum")}
                         style={{
-                          width: meta.width,
+                          width: widthFor(c.column.id, meta.width),
                           whiteSpace: meta.numeric ? "nowrap" : "normal",
                         }}
                       >

@@ -336,6 +336,32 @@ labels and emits an empty column for any cell rendered without an `accessorFn`.
 the reference. `xlsx` is a dependency but is used only by `import-dialog.tsx`; there is no
 Excel or PDF export path anywhere.
 
+### Columns resize, and the table scrolls
+
+Drag the right edge of any header cell. `DataTable` keeps the dragged column's
+width in `widths` state; everything else keeps the `meta.width` its screen
+declared, so a table nobody has dragged behaves exactly as before.
+
+Pass `storageKey` to persist per browser under `sti-colwidths:<key>` — the
+register does, as the table people live in. Omit it and resizing still works, it
+just does not survive a reload. Values are validated on read: storage is
+editable by whoever holds the browser, so anything that is not a usable number
+is dropped rather than trusted into a style. Double-clicking a grip restores that
+column's declared width.
+
+**Only the dragged column is stored, and that is deliberate.** A first version
+captured every column's pixel width on the first drag, reasoning that
+`table-fixed` shares a fixed table width and would otherwise take the pixels
+from a neighbour. Measured both ways, column by column, the results are
+identical: a `table-fixed` table already grows to fit explicit column widths, so
+the wrapper scrolls and nothing else moves. The bookkeeping bought nothing and
+was removed. Don't reintroduce it without measuring first.
+
+The grip is absolutely positioned and only tinted on hover, so the header is the
+same height whether or not you are pointing at it — the rule above. It sits above
+the sort button and stops propagation, without which every resize would also
+re-sort the table on release.
+
 ## Theming
 
 **A theme is a colour palette and nothing else.** The design language — 3/4/6px radii, the
