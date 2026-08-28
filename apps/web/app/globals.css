@@ -625,3 +625,37 @@
 .sti-table-scroll::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Icon scale — a knob of its own, not a rider on the type scale.
+
+   Icons already track the font scale, because everything here is rem-based: a
+   `size-4` glyph measures 16.00px at 100% and 22.39px at 140%. Measured, not
+   assumed. What never tracked was the RATIO — body copy is 0.875rem and the two
+   commonest glyph sizes are 0.875rem and 0.75rem, so an icon sits at or below
+   the size of the word beside it however large the type gets. That is what
+   "the icons are way too small" meant.
+
+   Enumerated per size class rather than done with `zoom` or a transform.
+   `transform: scale()` does not change the layout box, so a grown icon would
+   paint over its neighbour; `zoom` does, but it also inherits into anything
+   nested and behaves differently across engines. Multiplying the declared size
+   is the boring version, and the set of sizes actually used on an `<svg>` in
+   this app is small enough to list.
+
+   Scoped to `svg` on purpose: the same `size-*` classes size avatar circles,
+   icon buttons and photo tiles, and those are containers the icon sits INSIDE.
+   Growing the box as well as the glyph would scale nothing relative to
+   anything. */
+:root {
+  --icon-scale: 1;
+}
+svg.size-2 { width: calc(0.5rem * var(--icon-scale)); height: calc(0.5rem * var(--icon-scale)); }
+svg.size-2\.5 { width: calc(0.625rem * var(--icon-scale)); height: calc(0.625rem * var(--icon-scale)); }
+svg.size-3 { width: calc(0.75rem * var(--icon-scale)); height: calc(0.75rem * var(--icon-scale)); }
+svg.size-3\.5 { width: calc(0.875rem * var(--icon-scale)); height: calc(0.875rem * var(--icon-scale)); }
+svg.size-4 { width: calc(1rem * var(--icon-scale)); height: calc(1rem * var(--icon-scale)); }
+svg.size-4\.5 { width: calc(1.125rem * var(--icon-scale)); height: calc(1.125rem * var(--icon-scale)); }
+svg.size-5 { width: calc(1.25rem * var(--icon-scale)); height: calc(1.25rem * var(--icon-scale)); }
+svg.size-6 { width: calc(1.5rem * var(--icon-scale)); height: calc(1.5rem * var(--icon-scale)); }
+svg.size-7 { width: calc(1.75rem * var(--icon-scale)); height: calc(1.75rem * var(--icon-scale)); }
+svg.size-8 { width: calc(2rem * var(--icon-scale)); height: calc(2rem * var(--icon-scale)); }

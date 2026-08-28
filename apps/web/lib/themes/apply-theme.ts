@@ -48,7 +48,19 @@ export function applyTheme(prefs: ThemePrefs, dark: boolean) {
      here did nothing at all — see the note on FONT_FAMILIES. */
   const fontVars = FONT_FAMILIES[prefs.fontFamily] ?? FONT_FAMILIES.system;
 
+  /*
+    Icons are multiplied by their own factor rather than riding the type scale.
+    They already track it — everything is rem-based — but a `size-4` glyph is
+    1rem against 0.875rem body copy, so "bigger type" never made the icons read
+    as bigger relative to the words beside them. `--icon-scale` is read by the
+    `svg.size-*` rules in globals.css. Clamped here as well as in the router
+    because this value goes straight into a style.
+  */
+  const icon = parseFloat(prefs.iconScale);
+  const iconScale = String(Number.isFinite(icon) ? Math.min(Math.max(icon, 0.75), 2) : 1);
+
   root.style.fontSize = fontSize;
+  root.style.setProperty("--icon-scale", iconScale);
   root.style.removeProperty("font-family");
   for (const key of ALL_FONT_KEYS) root.style.removeProperty(key);
   for (const [key, value] of Object.entries(fontVars)) root.style.setProperty(key, value);
@@ -64,7 +76,7 @@ export function applyTheme(prefs: ThemePrefs, dark: boolean) {
   try {
     localStorage.setItem(
       "sti-appearance",
-      JSON.stringify({ vars, fontSize, fontVars, density: prefs.density, themeName: prefs.themeName }),
+      JSON.stringify({ vars, fontSize, iconScale, fontVars, density: prefs.density, themeName: prefs.themeName }),
     );
   } catch {
     /* Private mode, quota, disabled storage — the app still works, it just

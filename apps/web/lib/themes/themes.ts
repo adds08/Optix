@@ -540,12 +540,30 @@ export const ALL_FONT_KEYS: string[] = [
    page previews each step immediately. */
 export const FONT_SCALES = ["0.9", "1.0", "1.1", "1.2", "1.3", "1.4"] as const;
 
+/*
+  Icon scale — a SEPARATE knob from the type scale, and the reason is worth
+  keeping.
+
+  Icons already track the font scale: the whole app is rem-based, so a `size-4`
+  glyph is 1rem and grows exactly in step with the root font size (measured
+  2026-08-29 — 16.00px at 100%, 22.39px at 140%). What did not track was the
+  RATIO. Body copy is 0.875rem and the commonest glyph sizes are 0.875rem and
+  0.75rem, so an icon sits at or below the size of the word beside it, and on a
+  yard laptop that reads as "the icons are tiny" however large the type gets.
+
+  Capped at 1.5. Beyond that a glyph outgrows the fixed-height icon buttons it
+  sits in — those are sized from the type scale, not this one — and the control
+  stops looking like a control.
+*/
+export const ICON_SCALES = ["1.0", "1.15", "1.3", "1.5"] as const;
+
 export type Density = "comfortable" | "compact";
 
 export type ThemePrefs = {
   themeName: ThemeName;
   fontFamily: FontFamilyName;
   fontScale: string;
+  iconScale: string;
   density: Density;
   dashboard: {
     widgets: Record<string, boolean>;
@@ -559,6 +577,7 @@ export const DEFAULT_PREFS: ThemePrefs = {
   themeName: "blocky",
   fontFamily: "system",
   fontScale: "1.0",
+  iconScale: "1.0",
   density: "comfortable",
   dashboard: { widgets: {} },
 };

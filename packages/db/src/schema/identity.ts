@@ -189,6 +189,12 @@ export const userPreferences = pgTable(
     themeName: text("theme_name").notNull().default("blocky"),
     fontFamily: text("font_family").notNull().default("system"),
     fontScale: text("font_scale").notNull().default("1.0"),
+    /* Separate from `font_scale` on purpose. Icons already track the type scale
+       — everything is rem-based, so a `size-4` glyph grows with the root font
+       size — but the RATIO was the complaint: a 1rem glyph beside 0.875rem text
+       reads small on a yard laptop no matter how large the type gets. This
+       multiplies the glyphs alone. */
+    iconScale: text("icon_scale").notNull().default("1.0"),
     density: text("density").notNull().default("comfortable"),
     dashboard: jsonb("dashboard").$type<{ widgets: Record<string, boolean>; defaultTab?: "fleet" | "command" }>().notNull().default({ widgets: {} }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

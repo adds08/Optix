@@ -468,6 +468,33 @@ build hash, and `'Inter Tight'` resolves to `system-ui`.
 > here, in `apps/web/lib/themes` + `globals.css`. Don't recreate a shared token package
 > without a second consumer to justify it.
 
+### Icon size is a preference of its own
+
+`--icon-scale` on `<html>`, read by the `svg.size-*` rules at the bottom of `globals.css`.
+Persisted per user (`tbl_entity_user_preferences.icon_scale`), replayed by the boot script,
+and previewed live from Settings → Appearance.
+
+**Icons were never failing to scale, and it matters that you know that before touching
+this.** Everything here is rem-based, so a `size-4` glyph is 1rem and grows exactly in step
+with the font scale — 16.00px at 100%, 22.39px at 140%, measured. What did not move is the
+*ratio*: body copy is 0.875rem and the two commonest glyph sizes are 0.875rem and 0.75rem,
+so an icon sits at or below the size of the word beside it however large the type gets.
+That is what "the icons are way too small" meant, and it is why this is a second knob rather
+than a wider range on the first.
+
+Three constraints:
+
+- **Enumerated per size class, not done with `zoom` or a transform.** `transform: scale()`
+  leaves the layout box alone, so a grown glyph paints over its neighbour; `zoom` moves the
+  box but inherits into anything nested. Multiplying the declared size is the boring version.
+  **A size class used on an `<svg>` and missing from that list simply does not scale**, and
+  nothing fails — `icon-scale.spec.ts` checks three of them for that reason.
+- **Scoped to `svg`.** The same `size-*` classes size avatar circles, icon buttons and photo
+  tiles. Those are containers the glyph sits *inside*; growing them too would scale nothing
+  relative to anything.
+- **Capped at 1.5.** Beyond that a glyph outgrows the fixed-height icon buttons around it,
+  which are sized off the type scale and not this one.
+
 ## Motion
 
 `motion` (Framer Motion) is a dependency of `apps/web` as of 2026-08-27. The curves and

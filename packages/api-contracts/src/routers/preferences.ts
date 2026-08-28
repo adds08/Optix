@@ -35,6 +35,10 @@ const prefsInput = z.object({
   themeName: z.enum(THEME_NAMES),
   fontFamily: z.enum(FONT_FAMILIES),
   fontScale: z.string().regex(/^(0\.\d|1|1\.\d|2)$/),
+  /* Icons are multiplied separately from type — see the column comment in
+     `schema/identity.ts`. Same shape of value, same permissive-but-bounded
+     pattern, so a stale client cannot write `scale(9999)` into a style. */
+  iconScale: z.string().regex(/^(0\.\d|1|1\.\d|2)$/),
   density: z.enum(["comfortable", "compact"]),
   dashboard: z.object({
     widgets: z.record(z.string(), z.boolean()),
@@ -57,6 +61,7 @@ export const preferencesRouter = router({
         themeName: "blocky" as const,
         fontFamily: "system" as const,
         fontScale: "1.0",
+        iconScale: "1.0",
         density: "comfortable" as const,
         dashboard: { widgets: {} },
       };
@@ -65,6 +70,7 @@ export const preferencesRouter = router({
       themeName: row.themeName,
       fontFamily: row.fontFamily,
       fontScale: row.fontScale,
+      iconScale: row.iconScale,
       density: row.density,
       dashboard: row.dashboard,
     };

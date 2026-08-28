@@ -49,6 +49,10 @@ try {
   if (a) {
     for (var k in a.vars) r.style.setProperty(k, a.vars[k]);
     if (a.fontSize) r.style.fontSize = a.fontSize;
+    /* Absent in a cache written before 2026-08-29; the CSS falls back to 1, so
+       an old cache renders the icons at their original size rather than at
+       zero. */
+    if (a.iconScale) r.style.setProperty('--icon-scale', a.iconScale);
     /* fontVars, not fontFamily: the family is applied by overriding --font-sans
        at :root so every font-sans utility follows it. A cache written before
        2026-08-23 carries the old fontFamily key, which is ignored here on
