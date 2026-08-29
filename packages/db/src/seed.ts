@@ -29,6 +29,7 @@ import {
   task,
   tenant,
   tenantSettings,
+  tenantFeature,
   transaction,
   transfer,
   user,
@@ -157,6 +158,7 @@ async function main() {
       await tx.delete(user);
       await tx.delete(permission);
       await tx.delete(tenantSettings);
+      await tx.delete(tenantFeature);
       await tx.delete(tenant);
       await tx.execute(sql`ALTER TABLE "tbl_ops_transaction" ENABLE TRIGGER transaction_no_update_delete`);
     });
@@ -279,8 +281,8 @@ async function main() {
         tenantId: tid,
         externalId: p.extId,
         name: p.name,
+        description: p.description ?? null,
         status: p.status,
-        costCenter: p.costCenter,
         siteAddress: p.site,
         startDate: p.start,
         endDate: p.end,
@@ -605,6 +607,11 @@ async function main() {
     "TOOL-0004": dayOffset(-30), // genuinely expired, so the past branch is covered too
     "TOOL-0005": dayOffset(1), // "tomorrow" — the singular boundary
   };
+  /* Two tools whose Code was typed in by a person, not read off a manufacturer
+     label — the state `isManualCode` exists to distinguish. Picked because
+     both already carry a real `serial` value in the source data, so this
+     flags provenance without inventing a code that was never there. */
+  const MANUAL_CODE_TAGS = new Set(["TOOL-0001", "TOOL-0002"]);
 
   const assetRows = await db
     .insert(asset)
@@ -618,6 +625,7 @@ async function main() {
         description: a.description,
         categoryName: categoryFor(a.description),
         serialNumber: a.serial,
+        isManualCode: a.tag ? MANUAL_CODE_TAGS.has(a.tag) : false,
         isSerialized: a.isSerialized,
         quantity: a.quantity,
         acquisitionCost: (a.tag ? SEED_COSTS[a.tag] : null) ?? a.cost,
@@ -790,6 +798,32 @@ async function main() {
     emailEnabled: true,
     smsEnabled: false,
   });
+
+  /*
+    Feature states seeded from a clean database rather than only reachable by
+    hand-editing a row (CLAUDE.md rule 9) — and, for `old-dashboard`, because
+    STI-1204's own acceptance criteria says so directly: "seed a tenant with
+    at least one module disabled. A setting no seeded data exercises is a
+    setting nobody tests."
+
+    - `import.ai` upcoming is the state the AI Import button actually ships in.
+    - `activity` beta exercises the nav-badge path on a real row.
+    - `old-dashboard` hidden is the real disabled-module case: `/old-dash` is
+      the widget dashboard `/home` replaced on 2026-08-23, kept only "until
+      this one has been lived with" (see nav-config.ts) — the safest real
+      candidate to demonstrate hiding without removing anything anyone
+      still depends on.
+    - `settings-general` hidden proves the one thing that must never work:
+      Settings is exempt from hiding regardless of what a row here says. If
+      this ever starts hiding the General settings row, the exemption in
+      `applyFeatureStates` broke.
+  */
+  await db.insert(tenantFeature).values([
+    { tenantId: tid, key: "import.ai", state: "upcoming" },
+    { tenantId: tid, key: "activity", state: "beta" },
+    { tenantId: tid, key: "old-dashboard", state: "hidden" },
+    { tenantId: tid, key: "settings-general", state: "hidden" },
+  ]);
 
   // ---- Messaging: Equipment Department channel ----
   const [channelRow] = await db

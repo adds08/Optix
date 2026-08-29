@@ -28,10 +28,38 @@ export const identityRouter = router({
       },
     });
     if (!u) return null;
+
+    /* Org identity — read alongside `me` rather than as its own query, the
+       same reasoning as `feature.states`: every signed-in person needs to
+       know which tenant they are in and what it is called, not just an
+       administrator. `tenantSettings` may not have a row yet (nobody has
+       ever visited Settings), so this is a plain select with a fallback
+       rather than the `ensureRow` helper `settings.ts` uses when it is
+       about to WRITE one. */
+    const [t] = await ctx.db
+      .select({ name: schema.tenant.name, slug: schema.tenant.slug })
+      .from(schema.tenant)
+      .where(eq(schema.tenant.id, ctx.session.tenantId))
+      .limit(1);
+    const [s] = await ctx.db
+      .select({
+        brandingName: schema.tenantSettings.brandingName,
+        brandingLayoutMode: schema.tenantSettings.brandingLayoutMode,
+      })
+      .from(schema.tenantSettings)
+      .where(eq(schema.tenantSettings.tenantId, ctx.session.tenantId))
+      .limit(1);
+
     return {
       ...u,
       role: ctx.session.roleName ?? null,
       permissions: Array.from(ctx.session.permissions),
+      tenant: {
+        name: t?.name ?? null,
+        slug: t?.slug ?? null,
+        brandingName: s?.brandingName ?? null,
+        brandingLayoutMode: s?.brandingLayoutMode ?? "icon_and_text",
+      },
     };
   }),
 });

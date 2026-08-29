@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -45,15 +46,28 @@ import { pinnedItems, useNavPins } from "@/components/sti/nav-pins";
   see `nav-pins.ts`.
 */
 
+export type SidebarTenant = {
+  name: string | null;
+  slug: string | null;
+  brandingName: string | null;
+  brandingLayoutMode: string;
+} | null;
+
 export function AppSidebar({
   groups,
   activeGroupKey,
   inboxCount,
+  tenant,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   groups: NavGroup[];
   activeGroupKey: string | undefined;
   inboxCount: number;
+  /* Candidate placement A (2026-08-30) — a permanent org-identity block in
+     the footer, compared live against candidate B, the same block merged
+     into UserMenu. Whichever the client prefers stays; the other gets
+     deleted in a follow-up, not left behind half-used. */
+  tenant?: SidebarTenant;
 }) {
   const pathname = usePathname();
   const { pins, order, toggle, move } = useNavPins();
@@ -176,8 +190,60 @@ export function AppSidebar({
         ) : null}
       </SidebarContent>
 
+      {tenant ? (
+        <SidebarFooter className="border-t border-sidebar-border p-2">
+          <OrgIdentity tenant={tenant} />
+        </SidebarFooter>
+      ) : null}
+
       <SidebarRail />
     </Sidebar>
+  );
+}
+
+/*
+  Candidate placement A — a permanent org-identity block, always visible,
+  every screen. No switcher: `session.tenantId` is singular today (a user
+  belongs to exactly one tenant), so there is nothing to switch between yet.
+  This renders the identity now and leaves room for a switcher the day that
+  stops being true, rather than building one against data that cannot yet
+  hold a second tenant.
+*/
+function OrgIdentity({ tenant }: { tenant: NonNullable<SidebarTenant> }) {
+  const displayName = tenant.brandingName || tenant.name || "—";
+  const iconOnly = tenant.brandingLayoutMode === "icon_only";
+  return (
+    <div className="flex items-center gap-2 px-1 py-1">
+      <OrgAvatar name={displayName} />
+      {!iconOnly ? (
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</span>
+          {tenant.slug ? (
+            <span className="truncate text-xs text-sidebar-foreground/50">{tenant.slug}</span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* Same shape as UserMenu's initials avatar, deliberately — an org and a
+   person are both "an identity with a name and no picture yet" until a logo
+   upload exists (see the schema comment on tenantSettings.brandingName). A
+   square rather than a circle is the only difference, so the two are never
+   mistaken for each other at a glance. */
+export function OrgAvatar({ name, className }: { name: string; className?: string }) {
+  const initial = name.trim()[0]?.toUpperCase() ?? "?";
+  return (
+    <span
+      className={cn(
+        "grid size-7 shrink-0 place-items-center rounded-md bg-sidebar-primary text-xs font-semibold text-sidebar-primary-foreground",
+        className,
+      )}
+      aria-hidden
+    >
+      {initial}
+    </span>
   );
 }
 
@@ -209,13 +275,39 @@ function NavRow({
 }) {
   const showBadge = item.href === "/inbox" && inboxCount > 0;
   const reorderable = !!(onMoveUp || onMoveDown);
+  /* "upcoming" loses the link entirely — no click-through, matching the
+     tenant feature-state contract (apps/web/components/sti/nav-config.ts).
+     "beta" stays a normal row; the badge is the only difference. */
+  const upcoming = item.featureState === "upcoming";
+
+  const rowContent = (
+    <>
+      <item.icon
+        className={cn(
+          "size-4 shrink-0 transition-colors",
+          upcoming
+            ? "text-sidebar-foreground/35"
+            : current
+              ? "text-sidebar-primary"
+              : "text-sidebar-foreground/55 group-hover/menu-item:text-sidebar-accent-foreground",
+        )}
+      />
+      <span className={cn("truncate", upcoming && "text-sidebar-foreground/45")}>{item.label}</span>
+      {item.featureState ? (
+        <span className="ml-auto shrink-0 rounded-sm bg-sidebar-accent px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-sidebar-foreground/60">
+          {item.featureState === "upcoming" ? "Soon" : "Beta"}
+        </span>
+      ) : null}
+    </>
+  );
 
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        asChild
+        asChild={!upcoming}
         isActive={current}
-        tooltip={item.label}
+        tooltip={upcoming ? `${item.label} — coming soon` : item.label}
+        aria-disabled={upcoming || undefined}
         /* The accent fill alone is a weak signal at this value range; the
            marker on the leading edge is what the eye actually finds, and it
            survives the icon-only rail. */
@@ -223,19 +315,10 @@ function NavRow({
           "relative transition-colors before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px]",
           "before:-translate-y-1/2 before:rounded-r-full before:bg-sidebar-primary before:transition-opacity",
           current ? "before:opacity-100" : "before:opacity-0",
+          upcoming && "cursor-default opacity-70 hover:bg-transparent",
         )}
       >
-        <Link href={item.href}>
-          <item.icon
-            className={cn(
-              "size-4 shrink-0 transition-colors",
-              current
-                ? "text-sidebar-primary"
-                : "text-sidebar-foreground/55 group-hover/menu-item:text-sidebar-accent-foreground",
-            )}
-          />
-          <span className="truncate">{item.label}</span>
-        </Link>
+        {upcoming ? rowContent : <Link href={item.href}>{rowContent}</Link>}
       </SidebarMenuButton>
 
       {/* The badge and the star both want the trailing edge. The count slides

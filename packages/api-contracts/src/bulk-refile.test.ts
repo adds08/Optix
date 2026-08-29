@@ -100,7 +100,7 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
     const [dF] = await db.insert(schema.department).values({ tenantId: otherTenantId, name: "Someone else's department" }).returning({ id: schema.department.id });
     foreignDept = dF!.id;
 
-    const [p] = await db.insert(schema.project).values({ tenantId, name: "STI-104 job" }).returning({ id: schema.project.id });
+    const [p] = await db.insert(schema.project).values({ tenantId, name: "STI-104 job", startDate: "2025-01-06" }).returning({ id: schema.project.id });
     projectId = p!.id;
   });
 

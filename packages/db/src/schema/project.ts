@@ -6,12 +6,15 @@ export const project = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    externalId: text("external_id"), // FoundationSoft / Mark 85 map (seam for future sync)
+    /* The project code shown to users — see `.claude/rules/database.md`. Also the
+       FoundationSoft / Mark 85 map (seam for future sync). */
+    externalId: text("external_id"),
     name: text("name").notNull(),
-    status: text("status").notNull().default("active"), // awarded | active | closing | complete
-    startDate: date("start_date"),
+    description: text("description"),
+    // not_awarded | awarded | in_progress | completed | cancelled | on_hold — see PROJECT_STATUSES
+    status: text("status").notNull().default("not_awarded"),
+    startDate: date("start_date").notNull(),
     endDate: date("end_date"),
-    costCenter: text("cost_center"),
     siteAddress: text("site_address"), // where the job physically is
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

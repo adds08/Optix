@@ -31,6 +31,10 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
   const postings = trpc.employee.postings.useQuery({ employeeId: id });
   const held = trpc.asset.list.useQuery({ custodianId: id });
   const [moving, setMoving] = useState(false);
+  /* No bulk action reads either of these yet — turned on for consistency
+     with the other registers. */
+  const [heldSelected, setHeldSelected] = useState<Record<string, boolean>>({});
+  const [postingsSelected, setPostingsSelected] = useState<Record<string, boolean>>({});
 
   const p = person.data;
   const tools = held.data ?? [];
@@ -54,7 +58,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
   const POSTING_COLUMNS: ColumnDef<PostingRow>[] = useMemo(
     () => [
       col<PostingRow>({ header: "Project", accessorFn: (r) => r.projectName ?? "", cell: (r) => <span className="font-medium">{r.projectName ?? "—"}</span> }),
-      col<PostingRow>({ header: "Cost code", accessorFn: (r) => r.projectExternalId ?? "", width: "7rem", cell: (r) => (r.projectExternalId ? <Tag>{r.projectExternalId}</Tag> : "—") }),
+      col<PostingRow>({ header: "Project Code", accessorFn: (r) => r.projectExternalId ?? "", width: "8rem", cell: (r) => (r.projectExternalId ? <Tag>{r.projectExternalId}</Tag> : "—") }),
       col<PostingRow>({ header: "From", accessorFn: (r) => r.startedOn ?? "", width: "8rem", cell: (r) => shortDate(r.startedOn) }),
       col<PostingRow>({ header: "To", accessorFn: (r) => r.endedOn ?? "", width: "8rem", cell: (r) => (r.endedOn ? shortDate(r.endedOn) : <span className="text-ok">current</span>) }),
       col<PostingRow>({ header: "Note", accessorFn: (r) => r.note ?? "", cell: (r) => <span className="text-muted-foreground">{r.note ?? "—"}</span> }),
@@ -157,6 +161,9 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
                 rows={tools}
                 rowId={(t) => t.id}
                 searchPlaceholder="Search their tools…"
+                enableSelection
+                selection={heldSelected}
+                onSelectionChange={setHeldSelected}
               />
             )}
           </section>
@@ -186,6 +193,9 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
                 rows={postings.data}
                 rowId={(r) => r.id}
                 searchPlaceholder="Search job history…"
+                enableSelection
+                selection={postingsSelected}
+                onSelectionChange={setPostingsSelected}
               />
             )}
           </section>

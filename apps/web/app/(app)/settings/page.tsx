@@ -7,6 +7,7 @@ import { ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SaveBar, useHydrateOnce, useTenantSettings } from "@/components/settings/tenant-settings";
+import { BRANDING_LAYOUT_MODES, type BrandingLayoutMode } from "@stinventory/types";
 
 /*
   Tenant configuration: the operational decisions that used to be reachable
@@ -20,7 +21,14 @@ import { SaveBar, useHydrateOnce, useTenantSettings } from "@/components/setting
   same group.
 */
 export default function SettingsPage() {
-  const { settings, s, save, saved, error, setError } = useTenantSettings();
+  const utils = trpc.useUtils();
+  /* Branding renders in the sidebar footer and the account menu on every
+     screen, both reading `identity.me` rather than `settings.get` — a save
+     here has to invalidate that too, or the change is real but invisible
+     until the next hard reload. */
+  const { settings, s, save, saved, error, setError } = useTenantSettings(() => {
+    utils.identity.me.invalidate();
+  });
 
   const [threshold, setThreshold] = useState(5000);
   const [escalateDays, setEscalateDays] = useState(3);
@@ -37,6 +45,9 @@ export default function SettingsPage() {
   const [smtpPass, setSmtpPass] = useState("");
   const [smtpPassHint, setSmtpPassHint] = useState<string | null>(null);
 
+  const [brandingName, setBrandingName] = useState("");
+  const [brandingLayoutMode, setBrandingLayoutMode] = useState<BrandingLayoutMode>("icon_and_text");
+
   useHydrateOnce(s, (v) => {
     setThreshold(Number(v.highValueThreshold ?? 5000));
     setEscalateDays(Number(v.overdueEscalateAfterDays ?? 3));
@@ -47,6 +58,8 @@ export default function SettingsPage() {
     setSmtpUser(v.smtpUser ?? "");
     setSmtpFrom(v.smtpFrom ?? "");
     setSmtpPassHint(v.smtpPassHint ?? null);
+    setBrandingName(v.brandingName ?? "");
+    setBrandingLayoutMode((v.brandingLayoutMode as BrandingLayoutMode) ?? "icon_and_text");
   });
 
   const [testTo, setTestTo] = useState("");
@@ -68,6 +81,39 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* ---- branding ---- */}
+      <section className="flex flex-col gap-4 rounded-md border bg-card p-5">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-medium">Branding</h2>
+          <p className="text-sm text-muted-foreground">
+            Shown in the sidebar and the account menu. Leave the name blank to show your
+            organisation's registered name as-is.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Display name</label>
+            <Input
+              value={brandingName}
+              onChange={(e) => setBrandingName(e.target.value)}
+              placeholder="Your organisation's name"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Sidebar layout</label>
+            <select
+              value={brandingLayoutMode}
+              onChange={(e) => setBrandingLayoutMode(e.target.value as BrandingLayoutMode)}
+              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {BRANDING_LAYOUT_MODES.map((m) => (
+                <option key={m} value={m}>{m === "icon_and_text" ? "Icon and name" : "Icon only"}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
       {/* ---- custody ---- */}
       <section className="flex flex-col gap-4 rounded-md border bg-card p-5">
         <div className="flex flex-col gap-1">
@@ -225,6 +271,8 @@ export default function SettingsPage() {
         onSave={() => {
           setError(null);
           save.mutate({
+            brandingName: brandingName.trim() || null,
+            brandingLayoutMode,
             highValueThreshold: threshold,
             overdueEscalateAfterDays: escalateDays,
             emailEnabled,

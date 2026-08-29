@@ -4,12 +4,11 @@ import { useMemo, useState } from "react";
 import { HardHat } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { Button } from "@/components/ui/button";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
-import { idName } from "@/lib/format";
 import { ProjectForm, type ProjectEditable } from "@/components/project-form";
 import { useJobScope } from "@/components/job-scope";
 import { RowActions } from "@/components/sti/row-actions";
@@ -18,15 +17,19 @@ import { DataTable } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 
 /*
-  The job sites tools get charged to.
+  The projects tools get charged to.
 
-  `externalId` is the cost code FoundationSoft knows a project by. It is shown
+  `externalId` is the code FoundationSoft knows a project by. It is shown
   as a tag rather than buried, because reconciling equipment cost against the
   accounting system is the whole reason the column exists.
 */
 export default function ProjectsPage() {
   const [editing, setEditing] = useState<ProjectEditable | null>(null);
   const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
+  /* No bulk action reads this yet — turned on for consistency with the other
+     registers, which all now offer a checkbox whether or not anything acts
+     on the selection. */
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
   const utils = trpc.useUtils();
 
   const remove = trpc.project.delete.useMutation({
@@ -65,26 +68,20 @@ export default function ProjectsPage() {
   const TABLE_COLUMNS: ColumnDef<Row>[] = useMemo(
     () => [
       col<Row>({
-        header: "Job",
-        accessorFn: (p) => idName(p.externalId, p.name),
-        cell: (p) => <span className="font-medium">{idName(p.externalId, p.name)}</span>,
+        header: "Project Code",
+        accessorFn: (p) => p.externalId ?? "",
+        width: "8rem",
+        cell: (p) => (p.externalId ? <Tag>{p.externalId}</Tag> : <Muted />),
       }),
       col<Row>({
-        header: "Job ID",
-        accessorFn: (p) => p.externalId ?? "",
-        width: "6rem",
-        cell: (p) => (p.externalId ? <Tag>{p.externalId}</Tag> : <Muted />),
+        header: "Project",
+        accessorFn: (p) => p.name,
+        cell: (p) => <span className="font-medium">{p.name}</span>,
       }),
       col<Row>({
         header: "Site",
         accessorFn: (p) => p.siteAddress ?? "",
         cell: (p) => <span className="truncate block">{p.siteAddress ?? <Muted />}</span>,
-      }),
-      col<Row>({
-        header: "Cost center",
-        accessorFn: (p) => p.costCenter ?? "",
-        width: "8rem",
-        cell: (p) => p.costCenter ?? <Muted />,
       }),
       col<Row>({
         header: "Started",
@@ -100,13 +97,14 @@ export default function ProjectsPage() {
       }),
       col<Row>({
         id: "actions",
-        header: "",
+        header: "Actions",
         sortable: false,
+        stickyRight: true,
         /* One trigger. The 10rem here was sized for Edit + delete plus the
            wider "Keep / Delete" pair the old inline confirmation swapped in;
            the confirmation now happens inside the menu, so nothing in this
            cell changes width when it opens. */
-        width: "4rem",
+        width: "5rem",
         cell: (p) => (
           <RowActions
             perm="project.manage"
@@ -116,8 +114,8 @@ export default function ProjectsPage() {
                 id: p.id,
                 name: p.name,
                 externalId: p.externalId,
+                description: p.description,
                 status: p.status,
-                costCenter: p.costCenter,
                 siteAddress: p.siteAddress,
                 startDate: p.startDate,
                 endDate: p.endDate,
@@ -134,18 +132,19 @@ export default function ProjectsPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {editing ? <ProjectForm open onClose={() => setEditing(null)} edit={editing} /> : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="flex items-center gap-2 text-lg font-semibold">
-          <HardHat className="size-4 text-muted-foreground" aria-hidden />
-          Projects / Jobs
-        </h1>
-        <div className="ml-auto flex items-center gap-2">
-          <ImportButton entity="project" />
-          <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />
-        </div>
-      </div>
+      <PageHeader
+        icon={HardHat}
+        title="Projects"
+        description="The jobs tools and people are assigned to, and what gets charged against them."
+        actions={
+          <>
+            <ImportButton entity="project" />
+            <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />
+          </>
+        }
+      />
       {projects.isLoading ? (
         <TableSkeleton />
       ) : projects.isError ? (
@@ -154,8 +153,8 @@ export default function ProjectsPage() {
         hiddenByScope > 0 ? (
           <EmptyState
             icon={HardHat}
-            title="No jobs match the current scope"
-            description={`${hiddenByScope} ${hiddenByScope === 1 ? "job is" : "jobs are"} hidden by the job scope you have selected. A job you have just created belongs to no group yet, so it will not appear until you show all projects.`}
+            title="No projects match the current scope"
+            description={`${hiddenByScope} ${hiddenByScope === 1 ? "project is" : "projects are"} hidden by the job scope you have selected. A project you have just created belongs to no group yet, so it will not appear until you show all projects.`}
             action={<Button onClick={clearScope}>Show all projects</Button>}
           />
         ) : (
@@ -169,7 +168,7 @@ export default function ProjectsPage() {
         <>
           {hiddenByScope > 0 ? (
             <p className="text-xs text-muted-foreground">
-              {hiddenByScope} {hiddenByScope === 1 ? "job is" : "jobs are"} hidden by the current job
+              {hiddenByScope} {hiddenByScope === 1 ? "project is" : "projects are"} hidden by the current job
               scope.{" "}
               <button type="button" onClick={clearScope} className="underline underline-offset-2">
                 Show all projects
@@ -181,7 +180,10 @@ export default function ProjectsPage() {
             columns={TABLE_COLUMNS}
             rows={rows}
             rowId={(p) => p.id}
-            searchPlaceholder="Search jobs…"
+            searchPlaceholder="Search projects…"
+            enableSelection
+            selection={selectedIds}
+            onSelectionChange={setSelectedIds}
           />
         </>
       )}

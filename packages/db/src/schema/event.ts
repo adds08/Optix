@@ -119,6 +119,26 @@ export const tenantSettings = pgTable("tbl_entity_tenant_settings", {
   smsEnabled: boolean("sms_enabled").notNull().default(false),
 
   /*
+    Tenant branding, editable by owners/superadmins — see ADR-13's sibling
+    reasoning for tenant_feature: an operational decision, not a deployment
+    one. Null `brandingName` means "show `tenant.name` as-is", so a tenant
+    that never visits this screen looks exactly as it did before it existed.
+
+    Deliberately NOT a logo/icon upload yet — that needs a third REST
+    endpoint (today's surface is exactly two photo endpoints plus tRPC, a
+    documented invariant in LLM_RECALL.md) and real upload validation, which
+    is a decision worth a human awake to make, not a column added at 2am to
+    look forward-thinking. `brandingLayoutMode` only ever governs the
+    generated initial-letter avatar until that lands — no `brandingLogoKey`
+    column exists, on purpose: an unused seam is a guess that looks like a
+    decision (see the deleted `project_phase` table's own comment for why
+    that rule exists here).
+  */
+  brandingName: text("branding_name"),
+  // icon_and_text | icon_only — see BRANDING_LAYOUT_MODES in @stinventory/types
+  brandingLayoutMode: text("branding_layout_mode").notNull().default("icon_and_text"),
+
+  /*
     Intent parser configuration, per tenant.
 
     These used to be environment variables on the engine container, which meant

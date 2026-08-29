@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { OrgAvatar, type SidebarTenant } from "@/components/app-sidebar";
 
 /*
   The far-right identity: an avatar that opens Settings, the profile page, and
@@ -19,10 +20,16 @@ import {
 export function UserMenu({
   name,
   role,
+  tenant,
   onSignOut,
 }: {
   name: string;
   role: string | null;
+  /* Candidate placement B (2026-08-30) — the same org-identity block
+     candidate A puts in the sidebar footer, merged in here instead so both
+     can be compared live. See app-sidebar.tsx's OrgIdentity for the fuller
+     rationale. */
+  tenant?: SidebarTenant;
   onSignOut: () => void;
 }) {
   const initials = name
@@ -45,6 +52,24 @@ export function UserMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        {tenant ? (
+          <>
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <OrgAvatar name={tenant.brandingName || tenant.name || "—"} />
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-medium normal-case tracking-normal text-foreground">
+                  {tenant.brandingName || tenant.name || "—"}
+                </span>
+                {tenant.slug ? (
+                  <span className="truncate text-xs normal-case tracking-normal text-muted-foreground">
+                    {tenant.slug}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuLabel className="flex flex-col gap-0.5 normal-case tracking-normal">
           <span className="text-sm font-medium text-foreground">{name}</span>
           <span className="text-xs text-muted-foreground">{role?.replace(/_/g, " ") ?? "—"}</span>

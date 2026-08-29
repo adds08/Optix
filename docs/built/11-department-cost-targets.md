@@ -34,15 +34,16 @@ Three things in this codebase want to be called the same thing:
 
 | Existing | Where | What it actually is |
 |---|---|---|
-| `project.costCenter` | `packages/db/src/schema/project.ts` | A GL code string on a project, typed by a person, fed from FoundationSoft |
+| `project.costCenter` (removed 2026-08-29 — it was unused, see below) | `packages/db/src/schema/project.ts` | A GL code string on a project, typed by a person, fed from FoundationSoft |
 | `task.department` | `packages/db/src/schema/task.ts` | A chat-routing label — "Maintenance", "Procurement" — deciding which desk sees a task |
 | the new table | this document | A financial cost target for tools that are not on a job |
 
-The new table is `department`. Calling it `cost_center` collides far worse:
-`project.costCenter` is a literal string field, and a table named `cost_center`
-sitting beside a column named `costCenter` is a trap. Add a one-line comment at
-both existing sites pointing at `packages/db/src/schema/department.ts` so a
-future reader does not conflate them.
+The new table is `department`. Calling it `cost_center` collided at the time
+with `project.costCenter`, a literal string field nobody ever wrote through
+the UI — that column was dropped 2026-08-29 for exactly that reason, so this
+naming collision no longer exists in the live schema. The reasoning below is
+kept as the record of why `department` was named what it was, not as a live
+warning.
 
 ## Schema
 
@@ -59,8 +60,10 @@ import { tenant } from "./identity";
   work out of the shop, not a site, and their tools still have to be charged to
   something.
 
-  Distinct from `project.costCenter` (a GL code string on a project) and from
-  `task.department` (a chat-routing label). Neither of those is this.
+  Distinct from `task.department` (a chat-routing label) — that is not this.
+  A GL code string on `project` itself (`costCenter`) existed briefly and was
+  dropped 2026-08-29 as unused; this table is not a replacement for it and
+  never was.
 */
 export const department = pgTable(
   "department",

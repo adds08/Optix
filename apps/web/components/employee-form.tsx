@@ -119,10 +119,13 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              {/* The HR-issued number, not this system's `id`. Labelled as HR
-                  calls it, because "External ID" told the person typing it
-                  nothing about which of their several ids was wanted. */}
-              <label className="text-sm font-medium">Employee ID</label>
+              {/* The HR-issued number, not this system's `id`. "External ID"
+                  told the person typing it nothing about which of their
+                  several ids was wanted; "Employee ID" read as this system's
+                  own uuid to anyone used to that column elsewhere in the
+                  register. "Code" matches the convention used for the same
+                  kind of field on tools and projects. */}
+              <label className="text-sm font-medium">Employee Code</label>
               <Input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
               <p className="text-xs text-muted-foreground">As issued by HR — the number on the badge.</p>
             </div>

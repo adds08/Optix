@@ -15,3 +15,4 @@ export * from "./audit";
 export * from "./messaging";
 export * from "./task";
 export * from "./projectGroup";
+export * from "./feature";

@@ -47,10 +47,10 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
     request: { method: null, path: null, ip: null, userAgent: null, source: "system" },
   });
 
-  async function newProject(name: string, status = "active") {
+  async function newProject(name: string, status = "in_progress") {
     const [row] = await db
       .insert(schema.project)
-      .values({ tenantId, name, status })
+      .values({ tenantId, name, status, startDate: "2025-01-06" })
       .returning({ id: schema.project.id });
     return row!.id;
   }
@@ -119,7 +119,7 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
   it("accepts every status the shared enum names", async () => {
     const id = await newProject("STI-105 enum walk", "awarded");
     for (const s of PROJECT_STATUSES) {
-      if (s === "complete") continue; // guarded separately below
+      if (s === "completed") continue; // guarded separately below
       await projectRouter.createCaller(ctx()).update({ id, status: s });
       expect(await statusOf(id)).toBe(s);
     }
@@ -133,7 +133,7 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
     ).rejects.toThrow();
     /* The DB column is plain text, so nothing below this validation would have
        stopped the write. */
-    expect(await statusOf(id)).toBe("active");
+    expect(await statusOf(id)).toBe("in_progress");
   });
 
   it("REFUSES to complete a job while tools are still out on it, and names them", async () => {
@@ -141,27 +141,27 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
     await holdToolOn(id, "STI105-A");
     await holdToolOn(id, "STI105-B");
 
-    await expect(projectRouter.createCaller(ctx()).update({ id, status: "complete" })).rejects.toThrow(
+    await expect(projectRouter.createCaller(ctx()).update({ id, status: "completed" })).rejects.toThrow(
       /2 tools are still out on this job/,
     );
 
     const err = await projectRouter
       .createCaller(ctx())
-      .update({ id, status: "complete" })
+      .update({ id, status: "completed" })
       .catch((e: Error) => e.message);
     /* Naming them is the difference between a refusal the desk can act on and
        one they have to go hunting behind. */
     expect(err).toContain("STI105-A");
     expect(err).toContain("STI105-B");
 
-    expect(await statusOf(id)).toBe("active");
+    expect(await statusOf(id)).toBe("in_progress");
   });
 
   it("allows completing once the tools have been moved off", async () => {
     const id = await newProject("STI-105 finishing job");
     const assetId = await holdToolOn(id, "STI105-C");
 
-    await expect(projectRouter.createCaller(ctx()).update({ id, status: "complete" })).rejects.toThrow();
+    await expect(projectRouter.createCaller(ctx()).update({ id, status: "completed" })).rejects.toThrow();
 
     /* Close the link the way custody actually closes one. */
     await db
@@ -169,8 +169,8 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
       .set({ status: "returned", returnedAt: new Date() })
       .where(eq(schema.assignment.assetId, assetId));
 
-    await projectRouter.createCaller(ctx()).update({ id, status: "complete" });
-    expect(await statusOf(id)).toBe("complete");
+    await projectRouter.createCaller(ctx()).update({ id, status: "completed" });
+    expect(await statusOf(id)).toBe("completed");
   });
 
   it("counts the LEDGER's active link, not the projection column", async () => {
@@ -186,18 +186,18 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
       currentProjectId: id,
     });
 
-    await projectRouter.createCaller(ctx()).update({ id, status: "complete" });
-    expect(await statusOf(id)).toBe("complete");
+    await projectRouter.createCaller(ctx()).update({ id, status: "completed" });
+    expect(await statusOf(id)).toBe("completed");
   });
 
   it("lets an already-complete job be edited without re-running the guard", async () => {
-    const id = await newProject("STI-105 already done", "complete");
+    const id = await newProject("STI-105 already done", "completed");
     await holdToolOn(id, "STI105-E");
 
-    /* Re-saving a completed job — renaming it, fixing its cost centre — must
-       not be blocked by tools that were already stranded when it closed.
-       The guard fires on the TRANSITION into complete, not on the state. */
-    await projectRouter.createCaller(ctx()).update({ id, status: "complete", name: "STI-105 already done (renamed)" });
-    expect(await statusOf(id)).toBe("complete");
+    /* Re-saving a completed job — renaming it — must not be blocked by tools
+       that were already stranded when it closed. The guard fires on the
+       TRANSITION into completed, not on the state. */
+    await projectRouter.createCaller(ctx()).update({ id, status: "completed", name: "STI-105 already done (renamed)" });
+    expect(await statusOf(id)).toBe("completed");
   });
 });

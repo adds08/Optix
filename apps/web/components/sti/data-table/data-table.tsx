@@ -2,9 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
-  ChevronsUpDown,
   Download,
   Eye,
   Search,
@@ -519,6 +516,22 @@ export function DataTable<T>({
   };
 
   /*
+    The actions column, stuck to the right edge — not a general "freeze from
+    the right" feature (the leading-prefix freeze above stays a prefix, for
+    the same "and where does a middle column sit" reason it always was), just
+    the one column every register already puts last. `right: 0` needs no
+    measurement the way the leading freeze does, because there is nothing
+    after it to make the offset ambiguous.
+  */
+  const stickyRightProps = (meta: { stickyRight?: boolean }) => {
+    if (!meta.stickyRight) return {};
+    return {
+      className: cn("sti-freeze sticky z-20 sti-freeze-edge-right"),
+      style: { right: 0 },
+    };
+  };
+
+  /*
     Start a drag.
 
     Captures EVERY column's current rendered width, not just the dragged one, so
@@ -651,24 +664,46 @@ export function DataTable<T>({
 
           table-fixed makes columns honor their `width` and fill the container;
           columns without a width share the leftover, and long text wraps
-          instead of blowing the layout out. */}
-      <div className="overflow-hidden rounded-md border">
-        <DataTablePagination table={table} />
+          instead of blowing the layout out.
+
+          `overflow-clip`, not `overflow-hidden`, on this wrapper — same
+          reasoning as `app-shell.tsx`'s outer wrapper: `hidden` makes an
+          element a scroll container even though nothing here scrolls it,
+          which would hijack the pager's `sticky` below into sticking to
+          THIS box instead of the page. `clip` rounds the same corners
+          without that side effect.
+
+          The pager sticks to the top of the browser window as the page
+          scrolls (asked for directly); the column header does NOT, despite
+          being asked for too — `.sti-table-scroll` just below is already a
+          scroll container on both axes (`overflow-x: auto` forces the Y
+          axis to compute the same way; see the comment on that class), so a
+          sticky header placed inside it binds to that box's own vertical
+          viewport — which never itself scrolls, rows being bounded by
+          pagination rather than a nested scrollbox — and would sit inertly
+          in place instead of following the window. Making the header do it
+          too needs the header split into its own row outside the
+          horizontal-scroll box with its scroll position synced to the
+          body's, the way a real spreadsheet component does it — real work,
+          tracked separately rather than guessed at without a browser to
+          check it in. */}
+      <div className="overflow-clip rounded-md border">
+        <div className="sticky top-0 z-30">
+          <DataTablePagination table={table} />
+        </div>
         <Table className="w-full table-fixed" style={{ minWidth }}>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow ref={headRowRef} key={hg.id} className="bg-muted/50 hover:bg-muted/50">
                 {hg.headers.map((h, i) => {
-                  const meta = (h.column.columnDef.meta as { numeric?: boolean; width?: string } | undefined) ?? {};
+                  const meta = (h.column.columnDef.meta as { numeric?: boolean; width?: string; stickyRight?: boolean } | undefined) ?? {};
                   const numeric = meta.numeric;
-                  const canSort = h.column.getCanSort();
-                  const sorted = h.column.getIsSorted();
-                  const Icon = !sorted ? ChevronsUpDown : sorted === "asc" ? ArrowUp : ArrowDown;
                   /* The menu belongs to columns that hold a value. The checkbox
                      and actions columns have no `accessorFn`, so there is
                      nothing to sort by and nothing to list. */
                   const hasValue = Boolean(h.column.accessorFn);
                   const frz = freezeProps(i);
+                  const stickyR = stickyRightProps(meta);
                   return (
                     <TableHead
                       key={h.id}
@@ -676,34 +711,34 @@ export function DataTable<T>({
                         "relative p-0",
                         numeric && "text-right",
                         frz.className,
+                        stickyR.className,
                         /* A filtered column is marked in the header itself, not
                            only inside the menu that set it — otherwise a short
                            list looks like a short table. */
                         isColumnFiltered(h.column) && "bg-primary/10",
                       )}
-                      style={{ width: widthFor(h.column.id, meta.width), ...frz.style }}
+                      style={{ width: widthFor(h.column.id, meta.width), ...frz.style, ...stickyR.style }}
                     >
                       <div className="flex w-full items-center">
-                      <button
-                        type="button"
-                        disabled={!canSort}
-                        onClick={() => h.column.toggleSorting(sorted === "asc")}
+                      {/* A plain label, not a control. Sorting lives in the
+                          column menu below (caret) — the header used to also
+                          toggle sort on click, which was two controls doing
+                          the same job; the menu is the one that survived,
+                          because it is also where the sort direction actually
+                          shows once opened. */}
+                      <span
                         className={cn(
                           "flex min-w-0 flex-1 items-center gap-1.5 py-2.5 pl-3 text-xs font-medium uppercase tracking-wide",
                           /* The menu button supplies the trailing gap when it is
                              there; without it the cell needs its own. */
                           hasValue ? "pr-1" : "pr-3",
                           numeric && "justify-end",
-                          canSort ? "hover:text-foreground" : "cursor-default",
                         )}
                       >
                         <span className="truncate">
                           {flexRender(h.column.columnDef.header, h.getContext())}
                         </span>
-                        {canSort ? (
-                          <Icon className={cn("size-3 shrink-0", sorted ? "opacity-100" : "opacity-35")} />
-                        ) : null}
-                      </button>
+                      </span>
                       {hasValue ? (
                         <ColumnMenu
                           column={h.column}
@@ -764,8 +799,9 @@ export function DataTable<T>({
                     }}
                   >
                   {r.getVisibleCells().map((c, i) => {
-                    const meta = (c.column.columnDef.meta as { numeric?: boolean; width?: string } | undefined) ?? {};
+                    const meta = (c.column.columnDef.meta as { numeric?: boolean; width?: string; stickyRight?: boolean } | undefined) ?? {};
                     const frz = freezeProps(i);
+                    const stickyR = stickyRightProps(meta);
                     return (
                       <TableCell
                         key={c.id}
@@ -775,11 +811,12 @@ export function DataTable<T>({
                            undersized actions column ended up sitting on top of
                            the status pill. Radix menus portal out, so the row
                            dropdowns are unaffected. */
-                        className={cn("overflow-hidden", meta.numeric && "text-right tnum", frz.className)}
+                        className={cn("overflow-hidden", meta.numeric && "text-right tnum", frz.className, stickyR.className)}
                         style={{
                           width: widthFor(c.column.id, meta.width),
                           whiteSpace: meta.numeric ? "nowrap" : "normal",
                           ...frz.style,
+                          ...stickyR.style,
                         }}
                       >
                         {flexRender(c.column.columnDef.cell, c.getContext())}

@@ -93,7 +93,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
        `location` both point at one by NAME, which is the whole reason ref
        resolution exists. */
     projectName = `STI405 Job ${suffix}`;
-    await db.insert(schema.project).values({ tenantId, name: projectName });
+    await db.insert(schema.project).values({ tenantId, name: projectName, startDate: "2025-01-06" });
   });
 
   afterAll(async () => {
@@ -116,9 +116,9 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
   describe("the preview predicts exactly what commit does", () => {
     it("promises N good rows and writes N", async () => {
       const rows = [
-        { name: `P1 ${suffix}`, cost_code: `C1-${suffix}` },
-        { name: `P2 ${suffix}`, cost_code: `C2-${suffix}` },
-        { name: `P3 ${suffix}`, cost_code: `C3-${suffix}` },
+        { name: `P1 ${suffix}`, project_code: `C1-${suffix}`, start_date: "2025-01-06" },
+        { name: `P2 ${suffix}`, project_code: `C2-${suffix}`, start_date: "2025-01-06" },
+        { name: `P3 ${suffix}`, project_code: `C3-${suffix}`, start_date: "2025-01-06" },
       ];
 
       const preview = await caller().preview({ entity: "project", rows });
@@ -141,8 +141,8 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
          user was told was broken is the same half-written register by a
          different route. */
       const rows = [
-        { name: `Good ${suffix}`, cost_code: `OK-${suffix}` },
-        { name: "", cost_code: `BAD-${suffix}` }, // name is required
+        { name: `Good ${suffix}`, project_code: `OK-${suffix}`, start_date: "2025-01-06" },
+        { name: "", project_code: `BAD-${suffix}`, start_date: "2025-01-06" }, // name is required
       ];
 
       const preview = await caller().preview({ entity: "project", rows });
@@ -162,13 +162,13 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
         accepting the client's earlier verdict — otherwise the preview becomes
         a token a client could forge.
       */
-      const rows = [{ name: `Race ${suffix}`, cost_code: `RACE-${suffix}` }];
+      const rows = [{ name: `Race ${suffix}`, project_code: `RACE-${suffix}`, start_date: "2025-01-06" }];
 
       const preview = await caller().preview({ entity: "project", rows });
       expect(preview.summary.bad).toBe(0);
 
       /* Somebody else creates the same cost code between preview and commit. */
-      await db.insert(schema.project).values({ tenantId, name: "Interloper", externalId: `RACE-${suffix}` });
+      await db.insert(schema.project).values({ tenantId, name: "Interloper", externalId: `RACE-${suffix}`, startDate: "2025-01-06" });
 
       await expect(caller().commit({ entity: "project", rows })).rejects.toThrow(/still invalid/);
     });
@@ -235,8 +235,8 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
 
       await expect(
         db.transaction(async (tx) => {
-          await tx.insert(schema.project).values({ tenantId, name: `Rollback A ${suffix}` });
-          await tx.insert(schema.project).values({ tenantId, name: `Rollback B ${suffix}` });
+          await tx.insert(schema.project).values({ tenantId, name: `Rollback A ${suffix}`, startDate: "2025-01-06" });
+          await tx.insert(schema.project).values({ tenantId, name: `Rollback B ${suffix}`, startDate: "2025-01-06" });
           throw new Error("import failed on a later row");
         }),
       ).rejects.toThrow(/later row/);
@@ -322,7 +322,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
       const before = await countOf(schema.project);
       const res = await caller().commit({
         entity: "project",
-        rows: [{ name: `Imported Job ${suffix}`, cost_code: `IMP-${suffix}` }],
+        rows: [{ name: `Imported Job ${suffix}`, project_code: `IMP-${suffix}`, start_date: "2025-01-06" }],
       });
       expect(res.imported).toBe(1);
       expect(await countOf(schema.project)).toBe(before + 1);

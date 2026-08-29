@@ -41,8 +41,27 @@ export type CostTarget = (typeof COST_TARGETS)[number];
 export const CUSTODIAN_ROLES = ["foreman", "mechanic"] as const;
 export const EMPLOYMENT_STATUSES = ["active", "terminated", "on_leave"] as const;
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
-export const PROJECT_STATUSES = ["awarded", "active", "closing", "complete"] as const;
+export const PROJECT_STATUSES = [
+  "not_awarded",
+  "awarded",
+  "in_progress",
+  "completed",
+  "cancelled",
+  "on_hold",
+] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 /* Mirrors the values documented on asset.condition in the db schema. */
 export const ASSET_CONDITIONS = ["new", "good", "fair", "poor", "damaged"] as const;
 export type AssetCondition = (typeof ASSET_CONDITIONS)[number];
+
+/* A tenant's presentation state for one feature key — a nav item id, or an
+   in-page key like "import.ai". See packages/db/src/schema/feature.ts and
+   ADR-11's generalization in docs/06-decisions.md. No row for a key means
+   "enabled". */
+export const FEATURE_STATES = ["enabled", "beta", "upcoming", "hidden"] as const;
+export type FeatureState = (typeof FEATURE_STATES)[number];
+
+/* How the tenant's identity block renders in the sidebar footer — see
+   tenantSettings.brandingLayoutMode. */
+export const BRANDING_LAYOUT_MODES = ["icon_and_text", "icon_only"] as const;
+export type BrandingLayoutMode = (typeof BRANDING_LAYOUT_MODES)[number];

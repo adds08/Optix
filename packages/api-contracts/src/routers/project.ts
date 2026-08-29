@@ -31,8 +31,8 @@ export const projectRouter = router({
         id: schema.project.id,
         name: schema.project.name,
         externalId: schema.project.externalId,
+        description: schema.project.description,
         status: schema.project.status,
-        costCenter: schema.project.costCenter,
         siteAddress: schema.project.siteAddress,
         startDate: schema.project.startDate,
         endDate: schema.project.endDate,
@@ -51,13 +51,13 @@ export const projectRouter = router({
       z.object({
         name: z.string().min(1).max(200),
         externalId: z.string().optional(),
+        description: z.string().max(2000).optional(),
         /* Same enum as `update` — a job could otherwise be BORN with a status
            no screen understands, which no amount of validation on update
            would ever catch. */
         status: z.enum(PROJECT_STATUSES).optional(),
-        costCenter: z.string().optional(),
         siteAddress: z.string().max(400).optional(),
-        startDate: z.string().optional(),
+        startDate: z.string().min(1),
         endDate: z.string().optional(),
       }),
     )
@@ -76,15 +76,15 @@ export const projectRouter = router({
         id: z.string().uuid(),
         name: z.string().min(1).max(200).optional(),
         externalId: z.string().max(60).nullable().optional(),
+        description: z.string().max(2000).nullable().optional(),
         /* STI-105: was `z.string().max(30)`, so "compleet" — or any other
            string — was a valid job status and every screen that switches on
            it silently fell through. PROJECT_STATUSES already existed in
            packages/types and nothing referenced it. The DB column is plain
            text, so this enum is the only thing that stops a bad write. */
         status: z.enum(PROJECT_STATUSES).optional(),
-        costCenter: z.string().max(60).nullable().optional(),
         siteAddress: z.string().max(400).nullable().optional(),
-        startDate: z.string().nullable().optional(),
+        startDate: z.string().min(1).optional(),
         endDate: z.string().nullable().optional(),
       }),
     )
@@ -113,7 +113,7 @@ export const projectRouter = router({
         2) — the desk moves the tools through the surfaces that already do it
         correctly, then completes the job.
       */
-      if (changes.status === "complete" && existing.status !== "complete") {
+      if (changes.status === "completed" && existing.status !== "completed") {
         const held = await ctx.db
           .select({ tag: schema.asset.tag, assetId: schema.assignment.assetId })
           .from(schema.assignment)

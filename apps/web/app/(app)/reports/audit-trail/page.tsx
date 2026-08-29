@@ -36,6 +36,9 @@ type AuditRow = {
 export default function AuditTrailPage() {
 
   const [state, setState] = useState<DataTableServerState>({ page: 1, pageSize: 25 });
+  /* No bulk action reads this yet — turned on for consistency with the other
+     registers. */
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
 
   const query = trpc.report.auditTrail.useQuery({
     page: state.page,
@@ -102,6 +105,9 @@ export default function AuditTrailPage() {
         emptyTitle="No movements recorded yet"
         emptyDescription="The ledger is empty — every assignment, transfer and return will appear here."
         filename="audit-trail"
+        enableSelection
+        selection={selectedIds}
+        onSelectionChange={setSelectedIds}
       />
     </div>
   );

@@ -24,6 +24,7 @@ import { preferencesRouter, THEME_NAMES, FONT_FAMILIES } from "./routers/prefere
 import { userRouter } from "./routers/user.js";
 import { roleRouter } from "./routers/role.js";
 import { departureRouter } from "./routers/custody-reassign.js";
+import { featureRouter } from "./routers/feature.js";
 export { llmConfigFor } from "./routers/settings.js";
 export { mailConfigFor } from "./mail-config.js";
 
@@ -55,6 +56,7 @@ export const appRouter = router({
   settings: settingsRouter,
   preferences: preferencesRouter,
   projectGroup: projectGroupRouter,
+  feature: featureRouter,
 });
 
 export type AppRouter = typeof appRouter;

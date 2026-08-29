@@ -218,6 +218,41 @@
       "when": 1787941367347,
       "tag": "0031_user_icon_scale",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1788023279977,
+      "tag": "0032_aromatic_blacklash",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788023299673,
+      "tag": "0033_flippant_jigsaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1788029248348,
+      "tag": "0034_green_shaman",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1788034182614,
+      "tag": "0035_thankful_dazzler",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788036515871,
+      "tag": "0036_polite_silvermane",
+      "breakpoints": true
     }
   ]
 }

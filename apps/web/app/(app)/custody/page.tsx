@@ -52,6 +52,11 @@ export default function CustodyPage() {
 
   const utils = trpc.useUtils();
   const [actionError, setActionError] = useState("");
+  /* No bulk action reads any of these yet — turned on for consistency with
+     the other registers. */
+  const [heldSelected, setHeldSelected] = useState<Record<string, boolean>>({});
+  const [movingSelected, setMovingSelected] = useState<Record<string, boolean>>({});
+  const [queueSelected, setQueueSelected] = useState<Record<string, boolean>>({});
   /* On success the row leaves the queue because the queries refetch — the list
      is never edited locally, the server stays the only source of truth. */
   const acted = () => {
@@ -273,6 +278,9 @@ export default function CustodyPage() {
             rows={active}
             rowId={(a) => a.id}
             searchPlaceholder="Search held tools…"
+            enableSelection
+            selection={heldSelected}
+            onSelectionChange={setHeldSelected}
           />
         )
       ) : tab === "moving" ? (
@@ -289,6 +297,9 @@ export default function CustodyPage() {
             rows={transfers.data}
             rowId={(t) => t.id}
             searchPlaceholder="Search transfers…"
+            enableSelection
+            selection={movingSelected}
+            onSelectionChange={setMovingSelected}
           />
         )
       ) : (
@@ -323,6 +334,9 @@ export default function CustodyPage() {
               rows={queue}
               rowId={(r) => r.id}
               searchPlaceholder="Search the queue…"
+              enableSelection
+              selection={queueSelected}
+              onSelectionChange={setQueueSelected}
             />
           )}
         </div>

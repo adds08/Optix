@@ -92,8 +92,9 @@ test("a resize does not also sort the column", async ({ page }) => {
   const firstBefore = await page.locator("tbody tr td:nth-child(2)").first().innerText();
   await dragCategory(page, 80);
   const firstAfter = await page.locator("tbody tr td:nth-child(2)").first().innerText();
-  /* The grip sits above the sort button; without stopPropagation every resize
-     would re-sort the table on release. */
+  /* The header no longer sorts on click at all (2026-08-30 — sort lives
+     solely in the column menu now), so this mostly guards against a future
+     regression reintroducing that, rather than today's actual risk. */
   expect(firstAfter).toBe(firstBefore);
 });
 

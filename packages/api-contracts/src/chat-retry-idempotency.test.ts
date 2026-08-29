@@ -85,7 +85,7 @@ describe.skipIf(!url)("chat retry does not duplicate ledger events (STI-120)", (
     const [e] = await db.insert(schema.employee).values({ tenantId, name: "Foreman OneTwenty" }).returning({ id: schema.employee.id });
     custodianId = e!.id;
 
-    const [p] = await db.insert(schema.project).values({ tenantId, name: "STI-120 job" }).returning({ id: schema.project.id });
+    const [p] = await db.insert(schema.project).values({ tenantId, name: "STI-120 job", startDate: "2025-01-06" }).returning({ id: schema.project.id });
     projectId = p!.id;
 
     /* Pin the gate here rather than leaning on DEFAULT_HIGH_VALUE_THRESHOLD, so

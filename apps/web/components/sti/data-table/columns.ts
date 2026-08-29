@@ -18,6 +18,11 @@ export function col<T>(
     sortable?: boolean;
     width?: string;
     enableHiding?: boolean;
+    /* Sticks this column to the right edge, independent of the leading-prefix
+       freeze count above. Meant for exactly one column per table — the
+       actions menu — not a general "freeze from the right" feature; see the
+       comment on `stickyRightProps` in data-table.tsx. */
+    stickyRight?: boolean;
   },
 ): ColumnDef<T> {
   const id = opts.id ?? (opts.header || `col_${Math.random().toString(36).slice(2, 8)}`);
@@ -31,6 +36,7 @@ export function col<T>(
     meta: {
       numeric: opts.numeric,
       width: opts.width,
+      stickyRight: opts.stickyRight,
     } as never,
   };
 }

@@ -12,9 +12,14 @@ import { cn } from "@/lib/utils";
   The per-column menu, on the caret in the header cell.
 
   Modelled on the one everybody already knows from Excel and from every grid
-  that copied it: sort from here, and tick the values you want to see. Clicking
-  the header itself still sorts, exactly as it did — the caret is an addition,
-  not a replacement, which is also how Excel behaves.
+  that copied it: sort from here, and tick the values you want to see.
+
+  Clicking the header itself used to ALSO sort, same as Excel — removed
+  2026-08-30. Two controls doing the same job is not an affordance, it is a
+  redundancy, and the header button's own icon was the only place sort
+  direction showed at a glance. That glance now lives on this trigger
+  instead: it tints the same way the filter dot already did, extended to
+  cover "this column is sorted" as well as "this column is filtered".
 
   Two things it deliberately does NOT do:
 
@@ -66,6 +71,10 @@ export function ColumnMenu<T>({
 }) {
   const [open, setOpen] = useState(false);
   const filtered = isColumnFiltered(column);
+  /* Sort has no other visible home now that the header no longer doubles as
+     the control — this is the one place left that says "this column is
+     driving the current order" without opening the menu. */
+  const active = filtered || Boolean(column.getIsSorted());
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -85,7 +94,7 @@ export function ColumnMenu<T>({
                width it has always been — started truncating its own heading. */
             "mr-1 flex size-5 shrink-0 items-center justify-center rounded-sm transition-colors",
             "hover:bg-background/80 hover:text-foreground",
-            filtered ? "bg-primary/15 text-primary opacity-100" : "opacity-50 hover:opacity-100",
+            active ? "bg-primary/15 text-primary opacity-100" : "opacity-50 hover:opacity-100",
           )}
         >
           <ChevronDown className="size-3" aria-hidden />

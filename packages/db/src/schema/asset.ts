@@ -54,7 +54,14 @@ export const asset = pgTable(
        holds NEW/USED and maps to `condition` — see docs/built/13-excel-round-trip.md. */
     otherRef: text("other_ref"),
     categoryName: text("category_name"), // denormalized
+    /* Shown to users as "Code" — the tool's serial number when the manufacturer
+       stamped one, and a hand-typed stand-in when it didn't. `isManualCode`
+       is the only thing that tells the two apart; the column itself carries
+       no marker of its own origin. `assetNumber` above remains the one value
+       guaranteed unique and always present — Code can collide (two typed
+       stand-ins, or a mis-copied serial) and is not a key. */
     serialNumber: text("serial_number"),
+    isManualCode: boolean("is_manual_code").notNull().default(false),
     isSerialized: boolean("is_serialized").notNull().default(true),
     quantity: integer("quantity").notNull().default(1),
     acquisitionCost: decimal("acquisition_cost", { precision: 14, scale: 2 }),

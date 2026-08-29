@@ -1,0 +1,1 @@
+ALTER TABLE "tbl_entity_project" DROP COLUMN IF EXISTS "cost_center";

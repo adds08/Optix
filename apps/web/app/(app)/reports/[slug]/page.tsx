@@ -258,7 +258,7 @@ function Body({ slug, data }: { slug: string; data: Bundle }) {
     const rows = data.needsTag.data ?? [];
     const cols: Col<NeedsTagRow>[] = [
       { key: "make", header: "Tool", value: (r) => formatAssetModel(r), cell: (r) => formatAssetModel(r) || <span className="text-muted-foreground">Untagged tool</span> },
-      { key: "serialNumber", header: "Serial", value: (r) => r.serialNumber ?? "", cell: (r) => <span className="font-mono text-xs text-muted-foreground">{r.serialNumber ?? "—"}</span> },
+      { key: "serialNumber", header: "Code", value: (r) => r.serialNumber ?? "", cell: (r) => <span className="font-mono text-xs text-muted-foreground">{r.serialNumber ?? "—"}</span> },
       { key: "categoryName", header: "Category" },
       { key: "locationName", header: "Sitting at" },
       { key: "acquisitionCost", header: "Cost", numeric: true, value: (r) => Number(r.acquisitionCost ?? 0), cell: (r) => money(r.acquisitionCost) },

@@ -10,18 +10,20 @@ import { PROJECT_STATUSES, type ProjectStatus } from "@stinventory/types";
    enum, so a new status appears here without an edit and cannot appear here
    WITHOUT the server accepting it. */
 const STATUS_LABELS: Record<ProjectStatus, string> = {
+  not_awarded: "Not awarded",
   awarded: "Awarded",
-  active: "Active",
-  closing: "Closing",
-  complete: "Complete",
+  in_progress: "In progress",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  on_hold: "On hold",
 };
 
 export type ProjectEditable = {
   id: string;
   name: string;
   externalId?: string | null;
+  description?: string | null;
   status?: string | null;
-  costCenter?: string | null;
   siteAddress?: string | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -34,13 +36,13 @@ export function ProjectForm({ open, onClose, edit }: Props) {
 
   const [name, setName] = useState(edit?.name ?? "");
   const [externalId, setExternalId] = useState(edit?.externalId ?? "");
+  const [description, setDescription] = useState(edit?.description ?? "");
   /* A job loaded from an older row could carry anything — the column is plain
      text and only became an enum in STI-105 — so an unrecognised value falls
-     back to "active" rather than rendering a select with no selection. */
+     back to "not_awarded" rather than rendering a select with no selection. */
   const [status, setStatus] = useState<ProjectStatus>(
-    PROJECT_STATUSES.includes(edit?.status as ProjectStatus) ? (edit!.status as ProjectStatus) : "active",
+    PROJECT_STATUSES.includes(edit?.status as ProjectStatus) ? (edit!.status as ProjectStatus) : "not_awarded",
   );
-  const [costCenter, setCostCenter] = useState(edit?.costCenter ?? "");
   const [siteAddress, setSiteAddress] = useState(edit?.siteAddress ?? "");
   const [startDate, setStartDate] = useState(edit?.startDate ?? "");
   const [endDate, setEndDate] = useState(edit?.endDate ?? "");
@@ -48,25 +50,23 @@ export function ProjectForm({ open, onClose, edit }: Props) {
   const [result, setResult] = useState("");
 
   const submit = async () => {
-    if (!name) return;
+    if (!name || !startDate) return;
     setSubmitting(true);
     setResult("");
     try {
       if (edit) {
         await utils.client.project.update.mutate({
-          id: edit.id, name, status,
+          id: edit.id, name, status, startDate,
           externalId: externalId || null,
-          costCenter: costCenter || null,
+          description: description || null,
           siteAddress: siteAddress || null,
-          startDate: startDate || null,
           endDate: endDate || null,
         });
       } else {
         await utils.client.project.create.mutate({
-          name, externalId: externalId || undefined, status,
-          costCenter: costCenter || undefined,
+          name, externalId: externalId || undefined, status, startDate,
+          description: description || undefined,
           siteAddress: siteAddress || undefined,
-          startDate: startDate || undefined,
           endDate: endDate || undefined,
         });
       }
@@ -91,7 +91,7 @@ export function ProjectForm({ open, onClose, edit }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">External ID</label>
+              <label className="text-sm font-medium">Project Code</label>
               <Input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
             </div>
             <div className="space-y-2">
@@ -104,8 +104,13 @@ export function ProjectForm({ open, onClose, edit }: Props) {
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Cost center</label>
-            <Input value={costCenter} onChange={(e) => setCostCenter(e.target.value)} />
+            <label className="text-sm font-medium">Description</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="flex w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Site address</label>
@@ -117,7 +122,7 @@ export function ProjectForm({ open, onClose, edit }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Start date</label>
+              <label className="text-sm font-medium">Start date *</label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="space-y-2">
@@ -129,7 +134,7 @@ export function ProjectForm({ open, onClose, edit }: Props) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting || !name}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
+          <Button onClick={submit} disabled={submitting || !name || !startDate}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

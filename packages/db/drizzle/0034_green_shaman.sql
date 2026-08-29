@@ -1,0 +1,1 @@
+ALTER TABLE "tbl_entity_asset" ADD COLUMN "is_manual_code" boolean DEFAULT false NOT NULL;

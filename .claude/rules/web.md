@@ -394,6 +394,27 @@ ten rows or a hundred. `DataTablePagination` therefore carries `border-b`, and
 sideways underneath it. It also carries the only exit from a column filter, since
 the menu that set one closes behind itself.
 
+**The pager also sticks to the top of the browser window as the page scrolls**
+(added 2026-08-30), wrapped in its own `sticky top-0 z-30` div and given a solid
+`bg-muted` (not the `/30` translucency used elsewhere in the file) so rows
+don't show through it once something is scrolling underneath. Verified in a
+real browser: it holds its position once scrolling passes its natural offset,
+and moving further doesn't move it again.
+
+**The column header does NOT stick, and cannot without a bigger change** —
+asked for directly and deliberately left undone. `.sti-table-scroll` (the
+table's own horizontal-scroll wrapper, next section) is already a scroll
+container on both axes because `overflow-x: auto` forces the Y axis to
+compute the same way; a sticky header placed inside it would bind to that
+box's own vertical viewport, which never itself scrolls, and would sit
+inertly in place rather than following the window. This is exactly why the
+wrapper *around* the pager and table uses `overflow-clip` rather than
+`overflow-hidden` (same reasoning as `app-shell.tsx`'s outer wrapper) — `clip`
+doesn't create that trap, which is what makes the pager's own stickiness
+possible one level up. Making the header do it too needs the header split
+into its own row outside the horizontal-scroll box with its scroll position
+synced to the body's, the way a real spreadsheet component does it.
+
 ### Scrollbars: style the element that actually scrolls
 
 `.sti-scroll` and `.sti-table-scroll` draw a permanently visible thumb. Styling
@@ -408,12 +429,21 @@ that is wrong. `table-grid-and-filter.spec.ts` now walks up from the `<table>` t
 the first ancestor that genuinely overflows and asserts the class is on *that*.
 If you add a scroll wrapper around a table, delete one somewhere else.
 
-### The column menu is where filtering is found
+### The column menu is where sorting AND filtering are found
 
 Every column with an `accessorFn` carries a caret in its header opening a
 Popover: sort, hide, and a searchable tick list of that column's distinct values
-with counts. `column-menu.tsx`. Clicking the header still sorts — the caret is an
-addition, exactly as in Excel.
+with counts. `column-menu.tsx`.
+
+**Clicking the header no longer sorts** (changed 2026-08-30). It did, with the
+caret as "an addition, exactly as in Excel" — genuinely redundant, since the
+caret's own menu already offered the same two sort actions, and the redundancy
+was named as deliberate right up until it was asked to go. The header cell is
+now a static label; the caret is the only sort control. Removing the header's
+own icon meant sort had no visible home at a glance, so the caret trigger now
+tints itself the same way it already did for an active filter — `active =
+filtered || Boolean(column.getIsSorted())` — rather than only revealing state
+once opened.
 
 Three constraints worth keeping:
 
@@ -454,6 +484,20 @@ transparent is the one thing a frozen cell cannot be.
 is what makes a frozen row survive a page change, which is the entire reason to
 freeze one. Session-only, deliberately: a pinned row is a working note about the
 tools in front of you, not a preference.
+
+**The actions column is a separate, narrower mechanism — `stickyRight` on the
+column def, not the leading-prefix freeze above** (added 2026-08-30). It is
+always-on (no menu item, no persisted count) and always applies to exactly one
+column, because the ambiguity the prefix freeze exists to avoid — "where does a
+middle column sit" — doesn't arise when there is only ever one candidate and it
+is always last. `data-table.tsx`'s `stickyRightProps()` sets `right: 0` (no
+measurement needed, unlike the left offsets, because there is nothing after it
+to make the offset ambiguous) and reuses `.sti-freeze` for the opaque
+background; the seam shadow is `.sti-freeze-edge-right` in `globals.css`, a
+mirror of `.sti-freeze-edge` since content scrolls out from under a
+right-frozen cell to the LEFT rather than the right. Verified in a real
+browser (Playwright against the running stack): the actions column's `x`
+position is unchanged by a 300px horizontal scroll.
 
 ### The row menu has two groups and no more
 

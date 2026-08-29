@@ -20,7 +20,12 @@ const PAGE_SIZES = [10, 25, 50, 100];
    popover: there are only four options.
 
    It sits above the header, not below the last row — see the comment where
-   DataTable places it. Hence `border-b` rather than `border-t`. */
+   DataTable places it. Hence `border-b` rather than `border-t`.
+
+   `bg-muted` here, not the `/50` or `/30` translucency used elsewhere in this
+   file's own buttons: DataTable wraps this in a `position: sticky` box that
+   sits above the table body as the page scrolls, so a translucent strip
+   would show rows sliding by underneath the row count and controls. */
 export function DataTablePagination<T>({ table }: { table: Table<T> }) {
   const page = table.getState().pagination;
   const total = table.getRowCount();
@@ -33,7 +38,7 @@ export function DataTablePagination<T>({ table }: { table: Table<T> }) {
   const columnFilters = table.getState().columnFilters;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-3 py-2">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted px-3 py-2">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span className="tnum">{from}–{to} of {total}</span>
         {columnFilters.length ? (

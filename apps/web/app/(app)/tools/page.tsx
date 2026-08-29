@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Boxes, Download, Search } from "lucide-react";
+import { Boxes, Download, Pencil, Search } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
@@ -172,14 +172,37 @@ export default function ToolsPage() {
   const TABLE_COLUMNS: ColumnDef<Row>[] = useMemo(
     () => [
       col<Row>({
-        /* The register's own number — every row has one, unlike Tag below.
-           Leads the table because it is the one column guaranteed never to
-           read "no tag". */
-        header: "ID",
+        /* The manufacturer's serial when there is one; a hand-typed stand-in,
+           flagged, when there isn't. Leads the table — the same "code before
+           name" convention as Employee Code and Project Code — because this
+           is the identifier a person actually reads off the tool. */
+        header: "Code",
+        accessorFn: (r) => r.serialNumber ?? "",
+        width: "9rem",
+        cell: (r) => (
+          <Link href={`/tools/${r.id}`} className="hover:underline">
+            <span className="inline-flex items-center gap-1 font-mono text-xs">
+              {r.serialNumber ?? <span className="text-muted-foreground">—</span>}
+              {r.isManualCode ? (
+                <Pencil
+                  className="size-3 shrink-0 text-muted-foreground"
+                  aria-label="Manually entered, not a scanned serial"
+                />
+              ) : null}
+            </span>
+          </Link>
+        ),
+      }),
+      col<Row>({
+        /* The register's own number — every row has one, unlike Code, which
+           can be blank or collide on a hand-typed stand-in. Secondary now
+           that Code leads, but kept close by: it is still the one column
+           guaranteed never to read "no tag". */
+        header: "Ref #",
         accessorFn: (r) => r.assetNumber,
         width: "6rem",
         cell: (r) => (
-          <Link href={`/tools/${r.id}`} className="tag-num hover:underline">
+          <Link href={`/tools/${r.id}`} className="tag-num hover:underline text-muted-foreground">
             {assetNumberDisplay(r.assetNumber)}
           </Link>
         ),
@@ -294,14 +317,6 @@ export default function ToolsPage() {
         cell: (r) => <FlagBadges asset={r} />,
       }),
       col<Row>({
-        header: "Serial",
-        accessorFn: (r) => r.serialNumber ?? "",
-        width: "9rem",
-        cell: (r) => (
-          <span className="font-mono text-xs text-muted-foreground">{r.serialNumber ?? "—"}</span>
-        ),
-      }),
-      col<Row>({
         header: "Charged to",
         accessorFn: (r) => r.owningDepartmentName ?? r.owningProjectName ?? "",
         width: "10rem",
@@ -309,9 +324,10 @@ export default function ToolsPage() {
       }),
       col<Row>({
         id: "actions",
-        header: "",
+        header: "Actions",
         enableHiding: false,
-        width: "3.5rem",
+        stickyRight: true,
+        width: "5rem",
         cell: (r) => (
           <ToolMenu
             assetId={r.id}
@@ -414,6 +430,7 @@ export default function ToolsPage() {
     categoryName: r.categoryName,
     photoKey: r.photoKey,
     serialNumber: r.serialNumber,
+    isManualCode: r.isManualCode,
     quantity: r.quantity,
     acquisitionCost: r.acquisitionCost,
     acquisitionDate: r.acquisitionDate,
