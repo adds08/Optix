@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-08-30 | [A blob becomes a line, and a pin stays in its lane](2026-08-30-a-blob-becomes-a-line-and-a-pin-stays-in-its-lane.md) |
 | 2026-08-30 | [Two candidates, one generated avatar, and no third REST endpoint](2026-08-30-two-candidates-one-avatar-and-no-third-rest-endpoint.md) |
 | 2026-08-30 | [A header that says something, and a Name column that was never really there](2026-08-30-a-header-that-says-something-and-a-name-column-that-was-never-there.md) |
 | 2026-08-30 | [A fourth state nobody had to build twice](2026-08-30-a-fourth-state-nobody-had-to-build-twice.md) |

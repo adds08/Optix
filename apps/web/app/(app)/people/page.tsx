@@ -15,7 +15,7 @@ import { InviteDialog } from "@/components/account-actions";
 import { RowActions } from "@/components/sti/row-actions";
 import { DataTable } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
-import { money, idName, shortDate } from "@/lib/format";
+import { shortDate } from "@/lib/format";
 
 /*
   What a person's login is actually doing, in one phrase.
@@ -90,10 +90,8 @@ export default function PeoplePage() {
   });
 
   const employees = trpc.employee.list.useQuery();
-  const byForeman = trpc.report.byForeman.useQuery();
 
   const rows = employees.data ?? [];
-  const held = new Map((byForeman.data ?? []).map((f) => [f.employeeId, f]));
 
   type EmployeeRow = (typeof rows)[number];
 
@@ -111,11 +109,10 @@ export default function PeoplePage() {
       }),
       col<EmployeeRow>({
         /* The widest column with a declared width, matching the register's
-           own convention (see tools/page.tsx's "Tool" column) — this and
-           "Primary project" below were both left with NO width until this
-           fix, which under `table-fixed` means "share whatever six other
-           explicit-width columns didn't claim", squeezed to a couple of
-           pixels rather than actually flexible. */
+           own convention (see tools/page.tsx's "Tool" column) — left with NO
+           width until 2026-08-30, which under `table-fixed` means "share
+           whatever other explicit-width columns didn't claim", squeezed to a
+           couple of pixels rather than actually flexible. */
         header: "Name",
         accessorFn: (e) => e.name,
         width: "14rem",
@@ -155,15 +152,7 @@ export default function PeoplePage() {
           return <span className={a.muted ? "text-muted-foreground" : undefined}>{a.label}</span>;
         },
       }),
-      col<EmployeeRow>({
-        header: "Primary project",
-        accessorFn: (e) => e.primaryProjectName ?? "",
-        width: "12rem",
-        cell: (e) => (e.primaryProjectName ? idName(e.primaryProjectExternalId, e.primaryProjectName) : "—"),
-      }),
       col<EmployeeRow>({ header: "Status", accessorFn: (e) => e.employmentStatus, width: "7rem", cell: (e) => <StatusPill status={e.employmentStatus} /> }),
-      col<EmployeeRow>({ header: "Tools held", accessorFn: (e) => Number(held.get(e.id)?.assetCount ?? 0), numeric: true, width: "6rem", cell: (e) => <span className="tnum">{held.get(e.id) ? Number(held.get(e.id)!.assetCount) : 0}</span> }),
-      col<EmployeeRow>({ header: "Value held", accessorFn: (e) => Number(held.get(e.id)?.totalValue ?? 0), numeric: true, width: "7rem", cell: (e) => <span className="tnum">{held.get(e.id) ? money(held.get(e.id)!.totalValue) : "—"}</span> }),
       col<EmployeeRow>({
         id: "actions",
         header: "Actions",
@@ -249,7 +238,7 @@ export default function PeoplePage() {
         ),
       }),
     ],
-    [held, remove.isPending, failed, setActive, resendInvite, resetPassword],
+    [remove.isPending, failed, setActive, resendInvite, resetPassword],
   );
 
   return (
