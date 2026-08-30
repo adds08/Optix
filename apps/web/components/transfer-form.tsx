@@ -4,8 +4,10 @@ import { CUSTODIAN_ROLES } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { EntityField, type EntityOption } from "@/components/ui/entity-picker";
 import { RidePicker } from "./ride-picker";
 import { useViewTier } from "./use-permissions";
+import { humanize } from "./sti/status";
 
 type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
 
@@ -24,6 +26,25 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
     const ids = new Set(myForemen.data?.map((f) => f.id) ?? []);
     custodianOptions = custodianOptions.filter((e) => ids.has(e.id));
   }
+
+  /* Code before name, everywhere an entity is offered — a plain <select> of
+     names is unfilterable and unidentifiable the moment two people share a
+     first name, which is exactly what these three fields looked like before.
+     `location` has no code column today, so its hint is what actually
+     distinguishes one from another: kind, plus whichever job it belongs to. */
+  const custodianEntityOptions: EntityOption[] = custodianOptions.map((e) => ({
+    value: e.id, label: e.name, hint: e.externalId ?? undefined,
+  }));
+  const projectEntityOptions: EntityOption[] = (projects.data ?? []).map((p) => ({
+    value: p.id, label: p.name, hint: p.externalId ?? undefined,
+  }));
+  const locationEntityOptions: EntityOption[] = (locations.data ?? [])
+    .filter((l) => l.type !== "vehicle")
+    .map((l) => ({
+      value: l.id,
+      label: l.name,
+      hint: [humanize(l.type), l.projectName ?? l.warehouseName].filter(Boolean).join(" · "),
+    }));
 
   const [toCustodianId, setToCustodianId] = useState("");
   const [toProjectId, setToProjectId] = useState("");
@@ -107,28 +128,35 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
           <p className="text-sm text-muted-foreground">Transferring: <span className="font-medium text-foreground">{assetTag}</span></p>
           <div className="space-y-2">
             <label className="text-sm font-medium">To custodian</label>
-            <select value={toCustodianId} onChange={(e) => setToCustodianId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Select custodian...</option>
-              {custodianOptions.map((e) => (
-                <option key={e.id} value={e.id}>{e.name}</option>
-              ))}
-            </select>
+            <EntityField
+              options={custodianEntityOptions}
+              value={toCustodianId}
+              onChange={setToCustodianId}
+              placeholder="Select custodian..."
+              searchPlaceholder="Name or employee code"
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">To project</label>
-            <select value={toProjectId} onChange={(e) => setToProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">No change</option>
-              {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <EntityField
+              options={projectEntityOptions}
+              value={toProjectId}
+              onChange={setToProjectId}
+              placeholder="No change"
+              searchPlaceholder="Project name or code"
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">To location</label>
             {/* Vehicles are filtered out since STI-203: "in a truck" is the
                 rig fields below, a per-assignment fact — not a location. */}
-            <select value={toLocationId} onChange={(e) => setToLocationId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">No change</option>
-              {locations.data?.filter((l) => l.type !== "vehicle").map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
+            <EntityField
+              options={locationEntityOptions}
+              value={toLocationId}
+              onChange={setToLocationId}
+              placeholder="No change"
+              searchPlaceholder="Yard, gang box or container"
+            />
           </div>
           <RidePicker truckId={toTruckId} trailerId={toTrailerId} onTruck={setToTruckId} onTrailer={setToTrailerId} />
           <div className="space-y-2">

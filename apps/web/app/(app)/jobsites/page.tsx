@@ -259,6 +259,34 @@ export default function JobsitesPage() {
           ).size,
         });
       });
+
+      /* Roster foremen who hold no tools yet. A freshly invited or freshly
+         assigned foreman has nothing for moveEmployeeToProject to move until
+         somebody hands them something, so `byForeman` — built entirely from
+         tool custody — never sees them: "on the project" and "shows up on
+         Tools by Jobsite" silently disagreed. Same card, empty rig and tool
+         list, so the person is visible and ready to receive a hand-off
+         instead of invisible until their first one. */
+      const rosterForemen = (team.data?.find((t) => t.projectId === projectId)?.members ?? []).filter(
+        (m) => m.role === "foreman" && !byForeman.has(m.employeeId),
+      );
+      for (const m of rosterForemen) {
+        if (foremanFilter && m.employeeId !== foremanFilter) continue;
+        if (!(jobHit || hit(`${m.name ?? ""} ${m.externalId ?? ""}`))) continue;
+        const rig = rigOf(m.employeeId, vehicles.data ?? []);
+        crews.push({
+          id: `${projectId}:${m.employeeId}`,
+          foremanId: m.employeeId,
+          foremanExternalId: m.externalId ?? null,
+          foremanName: m.name ?? "Unknown",
+          foremanRole: m.employeeRole ?? "",
+          rig,
+          tools: [],
+          otherJobs: new Set(
+            tools.filter((t) => t.custodianId === m.employeeId && t.currentProjectId && t.currentProjectId !== projectId).map((t) => t.currentProjectId),
+          ).size,
+        });
+      }
       return crews.sort((a, b) => a.foremanName.localeCompare(b.foremanName));
     };
 
@@ -414,7 +442,7 @@ export default function JobsitesPage() {
       if (cardSort === "value") return b.value - a.value || b.toolCount - a.toolCount;
       return b.toolCount - a.toolCount || a.name.localeCompare(b.name);
     });
-  }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, scope, q, jobFilter, foremanFilter, statusFilter, categoryFilter, highValueOnly, gapFilter, anyFilter, cardSort, poolView]);
+  }, [assets.data, projects.data, foremen, allCustodians, vehicles.data, team.data, scope, q, jobFilter, foremanFilter, statusFilter, categoryFilter, highValueOnly, gapFilter, anyFilter, cardSort, poolView]);
 
   /*
     What the Pool holds, read off the cards it is about to draw.
