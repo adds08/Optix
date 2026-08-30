@@ -2816,7 +2816,13 @@ export const txSpecs: TxSeed[] = [
 ];
 
 export const userSpecs: UserSeed[] = [
-  { email: "owner@stinventory.local", first: "Demo", last: "Owner", role: "owner", employeeKey: null },
+  /*
+    System Administrator, per SYSTEM_PLAN.md §2 — the `owner` role, not a
+    second all-permissions role. Named "Urban Admin" rather than "Demo
+    Owner" so a fresh seed reads as Urban's own top-authority account
+    rather than a placeholder nobody is meant to keep.
+  */
+  { email: "owner@stinventory.local", first: "Urban", last: "Admin", role: "owner", employeeKey: null },
   { email: "admin@stinventory.local", first: "Karen", last: "Osei", role: "equipment_admin", employeeKey: "e-karen" },
   { email: "warehouse@stinventory.local", first: "Yard", last: "Desk", role: "warehouse", employeeKey: "e-yard" },
   /*
