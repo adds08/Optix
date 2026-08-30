@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, Upload } from "lucide-react";
+import { ChevronDown, Download, Sparkles, Upload } from "lucide-react";
 import * as XLSX from "xlsx";
 import { IMPORT_SPECS, templateRows, type ImportEntity } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
@@ -15,6 +15,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 /*
@@ -29,16 +35,69 @@ import { cn } from "@/lib/utils";
 
 type Parsed = { rows: Record<string, string>[]; filename: string };
 
+/*
+  Two ways in, one built and one not.
+
+  CSV/Excel is the whole flow below — template, preview, commit — and stays a
+  single click away since it is what every register uses today. AI Import is
+  named here, disabled, and badged "Coming soon" rather than left unmentioned:
+  the feature-flag work that will eventually turn it on (`import.ai`, an
+  `upcoming` tenant feature) needs a real place in the UI to switch on, not a
+  button invented after the fact.
+*/
+/* The feature key AI Import is wired to. Not entity-specific — one tenant
+   decision covers the whole capability, whichever register it is offered
+   from. See feature.states in packages/api-contracts/src/routers/feature.ts. */
+const AI_IMPORT_FEATURE_KEY = "import.ai";
+
 export function ImportButton({ entity }: { entity: ImportEntity }) {
   const [open, setOpen] = useState(false);
   const spec = IMPORT_SPECS[entity];
+  const featureStates = trpc.feature.states.useQuery();
+  const aiState = featureStates.data?.[AI_IMPORT_FEATURE_KEY] ?? "upcoming";
+
+  if (aiState === "hidden") {
+    return (
+      <Can perm={spec.permission}>
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+          <Upload className="size-4" aria-hidden />
+          Import
+        </Button>
+        {open ? <ImportDialog entity={entity} onClose={() => setOpen(false)} /> : null}
+      </Can>
+    );
+  }
 
   return (
     <Can perm={spec.permission}>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-        <Upload className="size-4" aria-hidden />
-        Import
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline">
+            <Upload className="size-4" aria-hidden />
+            Import
+            <ChevronDown className="size-3.5 opacity-60" aria-hidden />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setOpen(true)}>
+            <Upload className="size-4 opacity-70" aria-hidden />
+            Import from CSV
+          </DropdownMenuItem>
+          {/* Disabled regardless of state — there is no AI import pipeline
+              built yet. The state only changes what the row SAYS, so the
+              day one exists, flipping this to "enabled" is real: the badge
+              and the disabled attribute below are both driven by it, not
+              hard-coded, which is the whole point of wiring it to a tenant
+              feature key now rather than later. */}
+          <DropdownMenuItem disabled className="flex items-center gap-2 opacity-60">
+            <Sparkles className="size-4 opacity-70" aria-hidden />
+            <span className="flex-1">AI Import</span>
+            <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {aiState === "beta" ? "Beta" : "Coming soon"}
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {open ? <ImportDialog entity={entity} onClose={() => setOpen(false)} /> : null}
     </Can>
   );

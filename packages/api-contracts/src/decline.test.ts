@@ -111,7 +111,7 @@ describe.skipIf(!url)("decline paths: real message, agreed ledger behaviour (STI
     const [b] = await db.insert(schema.employee).values({ tenantId, name: "Foreman B" }).returning({ id: schema.employee.id });
     empA = a!.id;
     empB = b!.id;
-    const [p] = await db.insert(schema.project).values({ tenantId, name: "STI-112 substation" }).returning({ id: schema.project.id });
+    const [p] = await db.insert(schema.project).values({ tenantId, name: "STI-112 substation", startDate: "2025-01-06" }).returning({ id: schema.project.id });
     projectId = p!.id;
     const [l] = await db
       .insert(schema.location)

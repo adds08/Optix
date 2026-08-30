@@ -24,6 +24,12 @@ export type NavItem = {
      route rather than sniffed from the pathname in app-shell.tsx, so adding a
      second wall screen is one field and not another branch in the shell. */
   fullBleed?: boolean;
+  /* Set only at runtime by `applyFeatureStates` below — never in the static
+     arrays in this file. `undefined`/`"enabled"` render exactly as before;
+     `"beta"`/`"upcoming"` get a badge, and `"upcoming"` additionally loses
+     its link (see `app-sidebar.tsx`'s `NavRow`). A `"hidden"` item never
+     reaches a row at all — it is filtered out before rendering. */
+  featureState?: "beta" | "upcoming";
 };
 
 export type NavGroup = {
@@ -68,6 +74,7 @@ const SETTINGS_GROUP: NavGroup = {
   placement: "foot",
   items: [
     { id: "settings-general", href: "/settings", label: "General", icon: SlidersHorizontal, perm: "config.manage" },
+    { id: "settings-modules", href: "/settings/modules", label: "Modules", icon: LayoutGrid, perm: "config.manage" },
     { id: "settings-ai", href: "/settings/ai", label: "AI & API", icon: Cpu, perm: "config.manage" },
     /* No `perm`: a per-user preference written through `preferences.set`, which
        writes the caller's own row. */
@@ -192,7 +199,7 @@ export const DESK_NAV: NavGroup[] = [
     items: [
       { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read" },
       /* A job and a project are the same thing — the job ID is the cost code. */
-      { id: "projects", href: "/projects", label: "Projects / Jobs", icon: HardHat, perm: "project.read" },
+      { id: "projects", href: "/projects", label: "Projects", icon: HardHat, perm: "project.read" },
     ],
   },
   {
@@ -228,6 +235,16 @@ const FIELD_ROLES = new Set(["foreman", "superintendent", "mechanic"]);
 
 export function isFieldRole(role: string | null | undefined): boolean {
   return !!role && FIELD_ROLES.has(role);
+}
+
+const SETTINGS_ITEM_IDS = new Set(SETTINGS_GROUP.items.map((n) => n.id));
+
+/* Whether an id belongs to the Settings group — the same exemption
+   `applyFeatureStates` uses, exposed for the shell's redirect effect, which
+   has to make the identical call before it sends anyone away from a route a
+   stray feature row named. */
+export function isSettingsItemId(id: string): boolean {
+  return SETTINGS_ITEM_IDS.has(id);
 }
 
 export function navFor(role: string | null | undefined): NavGroup[] {
@@ -273,4 +290,41 @@ export function mainGroups(groups: NavGroup[]): NavGroup[] {
 
 export function footGroups(groups: NavGroup[]): NavGroup[] {
   return groups.filter((g) => g.placement === "foot");
+}
+
+/*
+  Generalises ADR-11 (docs/06-decisions.md) from a binary disabled-modules
+  list into four states — enabled/beta/upcoming/hidden — read from
+  `feature.states` (packages/api-contracts/src/routers/feature.ts) and keyed
+  on the same stable `id` a pin already trusts.
+
+  Applied in `app-shell.tsx` in the same pass as the permission filter, which
+  is the property ADR-11 asks for: the rail and the sidebar read one already-
+  filtered array, so a glyph and the pane it opens can never disagree about
+  what a group contains.
+
+  Settings is hard-exempted, group by group rather than by an id list — an
+  administrator who could hide Settings could hide the only way back. This is
+  presentation only, same as the permission filter beside it: nothing here
+  touches what a server procedure allows, and a hidden or upcoming key never
+  reaches this function's callers without a permission check of its own
+  already having run first.
+*/
+export function applyFeatureStates(groups: NavGroup[], states: Record<string, string>): NavGroup[] {
+  return groups
+    .map((g) => {
+      if (g.label === "Settings") return g;
+      return {
+        ...g,
+        items: g.items
+          .filter((n) => states[n.id] !== "hidden")
+          .map((n): NavItem => {
+            const s = states[n.id];
+            if (s === "beta") return { ...n, featureState: "beta" };
+            if (s === "upcoming") return { ...n, featureState: "upcoming" };
+            return n;
+          }),
+      };
+    })
+    .filter((g) => g.items.length > 0);
 }

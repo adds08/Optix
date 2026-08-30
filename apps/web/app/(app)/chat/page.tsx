@@ -347,7 +347,7 @@ function DraftFields({ draft }: { draft: Draft }) {
     ["Make", draft.make],
     ["Model no.", draft.modelNumber],
     ["Description", draft.description],
-    ["Serial", draft.serialNumber],
+    ["Code", draft.serialNumber],
     ["Category", draft.categoryName],
     ["Cost", draft.acquisitionCost],
   ];

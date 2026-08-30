@@ -26,6 +26,13 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-08-30 | [Two candidates, one generated avatar, and no third REST endpoint](2026-08-30-two-candidates-one-avatar-and-no-third-rest-endpoint.md) |
+| 2026-08-30 | [A header that says something, and a Name column that was never really there](2026-08-30-a-header-that-says-something-and-a-name-column-that-was-never-there.md) |
+| 2026-08-30 | [A fourth state nobody had to build twice](2026-08-30-a-fourth-state-nobody-had-to-build-twice.md) |
+| 2026-08-30 | [A second door for import, and a checkbox on every register](2026-08-30-a-second-door-for-import-and-a-checkbox-everywhere.md) |
+| 2026-08-30 | [One sort control, a pager that actually sticks, and a header that can't yet](2026-08-30-one-sort-control-a-pager-that-sticks-and-a-header-that-cant-yet.md) |
+| 2026-08-30 | [A code leads every register now, and "job" stops meaning "project"](2026-08-30-a-code-leads-every-register-now.md) |
+| 2026-08-29 | [A job costs nothing and must start somewhere](2026-08-29-a-job-costs-nothing-and-must-start-somewhere.md) |
 | 2026-08-29 | [The docs describe the system again, and v1.0.0 gets a name](2026-08-29-the-docs-describe-the-system-again.md) |
 | 2026-08-29 | [One front door for agents, and five that were competing for the job](2026-08-29-one-front-door-for-agents.md) |
 | 2026-08-29 | [Icon size is its own knob, and the mobile question gets a measured answer](2026-08-29-icon-size-is-its-own-knob.md) |

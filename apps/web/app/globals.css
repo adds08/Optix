@@ -705,3 +705,13 @@ tr.sti-freeze-row > .sti-freeze {
     1px 0 0 0 var(--border),
     6px 0 8px -6px color-mix(in oklch, var(--foreground) 45%, transparent);
 }
+
+/* The same seam, mirrored, for a column frozen to the RIGHT edge instead of
+   the left — the actions column. Content scrolls out from under it to the
+   LEFT, so the shadow falls on that side instead. Only ever one column wide;
+   this is not the leading-prefix freeze above and carries no count. */
+.sti-freeze-edge-right {
+  box-shadow:
+    -1px 0 0 0 var(--border),
+    -6px 0 8px -6px color-mix(in oklch, var(--foreground) 45%, transparent);
+}

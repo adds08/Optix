@@ -105,14 +105,14 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
             icon={toolCategoryIcon(a.categoryName)}
             eyebrow={a.categoryName ?? "Uncategorised"}
             title={formatAssetModel(a) || "Untagged tool"}
-            description={a.serialNumber ? `Serial ${a.serialNumber}` : undefined}
+            description={a.serialNumber ? `Code ${a.serialNumber}` : undefined}
             actions={
               <div className="flex flex-wrap items-center gap-3">
                 {/* The register's own number, unconditional — unlike the tag
                     below, every tool has one. Muted rather than plated: this
                     is the reliable id, not the physical label, and the two
                     should never look like the same kind of fact. */}
-                <span className="tag-num text-sm text-muted-foreground" title="Register ID">
+                <span className="tag-num text-sm text-muted-foreground" title="Register reference number">
                   {assetNumberDisplay(a.assetNumber)}
                 </span>
                 {/* The tag is the subject here, not one field in a grid of

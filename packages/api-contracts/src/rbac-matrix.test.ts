@@ -298,8 +298,8 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
          a super on project A sees A's foremen and not B's; two supers on one
          job both see all its foremen; a foreman with no team row is invisible;
          the super always sees their own tools (`self`). */
-      const [p1] = await db.insert(schema.project).values({ tenantId, name: "crew A" }).returning({ id: schema.project.id });
-      const [p2] = await db.insert(schema.project).values({ tenantId, name: "crew B" }).returning({ id: schema.project.id });
+      const [p1] = await db.insert(schema.project).values({ tenantId, name: "crew A", startDate: "2025-01-06" }).returning({ id: schema.project.id });
+      const [p2] = await db.insert(schema.project).values({ tenantId, name: "crew B", startDate: "2025-01-06" }).returning({ id: schema.project.id });
 
       const superA = await newScopedEmployee("Super A", "superintendent");
       const superB = await newScopedEmployee("Super B", "superintendent");

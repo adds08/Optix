@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { decryptSecret, encryptSecret, secretHint } from "@stinventory/auth";
-import { DEFAULT_HIGH_VALUE_THRESHOLD } from "@stinventory/types";
+import { BRANDING_LAYOUT_MODES, DEFAULT_HIGH_VALUE_THRESHOLD } from "@stinventory/types";
 import { TRPCError } from "@trpc/server";
 import {
   IntentParseError,
@@ -60,6 +60,8 @@ const PUBLIC_FIELDS = {
   discrepancyReviewSlaDays: schema.tenantSettings.discrepancyReviewSlaDays,
   emailEnabled: schema.tenantSettings.emailEnabled,
   smsEnabled: schema.tenantSettings.smsEnabled,
+  brandingName: schema.tenantSettings.brandingName,
+  brandingLayoutMode: schema.tenantSettings.brandingLayoutMode,
   llmEnabled: schema.tenantSettings.llmEnabled,
   llmBaseUrl: schema.tenantSettings.llmBaseUrl,
   llmModel: schema.tenantSettings.llmModel,
@@ -139,6 +141,9 @@ export const settingsRouter = router({
         discrepancyReviewSlaDays: z.number().int().min(0).max(365).optional(),
         emailEnabled: z.boolean().optional(),
         smsEnabled: z.boolean().optional(),
+        /* Null clears back to showing tenant.name as-is. */
+        brandingName: z.string().max(120).nullable().optional(),
+        brandingLayoutMode: z.enum(BRANDING_LAYOUT_MODES).optional(),
 
         llmEnabled: z.boolean().optional(),
         llmBaseUrl: z.string().url().max(400).nullable().optional(),

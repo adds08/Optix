@@ -84,9 +84,9 @@ describe.skipIf(!url)("what a PM and a superintendent can see (STI-403)", () => 
       .returning({ id: schema.user.id });
     userId = u!.id;
 
-    const [p1] = await db.insert(schema.project).values({ tenantId, name: "STI-403 Their Job" }).returning({ id: schema.project.id });
+    const [p1] = await db.insert(schema.project).values({ tenantId, name: "STI-403 Their Job", startDate: "2025-01-06" }).returning({ id: schema.project.id });
     theirJob = p1!.id;
-    const [p2] = await db.insert(schema.project).values({ tenantId, name: "STI-403 Somebody Else's Job" }).returning({ id: schema.project.id });
+    const [p2] = await db.insert(schema.project).values({ tenantId, name: "STI-403 Somebody Else's Job", startDate: "2025-01-06" }).returning({ id: schema.project.id });
     otherJob = p2!.id;
 
     pmId = await newEmployee("STI-403 PM", "pm");

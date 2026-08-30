@@ -50,6 +50,11 @@ const ASSET_TONE: Record<string, Tone> = {
   completed: "ok",
   cancelled: "idle",
   in_progress: "info",
+  /* project statuses — not_awarded/awarded/on_hold are project-only, the
+     other three project states are shared with assignment/transfer above */
+  not_awarded: "idle",
+  awarded: "info",
+  on_hold: "warn",
   /* vehicle GPS liveness — see @stinventory/types/gps */
   online: "ok",
   offline: "warn",

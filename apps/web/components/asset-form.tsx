@@ -28,6 +28,7 @@ export type AssetEditable = {
   categoryName?: string | null;
   photoKey?: string | null;
   serialNumber?: string | null;
+  isManualCode?: boolean | null;
   quantity?: number | null;
   acquisitionCost?: string | null;
   acquisitionDate?: string | null;
@@ -52,6 +53,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
   const [categoryName, setCategoryName] = useState(edit?.categoryName ?? "");
   const [photoKey, setPhotoKey] = useState<string | null>(edit?.photoKey ?? null);
   const [serialNumber, setSerialNumber] = useState(edit?.serialNumber ?? "");
+  const [isManualCode, setIsManualCode] = useState(edit?.isManualCode ?? false);
   const [quantity, setQuantity] = useState(edit?.quantity ?? 1);
   const [acquisitionCost, setAcquisitionCost] = useState(edit?.acquisitionCost ?? "");
   const [acquisitionDate, setAcquisitionDate] = useState(edit?.acquisitionDate ?? "");
@@ -91,6 +93,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
           description: description || null,
           categoryName: categoryName || null,
           serialNumber: serialNumber || null,
+          isManualCode,
           quantity,
           acquisitionCost: acquisitionCost || null,
           acquisitionDate: acquisitionDate || null,
@@ -108,6 +111,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
           description: description || undefined,
           categoryName: categoryName || undefined,
           serialNumber: serialNumber || undefined,
+          isManualCode,
           quantity,
           acquisitionCost: acquisitionCost || undefined,
           acquisitionDate: acquisitionDate || undefined,
@@ -171,8 +175,17 @@ export function AssetForm({ open, onClose, edit }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Serial number</label>
+              <label className="text-sm font-medium">Code</label>
               <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={isManualCode}
+                  onChange={(e) => setIsManualCode(e.target.checked)}
+                  className="size-3.5"
+                />
+                Entered by hand, not a scanned serial
+              </label>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Quantity</label>

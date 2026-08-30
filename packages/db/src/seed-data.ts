@@ -14,7 +14,7 @@
   regenerate into a scratch file and merge — never overwrite.
 */
 
-export type ProjectSeed = { key: string; extId: string | null; name: string; status: string; costCenter: string | null; start: string; end: string; site: string | null };
+export type ProjectSeed = { key: string; extId: string | null; name: string; description?: string; status: string; start: string; end: string; site: string | null };
 export type EmployeeSeed = { key: string; extId: string; name: string; role: string; primary: string | null; status: string; email: string | null; phone: string | null; reportsTo: string | null };
 export type PostingSeed = { emp: string; proj: string; from: string; to: string | null; note: string };
 export type TeamSeed = { emp: string; proj: string; role: string; from: string; note: string };
@@ -187,37 +187,45 @@ export const companyRoleSpecs: { name: string; code: string }[] = [
 ];
 
 export const projectSpecs: ProjectSeed[] = [
-  { key: "p-equipment-yard", extId: null, name: "Equipment Yard", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-lone-star-22018", extId: "22018", name: "Lone Star", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-equipment-yard-24002", extId: "24002", name: "Equipment Yard", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-colony-phase-12-23004", extId: "23004", name: "Colony Phase 12", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-nex-22017", extId: "22017", name: "NEX", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-plano-arterial-renewal-2-24003", extId: "24003", name: "Plano Arterial Renewal-2", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-garland-22015", extId: "22015", name: "Garland", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-austin-lane-24007", extId: "24007", name: "Austin Lane", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-dart-20011", extId: "20011", name: "DART", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-equipment-yard", extId: null, name: "Equipment Yard", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-lone-star-22018", extId: "22018", name: "Lone Star", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-equipment-yard-24002", extId: "24002", name: "Equipment Yard", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-colony-phase-12-23004", extId: "23004", name: "Colony Phase 12", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-nex-22017", extId: "22017", name: "NEX", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-plano-arterial-renewal-2-24003", extId: "24003", name: "Plano Arterial Renewal-2", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-garland-22015", extId: "22015", name: "Garland", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-austin-lane-24007", extId: "24007", name: "Austin Lane", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-dart-20011", extId: "20011", name: "DART", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   /*
-    STI-105: three jobs carry a status other than `active`, because every one
-    of the sixteen used to be `active` and the other three states were
-    unreachable from a clean database — the enum, the status pill and the
-    completion guard could only be exercised by hand-editing rows in psql.
+    STI-105 (updated for the 2026-08-29 status rework — not_awarded | awarded |
+    in_progress | completed | cancelled | on_hold): five jobs carry a status
+    other than `in_progress`, because every one of the sixteen used to be
+    `active` and the other states were unreachable from a clean database —
+    the enum, the status pill, the completion guard, and now the on-hold and
+    cancelled states could only be exercised by hand-editing rows in psql.
 
-    Richardson is `closing` WITH tools still out (55 active links), so the
+    Richardson is `in_progress` WITH tools still out (55 active links), so the
     completion guard is one click away in the UI rather than a code path
-    nobody can reach. Mesquite below is `complete` with none, which is the
-    other side of the same rule.
+    nobody can reach (it was `closing` before that state was retired into
+    `in_progress`). Mesquite below is `completed` with none, which is the
+    other side of the same rule. Bell and Little Elm reach `on_hold` and
+    `cancelled` — states the completion guard never gated, but ones the
+    status pill and any tenant reporting by status still need a real row to
+    render.
   */
-  { key: "p-richardson-23002", extId: "23002", name: "Richardson", status: "closing", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-bell-23010", extId: "23010", name: "Bell", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-little-elm-23009", extId: "23009", name: "Little Elm", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-traffic-control", extId: null, name: "Traffic Control", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-richardson-23002", extId: "23002", name: "Richardson", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  /* On hold, not cancelled — funding paused mid-job. */
+  { key: "p-bell-23010", extId: "23010", name: "Bell", description: "Paused pending re-funding.", status: "on_hold", start: "2025-01-06", end: "2030-12-31", site: null },
+  /* Cancelled outright — the client pulled the contract. */
+  { key: "p-little-elm-23009", extId: "23009", name: "Little Elm", description: "Contract cancelled by the client.", status: "cancelled", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-traffic-control", extId: null, name: "Traffic Control", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   /* Finished, and holding nothing — the state a completed job is supposed to
      be in. Picked because it genuinely has zero active custody links, so the
      seed is not asserting something the ledger contradicts. */
-  { key: "p-mesquite-24005", extId: "24005", name: "Mesquite", status: "complete", costCenter: null, start: "2025-01-06", end: "2026-06-30", site: null },
+  { key: "p-mesquite-24005", extId: "24005", name: "Mesquite", status: "completed", start: "2025-01-06", end: "2026-06-30", site: null },
   /* Won, not started. */
-  { key: "p-city-of-kemp", extId: null, name: "City of Kemp", status: "awarded", costCenter: null, start: "2026-09-01", end: "2030-12-31", site: null },
-  { key: "p-mechanic", extId: null, name: "Mechanic", status: "active", costCenter: null, start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-city-of-kemp", extId: null, name: "City of Kemp", status: "awarded", start: "2026-09-01", end: "2030-12-31", site: null },
+  { key: "p-mechanic", extId: null, name: "Mechanic", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
 ];
 
 export const employeeSpecs: EmployeeSeed[] = [

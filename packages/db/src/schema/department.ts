@@ -8,8 +8,10 @@ import { tenant } from "./identity";
   work out of the shop, not a site, and their tools still have to be charged to
   something.
 
-  Distinct from `project.costCenter` (a GL code string on a project) and from
-  `task.department` (a chat-routing label). Neither of those is this.
+  Distinct from `task.department` (a chat-routing label) — that is not this.
+  A GL code string on `project` itself (`costCenter`) existed briefly and was
+  dropped 2026-08-29 as unused; this table is not a replacement for it and
+  never was.
 */
 export const department = pgTable(
   "tbl_entity_department",

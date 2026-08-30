@@ -234,7 +234,7 @@ describe.skipIf(!url)("assignment.return keeps the ledger and the projection in 
     userId = u!.id;
     const [emp] = await db.insert(schema.employee).values({ tenantId, name: "Foreman C" }).returning({ id: schema.employee.id });
     empId = emp!.id;
-    const [p] = await db.insert(schema.project).values({ tenantId, name: "STI-113 substation" }).returning({ id: schema.project.id });
+    const [p] = await db.insert(schema.project).values({ tenantId, name: "STI-113 substation", startDate: "2025-01-06" }).returning({ id: schema.project.id });
     projectId = p!.id;
     const [l] = await db
       .insert(schema.location)

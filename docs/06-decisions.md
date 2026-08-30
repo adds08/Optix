@@ -369,3 +369,58 @@ leak, and the failure is silent.
 - Two of the tiers already exist and are only badly named. `owner` and `office_admin` get
   clearer labels in the interface; no permission changes. SYSTEM_PLAN §2 has warned since
   the beginning that "admin" means three different things here.
+
+---
+
+## ADR-13 — Feature presentation is four states, not two
+
+**Status:** Accepted · **Date:** 2026-08-30
+
+**Decision.** ADR-11's `tenant_settings.disabled_modules` — a binary hide/show list,
+specified in STI-1204 but never built — is generalized to four states before it is built at
+all: `enabled | beta | upcoming | hidden`, stored one row per key in a new table,
+`tbl_entity_tenant_feature` (`packages/db/src/schema/feature.ts`), rather than widened
+further onto `tenant_settings` itself.
+
+**Rationale.** The forcing case was an "AI Import" menu item
+(`apps/web/components/import-dialog.tsx`) that needed to be visible, named, and inert — a
+state a hide/show list has no way to express. Building the binary version first and
+generalizing it later would mean migrating every existing binary row to a four-state one and
+touching every place that reads `disabled_modules` a second time, for no benefit the first
+version was ever asked to provide.
+
+A separate table rather than a jsonb column: feature keys grow over time — a nav item id
+today, an in-page key like `import.ai` tomorrow — and a bag of arbitrary keys on a
+fixed-shape settings row is neither queryable nor auditable the way a real table with a
+`(tenant_id, key)` unique index is. No row for a key means `enabled`, which has to be the
+default: a key invented after a tenant exists must not silently vanish for it.
+
+**Consequences — everything ADR-11 already established, still true:**
+- **Presentation only.** Nothing here touches what a permission check allows. A hidden or
+  upcoming key never reaches `packages/api-contracts` at all; it is filtered in
+  `apps/web/components/sti/nav-config.ts`'s `applyFeatureStates`, in the same pass as the
+  permission filter in `app-shell.tsx`, so the rail and the sidebar read one array and can
+  never disagree about what a group contains.
+- **Settings can never be hidden**, enforced by group label in `applyFeatureStates` rather
+  than an id list, and mirrored in the shell's redirect effect (`isSettingsItemId`) so a
+  stray row cannot lock an administrator out of the one screen that could undo it.
+- **Hidden routes redirect** to `/home`, same as ADR-11 specifies.
+- Read via `feature.states`, a plain `protectedProcedure` — every signed-in person needs it
+  to know what their own nav should show, the same as `identity.me`'s permissions. Written
+  via `feature.set`, gated `config.manage` exactly like `settings.update`.
+
+**What the two states beyond hide/show actually mean:**
+- `upcoming` — visible, named, and inert. No click-through: a sidebar row loses its link
+  (`app-sidebar.tsx`'s `NavRow`) and shows "Soon"; the AI Import menu item stays disabled
+  and shows "Coming soon". The point is telling someone a capability exists and is coming,
+  not hiding that decision until the day it ships.
+- `beta` — fully functional, badged "Beta" so a person knows what they are looking at. No
+  code path currently branches on it beyond the badge; the state exists so a feature can be
+  turned on for one tenant without a deploy, which was the whole promise of "configuration,
+  not code" ADR-11 made for module visibility in the first place.
+
+**STI-1204's original acceptance criteria still apply and are met by the more general
+mechanism**: disabling every module in a group drops the group (the same `.filter((g) =>
+g.items.length > 0)` ADR-11 always used); an id naming nothing is silently ignored (a lookup
+against a map, never an error); two administrators setting the same key at once is
+last-write-wins, which is fine — the alternative is building locking for a config screen.

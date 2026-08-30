@@ -22,7 +22,7 @@ import { DUR, EASE } from "@/lib/motion";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
-import { allItems, groupKey, isFieldRole, matchItem, navFor, type NavGroup } from "./nav-config";
+import { allItems, applyFeatureStates, groupKey, isFieldRole, isSettingsItemId, matchItem, navFor, type NavGroup } from "./nav-config";
 import { LAND_ON_PIN, defaultPinnedHref, readPinOrder } from "./nav-pins";
 
 /*
@@ -182,16 +182,41 @@ export function AppShell({
   const field = isFieldRole(role);
   const current = matchItem(allItems(role), pathname);
 
+  /* Tenant presentation state — see ADR-11's generalization in
+     docs/06-decisions.md. Every signed-in person needs this, the same as
+     `perms` above, so it is fetched alongside `identity.me` rather than
+     gated behind an admin permission. */
+  const featureStates = trpc.feature.states.useQuery(undefined, { enabled: !!me.data });
+
   /* Two-pane shell (Blocky): the rail draws one glyph per group, the sidebar
      shows the active group's rows. A group reaches the rail only if at least
      one of its rows survives the permission filter — a glyph that opens an
-     empty sidebar is worse than no glyph at all. */
+     empty sidebar is worse than no glyph at all. Feature state is applied
+     in the SAME pass, after permissions, so the rail and the sidebar read
+     one array and can never disagree about what a group contains. */
   const groups = navFor(role);
-  const railGroups: NavGroup[] = groups
-    .map((g) => ({ ...g, items: g.items.filter((n) => !n.perm || perms.includes(n.perm)) }))
-    .filter((g) => g.items.length > 0);
+  const railGroups: NavGroup[] = applyFeatureStates(
+    groups
+      .map((g) => ({ ...g, items: g.items.filter((n) => !n.perm || perms.includes(n.perm)) }))
+      .filter((g) => g.items.length > 0),
+    featureStates.data ?? {},
+  );
   const activeGroup = railGroups.find((g) => g.items.some((i) => i.href === current?.href));
   const activeGroupKey = activeGroup ? groupKey(activeGroup) : undefined;
+
+  /* A module hidden by tenant feature state redirects, exactly as ADR-11
+     specifies for its binary predecessor — a bookmark or a pin must not land
+     on a screen the rail no longer offers a door to. Settings is exempt
+     (`isSettingsItemId`), the same exemption `applyFeatureStates` already
+     applies to the rail itself, so a stray row can never lock an
+     administrator out of the one screen that could undo it. Waits for both
+     queries to resolve — `current` is null with nothing loaded yet, which
+     must not read as "hidden". */
+  useEffect(() => {
+    if (!me.data || !featureStates.data || !current) return;
+    if (isSettingsItemId(current.id)) return;
+    if (featureStates.data[current.id] === "hidden") router.replace("/home");
+  }, [me.data, featureStates.data, current, router]);
 
   /*
     The first pinned row is where a session starts.
@@ -325,6 +350,7 @@ export function AppShell({
         groups={railGroups}
         activeGroupKey={activeGroupKey}
         inboxCount={inboxCount}
+        tenant={me.data?.tenant ?? null}
       />
       <SidebarInset>
         {/* Top bar — page context, search, notifications, account. h-14 is
@@ -354,7 +380,7 @@ export function AppShell({
             <NotificationCenter />
             <ThemeToggle />
             {me.data ? (
-              <UserMenu name={userName} role={me.data.role} onSignOut={onLogout} />
+              <UserMenu name={userName} role={me.data.role} tenant={me.data.tenant} onSignOut={onLogout} />
             ) : null}
           </div>
         </header>

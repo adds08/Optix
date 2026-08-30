@@ -132,7 +132,7 @@ export function ProjectMonitor() {
     for (const p of projectsQ.data ?? []) {
       if (projectIds && !projectIds.has(p.id)) continue;
       const rows = assets.filter((a) => a.currentProjectId === p.id);
-      if (!rows.length && p.status !== "active") continue;
+      if (!rows.length && p.status !== "in_progress") continue;
 
       const byCustodian = new Map<string, number>();
       let unassigned = 0;

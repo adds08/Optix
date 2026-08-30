@@ -1,0 +1,2 @@
+ALTER TABLE "tbl_entity_tenant_settings" ADD COLUMN "branding_name" text;--> statement-breakpoint
+ALTER TABLE "tbl_entity_tenant_settings" ADD COLUMN "branding_layout_mode" text DEFAULT 'icon_and_text' NOT NULL;

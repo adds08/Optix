@@ -5,8 +5,8 @@ import { useMemo, useState } from "react";
 import { FolderInput, KeyRound, Mail, UserCheck, UserX, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
-import { StatusPill, humanize } from "@/components/sti/status";
+import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
 import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
@@ -57,6 +57,10 @@ export default function PeoplePage() {
   const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
   const [inviting, setInviting] = useState<{ id: string; name: string; email?: string | null; roleId?: string | null } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /* No bulk action reads this yet — turned on for consistency with the other
+     registers, which all now offer a checkbox whether or not anything acts
+     on the selection. */
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
   const utils = trpc.useUtils();
 
   const remove = trpc.employee.delete.useMutation({
@@ -96,11 +100,28 @@ export default function PeoplePage() {
   const EVERYONE_COLUMNS: ColumnDef<EmployeeRow>[] = useMemo(
     () => [
       col<EmployeeRow>({
+        header: "Employee Code",
+        accessorFn: (e) => e.externalId ?? "",
+        width: "8rem",
+        cell: (e) => (
+          <Link href={`/people/${e.id}`} className="hover:underline">
+            {e.externalId ? <Tag>{e.externalId}</Tag> : <span className="text-muted-foreground">—</span>}
+          </Link>
+        ),
+      }),
+      col<EmployeeRow>({
+        /* The widest column with a declared width, matching the register's
+           own convention (see tools/page.tsx's "Tool" column) — this and
+           "Primary project" below were both left with NO width until this
+           fix, which under `table-fixed` means "share whatever six other
+           explicit-width columns didn't claim", squeezed to a couple of
+           pixels rather than actually flexible. */
         header: "Name",
-        accessorFn: (e) => idName(e.externalId, e.name),
+        accessorFn: (e) => e.name,
+        width: "14rem",
         cell: (e) => (
           <Link href={`/people/${e.id}`} className="font-medium hover:underline">
-            {idName(e.externalId, e.name)}
+            {e.name}
           </Link>
         ),
       }),
@@ -137,6 +158,7 @@ export default function PeoplePage() {
       col<EmployeeRow>({
         header: "Primary project",
         accessorFn: (e) => e.primaryProjectName ?? "",
+        width: "12rem",
         cell: (e) => (e.primaryProjectName ? idName(e.primaryProjectExternalId, e.primaryProjectName) : "—"),
       }),
       col<EmployeeRow>({ header: "Status", accessorFn: (e) => e.employmentStatus, width: "7rem", cell: (e) => <StatusPill status={e.employmentStatus} /> }),
@@ -144,12 +166,13 @@ export default function PeoplePage() {
       col<EmployeeRow>({ header: "Value held", accessorFn: (e) => Number(held.get(e.id)?.totalValue ?? 0), numeric: true, width: "7rem", cell: (e) => <span className="tnum">{held.get(e.id) ? money(held.get(e.id)!.totalValue) : "—"}</span> }),
       col<EmployeeRow>({
         id: "actions",
-        header: "",
+        header: "Actions",
         sortable: false,
+        stickyRight: true,
         /* One trigger, so this no longer grows with the number of actions. It
            was 9rem for two controls, then 14rem when "Move project" arrived,
            and the last control was still clipped. */
-        width: "4rem",
+        width: "5rem",
         cell: (e) => (
           <RowActions
             perm="employee.manage"
@@ -230,7 +253,7 @@ export default function PeoplePage() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {editing ? <EmployeeForm open onClose={() => setEditing(null)} edit={editing} /> : null}
       {inviting ? <InviteDialog person={inviting} open onClose={() => setInviting(null)} /> : null}
       {notice ? (
@@ -248,16 +271,17 @@ export default function PeoplePage() {
           currentProjectId={moving.projectId}
         />
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="flex items-center gap-2 text-lg font-semibold">
-          <Users className="size-4 text-muted-foreground" aria-hidden />
-          People
-        </h1>
-        <div className="ml-auto flex items-center gap-2">
-          <ImportButton entity="employee" />
-          <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
-        </div>
-      </div>
+      <PageHeader
+        icon={Users}
+        title="People"
+        description="Everyone who can hold a tool or sign in — foremen, mechanics, and the account they may or may not have."
+        actions={
+          <>
+            <ImportButton entity="employee" />
+            <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
+          </>
+        }
+      />
 
       {/* The HR clearance queue and its "Blocks offboarding" hazard band stood
           here until 2026-08-27. Removed on the product call that Urban does not
@@ -269,8 +293,10 @@ export default function PeoplePage() {
           `dashboard.clearanceQueue` and the departure reassignment engine are
           NOT deleted, only unreached. See docs/10-entity-model.md. */}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">Everyone</h2>
+      {/* No section wrapper or "Everyone" heading — there was never a second
+          section for it to disambiguate from, and the register sits directly
+          under the page header everywhere else in the app. */}
+      <div className="flex flex-col gap-3">
         {employees.isLoading ? (
           <TableSkeleton cols={5} />
         ) : employees.isError ? (
@@ -284,9 +310,12 @@ export default function PeoplePage() {
             rows={rows}
             rowId={(e) => e.id}
             searchPlaceholder="Search people…"
+            enableSelection
+            selection={selectedIds}
+            onSelectionChange={setSelectedIds}
           />
         )}
-      </section>
+      </div>
     </div>
   );
 }

@@ -288,7 +288,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
        needs a project, and the successor needs a superintendent row on it. */
     const [proj] = await db
       .insert(schema.project)
-      .values({ tenantId, name: "STI-306 test job" })
+      .values({ tenantId, name: "STI-306 test job", startDate: "2025-01-06" })
       .returning({ id: schema.project.id });
     const projectId = proj!.id;
     await db
@@ -547,7 +547,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
        stepped over (the query filters active employees), the PM's row wins. */
     const [proj] = await db
       .insert(schema.project)
-      .values({ tenantId, name: "STI-306 step-over job" })
+      .values({ tenantId, name: "STI-306 step-over job", startDate: "2025-01-06" })
       .returning({ id: schema.project.id });
     const projectId = proj!.id;
     await newTeamRow(goneSuper, projectId, "superintendent");
@@ -569,7 +569,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
        past the successor check and fails on the poisoned ride instead. */
     const [proj] = await db
       .insert(schema.project)
-      .values({ tenantId, name: "STI-306 rollback job" })
+      .values({ tenantId, name: "STI-306 rollback job", startDate: "2025-01-06" })
       .returning({ id: schema.project.id });
     const projectId = proj!.id;
     await newTeamRow(successorId, projectId, "superintendent");

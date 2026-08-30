@@ -39,7 +39,7 @@ code. The rows are its contents.
 
 The register already models all of this. A trailer is a `location` with
 `type = 'vehicle'` and a `custodianEmployeeId`; the project is a `project` with
-`externalId`/`costCenter` holding `22018`; the foreman is an `employee` whose
+`externalId` holding `22018`; the foreman is an `employee` whose
 `externalId` is his code. Nothing new is needed — but the export has to
 reproduce that header block, or the file it emits will not be recognisable as
 the same document.
