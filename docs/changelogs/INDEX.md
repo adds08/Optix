@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-08-30 | [The browser suite leaves CI, and takes its own prediction with it](2026-08-30-the-browser-suite-leaves-ci-and-takes-its-ticket-with-it.md) |
 | 2026-08-30 | [The owner account gets Urban's name, and a fourth admin role doesn't happen](2026-08-30-the-owner-account-gets-urbans-name.md) |
 | 2026-08-30 | [Equipment gets a register, and the Registry group fills its reserved slot](2026-08-30-equipment-gets-a-register.md) |
 | 2026-08-30 | [A foreman shows up before holding a tool, and a picker says which one](2026-08-30-a-foreman-shows-up-before-holding-a-tool.md) |

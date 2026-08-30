@@ -2,7 +2,7 @@
 
 **Phase:** cross-cutting
 **Size:** 2 units
-**Status:** **DONE — 2026-08-22.** `e2e/` workspace package, `make ENV=local e2e`, root `pnpm e2e`, and a non-blocking CI job (STI-122 makes it blocking once it has a fortnight of clean history). 27 specs across five roles. **Criterion 5, the isolation decision, is made explicitly and not deferred:** every spec is READ-ONLY, so no per-worker database is needed — building a template restore to protect reads would be machinery in place of a reason. The first MUTATING spec needs a mechanism chosen first, and that is written into STI-002 rather than left to be discovered when two workers fight over TOOL-0001.
+**Status:** **DONE — 2026-08-22.** `e2e/` workspace package, `make ENV=local e2e`, root `pnpm e2e`, and a non-blocking CI job (**since removed — 2026-08-30, see STI-122**; criterion 8 was met when this shipped and the prediction in it came true). 27 specs across five roles. **Criterion 5, the isolation decision, is made explicitly and not deferred:** every spec is READ-ONLY, so no per-worker database is needed — building a template restore to protect reads would be machinery in place of a reason. The first MUTATING spec needs a mechanism chosen first, and that is written into STI-002 rather than left to be discovered when two workers fight over TOOL-0001.
 **Blocks:** STI-002
 **Depends on:** nothing
 
