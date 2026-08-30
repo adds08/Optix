@@ -5,10 +5,12 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 2px);
+  /* Blocky radii (ADR-7): 3px controls, 4px containers, 6px dialogs/sheets.
+     No pill shapes — the only circle in the system is the user avatar. */
+  --radius-sm: 3px;
   --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 6px);
+  --radius-lg: 6px;
+  --radius-xl: 6px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -38,6 +40,12 @@
   --color-idle: var(--idle);
   --color-idle-bg: var(--idle-bg);
 
+  /* Role, not status — see the --hat-* note in :root. */
+  --color-hat-white: var(--hat-white);
+  --color-hat-foreman: var(--hat-foreman);
+  --color-hat-trade: var(--hat-trade);
+  --color-hat-office: var(--hat-office);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -51,6 +59,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-rail: var(--rail);
+  --color-rail-foreground: var(--rail-foreground);
+  --color-rail-accent: var(--rail-accent);
+  --color-rail-accent-foreground: var(--rail-accent-foreground);
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
@@ -61,108 +73,179 @@
   Neutrals carry a slight cool bias toward the accent so they read as chosen,
   not inherited. Radius is tight (6px) — this is a yard tool, not a consumer app.
 */
+/*
+  The base tokens ARE the Blocky palette (ADR-7).
+
+  This is the product's colour, not a theme sitting on top of one. Themes are
+  alternative palettes over this ground; `blocky` in lib/themes/themes.ts
+  therefore carries empty overrides, and selecting it clears every override
+  rather than adding a layer.
+
+  Structure is NOT here and must never be: radii, the type pairing, the two-pane
+  shell and the primitives are global by construction, so switching palette
+  changes colour and nothing else.
+
+  EVERY value below is a real conversion of the hex in the design system's
+  tokens/colors.css, not an estimate. That distinction cost a full dark mode:
+  the recipe these were first generated from carried hand-guessed oklch — it
+  labelled `oklch(0.066 …)` as #090B0E when #090B0E is L 0.149 — so every dark
+  surface shipped ~0.085 too dark, crushed toward black, and the card stopped
+  separating from the page. Convert, never estimate; the numbers in the comments
+  are the source of truth and the oklch is derived from them.
+
+  Status hues (ok/warn/crit/idle) and the rail are deliberately fixed across
+  every palette: they mean the same thing in all of them.
+*/
 :root {
-  --radius: 0.375rem;
+  --radius: 0.25rem;
 
-  --background: oklch(0.988 0.003 240);
-  --foreground: oklch(0.195 0.016 245);
+  --background: oklch(0.970 0.003 265);         /* #F4F5F7 */
+  --foreground: oklch(0.234 0.013 258);         /* #1A1E24 */
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.195 0.016 245);
+  --card: oklch(1 0 0);                         /* #FFFFFF */
+  --card-foreground: oklch(0.234 0.013 258);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.195 0.016 245);
+  --popover-foreground: oklch(0.234 0.013 258);
 
-  /* Accent: deep blue-teal — drafting ink. */
-  --primary: oklch(0.505 0.093 227);
-  --primary-foreground: oklch(0.99 0.002 240);
+  --primary: oklch(0.524 0.095 248);            /* #3A6E9E */
+  --primary-foreground: oklch(0.970 0.003 265);
 
-  --secondary: oklch(0.962 0.006 240);
-  --secondary-foreground: oklch(0.28 0.018 245);
-  --muted: oklch(0.965 0.005 240);
-  --muted-foreground: oklch(0.505 0.016 245);
-  --accent: oklch(0.948 0.014 230);
-  --accent-foreground: oklch(0.34 0.055 227);
+  --secondary: oklch(0.958 0.004 271);          /* #F0F1F4 */
+  --secondary-foreground: oklch(0.234 0.013 258);
+  --muted: oklch(0.958 0.004 271);              /* #F0F1F4 */
+  --muted-foreground: oklch(0.563 0.020 256);   /* #6E7681 */
+  --accent: oklch(0.951 0.014 248);             /* #E8F0F8 */
+  --accent-foreground: oklch(0.339 0.057 248);  /* #1E3A54 */
 
   --destructive: oklch(0.545 0.163 28);
-  --border: oklch(0.906 0.008 240);
-  --input: oklch(0.906 0.008 240);
-  --ring: oklch(0.505 0.093 227);
+  /* #D8DBE0 — the design's card border, 0.109 clear of white. */
+  --border: oklch(0.891 0.008 261);
+  --input: oklch(0.844 0.009 258);              /* #C8CCD2, one step stronger */
+  --ring: oklch(0.524 0.095 248);
 
   --ok: oklch(0.505 0.092 168);
-  --ok-bg: oklch(0.955 0.024 168);
+  --ok-bg: oklch(0.93 0.024 168);
   --warn: oklch(0.545 0.115 62);
-  --warn-bg: oklch(0.958 0.036 72);
+  --warn-bg: oklch(0.93 0.036 72);
   --crit: oklch(0.525 0.163 28);
-  --crit-bg: oklch(0.955 0.028 28);
+  --crit-bg: oklch(0.93 0.028 28);
   --idle: oklch(0.545 0.012 245);
-  --idle-bg: oklch(0.952 0.005 240);
+  --idle-bg: oklch(0.93 0.005 240);
 
-  --chart-1: oklch(0.505 0.093 227);
+  /* Hard-hat colours, following site convention: white for supervision, yellow
+     for foremen, blue for trades. Kept separate from the status tokens on
+     purpose — amber means "needs attention" everywhere else in this product,
+     and a foreman is not a warning. "White" is the hat's outline, so it is
+     near-black on paper and near-white on the dark surface. */
+  --hat-white: oklch(0.30 0.010 250);
+  --hat-foreman: oklch(0.62 0.130 75);
+  --hat-trade: oklch(0.52 0.095 235);
+  --hat-office: oklch(0.60 0.014 250);
+
+  --chart-1: oklch(0.524 0.095 248);
   --chart-2: oklch(0.505 0.092 168);
   --chart-3: oklch(0.545 0.115 62);
   --chart-4: oklch(0.525 0.163 28);
   --chart-5: oklch(0.545 0.012 245);
 
-  /* Sidebar is a panel, not part of the page: close enough in value to stay
-     light, different enough (darker, cooler) that the edge is obvious at a
-     glance. The page background is ~0.99; this sits ~0.94. */
-  --sidebar: oklch(0.94 0.015 234);
-  --sidebar-foreground: oklch(0.28 0.018 245);
-  --sidebar-primary: oklch(0.505 0.093 227);
-  --sidebar-primary-foreground: oklch(0.99 0.002 240);
-  --sidebar-accent: oklch(0.898 0.022 228);
-  --sidebar-accent-foreground: oklch(0.31 0.055 227);
-  --sidebar-border: oklch(0.87 0.014 236);
-  --sidebar-ring: oklch(0.505 0.093 227);
+  /* The sidebar is a panel, not part of the page. In the design's light mode it
+     is white like the cards and the PAGE is the grey — the edge comes from the
+     border, not from a tinted panel. */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.234 0.013 258);
+  --sidebar-primary: oklch(0.524 0.095 248);
+  --sidebar-primary-foreground: oklch(0.970 0.003 265);
+  --sidebar-accent: oklch(0.951 0.014 248);
+  --sidebar-accent-foreground: oklch(0.339 0.057 248);
+  --sidebar-border: oklch(0.891 0.008 261);
+  --sidebar-ring: oklch(0.524 0.095 248);
+
+  /* The 48px primary rail is instrument chassis — near-black in BOTH modes
+     (design readme, "Light mode"), so it carries its own tokens rather than the
+     palette's sidebar/accent set, or a light palette would paint a pale chip
+     and dark-on-dark text onto near-black. #12161B is the design's light-mode
+     rail; it is deliberately NOT the dark mode's #060809. */
+  --rail: oklch(0.198 0.012 254);
+  --rail-foreground: oklch(0.620 0.018 250);
+  --rail-accent: oklch(0.250 0.037 257);
+  --rail-accent-foreground: oklch(0.820 0.050 252);
 }
 
 .dark {
-  --background: oklch(0.172 0.012 245);
-  --foreground: oklch(0.948 0.005 240);
+  --background: oklch(0.149 0.007 258);         /* #090B0E */
+  --foreground: oklch(0.944 0.004 236);         /* #EAEDEF */
 
-  --card: oklch(0.212 0.014 245);
-  --card-foreground: oklch(0.948 0.005 240);
-  --popover: oklch(0.212 0.014 245);
-  --popover-foreground: oklch(0.948 0.005 240);
+  --card: oklch(0.194 0.012 254);               /* #11151A */
+  --card-foreground: oklch(0.944 0.004 236);
+  --popover: oklch(0.216 0.016 257);            /* #151A21 */
+  --popover-foreground: oklch(0.944 0.004 236);
 
-  --primary: oklch(0.715 0.105 222);
-  --primary-foreground: oklch(0.172 0.012 245);
+  --primary: oklch(0.742 0.092 251);            /* #7FB0E4 */
+  --primary-foreground: oklch(0.149 0.007 258);
 
-  --secondary: oklch(0.262 0.015 245);
-  --secondary-foreground: oklch(0.94 0.005 240);
-  --muted: oklch(0.252 0.014 245);
-  --muted-foreground: oklch(0.688 0.014 245);
-  --accent: oklch(0.288 0.032 228);
-  --accent-foreground: oklch(0.88 0.045 222);
+  --secondary: oklch(0.199 0.014 258);          /* #12161C */
+  --secondary-foreground: oklch(0.944 0.004 236);
+  --muted: oklch(0.181 0.014 258);              /* #0E1218 */
+  --muted-foreground: oklch(0.659 0.017 248);   /* #8A939C */
+  --accent: oklch(0.250 0.037 257);             /* #162233 */
+  --accent-foreground: oklch(0.895 0.045 252);  /* #C8DFFA */
 
   --destructive: oklch(0.665 0.152 27);
-  --border: oklch(0.302 0.016 245);
-  --input: oklch(0.322 0.018 245);
-  --ring: oklch(0.715 0.105 222);
+  /* #232A32 — 0.088 clear of the card. This is the line that vanished: it
+     shipped at 0.156, only 0.051 above a card that was itself too dark. */
+  --border: oklch(0.282 0.018 252);
+  --input: oklch(0.297 0.020 252);              /* #262E37 */
+  --ring: oklch(0.742 0.092 251);
 
   --ok: oklch(0.735 0.105 168);
-  --ok-bg: oklch(0.268 0.038 168);
+  --ok-bg: oklch(0.28 0.038 168);
   --warn: oklch(0.762 0.112 68);
-  --warn-bg: oklch(0.282 0.042 62);
+  --warn-bg: oklch(0.28 0.042 72);
   --crit: oklch(0.688 0.135 28);
-  --crit-bg: oklch(0.285 0.052 28);
+  --crit-bg: oklch(0.28 0.052 28);
   --idle: oklch(0.665 0.012 245);
-  --idle-bg: oklch(0.258 0.008 245);
+  --idle-bg: oklch(0.28 0.008 250);
 
-  --chart-1: oklch(0.715 0.105 222);
+  --hat-white: oklch(0.93 0.004 250);
+  --hat-foreman: oklch(0.80 0.125 80);
+  --hat-trade: oklch(0.72 0.090 240);
+  --hat-office: oklch(0.62 0.014 250);
+
+  --chart-1: oklch(0.742 0.092 251);
   --chart-2: oklch(0.735 0.105 168);
   --chart-3: oklch(0.762 0.112 68);
   --chart-4: oklch(0.688 0.135 28);
   --chart-5: oklch(0.665 0.012 245);
 
-  --sidebar: oklch(0.16 0.017 240);
-  --sidebar-foreground: oklch(0.885 0.008 240);
-  --sidebar-primary: oklch(0.715 0.105 222);
-  --sidebar-primary-foreground: oklch(0.172 0.012 245);
-  --sidebar-accent: oklch(0.245 0.032 226);
-  --sidebar-accent-foreground: oklch(0.88 0.045 222);
-  --sidebar-border: oklch(0.245 0.018 240);
-  --sidebar-ring: oklch(0.715 0.105 222);
+  --sidebar: oklch(0.172 0.012 261);            /* #0D1015 */
+  --sidebar-foreground: oklch(0.944 0.004 236);
+  --sidebar-primary: oklch(0.742 0.092 251);
+  --sidebar-primary-foreground: oklch(0.149 0.007 258);
+  --sidebar-accent: oklch(0.250 0.037 257);
+  --sidebar-accent-foreground: oklch(0.895 0.045 252);
+  --sidebar-border: oklch(0.242 0.015 257);     /* #1B2027 */
+  --sidebar-ring: oklch(0.742 0.092 251);
+
+  --rail: oklch(0.132 0.005 226);               /* #060809 */
+  --rail-foreground: oklch(0.659 0.017 248);
+  --rail-accent: oklch(0.250 0.037 257);
+  --rail-accent-foreground: oklch(0.895 0.045 252);
+}
+
+/* Two-pane shell (Blocky): the 48px primary rail (app-rail.tsx) owns the left
+   edge, so the fixed secondary shadcn sidebar must sit beside it instead of
+   covering it.
+
+   Target `sidebar-container`, NOT `sidebar`. `data-slot="sidebar"` is the outer
+   `md:block` wrapper that holds the layout gap — it is statically positioned, so
+   `left` on it is inert and the fixed column stayed at `left: 0`, painting over
+   the whole rail. The rail was rendering the entire time; nothing could be seen
+   of it, which is why the two-pane shell looked like it had never been built.
+   Only the desktop column carries this slot — the phone sheet is a separate
+   element and keeps its own behaviour. Unlayered, so it beats the utility's
+   `left-0`. */
+[data-slot="sidebar-wrapper"] [data-slot="sidebar-container"] {
+  left: 3rem;
 }
 
 @layer base {
@@ -198,8 +281,20 @@
   .tag-num {
     @apply font-mono text-[0.8125rem] tracking-tight;
   }
+  /*
+    The mono uppercase label — the design's signature, and the single most
+    common piece of text in the product: every metric, every column head, every
+    section kicker.
+
+    The design sets it at 9.5px/.14em, which is a specimen-card value. This app
+    raised it to 11px and it was still the hardest thing on the page to read:
+    wide tracking on uppercase monospace fights legibility hardest at small
+    sizes, because the letterforms stop grouping into words. 12px with .1em
+    keeps the same voice and stops people leaning toward the monitor. Our users
+    are running jobs, not inspecting type.
+  */
   .label-xs {
-    @apply font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted-foreground;
+    @apply font-mono text-xs uppercase tracking-[0.1em] text-muted-foreground;
   }
 
   /* Compact density (docs/19): the data grid and the metric tiles tighten up
@@ -215,6 +310,30 @@
   }
   html[data-density="compact"] .metric-card {
     padding: 0.75rem;
+  }
+  /*
+    Compact is now where the design system's own density lives.
+
+    Comfortable — the default — was tightened to the design's specimen values
+    and that is what the people running jobs actually look at all day: 11px mono
+    labels at .14em tracking and 26px controls are a dispatch-board aesthetic,
+    not a working density for someone reading a screen between site visits. The
+    default now has room, and anyone who wants the dense board can choose it
+    here rather than everyone getting it by default.
+
+    Scoped to the label and the row paddings rather than a global font-size
+    change, because shrinking type wholesale is how a compact mode becomes an
+    unusable mode.
+  */
+  html[data-density="compact"] .label-xs {
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+  }
+  html[data-density="compact"] .crew-row {
+    padding-block: 0.375rem;
+  }
+  html[data-density="compact"] .crew-row .rig-chip {
+    height: 1.625rem;
   }
 
   /* Construction-panel animations (docs/20, E+F). `motion-safe:` gates them
@@ -253,25 +372,6 @@
      which is the usual way "respecting the preference" gets broken. */
   @keyframes sti-ink {
     to { stroke-dashoffset: 0; }
-  }
-  @keyframes sti-spin {
-    to { transform: rotate(360deg); }
-  }
-  @keyframes sti-bubble {
-    0%, 100% { transform: translateX(-2.6px); }
-    50% { transform: translateX(2.6px); }
-  }
-  /* Blade and hook are separate elements travelling together: the blade scales
-     from its mouth, the hook translates to wherever the blade's tip lands.
-     scaleX(0.3) on a 17-unit blade puts the tip at x=41.1, which is where the
-     hook's -12 leaves it. Change one number and you change both. */
-  @keyframes sti-tape-blade {
-    0%, 100% { transform: scaleX(0.3); }
-    42%, 64% { transform: scaleX(1); }
-  }
-  @keyframes sti-tape-hook {
-    0%, 100% { transform: translateX(-12px); }
-    42%, 64% { transform: translateX(0); }
   }
   /* The custody route. Dashes march toward the job site so the line reads as
      a direction of travel rather than a decorative border. -24 is three whole
@@ -315,17 +415,6 @@
     offset-rotate: 0deg;
   }
 
-  /* The blade's twelve teeth are one path of twelve strokes so the rim turns
-     as a single element. It opts out of the draw-on explicitly: `.sti-ink > *`
-     would otherwise dash it to nothing, because a raked tooth is not a shape
-     you can normalise with pathLength and still have draw in the right order.
-     Static under reduced motion is fine — a blade standing still is still
-     recognisably a blade. */
-  .sti-ink .ink-blade {
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-
   @media (prefers-reduced-motion: no-preference) {
     .sti-ink > * {
       stroke-dasharray: 1;
@@ -337,32 +426,13 @@
     .sti-ink > :nth-child(4) { animation-delay: calc(var(--ink-delay, 0s) + 0.27s); }
     .sti-ink > :nth-child(n + 5) { animation-delay: calc(var(--ink-delay, 0s) + 0.36s); }
 
-    /* Shapes that keep moving after they are drawn declare both animations;
-       the second simply waits out the first. */
-    .sti-ink .ink-bubble {
-      transform-box: view-box;
-      animation:
-        sti-ink 1.5s ease-out var(--ink-delay, 0s) forwards,
-        sti-bubble 3.4s ease-in-out 1.7s infinite;
-    }
-    .sti-ink .ink-tape-blade {
-      transform-box: view-box;
-      transform-origin: 36px 33.5px;
-      animation:
-        sti-ink 1.5s ease-out var(--ink-delay, 0s) forwards,
-        sti-tape-blade 6s ease-in-out 1.7s infinite;
-    }
-    .sti-ink .ink-tape-hook {
-      transform-box: view-box;
-      animation:
-        sti-ink 1.5s ease-out var(--ink-delay, 0s) forwards,
-        sti-tape-hook 6s ease-in-out 1.7s infinite;
-    }
-    .sti-ink .ink-blade {
-      transform-box: view-box;
-      transform-origin: 32px 32px;
-      animation: sti-spin 30s linear infinite;
-    }
+    /* ~~`.ink-bubble`, `.ink-tape-blade`, `.ink-tape-hook`, `.ink-blade`~~ —
+       the drifting spirit level, the tape measure's blade and the spinning saw
+       rim. Removed 2026-08-27 with the glyphs they animated: the auth panel's
+       strip now draws the RESOURCES a job consumes rather than five hand
+       tools, because the old strip was most of why the sign-in page read as a
+       tool crib. Their keyframes went too — see the note in `auth-panel.tsx`.
+       Nothing else ever used them; check there before reviving one. */
 
     .sti-float { animation: sti-float-y 6s ease-in-out var(--ink-delay, 0s) infinite; }
     .sti-route { animation: sti-march 1.4s linear infinite; }
@@ -453,10 +523,13 @@
   scrollbar-gutter: stable;
 }
 
-/* Sticky table headers — the column context stays visible while a long table
-   scrolls. Each table's wrapper gets a bounded scroll container so the header
-   sticks within it (top: 0) rather than trying to track the page scroll —
-   no overlap with the app header or the bottom action toolbar, no offset math. */
+/* The scroll box a wide table lives in.
+
+   It does NOT make the header sticky, whatever this comment claimed until
+   2026-08-28 — nothing in this file or in `table.tsx` sets `position: sticky`,
+   and rows are bounded by pagination rather than by a nested scrollbox, so
+   there is nothing for a header to stick to. What it does is give the table its
+   own horizontal scroll region, painted head band included. */
 .sti-table-scroll {
   /* Horizontal only: wide tables scroll inside the box, but a table never gets
      its own vertical scrollbar. Rows flow with the page (bounded by pagination),
@@ -474,4 +547,161 @@
 }
 .sti-table-scroll thead th {
   background: var(--muted);
+}
+
+/* Ruled tables — every cell boxed on all four sides.
+
+   Asked for directly on 2026-08-28, and it replaces an earlier call that a
+   table should be sectioned "by tone rather than by lines". Alternating fills
+   read fine on the darker themes and dissolve on the pale ones, and a wide
+   register with ten columns gives the eye nothing to track along. Lines do not
+   care about the theme.
+
+   The rule hangs off the `<table>` rather than off every cell because there
+   are several tables here that are hand-rolled for good reasons (selection,
+   grouping, a per-row menu) alongside the shared primitive. One rule, five
+   class names — not the same pair of Tailwind borders copied onto forty
+   `<td>`s. `border-collapse` comes from Tailwind's preflight, so adjacent
+   cells share one line rather than stacking two. */
+/* `separate` with zero spacing, NOT `collapse`, and the reason is column
+   freezing. Collapsed borders belong to the TABLE rather than to the cells, so
+   they are not clipped by a `position: sticky` cell — the vertical rules of the
+   columns scrolling underneath streak straight across a frozen column, once per
+   row, at the same x every time. It reads as debris rather than as a bug, which
+   is why it is worth naming here.
+
+   Zero spacing plus borders only on the right and bottom gives the same picture
+   collapse did: no doubling, because no two cells ever draw the same line. The
+   one thing it changes is that a border on a `<tr>` no longer paints at all,
+   which is why the horizontal rule below lives on the cells. */
+.sti-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.sti-grid th,
+.sti-grid td {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.sti-grid th:last-child,
+.sti-grid td:last-child {
+  border-right: 0;
+}
+/* The container already draws the outer box; a line under the final row would
+   sit directly on top of it and read as a double rule. */
+.sti-grid tbody tr:last-child > td {
+  border-bottom: 0;
+}
+
+/* Scrollbars you can actually see.
+
+   macOS hides overlay scrollbars until something moves, so a register that
+   scrolls sideways gives no sign at all that the columns continue past the
+   right edge — which is exactly how "data is cut off" gets reported as a bug.
+   Styling `::-webkit-scrollbar` opts the element out of overlay scrollbars in
+   WebKit and Blink, so the track is permanently there whenever the content
+   overflows.
+
+   Drawn from `--foreground` rather than a fixed grey so the thumb keeps its
+   contrast on all of the themes, and rounded via `background-clip: padding-box`
+   over a transparent border, which is what insets the thumb inside its track. */
+.sti-scroll,
+.sti-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--foreground) 30%, transparent) transparent;
+}
+.sti-scroll::-webkit-scrollbar,
+.sti-table-scroll::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+.sti-scroll::-webkit-scrollbar-track,
+.sti-table-scroll::-webkit-scrollbar-track {
+  background: color-mix(in oklch, var(--muted) 70%, transparent);
+}
+.sti-scroll::-webkit-scrollbar-thumb,
+.sti-table-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: color-mix(in oklch, var(--foreground) 30%, transparent);
+  background-clip: padding-box;
+}
+.sti-scroll::-webkit-scrollbar-thumb:hover,
+.sti-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--foreground) 55%, transparent);
+  background-clip: padding-box;
+}
+.sti-scroll::-webkit-scrollbar-corner,
+.sti-table-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Icon scale — a knob of its own, not a rider on the type scale.
+
+   Icons already track the font scale, because everything here is rem-based: a
+   `size-4` glyph measures 16.00px at 100% and 22.39px at 140%. Measured, not
+   assumed. What never tracked was the RATIO — body copy is 0.875rem and the two
+   commonest glyph sizes are 0.875rem and 0.75rem, so an icon sits at or below
+   the size of the word beside it however large the type gets. That is what
+   "the icons are way too small" meant.
+
+   Enumerated per size class rather than done with `zoom` or a transform.
+   `transform: scale()` does not change the layout box, so a grown icon would
+   paint over its neighbour; `zoom` does, but it also inherits into anything
+   nested and behaves differently across engines. Multiplying the declared size
+   is the boring version, and the set of sizes actually used on an `<svg>` in
+   this app is small enough to list.
+
+   Scoped to `svg` on purpose: the same `size-*` classes size avatar circles,
+   icon buttons and photo tiles, and those are containers the icon sits INSIDE.
+   Growing the box as well as the glyph would scale nothing relative to
+   anything. */
+:root {
+  --icon-scale: 1;
+}
+svg.size-2 { width: calc(0.5rem * var(--icon-scale)); height: calc(0.5rem * var(--icon-scale)); }
+svg.size-2\.5 { width: calc(0.625rem * var(--icon-scale)); height: calc(0.625rem * var(--icon-scale)); }
+svg.size-3 { width: calc(0.75rem * var(--icon-scale)); height: calc(0.75rem * var(--icon-scale)); }
+svg.size-3\.5 { width: calc(0.875rem * var(--icon-scale)); height: calc(0.875rem * var(--icon-scale)); }
+svg.size-4 { width: calc(1rem * var(--icon-scale)); height: calc(1rem * var(--icon-scale)); }
+svg.size-4\.5 { width: calc(1.125rem * var(--icon-scale)); height: calc(1.125rem * var(--icon-scale)); }
+svg.size-5 { width: calc(1.25rem * var(--icon-scale)); height: calc(1.25rem * var(--icon-scale)); }
+svg.size-6 { width: calc(1.5rem * var(--icon-scale)); height: calc(1.5rem * var(--icon-scale)); }
+svg.size-7 { width: calc(1.75rem * var(--icon-scale)); height: calc(1.75rem * var(--icon-scale)); }
+svg.size-8 { width: calc(2rem * var(--icon-scale)); height: calc(2rem * var(--icon-scale)); }
+
+/* Frozen columns and frozen rows.
+
+   A sticky cell slides over the ones scrolling under it, so it needs a
+   background of its own — a table cell is transparent by default and a frozen
+   column without this reads as two tables printed on top of each other. The
+   values below repeat what `TableRow` paints in Tailwind rather than inheriting
+   it: `background: inherit` takes the row's computed colour, which is
+   transparent whenever the row is neither hovered nor selected, and transparent
+   is the one thing a frozen cell cannot be. */
+.sti-freeze {
+  background: var(--background);
+}
+thead .sti-freeze {
+  background: var(--muted);
+}
+tr:hover > .sti-freeze {
+  background: color-mix(in oklch, var(--muted) 50%, var(--background));
+}
+tr[data-state="selected"] > .sti-freeze {
+  background: var(--muted);
+}
+/* A frozen row keeps its own tint under the frozen columns, or the corner where
+   the two meet loses it. */
+tr.sti-freeze-row > .sti-freeze {
+  background: color-mix(in oklch, var(--primary) 5%, var(--background));
+}
+
+/* The seam. A rule alone is invisible against the grid the table already draws,
+   so the last frozen column carries a short shadow as well — that is the part
+   that says "the columns continue underneath this", which a border cannot. */
+.sti-freeze-edge {
+  box-shadow:
+    1px 0 0 0 var(--border),
+    6px 0 8px -6px color-mix(in oklch, var(--foreground) 45%, transparent);
 }

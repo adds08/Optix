@@ -1,40 +1,139 @@
 # STInventory
 
-Internal small-tools & equipment management platform for Urban Infraconstruction. Modeled
-on United Rentals' operating shape (catalog → warehouse inventory → dispatch/transfer →
-charge-to-project) but for an internal owner/custodian model with no external rental
-revenue.
+Internal small-tools custody platform for Urban Infraconstruction. **The product
+is called Optix**; the repository, the package scope `@stinventory/*`, the seeded
+`*.local` email domain and the `sti-*` storage keys keep the old name deliberately.
 
-Separate track from Mark 85 for now; built on the same primitives so it can later fold in
-as Mark 85's Equipment module or ship as a satellite SaaS.
+pnpm + Turbo monorepo · Hono + tRPC API · Next.js 15 web (PWA) · Expo mobile ·
+Drizzle/Postgres.
 
-## Contents
+**Current version: `v1.0.0`** — "Optix for small tools implemented", tagged
+2026-08-29.
 
-**[`docs/README.md`](docs/README.md) is the documentation index.** The short version:
+---
 
-| Path | What it is |
+## Where to go
+
+This file is a quick start and nothing more. It deliberately does not describe the
+domain model, the schema or the architecture — those live in one place each, and a
+second copy here is a second thing that goes stale.
+
+| You are… | Read |
 |---|---|
-| [`docs/workings/SYSTEM_PLAN.md`](docs/workings/SYSTEM_PLAN.md) | **Start here** — what the system is, what exists, what is being built, what comes next |
-| [`docs/workings/RELEASE_1_SPRINT_PLAN.md`](docs/workings/RELEASE_1_SPRINT_PLAN.md) | The delivery plan. Sprint 1 ships **24 Aug 2026**; Jira import files sit beside it |
-| [`docs/`](docs/) | Living specs — data model, ADRs, conversational layer, vocabulary. Plus `built/` (shipped), `archive/` (superseded), `changelogs/` (what landed) |
-| [`design/`](design/) | The two UI concept screens and the brief translating them for developers |
-| `prototype/` | Runnable single-file UR-style dashboard with Urban sample data — open `prototype/index.html` |
-| `apps/`, `packages/` | Production monorepo — Hono+tRPC API, Next.js web, Drizzle/Postgres, event-sourced core |
+| **An AI agent** | **[`LLM_RECALL.md`](LLM_RECALL.md)** — which document to trust, in what order, and which will lie to you |
+| Setting it up | [`docs/SETUP.md`](docs/SETUP.md) |
+| Learning the codebase | [`docs/CODEMAP.md`](docs/CODEMAP.md), then [`docs/architecture/`](docs/architecture/) |
+| Looking for what the system does | [`docs/architecture/05-features.md`](docs/architecture/05-features.md) |
+| Asking why something is the way it is | [`docs/changelogs/INDEX.md`](docs/changelogs/INDEX.md) |
+| Deploying | [`DEPLOY.md`](DEPLOY.md) |
+| Reading the plan and the ADRs | [`SYSTEM_PLAN.md`](SYSTEM_PLAN.md), [`AGENTS.md`](AGENTS.md) |
+| Browsing all documentation | [`docs/README.md`](docs/README.md) |
 
+---
 
-## Remote localhost (docs/built/20, G)
+## The one idea
 
-To test the local build from a phone or another machine before anything is
-pushed, expose the web dev server through a free quick tunnel:
+**Where a tool is, is calculated from an append-only ledger — never typed into a
+field.** `tbl_ops_transaction` is the system of record; every
+`tbl_entity_asset.current_*` column is a projection of it. Ownership (who paid) and
+custody (who holds it now) are separate axes, and tools follow the person, not the
+site.
+
+Everything else follows from that. [`docs/architecture/01-data-model.md`](docs/architecture/01-data-model.md)
+explains why, and what it costs.
+
+---
+
+## Quick start (Docker)
 
 ```bash
-brew install cloudflared          # one-time
-pnpm --filter @stinventory/web dev -- -H 0.0.0.0   # listen on the network
-make tunnel                       # prints a public https URL
+cp .env.example .env.local      # required; the Makefile hard-errors without it
+make ENV=local up               # builds + starts postgres, api, web
+make ENV=local seed             # load sample data (SEED_RESET=1 to wipe first)
 ```
 
-The tunnel carries only the web page; the browser's API calls go straight to
+- Web: <http://localhost:3100>
+- API: <http://localhost:4100> (health: `/health`)
+- DB: `postgres://postgres:stinventory@localhost:5433/stinventory`
+
+Sign in with any seeded account — `owner@stinventory.local`,
+`warehouse@stinventory.local`, `foreman@stinventory.local` and others — password
+**`stinventory-demo`**. One account per role, so permission differences are
+visible without editing anything; the full list is `e2e/roles.ts`.
+
+Useful afterwards:
+
+```bash
+make ENV=local psql             # the database
+make ENV=local logs             # follow every service
+make ENV=local reset            # when a dependency change did not take
+```
+
+### Quick start (local, no Docker)
+
+```bash
+pg_ctl -D /tmp/sti-pgdata -l /tmp/sti-pg.log start -o "-p 5433"
+createdb -p 5433 stinventory -U postgres
+
+pnpm install
+DATABASE_URL="postgres://postgres@localhost:5433/stinventory" pnpm --filter @stinventory/db push:dangerous
+DATABASE_URL="postgres://postgres@localhost:5433/stinventory" SEED_RESET=1 pnpm --filter @stinventory/db seed
+```
+
+Then, one terminal each:
+
+```bash
+# API — http://localhost:4100
+DATABASE_URL="postgres://postgres@localhost:5433/stinventory" \
+SESSION_SECRET="stinventory-dev-secret-please-change-to-32-chars-minimum" \
+WEB_ORIGIN="http://localhost:3100" PORT=4100 \
+pnpm --filter @stinventory/api dev
+
+# Web — http://localhost:3100
+NEXT_PUBLIC_API_URL="http://localhost:4100" pnpm --filter @stinventory/web dev
+
+# Mobile (Expo) — http://localhost:8081
+cd apps/mobile && EXPO_PUBLIC_API_URL=http://localhost:4100 pnpm dev
+```
+
+`push:dangerous` is for a throwaway local database only. **Real schema changes go
+through migrations** — `make generate`, commit the SQL, `make migrate`. The name is
+a warning, not a suggestion.
+
+**The chat parser is not a separate process.** Configure any OpenAI-compatible
+endpoint at Settings → Chat parser and use *Test connection* to confirm it parses a
+real sentence before relying on it.
+
+---
+
+## Checks
+
+```bash
+pnpm typecheck                                    # the only thing between a router edit and a broken app
+pnpm --filter @stinventory/web lint
+pnpm test
+cd e2e && pnpm exec playwright test --project=chromium   # needs the stack up
+```
+
+> **`pnpm test` on a host with no database prints green while the suites that
+> matter never run.** The database-backed tests in `api-contracts` — custody, RBAC,
+> tenant isolation — skip silently without a `DATABASE_URL`. The command that
+> actually runs them is in [`docs/CODEMAP.md`](docs/CODEMAP.md).
+
+---
+
+## Testing from a phone
+
+```bash
+brew install cloudflared                              # one-time
+pnpm --filter @stinventory/web dev -- -H 0.0.0.0      # listen on the network
+make tunnel                                           # prints a public https URL
+```
+
+The tunnel carries only the web page; the browser's API calls still go to
 `http://localhost:4100`, so `NEXT_PUBLIC_API_URL` stays unchanged.
+
+---
 
 ## Live deployment
 
@@ -42,218 +141,13 @@ The tunnel carries only the web page; the browser's API calls go straight to
 |---|---|
 | Desk app | <https://urban.bodhitechlabs.com> |
 | Field app (Expo web export) | <https://urban.bodhitechlabs.com/field> |
-| Settings | <https://urban.bodhitechlabs.com/settings> |
-| Host | DigitalOcean droplet `stinventory-01`, nyc1, 1 vCPU / 1GB, $6/mo |
+| Host | DigitalOcean droplet `stinventory-01`, nyc1, 1 vCPU / 1GB |
 
-Sign in with `admin@stinventory.local` / `stinventory-demo`. Those demo accounts are
-deliberately enabled in production for now — see the note at the end of `DEPLOY.md`
-for how to turn them off.
+Pushing to `main` deploys, **only if** typecheck/lint/test, the production image
+builds, and a migrate-and-boot smoke test all pass. A deploy that runs regardless
+is a slower way to break production. The droplet is a git checkout; `deploy.sh`
+fetches and resets, which touches only tracked files, and rolls back if `/health`
+never comes up.
 
-Full operational detail, including how one hostname serves every service, is in
-[`DEPLOY.md`](DEPLOY.md).
-
-### Push to deploy
-
-Pushing to `main` deploys, provided the checks pass.
-
-```
-push to main
-     │
-     ├── check   typecheck · tests · lint
-     ├── build   all three production images actually build
-     ├── smoke   migrate a fresh Postgres, boot the API, hit /health
-     │
-     └── deploy  (only if all three pass)
-             │
-             └── ssh → /opt/stinventory/docker/deploy.sh
-                       fetch · checkout · build · restart
-                       wait for /health, roll back if it never comes
-```
-
-The deploy is gated on the checks because a deploy that runs regardless is just a
-slower way to break production. It is also serialised — two builds at once would
-starve a 1GB droplet.
-
-**How the server gets the code.** The droplet is a git checkout of this repo.
-`deploy.sh` does `git fetch` and `git reset --hard`, which only touches tracked files —
-so `.env.production`, the Expo export in `field/`, and anything else that exists only on
-the server are left alone. This replaced an rsync-from-laptop flow that twice deleted
-exactly those files, because `--delete` cannot tell "removed from the repo" from "never
-in the repo".
-
-**The deploy key can only deploy.** CI authenticates with a dedicated key that is
-restricted server-side to running one script:
-
-```
-command="/opt/stinventory/docker/deploy.sh",restrict ssh-ed25519 AAAA...
-```
-
-Whatever command CI sends is ignored; the server runs the deploy. Holding that secret
-gets you a deploy, not a shell. It is a separate key from any human's — a CI credential
-should never have blast radius beyond its job.
-
-**Deploying by hand**, if CI is not available:
-
-```bash
-ssh -i ~/.ssh/do@it_urban root@68.183.27.164 bash /opt/stinventory/docker/deploy.sh
-```
-
-Invoked through `bash` rather than relying on the file's executable bit. Git records
-that bit, so a script committed without it gets its permission stripped by the very
-`git reset --hard` that the deploy runs — which is a deploy that works exactly once.
-
-**Known rough edge.** Images are built on the droplet, which briefly starves the running
-containers — expect a short 502 during the swap, and about ten minutes end to end. The
-fix is to build in CI and push to a registry so the droplet only pulls; the repo is
-public, so GitHub Container Registry would cost nothing. Not done yet.
-
-## Core model in one paragraph
-
-The Equipment Department owns every asset; foremen are custodians, not owners; projects
-consume tools and get charged. Financial ownership (who paid) is tracked separately from
-operational custody (who holds it now). Every movement is an immutable transaction, and the
-current picture — where each tool is, who has it, what's idle, what's lost — is derived by
-folding that log. Hard cases handled explicitly: foreman on multiple projects, foreman
-fired (HR-triggered clearance), phase changes, temporary loans with overdue alerts,
-lost/damaged tools.
-
-## Running the production app
-
-The Linkage MVP: small tools linked to foremen, projects, and trucks/trailers. Event-sourced
-core, notification engine, UR-style web dashboard.
-
-### Prerequisites
-
-- Node 22+, pnpm 9+
-- Postgres 16 (local or Docker)
-- Docker (optional — `make up` brings up everything)
-
-### Quick start (Docker)
-
-```bash
-cd STInventory
-cp .env.example .env.local
-make ENV=local up        # builds + starts postgres, api, web
-make ENV=local seed      # load sample data (SEED_RESET=1 to wipe first)
-```
-
-- Web: http://localhost:3100
-- API: http://localhost:4100 (health: `/health`)
-- DB: `postgres://postgres:stinventory@localhost:5433/stinventory`
-
-### Quick start (local, no Docker)
-
-#### 1. Database
-
-```bash
-pg_ctl -D /tmp/sti-pgdata -l /tmp/sti-pg.log start -o "-p 5433"
-createdb -p 5433 stinventory -U postgres
-```
-
-#### 2. Install, push schema, seed
-
-```bash
-pnpm install
-DATABASE_URL="postgres://postgres@localhost:5433/stinventory" pnpm --filter @stinventory/db push --force
-DATABASE_URL="postgres://postgres@localhost:5433/stinventory" SEED_RESET=1 pnpm --filter @stinventory/db seed
-```
-
-#### 3. Start services (one terminal each)
-
-**API** — http://localhost:4100
-```bash
-DATABASE_URL="postgres://postgres@localhost:5433/stinventory" \
-SESSION_SECRET="stinventory-dev-secret-please-change-to-32-chars-minimum" \
-WEB_ORIGIN="http://localhost:3100" PORT=4100 \
-pnpm --filter @stinventory/api dev
-```
-
-**Web** — http://localhost:3100
-```bash
-NEXT_PUBLIC_API_URL="http://localhost:4100" \
-pnpm --filter @stinventory/web dev
-```
-
-**Mobile** (Expo) — http://localhost:8081
-```bash
-cd apps/mobile && EXPO_PUBLIC_API_URL=http://localhost:4100 pnpm dev
-```
-Requires Expo CLI + iOS Simulator / Android emulator.
-
-**Chat parser** — no separate process. Configure a model at **Settings → Chat
-parser** (any OpenAI-compatible endpoint) and use **Test connection** to confirm
-it can parse a real sentence before relying on it.
-
-### Login
-
-Password: **`stinventory-demo`**
-
-| Email | Role |
-|---|---|
-| owner@stinventory.local | Owner — full access |
-| admin@stinventory.local | Karen Osei — Equipment Admin |
-| warehouse@stinventory.local | Yard Desk — Warehouse |
-| foreman.miguel@stinventory.local | Miguel Torres — Foreman |
-
-### What's built
-
-- **Asset Register** — small tools (serialized + bulk), searchable/filterable
-- **Assignments** — custody links, temporary loans, overdue detection, approval gate
-- **Transfers** — hand-off reporting, high-value + cross-person approval
-- **Vehicles** — trucks/trailers as tracking locations with GPS + company/personal-allowance ownership
-- **Dashboard** — KPIs, overdue loans, HR clearance queue, pending approvals, activity feed
-- **Conversational layer** — foremen type a sentence; it becomes a proposed custody
-  transaction they confirm. Plus chat-extracted tasks and an admin verification queue
-- **Notification engine** — overdue detection, SLA timers, email/SMS provider interface
-- **Event-sourced core** — append-only `transaction` table; all state is a projection; rebuild guarantee
-- **Reports — API only.** Six procedures (register, by project, by foreman, idle, lost,
-  capital by project) exist with **no web pages yet**. The audit trail is browsable at `/d02/audit`.
-
-### Not built
-
-Procurement (PR → PO → Receive) and Maintenance/Inspections have no tables and no code.
-Mobile is an Expo shell with no scan flows. Integrations are seams (`external_id`) only.
-See `docs/archive/01-plan.md` §18 for the full roadmap and `AGENTS.md` §12 for known defects.
-
-### Monorepo layout
-
-```
-STInventory/
-├── apps/
-│   ├── api/          Hono + tRPC + auth + notification scheduler + messaging worker
-│   ├── web/          Next.js 15 dashboard (routes under /d02)
-│   └── mobile/       Expo Router app — shell only (login + index)
-├── packages/
-│   ├── api-contracts/   tRPC routers (identity, dashboard, asset, assignment, transfer,
-│   │                    vehicle, report, messaging, entity, task, …)
-│   ├── auth/            Lucia-style session + tenant-scoped RBAC
-│   ├── db/              Drizzle schema + seed (Postgres)
-│   ├── domain/          Event-sourcing fold + custody rules (pure)
-│   ├── intent/          Intent catalog + generated LLM prompt + parser (pure + fetch)
-│   ├── env/             Zod-validated env loader
-│   ├── logger/          pino logger
-│   ├── types/           Branded IDs, enums, permissions
-│   ├── config-eslint/   Shared ESLint flat config
-│   └── config-tsconfig/ Shared tsconfig presets
-├── prototype/           Single-file no-build UI prototype
-├── docker-compose.yml   Postgres + API + Web
-└── Makefile             ENV-driven: up/down/seed/logs/psql/test
-```
-
-### Make targets
-
-Working: `up`, `down`, `restart`, `build`, `rebuild`, `logs`, `ps`, `seed`, `push`,
-`migrate`, `studio`, `reset`, `test`, `typecheck`, `lint`, `psql`.
-
-> **Broken:** `make dev` and `make mobile` still invoke `flutter` against `apps/desktop`,
-> which does not exist — mobile moved to Expo (`docs/06-decisions.md` ADR-3). Use
-> `make ENV=local up` and start the Expo app separately.
-
-## Status
-
-Running system, not feature-complete (as of 2026-07-25). Asset register, custody, vehicles,
-dashboard, notifications, and the conversational layer work. Procurement and maintenance are
-not started; reports have no UI. Docs were reconciled against the code on 2026-07-25 —
-`docs/03-data-model.md` Part A is the as-built schema, Part B is explicitly unbuilt.
-
-See `docs/05-build-proposal.md` for the build plan, scope options, and delivery status.
+Demo accounts are deliberately still enabled in production. `DEPLOY.md` has the
+operational detail, including how to turn them off.

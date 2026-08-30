@@ -1,6 +1,38 @@
 # Changelog
 
-All notable changes to STInventory are documented in this file.
+All notable changes are documented in this file. The product is called **Optix**;
+the repository, the package scope and the storage keys still say STInventory, which
+is deliberate.
+
+Per-change detail — what was verified, what was found, what was deliberately not
+done — is in `docs/changelogs/`, indexed at `docs/changelogs/INDEX.md`. This file
+is the release-level summary.
+
+## v1.0.0 — 2026-08-29 — "Optix for small tools implemented"
+
+The first tagged release. Small-tools custody, end to end: a register, a ledger
+that is the system of record, one writer that may move custody, role-based access
+with a matrix asserted against the database in both directions, a conversational
+path that reaches the same procedures the screens do, reporting on ownership and
+custody as separate axes, and a desk client shipped as a PWA alongside an Expo
+field client.
+
+What is in it, feature by feature and with what is deliberately *not* built, is
+`docs/architecture/05-features.md`. The architecture as built is
+`docs/architecture/`; where the code is and what to read before touching it is
+`docs/CODEMAP.md`.
+
+Known and deliberate at this tag:
+
+- `/home`'s fleet monitor is a wall-board and overlaps its own text on a phone.
+  Routing narrow viewports to the `command` tab is the answer; it is a product
+  decision, not a media query.
+- CSV export from the register reads the post-pagination row model, so it exports
+  one page.
+- `role.can_hold_custody` and `uses_field_layout` are stored, seeded and editable,
+  but the navigation and the custodian pickers still read hard-coded role lists.
+- Invite-only signup is wired end to end but no mailbox has been pointed at it.
+- Vendors, purchase orders, cost codes and phases are not built.
 
 ## Unreleased
 

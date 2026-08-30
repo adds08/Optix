@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
+import { ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { cn } from "@/lib/utils";
 
 /*
@@ -20,6 +19,21 @@ import { cn } from "@/lib/utils";
 
 export type SearchSelectOption = { value: string; label: string; hint?: string };
 
+/*
+  The filter-bar variant of the one picker.
+
+  It used to carry its own Popover, its own <Input>, its own `includes()`
+  filter and its own option buttons — a second implementation of EntityPicker
+  that happened to look similar. Rebasing it means one keyboard model, one
+  empty state and one filtering rule across the whole product; the four callers
+  (tools page, jobsites filters, jobsite-activity, bulk-edit) keep the exact
+  API they had.
+
+  The one behaviour that is genuinely its own survives: picking the option that
+  is already selected CLEARS it. These are filters, and "show me everything
+  again" has to be reachable without a separate reset button — that is the
+  escape a native <select>'s blank option used to give.
+*/
 export function SearchSelect({
   value,
   onChange,
@@ -40,18 +54,17 @@ export function SearchSelect({
   widthClass?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
   const selected = options.find((o) => o.value === value);
-  const needle = q.trim().toLowerCase();
-  const filtered = needle
-    ? options.filter(
-        (o) => o.label.toLowerCase().includes(needle) || (o.hint ?? "").toLowerCase().includes(needle),
-      )
-    : options;
 
   return (
-    <Popover open={open} onOpenChange={(o) => setOpen(o)}>
-      <PopoverTrigger asChild>
+    <EntityPicker
+      open={open}
+      onOpenChange={setOpen}
+      options={options}
+      value={value}
+      onSelect={(v) => onChange(v === value ? "" : v)}
+      contentClassName="w-auto min-w-(--radix-popover-trigger-width) max-w-[min(28rem,calc(100vw-2rem))]"
+      trigger={
         <Button
           variant="outline"
           size="sm"
@@ -68,54 +81,7 @@ export function SearchSelect({
           <span className="truncate">{selected ? selected.label : placeholder}</span>
           <ChevronsUpDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
         </Button>
-      </PopoverTrigger>
-      {/* The panel sizes to its longest option, never narrower than the button
-          it hangs off and never wider than the viewport can hold. */}
-      <PopoverContent
-        align="start"
-        className="w-auto min-w-(--radix-popover-trigger-width) max-w-[min(28rem,calc(100vw-2rem))] p-0"
-      >
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2.5">
-          <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search…"
-            className="h-auto border-0 p-0 shadow-none focus-visible:ring-0"
-          />
-        </div>
-        <div className="max-h-72 overflow-y-auto overscroll-contain p-1">
-          {filtered.length === 0 ? (
-            <p className="px-2 py-3 text-sm text-muted-foreground">No matches for “{q}”.</p>
-          ) : (
-            filtered.map((o) => {
-              const on = o.value === value;
-              return (
-                <button
-                  key={o.value}
-                  type="button"
-                  onClick={() => {
-                    onChange(on ? "" : o.value);
-                    setOpen(false);
-                    setQ("");
-                  }}
-                  title={o.label}
-                  className={cn(
-                    "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-accent",
-                    on && "bg-accent text-accent-foreground",
-                  )}
-                >
-                  <span className={cn("grid size-3.5 shrink-0 place-items-center text-primary", !on && "opacity-0")}>
-                    <Check className="size-3.5" aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                  {o.hint ? <span className="shrink-0 text-xs text-muted-foreground">{o.hint}</span> : null}
-                </button>
-              );
-            })
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+      }
+    />
   );
 }

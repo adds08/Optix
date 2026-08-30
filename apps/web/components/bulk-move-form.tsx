@@ -5,7 +5,8 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { usePermissions } from "./use-permissions";
+import { RidePicker } from "./ride-picker";
+import { useViewTier } from "./use-permissions";
 
 /*
   One dialog for moving a selection of tools — the bulk path that turns the
@@ -33,13 +34,12 @@ type Props = {
 };
 
 export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }: Props) {
-  const { role } = usePermissions();
+  const tier = useViewTier();
   const utils = trpc.useUtils();
-  const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: role === "superintendent" });
+  const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: tier === "assets.view.crew" });
   const foremen = trpc.employee.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
-  const vehicles = trpc.vehicle.list.useQuery();
 
   let custodianOptions =
     foremen.data?.filter(
@@ -47,7 +47,8 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
         CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) &&
         e.employmentStatus === "active",
     ) ?? [];
-  if (role === "superintendent") {
+  /* STI-307: the crew tier, not the role name. */
+  if (tier === "assets.view.crew") {
     const ids = new Set(myForemen.data?.map((f) => f.id) ?? []);
     custodianOptions = custodianOptions.filter((e) => ids.has(e.id));
   }
@@ -55,22 +56,25 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
   const [custodianId, setCustodianId] = useState("");
   const [projectId, setProjectId] = useState("");
   const [locationId, setLocationId] = useState("");
+  /* Which rig the batch rides out in (STI-203). Never auto-filled — a tool
+     does not inherit the recipient's truck; see ride-picker.tsx. */
+  const [truckId, setTruckId] = useState("");
+  const [trailerId, setTrailerId] = useState("");
   const [note, setNote] = useState("");
   const [result, setResult] = useState("");
   const [pending, setPending] = useState(false);
 
   /* Tools go where the foreman is: picking a custodian pre-fills the project
-     from their current job and their truck. Both stay editable — a default,
-     not a lock. */
+     from their current job. It stays editable — a default, not a lock. The
+     truck is NOT pre-filled (STI-203): a tool does not inherit the truck of
+     whoever receives it — the ride is recorded only when somebody says so. */
   const autoFilledFor = useRef<string | null>(null);
   useEffect(() => {
     if (!custodianId || autoFilledFor.current === custodianId) return;
     const emp = foremen.data?.find((e) => e.id === custodianId);
     if (emp?.primaryProjectId) setProjectId(emp.primaryProjectId);
-    const truck = vehicles.data?.find((v) => v.vehicleType === "truck" && v.foremanEmployeeId === custodianId);
-    if (truck?.locationId) setLocationId(truck.locationId);
     autoFilledFor.current = custodianId;
-  }, [custodianId, foremen.data, vehicles.data]);
+  }, [custodianId, foremen.data]);
 
   const invalidate = () => {
     utils.transfer.list.invalidate();
@@ -103,6 +107,8 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
           custodianId: custodianId || undefined,
           projectId: projectId || undefined,
           locationId: locationId || undefined,
+          truckId: truckId || undefined,
+          trailerId: trailerId || undefined,
           note: note || undefined,
         });
         applied += res.applied;
@@ -179,14 +185,16 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">To truck / trailer / gang box</label>
+            <label className="text-sm font-medium">To gang box / place</label>
+            {/* Vehicles are filtered out since STI-203: "in a truck" is the
+                rig fields below, a per-assignment fact — not a location. */}
             <select
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
               className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <option value="">No change</option>
-              {locations.data?.map((l) => (
+              {locations.data?.filter((l) => l.type !== "vehicle").map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
                   {l.custodianName ? ` — ${l.custodianName}` : ""}
@@ -194,9 +202,11 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
               ))}
             </select>
             <p className="text-xs text-muted-foreground">
-              A foreman, a project and a container can all change at once — or just one of them.
+              A foreman, a project, a place and the rig can all change at once — or just one of them.
             </p>
           </div>
+
+          <RidePicker truckId={truckId} trailerId={trailerId} onTruck={setTruckId} onTrailer={setTrailerId} />
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Note</label>

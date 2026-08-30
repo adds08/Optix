@@ -55,10 +55,22 @@ async function verifyMentions(
 }
 
 export const messagingRouter = router({
-  // List channels the current user has access to (role-derived: foreman + equipment_admin + superintendent).
-  listChannels: protectedProcedure.query(async ({ ctx }) => {
+  /*
+    Every channel in the tenant.
+
+    The comment here used to claim channel access was "role-derived: foreman +
+    equipment_admin + superintendent", and the line below it read
+    `const userRole = ctx.session.roleName;` — assigned and never used once.
+    The access control it described was never implemented. STI-307 removes
+    both: a dead variable and a comment asserting a control that does not
+    exist are worse than neither, because the next reader trusts the comment.
+
+    Implementing per-channel access is NOT done here — that is unasked-for
+    scope and a product decision about who may read which conversation. What
+    is true today is written down instead.
+  */
+  listChannels: requirePermission("assignment.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
-    const userRole = ctx.session.roleName;
     const rows = await ctx.db
       .select()
       .from(schema.channel)
@@ -220,7 +232,8 @@ export const messagingRouter = router({
           processingStatus: "queued",
         })
         .returning();
-      if (!row) throw new Error("Failed to create message");
+      if (!row)
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create message" });
       await logEvent(ctx, {
         category: "messaging",
         action: "send",
@@ -332,7 +345,7 @@ export const messagingRouter = router({
           errorNote: null,
           updatedAt: new Date(),
         })
-        .where(eq(schema.message.id, input.messageId));
+        .where(and(eq(schema.message.id, input.messageId), eq(schema.message.tenantId, tid)));
 
       /* Tell whoever sent it that their message was dealt with — the desk
          acting on it is the answer they were waiting for. */
@@ -368,7 +381,14 @@ export const messagingRouter = router({
     desk that cannot empty its queue stops reading it, which costs more than
     the odd unrecorded hand-off.
   */
-  dismiss: protectedProcedure
+  /* STI-308: this was bare, so any signed-in account could clear the desk's
+     unresolved queue — including the messages recording custody moves nobody
+     had written down yet. `notification.manage` is the existing grant for "you
+     run the desk's inbound queue" and is held by exactly the three roles that
+     do (System Admin, Equipment Admin, Warehouse). A dedicated messaging
+     permission would be the tidier answer and is not invented here on a
+     default; see PERMISSION_MATRIX §5. */
+  dismiss: requirePermission("notification.manage")
     .input(z.object({ messageId: z.string().uuid(), reason: z.string().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
@@ -392,7 +412,7 @@ export const messagingRouter = router({
           errorNote: input.reason ?? null,
           updatedAt: new Date(),
         })
-        .where(eq(schema.message.id, input.messageId));
+        .where(and(eq(schema.message.id, input.messageId), eq(schema.message.tenantId, tid)));
 
       /* A dismissal the sender never hears about is the silence problem again,
          so they are told — with the reason, which is the useful part. */
@@ -492,32 +512,4 @@ export const messagingRouter = router({
       return rows;
     }),
 
-  // Verification queue: messages needing admin verification, grouped by status.
-  pendingVerification: requirePermission("assignment.read")
-    .query(async ({ ctx }) => {
-      const tid = ctx.session.tenantId;
-      const rows = await ctx.db
-        .select({
-          id: schema.message.id,
-          body: schema.message.body,
-          mentions: schema.message.mentions,
-          processingStatus: schema.message.processingStatus,
-          intentType: schema.message.intentType,
-          intentPayload: schema.message.intentPayload,
-          proposedAction: schema.message.proposedAction,
-          errorNote: schema.message.errorNote,
-          createdAt: schema.message.createdAt,
-          authorUserId: schema.message.authorUserId,
-          authorEmployeeId: schema.message.authorEmployeeId,
-        })
-        .from(schema.message)
-        .where(
-          and(
-            eq(schema.message.tenantId, tid),
-            inArray(schema.message.processingStatus, ["action_proposed", "pending_manual"]),
-          ),
-        )
-        .orderBy(desc(schema.message.createdAt));
-      return rows;
-    }),
 });

@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, HardHat, Truck, Wrench } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { useThemeStore } from "@/lib/themes/store";
 import {
   DEFAULT_PREFS,
+  FONT_FAMILY_LABELS,
   FONT_SCALES,
+  ICON_SCALES,
   THEMES,
   type Density,
   type FontFamilyName,
@@ -33,6 +35,7 @@ export function AppearanceSettings() {
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_PREFS.themeName);
   const [fontFamily, setFontFamily] = useState<FontFamilyName>("system");
   const [fontScale, setFontScale] = useState("1.0");
+  const [iconScale, setIconScale] = useState("1.0");
   const [density, setDensity] = useState<Density>("comfortable");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export function AppearanceSettings() {
       setThemeName(prefs.data.themeName as ThemeName);
       setFontFamily(prefs.data.fontFamily as FontFamilyName);
       setFontScale(prefs.data.fontScale);
+      setIconScale(prefs.data.iconScale);
       setDensity(prefs.data.density as Density);
     }
   }, [prefs.data]);
@@ -69,6 +73,7 @@ export function AppearanceSettings() {
     themeName,
     fontFamily,
     fontScale,
+    iconScale,
     density,
     dashboard: { widgets: {} },
     ...over,
@@ -128,10 +133,15 @@ export function AppearanceSettings() {
             onChange={(e) => { const v = e.target.value as FontFamilyName; setFontFamily(v); preview({ fontFamily: v }); }}
             className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            <option value="system">System</option>
-            <option value="serif">Serif</option>
-            <option value="mono">Monospace</option>
+            {Object.entries(FONT_FAMILY_LABELS).map(([value, f]) => (
+              <option key={value} value={value}>
+                {f.label}
+              </option>
+            ))}
           </select>
+          <p className="text-xs text-muted-foreground">
+            {FONT_FAMILY_LABELS[fontFamily]?.hint}
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -146,6 +156,45 @@ export function AppearanceSettings() {
               <option key={s} value={s}>{Math.round(parseFloat(s) * 100)}%</option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/*
+        Icon size is its own control, next to type rather than folded into it.
+
+        The two are genuinely independent: icons already grow with the font
+        scale, because everything is rem-based — what this changes is how large
+        a glyph is *relative to the words beside it*, which is the thing people
+        mean when they say the icons are too small. The preview is live, and the
+        row below is the reason it is worth previewing: it shows the same three
+        glyph sizes the app actually uses, beside text, at the chosen setting.
+      */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm font-medium" htmlFor="app-icon-scale">Icon size</label>
+          <select
+            id="app-icon-scale"
+            value={iconScale}
+            onChange={(e) => { const v = e.target.value; setIconScale(v); preview({ iconScale: v }); }}
+            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            {ICON_SCALES.map((s) => (
+              <option key={s} value={s}>{Math.round(parseFloat(s) * 100)}%</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Separate from font size — icons already grow with the type; this changes how
+            large they are beside it.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <span className="text-sm font-medium">Preview</span>
+          <div className="flex h-8 items-center gap-3 rounded-lg border border-input px-2.5 text-sm">
+            <span className="flex items-center gap-1.5"><Wrench className="size-3.5" aria-hidden />Tool</span>
+            <span className="flex items-center gap-1.5"><Truck className="size-4" aria-hidden />Truck</span>
+            <span className="flex items-center gap-1.5"><HardHat className="size-5" aria-hidden />Crew</span>
+          </div>
         </div>
       </div>
 

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "user_tenant_email_uq" ON "user" USING btree ("tenant_id","email");

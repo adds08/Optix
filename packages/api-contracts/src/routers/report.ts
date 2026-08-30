@@ -2,12 +2,40 @@ import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, requirePermission, router } from "../trpc.js";
+import { assetVisibility, assetScopeWhere } from "../scope.js";
 import { pageParamsSchema, type Paginated, type SortableMap, sortSql } from "../table-helpers.js";
 
+/*
+  STI-302 — every report on this router is now gated on `report.read` AND
+  narrowed by the visibility ladder.
+
+  Reports were the widest hole in the product. Each one was a bare
+  `protectedProcedure` over the whole tenant, so any signed-in account could
+  read the complete asset register, every foreman's holdings by name and value,
+  and the capital totals per project and per department — the same facts the
+  register screens were about to start withholding. A control that the export
+  button walks around is not a control.
+
+  The aggregate reports (`byProject`, `byForeman`, `byMechanic`,
+  `capitalByProject`, `capitalByDepartment`) group over a LEFT JOIN, so the
+  scope predicate belongs in the JOIN condition, not the WHERE. In the WHERE it
+  would drop whole projects and people from the result; in the join it keeps
+  the row and zeroes the number, which is the honest answer — "this job exists
+  and you can see none of its tools" rather than "this job does not exist".
+*/
 export const reportRouter = router({
-  assetRegister: protectedProcedure.query(async ({ ctx }) => {
+  /*
+    Gated on `asset.read`, not `report.read` — this report IS the asset
+    register, column for column, and routing it through the reports permission
+    let HR (who holds `report.read` and deliberately NOT `asset.read`) read
+    every tool Urban owns by name, serial and value. Found by probing all
+    thirteen roles against the running API rather than by reading the matrix,
+    which does not notice that two of its rows describe the same data.
+  */
+  assetRegister: requirePermission("asset.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     const currentProject = alias(schema.project, "current_project");
     const owningProject = alias(schema.project, "owning_project");
     const owningDepartment = alias(schema.department, "owning_department");
@@ -36,11 +64,12 @@ export const reportRouter = router({
       .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
       .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
       .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
-      .where(eq(schema.asset.tenantId, tid));
+      .where(and(eq(schema.asset.tenantId, tid), scoped));
   }),
 
-  byProject: protectedProcedure.query(async ({ ctx }) => {
+  byProject: requirePermission("report.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
         projectId: schema.project.id,
@@ -49,13 +78,14 @@ export const reportRouter = router({
         totalValue: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
       })
       .from(schema.project)
-      .leftJoin(schema.asset, and(eq(schema.asset.currentProjectId, schema.project.id), eq(schema.asset.tenantId, tid)))
+      .leftJoin(schema.asset, and(eq(schema.asset.currentProjectId, schema.project.id), eq(schema.asset.tenantId, tid), scoped))
       .where(eq(schema.project.tenantId, tid))
       .groupBy(schema.project.id, schema.project.name);
   }),
 
-  byForeman: protectedProcedure.query(async ({ ctx }) => {
+  byForeman: requirePermission("report.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
         employeeId: schema.employee.id,
@@ -65,7 +95,7 @@ export const reportRouter = router({
         projectCount: sql<number>`count(distinct ${schema.asset.currentProjectId})`,
       })
       .from(schema.employee)
-      .leftJoin(schema.asset, and(eq(schema.asset.currentCustodianId, schema.employee.id), eq(schema.asset.tenantId, tid)))
+      .leftJoin(schema.asset, and(eq(schema.asset.currentCustodianId, schema.employee.id), eq(schema.asset.tenantId, tid), scoped))
       .where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.role, "foreman")))
       .groupBy(schema.employee.id, schema.employee.name);
   }),
@@ -74,8 +104,9 @@ export const reportRouter = router({
      parameterised version of it. Parameterising would make a report whose
      meaning changes with a flag; two near-identical queries are cheaper to read
      and cheaper to be wrong about. */
-  byMechanic: protectedProcedure.query(async ({ ctx }) => {
+  byMechanic: requirePermission("report.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
         employeeId: schema.employee.id,
@@ -84,12 +115,13 @@ export const reportRouter = router({
         totalValue: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
       })
       .from(schema.employee)
-      .leftJoin(schema.asset, and(eq(schema.asset.currentCustodianId, schema.employee.id), eq(schema.asset.tenantId, tid)))
+      .leftJoin(schema.asset, and(eq(schema.asset.currentCustodianId, schema.employee.id), eq(schema.asset.tenantId, tid), scoped))
       .where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.role, "mechanic")))
       .groupBy(schema.employee.id, schema.employee.name);
   }),
 
-  idle: protectedProcedure.query(async ({ ctx }) => {
+  idle: requirePermission("report.read").query(async ({ ctx }) => {
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
         tag: schema.asset.tag,
@@ -102,10 +134,11 @@ export const reportRouter = router({
       })
       .from(schema.asset)
       .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
-      .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.currentStatus, "available")));
+      .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.currentStatus, "available"), scoped));
   }),
 
-  lost: protectedProcedure.query(async ({ ctx }) => {
+  lost: requirePermission("report.read").query(async ({ ctx }) => {
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
         tag: schema.asset.tag,
@@ -117,14 +150,15 @@ export const reportRouter = router({
       })
       .from(schema.asset)
       .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
-      .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.currentStatus, "lost")));
+      .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.currentStatus, "lost"), scoped));
   }),
 
   /* Every tool nobody has labelled yet — the worklist for whoever is holding
      the label gun. A tag is optional and only exists once somebody makes one,
      so this is how the register can still produce the list of tools that need
      one. */
-  needsTag: protectedProcedure.query(async ({ ctx }) => {
+  needsTag: requirePermission("report.read").query(async ({ ctx }) => {
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
         tag: schema.asset.tag,
@@ -142,12 +176,14 @@ export const reportRouter = router({
         and(
           eq(schema.asset.tenantId, ctx.session.tenantId),
           isNull(schema.asset.tag),
+          scoped,
         ),
       );
   }),
 
-  capitalByProject: protectedProcedure.query(async ({ ctx }) => {
+  capitalByProject: requirePermission("report.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
         projectId: schema.project.id,
@@ -156,7 +192,7 @@ export const reportRouter = router({
         capitalValue: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
       })
       .from(schema.project)
-      .leftJoin(schema.asset, and(eq(schema.asset.owningProjectId, schema.project.id), eq(schema.asset.tenantId, tid)))
+      .leftJoin(schema.asset, and(eq(schema.asset.owningProjectId, schema.project.id), eq(schema.asset.tenantId, tid), scoped))
       .where(eq(schema.project.tenantId, tid))
       .groupBy(schema.project.id, schema.project.name);
   }),
@@ -164,8 +200,9 @@ export const reportRouter = router({
   /* The other half of who pays for the fleet. A direct mirror of
      capitalByProject, grouping on the department that owns the shop tools —
      same shape, same sum, so the two reports read the same way. */
-  capitalByDepartment: protectedProcedure.query(async ({ ctx }) => {
+  capitalByDepartment: requirePermission("report.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
         departmentId: schema.department.id,
@@ -177,6 +214,7 @@ export const reportRouter = router({
       .leftJoin(schema.asset, and(
         eq(schema.asset.owningDepartmentId, schema.department.id),
         eq(schema.asset.tenantId, tid),
+        scoped,
       ))
       .where(eq(schema.department.tenantId, tid))
       .groupBy(schema.department.id, schema.department.name);
@@ -192,7 +230,7 @@ export const reportRouter = router({
     append-only and the page must not let the query string order it by
     something it does not expose.
   */
-  auditTrail: protectedProcedure
+  auditTrail: requirePermission("audit.read")
     .input(
       z
         .object({
@@ -213,6 +251,14 @@ export const reportRouter = router({
     }>> => {
       const tid = ctx.session.tenantId;
       const conditions = [eq(schema.transaction.tenantId, tid)];
+      /* `audit.read` is held only by System Admin, Equipment Admin, Office
+         Admin and Finance — all of whom hold `assets.view.all`, so this
+         predicate is a no-op today. It is here so that stays true by
+         construction rather than by coincidence: the moment the matrix grants
+         `audit.read` to a scoped role, the trail narrows with it instead of
+         becoming the way around every other control on this router. */
+      const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
+      if (scoped) conditions.push(scoped);
       if (input.eventType) conditions.push(eq(schema.transaction.eventType, input.eventType));
       if (input.search) {
         const q = `%${input.search}%`;

@@ -1,11 +1,13 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, ilike, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import { protectedProcedure, requirePermission, router } from "../trpc.js";
+import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
 import { COST_TARGETS, formatAssetModel } from "@stinventory/types";
+import { foldAssetState, hasSnapshotEvidence, reconcileProjections, type EventEnvelope } from "@stinventory/domain";
+import { assetVisibility, assetScopeWhere } from "../scope.js";
 
 /* A tool needs to be describable, not catalogued. A brand with no catalogue
    number is completely ordinary ("Skill Saw" is a description, not a brand), so
@@ -28,7 +30,11 @@ const assetRefine = (v: {
 };
 
 export const assetRouter = router({
-  list: protectedProcedure
+  /* STI-302: `asset.read` gates whether you may see the register at all; the
+     visibility ladder below decides how much of it. This was a bare
+     `protectedProcedure` — any signed-in account, including one with no role
+     at all, could read every tool Urban owns. */
+  list: requirePermission("asset.read")
     .input(
       z
         .object({
@@ -54,6 +60,13 @@ export const assetRouter = router({
     .query(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       const conditions = [eq(schema.asset.tenantId, tid)];
+      /* The ladder, applied to the QUERY — not to the rows afterwards. A
+         post-filter would still return an honest-looking count of tools the
+         caller may not see (SYSTEM_PLAN §7). `undefined` here means the caller
+         holds `assets.view.all`; every narrower tier, including "no tier at
+         all", returns a real predicate. */
+      const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
+      if (scoped) conditions.push(scoped);
       if (input?.status && input.status !== "all") conditions.push(eq(schema.asset.currentStatus, input.status));
       if (input?.projectId === "none") conditions.push(isNull(schema.asset.currentProjectId));
       else if (input?.projectId) conditions.push(eq(schema.asset.currentProjectId, input.projectId));
@@ -73,6 +86,12 @@ export const assetRouter = router({
       const currentProject = alias(schema.project, "current_project");
       const owningProject = alias(schema.project, "owning_project");
       const owningDepartment = alias(schema.department, "owning_department");
+      /* The rig the tool rides in (STI-203) lives on the ACTIVE assignment —
+         a per-custody fact, not a column on asset. At most one active row per
+         asset (assignment_one_active_uq), so these joins cannot fan out. */
+      const activeAssignment = alias(schema.assignment, "active_assignment");
+      const rideTruck = alias(schema.vehicle, "ride_truck");
+      const rideTrailer = alias(schema.vehicle, "ride_trailer");
       const rows = await ctx.db
         .select({
           id: schema.asset.id,
@@ -104,6 +123,15 @@ export const assetRouter = router({
              tools by truck vs trailer, which only the vehicle row knows. */
           locationType: schema.location.type,
           vehicleType: schema.vehicle.vehicleType,
+          currentTruckId: activeAssignment.truckId,
+          currentTruckUnit: rideTruck.unit,
+          /* STI-501's last AC: company vs personal must be visible wherever a
+             truck is shown, because that distinction is what the departure
+             path keys off — company property leaving on someone's own truck is
+             the case the Equipment department needs to see. */
+          currentTruckOwnership: rideTruck.ownershipType,
+          currentTrailerId: activeAssignment.trailerId,
+          currentTrailerUnit: rideTrailer.unit,
           owningProjectId: schema.asset.owningProjectId,
           owningProjectName: owningProject.name,
           costTarget: schema.asset.costTarget,
@@ -115,21 +143,46 @@ export const assetRouter = router({
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
         .leftJoin(schema.vehicle, eq(schema.vehicle.locationId, schema.location.id))
+        .leftJoin(
+          activeAssignment,
+          and(
+            eq(activeAssignment.assetId, schema.asset.id),
+            eq(activeAssignment.tenantId, tid),
+            eq(activeAssignment.status, "active"),
+          ),
+        )
+        .leftJoin(rideTruck, eq(activeAssignment.truckId, rideTruck.id))
+        .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
         .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
-        .where(and(...conditions));
+        .where(and(...conditions))
+        /*
+          UI-75. Without an ORDER BY this returned heap order, so a tool created
+          a second ago landed at an arbitrary spot in a 756-row register that
+          the table pages 25 at a time — created successfully, and findable only
+          by knowing what to search for. The ticket's acceptance is "the new
+          tool should appear in the Tool Register", so newest first is the
+          answer to it, not a cosmetic default. The column is sortable; this is
+          only where the register opens.
+        */
+        .orderBy(desc(schema.asset.createdAt));
       return rows;
     }),
 
   // Returns the same joined shape as `list` so the detail screen shows names,
   // not raw uuids. Both projections read from asset.current_* — never from a
   // hand-edited field.
-  get: protectedProcedure
+  get: requirePermission("asset.read")
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
       const currentProject = alias(schema.project, "current_project");
       const owningProject = alias(schema.project, "owning_project");
       const owningDepartment = alias(schema.department, "owning_department");
+      /* Same active-assignment rig joins as `list` (STI-203). */
+      const activeAssignment = alias(schema.assignment, "active_assignment");
+      const rideTruck = alias(schema.vehicle, "ride_truck");
+      const rideTrailer = alias(schema.vehicle, "ride_trailer");
       const [row] = await ctx.db
         .select({
           id: schema.asset.id,
@@ -156,6 +209,15 @@ export const assetRouter = router({
           currentProjectExternalId: currentProject.externalId,
           locationId: schema.asset.currentLocationId,
           locationName: schema.location.name,
+          currentTruckId: activeAssignment.truckId,
+          currentTruckUnit: rideTruck.unit,
+          /* STI-501's last AC: company vs personal must be visible wherever a
+             truck is shown, because that distinction is what the departure
+             path keys off — company property leaving on someone's own truck is
+             the case the Equipment department needs to see. */
+          currentTruckOwnership: rideTruck.ownershipType,
+          currentTrailerId: activeAssignment.trailerId,
+          currentTrailerUnit: rideTrailer.unit,
           owningProjectId: schema.asset.owningProjectId,
           owningProjectName: owningProject.name,
           costTarget: schema.asset.costTarget,
@@ -167,10 +229,69 @@ export const assetRouter = router({
         .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
+        .leftJoin(
+          activeAssignment,
+          and(
+            eq(activeAssignment.assetId, schema.asset.id),
+            eq(activeAssignment.tenantId, ctx.session.tenantId),
+            eq(activeAssignment.status, "active"),
+          ),
+        )
+        .leftJoin(rideTruck, eq(activeAssignment.truckId, rideTruck.id))
+        .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
         .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
         .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
-        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)));
-      return row ?? null;
+        /* The ladder applies to the detail screen too. Scoping the list but
+           not the row behind it is the classic hole: the tool is missing from
+           your register and still readable by pasting its id into the URL, and
+           the id is not a secret — it appears in every chat card and every
+           notification link. Out of scope reads as "not found" rather than
+           "forbidden", so the response cannot be used to confirm that a tag
+           exists on a job the caller has no business knowing about. */
+        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId), ...(scoped ? [scoped] : [])));
+      if (!row) return null;
+
+      /*
+        Who is accountable for this tool above the person holding it.
+
+        Custody answers "who has it" — a foreman. It does not answer "who do I
+        call", which on a job is the superintendent and then the PM. That chain
+        already exists as `project_team_member` rows on the tool's CURRENT
+        project, so this reads it rather than storing anything new: a tool
+        follows its custodian, the custodian's project follows them, and the
+        team follows the project. Nothing here is a projection to keep in sync.
+
+        A SEPARATE QUERY, not two more left joins on the select above, and that
+        is the whole reason this is not inline. A project can have several
+        superintendents and several foremen — `ptm_one_active_uq` is unique on
+        (tenant, project, employee, role), which permits exactly that — so
+        joining would multiply the asset row and `[row]` would then pick an
+        arbitrary one of them. A silently arbitrary superintendent is worse than
+        none, because nobody checks a field that is usually right.
+
+        Empty when the tool is on nobody's job: available stock in the yard has
+        a location and no project, and that is not a gap to fill in.
+      */
+      const team = row.currentProjectId
+        ? await ctx.db
+            .select({
+              employeeId: schema.projectTeamMember.employeeId,
+              role: schema.projectTeamMember.role,
+              name: schema.employee.name,
+              externalId: schema.employee.externalId,
+            })
+            .from(schema.projectTeamMember)
+            .innerJoin(schema.employee, eq(schema.projectTeamMember.employeeId, schema.employee.id))
+            .where(
+              and(
+                eq(schema.projectTeamMember.tenantId, ctx.session.tenantId),
+                eq(schema.projectTeamMember.projectId, row.currentProjectId),
+                isNull(schema.projectTeamMember.endedOn),
+              ),
+            )
+        : [];
+
+      return { ...row, team };
     }),
 
   create: requirePermission("asset.manage")
@@ -204,26 +325,44 @@ export const assetRouter = router({
          may arrive without one. What it is called in the ledger is the id; the
          display name is whatever of make/model/description was given. */
       const label = formatAssetModel(input) || "Untagged tool";
-      const [row] = await ctx.db
-        .insert(schema.asset)
-        .values({
-          tenantId: ctx.session.tenantId,
-          createdBy: ctx.session.userId,
-          currentStatus: "available",
-          currentLocationId: input.locationId ?? null,
-          ...input,
-        })
-        .returning();
+      /* One transaction for the row and its opening `tag` event (STI-115).
+         These were two bare awaits; a failure between them left an asset with
+         a projection but zero ledger rows — and because the ledger is
+         append-only (STI-104), the missing opening snapshot could never be
+         written retroactively, so STI-110's sweep reported the asset as
+         no_evidence forever. Same shape as the importer's insertOne. */
+      const row = await ctx.db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(schema.asset)
+          .values({
+            tenantId: ctx.session.tenantId,
+            createdBy: ctx.session.userId,
+            currentStatus: "available",
+            currentLocationId: input.locationId ?? null,
+            ...input,
+          })
+          .returning();
+        if (created) {
+          await tx.insert(schema.transaction).values({
+            tenantId: ctx.session.tenantId,
+            assetId: created.id,
+            eventType: "tag",
+            actorId: ctx.session.userId,
+            toState: { status: "available", custodianId: null, projectId: null, locationId: input.locationId ?? null },
+            refType: "manual",
+            note: `Asset ${label} registered`,
+          });
+        }
+        return created;
+      });
       if (row) {
-        await ctx.db.insert(schema.transaction).values({
-          tenantId: ctx.session.tenantId,
-          assetId: row.id,
-          eventType: "tag",
-          actorId: ctx.session.userId,
-          toState: { status: "available", custodianId: null, projectId: null, locationId: input.locationId ?? null },
-          refType: "manual",
-          note: `Asset ${label} registered`,
-        });
+        /* Deliberately OUTSIDE the transaction. The ledger event above is the
+           evidence; event_log is best-effort observability and logEvent already
+           swallows its own failures, so an audit hiccup must never roll back a
+           legitimate create. Running after commit also means it can never
+           describe an asset that does not exist — and the custody rule forbids
+           awaiting logEvent inside db.transaction anyway (it pins a pool
+           connection). The importer makes the same call. */
         await logEvent(ctx, {
           category: "asset",
           action: "create",
@@ -331,16 +470,107 @@ export const assetRouter = router({
     }),
 
   /*
-    Remove a tool from the register.
+    Re-file a selection: category and department, in one write (STI-104).
 
-    A tool with history is never deleted. Its transactions ARE the audit trail,
-    and dropping the row would take them with it (`on delete cascade`) — so a
-    tool that was assigned, lost and found would leave no trace it ever
-    existed. Those get `disposed` instead, which keeps the history and takes
-    them out of every active view.
+    Deliberately NARROW. This is not a multi-row `update`: the only fields
+    here are the two the desk actually re-files in bulk. Tag, serial and cost
+    identify ONE tool, so writing the same value across a selection is never
+    what anybody meant, and offering it would only make that mistake possible.
 
-    Hard delete stays available for the case it is actually for: a row typed in
-    wrong five minutes ago that has never been used.
+    Cost target moves WITH the department because `assetRefine` makes them a
+    single decision — a tool charged to a department must name one and must
+    not also name a project. Setting `owningDepartmentId` alone would leave
+    every row in the selection failing that rule the next time somebody opened
+    it in the single-row editor.
+
+    No ledger event: category and cost coding are not custody. Nothing here
+    touches custodian, project, location or status, so there is no `toState`
+    to write — this is the audit log's job, and it gets one entry naming the
+    whole selection rather than one per row.
+  */
+  bulkUpdate: requirePermission("asset.manage")
+    .input(
+      z
+        .object({
+          /* Bounded so one call cannot rewrite the whole register by
+             accident. The register is ~750 tools; 500 is a deliberate
+             selection, not a slipped "select all". */
+          ids: z.array(z.string().uuid()).min(1).max(500),
+          categoryName: z.string().max(120).nullable().optional(),
+          owningDepartmentId: z.string().uuid().nullable().optional(),
+        })
+        .superRefine((v, ctx) => {
+          if (v.categoryName === undefined && v.owningDepartmentId === undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "Nothing to change — pick a category or a department.",
+            });
+          }
+        }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const { ids, categoryName, owningDepartmentId } = input;
+
+      /* The department must be this tenant's. The FK proves the row exists;
+         it says nothing about WHOSE it is — the composite-FK lesson from
+         STI-202, and the reason this predicate is the only isolation there
+         is. */
+      if (owningDepartmentId) {
+        const dept = await ctx.db.query.department.findFirst({
+          where: and(eq(schema.department.id, owningDepartmentId), eq(schema.department.tenantId, tid)),
+        });
+        if (!dept) throw new TRPCError({ code: "NOT_FOUND", message: "No such department in this tenant" });
+      }
+
+      const patch: Record<string, unknown> = { updatedAt: new Date() };
+      if (categoryName !== undefined) patch.categoryName = categoryName;
+      if (owningDepartmentId !== undefined) {
+        patch.owningDepartmentId = owningDepartmentId;
+        /* Both directions, so the pair is always consistent: charging to a
+           department clears the project, and clearing the department hands
+           the tool back to project costing. */
+        patch.costTarget = owningDepartmentId ? "department" : "project";
+        if (owningDepartmentId) patch.owningProjectId = null;
+      }
+
+      const rows = await ctx.db
+        .update(schema.asset)
+        .set(patch)
+        .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)))
+        .returning({ id: schema.asset.id });
+
+      await logEvent(ctx, {
+        category: "asset",
+        action: "bulk_update",
+        entityType: "asset",
+        /* No single entity — the selection IS the subject. `entityId` carries
+           the first so the row is still clickable, and `details` carries the
+           whole set for anyone auditing what moved together. */
+        entityId: rows[0]?.id ?? ids[0]!,
+        entityLabel: `${rows.length} tool${rows.length === 1 ? "" : "s"}`,
+        details: { changed: Object.keys(patch).filter((k) => k !== "updatedAt"), ids: rows.map((r) => r.id) },
+      });
+
+      return { updated: rows.length };
+    }),
+
+  /*
+    Remove a tool from the register — which is to say: refuse to.
+
+    A tool's transactions ARE the audit trail, and dropping the row would take
+    them with it (`on delete cascade`). This procedure used to allow a hard
+    delete for a row "typed in wrong five minutes ago" — exactly one ledger
+    event, the opening `tag` that every creation path writes (see `create`).
+
+    Since STI-104 that path is unreachable by construction, not merely risky:
+    the ledger's append-only triggers (drizzle/0014_append_only_ledger.sql)
+    block the cascade DELETE of even that single event with SQLSTATE 0A000, so
+    every asset — all of which carry the `tag` event from birth — is
+    undeletable. Attempting it surfaced as a raw INTERNAL_SERVER_ERROR.
+    Deliberate product change: refuse cleanly with the disposal guidance
+    instead. Do NOT re-enable hard delete by disabling or excepting the
+    trigger — a cascade hole in the ledger defeats the control.
   */
   delete: requirePermission("asset.manage")
     .input(z.object({ id: z.string().uuid() }))
@@ -351,41 +581,11 @@ export const assetRouter = router({
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such tool in this tenant" });
 
-      if (existing.currentCustodianId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Someone is holding this tool. Return it first.",
-        });
-      }
-
-      /* The opening `tag` event is written by every creation path, so one
-         transaction means "never used" and more means real history. */
-      const events = await ctx.db
-        .select({ id: schema.transaction.id })
-        .from(schema.transaction)
-        .where(eq(schema.transaction.assetId, input.id))
-        .limit(2);
-
-      if (events.length > 1) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "This tool has history. Deleting it would delete its audit trail — mark it disposed instead.",
-        });
-      }
-
-      await ctx.db
-        .delete(schema.asset)
-        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, tid)));
-
-      await logEvent(ctx, {
-        category: "asset",
-        action: "delete",
-        entityType: "asset",
-        entityId: input.id,
-        entityLabel: existing.tag,
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "Tools are never deleted: the ledger is append-only and its events are the audit trail. Mark it disposed instead — that keeps the history and removes it from every active view.",
       });
-      return { ok: true };
     }),
 
   setStatus: requirePermission("asset.manage")
@@ -397,18 +597,35 @@ export const assetRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      /* Read before the write, so the ledger can record both sides. */
-      const before = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)),
-      });
+      /*
+        STI-118: the projection update and its ledger event commit together.
 
-      const [row] = await ctx.db
+        These were two unwrapped statements, so a failure between them left the
+        register saying "lost" with nothing in the ledger to say why — a
+        `stale_projection` divergence the six-hourly sweep would then raise
+        forever, and a rebuild would silently revert.
+
+        The read of `before` is INSIDE the transaction and takes the asset row
+        `FOR UPDATE`, the same anchor `custody.ts` locks. Without it, two
+        concurrent status changes both read the same `before`, and the second
+        event records a `fromState` that was never true — permanent fiction in
+        an append-only log. Reading outside the transaction, as this did, is
+        the identical bug STI-114 fixed in `assignment.return`.
+      */
+      return ctx.db.transaction(async (tx) => {
+      const [before] = await tx
+        .select()
+        .from(schema.asset)
+        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)))
+        .for("update");
+
+      const [row] = await tx
         .update(schema.asset)
         .set({ currentStatus: input.status, updatedAt: new Date() })
         .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)))
         .returning();
       if (row) {
-        await ctx.db.insert(schema.transaction).values({
+        await tx.insert(schema.transaction).values({
           tenantId: ctx.session.tenantId,
           assetId: row.id,
           eventType: "status_change",
@@ -438,46 +655,107 @@ export const assetRouter = router({
         });
       }
       return row;
+      });
     }),
+
+  /*
+    The reconciliation check (STI-106): compares the register against a replay of
+    the ledger and REPORTS — it writes nothing. `rebuild` below repairs, and in
+    doing so destroys the only signal a broken writer emits: the register quietly
+    becomes right again and nobody learns which code path corrupted it. Keeping
+    the two as separate explicit actions is the point, not an inconvenience.
+  */
+  verifyProjection: requirePermission("asset.manage").query(async ({ ctx }) => {
+    const tid = ctx.session.tenantId;
+    const projected = (
+      await ctx.db
+        .select({
+          assetId: schema.asset.id,
+          assetNumber: schema.asset.assetNumber,
+          tag: schema.asset.tag,
+          status: schema.asset.currentStatus,
+          custodianId: schema.asset.currentCustodianId,
+          projectId: schema.asset.currentProjectId,
+          locationId: schema.asset.currentLocationId,
+        })
+        .from(schema.asset)
+        .where(eq(schema.asset.tenantId, tid))
+    ).map((a) => ({ ...a, label: a.tag ? `#${a.assetNumber} ${a.tag}` : `#${a.assetNumber}` }));
+    const events = await tenantLedger(ctx.db, tid);
+    const divergences = reconcileProjections(projected, events);
+    return { assetsChecked: projected.length, totalEvents: events.length, divergences };
+  }),
 
   rebuild: requirePermission("asset.manage").mutation(async ({ ctx }) => {
     // Rebuild all assets.current_* from the transaction log (rebuild guarantee).
     const tid = ctx.session.tenantId;
-    const events = await ctx.db
-      .select()
-      .from(schema.transaction)
-      .where(eq(schema.transaction.tenantId, tid))
-      .orderBy(sql`${schema.transaction.occurredAt} ASC, ${schema.transaction.id} ASC`);
-    const byAsset = new Map<string, (typeof events)[number][]>();
+    const events = await tenantLedger(ctx.db, tid);
+    const byAsset = new Map<string, EventEnvelope[]>();
     for (const e of events) {
       const list = byAsset.get(e.assetId);
       if (list) list.push(e);
       else byAsset.set(e.assetId, [e]);
     }
     let updated = 0;
+    let skippedNoEvidence = 0;
+    /* Assets with NO ledger row at all never appear in `byAsset`, so the loop
+       below cannot see them and the skip count silently omitted exactly the
+       shape it exists to report. STI-101's backfill emptied the "has events but
+       none carry a snapshot" set by construction, so a zero-event asset is the
+       only no-evidence shape actually reachable today — a REST-created asset, or
+       an `asset.create` that failed between its two writes (STI-115/STI-116).
+       Counted here rather than in the loop, because there is nothing to loop
+       over. Found by QA on 2026-08-18: rebuild reported
+       `assetsSkippedNoEvidence: 0` with a no-evidence divergence open. */
+    const assetsWithNoEvents = await ctx.db
+      .select({ id: schema.asset.id })
+      .from(schema.asset)
+      .where(eq(schema.asset.tenantId, tid));
+    skippedNoEvidence += assetsWithNoEvents.filter((a) => !byAsset.has(a.id)).length;
     for (const [assetId, list] of byAsset) {
-      let latest: (typeof events)[number] | null = null;
-      for (const e of list) if (e.toState) latest = e;
-      if (latest?.toState) {
-        const s = latest.toState as {
-          status?: string;
-          custodianId?: string | null;
-          projectId?: string | null;
-          locationId?: string | null;
-        };
-        await ctx.db
-          .update(schema.asset)
-          .set({
-            currentStatus: s.status ?? "available",
-            currentCustodianId: s.custodianId ?? null,
-            currentProjectId: s.projectId ?? null,
-            currentLocationId: s.locationId ?? null,
-            updatedAt: new Date(),
-          })
-          .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)));
-        updated++;
+      /* An asset whose ledger carries no complete snapshot is skipped, not
+         blanked: the fold's INITIAL_STATE answer is indistinguishable from "no
+         evidence", and overwriting a live register row on no evidence is how a
+         repair becomes the corruption. verifyProjection above deliberately does
+         NOT share this tolerance — there an empty fold is a divergence, of kind
+         `no_evidence` (STI-110): the same `hasSnapshotEvidence` predicate
+         drives both, so what rebuild refuses to touch is exactly what the
+         report names unrepairable. The skip count is returned because QA once
+         watched `{assetsRebuilt: 1}` come back with two divergences open and
+         had no way to tell the second was skipped rather than missed. */
+      if (!hasSnapshotEvidence(list)) {
+        skippedNoEvidence++;
+        continue;
       }
+      /* The fold is the domain function, not a re-implementation. An inline
+         copy used to live here, and it merely happened to agree with the tested
+         `foldAssetState` — STI-106 made the production path and the tested path
+         the same code. */
+      const s = foldAssetState(list);
+      await ctx.db
+        .update(schema.asset)
+        .set({
+          currentStatus: s.status ?? "available",
+          currentCustodianId: s.custodianId ?? null,
+          currentProjectId: s.projectId ?? null,
+          currentLocationId: s.locationId ?? null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)));
+      updated++;
     }
-    return { assetsRebuilt: updated, totalEvents: events.length };
+    return { assetsRebuilt: updated, assetsSkippedNoEvidence: skippedNoEvidence, totalEvents: events.length };
   }),
 });
+
+/* The whole tenant ledger, typed as the envelopes the domain fold takes. The
+   jsonb columns come back `unknown`; the cast is the one place that unknown is
+   pinned to the snapshot shape both `foldAssetState` and `reconcileProjections`
+   consume. No ORDER BY — the fold sorts for itself (occurredAt, then id). */
+async function tenantLedger(db: Context["db"], tid: string): Promise<EventEnvelope[]> {
+  const rows = await db
+    .select()
+    .from(schema.transaction)
+    .where(eq(schema.transaction.tenantId, tid));
+  return rows as unknown as EventEnvelope[];
+}

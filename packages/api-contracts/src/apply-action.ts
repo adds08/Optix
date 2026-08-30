@@ -1,6 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import type { Database } from "@stinventory/db";
 import * as schema from "@stinventory/db/schema";
-import { custodyOutcome, type CustodyOutcome } from "@stinventory/domain";
+import { custodyOutcome, type AssetStateSnapshot, type CustodyOutcome } from "@stinventory/domain";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel, type Permission } from "@stinventory/types";
 import {
   ACTION_DEPARTMENTS,
@@ -9,7 +11,7 @@ import {
   CUSTODY_INTENTS,
   REQUEST_TITLES,
 } from "@stinventory/intent";
-import { closeActiveCustody, moveCustody, projectForCustodian } from "./custody.js";
+import { assertVehicleContext, closeActiveCustody, moveCustody, projectForCustodian } from "./custody.js";
 
 /*
   The single place a chat-derived intent becomes real state.
@@ -47,6 +49,10 @@ export type ChatAction = {
   custodianId?: string;
   projectId?: string;
   locationId?: string;
+  /* Which rig the tool rides out in (STI-203) — set by the bulk-move form;
+     the chat parser does not resolve vehicles yet. Never defaulted. */
+  truckId?: string | null;
+  trailerId?: string | null;
   note?: string;
   /* Only `intake` carries this — every other action names assets that exist. */
   draft?: AssetDraft;
@@ -122,16 +128,24 @@ async function outcomeFor(
   });
 }
 
-export async function applyChatAction(db: any, opts: ApplyOptions): Promise<ApplyResult> {
+/* `db` is the RAW handle on purpose — this function opens the transaction
+   itself, one per asset, so a multi-asset action that fails partway keeps the
+   assets it already moved. Custody helpers only ever see the tx inside. */
+export async function applyChatAction(db: Database, opts: ApplyOptions): Promise<ApplyResult> {
   const { tenantId, actorUserId, permissions, action, refMessageId } = opts;
 
   if (!canApplyAction(action.type, permissions)) {
     const needed = permissionForAction(action.type);
-    throw new Error(
-      needed
+    /* STI-204: callers normally downgrade a refusal to a desk request before
+       ever calling this, so reaching either throw means a caller skipped
+       canApplyAction — but the person on the other end still gets a coded
+       refusal, not a 500. */
+    throw new TRPCError({
+      code: needed ? "FORBIDDEN" : "BAD_REQUEST",
+      message: needed
         ? `Not allowed: ${action.type} requires ${needed}`
         : `Cannot apply unsupported action type: ${action.type}`,
-    );
+    });
   }
 
   /* Intake runs before the asset loop because it is the one action whose
@@ -143,7 +157,13 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
 
   const assetIds = action.assetIds ?? [];
   if (!assetIds.length) {
-    throw new Error("No assets resolved for this action");
+    throw new TRPCError({ code: "BAD_REQUEST", message: "No assets resolved for this action" });
+  }
+
+  /* Once, before the per-asset loop: the composite FK behind truckId/trailerId
+     is tenant-blind and answers a wrong type with a raw 500 (custody.ts). */
+  if (action.type === "assign" || action.type === "transfer") {
+    await assertVehicleContext(db, tenantId, action.truckId, action.trailerId);
   }
 
   const transactionIds: string[] = [];
@@ -155,6 +175,48 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
       where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)),
     });
     if (!asset) continue;
+
+    /*
+      STI-120 — a retry must not re-apply what already landed.
+
+      This loop writes one asset at a time, each in its own transaction. A
+      five-asset action that fails on the third leaves two applied and three
+      not; `confirmMessageAction` then catches, un-claims the message back to
+      `action_proposed`, and the Confirm button works again. Pressing it
+      re-ran the whole list, appending a second `assign` event for the two that
+      had already moved — **permanent duplicate history in a log that cannot be
+      pruned, with no crash involved.** QA reproduced it by ordinary retry.
+
+      The ledger is its own idempotency key. Every event this path writes
+      carries `refType: "message"` and `refId: <messageId>`, so "has this
+      message already moved this asset" is a question the append-only log can
+      answer, and answering it there means the guard cannot drift from what was
+      actually written.
+
+      Only for the message path: a direct form apply has no `refMessageId`, and
+      each press of a form button is a genuinely new instruction. Skipping is
+      the honest outcome rather than an error — the work IS done, and the
+      caller asked for it to be done.
+    */
+    if (refMessageId) {
+      const already = await db.query.transaction.findFirst({
+        where: and(
+          eq(schema.transaction.tenantId, tenantId),
+          eq(schema.transaction.assetId, assetId),
+          eq(schema.transaction.refMessageId, refMessageId),
+        ),
+      });
+      if (already) {
+        /* Counted as applied and its id returned, so the caller's totals and
+           `executedTransactionIds` describe the whole action rather than only
+           the part this attempt happened to do. A retry that reported "2
+           applied" after a five-asset action would read as a partial success
+           when it is a complete one. */
+        transactionIds.push(String(already.id));
+        applied++;
+        continue;
+      }
+    }
 
     /* Custody moves get the rule applied before anything is written. */
     if (action.type === "assign" || action.type === "transfer") {
@@ -176,16 +238,59 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
         const toLocationId = action.locationId ?? null;
 
         if (!toCustodianId && !toLocationId) {
-          throw new Error(
-            "This hand-off names nobody to hand it to. Say who is taking it, or record it from Custody.",
-          );
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This hand-off names nobody to hand it to. Say who is taking it, or record it from Custody.",
+          });
         }
+
+        /* `transfer.requested_by` is NOT NULL — a desk queue entry nobody
+           raised is unactionable. Only surfaced when `db: any` became a real
+           type (STI-102): the worker's no-session path can never reach here
+           because canApplyAction refuses custody intents to an empty
+           permission set, so an anonymous requester is a caller bug. */
+        if (!actorUserId)
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "This hand-off has no identifiable requester",
+          });
 
         /* Handing a tool to somebody sends it to their job. The chat rarely
            resolves a project, so the fallback is the recipient's current one. */
         const toProjectId =
           action.projectId ??
           (await projectForCustodian(db, tenantId, toCustodianId, asset.currentProjectId));
+
+        /*
+          One open hand-off per tool — the same rule `transfer.create` enforces
+          (routers/transfer.ts).
+
+          STI-120's `refMessageId` guard above cannot cover this branch: it asks
+          the ledger whether this message already moved this asset, and this
+          branch writes NO ledger row at all — nothing has moved yet, only a
+          queue row exists. So a re-confirmed message, or a second message
+          naming the same tool, appended a second identical `handoff` row and
+          the desk got two queue entries for one physical event (UI-66).
+          Approve one and the other waits forever, pointing at a hand-off that
+          already happened.
+
+          `continue`, not a throw: this is inside the per-asset loop, and
+          throwing on asset three of five recreates exactly the partial-failure
+          retry STI-120 exists to survive. Counting it as already-awaiting is
+          how the skip path above reports too — the desk entry IS there.
+        */
+        const openTransfer = await db.query.transfer.findFirst({
+          where: and(
+            eq(schema.transfer.tenantId, tenantId),
+            eq(schema.transfer.assetId, assetId),
+            eq(schema.transfer.status, "pending_approval"),
+          ),
+        });
+        if (openTransfer) {
+          awaitingApproval++;
+          continue;
+        }
 
         const [transferRow] = await db
           .insert(schema.transfer)
@@ -201,6 +306,10 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
             toLocationId: toLocationId ?? asset.currentLocationId,
             fromProjectId: asset.currentProjectId,
             toProjectId,
+            /* The rig the requester named rides the parked row (STI-203 /
+               0017), so transfer.approve applies what was actually asked. */
+            toTruckId: action.truckId ?? null,
+            toTrailerId: action.trailerId ?? null,
             reason: "handoff",
             status: "pending_approval",
             requestedBy: actorUserId,
@@ -214,180 +323,243 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
       }
     }
 
-    const before = {
+    /* Typed as the snapshot, not inferred four-key: the shape-aware branches
+       below assign vehicle keys into `after` (STI-203). */
+    const before: AssetStateSnapshot = {
       status: asset.currentStatus,
       custodianId: asset.currentCustodianId,
       projectId: asset.currentProjectId,
       locationId: asset.currentLocationId,
     };
 
-    let after = { ...before };
-    let eventType = "status_change";
-    let refType = "message";
-    let refId: string | null = refMessageId ?? null;
-    let note = action.note ?? "";
+    /* Custody + projection + ledger commit or vanish together (STI-102), and
+       the close inside custody.ts takes the asset-row lock so a chat move and
+       a form move on the same tool serialise instead of both opening a link.
+       Nothing network-shaped runs in here on purpose: postgres.js pins one
+       pool connection for the life of a transaction, and this is the chat
+       path — the LLM parse already happened, in the worker, before this call. */
+    const ledgerId = await db.transaction(async (tx) => {
+      let after: AssetStateSnapshot = { ...before };
+      let eventType = "status_change";
+      let refType = "message";
+      let refId: string | null = refMessageId ?? null;
+      let note = action.note ?? "";
 
-    switch (action.type) {
-      case "assign": {
-        if (!action.custodianId) throw new Error("Assign needs a custodian");
-        /* Assigning a tool that is already out closes the previous link first,
-           or the tool ends up in two people's custody at once. The project
-           defaults to the custodian's current job when the action says nothing. */
-        await closeActiveCustody(db, tenantId, assetId);
-        const assignProjectId =
-          action.projectId ?? (await projectForCustodian(db, tenantId, action.custodianId, asset.currentProjectId));
-        const [assignment] = await db
-          .insert(schema.assignment)
-          .values({
+      switch (action.type) {
+        case "assign": {
+          if (!action.custodianId)
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Assign needs a custodian" });
+          /* Through moveCustody, not a hand-rolled close-then-insert.
+
+             This path used to call `closeActiveCustody` and then write the
+             `assignment` row itself. It closed before opening, so it never
+             produced the two-custodian bug — but it was a second implementation
+             of opening custody, and the one thing custody.ts exists to
+             guarantee is that there is only ever one. It also skipped the
+             chokepoint's own `assertVehicleContext`; that is covered here by
+             the edge check above, which is exactly the kind of coincidence that
+             stops being true later.
+
+             The project still resolves before the move: `projectForCustodian`
+             reads the employee's primaryProjectId and nothing custody-shaped,
+             so it is order-independent. */
+          const assignProjectId =
+            action.projectId ?? (await projectForCustodian(tx, tenantId, action.custodianId, asset.currentProjectId));
+          const { openedId: assignmentId } = await moveCustody(tx, {
             tenantId,
             assetId,
+            toCustodianId: action.custodianId,
+            projectId: assignProjectId,
+            locationId: action.locationId ?? asset.currentLocationId ?? null,
+            truckId: action.truckId,
+            trailerId: action.trailerId,
+            actorUserId,
+          });
+          after = {
+            status: "assigned",
             custodianId: action.custodianId,
             projectId: assignProjectId,
             locationId: action.locationId ?? asset.currentLocationId ?? null,
-            startDate: new Date().toISOString().slice(0, 10),
-            status: "active",
-            approvedBy: actorUserId,
-          })
-          .returning();
-        after = {
-          status: "assigned",
-          custodianId: action.custodianId,
-          projectId: assignProjectId,
-          locationId: action.locationId ?? asset.currentLocationId ?? null,
-        };
-        eventType = "assign";
-        refType = "assignment";
-        refId = assignment?.id ?? null;
-        note = note || "Assigned via chat";
-        break;
-      }
-
-      case "transfer": {
-        if (!action.custodianId && !action.locationId && !action.projectId) {
-          throw new Error("Transfer needs a destination");
+            /* Both keys explicit, no current_* fallback: a new custody does
+               not inherit the previous holder's rig (STI-203). */
+            truckId: action.truckId ?? null,
+            trailerId: action.trailerId ?? null,
+          };
+          eventType = "assign";
+          refType = "assignment";
+          refId = assignmentId;
+          note = note || "Assigned via chat";
+          break;
         }
-        // Close any assignment the previous holder had.
-        await closeActiveCustody(db, tenantId, assetId);
-        const transferProjectId =
-          action.projectId ??
-          (await projectForCustodian(db, tenantId, action.custodianId, asset.currentProjectId));
-        const [transfer] = await db
-          .insert(schema.transfer)
-          .values({
+
+        case "transfer": {
+          if (!action.custodianId && !action.locationId && !action.projectId) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Transfer needs a destination" });
+          }
+          /* Same NOT NULL constraint as the pending branch above: a transfer
+             row must name who moved it. */
+          if (!actorUserId)
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "This hand-off has no identifiable requester",
+            });
+          /* Same chokepoint as the assign branch: one call closes the previous
+             holder's link and opens the receiver's, under the asset-row lock
+             custody.ts takes. `toCustodianId: null` — a hand-off to a place
+             rather than a person — closes and opens nothing, which is what the
+             two separate statements here used to do between them.
+
+             Ordered before the transfer record on purpose: the record reads
+             from the `asset` snapshot taken outside this transaction, so it is
+             unaffected, and holding the lock across the whole custody change is
+             strictly safer than opening it afterwards. */
+          const transferProjectId =
+            action.projectId ??
+            (await projectForCustodian(tx, tenantId, action.custodianId, asset.currentProjectId));
+          await moveCustody(tx, {
             tenantId,
             assetId,
-            fromCustodianId: asset.currentCustodianId,
-            toCustodianId: action.custodianId ?? asset.currentCustodianId,
-            fromLocationId: asset.currentLocationId,
-            toLocationId: action.locationId ?? asset.currentLocationId,
-            fromProjectId: asset.currentProjectId,
-            toProjectId: transferProjectId,
-            reason: "reallocation",
-            status: "completed",
-            requestedBy: actorUserId,
-            approvedBy: actorUserId,
-            completedAt: new Date(),
-          })
-          .returning();
-        // A transfer with a new custodian opens their assignment.
-        if (action.custodianId) {
-          await db.insert(schema.assignment).values({
-            tenantId,
-            assetId,
-            custodianId: action.custodianId,
+            toCustodianId: action.custodianId ?? null,
             projectId: transferProjectId,
             locationId: action.locationId ?? asset.currentLocationId ?? null,
-            startDate: new Date().toISOString().slice(0, 10),
-            status: "active",
-            approvedBy: actorUserId,
+            truckId: action.truckId,
+            trailerId: action.trailerId,
+            actorUserId,
           });
+          const [transfer] = await tx
+            .insert(schema.transfer)
+            .values({
+              tenantId,
+              assetId,
+              fromCustodianId: asset.currentCustodianId,
+              toCustodianId: action.custodianId ?? asset.currentCustodianId,
+              fromLocationId: asset.currentLocationId,
+              toLocationId: action.locationId ?? asset.currentLocationId,
+              fromProjectId: asset.currentProjectId,
+              toProjectId: transferProjectId,
+              toTruckId: action.truckId ?? null,
+              toTrailerId: action.trailerId ?? null,
+              reason: "reallocation",
+              status: "completed",
+              requestedBy: actorUserId,
+              approvedBy: actorUserId,
+              completedAt: new Date(),
+            })
+            .returning();
+          after = {
+            status: "assigned",
+            custodianId: action.custodianId ?? asset.currentCustodianId,
+            projectId: transferProjectId,
+            locationId: action.locationId ?? asset.currentLocationId,
+            /* Explicit, never inherited from the previous holder (STI-203). */
+            truckId: action.truckId ?? null,
+            trailerId: action.trailerId ?? null,
+          };
+          eventType = "transfer";
+          refType = "transfer";
+          refId = transfer?.id ?? null;
+          note = note || "Transferred via chat";
+          break;
         }
-        after = {
-          status: "assigned",
-          custodianId: action.custodianId ?? asset.currentCustodianId,
-          projectId: transferProjectId,
-          locationId: action.locationId ?? asset.currentLocationId,
-        };
-        eventType = "transfer";
-        refType = "transfer";
-        refId = transfer?.id ?? null;
-        note = note || "Transferred via chat";
-        break;
+
+        case "return": {
+          const closed = await closeActiveCustody(tx, tenantId, assetId, "returned");
+          after = {
+            status: "available",
+            custodianId: null,
+            projectId: null,
+            locationId: action.locationId ?? asset.currentLocationId,
+            /* Explicit nulls (STI-203): a return means the tool came back IN,
+               out of whoever's rig — an affirmative fact, same as the form
+               return in routers/assignment.ts. */
+            truckId: null,
+            trailerId: null,
+          };
+          eventType = "return";
+          refType = "assignment";
+          refId = closed[0] ?? null;
+          note = note || "Returned via chat";
+          break;
+        }
+
+        /* Previously fell through every branch: marked done, wrote nothing. */
+        case "repair": {
+          await closeActiveCustody(tx, tenantId, assetId, "returned");
+          /* Custody closes, so the vehicle keys are affirmatively null too —
+             a tool in the shop is not riding anyone's rig (STI-203). `lost`
+             below deliberately stays silent on them instead: nobody knows
+             where a lost tool is riding, and absent keys are how a snapshot
+             says "unknown" (packages/domain/src/fold.ts). */
+          after = { ...before, status: "in_maintenance", custodianId: null, truckId: null, trailerId: null };
+          eventType = "repair_start";
+          note = note || "Sent for repair via chat";
+          break;
+        }
+
+        /* Same class of bug: a tool reported lost stayed `available`. */
+        case "lost": {
+          after = { ...before, status: "lost" };
+          eventType = "lost";
+          note = note || "Reported missing via chat";
+          break;
+        }
+
+        case "report": {
+          // Annotation only — status and custody are untouched by design.
+          after = { ...before };
+          eventType = "status_change";
+          note = note || "Note from the field";
+          break;
+        }
+
+        default:
+          /* Reachable only when an intent is in the catalog but has no case
+             here — executor drift, not a bad request (an unknown type was
+             already refused above, before any write). */
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Cannot apply unsupported action type: ${action.type}`,
+          });
       }
 
-      case "return": {
-        const closed = await closeActiveCustody(db, tenantId, assetId, "returned");
-        after = {
-          status: "available",
-          custodianId: null,
-          projectId: null,
-          locationId: action.locationId ?? asset.currentLocationId,
-        };
-        eventType = "return";
-        refType = "assignment";
-        refId = closed[0] ?? null;
-        note = note || "Returned via chat";
-        break;
-      }
+      await tx
+        .update(schema.asset)
+        .set({
+          currentStatus: after.status,
+          currentCustodianId: after.custodianId,
+          currentProjectId: after.projectId,
+          currentLocationId: after.locationId,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)));
 
-      /* Previously fell through every branch: marked done, wrote nothing. */
-      case "repair": {
-        await closeActiveCustody(db, tenantId, assetId, "returned");
-        after = { ...before, status: "in_maintenance", custodianId: null };
-        eventType = "repair_start";
-        note = note || "Sent for repair via chat";
-        break;
-      }
+      const [ledgerRow] = await tx
+        .insert(schema.transaction)
+        .values({
+          tenantId,
+          assetId,
+          eventType,
+          actorId: actorUserId,
+          fromState: before,
+          // The fold is last-snapshot-wins, so every writer must emit a COMPLETE
+          // to_state — a partial object replaces rather than merges.
+          toState: after,
+          refType,
+          refId,
+          /* STI-120. `refType`/`refId` name the row this event is ABOUT — for
+             an assign they become `assignment`/<id>, overwriting the message
+             defaults set above. The cause is recorded separately so both
+             survive, and so a retry can ask "have I already moved this asset
+             for this message". Null on the form paths, which carry no
+             message and where each press is a new instruction. */
+          refMessageId: refMessageId ?? null,
+          note,
+        })
+        .returning();
+      return ledgerRow ? String(ledgerRow.id) : null;
+    });
 
-      /* Same class of bug: a tool reported lost stayed `available`. */
-      case "lost": {
-        after = { ...before, status: "lost" };
-        eventType = "lost";
-        note = note || "Reported missing via chat";
-        break;
-      }
-
-      case "report": {
-        // Annotation only — status and custody are untouched by design.
-        after = { ...before };
-        eventType = "status_change";
-        note = note || "Note from the field";
-        break;
-      }
-
-      default:
-        throw new Error(`Cannot apply unsupported action type: ${action.type}`);
-    }
-
-    await db
-      .update(schema.asset)
-      .set({
-        currentStatus: after.status,
-        currentCustodianId: after.custodianId,
-        currentProjectId: after.projectId,
-        currentLocationId: after.locationId,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.asset.id, assetId));
-
-    const [tx] = await db
-      .insert(schema.transaction)
-      .values({
-        tenantId,
-        assetId,
-        eventType,
-        actorId: actorUserId,
-        fromState: before,
-        // The fold is last-snapshot-wins, so every writer must emit a COMPLETE
-        // to_state — a partial object replaces rather than merges.
-        toState: after,
-        refType,
-        refId,
-        note,
-      })
-      .returning();
-
-    if (tx) transactionIds.push(String(tx.id));
+    if (ledgerId) transactionIds.push(ledgerId);
     applied++;
   }
 
@@ -395,7 +567,7 @@ export async function applyChatAction(db: any, opts: ApplyOptions): Promise<Appl
      was recorded, it just needs a second signature. A borrow is more clearly a
      success: the register moved. Only a run that touched nothing is an error. */
   if (applied === 0 && awaitingApproval === 0) {
-    throw new Error("No matching assets in this tenant");
+    throw new TRPCError({ code: "NOT_FOUND", message: "No matching assets in this tenant" });
   }
   return { transactionIds, applied, awaitingApproval };
 }
@@ -426,19 +598,49 @@ async function applyIntake(
   const description = draft.description?.trim();
 
   if (!tag && !make && !description) {
-    throw new Error("A new tool needs a tag or something it is — a make or a description — before it can be registered");
+    /* STI-204: this sentence is written for the person typing, and it used to
+       reach them as INTERNAL_SERVER_ERROR — guidance rendered as a crash. */
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "A new tool needs a tag or something it is — a make or a description — before it can be registered",
+    });
   }
 
   if (tag) {
     const clash = await db.query.asset.findFirst({
       where: and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.tag, tag)),
     });
-    if (clash) throw new Error(`${tag} is already in the register`);
+    /* CONFLICT, matching the same clash in asset.update — the two surfaces
+       must disagree with the user in the same voice. */
+    if (clash)
+      throw new TRPCError({ code: "CONFLICT", message: `${tag} is already in the register` });
   }
 
   const label = formatAssetModel({ make, modelNumber, description }) || "Untagged tool";
 
-  const [row] = await db
+  /*
+    STI-118: the register row and its genesis ledger event commit together or
+    not at all.
+
+    These were two unwrapped statements. A failure between them — a dropped
+    connection, a constraint, a restart — left an asset in the register with
+    NO ledger evidence at all, which is the one state the whole design forbids:
+    `foldAssetState` has nothing to fold, `verifyProjection` reports it as a
+    divergence with no evidence, and `asset.rebuild` deliberately REFUSES to
+    repair it (repairing on no evidence would blank a live custodian). So the
+    row could only ever be fixed by hand.
+
+    This is the CHAT path, which is what made it worth fixing over the other
+    two-statement writers: it is reachable by any foreman typing a sentence,
+    not just by an administrator on a form.
+
+    Nothing network-shaped runs inside — postgres.js pins one pool connection
+    for the life of a transaction, and the LLM parse already happened in the
+    worker before this call.
+  */
+  const { row, tx } = await db.transaction(async (trx: any) => {
+  const [row] = await trx
     .insert(schema.asset)
     .values({
       tenantId,
@@ -456,9 +658,10 @@ async function applyIntake(
     })
     .returning();
 
-  if (!row) throw new Error("Could not register that tool");
+  if (!row)
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not register that tool" });
 
-  const [tx] = await db
+  const [tx] = await trx
     .insert(schema.transaction)
     .values({
       tenantId,
@@ -474,9 +677,19 @@ async function applyIntake(
       },
       refType: refMessageId ? "message" : "manual",
       refId: refMessageId ?? null,
+      /* Same cause column as the custody path (STI-120). Here `refType`/`refId`
+         already hold the message, so this is redundant TODAY — and it is
+         written anyway, because the retry guard queries one column and an
+         intake event that answered a different one would be invisible to it.
+         An intake is also the case where a duplicate is most visible: a second
+         tool in the register, not just a second event. */
+      refMessageId: refMessageId ?? null,
       note: action.note || `Asset ${label} registered from a message`,
     })
     .returning();
+
+    return { row, tx };
+  });
 
   return { transactionIds: tx ? [String(tx.id)] : [], applied: 1, awaitingApproval: 0 };
 }
@@ -521,7 +734,7 @@ export async function requestChatAction(db: any, opts: ApplyOptions): Promise<Re
 
   const aboutExisting = named.length > 0;
   if (assetIds.length && !aboutExisting) {
-    throw new Error("No matching assets in this tenant");
+    throw new TRPCError({ code: "NOT_FOUND", message: "No matching assets in this tenant" });
   }
 
   const draft = action.draft ?? {};
@@ -571,6 +784,9 @@ export async function requestChatAction(db: any, opts: ApplyOptions): Promise<Re
         custodianId: action.custodianId ?? null,
         projectId: action.projectId ?? null,
         locationId: action.locationId ?? null,
+        /* Kept so approval replays the rig the requester named (STI-203). */
+        truckId: action.truckId ?? null,
+        trailerId: action.trailerId ?? null,
         note: action.note ?? null,
         draft: action.draft ?? null,
       },

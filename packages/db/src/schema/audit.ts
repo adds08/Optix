@@ -4,7 +4,7 @@ import { tenant } from "./identity";
 // Generic audit log (mirrors Mark 85 event_log). Best-effort insert; never the
 // system of record for domain state (that is `transaction`).
 export const eventLog = pgTable(
-  "event_log",
+  "tbl_ops_event_log",
   {
     id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
     tenantId: uuid("tenant_id").references(() => tenant.id, { onDelete: "cascade" }),

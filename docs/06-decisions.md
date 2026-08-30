@@ -1,3 +1,9 @@
+> **Table names in this document predate the 2026-08-28 rename.** Where it says
+> `asset`, `assignment`, `transaction` and so on, the physical tables are now
+> `tbl_entity_asset`, `tbl_ops_smalltools_custody`, `tbl_ops_transaction`. The
+> reasoning here is unaffected; only the names are. The current schema is
+> [`architecture/01-data-model.md`](architecture/01-data-model.md).
+
 # STInventory — Architecture Decisions
 
 Numbered decision records. Each is decision → rationale → consequence. Append, don't edit;
@@ -27,7 +33,8 @@ a log, the audit trail is not a feature to build; it is the storage format.
 - Every write path must append a transaction. A write that updates `asset.current_*` without
   appending is a corruption bug, not a style issue.
 - `foldAssetState` (`packages/domain/src/fold.ts`) is last-snapshot-wins, not a field-wise
-  reducer, so **every writer must emit a complete `to_state`**. See `03-data-model.md` §A8.
+  reducer, so **every writer must emit a complete `to_state`**. See
+`architecture/01-data-model.md`, and `.claude/rules/custody-and-ledger.md` for the writer buckets.
 - `assignment_history` was dropped as redundant — `transaction` with
   `ref_type = 'assignment'` answers the same question.
 
@@ -40,6 +47,12 @@ a log, the audit trail is not a feature to build; it is the storage format.
 **Decision.** tRPC (`packages/api-contracts/`) is the only API surface. The hand-rolled REST
 layer in `apps/api/src/rest-routes.ts` is transitional debt to be deleted; the mobile app
 migrates from `packages/frontend-shared/src/api-client.ts` to a tRPC client.
+
+> **Status: carried out. Both files are gone.** `apps/api/src/rest-routes.ts` no longer
+> exists — the Hono app serves `/health`, the auth endpoints, two asset-photo endpoints and
+> tRPC, and nothing else. `packages/frontend-shared` was deleted after going unimported by
+> either client. The decision below stands; everything it describes as pending is done.
+> **Do not go looking for an ungated REST mutation. There is no REST surface.**
 
 **Rationale.** The two surfaces currently implement the same queries twice — dashboard KPIs,
 assets, assignments, vehicles, employees, transactions, tasks and messaging all exist in both
@@ -220,3 +233,139 @@ every later refresh.
   forward if wanted.
 - Whether the existing PHP is kept as a sidecar or ported into the monorepo is deferred.
   Not urgent: it changes who runs the sync, not what the sync means.
+
+---
+
+## ADR-9 — Navigation is organised by resource, not by department
+
+**Status:** Accepted · **Date:** 2026-08-24
+
+**Decision.** The top level of navigation is the **resource** a screen is about — Small
+Tools, Equipment, Labour, Materials, Money. The second level is the **activity** performed
+on it: Register (keep the record), Deploy (where it is, who holds it), Consume (hours,
+fuel, quantity), Acquire (purchase, invoice), Analyse (cost, reports).
+
+Every screen in the product, now and later, is one cell of that grid. Timesheets are
+Labour × Consume. Tools by Jobsite is Small Tools × Deploy. An equipment purchase order is
+Equipment × Acquire.
+
+**Rationale.** The obvious alternative is to name the top level after departments, because
+that is how Urban talks. It fails on two counts. Departments reorganise, and resources do
+not — a small tool will be a small tool in ten years. More importantly, every cross-cutting
+record has two legitimate departments: a purchase order for tools belongs to Procurement
+and to Equipment, and a timesheet belongs to Operations and to Finance. Department-first
+forces an arbitrary choice on each one, and that choice is wrong for half the people
+looking for it.
+
+Resource-first also matches the permission namespace that already exists — `asset.*`,
+`project.*`, `employee.*`, `vehicle.*`, `location.*` — so navigation and authorisation
+partition the product the same way.
+
+**Consequences.**
+- **Departments are not modelled for navigation. They emerge from permissions.** Somebody
+  in the equipment department holds `asset.*`, `location.*` and `vehicle.*` and not the
+  timesheet or purchasing grants, so the shell's existing drop-empty-group rule shows them
+  the equipment part of the product and nothing else. There is no department-to-menu map to
+  maintain, and no second place for it to drift from.
+- A person's job correlates with a resource, not a verb. Nobody's role is "Acquire".
+- Adding a resource is a new top-level entry. Adding an activity to an existing resource is
+  a new row inside one. Neither is a change to shell code.
+- Trucks and trailers are Equipment, not a separate register. The schema already agrees:
+  `vehicle` is 1:1 with a `location` of type `vehicle`.
+
+---
+
+## ADR-10 — A navigation row is a route plus a preset
+
+**Status:** Accepted · **Date:** 2026-08-24 · **Depends on:** ADR-9
+
+**Decision.** A navigation row is a `(route, preset)` pair, not a route. Rows that differ
+only by a filter share one route, one router and one screen. "Small tools purchase orders"
+and "equipment purchase orders" are `/purchasing/orders` with a different default facet,
+backed by one `purchase_order` table with a `resource_kind` column.
+
+**Rationale.** ADR-9 puts resource at the top level, which means any record type that exists
+for several resources would otherwise be built several times. Purchase orders are the first
+case and will not be the last; invoices, utilisation and cost reports have the same shape.
+Without this rule the menu grows a row *and a route* per resource, and the code grows a
+near-duplicate screen per resource.
+
+**Consequences.**
+- **A new navigation row costs one config line and no route.** That is the property being
+  bought, and it is what keeps the menu from doubling every time a resource is added.
+- A preset must be a declarative filter object, not a bespoke page. This is also what
+  Release 2's generative assembly needs a model to emit — see SYSTEM_PLAN §7.
+- Existing screens are not retrofitted for this on its own account. `/jobsites` is large
+  and works; it is grandfathered. New work follows the rule.
+- Three levels of navigation are permitted, and **only** for presets: a third-level row must
+  be a preset of its parent's record type. Children of different record types are siblings
+  at the second level. Without that limit the third level becomes the dumping ground the
+  flat menu was.
+
+---
+
+## ADR-11 — Module visibility is configuration, never authorisation
+
+**Status:** Accepted · **Date:** 2026-08-24
+
+**Decision.** Which parts of the product an organisation *uses* is a tenant setting
+(`tenant_settings.disabled_modules`, a list of navigation item ids). Which parts a person
+*may* use stays a permission, checked on the server. The two are separate mechanisms and
+must not be merged.
+
+**Rationale.** Urban does not want Hand Off or the HR surfaces in this release, and the
+cheap way to deliver that is to hide them. The danger is that hiding becomes the control:
+once a screen is "removed" by a visibility flag, the next change assumes nothing behind it
+needs guarding. Visibility is a client-side list; it cannot be a security boundary.
+
+**Consequences.**
+- Every permission check behind a hidden module stays exactly where it is. Hiding removes
+  the door, not the lock.
+- The filter runs in the one place the permission filter already runs, so the rail and the
+  sidebar cannot disagree about what a group contains.
+- Hidden routes redirect, so a bookmark does not land on a blank page. That redirect is a
+  convenience, not a control.
+- **Settings can never be hidden.** The exclusion is hard-coded, because the alternative is
+  an administrator disabling the screen that would let them undo it.
+- Unwanted features are disabled, not deleted. A row is reversible; a deletion is not, and
+  the intent-parser work behind Hand Off is real. Genuinely empty directories are a
+  different case and should go.
+- Visibility is keyed on navigation item **ids**, which is why `NavItem` gains a stable `id`.
+  Keying on routes would strand every setting the first time a route is renamed.
+
+---
+
+## ADR-12 — A platform administrator is a separate identity, not a role in a tenant
+
+**Status:** Accepted · **Date:** 2026-08-24 · **Not built** — deferred until a second tenant
+exists
+
+**Decision.** The tiers of administration are:
+
+| Tier | Reach | Today |
+|---|---|---|
+| Platform administrator (Bodhi Labs) | every organisation | does not exist |
+| Organisation administrator | one organisation, including configuration | `owner` |
+| Business administrator | one organisation, business records only | `office_admin` |
+| Functional roles | one organisation, by permission | `ROLES` |
+| Employee roles | not authorisation at all — a separate axis | `EMPLOYEE_ROLES` |
+| Guest | one organisation, narrow and time-boxed | later |
+
+When the platform tier is built it will be a **separate identity table with its own login
+surface**, which impersonates into an organisation to obtain an ordinary, fully scoped
+session. Cross-organisation reads are limited to an explicit set of platform queries — list
+organisations, health — that never touch domain tables. Every impersonation is audited.
+
+**Rationale.** The tempting version is a role inside a tenant that skips the tenant
+predicate. That would require an exception in every query in the system, and the tenant
+predicate *is* the isolation — there is no RLS. One missed exception is a cross-organisation
+leak, and the failure is silent.
+
+**Consequences.**
+- `eq(table.tenantId, tid)` stays universal and un-exempted. No query learns about a
+  privileged caller.
+- Nothing is built for this now. Urban is one organisation; the cost of the design is
+  writing it down, and the cost of the wrong design is unbounded.
+- Two of the tiers already exist and are only badly named. `owner` and `office_admin` get
+  clearer labels in the interface; no permission changes. SYSTEM_PLAN §2 has warned since
+  the beginning that "admin" means three different things here.

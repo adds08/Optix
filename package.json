@@ -16,7 +16,8 @@
     "db:migrate": "pnpm --filter @stinventory/db migrate",
     "db:seed": "pnpm --filter @stinventory/db seed",
     "db:studio": "pnpm --filter @stinventory/db studio",
-    "db:generate": "pnpm --filter @stinventory/db generate"
+    "db:generate": "pnpm --filter @stinventory/db generate",
+    "e2e": "pnpm --dir e2e exec playwright test"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import { createLogger } from "@stinventory/logger";
@@ -89,11 +89,46 @@ async function requeueFailed(db: Database): Promise<number> {
   return rows.length;
 }
 
-/* A worker that died between claiming a message and finishing it leaves the row
-   `processing` with nothing working on it. */
+/*
+  A worker that died between claiming a message and finishing it leaves the row
+  `processing` with nothing working on it. TWO different claims produce that
+  state, and STI-120 gap 1 was treating them as one.
+
+  **What `attempts` means, decided:** it counts PARSE attempts, and only the
+  parser may be governed by it. `messaging-worker.ts` increments it when it
+  claims a message to parse; nothing else does, and nothing else should read it
+  as a general give-up counter.
+
+  That distinction was the bug. A message that burned all four parse attempts —
+  three failures then a success — sits at `attempts = 4`. If the process then
+  died inside the CONFIRM claim, the old single predicate could never re-queue
+  it: `attempts < 4` is false forever. The row stayed `processing`, the Confirm
+  button was gone because the card no longer renders as actionable, and the
+  user watched a request stop existing. Silent and permanent.
+
+  Raising the ceiling to five was the obvious fix and the wrong one — it moves
+  the cliff rather than removing it, because the next message to burn five
+  parse attempts hits it again.
+
+  The two claims are told apart by `proposedAction`. The confirm claim can only
+  happen to a message that already has one (`confirmMessageAction` throws
+  otherwise), and the parse claim by definition happens before there is one:
+
+    - **no `proposedAction`** — stuck in PARSING. Re-queue, still subject to the
+      ceiling, because a message the parser keeps failing on should eventually
+      be left for the desk rather than retried forever.
+    - **has `proposedAction`** — stuck in CONFIRM. Return it to
+      `action_proposed`, with **no ceiling**: re-arming a button somebody has
+      to press is not a parse attempt and costs nothing. It is also safe to do
+      repeatedly now that the apply is idempotent per message (STI-120 gap 2a,
+      migration `0021`) — a re-confirm of work that already landed writes no
+      second event.
+*/
 async function unstickProcessing(db: Database): Promise<number> {
   const cutoff = new Date(Date.now() - STUCK_PROCESSING_MS);
-  const rows = await db
+
+  /* Stuck PARSING: back to the queue, and the attempt is counted. */
+  const requeued = await db
     .update(schema.message)
     .set({
       processingStatus: "queued",
@@ -104,13 +139,29 @@ async function unstickProcessing(db: Database): Promise<number> {
       and(
         eq(schema.message.processingStatus, "processing"),
         lt(schema.message.updatedAt, cutoff),
+        isNull(schema.message.proposedAction),
         lt(schema.message.attempts, MAX_PARSE_ATTEMPTS),
       ),
     )
     .returning({ id: schema.message.id });
 
-  if (rows.length) log.info("[request-worker] unstuck stalled messages", { count: rows.length });
-  return rows.length;
+  /* Stuck at CONFIRM: give the button back. No attempt counted and no ceiling
+     consulted — `attempts` is the parser's counter and this is not a parse. */
+  const rearmed = await db
+    .update(schema.message)
+    .set({ processingStatus: "action_proposed", updatedAt: new Date() })
+    .where(
+      and(
+        eq(schema.message.processingStatus, "processing"),
+        lt(schema.message.updatedAt, cutoff),
+        isNotNull(schema.message.proposedAction),
+      ),
+    )
+    .returning({ id: schema.message.id });
+
+  if (requeued.length) log.info("[request-worker] unstuck stalled parses", { count: requeued.length });
+  if (rearmed.length) log.info("[request-worker] re-armed stalled confirms", { count: rearmed.length });
+  return requeued.length + rearmed.length;
 }
 
 /* Everyone who can actually decide a request, per tenant. Requests are

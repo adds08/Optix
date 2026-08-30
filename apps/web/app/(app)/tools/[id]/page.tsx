@@ -13,7 +13,7 @@ import { AssetActions } from "@/components/asset-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { assetNumberDisplay, dateTime, money, relative, shortDate } from "@/lib/format";
+import { assetNumberDisplay, dateTime, daysFrom, money, relative, shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /* Which events deserve visual weight in the chain. */
@@ -30,6 +30,17 @@ const EVENT_TONE: Record<string, string> = {
   repair_complete: "border-ok bg-ok",
   status_change: "border-muted-foreground bg-muted-foreground",
 };
+
+/*
+  The accountability chain is a list per role because a job can carry two
+  superintendents, and picking one of them to display would be arbitrary in a
+  way nobody would notice. Joined with commas rather than truncated: three names
+  is a real answer, "Ruben Ortiz +1" is a puzzle.
+*/
+function names(team: { role: string; name: string }[] | undefined, role: string) {
+  const found = (team ?? []).filter((m) => m.role === role).map((m) => m.name);
+  return found.length ? found.join(", ") : <span className="text-muted-foreground">—</span>;
+}
 
 export default function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -68,7 +79,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Tool Register
+        Small Tools
       </Link>
 
       {asset.isLoading ? (
@@ -92,7 +103,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
         <>
           <PageHeader
             icon={toolCategoryIcon(a.categoryName)}
-            eyebrow={a.categoryName ?? "Equipment"}
+            eyebrow={a.categoryName ?? "Uncategorised"}
             title={formatAssetModel(a) || "Untagged tool"}
             description={a.serialNumber ? `Serial ${a.serialNumber}` : undefined}
             actions={
@@ -174,18 +185,59 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                 value={a.currentProjectName ?? <span className="text-muted-foreground">—</span>}
                 hint="operational"
               />
+              {/* Who to call above the person holding it. Read off the current
+                  project's team, never stored on the tool — see asset.get.
+                  Several people can hold one role, so these are lists. */}
+              <Field
+                label="Superintendent"
+                value={names(a.team, "superintendent")}
+                hint="from the job's team"
+              />
+              <Field label="Project manager" value={names(a.team, "pm")} hint="from the job's team" />
               <Field
                 label="Charged to"
                 value={a.owningDepartmentName ?? a.owningProjectName ?? <span className="text-muted-foreground">—</span>}
                 hint={a.costTarget === "department" ? "department, not a job" : "financial owner"}
               />
               <Field label="Location" value={a.locationName ?? <span className="text-muted-foreground">—</span>} />
+              {/* The rig it rides in — off the ACTIVE assignment (STI-203), a
+                  per-custody fact, distinct from Location above. */}
+              <Field
+                label="Truck"
+                value={
+                  a.currentTruckUnit ? (
+                    <span>
+                      {a.currentTruckUnit}
+                      {a.currentTruckOwnership === "personal_allowance" ? (
+                        <span className="ml-1.5 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                          personal
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )
+                }
+                hint={a.currentTruckOwnership === "personal_allowance" ? "rides in — foreman's own truck" : "rides in"}
+              />
+              <Field
+                label="Trailer"
+                value={a.currentTrailerUnit ?? <span className="text-muted-foreground">—</span>}
+                hint="rides in"
+              />
               <Field label="Condition" value={a.condition ?? "—"} />
               <Field label="Acquired" value={shortDate(a.acquisitionDate)} hint={money(a.acquisitionCost)} />
               <Field
                 label="Warranty"
                 value={a.warrantyExpiresOn ? shortDate(a.warrantyExpiresOn) : "—"}
-                hint={a.warrantyExpiresOn ? `expires ${relative(a.warrantyExpiresOn)}` : undefined}
+                /* Tense follows the date. "expires 3 days ago" is the other
+                   half of the bug the five warranty reports describe: it reads
+                   as a live warranty even when the tool is out of cover. */
+                hint={
+                  a.warrantyExpiresOn
+                    ? `${(daysFrom(a.warrantyExpiresOn) ?? 0) > 0 ? "expired" : "expires"} ${relative(a.warrantyExpiresOn)}`
+                    : undefined
+                }
               />
             </dl>
             {a.owningProjectName && a.currentProjectName && a.owningProjectName !== a.currentProjectName ? (

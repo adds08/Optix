@@ -1,13 +1,29 @@
 "use client";
 
 /*
-  The construction-themed login panel (docs/20, E).
+  The construction-operations login panel (docs/20, E).
 
-  The centrepiece is a custody route, not a still life: a tool token travels
-  yard → truck → job site, pausing at the truck, while each station flares as
-  it arrives. That is the product's whole thesis in one loop — a tool's
-  location is a sequence of receipts. Four unrelated icons bobbing in place
-  said nothing; this says the thing the headline claims.
+  The centrepiece is a route, not a still life: a record travels job → truck →
+  job, pausing in transit, while each station flares as it arrives. That is the
+  product's whole thesis in one loop — where a thing is, is a sequence of
+  receipts. Icons bobbing in place said nothing; this says what the headline
+  claims.
+
+  **Its subject is the OPERATION, not the toolbox**, and that was a real
+  correction. Until 2026-08-27 this drew one tool's journey out of a gang box —
+  three stations reading Yard → Truck → Job Site, a strip of five hand tools,
+  and a ledger of nothing but tool transfers. Correct for STInventory, and
+  precisely wrong for the front door of a product being sold to run a
+  construction operation: it read as a tool-crib app, because it was one. The
+  route now runs BETWEEN JOBS, the strip is the resources ADR-9 puts at the top
+  of the navigation — crew, plant, small tools, materials, hours — and the
+  ledger mixes all three. Do not narrow it back to tools.
+
+  **Domain, not a feature list.** The strip is deliberately unlabelled and the
+  copy names no screen. Labour, Materials and Purchasing are accepted
+  architecture (ADR-9) and not shipped surfaces; drawing an excavator says what
+  the platform is about, whereas a captioned "Equipment" tile would advertise a
+  module that does not exist. Keep that line where it is.
 
   Everything is inline SVG line-art with stroke-dasharray draw-on and CSS
   transforms. No canvas, no WebGL, no dependencies, nothing that can delay the
@@ -54,14 +70,22 @@ function Ink({
 
 /* ---- stations -------------------------------------------------------- */
 
-/* A job box: the yard's own custody boundary. */
-function GangBox() {
+/* The job a thing is leaving. A tower crane rather than the gang box that was
+   here before: the origin of a move is another JOB, not a box of hand tools,
+   and that distinction is the whole point of the panel. */
+function SiteCrane() {
   return (
     <Ink className="size-7" width={3}>
-      <path pathLength={1} d="M9 27h46v20a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3z" />
-      <path pathLength={1} d="M9 27l5-7h36l5 7" />
-      <path pathLength={1} d="M27 27v5h10v-5" />
-      <path pathLength={1} d="M19 34v16M45 34v16" />
+      <path pathLength={1} d="M32 54V18" />
+      <path pathLength={1} d="M10 18h44" />
+      {/* The A-frame is what makes this legible as a crane. Without it a mast
+          and a jib are a capital T at 28px — which is exactly what the first
+          attempt rendered as, counterweight and hoist detail included and
+          invisible. Detail below about four device pixels is not detail. */}
+      <path pathLength={1} d="M22 18l10-10 10 10" />
+      <path pathLength={1} d="M45 18v9" />
+      <path pathLength={1} d="M41 27h8" />
+      <path pathLength={1} d="M23 54h18" />
     </Ink>
   );
 }
@@ -88,71 +112,61 @@ function HardHat() {
   );
 }
 
-/* ---- the yard's tools ------------------------------------------------ */
+/* ---- the resources a job consumes ------------------------------------ */
 
-function Drill() {
+/*
+  Four of the five resources at the top of SYSTEM_PLAN §7's grid — Labour,
+  Small Tools, Equipment, Materials — and then hours, which is not a resource
+  on that grid at all. Hours is Labour × Consume, so strictly the fifth slot
+  belongs to Subcontract.
+
+  It is a clock anyway, deliberately. Subcontract does not draw: there is no
+  line-art shape that reads as "somebody else's crew under contract" at 56px,
+  and a glyph nobody recognises is worse than an axis nobody sees. Hours is the
+  single largest cost line on a construction job and the subject of the whole
+  timesheet port (`docs/workings/TIMESHEET_PORT.md`), so it is the more
+  legible thing to promise. Say that out loud rather than letting this comment
+  claim a tidier mapping than the strip actually has.
+
+  They are unlabelled on purpose — see the note at the top of this file.
+
+  Drill, Level, SawBlade and TapeMeasure lived here until 2026-08-27, with
+  hand-tuned keyframes for a drifting bubble and a tape blade that flicked in
+  and out. They were the best drawings in the file and they were also the
+  reason the panel read as a tool crib, so they went, and their keyframes went
+  with them rather than rotting in globals.css.
+*/
+
+/* Labour. Two figures, not one: a crew is the unit a job is staffed in. */
+function Crew() {
   return (
-    <Ink className="size-14">
-      <rect pathLength={1} x="11" y="17" width="27" height="16" rx="5.5" />
-      <path pathLength={1} d="M38 21.5h6.5a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H38" />
-      <path pathLength={1} d="M46.5 25.5H57" />
-      <path pathLength={1} d="M18 33v9.5a4.5 4.5 0 0 0 4.5 4.5h5a4.5 4.5 0 0 0 4.5-4.5V33" />
-      <rect pathLength={1} x="15.5" y="47" width="19" height="7" rx="2.5" />
-      <path pathLength={1} d="M32 35.5h4" />
+    <Ink className="size-16">
+      <circle pathLength={1} cx="20" cy="23" r="7" />
+      <path pathLength={1} d="M7 51v-5a13 13 0 0 1 26 0v5" />
+      <circle pathLength={1} cx="45" cy="27" r="6" />
+      <path pathLength={1} d="M35 51v-4a11 11 0 0 1 22 0v4" />
     </Ink>
   );
 }
 
-/* The bubble drifts because a level nobody is holding still is a level. */
-function Level() {
+/* Equipment. The plant on the job — the resource whose day rate makes a
+   jobsite expensive, and the one Urban asks about second after the crew. */
+function Excavator() {
   return (
-    <Ink className="size-14">
-      <rect pathLength={1} x="3" y="26" width="58" height="13" rx="2.5" />
-      <path pathLength={1} d="M15 26v13M49 26v13" />
-      <rect pathLength={1} x="24" y="29.5" width="16" height="6" rx="3" />
-      <circle pathLength={1} className="ink-bubble" cx="32" cy="32.5" r="2.2" />
+    <Ink className="size-16">
+      <rect pathLength={1} x="5" y="44" width="32" height="11" rx="5.5" />
+      <rect pathLength={1} x="11" y="26" width="19" height="18" rx="3" />
+      <path pathLength={1} d="M30 31l13-8 8 12" />
+      <path pathLength={1} d="M45 39h12l-3 9h-9z" />
     </Ink>
   );
 }
 
-/* The rim is one closed zig-zag — twelve teeth alternating r=21 at every 30°
-   with r=17 at the 15° between. Drawn as the plate's actual outline rather
-   than ticks laid over a circle, which is what stops it reading as a sun. It
-   mitres, so the teeth come to points instead of the panel's usual round cap. */
-function SawBlade() {
-  return (
-    <Ink className="size-14">
-      <path
-        className="ink-blade"
-        strokeLinejoin="miter"
-        d="M53 32L48.42 36.4L50.19 42.5L44.02 44.02L42.5 50.19L36.4 48.42L32 53L27.6 48.42L21.5 50.19L19.98 44.02L13.81 42.5L15.58 36.4L11 32L15.58 27.6L13.81 21.5L19.98 19.98L21.5 13.81L27.6 15.58L32 11L36.4 15.58L42.5 13.81L44.02 19.98L50.19 21.5L48.42 27.6Z"
-      />
-      <circle pathLength={1} cx="32" cy="32" r="11" />
-      <circle pathLength={1} cx="32" cy="32" r="4" />
-    </Ink>
-  );
-}
-
-/* Blade out, blade back — the one gesture everybody in a yard recognises. */
-function TapeMeasure() {
-  return (
-    <Ink className="size-14">
-      <rect pathLength={1} x="9" y="22" width="24" height="24" rx="6" />
-      <path pathLength={1} d="M13 22v-4h6v4" />
-      <circle pathLength={1} cx="21" cy="34" r="6.5" />
-      <circle pathLength={1} cx="21" cy="34" r="1.8" />
-      <path pathLength={1} d="M33 30.5h3v6h-3" />
-      <path pathLength={1} className="ink-tape-blade" d="M36 33.5h17" />
-      <path pathLength={1} className="ink-tape-hook" d="M53 29.5v8" />
-    </Ink>
-  );
-}
-
-/* Ring end and open jaw, joined by a handle whose ends land exactly on both
-   centres — the rotation is 45°, so the arithmetic is in the transform. */
+/* Small tools — the register this product started as, now one resource of
+   several rather than the whole subject. */
 function Wrench() {
   return (
-    <Ink className="size-14">
+    <Ink className="size-16">
       <circle pathLength={1} cx="18" cy="46" r="7.5" />
       <circle pathLength={1} cx="18" cy="46" r="3.4" />
       <path pathLength={1} d="M51.5 20.6A7.5 7.5 0 1 1 43.4 12.5" />
@@ -161,7 +175,31 @@ function Wrench() {
   );
 }
 
-const TOOLS = [Drill, Level, SawBlade, TapeMeasure, Wrench];
+/* Materials, stacked on a pallet: the resource that arrives at a job and does
+   not leave it. */
+function Materials() {
+  return (
+    <Ink className="size-16">
+      <path pathLength={1} d="M8 47h48" />
+      <path pathLength={1} d="M13 47v6M32 47v6M51 47v6" />
+      <rect pathLength={1} x="14" y="31" width="16" height="16" />
+      <rect pathLength={1} x="34" y="31" width="16" height="16" />
+      <rect pathLength={1} x="24" y="15" width="16" height="16" />
+    </Ink>
+  );
+}
+
+/* Hours. The one resource that is only ever spent. */
+function Hours() {
+  return (
+    <Ink className="size-16">
+      <circle pathLength={1} cx="32" cy="32" r="22" />
+      <path pathLength={1} d="M32 17v15l11 7" />
+    </Ink>
+  );
+}
+
+const RESOURCES = [Crew, Excavator, Wrench, Materials, Hours];
 
 /* ---- the route ------------------------------------------------------- */
 
@@ -169,8 +207,12 @@ const TOOLS = [Drill, Level, SawBlade, TapeMeasure, Wrench];
    follows and the line the token rides are the same curve, declared twice. */
 const ROUTE = "M48 80 Q124 42 200 80 T352 80";
 
+/* Job → transit → job. It read "Yard 1 → Truck 12 → Trinity Bridge" until
+   2026-08-27, which describes a tool leaving a crib; what the product actually
+   tracks is a resource of any kind moving between two live jobs, and the
+   middle station is a truck because a truck here is a location that moves. */
 const STATIONS = [
-  { x: "12%", arrive: "0.4s", label: "Yard 1", sub: "Dallas", icon: <GangBox /> },
+  { x: "12%", arrive: "0.4s", label: "Legacy West", sub: "Job site", icon: <SiteCrane /> },
   { x: "50%", arrive: "3.5s", label: "Truck 12", sub: "In transit", icon: <Truck /> },
   { x: "88%", arrive: "7.8s", label: "Trinity Bridge", sub: "Job site", icon: <HardHat /> },
 ];
@@ -218,10 +260,13 @@ function CustodyRoute() {
 
 /* ---- panel ----------------------------------------------------------- */
 
+/* Three resources, one record. Every line was a small-tool transfer before
+   2026-08-27, which quietly told the reader the log only holds tools — the
+   opposite of the claim the paragraph underneath it makes. */
 const LEDGER: [string, string][] = [
-  ["03 MAR", "Received from Hilti, tagged UIC-1012"],
-  ["11 MAR", "Assigned to M. Torres — Legacy West"],
-  ["02 JUN", "Transferred to D. Ellis — Trinity Bridge"],
+  ["03 MAR", "Crew of six assigned — Trinity Bridge"],
+  ["11 MAR", "Excavator EX-204 moved from Legacy West"],
+  ["02 JUN", "Rotary hammer UIC-1012 to D. Ellis"],
 ];
 
 export function AuthPanel() {
@@ -259,27 +304,54 @@ export function AuthPanel() {
       />
 
       <div className="relative flex flex-col gap-2">
+        {/* The kicker positions the PRODUCT, not one customer and not one
+            resource. It named Urban Infraconstruction while this was a
+            single-tenant tool, then "AI-assisted custody", which was narrower
+            still — custody of what? A sign-in screen that greets every prospect
+            with somebody else's company name, or with a fraction of the
+            product, is the first thing to fix on the way to selling it. */}
         <div className="animate-draw-in">
-          <span className="label-xs">Urban Infraconstruction</span>
+          <span className="label-xs">Construction operations</span>
         </div>
         <div className="animate-draw-in" style={{ animationDelay: "0.15s" }}>
-          <p className="max-w-[20ch] text-balance text-3xl font-semibold leading-[1.15] tracking-tight">
-            Every hand-off is a transaction, not a memory.
+          {/* "Every hand-off" was a tools sentence. The shape of the line is
+              worth keeping — it is the best copy in the product — so it widens
+              rather than being replaced. */}
+          <p className="max-w-[21ch] text-balance text-3xl font-semibold leading-[1.15] tracking-tight">
+            Every move on every job is a transaction, not a memory.
           </p>
         </div>
       </div>
 
-      {/* The yard, in motion. The tool strip is the first thing to go on a
-          short viewport — the route carries the idea on its own. */}
-      <div className="relative flex flex-col items-center gap-12 py-4">
-        <CustodyRoute />
-        <div className="flex items-center justify-center gap-8 [@media(max-height:820px)]:hidden">
-          {TOOLS.map((Tool, i) => (
+      {/*
+        The job, in motion. Resources first, the route second.
+
+        **The strip is never hidden, and the order is not cosmetic.** Both were
+        the other way round until 2026-08-27 and together they were the whole
+        reason this panel still read as a delivery app after the rewrite. The
+        strip carried `[@media(max-height:820px)]:hidden` — reasonable when it
+        was five decorative hand tools and the comment here said "the route
+        carries the idea on its own" — but 820px is taller than a normal laptop
+        viewport, so on most screens every construction glyph in the panel
+        (crew, plant, materials, hours) was dropped and what remained was a
+        crane, A TRUCK and a hard hat on a dotted line. The truck is the
+        largest, most recognisable silhouette of the three, so the page read as
+        logistics.
+
+        The strip is now the payload rather than the decoration, so it scales
+        on a short viewport instead of disappearing, and it leads: the eye
+        should land on what a job is made of before it lands on one thing
+        moving between two of them.
+      */}
+      <div className="relative flex flex-col items-center gap-8 py-4">
+        <div className="flex origin-center items-center justify-center gap-10 [@media(max-height:860px)]:scale-[0.88] [@media(max-height:720px)]:scale-[0.72]">
+          {RESOURCES.map((Resource, i) => (
             <div key={i} className="sti-float" style={{ "--ink-delay": `${1 + i * 0.14}s` } as Vars}>
-              <Tool />
+              <Resource />
             </div>
           ))}
         </div>
+        <CustodyRoute />
       </div>
 
       <div className="relative flex flex-col gap-3">
@@ -304,9 +376,14 @@ export function AuthPanel() {
           ))}
         </ol>
         <div className="animate-draw-in" style={{ animationDelay: "2s" }}>
-          <p className="max-w-[44ch] text-pretty text-sm text-muted-foreground">
-            Where a tool is, who holds it, and which project paid for it are derived from that
-            log — never typed into a field somebody can overwrite.
+          {/* The AI claim is the one the backend actually honours: the
+              assistant drafts, a person confirms, and nothing reaches the
+              ledger before that (ADR-4). Anything stronger would be a promise
+              on the front door that the product refuses to keep. */}
+          <p className="max-w-[46ch] text-pretty text-sm text-muted-foreground">
+            Where every crew, machine and tool is — and which job is paying for it — is derived
+            from that log, never typed into a field somebody can overwrite. Say what happened in
+            a sentence; the assistant drafts the entry and a person confirms it.
           </p>
         </div>
       </div>

@@ -44,6 +44,8 @@ const ASSET_TONE: Record<string, Tone> = {
   transferred: "idle",
   overdue: "crit",
   pending_approval: "warn",
+  /* historical only — the verify flow was removed 2026-08-09; no writer can
+     produce this, the tone stays so old transfer rows still render */
   pending_verification: "warn",
   completed: "ok",
   cancelled: "idle",

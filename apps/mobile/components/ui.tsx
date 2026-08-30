@@ -48,6 +48,8 @@ const STATUS_TONE: Record<string, Tone> = {
   in_transit: "idle",
   in_maintenance: "warn",
   pending_approval: "warn",
+  /* historical only — the verify flow was removed 2026-08-09; no writer can
+     produce this, the tone stays so old transfer rows still render */
   pending_verification: "warn",
   action_proposed: "warn",
   pending_manual: "warn",

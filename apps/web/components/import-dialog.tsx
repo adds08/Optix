@@ -210,8 +210,8 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
           ) : null}
 
           {rows.length ? (
-            <div className="max-h-80 overflow-auto rounded-md border">
-              <table className="w-full text-sm">
+            <div className="sti-table-scroll max-h-80 overflow-auto rounded-md border">
+              <table className="sti-grid w-full text-sm">
                 <thead className="sticky top-0 bg-card">
                   <tr className="border-b text-left">
                     <th className="px-3 py-2 font-medium">Row</th>
@@ -292,7 +292,7 @@ async function sheetToMatrix(file: File): Promise<string[][]> {
 function ColumnGuide({ entity }: { entity: ImportEntity }) {  const spec = IMPORT_SPECS[entity];
   return (
     <div className="rounded-md border">
-      <table className="w-full text-sm">
+      <table className="sti-grid w-full text-sm">
         <thead>
           <tr className="border-b text-left">
             <th className="px-3 py-2 font-medium">Column</th>

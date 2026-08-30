@@ -1,0 +1,298 @@
+---
+paths:
+  - "packages/api-contracts/**"
+  - "packages/domain/**"
+---
+
+# Custody and the ledger
+
+You are in the two packages that own the product's central invariants. Read this before
+changing anything here.
+
+## The ledger contract
+
+`transaction` is append-only and is the system of record. `asset.current_*` is a projection.
+
+**Every write must carry a complete `toState` snapshot.** `foldAssetState`
+(`packages/domain/src/fold.ts:5-12`) walks backwards and returns the first complete snapshot
+it finds — it *replaces*, it does not merge. So emitting `{status: "in_maintenance"}` alone
+does not mean "status changed"; it means *custodian, project and location are now undefined*,
+and a rebuild will blank them.
+
+Since STI-202 the snapshot also carries **optional** `truckId`/`trailerId` keys. They are
+optional only so pre-STI-202 history stays readable: an ABSENT key folds to "not recorded",
+an explicit `null` means "affirmatively none" — two different answers, and the fold keeps
+them distinct (the shape-boundary rule in `fold.ts`, pinned by the "shape boundary" tests).
+
+Since STI-203 the writers split three ways — pick the right bucket before adding one:
+
+- **Custody movers emit BOTH keys explicitly, `?? null`, never a `current_*` fallback**:
+  `assignment.create`/`approve`/`return`, `transfer.create`/`approve`, and the
+  `assign`/`transfer`/`return`/`repair` cases in `apply-action.ts`. A new custody does not
+  inherit the previous holder's rig, and a return or repair means the tool is affirmatively
+  out of one. `assertVehicleContext` (custody.ts) must gate every id before it is written —
+  the composite FK behind the columns is **tenant-blind** and raises raw 23503s.
+- **Writers that assert nothing new about vehicles carry the newest snapshot's keys
+  forward VERBATIM** (`vehicleContextFromLedger`, custody.ts) — absent stays absent. Three
+  members: the from=to decline writers, `applyContainerCustody`'s `custodian_change`
+  (a container hand-over moves the WHO, not the where-it-rides — the tools stay in the
+  same box, and a four-key event here erased "still in TE-006" from the fold for a tool
+  that never left the trailer), and the departure move
+  (`reassignOnDeparture`, `departure.ts`, STI-306). The asset table has no truck columns,
+  so the ledger is the only source; a blind null would stamp "affirmatively no truck" over
+  a recorded ride and the next rebuild would blank it. The container writer also puts the
+  carried context on the link it opens, so row and event tell one story.
+
+  **The departure move is in this bucket despite asserting a new custodian**, which is the
+  counter-intuitive one — the reflex is bucket 1, because a new custody does not inherit
+  the previous holder's rig. The reflex is wrong here for a physical reason: nobody unpacks
+  the trailer. The tools stay in the same box, and the box is in the same move going to the
+  same successor, so re-asserting "no truck" over every tool would erase a recorded ride
+  from the fold for tools that never moved an inch.
+
+  It carries forward with **one exception, and only one**: a key naming a vehicle that is
+  *leaving with the person* — a `personal_allowance` vehicle, which is never reassigned —
+  is written as an explicit `null`. That truck is the leaver's own property and drives off
+  site, so "affirmatively none" is the honest answer rather than a uuid pointing at a
+  vehicle Urban no longer has access to. `rideAfterDeparture` is the whole of that rule and
+  is unit-tested without a database. The same event also nulls `locationId` when the tool's
+  recorded place *is* that departing vehicle's location row — and, uniquely among these
+  writers, updates `asset.current_location_id` in the same transaction to match, so the
+  fold and the register still agree and no `stale_projection` divergence is raised.
+
+  A departure does **not** hand containers over itself: it calls `applyContainerCustody`,
+  so trailers, trucks and gang boxes — and whatever is inside them — move by exactly one
+  set of rules whichever screen started it.
+- **Writers that never asked stay four-key**: `lost`/`report` in apply-action,
+  `requestChatAction`'s annotation, `asset.setStatus`, the `project_change` bulk writer,
+  and the intake/import/create baseline events. Absent keys are how those snapshots
+  honestly say "unknown".
+
+This bug has shipped three times. `fold.test.ts:114-135` pins it. Every writer that got it
+wrong carries a scar-tissue comment — grep "Same fallbacks the asset update"
+(`assignment.ts` create), "What a return MEANS" (`assignment.ts` return, STI-113: the
+projection kept project and location while the ledger event nulled both), "Mirrors the
+asset update" (`transfer.ts`) and the rebuild comment in `routers/asset.ts`.
+Add one if you fix another.
+
+Ties break on row `id`, not just `occurred_at` — bulk writers insert many events sharing a
+timestamp (`location.ts`, `project-assign.ts`).
+
+**Since STI-106 there is one fold.** `asset.rebuild` and the reconciliation checker both call
+`foldAssetState` — the inline reimplementation is gone, so the tested code and the production
+code are now the same code rather than two implementations that happened to agree.
+
+Compare and repair are **separate actions**, deliberately:
+
+- `asset.verifyProjection` writes nothing. It reports divergence, and an **empty fold is a
+  divergence** — never soften that, it is precisely what STI-101 existed to make visible.
+- `asset.rebuild` repairs, and **skips** assets whose ledger carries no snapshot. `INITIAL_STATE`
+  is indistinguishable from "no evidence", and blanking a live row on no evidence would turn the
+  repair into the corruption.
+
+`sweepProjectionDivergence` (`apps/api/src/index.ts`) runs the check every 6 hours and at boot,
+raising a `custody_discrepancy` desk notification per divergence. It does not dedupe — a register
+that disagrees with the ledger should keep nagging.
+
+## The custody chokepoint
+
+**All custody writes go through `packages/api-contracts/src/custody.ts`. No exceptions.**
+Never insert or update an `assignment` row directly.
+
+Since STI-103 there **is** a database constraint — the partial unique index
+`assignment_one_active_uq` on `assignment (asset_id) WHERE status = 'active'` (migration
+`0015`). It is a backstop, not a replacement: it makes a second active row throw, but it
+cannot *close* the previous link, and it does not cover `pending_approval` rows (two pending
+approvals for one asset are still possible — see the re-check-under-lock rule below). So
+`custody.ts` is still the only thing that makes custody correct; the index only guarantees
+that getting it wrong fails loudly. It exists because `assignment.create`, `transfer.create` and
+`transfer.approve` each opened custody without closing the previous link, so the register
+showed the new holder while the custody screen showed the old one, and every downstream reader
+(offboarding, capital-per-foreman, tools-follow-the-foreman) named someone who had given the
+tool away weeks earlier. Read the header comment at the top of `custody.ts`.
+
+- **Since STI-114 the "no exceptions" above is finally true in fact, not just in
+  intent.** `assignment.return` was the last writer outside the chokepoint — it closed
+  by id with no status guard, no lock, and an asset read outside its transaction. It
+  now routes through `closeActiveCustody(tx, tid, assetId, "returned")`, which also
+  owns stamping `returnedAt`.
+
+  Be precise about what "no exceptions" means, because the obvious reading is wrong:
+  **closing** an active link is the chokepoint's job and must never be done directly.
+  **Opening** a new link is still a direct `insert` in `assignment.create`,
+  `assignment.approve` and `apply-action.ts` — that is the intended STI-102 shape, and
+  those writers count as going *through* the chokepoint because they call
+  `closeActiveCustody` first, inside the same transaction. So: a direct write that closes
+  or supersedes an active link is a regression; a direct insert that opens one after
+  closing through the helper is not.
+- **Decision procedures re-check status under the lock (STI-109).** The outside
+  `status !== "pending_approval"` guard alone is not enough: two simultaneous approves
+  both read "pending" before either commits, and the loser appended a duplicate event
+  to the append-only ledger. Every approve/decline/return now takes the asset-row
+  `FOR UPDATE` (the same anchor `custody.ts` locks, so all decisions on one tool
+  serialise with each other), re-reads the row, and raises `CONFLICT` — naming the
+  actual status — if the work is already done. Follow that shape if you add another
+  decision path.
+
+  One deliberate exception to the shape (STI-117): the two chat sign-off paths
+  in `approve.ts` (`approveTaskAction`, `confirmMessageAction`) use
+  **claim-then-act**, not a held lock. One conditional `UPDATE … WHERE status
+  still confirmable` is the claim — racing claims serialise on the row lock
+  inside the statement, the loser matches nothing and raises `CONFLICT` — and
+  `applyChatAction` then runs **outside any transaction**. Two reasons: a
+  `pendingAction` can name several assets or (intake) none, so no asset row can
+  anchor the re-check; and `applyChatAction` opens its own transaction on the
+  raw handle, so holding any transaction — and its pool connection — across it
+  wedges the pool at pool-size concurrent approves. That wedge is client-side
+  starvation (`max: 10`, `packages/db/src/index.ts`) which Postgres's deadlock
+  detector cannot see; QA reproduced it before this shape replaced a held-lock
+  first attempt. **Never hold a `db.transaction` open across
+  `applyChatAction`.** The claim writes the terminal state before the apply;
+  the trade-offs (stranded-claimed on crash, and the un-claim on a failed
+  apply) are named on the claim comments in `approve.ts`.
+- **Declines are custody-affecting (STI-112).** Both `assignment.decline` and
+  `transfer.decline` write a `status_change` event with `from_state = to_state` — the
+  complete snapshot, read under the lock so it is the state at commit time: four base
+  keys off the asset row, vehicle keys carried forward from the newest ledger snapshot
+  (STI-203, see the writer buckets above). "Considered, and refused" belongs in the
+  tool's history; the reasoning lives on the ledger insert in `assignment.decline`.
+- **Since STI-102, custody writes are transactional and row-locked.** `closeActiveCustody`
+  and `moveCustody` take a `Transaction` (exported by `@stinventory/db`) as their first
+  parameter — a raw `db` handle is a **compile error**, which is the enforcement: the old
+  `db: any` signatures are how bare unwrapped writes shipped. The caller owns the
+  transaction, because its projection update and ledger insert must commit or vanish with
+  the close+open; `custody.ts` never opens one of its own. Nesting on postgres.js produces
+  real savepoints, so threading the outer `tx` explicitly is the convention.
+- `closeActiveCustody` first takes `SELECT … FOR UPDATE` on the **asset row** — the
+  serialisation anchor, because it exists even when no assignment does — then locks the
+  active links. Two concurrent moves on one asset queue instead of both opening a link.
+  `src/custody.test.ts` pins this with a real race (it needs `DATABASE_URL`, which
+  `turbo.json` passes through to the `test` task; the tests skip without it).
+- **Never await anything network-shaped inside `db.transaction`** — postgres.js pins one
+  pool connection (`max: 10`) for the life of the transaction. Notifications, audit
+  `logEvent` and every LLM call stay outside; in `applyChatAction` the LLM parse has
+  already happened in the worker before the transaction opens.
+- `closeActiveCustody` updates **by predicate, not by id** — deliberate, because duplicate
+  active rows already exist in real data and closing only the first would strand the rest.
+  Also pinned by `custody.test.ts`.
+- `projectForCustodian` (bottom of `custody.ts`) defaults the project to the **recipient's**
+  primary project. A form that lets project be chosen independently of person is how a tool
+  gets booked to a job its holder never worked. It is read-only, so it alone accepts either
+  handle.
+- `assignment.approve` closes the prior link inside its transaction. `create` deliberately
+  skips the close while a row is `pending_approval` (nothing has taken effect yet), so
+  approval is the moment the previous holder's link closes — until STI-102 nothing closed
+  it, which left two active rows.
+
+## What "aboard a container" means (STI-207 / STI-208)
+
+Two decisions, both settled. Do not re-open either without reading why.
+
+**For a container that IS a vehicle, membership is decided by PRECEDENCE, not a union:**
+
+1. a tool with an **active assignment** naming this vehicle is aboard;
+2. a tool with **no active assignment at all** is aboard if its `current_location_id` is
+   the container's location row.
+
+Rule 2 is not the old signal sneaking back. An unheld tool has no assignment, so it has no
+`trailerId` to be aboard of — its location row is the only record that it is in the trailer.
+Without rule 2, handing a trailer **back** (`custodianEmployeeId: null`) closes every active
+link and reopens none, so the manifest empties permanently and the next hand-over moves zero
+tools while nineteen sit in the trailer. The two sets are disjoint by construction (one
+demands an active assignment, the other demands none) and the result is deduped by id, so
+nothing is moved twice.
+
+STI-202 created a second answer to "is this tool aboard TE-006" and STI-203 made it the
+one the product displays, while custody still moved on the first. A tool assigned the way
+the schema comment prescribes — `trailerId` set, `locationId` a yard — was aboard by the
+assignment and not aboard by the location, so handing that trailer over silently left its
+custody behind. It then read "Rides in: TE-006" while held by whoever had it before. **No
+error and no divergence**: the projection and the ledger agree with each other and both are
+wrong about the world, which is why this class of bug is expensive.
+
+**For a container that is NOT a vehicle — a gang box, a yard, a warehouse shelf —
+`current_location_id` remains authoritative**, because there is no vehicle column for a
+gang box to be named in. That split is not a compromise; it is what the schema comment on
+`assignment.locationId` already prescribes: vehicles live in the vehicle columns,
+`locationId` carries non-vehicle places. Both halves are pinned in `custody.test.ts`.
+
+Why precedence and not a plain union: a union would make the location signal authoritative
+for *held* tools too, which is the ambiguity this ticket existed to remove, and would leave no
+forcing function to retire it. Precedence keeps exactly one answer per tool.
+
+**This writer never re-states the location.** `moveCustody` and the `custodian_change`
+snapshot both carry the tool's OWN `current_location_id`, not the container's location row —
+a hand-over changes WHO holds the tool, not where it is, the same reasoning as the
+carry-forward rule for the vehicle keys. Before STI-207 the two were always equal because the
+contents query *was* `currentLocationId = locationId`; selecting by assignment removed that
+identity. Writing the container's location instead would stamp a place the projection never
+updates (this function deliberately never writes `currentLocationId`), producing a
+`stale_projection` divergence on every moved tool — raised every six hours forever — and an
+`asset.rebuild` that silently relocates the tool. Both halves are pinned in `custody.test.ts`
+and both were confirmed to fail when the fix is reverted.
+
+**`assignment.location_id` was NOT retired**, and the STI-501 acceptance criterion asking
+for that is knowingly unmet. Three readers remain and are legitimate under the narrowed
+meaning (`routers/assignment.ts`, `apps/api/src/messaging-worker.ts`).
+
+### Hitching a trailer does NOT rewrite the truck of the tools aboard it (STI-208)
+
+`applyContainerCustody` is also reached from `vehicle.update { attachedToVehicleId }`, where
+the new truck is in scope. It still carries the recorded truck forward verbatim rather than
+asserting the new one. **This is deliberate — the answer here was "leave it":**
+
+- `assignment.truckId` records **the truck a custody move recorded**, a fact about a
+  hand-off. Rewriting it on every hitch turns a historical record into a live tracking
+  field, which is a different thing from what STI-201 decided these columns are for.
+- A trailer is hitched and unhitched repeatedly between custody moves, so each hitch would
+  append ledger events for tools nobody touched — permanent noise in a log that cannot be
+  pruned.
+- **Unhitching has no good answer.** Does the truck become `null`, and is that
+  "affirmatively no truck" or "not recorded"? The three-state rule makes that question
+  sharp and neither answer is defensible. That is the argument that settles it.
+
+So a tool may record an older truck, or none, after its trailer is hitched to a new one.
+That is a writer honestly declining to claim something it was not asked about — not a
+staleness bug. Do not "fix" it.
+
+## The custody gate
+
+`custodyOutcome` (`packages/domain/src/rules.ts`) asks **one** question — value:
+
+| Cost | Outcome | Effect |
+|---|---|---|
+| ≥ threshold | `approve` | **Nothing written** until a second signature. |
+| < threshold, or threshold null | `auto` | Applied as a permanent change. |
+
+A null threshold **disables the gate**: a tenant that has not said what "high value" means has
+not asked for one.
+
+> **There is no `verify` outcome, and no borrow.** Both were removed on 2026-08-09, along with
+> the second input ("does the actor hold the approve permission"). They modelled a foreman
+> handing a tool to another foreman — the tool moving immediately while ownership did not, with
+> the desk confirming afterwards. **Urban does not work that way**: tools are moved by the
+> equipment desk, and a foreman does not reassign one. Foremen no longer hold
+> `assignment.create` or `transfer.create` at all (`packages/db/src/seed.ts` — "read-only on
+> custody by design"), so no actor can reach this function without already holding the approve
+> permission, and the question had one answer.
+>
+> This stale three-outcome table misled ticket STI-105 into specifying a "borrow vs held"
+> control for a state that cannot occur. If you find a doc describing `verify`, `pending_verification`
+> or borrows as live behaviour, it is wrong — fix it. The 24-line rationale at the top of
+> `rules.ts` is the real documentation.
+
+`>=` not `>` is pinned (`rules.test.ts`). Null cost counts as 0, not "needs approval" —
+imported rows routinely have no price. Since STI-108 the seed carries an asset priced at
+exactly the threshold, so the boundary is exercisable from a clean database.
+
+Callers currently disagree on two details: which permission means "can approve"
+(`assignment.approve` vs `transfer.approve`) and the threshold fallback (`?? null` in the
+routers vs `?? DEFAULT_HIGH_VALUE_THRESHOLD` in `apply-action.ts`). Chat and the forms are
+supposed to agree exactly — if you touch this, make them.
+
+## Non-negotiables here
+
+- Tenant-scope every query: `eq(table.tenantId, tid)`. There is no RLS.
+- Permission on every mutating procedure — `requirePermission(...)` or a documented
+  `canApplyAction` check.
+- Tests. `domain` is pure with no fixtures; there is no excuse.

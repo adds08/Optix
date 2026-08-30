@@ -18,10 +18,10 @@ import { useEffect } from "react";
 */
 export default function GlobalError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     console.error("[root] render error", { message: error.message, digest: error.digest });
@@ -43,14 +43,14 @@ export default function GlobalError({
       >
         <main style={{ maxWidth: "34rem", padding: "2rem", textAlign: "center" }}>
           <h1 style={{ fontSize: "1.125rem", fontWeight: 600, margin: "0 0 0.5rem" }}>
-            STInventory could not start
+            Optix could not start
           </h1>
           <p style={{ fontSize: "0.875rem", lineHeight: 1.6, color: "#52525b", margin: "0 0 1.5rem" }}>
             Something failed before the app finished loading. Nothing was changed
             and no record was lost. Reloading usually clears it.
           </p>
           <button
-            onClick={reset}
+            onClick={retry}
             style={{
               border: "1px solid #d4d4d8",
               borderRadius: "0.375rem",

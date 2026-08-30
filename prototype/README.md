@@ -71,7 +71,7 @@ back to an instructive "Add photo" placeholder. Wiring this up in production nee
 ## How it maps to production
 
 This is a throwaway front-end over hardcoded arrays. In production those arrays become the
-Postgres tables in [../docs/03-data-model.md](../docs/03-data-model.md), served by the API layer in
+Postgres tables in [../docs/architecture/01-data-model.md](../docs/architecture/01-data-model.md), served by the API layer in
 [../docs/02-saas-architecture.md](../docs/02-saas-architecture.md). The `tenant_id`-per-row rule and
 event-sourced transaction log are already reflected conceptually here (the audit feed *is*
 the log; the register is a projection of it).

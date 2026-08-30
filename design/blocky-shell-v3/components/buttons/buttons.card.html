@@ -1,0 +1,61 @@
+<!-- @dsCard group="Components" viewport="700x150" name="Button" -->
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<div id="root"></div>
+<script>
+window.__ds = function(names) {
+  var out = {}, miss = [];
+  var pools = [];
+  // Prefer an explicit namespace if the bundle set one
+  for (var k in window) {
+    try {
+      var v = window[k];
+      if (v && typeof v === 'object' && !Array.isArray(v) && k[0] === k[0].toUpperCase() && k.length > 2) {
+        for (var i = 0; i < names.length; i++) if (typeof v[names[i]] === 'function') { pools.push(v); break; }
+      }
+    } catch (e) {}
+  }
+  pools.push(window);
+  names.forEach(function(n) {
+    for (var p = 0; p < pools.length; p++) {
+      if (typeof pools[p][n] === 'function') { out[n] = pools[p][n]; return; }
+    }
+    miss.push(n);
+  });
+  if (miss.length) {
+    document.getElementById('root').innerHTML =
+      '<div style="padding:16px;background:var(--surface-3);border:1px solid var(--warn-border);' +
+      'border-radius:4px;color:var(--warn);font-family:var(--font-mono);font-size:11px;">' +
+      'Bundle not built yet — missing: ' + miss.join(', ') + '</div>';
+    return null;
+  }
+  return out;
+};
+</script>
+<script type="text/babel">
+const __c = window.__ds(['Button']);
+if (__c) {
+const { Button } = __c;
+function Demo() {
+  return <div style={{padding:16, background:'var(--surface-0)', display:'flex', flexDirection:'column', gap:10}}>
+    <div style={{display:'flex', gap:8, alignItems:'center'}}>
+      <Button variant="primary">Primary</Button>
+      <Button variant="secondary">Secondary</Button>
+      <Button variant="ghost">Ghost</Button>
+      <Button variant="danger">Danger</Button>
+      <Button variant="warn">Warning</Button>
+      <Button disabled>Disabled</Button>
+    </div>
+    <div style={{display:'flex', gap:8, alignItems:'center'}}>
+      <Button variant="primary" size="sm">Small</Button>
+      <Button variant="primary" size="md">Medium</Button>
+      <Button variant="primary" size="lg">Large</Button>
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+}
+</script>

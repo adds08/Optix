@@ -92,6 +92,132 @@
       "when": 1786296342643,
       "tag": "0012_brainy_unicorn",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1786884248820,
+      "tag": "0013_backfill_ledger_tostate",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1786889454873,
+      "tag": "0014_append_only_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1787048350433,
+      "tag": "0015_loving_exodus",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1787066511111,
+      "tag": "0016_curious_tusk",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787074557457,
+      "tag": "0017_dizzy_magik",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1787157799880,
+      "tag": "0018_dear_alex_wilder",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1787159543986,
+      "tag": "0019_common_doctor_octopus",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787245943986,
+      "tag": "0020_phase3_roles_and_view_scopes",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787407967256,
+      "tag": "0021_powerful_toxin",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1787485000000,
+      "tag": "0023_clear_stranded_pending_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1787516962999,
+      "tag": "0024_recover_orphaned_0022",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1787544806781,
+      "tag": "0025_daffy_longshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1787545888982,
+      "tag": "0026_chief_falcon",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1787854355414,
+      "tag": "0027_massive_sleeper",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1787861039281,
+      "tag": "0028_thin_supernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1787898529379,
+      "tag": "0029_table_naming_convention",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1787898554621,
+      "tag": "0030_rename_index_predicates",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1787941367347,
+      "tag": "0031_user_icon_scale",
+      "breakpoints": true
     }
   ]
 }

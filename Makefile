@@ -36,20 +36,26 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell
+# `e2e` and `e2e-install` MUST be listed here: there is a directory called
+# `e2e/`, so without .PHONY make sees a target that is already satisfied by a
+# file of the same name and prints "'e2e' is up to date" without running
+# anything. The browser suite silently did not run for anyone invoking it
+# through make. CI calls playwright directly, so CI never noticed.
+.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint e2e e2e-install mobile deploy prod-status prod-logs prod-shell
 
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
-up: ## Build + start postgres, api, web, desktop (detached)
+up: ## Build + start postgres, api, web (detached); seeds on first boot
 	$(COMPOSE) up -d --build
+	@$(COMPOSE) exec -T api sh -c "cd /workspace/packages/db && pnpm seed" >/dev/null 2>&1 || true
 	@echo ""
 	@echo "  api      → http://localhost:4100  (health: /health)"
 	@echo "  web      → http://localhost:3100  (Next.js - shadcn new-york)"
 	@echo "  db       → postgres://postgres:stinventory@localhost:5433/stinventory"
 	@echo ""
-	@echo "  next: \`make seed\` to populate sample data."
+	@echo "  seeded sample data (idempotent — skips if the tenant already exists)."
 
 build: ## Build images without starting
 	$(COMPOSE) build
@@ -96,6 +102,16 @@ reset: ## Wipe DB volume + restart + reseed (DESTRUCTIVE)
 
 test: ## Run vitest inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm test"
+
+e2e: ## Run the browser suite against the running stack (STI-001)
+	@# Deliberately NOT inside the api container. The suite drives a browser
+	@# against web:3100 and api:4100 from OUTSIDE, which is the only way to
+	@# test the stack rather than a process's opinion of itself — and the
+	@# container has no browser. `make ENV=local up` must be running.
+	pnpm --dir e2e exec playwright test
+
+e2e-install: ## One-time: fetch the Chromium the browser suite drives
+	pnpm --dir e2e exec playwright install chromium
 
 typecheck: ## Run typecheck inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm typecheck"

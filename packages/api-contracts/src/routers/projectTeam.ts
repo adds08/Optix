@@ -34,8 +34,29 @@ import type { Permission } from "@stinventory/types";
   moveEmployeeToProject so the two paths cannot drift).
 */
 
+/*
+  STI-307 — which category each role comparison in this file belongs to.
+
+  These are branches on DOMAIN DATA, not on authorisation, and they stay. A
+  foreman is a kind of person: linking one to a project physically moves their
+  tools, and linking a PM does not. That is a fact about how Urban works, not a
+  statement about what the CALLER may do.
+
+  Authorisation in this file is entirely permission-based and always was —
+  `PERM_FOR_ROLE` maps the target role to the permission it costs, and
+  `assertCanAssign` is the only gate. Nothing here reads `session.roleName`.
+*/
 const TEAM_ROLES = ["pm", "superintendent", "foreman"] as const;
 type TeamRole = (typeof TEAM_ROLES)[number];
+
+/* Team roles whose project link MOVES CUSTODY. Named rather than compared
+   against the literal "foreman" in three places, which is how
+   `CUSTODIAN_ROLES` came to exist in packages/types after three custodian
+   pickers had drifted apart. Deliberately separate from `CUSTODIAN_ROLES`:
+   that answers "may hold a tool" and includes `mechanic`, who is never on a
+   project team. */
+const TOOLS_FOLLOW: readonly TeamRole[] = ["foreman"];
+const toolsFollow = (role: TeamRole) => TOOLS_FOLLOW.includes(role);
 
 const PERM_FOR_ROLE: Record<TeamRole, Permission> = {
   pm: "project.assign.pm",
@@ -44,6 +65,10 @@ const PERM_FOR_ROLE: Record<TeamRole, Permission> = {
 };
 
 function assertCanAssign(permissions: ReadonlySet<Permission>, role: TeamRole): void {
+  /* The GATE is `PERM_FOR_ROLE[role]` — a permission, never a role name. The
+     comparisons below it only choose which sentence to show; getting one wrong
+     mis-words a refusal that has already happened. STI-307 AC 5 survivor,
+     annotated. */
   if (!permissions.has(PERM_FOR_ROLE[role])) {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -153,7 +178,7 @@ export const projectTeamRouter = router({
 
       let moved: { toolsMoved: number; containersMoved: number } | null = null;
 
-      if (input.role === "foreman") {
+      if (toolsFollow(input.role)) {
         /* A foreman linked to a project IS a foreman working it: the same
            move employee.assignToProject performs, with the roster row kept in
            lockstep inside the transaction. */
@@ -240,7 +265,7 @@ export const projectTeamRouter = router({
         .limit(1);
       if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "That person is not on this project in that role." });
 
-      if (input.role === "foreman") {
+      if (toolsFollow(input.role)) {
         const [person] = await ctx.db
           .select({ id: schema.employee.id, primaryProjectId: schema.employee.primaryProjectId })
           .from(schema.employee)
@@ -258,7 +283,7 @@ export const projectTeamRouter = router({
       await ctx.db
         .update(schema.projectTeamMember)
         .set({ endedOn: today })
-        .where(eq(schema.projectTeamMember.id, row.id));
+        .where(and(eq(schema.projectTeamMember.id, row.id), eq(schema.projectTeamMember.tenantId, tid)));
 
       await logEvent(ctx, {
         category: "project",

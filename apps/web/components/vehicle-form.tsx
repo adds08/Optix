@@ -27,6 +27,9 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
   const projects = trpc.project.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
   const vehicles = trpc.vehicle.list.useQuery();
+  /* STI-307 — DOMAIN DATA. A truck is assigned to a foreman because that is
+     who drives it to a job; `e.role` is the employee register's field, not the
+     caller's. Authority to edit a vehicle is `vehicle.manage`. */
   const foremanOptions = foremen.data?.filter((e) => e.role === "foreman" && e.employmentStatus === "active") ?? [];
   const truckOptions = vehicles.data?.filter((v) => v.vehicleType === "truck") ?? [];
 

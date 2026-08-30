@@ -16,6 +16,7 @@ import { ImportButton } from "@/components/import-dialog";
 import { AssetForm, type AssetEditable } from "@/components/asset-form";
 import { ToolMenu } from "@/components/tool-menu";
 import { BulkMoveForm } from "@/components/bulk-move-form";
+import { BulkEditForm } from "@/components/bulk-edit-form";
 import { SavedFilters } from "@/components/saved-filters";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
@@ -70,6 +71,9 @@ export default function ToolsPage() {
   /* Bulk selection — drives the Move / Return action bar. */
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = useState(false);
+  /* Re-filing (category / department) is a separate dialog from moving, so a
+     book-keeping edit can never be reached by aiming at the custody one. */
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const utils = trpc.useUtils();
   const { has } = usePermissions();
@@ -193,6 +197,15 @@ export default function ToolsPage() {
       col<Row>({
         header: "Tool",
         accessorFn: (r) => formatAssetModel(r),
+        /* The widest column, because it holds the longest values and is the one
+           people actually read. It had no width at all, so it absorbed whatever
+           the ten fixed columns left over — 192px on a 1440px screen, against
+           names like "BOSCH 11255VSR HAMMER DRILL EXTREME BULL DOG (8A)". Every
+           visible row was truncated.
+
+           A name can still outrun this; the `title` below is what makes the
+           full value reachable rather than lost. */
+        width: "20rem",
         /* The category icon rides on the name, not in its own column: a register
            of 400 rows is a wall of text, and the glyph is what lets someone find
            the drills without reading a single word. */
@@ -211,7 +224,13 @@ export default function ToolsPage() {
             ) : (
               <span aria-hidden className="size-4 shrink-0" />
             )}
-            <span className="truncate font-medium group-hover/tool:underline">
+            {/* `title` carries the untruncated name. The text is already in
+                the DOM — the ellipsis is a CSS effect — so this costs nothing
+                and means a clipped name is still readable rather than lost. */}
+            <span
+              className="truncate font-medium group-hover/tool:underline"
+              title={formatAssetModel(r) || "Untagged tool"}
+            >
               {formatAssetModel(r) || "Untagged tool"}
             </span>
           </Link>
@@ -226,7 +245,13 @@ export default function ToolsPage() {
       col<Row>({
         header: "Status",
         accessorFn: (r) => r.status,
-        width: "8.5rem",
+        /* Sized for the LONGEST status, not the common one. `in_maintenance`
+           renders as "IN MAINTENANCE" — fourteen mono uppercase characters with
+           0.1em tracking, a dot and a border — which needs more than the 8.5rem
+           this used to be. `StatusPill` is `whitespace-nowrap`, so it cannot
+           wrap when it does not fit: it simply overflowed the cell and printed
+           across the Holder column beside it. */
+        width: "10.5rem",
         cell: (r) => <StatusPill status={r.status} />,
       }),
       col<Row>({
@@ -362,6 +387,11 @@ export default function ToolsPage() {
   };
 
   const filtering = category !== "all" || status !== "all" || flags.size > 0;
+  /* Drives the toolbar swap below. Named rather than inlined because the row's
+     two halves both branch on it and they must never disagree — one showing
+     bulk actions while the other still counts tools would be worse than the
+     layout jump this replaced. */
+  const selecting = selectedIds.size > 0;
   const filterCount = (category !== "all" ? 1 : 0) + (status !== "all" ? 1 : 0) + flags.size;
 
   const pills = [
@@ -461,6 +491,14 @@ export default function ToolsPage() {
           onApplied={() => setSelectedIds(new Set())}
         />
       ) : null}
+      {bulkEditOpen ? (
+        <BulkEditForm
+          open
+          onClose={() => setBulkEditOpen(false)}
+          assetIds={[...selectedIds]}
+          onApplied={() => setSelectedIds(new Set())}
+        />
+      ) : null}
       <div className="flex flex-col gap-3">
         {/* One toolbar: job scope, search, the filter sheet (the former facet
             rail), and the saved-view menu. */}
@@ -492,69 +530,81 @@ export default function ToolsPage() {
           >
             {facetControls}
           </FilterSheet>
+          {/* Selection SWAPS this row's contents rather than adding a bar
+              beneath it. The bar used to be its own block that appeared on the
+              first tick, which pushed the table down 58px — measured. Reusing
+              the row costs no vertical space at all, and puts the actions where
+              the eye already is. Both clusters are `size="sm"` buttons, so the
+              row is the same height either way. */}
           <span className="text-sm text-muted-foreground">
-            <span className="tnum font-medium text-foreground">{filtered.length}</span>
-            {filtered.length !== scoped.length ? <> of <span className="tnum">{scoped.length}</span></> : null} tools
+            {selecting ? (
+              <span className="font-medium text-foreground">
+                <span className="tnum">{selectedIds.size}</span> tool{selectedIds.size === 1 ? "" : "s"} selected
+              </span>
+            ) : (
+              <>
+                <span className="tnum font-medium text-foreground">{filtered.length}</span>
+                {filtered.length !== scoped.length ? <> of <span className="tnum">{scoped.length}</span></> : null} tools
+              </>
+            )}
           </span>
           <div className="ml-auto flex items-center gap-2">
-            <ImportButton entity="asset" />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={exportAll}
-              disabled={!all.length}
-              title="Exports the register in the same columns the importer reads, so the file round-trips"
-            >
-              <Download className="size-4" aria-hidden />
-              Export
-            </Button>
-            <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />
-            <SavedFilters
-              storageKey="tool-register"
-              current={registerCurrent}
-              onApply={applySaved}
-              hasActive={filtering}
-              onClear={clearAll}
-            />
+            {selecting ? (
+              <>
+                {has("transfer.create") ? (
+                  <Button size="sm" onClick={() => { setBulkError(null); setBulkOpen(true); }}>
+                    Move…
+                  </Button>
+                ) : null}
+                {has("assignment.create") ? (
+                  <Button size="sm" variant="outline" onClick={bulkReturn} disabled={returnBulk.isPending}>
+                    {returnBulk.isPending ? "Returning…" : "Return to yard"}
+                  </Button>
+                ) : null}
+                {/* STI-104. `asset.manage`, not a custody permission — re-filing
+                    changes the books, not who holds the tool. */}
+                {has("asset.manage") ? (
+                  <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>
+                    Re-file…
+                  </Button>
+                ) : null}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                  Clear
+                </Button>
+              </>
+            ) : (
+              <>
+                <ImportButton entity="asset" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={exportAll}
+                  disabled={!all.length}
+                  title="Exports the register in the same columns the importer reads, so the file round-trips"
+                >
+                  <Download className="size-4" aria-hidden />
+                  Export
+                </Button>
+                <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />
+                <SavedFilters
+                  storageKey="tool-register"
+                  current={registerCurrent}
+                  onApply={applySaved}
+                  hasActive={filtering}
+                  onClear={clearAll}
+                />
+              </>
+            )}
           </div>
         </div>
 
         <FilterPills pills={pills} />
 
-        {/* Bulk action bar — appears only once something is selected. The move
-            goes through the same `action.submit` executor as the chat path, so
-            every tool writes its own transaction and the high-value approval
-            gate still applies per tool. */}
-        {selectedIds.size > 0 ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
-            <span className="text-sm font-medium">
-              {selectedIds.size} tool{selectedIds.size === 1 ? "" : "s"} selected
-            </span>
-            <div className="ml-auto flex items-center gap-2">
-              {has("transfer.create") ? (
-                <Button size="sm" onClick={() => { setBulkError(null); setBulkOpen(true); }}>
-                  Move…
-                </Button>
-              ) : null}
-              {has("assignment.create") ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={bulkReturn}
-                  disabled={returnBulk.isPending}
-                >
-                  {returnBulk.isPending ? "Returning…" : "Return to yard"}
-                </Button>
-              ) : null}
-              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
-                Clear
-              </Button>
-            </div>
-            {bulkError ? (
-              <p className="w-full text-xs text-destructive">{bulkError}</p>
-            ) : null}
-          </div>
-        ) : null}
+        {/* The bulk error is the one thing still allowed to add a line here, and
+            deliberately: it appears on a failed write, not on every tick, so
+            reserving a blank row for a message that usually never comes would
+            trade a real jump for permanent dead space. */}
+        {bulkError ? <p className="text-xs text-destructive">{bulkError}</p> : null}
 
         {list.isLoading ? (
           <TableSkeleton cols={6} />
@@ -582,6 +632,10 @@ export default function ToolsPage() {
                default-visible set — same headroom rule, just two columns
                wider now. */
             minWidth="1460px"
+            /* Column widths persist per browser. The register is the table
+               people live in and the one with more columns than screen, so it
+               is the one where a reader's own layout is worth keeping. */
+            storageKey="tool-register"
             filterPredicate={matches}
             searchValue={q}
             onSearchChange={setQ}

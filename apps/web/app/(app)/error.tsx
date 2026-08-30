@@ -12,16 +12,20 @@ import { Button } from "@/components/ui/button";
   shell (sidebar, top bar) lives in this segment's layout and survives, so what
   a foreman actually sees is one broken panel rather than a dead browser tab.
 
-  `reset()` re-renders the segment rather than reloading the document. Most
-  failures here are a query that threw on bad data; re-running it is genuinely
-  often enough, and it keeps the app's state and scroll position.
+  `retry()` refreshes the router inside a transition — Server Components
+  re-fetch and re-render — then clears the boundary, all without reloading
+  the document. Next 16 still passes the older `reset`, but that one only
+  clears boundary state without re-fetching, so a failure that came from the
+  server render just throws again. Most failures here are a query that threw
+  on bad data; re-fetching it is genuinely often enough, and it keeps the
+  app's state and scroll position.
 */
 export default function AppError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   useEffect(() => {
     /* Nothing collects browser errors yet, so the console is the only record
@@ -49,7 +53,7 @@ export default function AppError({
             happening, tell the equipment desk and quote the reference below.
           </p>
         </div>
-        <Button onClick={reset} size="sm" variant="outline">
+        <Button onClick={retry} size="sm" variant="outline">
           <RotateCw className="size-4" />
           Try again
         </Button>

@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { Check, CheckCircle2, CircleAlert, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
-import { StatusPill, Tag } from "@/components/sti/status";
+import { StatusPill } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
 import { dateTime, relative } from "@/lib/format";
 
@@ -46,8 +45,6 @@ export default function InboxPage() {
   const retry = trpc.inbox.retryClassify.useMutation({ onSuccess: invalidate });
   const decline = trpc.task.decline.useMutation({ onSuccess: invalidate });
 
-  const [declining, setDeclining] = useState<{ id: string; title: string } | null>(null);
-
   const c = classified.data;
   const unread = [...(alerts.data ?? [])].filter((n) => !n.readAt);
 
@@ -80,8 +77,16 @@ export default function InboxPage() {
     decline.mutate({ id, reason: reason || "Declined from the inbox" });
   };
 
-  const askDismiss = (id: string, kind: "task" | "message") => {
-    const reason = window.prompt("Why is nothing being recorded?");
+  /* UI-72: this asked "Why is nothing being recorded?" — copy that belongs to
+     resolve-message.tsx, whose button IS labelled "Nothing to record". Under a
+     button labelled "Dismiss" it named neither the action nor its subject, and
+     since window.prompt offers only OK/Cancel the copy has to say what each one
+     does. Names the item, like askDecline above. The reason stays optional —
+     the server defaults it. */
+  const askDismiss = (id: string, kind: "task" | "message", title: string) => {
+    const reason = window.prompt(
+      `Dismiss "${title}"? It stays in history and nothing is recorded.\n\nReason (optional). Cancel keeps it in the inbox.`,
+    );
     if (reason === null) return;
     dismiss.mutate({ id, kind, reason: reason || undefined });
   };
@@ -171,7 +176,7 @@ export default function InboxPage() {
                           Try again
                         </Button>
                       ) : null}
-                      <Button size="sm" variant="outline" onClick={() => askDismiss(item.id, item.kind)}>
+                      <Button size="sm" variant="outline" onClick={() => askDismiss(item.id, item.kind, item.title)}>
                         <X className="size-3.5" />
                         Dismiss
                       </Button>

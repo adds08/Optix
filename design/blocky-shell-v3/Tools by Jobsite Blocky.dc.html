@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;font-family:'Inter Tight',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+input{font-family:inherit}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#242A31;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+
+<div style="{{ rootStyle }}">
+<div style="{{ headerStyle }}">
+<div style="{{ headInnerStyle }}">
+<div style="display:flex; align-items:center; gap:28px;">
+<sc-if value="{{ showPageTitle }}" hint-placeholder-val="{{ true }}">
+<div style="flex:none;">
+<div style="{{ breadcrumbStyle }}">FLEET · DISTRIBUTION</div>
+<h1 style="{{ h1Style }}">Tools by Jobsite</h1>
+</div>
+</sc-if>
+<div style="flex:1;"></div>
+<div style="{{ summaryRowStyle }}">
+<sc-for list="{{ summary }}" as="s" hint-placeholder-count="7">
+<div style="text-align:right;">
+<div style="{{ s.labelStyle }}">{{ s.label }}</div>
+<div style="{{ s.valStyle }}">{{ s.value }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="{{ toolbarStyle }}">
+<div style="{{ tabGroupStyle }}">
+<sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+<div onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.countStyle }}">{{ t.count }}</span></div>
+</sc-for>
+</div>
+<div style="flex:1;"></div>
+<div style="{{ searchBoxStyle }}">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{ iconColor }}" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.8-3.8"></path></svg>
+<input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Search job, crew, tool, tag…" style="{{ searchInputStyle }}">
+<sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+<span onClick="{{ clearQuery }}" style="{{ clearBtnStyle }}">×</span>
+</sc-if>
+</div>
+<div style="position:relative;">
+<div onClick="{{ toggleSort }}" style="{{ sortBtnStyle }}">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ iconColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5v14M4 16l3 3 3-3M17 19V5M14 8l3-3 3 3"></path></svg>
+{{ sortLabel }}
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{ iconColor }}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5l6 6 6-6"></path></svg>
+</div>
+<sc-if value="{{ sortOpen }}" hint-placeholder-val="{{ false }}">
+<div style="{{ sortDropStyle }}">
+<sc-for list="{{ sortOptions }}" as="s" hint-placeholder-count="4">
+<div onClick="{{ s.pick }}" style="{{ s.style }}">{{ s.label }}<sc-if value="{{ s.active }}" hint-placeholder-val="{{ false }}"><span style="{{ checkStyle }}">✓</span></sc-if></div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+<div onClick="{{ toggleGapsOnly }}" style="{{ gapChipStyle }}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.6l8.6 15H3.4z"></path><path d="M12 9.6v4.2"></path><path d="M12 16.7v.2"></path></svg>
+Needs vehicle
+</div>
+</div>
+</div>
+</div>
+
+<div style="{{ bodyInnerStyle }}">
+<sc-if value="{{ showPool }}" hint-placeholder-val="{{ false }}">
+<div style="{{ poolCardStyle }}">
+<div style="{{ poolHeaderStyle }}">
+<span style="{{ poolTitleStyle }}">Unassigned pool</span>
+<span style="{{ poolBadgeStyle }}">{{ poolCount }} TOOLS</span>
+<span style="{{ poolSubStyle }}">sitting in warehouses, not out on a job</span>
+</div>
+<div style="{{ poolColHeadStyle }}">
+<span style="{{ colTag }}">TAG</span>
+<span style="{{ colFlex }}">TOOL</span>
+<span style="{{ colCat }}">CATEGORY</span>
+<span style="{{ colLoc }}">LOCATION</span>
+<span style="{{ colCondR }}">STATUS</span>
+</div>
+<sc-for list="{{ pool }}" as="p" hint-placeholder-count="6">
+<div style="{{ p.rowStyle }}">
+<span style="{{ p.tagStyle }}">{{ p.tag }}</span>
+<span style="{{ p.nameStyle }}">{{ p.name }}</span>
+<span style="{{ p.catStyle }}">{{ p.cat }}</span>
+<span style="{{ p.locStyle }}">{{ p.loc }}</span>
+<span style="{{ p.condStyle }}">{{ p.cond }}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-for list="{{ jobs }}" as="j" hint-placeholder-count="4">
+<div style="{{ j.cardStyle }}">
+<div style="flex:1; min-width:0;">
+<div onClick="{{ j.toggle }}" style="{{ j.headStyle }}">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ iconColor }}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="{{ j.caretStyle }}"><path d="M9 5l7 7-7 7"></path></svg>
+<span style="{{ j.nameStyle }}">{{ j.name }}</span>
+<span style="{{ j.codeStyle }}">{{ j.code }}</span>
+<span style="{{ j.cityStyle }}">{{ j.city }}</span>
+<div style="flex:1;"></div>
+<sc-if value="{{ j.hasGap }}" hint-placeholder-val="{{ false }}">
+<span style="{{ j.gapStyle }}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{ warnColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.6l8.6 15H3.4z"></path><path d="M12 9.6v4.2"></path><path d="M12 16.7v.2"></path></svg>
+{{ j.gapLabel }}
+</span>
+</sc-if>
+<span style="{{ j.crewSumStyle }}">{{ j.crewSummary }}</span>
+</div>
+<sc-if value="{{ j.open }}" hint-placeholder-val="{{ true }}">
+<div>
+<div style="{{ j.metricsRowStyle }}">
+<sc-for list="{{ j.metrics }}" as="m" hint-placeholder-count="5">
+<div style="{{ m.cellStyle }}">
+<span style="{{ m.labelStyle }}">{{ m.label }}</span>
+<span style="display:flex; align-items:baseline; gap:3px;">
+<span style="{{ m.valStyle }}">{{ m.value }}</span>
+<span style="{{ m.sfxStyle }}">{{ m.suffix }}</span>
+</span>
+</div>
+</sc-for>
+</div>
+<sc-for list="{{ j.crews }}" as="c" hint-placeholder-count="2">
+<div style="{{ c.wrapStyle }}">
+<div onClick="{{ c.toggle }}" style="{{ c.headStyle }}">
+<span style="{{ c.tickStyle }}"></span>
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{ iconColor }}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="{{ c.caretStyle }}"><path d="M9 5l7 7-7 7"></path></svg>
+<span style="{{ c.nameStyle }}">{{ c.name }}</span>
+<div style="{{ c.truckAreaStyle }}">
+<sc-if value="{{ c.truck }}" hint-placeholder-val="{{ true }}">
+<span style="{{ c.vehicleTagStyle }}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{ iconColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h9v9H3z"></path><path d="M12 10h4l3.5 3.5V16H12z"></path><circle cx="7" cy="18" r="1.5"></circle><circle cx="17" cy="18" r="1.5"></circle></svg>
+{{ c.truck }}
+</span>
+</sc-if>
+<sc-if value="{{ c.noTruck }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ c.pickTruck }}" style="{{ c.addVehicleBtnStyle }}">+ truck</div>
+</sc-if>
+</div>
+<div style="{{ c.trailerAreaStyle }}">
+<sc-if value="{{ c.trailer }}" hint-placeholder-val="{{ true }}">
+<span style="{{ c.vehicleTagStyle }}">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{ iconColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h15v8H2z"></path><path d="M17 12h4"></path><circle cx="7" cy="18" r="1.5"></circle><circle cx="13" cy="18" r="1.5"></circle></svg>
+{{ c.trailer }}
+</span>
+</sc-if>
+<sc-if value="{{ c.noTrailer }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ c.pickTrailer }}" style="{{ c.addVehicleBtnStyle }}">+ trailer</div>
+</sc-if>
+</div>
+<div style="flex:1;"></div>
+<span style="{{ c.updStyle }}">{{ c.updated }}</span>
+<span style="{{ c.countNumStyle }}">{{ c.toolCount }}</span>
+<span style="{{ c.countLblStyle }}">tools</span>
+</div>
+<sc-if value="{{ c.pickerOpen }}" hint-placeholder-val="{{ false }}">
+<div style="{{ c.pickerStyle }}">
+<div style="{{ c.pickerTitleStyle }}">{{ c.pickerTitle }}</div>
+<div style="display:flex; flex-wrap:wrap; gap:8px;">
+<sc-for list="{{ c.vehicleOptions }}" as="v" hint-placeholder-count="3">
+<div onClick="{{ v.pick }}" style="{{ v.style }}">
+<span style="{{ v.idStyle }}">{{ v.id }}</span>
+<span style="{{ v.descStyle }}">{{ v.desc }}</span>
+</div>
+</sc-for>
+<div onClick="{{ c.closePicker }}" style="{{ c.cancelStyle }}">Cancel</div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ c.open }}" hint-placeholder-val="{{ false }}">
+<div style="{{ c.toolSectionStyle }}">
+<div style="{{ c.toolHeadStyle }}">
+<span style="{{ colTag }}">TAG</span>
+<span style="{{ colFlex }}">TOOL</span>
+<span style="{{ colCat }}">CATEGORY</span>
+<span style="{{ colTime }}">TIME OUT</span>
+<span style="{{ colCondR }}">CONDITION</span>
+</div>
+<sc-for list="{{ c.tools }}" as="r" hint-placeholder-count="5">
+<div style="{{ r.rowStyle }}">
+<span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+<span style="{{ r.nameStyle }}">{{ r.name }}</span>
+<span style="{{ r.catStyle }}">{{ r.cat }}</span>
+<span style="{{ r.sinceStyle }}">{{ r.since }}</span>
+<span style="{{ r.condStyle }}">{{ r.cond }}</span>
+</div>
+</sc-for>
+<div style="{{ c.toolFootStyle }}">
+<span style="{{ c.toolFootTextStyle }}">{{ c.toolCount }} TOOLS · {{ c.upperName }}</span>
+<div style="flex:1;"></div>
+<span style="{{ c.toolFootTextStyle }}">VALUE {{ c.value }}</span>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</div>
+</sc-for>
+
+<sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+<div style="{{ emptyStyle }}">No jobs, crews, or tools match "{{ query }}".</div>
+</sc-if>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;:{&quot;width&quot;:1500,&quot;height&quot;:1000},
+  &quot;embedded&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},
+  &quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark'|'light'&quot;}
+}">
+class Component extends DCLogic {
+  state = { query:'', sort:'tools', sortOpen:false, tab:'all', gapsOnly:false,
+    closed:{}, openCrews:{}, picker:null, pickerKind:null, assignedTruck:{}, assignedTrailer:{} };
+
+  CATALOG = [
+    ['DeWalt DCD996 Hammer Drill','Power tool',320],['Milwaukee M18 Sawzall','Power tool',280],
+    ['Milwaukee M18 Impact Driver','Power tool',240],['DeWalt 20V Angle Grinder','Power tool',190],
+    ['Makita 7-1/4in Circular Saw','Power tool',210],['Bosch Bulldog Rotary Hammer','Power tool',430],
+    ['Stihl TS420 Cutquik','Cutting',1100],['Husqvarna K770 Demo Saw','Cutting',1250],
+    ['Wacker WP1550 Plate Compactor','Compaction',2100],['Multiquip 2in Trash Pump','Pump',900],
+    ['Bosch GRL2000-40HVK Laser','Survey',1400],['Hilti PM 30-MG Multi Laser','Survey',640],
+    ['Werner 24ft Extension Ladder','Access',380],['Little Giant 8ft Step Ladder','Access',260],
+    ['Ridgid Pipe Wrench Set','Hand tool',340],['Klein Electrician Tool Set','Hand tool',290],
+    ['Greenlee Cable Puller','Pipe',780],['Honda EB2200i Generator','Generator',1300],
+    ['Milwaukee M18 Site Light','Site',220],['Dayton 1in Submersible Pump','Pump',460]
+  ];
+  CONDS = [['Good','ok'],['Good','ok'],['Good','ok'],['Fair','warn'],['Needs service','crit']];
+  SINCE = ['out 3d','out 11d','out 2d','out 26d','out 6d','out 19d','out 1d','out 40d'];
+  DATA = [
+    { id:'j1', name:'Legacy West Utilities', code:'JOB 22018', city:'Plano, TX',
+      crews:[{id:'c1',n:'Alejandro Capuchino',truck:'TR-118',trailer:'TE-006',tools:28,up:'2h ago',stale:false},
+             {id:'c2',n:'Jobani Abarca',truck:'TR-104',trailer:null,tools:19,up:'20m ago',stale:false}] },
+    { id:'j2', name:'Trinity River Levee Ph 2', code:'JOB 22104', city:'Dallas, TX',
+      crews:[{id:'c3',n:'Miguel Torres',truck:'TR-102',trailer:'TE-002',tools:24,up:'40m ago',stale:false},
+             {id:'c4',n:'Ruben Delgado',truck:'TR-127',trailer:'TE-011',tools:17,up:'3h ago',stale:false},
+             {id:'c5',n:'Beto Aldana',truck:null,trailer:'TE-004',tools:11,up:'1h ago',stale:false}] },
+    { id:'j3', name:'DFW Water Main Ph 2', code:'JOB 21877', city:'Irving, TX',
+      crews:[{id:'c6',n:'Sergio Nunez',truck:'TR-131',trailer:'TE-009',tools:14,up:'5h ago',stale:false},
+             {id:'c7',n:'Hector Villalobos',truck:'TR-115',trailer:null,tools:10,up:'1d ago',stale:false},
+             {id:'c8',n:'Danny Okafor',truck:null,trailer:null,tools:7,up:'stale · 4d',stale:true}] },
+    { id:'j4', name:'McKinney Pump Station', code:'JOB 22131', city:'McKinney, TX',
+      crews:[{id:'c9',n:'Carlos Benitez',truck:'TR-109',trailer:'TE-014',tools:17,up:'25m ago',stale:false}] }
+  ];
+  TRUCKS = [{id:'TR-140',desc:'F-350 crew cab · Dallas yard'},{id:'TR-142',desc:'F-250 · Irving yard'},{id:'TR-147',desc:'Ram 3500 · Dallas yard'}];
+  TRAILERS = [{id:'TE-021',desc:'16ft enclosed · Dallas yard'},{id:'TE-023',desc:'20ft flatbed · Dallas yard'},{id:'TE-030',desc:'14ft enclosed · Irving yard'}];
+  POOL = [
+    ['ST-00412','Wacker WP1550 Plate Compactor','Compaction','Regional Warehouse — Houston',0],
+    ['ST-00355','Bosch GRL2000-40HVK Laser','Survey','Dallas Yard',0],
+    ['ST-00298','Multiquip 2in Trash Pump','Pump','Dallas Yard',3],
+    ['ST-00476','Stihl TS420 Cutquik','Cutting','Regional Warehouse — Houston',0],
+    ['ST-00190','Genie AL5 Light Tower','Site','Irving Yard',1],
+    ['ST-00521','Miller Bobcat 260 Welder','Welding','Dallas Yard',0],
+    ['ST-00233','Ridgid 300 Pipe Threader','Pipe','Irving Yard',4]
+  ];
+
+  hash(s) { let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return h; }
+
+  toolsFor(crewId,n) {
+    const out=[], base=this.hash(crewId);
+    for(let i=0;i<n;i++){
+      const c=this.CATALOG[(base+i*7)%this.CATALOG.length];
+      const cond=this.CONDS[(base+i*3)%this.CONDS.length];
+      out.push({tag:'ST-'+String(((base+i*137)%800)+100).padStart(5,'0'),
+        name:c[0],cat:c[1],value:c[2],cond:cond[0],condTone:cond[1],
+        since:this.SINCE[(base+i*5)%this.SINCE.length]});
+    }
+    return out;
+  }
+
+  truckOf(c){return this.state.assignedTruck[c.id]!==undefined?this.state.assignedTruck[c.id]:c.truck;}
+  trailerOf(c){return this.state.assignedTrailer[c.id]!==undefined?this.state.assignedTrailer[c.id]:c.trailer;}
+  money(n){return n>=1000?'$'+(n/1000).toFixed(1)+'k':'$'+n;}
+
+  isDark(){return(this.props.theme??'dark')==='dark';}
+
+  theme(){
+    return this.isDark()?{
+      bg:'#090B0E',surface1:'#0D1015',surface2:'#0E1218',surface3:'#11151A',surface4:'#12161C',
+      surface5:'#141A21',surface6:'#151A21',surface7:'#1A1F26',surface8:'#222A33',
+      border0:'#1B2027',border1:'#232A32',border2:'#262E37',border3:'#2A323B',border4:'#2E3742',
+      heading:'#FFFFFF',text:'#EAEDEF',text2:'#A6AEB6',text3:'#8A939C',
+      accent:'#7FB0E4',accentBright:'#A9CDF2',accentBg:'#162233',
+      ok:'#4FA97A',warn:'#E4A13B',crit:'#D2694A',
+      warnBg:'rgba(228,161,59,.11)',warnBorder:'rgba(228,161,59,.3)',
+      rowA:'#0A0D11',rowB:'#0C1014'
+    }:{
+      bg:'#F4F5F7',surface1:'#FFFFFF',surface2:'#F8F9FA',surface3:'#FFFFFF',surface4:'#F0F1F4',
+      surface5:'#E8E9EC',surface6:'#FFFFFF',surface7:'#E4E6EA',surface8:'#D8DBE0',
+      border0:'#E0E3E8',border1:'#D8DBE0',border2:'#D0D4DA',border3:'#C8CCD2',border4:'#C0C4CA',
+      heading:'#0F1216',text:'#1A1E24',text2:'#505860',text3:'#6E7681',
+      accent:'#3A6E9E',accentBright:'#2B5A82',accentBg:'#E8F0F8',
+      ok:'#2F7D52',warn:'#B37A18',crit:'#B8492A',
+      warnBg:'rgba(179,122,24,.1)',warnBorder:'rgba(179,122,24,.32)',
+      rowA:'#FFFFFF',rowB:'#F6F7F9'
+    };
+  }
+
+  renderVals(){
+    const st=this.state, t=this.theme(), mono="'JetBrains Mono',monospace";
+    const q=st.query.trim().toLowerCase();
+    const emb=this.props.embedded??false;
+    const gut=emb?'20px':'44px';
+
+    const enriched=this.DATA.map(j=>{
+      const crews=j.crews.map(c=>{
+        const tools=this.toolsFor(c.id,c.tools);
+        return{...c,truck:this.truckOf(c),trailer:this.trailerOf(c),tools,
+          value:tools.reduce((a,x)=>a+x.value,0)};
+      });
+      return{...j,crews,gaps:crews.filter(c=>!c.truck||!c.trailer).length,
+        trucks:crews.filter(c=>c.truck).length,trailers:crews.filter(c=>c.trailer).length,
+        toolCount:crews.reduce((a,c)=>a+c.tools.length,0),
+        value:crews.reduce((a,c)=>a+c.value,0)};
+    });
+
+    const matches=j=>{
+      if(!q)return true;
+      if(j.name.toLowerCase().includes(q)||j.code.toLowerCase().includes(q)||j.city.toLowerCase().includes(q))return true;
+      return j.crews.some(c=>c.n.toLowerCase().includes(q)||(c.trailer||'').toLowerCase().includes(q)||
+        (c.truck||'').toLowerCase().includes(q)||c.tools.some(x=>x.name.toLowerCase().includes(q)||x.tag.toLowerCase().includes(q)||x.cat.toLowerCase().includes(q)));
+    };
+
+    let list=enriched.filter(matches);
+    if(st.gapsOnly)list=list.filter(j=>j.gaps>0);
+    if(st.tab==='pool')list=[];
+    const SORTS={tools:(a,b)=>b.toolCount-a.toolCount,value:(a,b)=>b.value-a.value,
+      gaps:(a,b)=>b.gaps-a.gaps,name:(a,b)=>a.name.localeCompare(b.name)};
+    list=list.slice().sort(SORTS[st.sort]);
+
+    const allCrews=enriched.reduce((a,j)=>a.concat(j.crews),[]);
+    const totalCrews=allCrews.length;
+    const withTruck=allCrews.filter(c=>c.truck).length;
+    const withTrailer=allCrews.filter(c=>c.trailer).length;
+    const fullyRigged=allCrews.filter(c=>c.truck&&c.trailer).length;
+    const totalTools=enriched.reduce((a,j)=>a+j.toolCount,0);
+    const totalValue=enriched.reduce((a,j)=>a+j.value,0);
+
+    const toneColor=v=>({ok:t.ok,warn:t.warn,crit:t.crit})[v]||t.text3;
+
+    const sumValStyle=(clr)=>({fontSize:'19px',fontWeight:600,marginTop:'5px',letterSpacing:'-.01em',color:clr||t.heading});
+    const summary=[
+      {label:'JOBS',value:String(enriched.length),valStyle:sumValStyle()},
+      {label:'CREWS',value:String(totalCrews),valStyle:sumValStyle()},
+      {label:'WITH TRUCK',value:withTruck+'/'+totalCrews,valStyle:sumValStyle(withTruck===totalCrews?t.ok:t.warn)},
+      {label:'WITH TRAILER',value:withTrailer+'/'+totalCrews,valStyle:sumValStyle(withTrailer===totalCrews?t.ok:t.warn)},
+      {label:'FULLY RIGGED',value:fullyRigged+'/'+totalCrews,valStyle:sumValStyle(fullyRigged===totalCrews?t.ok:t.warn)},
+      {label:'TOOLS OUT',value:String(totalTools),valStyle:sumValStyle()},
+      {label:'VALUE',value:this.money(totalValue),valStyle:sumValStyle()}
+    ].map(s=>({...s,labelStyle:{fontFamily:mono,fontSize:'9.5px',letterSpacing:'.14em',color:t.text3}}));
+
+    const tabStyle=on=>({display:'flex',alignItems:'center',gap:'7px',padding:'6px 13px',cursor:'pointer',
+      borderRadius:'3px',background:on?t.surface8:'transparent',
+      fontSize:'12.5px',fontWeight:on?600:500,color:on?t.heading:t.text3});
+    const cntStyle=on=>({fontFamily:mono,fontSize:'10px',padding:'1px 5px',borderRadius:'3px',
+      background:on?'rgba(255,255,255,.12)':t.surface7,color:on?t.text:t.text3});
+    const mkTab=(id,label,count)=>({label,count:String(count),style:tabStyle(st.tab===id),
+      countStyle:cntStyle(st.tab===id),pick:()=>this.setState({tab:id})});
+    const tabs=[mkTab('all','Jobs',enriched.length),mkTab('pool','Unassigned pool',this.POOL.length)];
+
+    const SORT_LABELS={tools:'Tools out',value:'Value on site',gaps:'Vehicle gaps',name:'Job name'};
+    const sortOptions=Object.keys(SORT_LABELS).map(k=>({
+      label:SORT_LABELS[k],active:st.sort===k,
+      style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 10px',
+        borderRadius:'3px',cursor:'pointer',fontSize:'12.5px',
+        color:st.sort===k?t.heading:t.text2,background:st.sort===k?'rgba(255,255,255,.06)':'transparent'},
+      pick:()=>this.setState({sort:k,sortOpen:false})
+    }));
+
+    const colHdr={fontFamily:mono,fontSize:'9.5px',letterSpacing:'.14em',color:t.text3};
+    const usedTrucks=Object.values(st.assignedTruck),usedTrailers=Object.values(st.assignedTrailer);
+
+    const jobs=list.map(j=>{
+      const open=!st.closed[j.id];
+      return{
+        name:j.name,code:j.code,city:j.city,
+        hasGap:j.gaps>0,gapLabel:j.gaps===1?'1 crew needs a vehicle':j.gaps+' crews need vehicles',
+        crewSummary:j.crews.length+(j.crews.length===1?' crew · ':' crews · ')+j.toolCount+' tools',
+        cardStyle:{display:'flex',background:t.surface3,border:'1px solid '+t.border1,borderRadius:'4px',overflow:'hidden'},
+        headStyle:{display:'flex',alignItems:'center',gap:'11px',padding:'12px 20px',cursor:'pointer'},
+        caretStyle:{transform:open?'rotate(90deg)':'none',transition:'transform .15s',flex:'none'},
+        nameStyle:{fontSize:'16.5px',fontWeight:650,color:t.heading,letterSpacing:'-.015em'},
+        codeStyle:{fontFamily:mono,fontSize:'10.5px',color:t.text3,border:'1px solid '+t.border3,borderRadius:'3px',padding:'2px 7px'},
+        cityStyle:{fontSize:'12.5px',color:t.text3},
+        gapStyle:{display:'flex',alignItems:'center',gap:'6px',background:t.warnBg,border:'1px solid '+t.warnBorder,
+          color:t.warn,borderRadius:'3px',padding:'4px 10px',fontSize:'11.5px',fontWeight:600},
+        crewSumStyle:{fontSize:'12px',color:t.text3},
+        open,toggle:()=>this.setState(s=>({closed:{...s.closed,[j.id]:!s.closed[j.id]}})),
+        metricsRowStyle:{display:'flex',alignItems:'center',gap:'0',borderTop:'1px solid '+t.border0,
+          borderBottom:'1px solid '+t.border0,background:t.surface2},
+        metrics:[
+          {label:'TOOLS OUT',value:String(j.toolCount),suffix:''},
+          {label:'CREWS',value:String(j.crews.length),suffix:''},
+          {label:'TRUCKS',value:String(j.trucks),suffix:'/ '+j.crews.length,warn:j.trucks<j.crews.length},
+          {label:'TRAILERS',value:String(j.trailers),suffix:'/ '+j.crews.length,warn:j.trailers<j.crews.length},
+          {label:'VALUE',value:this.money(j.value),suffix:''}
+        ].map((m,i)=>({label:m.label,value:m.value,suffix:m.suffix,
+          cellStyle:{flex:1,display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',
+            padding:'9px 20px',borderRight:i<4?'1px solid '+t.border0:'none'},
+          labelStyle:colHdr,
+          valStyle:{fontSize:'15px',fontWeight:600,color:m.warn?t.warn:t.heading,letterSpacing:'-.01em'},
+          sfxStyle:{fontFamily:mono,fontSize:'11.5px',color:t.text3}})),
+        crews:j.crews.map((c,i)=>{
+          const cOpen=!!st.openCrews[c.id];
+          const isTruck=st.pickerKind==='truck';
+          const fleet=isTruck?this.TRUCKS.filter(x=>!usedTrucks.includes(x.id)):this.TRAILERS.filter(x=>!usedTrailers.includes(x.id));
+          const rigged=c.truck&&c.trailer;
+          return{
+            name:c.n,upperName:c.n.toUpperCase(),toolCount:String(c.tools.length),updated:c.up,
+            truck:c.truck,noTruck:!c.truck,trailer:c.trailer,noTrailer:!c.trailer,value:this.money(c.value),
+            wrapStyle:{borderTop:i===0?'none':'1px solid '+t.border0+'88'},
+            headStyle:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 20px',cursor:'pointer'},
+            tickStyle:{width:'3px',height:'20px',flex:'none',borderRadius:'2px',background:rigged?t.ok:t.warn},
+            caretStyle:{transform:cOpen?'rotate(90deg)':'none',transition:'transform .15s',flex:'none'},
+            nameStyle:{width:'186px',flex:'none',fontSize:'13.5px',fontWeight:550,color:t.text,letterSpacing:'-.005em'},
+            truckAreaStyle:{display:'flex',alignItems:'center',gap:'7px',width:'132px',flex:'none'},
+            trailerAreaStyle:{display:'flex',alignItems:'center',gap:'7px',width:'132px',flex:'none'},
+            vehicleTagStyle:{display:'flex',alignItems:'center',gap:'6px',fontFamily:mono,fontSize:'11px',
+              color:t.text2,border:'1px solid '+t.border3,borderRadius:'3px',padding:'3px 8px'},
+            addVehicleBtnStyle:{display:'flex',alignItems:'center',gap:'5px',background:t.warnBg,
+              border:'1px solid '+t.warnBorder,color:t.warn,borderRadius:'3px',padding:'3px 8px',
+              fontSize:'11px',fontWeight:600,cursor:'pointer'},
+            updStyle:{fontSize:'12px',color:c.stale?t.crit:t.text3,width:'76px',textAlign:'right'},
+            countNumStyle:{fontFamily:mono,fontSize:'13.5px',fontWeight:600,color:t.heading,width:'30px',textAlign:'right'},
+            countLblStyle:{fontSize:'11.5px',color:t.text3,width:'34px'},
+            open:cOpen,
+            toggle:()=>this.setState(s=>({openCrews:{...s.openCrews,[c.id]:!s.openCrews[c.id]}})),
+            pickerOpen:st.picker===c.id,
+            pickerTitle:isTruck?'AVAILABLE TRUCKS':'AVAILABLE TRAILERS',
+            pickTruck:e=>{if(e&&e.stopPropagation)e.stopPropagation();this.setState({picker:c.id,pickerKind:'truck'});},
+            pickTrailer:e=>{if(e&&e.stopPropagation)e.stopPropagation();this.setState({picker:c.id,pickerKind:'trailer'});},
+            closePicker:()=>this.setState({picker:null,pickerKind:null}),
+            pickerStyle:{borderTop:'1px solid '+t.border0,background:t.surface2,padding:'13px 20px'},
+            pickerTitleStyle:{...colHdr,marginBottom:'10px'},
+            vehicleOptions:fleet.map(f=>({id:f.id,desc:f.desc,
+              style:{display:'flex',alignItems:'center',gap:'9px',background:t.surface5,
+                border:'1px solid '+t.border4,borderRadius:'3px',padding:'8px 12px',cursor:'pointer'},
+              idStyle:{fontFamily:mono,fontSize:'11.5px',fontWeight:600,color:t.text},
+              descStyle:{fontSize:'11.5px',color:t.text3},
+              pick:e=>{if(e&&e.stopPropagation)e.stopPropagation();
+                this.setState(s=>(isTruck
+                  ?{assignedTruck:{...s.assignedTruck,[c.id]:f.id},picker:null,pickerKind:null}
+                  :{assignedTrailer:{...s.assignedTrailer,[c.id]:f.id},picker:null,pickerKind:null}));}})),
+            cancelStyle:{display:'flex',alignItems:'center',padding:'8px 12px',fontSize:'11.5px',color:t.text3,cursor:'pointer'},
+            toolSectionStyle:{borderTop:'1px solid '+t.border0,background:t.rowA},
+            toolHeadStyle:{display:'flex',alignItems:'center',gap:'14px',padding:'8px 20px',background:t.surface2,borderBottom:'1px solid '+t.border0},
+            tools:c.tools.map((x,k)=>({tag:x.tag,name:x.name,cat:x.cat,since:x.since,cond:x.cond,
+              rowStyle:{display:'flex',alignItems:'center',gap:'14px',padding:'8px 20px',background:k%2?t.rowB:t.rowA},
+              tagStyle:{fontFamily:mono,fontSize:'12px',fontWeight:600,color:t.accent,width:'88px',flex:'none'},
+              nameStyle:{flex:1,fontSize:'13px',color:t.text},
+              catStyle:{fontFamily:mono,fontSize:'11px',color:t.text3,width:'104px',flex:'none'},
+              sinceStyle:{fontSize:'11.5px',color:t.text3,width:'96px',flex:'none'},
+              condStyle:{fontSize:'12px',fontWeight:600,color:toneColor(x.condTone),width:'104px',flex:'none',textAlign:'right'}})),
+            toolFootStyle:{display:'flex',alignItems:'center',gap:'10px',padding:'9px 20px',background:t.surface2,borderTop:'1px solid '+t.border0},
+            toolFootTextStyle:{fontFamily:mono,fontSize:'9.5px',letterSpacing:'.14em',color:t.text3}
+          };
+        })
+      };
+    });
+
+    const pool=this.POOL.filter(p=>!q||p[1].toLowerCase().includes(q)||p[0].toLowerCase().includes(q)||p[2].toLowerCase().includes(q))
+      .map((p,i)=>({tag:p[0],name:p[1],cat:p[2],loc:p[3],
+        cond:p[4]?p[4]+(p[4]===1?' day idle':' days idle'):'Ready',
+        rowStyle:{display:'flex',alignItems:'center',gap:'14px',padding:'9px 20px',background:i%2?t.rowB:t.surface3},
+        tagStyle:{fontFamily:mono,fontSize:'12px',fontWeight:600,color:t.accent,width:'88px',flex:'none'},
+        nameStyle:{flex:1,fontSize:'13px',color:t.text},
+        catStyle:{fontFamily:mono,fontSize:'11px',color:t.text3,width:'104px',flex:'none'},
+        locStyle:{fontSize:'12px',color:t.text3,width:'212px',flex:'none',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'},
+        condStyle:{fontSize:'12px',fontWeight:600,color:p[4]>2?t.warn:t.ok,width:'104px',flex:'none',textAlign:'right'}}));
+
+    return{
+      rootStyle:emb?{color:t.text,paddingBottom:'40px'}:{minHeight:'100vh',background:t.bg,color:t.text,paddingBottom:'90px'},
+      headerStyle:{background:t.surface1,borderBottom:'1px solid '+t.border0,position:'sticky',top:0,zIndex:20},
+      headInnerStyle:{maxWidth:emb?'none':'1500px',margin:'0 auto',padding:(emb?'14px ':'22px ')+gut+' 0'},
+      summaryRowStyle:{display:'flex',alignItems:'center',gap:emb?'20px':'26px'},
+      toolbarStyle:{display:'flex',alignItems:'center',gap:'14px',marginTop:emb?'12px':'18px',paddingBottom:'12px'},
+      bodyInnerStyle:{maxWidth:emb?'none':'1500px',margin:'0 auto',padding:'20px '+gut+' 0',display:'flex',flexDirection:'column',gap:'12px'},
+      showPageTitle:!emb,
+      breadcrumbStyle:{fontFamily:mono,fontSize:'10px',fontWeight:500,letterSpacing:'.2em',color:t.text3},
+      h1Style:{margin:'8px 0 0',fontSize:'26px',fontWeight:700,letterSpacing:'-.02em',color:t.heading,lineHeight:1},
+      tabGroupStyle:{display:'flex',background:t.surface4,border:'1px solid '+t.border2,borderRadius:'4px',padding:'2px'},
+      searchBoxStyle:{display:'flex',alignItems:'center',gap:'9px',height:'34px',width:'290px',padding:'0 11px',
+        border:'1px solid '+t.border2,borderRadius:'4px',background:t.surface4},
+      searchInputStyle:{flex:1,minWidth:0,border:'none',outline:'none',background:'transparent',color:t.text,fontSize:'12.5px'},
+      clearBtnStyle:{cursor:'pointer',color:t.text3,fontSize:'15px',lineHeight:1},
+      sortBtnStyle:{display:'flex',alignItems:'center',gap:'8px',height:'34px',padding:'0 11px',
+        border:'1px solid '+t.border2,borderRadius:'3px',background:t.surface4,color:t.text2,
+        fontSize:'12.5px',fontWeight:500,cursor:'pointer'},
+      sortDropStyle:{position:'absolute',top:'40px',right:0,width:'200px',background:t.surface6,
+        border:'1px solid '+t.border3,borderRadius:'4px',padding:'4px',zIndex:40,
+        boxShadow:'0 16px 40px rgba(0,0,0,.6)'},
+      checkStyle:{color:t.accent},
+      gapChipStyle:{display:'flex',alignItems:'center',gap:'7px',height:'34px',padding:'0 12px',borderRadius:'3px',
+        cursor:'pointer',fontSize:'12.5px',fontWeight:600,
+        border:'1px solid '+(st.gapsOnly?t.warnBorder:t.border2),
+        background:st.gapsOnly?t.warnBg:t.surface4,color:st.gapsOnly?t.warn:t.text3},
+      iconColor:t.text3,warnColor:t.warn,
+      poolCardStyle:{background:t.surface3,border:'1px solid '+t.border1,borderRadius:'4px',overflow:'hidden'},
+      poolHeaderStyle:{display:'flex',alignItems:'center',gap:'12px',padding:'13px 20px',borderBottom:'1px solid '+t.border0},
+      poolTitleStyle:{fontSize:'16px',fontWeight:650,color:t.heading,letterSpacing:'-.015em'},
+      poolBadgeStyle:{fontFamily:mono,fontSize:'10.5px',color:t.text3,border:'1px solid '+t.border3,borderRadius:'3px',padding:'2px 7px',whiteSpace:'nowrap',flex:'none'},
+      poolSubStyle:{fontSize:'12.5px',color:t.text3},
+      poolColHeadStyle:{display:'flex',alignItems:'center',gap:'14px',padding:'8px 20px',background:t.surface2,borderBottom:'1px solid '+t.border0},
+      colTag:{...colHdr,width:'88px',flex:'none'},
+      colFlex:{...colHdr,flex:1},
+      colCat:{...colHdr,width:'104px',flex:'none'},
+      colLoc:{...colHdr,width:'212px',flex:'none'},
+      colTime:{...colHdr,width:'96px',flex:'none'},
+      colCondR:{...colHdr,width:'104px',flex:'none',textAlign:'right'},
+      emptyStyle:{padding:'60px 0',textAlign:'center',color:t.text3,fontSize:'14px'},
+      jobs,summary,tabs,sortOptions,pool,
+      poolCount:String(this.POOL.length),showPool:st.tab==='pool',
+      empty:st.tab!=='pool'&&jobs.length===0,
+      query:st.query,hasQuery:!!st.query,sortOpen:st.sortOpen,sortLabel:SORT_LABELS[st.sort],
+      onQuery:e=>this.setState({query:e.target.value}),
+      clearQuery:()=>this.setState({query:''}),
+      toggleSort:()=>this.setState(s=>({sortOpen:!s.sortOpen})),
+      toggleGapsOnly:()=>this.setState(s=>({gapsOnly:!s.gapsOnly}))
+    };
+  }
+}
+</script>
+</body>
+</html>

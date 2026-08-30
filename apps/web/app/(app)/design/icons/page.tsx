@@ -115,7 +115,7 @@ const ROWS = [
 const NAV = [
   { label: "Dashboard", role: "dash", active: false },
   { label: "Tools by Jobsite", role: "yard", active: true },
-  { label: "Tool Register", role: "box", active: false },
+  { label: "Small Tools", role: "box", active: false },
   { label: "People", role: "people", active: false },
   { label: "Inbox", role: "inbox", active: false },
 ] as const;

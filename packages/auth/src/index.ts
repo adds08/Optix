@@ -38,11 +38,64 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
 }
 
 export type LoginResult =
-  | { ok: true; sessionId: string; userId: string; tenantId: string }
+  | { ok: true; sessionId: string; userId: string; tenantId: string; mustChangePassword: boolean }
   | { ok: false; reason: "invalid_credentials" | "inactive" };
 
-export async function login(db: Database, email: string, password: string): Promise<LoginResult> {
-  const u = await db.query.user.findFirst({ where: eq(schema.user.email, email) });
+/*
+  How the tenant is decided at login (STI-305 — this is the ticket's real design
+  content; the unique index was the easy half).
+
+  The lookup used to be `where email = ?` with NO tenant predicate, and the
+  session's tenant was then read off whichever row matched. `user.email` was a
+  plain index, so the same address could exist more than once and Postgres
+  returned whichever row it liked: a user could authenticate into the wrong
+  tenant, and which one was not deterministic.
+
+  Three designs were available — a subdomain, a visible tenant field on the
+  form, or an email→tenant lookup. A visible field is a PRODUCT change and the
+  ticket says to confirm rather than assume one, and a subdomain is
+  infrastructure that does not exist yet. So:
+
+    `tenantSlug` is OPTIONAL. Given, it scopes the lookup outright. Omitted,
+    the address must identify exactly ONE account across all tenants; if it
+    matches more than one, the login is REFUSED rather than resolved by
+    guessing.
+
+  That is deterministic in every case, needs no UI change today, and leaves the
+  hint ready for the moment a second tenant exists. It fails CLOSED: the
+  ambiguous case returns `invalid_credentials`, identical to an unknown address,
+  so a caller cannot use it to discover that an email exists in another tenant
+  (criterion 5). The alternative — picking the first row — is the defect.
+*/
+export async function login(
+  db: Database,
+  email: string,
+  password: string,
+  tenantSlug?: string,
+): Promise<LoginResult> {
+  /* Two rows are enough to know the address is ambiguous; there is no reason
+     to read every account sharing it. */
+  const matches = await db
+    .select({
+      id: schema.user.id,
+      tenantId: schema.user.tenantId,
+      isActive: schema.user.isActive,
+      passwordHash: schema.user.passwordHash,
+      mustChangePassword: schema.user.mustChangePassword,
+    })
+    .from(schema.user)
+    .innerJoin(schema.tenant, eq(schema.tenant.id, schema.user.tenantId))
+    .where(
+      tenantSlug
+        ? and(eq(schema.user.email, email), eq(schema.tenant.slug, tenantSlug))
+        : eq(schema.user.email, email),
+    )
+    .limit(2);
+
+  /* Ambiguous without a hint: refuse. Indistinguishable from "no such user" on
+     purpose — see the note above about not leaking cross-tenant existence. */
+  if (matches.length !== 1) return { ok: false, reason: "invalid_credentials" };
+  const u = matches[0]!;
   if (!u) return { ok: false, reason: "invalid_credentials" };
   if (!u.isActive) return { ok: false, reason: "inactive" };
   const ok = await verifyPassword(password, u.passwordHash);
@@ -63,19 +116,51 @@ export async function login(db: Database, email: string, password: string): Prom
     }
   }
 
-  /* 32 bytes, not 24. This is the bearer token for the whole session. */
-  const sessionId = randomBytes(32).toString("hex");
-  await db.insert(schema.session).values({
-    id: sessionId,
-    userId: u.id,
-    tenantId: u.tenantId,
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
-  });
-  return { ok: true, sessionId, userId: u.id, tenantId: u.tenantId };
+  const sessionId = await createSession(db, u.id, u.tenantId);
+
+  /*
+    "Has this account ever actually been used."
+
+    Swallowed like the rehash above and for the same reason: a login must not
+    fail because of bookkeeping alongside it. A missed stamp costs the people
+    register one stale "never signed in", which is recoverable; a failed login
+    is not.
+
+    Not a counter. The question this answers is whether an account is live —
+    a login handed out months ago and never touched is either somebody who does
+    not need it or somebody who never got the message, and both need chasing.
+  */
+  try {
+    await db.update(schema.user).set({ lastSignInAt: new Date() }).where(eq(schema.user.id, u.id));
+  } catch {
+    /* keep going; the next login stamps it */
+  }
+  /* Reported, NOT enforced as a refusal (STI-303 criterion 5). An admin who
+     resets a password knows it, so the user must be made to change it — but
+     refusing the login would leave them unable to, since changing a password
+     needs a session. The client forces the change; the flag is the signal. */
+  return { ok: true, sessionId, userId: u.id, tenantId: u.tenantId, mustChangePassword: u.mustChangePassword };
 }
 
 export async function logout(db: Database, sessionId: string): Promise<void> {
   await db.delete(schema.session).where(eq(schema.session.id, sessionId));
+}
+
+/*
+  The bearer token for a whole session — 32 bytes, not 24. Extracted out of
+  `login()` so the invite-accept and password-reset consume endpoints (which
+  sign the caller in the moment they finish, the same way a fresh login does)
+  create a session the identical way rather than a second inline copy of this.
+*/
+export async function createSession(db: Database, userId: string, tenantId: string): Promise<string> {
+  const sessionId = randomBytes(32).toString("hex");
+  await db.insert(schema.session).values({
+    id: sessionId,
+    userId,
+    tenantId,
+    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+  });
+  return sessionId;
 }
 
 export type ResolvedSession = {
@@ -121,3 +206,4 @@ export function hasPermission(session: ResolvedSession | null, perm: Permission)
 }
 
 export { encryptSecret, decryptSecret, secretHint } from "./secrets.js";
+export { generateAuthToken, hashAuthToken } from "./tokens.js";

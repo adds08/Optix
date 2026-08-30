@@ -1,0 +1,1 @@
+ALTER TABLE "tbl_entity_user_preferences" ADD COLUMN "icon_scale" text DEFAULT '1.0' NOT NULL;

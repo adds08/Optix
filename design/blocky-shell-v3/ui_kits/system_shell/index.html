@@ -1,0 +1,83 @@
+<!-- @dsCard group="System Shell" viewport="1440x900" subtitle="Full navigation shell with rail, sidebar, AI panel" -->
+<!-- @startingPoint section="UI Kits" subtitle="System shell with rail + sidebar + AI assistant" viewport="1440x900" -->
+<link rel="stylesheet" href="../../styles.css">
+<div style="width:1440px; height:900px; background:var(--surface-0); font-family:var(--font-sans); color:var(--text-primary); display:flex; overflow:hidden;">
+  <!-- Rail -->
+  <div style="width:48px; flex:none; display:flex; flex-direction:column; align-items:center; padding:10px 0; background:#060809; border-right:1px solid var(--border-1);">
+    <div style="display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; background:var(--accent); font-family:var(--font-mono); font-size:10px; font-weight:800; color:var(--surface-0); margin-bottom:10px;">ST</div>
+    <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+      <div style="width:36px; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--text-muted);">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg>
+      </div>
+      <div style="width:36px; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; background:var(--accent-bg); color:var(--accent-fg);">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      </div>
+      <div style="width:36px; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; color:var(--text-muted);">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>
+      </div>
+    </div>
+  </div>
+  <!-- Nav -->
+  <div style="width:200px; flex:none; display:flex; flex-direction:column; background:var(--surface-1); border-right:1px solid var(--border-1);">
+    <div style="padding:10px; border-bottom:1px solid var(--border-1);">
+      <div style="display:flex; align-items:center; gap:6px; padding:7px 10px; border-radius:5px; border:1px solid var(--border-1); background:var(--surface-3);">
+        <span style="font-size:14px; color:var(--accent);">⊞</span>
+        <span style="flex:1; font-size:12px; font-weight:600;">All projects</span>
+        <span style="font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--text-muted); background:var(--accent-bg); padding:1px 5px; border-radius:3px;">5</span>
+      </div>
+    </div>
+    <div style="flex:1; overflow:auto; padding:10px 6px;">
+      <div style="padding:0 10px 8px; font-size:13px; font-weight:700; border-bottom:1px solid var(--border-0); margin-bottom:10px;">Operations</div>
+      <div style="padding:0 6px; display:flex; flex-direction:column; gap:1px;">
+        <div style="display:flex; align-items:center; height:30px; padding:0 10px; border-radius:5px; background:var(--accent-bg); color:var(--accent-fg); font-size:12px; font-weight:650;">Dashboard</div>
+        <div style="display:flex; align-items:center; height:30px; padding:0 10px; border-radius:5px; color:var(--text-secondary); font-size:12px;">Tools by Jobsite</div>
+        <div style="display:flex; align-items:center; height:30px; padding:0 10px; border-radius:5px; color:var(--text-secondary); font-size:12px;">Tool Register</div>
+      </div>
+    </div>
+  </div>
+  <!-- Main -->
+  <div style="flex:1; display:flex; flex-direction:column;">
+    <div style="height:46px; flex:none; display:flex; align-items:center; gap:10px; padding:0 18px; border-bottom:1px solid var(--border-1); background:var(--surface-1);">
+      <span style="font-size:14px; font-weight:700;">Dashboard</span>
+      <span style="font-size:11px; color:var(--text-muted); margin-left:8px;">What changed, what is stuck, what needs you</span>
+      <div style="flex:1;"></div>
+      <div style="display:flex; align-items:center; gap:6px; width:220px; height:30px; padding:0 10px; border-radius:4px; border:1px solid var(--border-1); background:var(--surface-3);">
+        <span style="font-size:13px; color:var(--text-muted);">⌕</span>
+        <span style="font-size:11.5px; color:var(--text-muted);">Search tools, people, jobs…</span>
+      </div>
+      <div style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--surface-3); border:1px solid var(--border-1); color:var(--text-secondary); font-size:10px; font-weight:700;">DM</div>
+    </div>
+    <div style="flex:1; padding:14px 18px; overflow:auto; display:flex; flex-direction:column; gap:14px;">
+      <div style="padding:12px 14px; background:var(--surface-3); border:1px solid var(--border-1); border-radius:6px; border-left:3px solid var(--accent);">
+        <div style="font-family:var(--font-mono); font-size:9.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted);">AI BRIEFING · TODAY</div>
+        <div style="margin-top:6px; font-size:12px; line-height:1.55; color:var(--text-secondary);">Two hand-offs came in overnight — both temporary loans needing verification. Whitaker left Friday still holding 4 tools, HR sign-off blocked.</div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:8px;">
+        <div style="padding:10px 12px; background:var(--surface-3); border:1px solid var(--border-1); border-radius:6px;">
+          <div style="font-family:var(--font-mono); font-size:18px; font-weight:700;">1,284</div>
+          <div style="margin-top:3px; font-size:10.5px; font-weight:600; color:var(--text-secondary);">In register</div>
+        </div>
+        <div style="padding:10px 12px; background:var(--surface-3); border:1px solid var(--border-1); border-radius:6px;">
+          <div style="font-family:var(--font-mono); font-size:18px; font-weight:700;">62</div>
+          <div style="margin-top:3px; font-size:10.5px; font-weight:600; color:var(--text-secondary);">In the yard</div>
+        </div>
+        <div style="padding:10px 12px; background:var(--surface-3); border:1px solid var(--border-1); border-radius:6px;">
+          <div style="font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--crit);">4</div>
+          <div style="margin-top:3px; font-size:10.5px; font-weight:600; color:var(--text-secondary);">Unaccounted</div>
+        </div>
+        <div style="padding:10px 12px; background:var(--surface-3); border:1px solid var(--border-1); border-radius:6px;">
+          <div style="font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--warn);">2</div>
+          <div style="margin-top:3px; font-size:10.5px; font-weight:600; color:var(--text-secondary);">No serial</div>
+        </div>
+        <div style="padding:10px 12px; background:var(--surface-3); border:1px solid var(--border-1); border-radius:6px;">
+          <div style="font-family:var(--font-mono); font-size:18px; font-weight:700;">$1.42M</div>
+          <div style="margin-top:3px; font-size:10.5px; font-weight:600; color:var(--text-secondary);">On jobs</div>
+        </div>
+        <div style="padding:10px 12px; background:var(--surface-3); border:1px solid var(--border-1); border-radius:6px;">
+          <div style="font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--warn);">$84.2K</div>
+          <div style="margin-top:3px; font-size:10.5px; font-weight:600; color:var(--text-secondary);">Idle value</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

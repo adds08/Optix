@@ -70,6 +70,7 @@ services:
       - /workspace/packages/auth/node_modules
       - /workspace/packages/env/node_modules
       - /workspace/packages/logger/node_modules
+      - /workspace/packages/mail/node_modules
       - /workspace/packages/types/node_modules
       - /workspace/packages/config-eslint/node_modules
       - /workspace/packages/config-tsconfig/node_modules
@@ -78,6 +79,9 @@ services:
         condition: service_healthy
 
   web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
     image: stinventory-dev:latest
     container_name: stinventory-web
     working_dir: /workspace/apps/web
@@ -85,7 +89,6 @@ services:
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4100}
-      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-STInventory}
       # Local only: pre-fills the form and shows the demo account list.
       NEXT_PUBLIC_SHOW_DEMO_LOGINS: ${NEXT_PUBLIC_SHOW_DEMO_LOGINS:-1}
     ports:

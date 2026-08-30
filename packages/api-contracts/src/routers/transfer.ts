@@ -1,12 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { custodyOutcome } from "@stinventory/domain";
 import { formatAssetModel } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { moveCustody, projectForCustodian } from "../custody.js";
+import { assertVehicleContext, moveCustody, projectForCustodian, vehicleContextFromLedger } from "../custody.js";
+import { assetVisibility, assetScopeWhere } from "../scope.js";
 import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
 
 /*
@@ -25,8 +27,16 @@ import { notifyCustodyDecision, notifyDeskPending } from "../notify.js";
   second signature because of what it is worth.
 */
 export const transferRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
+  list: requirePermission("transfer.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    /* Scoped through the ASSET, not through from/toCustodianId. A transfer has
+       two people and scoping on either one alone picks a side: filtering on
+       `toCustodianId` hides every tool leaving your crew, and on
+       `fromCustodianId` hides every tool arriving. The tool is the thing both
+       ends have in common. */
+    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
+    const truckVehicle = alias(schema.vehicle, "transfer_to_truck");
+    const trailerVehicle = alias(schema.vehicle, "transfer_to_trailer");
     return ctx.db
       .select({
         id: schema.transfer.id,
@@ -41,10 +51,32 @@ export const transferRouter = router({
         status: schema.transfer.status,
         createdAt: schema.transfer.createdAt,
         completedAt: schema.transfer.completedAt,
+        /* The rig this movement is going out in (STI-206). The desk approves
+           from this list, and approving a movement you cannot fully see is a
+           weaker signature than it looks — the vehicle is not incidental
+           detail. `undefined` here means "no vehicle recorded", which after
+           STI-202's three-state rule is a claim, not an absence: render it as
+           silence, never as an empty slot that reads like a truck. */
+        toTruckId: schema.transfer.toTruckId,
+        toTruckUnit: truckVehicle.unit,
+        toTruckOwnership: truckVehicle.ownershipType,
+        toTrailerId: schema.transfer.toTrailerId,
+        toTrailerUnit: trailerVehicle.unit,
       })
       .from(schema.transfer)
       .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
-      .where(eq(schema.transfer.tenantId, tid))
+      /* Tenant-scoped on the join. The composite FK behind these columns proves
+         the vehicle TYPE and nothing about the tenant, so it will not catch a
+         mistake here. */
+      .leftJoin(
+        truckVehicle,
+        and(eq(schema.transfer.toTruckId, truckVehicle.id), eq(truckVehicle.tenantId, tid)),
+      )
+      .leftJoin(
+        trailerVehicle,
+        and(eq(schema.transfer.toTrailerId, trailerVehicle.id), eq(trailerVehicle.tenantId, tid)),
+      )
+      .where(and(eq(schema.transfer.tenantId, tid), scoped))
       .then((rows) => rows.map((r) => ({ ...r, modelName: formatAssetModel(r) })));
   }),
 
@@ -55,6 +87,10 @@ export const transferRouter = router({
         toCustodianId: z.string().uuid(),
         toLocationId: z.string().uuid().optional(),
         toProjectId: z.string().uuid().optional(),
+        /* Which rig the tool rides out in (STI-203). Optional, never
+           defaulted — a tool does not inherit the recipient's truck. */
+        toTruckId: z.string().uuid().optional(),
+        toTrailerId: z.string().uuid().optional(),
         reason: z.string().default("reallocation"),
         note: z.string().optional(),
       }),
@@ -65,6 +101,10 @@ export const transferRouter = router({
         where: and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)),
       });
       if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "That tool is not in the register." });
+
+      /* Tenant-scoped type check before anything is written — the composite FK
+         is tenant-blind and answers a wrong type with a raw 500 (custody.ts). */
+      await assertVehicleContext(ctx.db, tid, input.toTruckId, input.toTrailerId);
 
       /*
         One open hand-off per tool.
@@ -101,75 +141,98 @@ export const transferRouter = router({
          "wherever the recipient works". */
       const toProjectId = input.toProjectId ?? (await projectForCustodian(ctx.db, tid, input.toCustodianId, null));
 
-      const [row] = await ctx.db
-        .insert(schema.transfer)
-        .values({
-          tenantId: tid,
-          assetId: input.assetId,
-          fromCustodianId: asset.currentCustodianId,
-          toCustodianId: input.toCustodianId,
-          fromLocationId: asset.currentLocationId,
-          toLocationId: input.toLocationId ?? null,
-          fromProjectId: asset.currentProjectId,
-          toProjectId,
-          reason: input.reason,
-          status: applyNow ? "approved" : "pending_approval",
-          requestedBy: ctx.session.userId,
-          approvedBy: applyNow ? ctx.session.userId : null,
-        })
-        .returning();
-
-      if (row && applyNow) {
-        await ctx.db
-          .update(schema.asset)
-          .set({
-            currentStatus: "assigned",
-            currentCustodianId: input.toCustodianId,
-            currentLocationId: input.toLocationId ?? asset.currentLocationId,
-            currentProjectId: toProjectId ?? asset.currentProjectId,
-            updatedAt: new Date(),
+      /* Transfer row + close + open + projection + ledger commit or vanish
+         together (STI-102). These were bare consecutive writes: a crash midway
+         left a transfer marked applied whose custody never moved, and two
+         concurrent hand-offs of one tool could both open a link. The custody
+         move takes the asset-row lock inside custody.ts, so they serialise. */
+      const row = await ctx.db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(schema.transfer)
+          .values({
+            tenantId: tid,
+            assetId: input.assetId,
+            fromCustodianId: asset.currentCustodianId,
+            toCustodianId: input.toCustodianId,
+            fromLocationId: asset.currentLocationId,
+            toLocationId: input.toLocationId ?? null,
+            fromProjectId: asset.currentProjectId,
+            toProjectId,
+            /* Parked with the rest of the "to" state (STI-203 / migration
+               0017): before these columns a held transfer silently dropped
+               the requester's rig pick and approve could only write nulls. */
+            toTruckId: input.toTruckId ?? null,
+            toTrailerId: input.toTrailerId ?? null,
+            reason: input.reason,
+            status: applyNow ? "approved" : "pending_approval",
+            requestedBy: ctx.session.userId,
+            approvedBy: applyNow ? ctx.session.userId : null,
           })
-          .where(eq(schema.asset.id, input.assetId));
-        /* Close the link the previous holder had and open the new one. Without
-           this the register shows the new holder while the custody screen still
-           shows the old — see packages/api-contracts/src/custody.ts. */
-        await moveCustody(ctx.db, {
-          tenantId: tid,
-          assetId: input.assetId,
-          toCustodianId: input.toCustodianId,
-          projectId: toProjectId ?? asset.currentProjectId ?? null,
-          locationId: input.toLocationId ?? asset.currentLocationId ?? null,
-          actorUserId: ctx.session.userId,
-        });
-        await ctx.db
-          .update(schema.transfer)
-          .set({ status: "completed", completedAt: new Date() })
-          .where(eq(schema.transfer.id, row.id));
-        await ctx.db.insert(schema.transaction).values({
-          tenantId: tid,
-          assetId: input.assetId,
-          eventType: "transfer",
-          actorId: ctx.session.userId,
-          fromState: {
-            status: asset.currentStatus,
-            custodianId: asset.currentCustodianId,
-            projectId: asset.currentProjectId,
-            locationId: asset.currentLocationId,
-          },
-          /* Mirrors the asset update above, which already fell back to the
-             current values. The ledger did not, so the two disagreed — and
-             replaying the ledger blanked whatever the snapshot omitted. */
-          toState: {
-            status: "assigned",
-            custodianId: input.toCustodianId,
+          .returning();
+
+        if (created && applyNow) {
+          await tx
+            .update(schema.asset)
+            .set({
+              currentStatus: "assigned",
+              currentCustodianId: input.toCustodianId,
+              currentLocationId: input.toLocationId ?? asset.currentLocationId,
+              currentProjectId: toProjectId ?? asset.currentProjectId,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)));
+          /* Close the link the previous holder had and open the new one. Without
+             this the register shows the new holder while the custody screen still
+             shows the old — see packages/api-contracts/src/custody.ts. */
+          await moveCustody(tx, {
+            tenantId: tid,
+            assetId: input.assetId,
+            toCustodianId: input.toCustodianId,
             projectId: toProjectId ?? asset.currentProjectId ?? null,
             locationId: input.toLocationId ?? asset.currentLocationId ?? null,
-          },
-          refType: "transfer",
-          refId: row.id,
-          note: input.note ?? "Transfer completed",
-        });
-      }
+            /* No current_* fallback, unlike project and location: those fall
+               back because "No change" is a sensible answer for them. A tool
+               changing hands is NOT still riding the previous holder's rig —
+               blank means no vehicle recorded for the new custody. */
+            truckId: input.toTruckId ?? null,
+            trailerId: input.toTrailerId ?? null,
+            actorUserId: ctx.session.userId,
+          });
+          await tx
+            .update(schema.transfer)
+            .set({ status: "completed", completedAt: new Date() })
+            .where(and(eq(schema.transfer.id, created.id), eq(schema.transfer.tenantId, tid)));
+          await tx.insert(schema.transaction).values({
+            tenantId: tid,
+            assetId: input.assetId,
+            eventType: "transfer",
+            actorId: ctx.session.userId,
+            fromState: {
+              status: asset.currentStatus,
+              custodianId: asset.currentCustodianId,
+              projectId: asset.currentProjectId,
+              locationId: asset.currentLocationId,
+            },
+            /* Mirrors the asset update above, which already fell back to the
+               current values. The ledger did not, so the two disagreed — and
+               replaying the ledger blanked whatever the snapshot omitted. */
+            toState: {
+              status: "assigned",
+              custodianId: input.toCustodianId,
+              projectId: toProjectId ?? asset.currentProjectId ?? null,
+              locationId: input.toLocationId ?? asset.currentLocationId ?? null,
+              /* Both keys explicit, mirroring the moveCustody call above —
+                 the ledger and the assignment row must tell the same story. */
+              truckId: input.toTruckId ?? null,
+              trailerId: input.toTrailerId ?? null,
+            },
+            refType: "transfer",
+            refId: created.id,
+            note: input.note ?? "Transfer completed",
+          });
+        }
+        return created;
+      });
 
       /* Put a held transfer in front of the desk. Until this existed the queue
          filled up silently. Never allowed to fail the transfer itself. */
@@ -218,65 +281,112 @@ export const transferRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${tr.status}.` });
       }
 
-      /*
-        A transfer names only what it changes.
+      /* Sign-off + close + open + projection + ledger commit or vanish together
+         (STI-102). This used to be four bare consecutive writes — a crash
+         between any two left a completed transfer whose custody never moved,
+         the disagreement the rebuild guarantee exists to detect. */
+      let asset: typeof schema.asset.$inferSelect | undefined;
+      await ctx.db.transaction(async (tx) => {
+        /* Ask again under the lock (STI-109) — identical shape to
+           assignment.approve, on purpose. The pending_approval guard above ran
+           before this transaction existed, so two simultaneous approves both
+           passed it and both wrote a "Transfer approved" event into the
+           append-only ledger. The asset read doubles as the lock — the same
+           anchor moveCustody locks below — and lives in here (it sat before
+           the transaction until STI-117) because a return committing in the
+           gap left this path writing a `fromState`, and "no change" fallbacks
+           below, describing custody that had already moved: the stale-read
+           class STI-112 fixed in `decline`. Whoever held the lock has
+           committed by the time these reads run. */
+        [asset] = await tx
+          .select()
+          .from(schema.asset)
+          .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)))
+          .for("update");
+        const [fresh] = await tx
+          .select({ status: schema.transfer.status })
+          .from(schema.transfer)
+          .where(and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, ctx.session.tenantId)));
+        if (fresh?.status !== "pending_approval") {
+          throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${fresh?.status ?? "gone"}.` });
+        }
 
-        `create` stores `toProjectId`/`toLocationId` as null when the person
-        moving the tool did not pick one — the form's "No change" option. Approve
-        then wrote those nulls straight onto the asset, so signing off a
-        person-to-person hand-off silently erased where the tool was and which
-        project it was on. UIC-1001 lost both this way, and the register could no
-        longer answer "where is it" for a tool it still called assigned.
+        /*
+          A transfer names only what it changes.
 
-        Null means "leave it alone", so the current value is the fallback.
-      */
-      const asset = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)),
-      });
-      const toProjectId = tr.toProjectId ?? asset?.currentProjectId ?? null;
-      const toLocationId = tr.toLocationId ?? asset?.currentLocationId ?? null;
+          `create` stores `toProjectId`/`toLocationId` as null when the person
+          moving the tool did not pick one — the form's "No change" option.
+          Approve then wrote those nulls straight onto the asset, so signing off
+          a person-to-person hand-off silently erased where the tool was and
+          which project it was on. UIC-1001 lost both this way, and the register
+          could no longer answer "where is it" for a tool it still called
+          assigned.
 
-      await ctx.db
-        .update(schema.transfer)
-        .set({ status: "completed", approvedBy: ctx.session.userId, completedAt: new Date() })
-        .where(eq(schema.transfer.id, input.id));
-      await ctx.db
-        .update(schema.asset)
-        .set({
-          currentStatus: "assigned",
-          currentCustodianId: tr.toCustodianId,
-          currentLocationId: toLocationId,
-          currentProjectId: toProjectId,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.asset.id, tr.assetId));
-      await moveCustody(ctx.db, {
-        tenantId: ctx.session.tenantId,
-        assetId: tr.assetId,
-        toCustodianId: tr.toCustodianId,
-        projectId: toProjectId,
-        locationId: toLocationId,
-        actorUserId: ctx.session.userId,
-      });
-      await ctx.db.insert(schema.transaction).values({
-        tenantId: ctx.session.tenantId,
-        assetId: tr.assetId,
-        eventType: "transfer",
-        actorId: ctx.session.userId,
-        /* The fold is last-snapshot-wins, so this has to be the complete state
-           after the move — a partial one blanks whatever it omits. */
-        fromState: asset
-          ? {
-              status: asset.currentStatus,
-              custodianId: asset.currentCustodianId,
-              projectId: asset.currentProjectId,
-              locationId: asset.currentLocationId,
-            }
-          : null,
-        toState: { status: "assigned", custodianId: tr.toCustodianId, projectId: toProjectId, locationId: toLocationId },
-        refType: "transfer",
-        refId: tr.id,
-        note: "Transfer approved",
+          Null means "leave it alone", so the current value — as read under the
+          lock — is the fallback.
+        */
+        const toProjectId = tr.toProjectId ?? asset?.currentProjectId ?? null;
+        const toLocationId = tr.toLocationId ?? asset?.currentLocationId ?? null;
+        await tx
+          .update(schema.transfer)
+          .set({ status: "completed", approvedBy: ctx.session.userId, completedAt: new Date() })
+          .where(and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, ctx.session.tenantId)));
+        await tx
+          .update(schema.asset)
+          .set({
+            currentStatus: "assigned",
+            currentCustodianId: tr.toCustodianId,
+            currentLocationId: toLocationId,
+            currentProjectId: toProjectId,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)));
+        /* The rig the requester named, parked on the row at create time
+           (STI-203 / 0017). NULL stays NULL — "not recorded" — with no
+           carry-forward, because the tool has changed hands. Unlike project
+           and location there is no "No change" fallback: a new custody does
+           not inherit the previous holder's rig. moveCustody re-runs the
+           tenant-scoped type check on these ids inside the transaction. */
+        await moveCustody(tx, {
+          tenantId: ctx.session.tenantId,
+          assetId: tr.assetId,
+          toCustodianId: tr.toCustodianId,
+          projectId: toProjectId,
+          locationId: toLocationId,
+          truckId: tr.toTruckId,
+          trailerId: tr.toTrailerId,
+          actorUserId: ctx.session.userId,
+        });
+        await tx.insert(schema.transaction).values({
+          tenantId: ctx.session.tenantId,
+          assetId: tr.assetId,
+          eventType: "transfer",
+          actorId: ctx.session.userId,
+          /* The fold is last-snapshot-wins, so this has to be the complete state
+             after the move — a partial one blanks whatever it omits. */
+          fromState: asset
+            ? {
+                status: asset.currentStatus,
+                custodianId: asset.currentCustodianId,
+                projectId: asset.currentProjectId,
+                locationId: asset.currentLocationId,
+              }
+            : null,
+          toState: {
+            status: "assigned",
+            custodianId: tr.toCustodianId,
+            projectId: toProjectId,
+            locationId: toLocationId,
+            /* Mirrors the moveCustody call above; an unrecorded rig lands
+               here as an explicit null, which is truthful — the requester
+               genuinely named none. */
+            truckId: tr.toTruckId,
+            trailerId: tr.toTrailerId,
+          },
+          refType: "transfer",
+          refId: tr.id,
+          note: "Transfer approved",
+        });
       });
 
       /* Close the loop. Whoever asked for this hand-off, and whoever is now
@@ -318,36 +428,66 @@ export const transferRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${tr.status}.` });
       }
 
-      await ctx.db
-        .update(schema.transfer)
-        .set({ status: "cancelled", approvedBy: ctx.session.userId, updatedAt: new Date() })
-        .where(eq(schema.transfer.id, input.id));
+      /* Refusal + its history entry commit together (STI-102): a crash between
+         them left a cancelled transfer the tool's history never mentioned. */
+      let asset: typeof schema.asset.$inferSelect | undefined;
+      await ctx.db.transaction(async (tx) => {
+        /* Same re-check-under-lock shape as the approve paths (STI-109): the
+           guard above ran outside the lock, so a decline racing an approve — or
+           a double-tapped decline — both passed it, and the loser overwrote the
+           winner's decision and duplicated its ledger event. The asset read
+           doubles as the lock, and moving it in here (it sat outside the
+           transaction) keeps the from=to snapshot below the state at commit
+           time — a stale one would become the ledger's newest snapshot, which
+           a rebuild would then apply (STI-112). */
+        [asset] = await tx
+          .select()
+          .from(schema.asset)
+          .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, tid)))
+          .for("update");
+        const [fresh] = await tx
+          .select({ status: schema.transfer.status })
+          .from(schema.transfer)
+          .where(and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, tid)));
+        if (fresh?.status !== "pending_approval") {
+          throw new TRPCError({ code: "CONFLICT", message: `This transfer is already ${fresh?.status ?? "gone"}.` });
+        }
+        await tx
+          .update(schema.transfer)
+          .set({ status: "cancelled", approvedBy: ctx.session.userId, updatedAt: new Date() })
+          .where(and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, tid)));
 
-      const asset = await ctx.db.query.asset.findFirst({ where: eq(schema.asset.id, tr.assetId) });
-
-      /* The refusal belongs in the tool's history, since "why is this still
-         with Miguel?" is answered here. The state does not change, so both
-         snapshots are the same — what this records is that somebody asked and
-         was told no. */
-      if (asset) {
-        const state = {
-          status: asset.currentStatus,
-          custodianId: asset.currentCustodianId,
-          projectId: asset.currentProjectId,
-          locationId: asset.currentLocationId,
-        };
-        await ctx.db.insert(schema.transaction).values({
-          tenantId: tid,
-          assetId: tr.assetId,
-          eventType: "status_change",
-          actorId: ctx.session.userId,
-          fromState: state,
-          toState: state,
-          refType: "transfer",
-          refId: tr.id,
-          note: input.reason ? `Transfer declined — ${input.reason}` : "Transfer declined",
-        });
-      }
+        /* The refusal belongs in the tool's history, since "why is this still
+           with Miguel?" is answered here. The state does not change, so both
+           snapshots are the same — what this records is that somebody asked and
+           was told no. `assignment.decline` records its refusals the same way;
+           the shared decision and its reasoning live on the ledger insert
+           there (STI-112). */
+        if (asset) {
+          const state = {
+            status: asset.currentStatus,
+            custodianId: asset.currentCustodianId,
+            projectId: asset.currentProjectId,
+            locationId: asset.currentLocationId,
+            /* Same carry-forward as assignment.decline (STI-203): truck and
+               trailer have no asset.current_* column, so "nothing changed"
+               copies the newest ledger snapshot's keys verbatim — a blind
+               null would blank a recorded ride on the next rebuild. */
+            ...(await vehicleContextFromLedger(tx, tid, tr.assetId)),
+          };
+          await tx.insert(schema.transaction).values({
+            tenantId: tid,
+            assetId: tr.assetId,
+            eventType: "status_change",
+            actorId: ctx.session.userId,
+            fromState: state,
+            toState: state,
+            refType: "transfer",
+            refId: tr.id,
+            note: input.reason ? `Transfer declined — ${input.reason}` : "Transfer declined",
+          });
+        }
+      });
 
       /* A declined hand-off used to end at the database row, so the person who
          asked for it never found out and the tool "not moving" looked like a

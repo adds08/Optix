@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Area,
@@ -8,6 +7,7 @@ import {
   Bar,
   BarChart,
   Cell,
+  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -17,8 +17,8 @@ import {
 } from "recharts";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { useThemeStore } from "@/lib/themes/store";
-import { num } from "@/lib/format";
+import type { useThemeStore } from "@/lib/themes/store";
+import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*
@@ -136,12 +136,34 @@ export function CapitalSplitWidget() {
                   <Cell key={d.name} fill={i === 0 ? STATUS_COLORS[0] : STATUS_COLORS[1]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(v) => num(Number(v))} />
+              <Tooltip formatter={(v) => money(Number(v))} />
+              {/*
+                UI-70: the ring is the *only* place the department/project split was
+                stated — no legend, no slice labels — and on real data one slice is
+                ~3% of the circle, so it reads as a solid one-colour donut and the
+                breakdown was reported as missing. `height` keeps the legend inside
+                the existing h-52 card instead of growing the Command Center tile.
+              */}
+              <Legend
+                verticalAlign="bottom"
+                height={18}
+                /*
+                  The label carries the AMOUNT, not just the colour key. Naming
+                  the two slices still left "how is the $77,710 divided" — the
+                  literal question on the ticket — one hover away, and a 3%
+                  slice is not a readable answer on its own.
+                */
+                formatter={(value, entry) =>
+                  `${value} ${money(Number((entry?.payload as { value?: number } | undefined)?.value ?? 0))}`
+                }
+              />
             </PieChart>
           </ResponsiveContainer>
-          <div className="pointer-events-none absolute inset-0 grid place-items-center">
+          {/* Same 18px the legend reserves, so the total stays in the donut hole. */}
+          <div className="pointer-events-none absolute inset-0 grid place-items-center pb-[18px]">
             <div className="text-center">
-              <div className="tnum text-lg font-semibold">{num(total)}</div>
+              {/* UI-70: capital is money — num() rendered a dollar sum as a bare "36,134.99" under "total". */}
+              <div className="tnum text-lg font-semibold">{money(total)}</div>
               <div className="text-xs text-muted-foreground">total</div>
             </div>
           </div>

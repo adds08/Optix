@@ -17,6 +17,35 @@ jobs:
   check:
     name: typecheck · lint · test
     runs-on: ubuntu-latest
+    # STI-1102. This job used to run `pnpm test` with no database, and every
+    # DB-backed suite guards itself with `describe.skipIf(!process.env.DATABASE_URL)`
+    # — so 178 of 245 tests silently skipped and the job went green. Custody,
+    # tenant-scoped login, ledger append-only, project scope and the RBAC matrix
+    # were among them: precisely the suites this workflow's header says nothing
+    # reaches main without.
+    #
+    # The service below is the same Postgres the `smoke` job already uses. The
+    # guard test in packages/api-contracts/src/db-suites-run.test.ts is what
+    # stops this regressing quietly if the env var is ever dropped again — the
+    # skip is invisible by design, so something has to assert on it.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: stinventory_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/stinventory_ci
+      SESSION_SECRET: ci-session-secret-at-least-32-characters-long
+      CI: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +62,34 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      # Most suites create their own throwaway tenants and need only the schema.
+      # Same command the smoke job runs, against a fresh database.
+      - name: Migrate
+        run: pnpm db:migrate
+
+      # But not all of them, and the exception is deliberate: `rbac-matrix.test.ts`
+      # reads the SEEDED `urban` tenant on purpose, because a permission matrix
+      # asserted against the test's own fixtures only proves the fixtures are
+      # self-consistent — it has to be the database people actually log into.
+      #
+      # That suite had never once run in CI. Every DB-backed suite guards itself
+      # with `describe.skipIf(!process.env.DATABASE_URL)`, so before b367c1f
+      # (STI-1102) they all skipped silently and the job went green. b367c1f gave
+      # CI a database and a Migrate step but no seed, so the first run in which
+      # this suite executed was also the first in which it failed:
+      # `tenantId = t!.id` on a tenant that was never created, which surfaces as
+      # `TypeError: Cannot read properties of undefined (reading 'id')` and reads
+      # like a broken test rather than a missing fixture.
+      #
+      # `deploy` needs `check`, so that failure stopped shipping outright:
+      # production sat four commits behind main for a day, without the invite
+      # migrations, while main looked merged and fine.
+      #
+      # Idempotent (skips when the tenant exists), and it refuses to touch a
+      # production database without SEED_ALLOW_PRODUCTION.
+      - name: Seed
+        run: pnpm db:seed
 
       - name: Test
         run: pnpm test
@@ -94,9 +151,37 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # Migrations run from scratch on an empty database. This is the check
-      # that the committed SQL actually reproduces the schema — a drift between
-      # schema.ts and the migration folder is invisible until a fresh deploy.
+      # `db:migrate` below only proves the committed SQL *applies* — it never
+      # compares the result against schema.ts, so an edited schema with no
+      # generated migration used to sail through green. This step closes that
+      # gap. drizzle-kit 0.28.1 has no --check flag and its exit code is no
+      # signal (verified against the pinned binary): add-column drift emits a
+      # migration and exits 0, and rename-shaped drift prints an interactive
+      # "created or renamed?" prompt and — with stdin closed — exits 0 having
+      # emitted NOTHING, so a dirty-tree test alone stays green on real drift.
+      # The only output a drift-free run produces is the "No schema changes"
+      # line, so the step requires that sentinel and additionally fails if
+      # generate left any new or modified file behind. stdin from /dev/null
+      # makes the prompt path exit immediately instead of waiting for input.
+      # Hand-written migrations (0005, 0009, 0013, …) have no schema.ts
+      # counterpart and never touch the snapshot, so they do not trip this.
+      # (`drizzle-kit check` was evaluated and rejected: it validates
+      # migration-history collisions and reports "Everything's fine" with
+      # real schema drift in place.)
+      - name: Check for uncommitted schema drift
+        run: |
+          pnpm db:generate < /dev/null 2>&1 | tee /tmp/drizzle-generate.log
+          if ! grep -q "No schema changes, nothing to migrate" /tmp/drizzle-generate.log \
+            || [ -n "$(git status --porcelain -- packages/db/drizzle)" ]; then
+            echo "::error::packages/db/src/schema has changed without a generated migration. Run 'make generate' and commit the resulting SQL and meta files."
+            git status --porcelain -- packages/db/drizzle
+            git diff --stat -- packages/db/drizzle
+            exit 1
+          fi
+
+      # Migrations run from scratch on an empty database. This proves the
+      # committed SQL applies cleanly end to end; drift between schema.ts and
+      # the migration folder is caught by the generate check above, not here.
       - name: Migrate a fresh database
         run: pnpm db:migrate
 
@@ -112,6 +197,85 @@ jobs:
             sleep 1
           done
           echo "API did not become healthy"; exit 1
+
+  e2e:
+    name: browser suite (STI-001)
+    runs-on: ubuntu-latest
+    # A ceiling, because this job has already run for 2h30m once: the stack
+    # came up, `seed` lost a race, and the failure handler below then followed
+    # the logs of a perfectly healthy idle stack until it was cancelled by
+    # hand. Both causes are fixed below; this is the backstop for the next one
+    # nobody predicted. The suite itself takes about four minutes.
+    timeout-minutes: 20
+    #
+    # NOT in `deploy.needs` yet, and that is a decision with an expiry date.
+    #
+    # STI-001 criterion 8 permits starting non-blocking and requires saying so
+    # explicitly, because a permanently non-blocking job decays into noise —
+    # people stop reading a red tick that never stopped anything. So: this runs
+    # on every push and cannot fail a merge, and STI-122 exists to make it
+    # blocking once it has a fortnight of history showing it is not flaky.
+    #
+    # The whole stack is brought up with docker compose rather than booting
+    # pieces, because the suite exists to test the stack — web talking to api
+    # talking to Postgres. A separately-booted dev server would be a different
+    # program.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.11.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Bring up the stack
+        run: |
+          # .env.local is gitignored, so CI builds it from the checked-in
+          # example. Locally it already exists and this is a no-op.
+          [ -f .env.local ] || cp .env.example .env.local
+          make ENV=local up
+          # `up` returns when the containers have STARTED, and the API applies
+          # migrations during its own boot — so seeding immediately is a race the
+          # seed loses: `relation "tenant" does not exist` (42P01), two seconds
+          # before `[api] migrations complete`. It is a race, so it passed
+          # sometimes, which is worse than failing every time. `make reset` has
+          # carried a `sleep 6` here for exactly this reason; poll instead, so a
+          # slow runner waits longer and a fast one does not wait at all.
+          for _ in $(seq 1 60); do
+            curl -sf http://localhost:4100/health >/dev/null 2>&1 && break
+            sleep 2
+          done
+          make ENV=local seed
+
+      # Chromium only. The suite asserts routing, permissions and console
+      # cleanliness — none of which is engine-specific — and three browsers
+      # would triple the runtime to re-prove the same thing.
+      - name: Install Chromium
+        run: pnpm --dir e2e exec playwright install --with-deps chromium
+
+      - name: Run the browser suite
+        run: pnpm --dir e2e exec playwright test
+
+      - name: Keep the failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7
+
+      - name: Show what the stack said, if it failed
+        if: failure()
+        # NOT `make ENV=local logs`: that target is `logs -f`, which FOLLOWS.
+        # On a stack that is alive and idle it never returns, so the step meant
+        # to explain a failure instead hung this job for two and a half hours
+        # (run 32625840444) until it was cancelled by hand. `-f` is right for a
+        # human tailing logs locally and wrong in CI, so the target keeps it and
+        # this step bypasses the target.
+        run: docker compose --env-file .env.local logs --tail=200 || true
 
   deploy:
     name: deploy to production

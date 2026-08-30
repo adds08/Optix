@@ -33,6 +33,7 @@
 
 export type ThemeName =
   | "drafting-ink"
+  | "blocky"
   | "field-amber"
   | "concrete"
   | "blueprint"
@@ -94,12 +95,11 @@ type Recipe = {
   name: ThemeName;
   label: string;
   description: string;
-  radius: string;
   light: Side;
   dark: Side;
 };
 
-function expand(s: Side, radius: string, mode: "light" | "dark"): Record<string, string> {
+function expand(s: Side, mode: "light" | "dark"): Record<string, string> {
   const [, , paperHue] = s.paper;
   const [pl, pc, ph] = s.primary;
   const down = mode === "light" ? -1 : 1; /* "away from paper" flips in dark */
@@ -113,7 +113,17 @@ function expand(s: Side, radius: string, mode: "light" | "dark"): Record<string,
     : shift(railBase, down * 0.045, 1.3);
 
   const muted = shift(s.paper, down * 0.03, 1.3);
-  const border = s.border ?? shift(s.paper, down * 0.09, 1.8);
+  /*
+    Border is derived from the CARD, not from the paper.
+
+    It outlines a surface, so it has to clear the surface it sits on — deriving
+    it from the page behind that surface makes the contrast depend on how far
+    the card is lifted, which is exactly backwards. On a dark palette with a
+    lifted card the two collapsed: the design puts its card border 0.088 above
+    its card, and paper + 0.09 was landing 0.051 above it, which is the
+    difference between a visible outline and none at all.
+  */
+  const border = s.border ?? shift(s.card, down * 0.09, 1.5);
   const mutedInk = s.mutedInk ?? [mode === "light" ? 0.505 : 0.688, 0.014, paperHue];
   const accent: C = [mode === "light" ? 0.94 : 0.3, mode === "light" ? 0.03 : 0.05, ph];
   const accentInk: C = [mode === "light" ? 0.33 : 0.89, mode === "light" ? 0.07 : 0.06, ph];
@@ -124,8 +134,6 @@ function expand(s: Side, radius: string, mode: "light" | "dark"): Record<string,
   const tint = (h: number, ch: number): C => [tintL, ch, h];
 
   return {
-    "--radius": radius,
-
     "--background": c(s.paper),
     "--foreground": c(s.ink),
     "--card": c(s.card),
@@ -164,10 +172,36 @@ function expand(s: Side, radius: string, mode: "light" | "dark"): Record<string,
 
 const RECIPES: Recipe[] = [
   {
+    /* The ORIGINAL palette, and no longer the base.
+
+       Until 2026-08-23 this was the base token set in globals.css and carried
+       no overrides, while `blocky` — the actual product look — was an override
+       layer switched on by the default preference. That inversion is what made
+       the design language feel like a theme you could accidentally leave. The
+       base is now Blocky; these are the old values, kept as a real palette so
+       anyone who had chosen Drafting Ink still gets Drafting Ink. */
+    name: "drafting-ink",
+    label: "Drafting Ink",
+    description: "The original look. Deep blue-teal ink on near-white paper.",
+    light: {
+      paper: [0.988, 0.003, 240],
+      card: [1, 0, 0],
+      ink: [0.195, 0.016, 245],
+      primary: [0.505, 0.093, 227],
+      onPrimary: [0.99, 0.002, 240],
+    },
+    dark: {
+      paper: [0.172, 0.012, 245],
+      card: [0.212, 0.014, 245],
+      ink: [0.948, 0.005, 240],
+      primary: [0.715, 0.105, 222],
+      onPrimary: [0.172, 0.012, 245],
+    },
+  },
+  {
     name: "field-amber",
     label: "Field Amber",
     description: "Warm cream paper, amber ink, soft corners. Built for bright daylight.",
-    radius: "0.5rem",
     light: {
       paper: [0.985, 0.014, 85],
       card: [0.998, 0.006, 85],
@@ -187,7 +221,6 @@ const RECIPES: Recipe[] = [
     name: "concrete",
     label: "Concrete",
     description: "Grey paper with white cards lifted off it. Slate accents, sharp corners.",
-    radius: "0.25rem",
     light: {
       /* The only light theme where paper is clearly grey and cards are white —
          the register reads as sheets on a desk rather than ink on one page. */
@@ -209,7 +242,6 @@ const RECIPES: Recipe[] = [
     name: "blueprint",
     label: "Blueprint",
     description: "Navy rail against pale blue paper. The strongest silhouette here.",
-    radius: "0.375rem",
     light: {
       paper: [0.976, 0.012, 255],
       card: [1, 0.002, 255],
@@ -231,7 +263,6 @@ const RECIPES: Recipe[] = [
     name: "forest",
     label: "Forest",
     description: "Deep green rail on warm off-white. Low glare, quiet contrast.",
-    radius: "0.375rem",
     light: {
       paper: [0.979, 0.01, 130],
       card: [0.999, 0.004, 130],
@@ -252,7 +283,6 @@ const RECIPES: Recipe[] = [
     name: "clay",
     label: "Clay",
     description: "Beige paper and terracotta, generously rounded. The warmest of the set.",
-    radius: "0.625rem",
     light: {
       paper: [0.968, 0.019, 60],
       card: [0.995, 0.008, 60],
@@ -272,7 +302,6 @@ const RECIPES: Recipe[] = [
     name: "graphite",
     label: "Graphite",
     description: "Zero chroma anywhere. The only colour left on screen is status.",
-    radius: "0.25rem",
     light: {
       paper: [0.968, 0, 0],
       card: [1, 0, 0],
@@ -294,7 +323,6 @@ const RECIPES: Recipe[] = [
     name: "high-contrast",
     label: "High Contrast",
     description: "Pure white, black ink, heavy borders. For a phone at arm's length in the sun.",
-    radius: "0.25rem",
     light: {
       paper: [1, 0, 0],
       card: [1, 0, 0],
@@ -335,7 +363,6 @@ const RECIPES: Recipe[] = [
     name: "site-green",
     label: "Site Green",
     description: "Urban's real brand: their button green, off-white paper, near-black dark mode.",
-    radius: "0.5rem",
     light: {
       paper: [0.979, 0, 90],
       card: [1, 0, 90],
@@ -360,7 +387,6 @@ const RECIPES: Recipe[] = [
     name: "site-cream",
     label: "Site Cream",
     description: "The same green, on Urban's warm off-white. Dark mode is their real footer green-black.",
-    radius: "0.5rem",
     light: {
       /* #fffaee — the site's own light section background, not the body's
          default. Promoted here to the paper itself. */
@@ -384,7 +410,6 @@ const RECIPES: Recipe[] = [
     name: "site-slate",
     label: "Site Slate",
     description: "The cooler read: the same green against Urban's own blue-grey rail, not an invented navy.",
-    radius: "0.5rem",
     light: {
       paper: [0.979, 0, 90],
       card: [1, 0, 90],
@@ -407,7 +432,6 @@ const RECIPES: Recipe[] = [
     name: "hi-vis",
     label: "Hi-Vis",
     description: "Their yellow, promoted from a minor accent to primary — a deliberate departure, not a faithful read.",
-    radius: "0.25rem",
     light: {
       paper: [0.979, 0, 90],
       card: [1, 0, 90],
@@ -432,14 +456,21 @@ const RECIPES: Recipe[] = [
 ];
 
 export const THEMES: Record<ThemeName, ThemeDef> = {
-  /* The original palette — drafting ink on paper. Default, so it carries no
-     overrides: the base tokens in globals.css ARE this theme, and a user with
-     no preference gets byte-identical rendering to the pre-engine app. */
-  "drafting-ink": {
-    name: "drafting-ink",
-    label: "Drafting Ink",
-    description: "The original look. Deep blue-teal ink on near-white paper.",
-    swatch: { light: "oklch(0.505 0.093 227)", dark: "oklch(0.715 0.105 222)" },
+  /*
+    The house palette. It carries NO overrides because the base tokens in
+    globals.css are it — selecting it means clearing every override, which is
+    the only way a "default" can be a real destination rather than one more
+    layer. Everything below is an alternative palette over this ground.
+
+    It is listed here so the picker has something to show as selected, not
+    because the design language is optional: radii, type and the shell are
+    global and no palette can touch them.
+  */
+  blocky: {
+    name: "blocky",
+    label: "Default",
+    description: "The house palette — near-black instrument surfaces under a drafting-blue accent.",
+    swatch: { light: "oklch(0.5 0.085 235)", dark: "oklch(0.72 0.1 235)" },
     light: {},
     dark: {},
   },
@@ -451,25 +482,80 @@ export const THEMES: Record<ThemeName, ThemeDef> = {
         label: r.label,
         description: r.description,
         swatch: { light: c(r.light.primary), dark: c(r.dark.primary) },
-        light: expand(r.light, r.radius, "light"),
-        dark: expand(r.dark, r.radius, "dark"),
+        light: expand(r.light, "light"),
+        dark: expand(r.dark, "dark"),
       } satisfies ThemeDef,
     ]),
-  ) as Record<Exclude<ThemeName, "drafting-ink">, ThemeDef>),
+  ) as Record<Exclude<ThemeName, "blocky">, ThemeDef>),
 };
 
+/*
+  Font family choices, expressed as :root variable overrides rather than as a
+  `font-family` string.
+
+  A family has to be applied by overriding `--font-sans`, because that is the
+  variable every `font-sans` utility in the app resolves against. Writing
+  `style.fontFamily` instead — which this did until 2026-08-23 — set the family
+  on <html> only for `<body>`'s own `font-sans` class to override it one element
+  later, so every choice here rendered identically and the picker did nothing.
+
+  "system" deliberately emits NOTHING. The house pairing is loaded by next/font,
+  whose generated family name is a build hash rather than "Inter Tight", so the
+  only correct way to ask for it is to leave the variables next/font already set
+  on :root alone. Naming it literally is what made the old default resolve to
+  `system-ui`.
+
+  The keys are the three the API contract accepts (`preferences.ts`
+  FONT_FAMILIES); changing one changes an enum both clients validate against.
+*/
 export const FONT_FAMILIES = {
-  system: "ui-sans-serif, system-ui, sans-serif",
-  serif: "Georgia, 'Times New Roman', serif",
-  mono: "ui-monospace, 'SF Mono', monospace",
-} as const;
+  system: {},
+  serif: { "--font-sans": "Georgia, 'Times New Roman', serif" },
+  /* Everything mono, including prose: dense and unambiguous, and a real request
+     from screens that are read as instrument panels rather than documents. */
+  mono: { "--font-sans": "var(--font-mono)" },
+  /* `satisfies`, not an annotation: an annotation widens the keys to `string`
+     and `FontFamilyName` below stops being the three-value union the API
+     contract validates against. */
+} satisfies Record<string, Record<string, string>>;
 
 export type FontFamilyName = keyof typeof FONT_FAMILIES;
+
+export const FONT_FAMILY_LABELS: Record<FontFamilyName, { label: string; hint: string }> = {
+  system: { label: "Inter Tight", hint: "The house pairing — Inter Tight with JetBrains Mono for values" },
+  serif: { label: "Serif", hint: "Georgia for prose, values stay mono" },
+  mono: { label: "All mono", hint: "JetBrains Mono everywhere" },
+};
+
+/* Every variable any font choice can set — the union, so switching back to the
+   house pairing clears what the previous choice wrote. Same reasoning as
+   ALL_THEME_KEYS in apply-theme.ts, and the same bug if it is ever narrowed to
+   just the incoming choice's keys. */
+export const ALL_FONT_KEYS: string[] = [
+  ...new Set(Object.values(FONT_FAMILIES).flatMap((v) => Object.keys(v))),
+];
 
 /* 0.9–1.4: from condensed for dense screens to extra large for poorer
    eyesight. The whole app is rem-based, so these really scale — the settings
    page previews each step immediately. */
 export const FONT_SCALES = ["0.9", "1.0", "1.1", "1.2", "1.3", "1.4"] as const;
+
+/*
+  Icon scale — a SEPARATE knob from the type scale, and the reason is worth
+  keeping.
+
+  Icons already track the font scale: the whole app is rem-based, so a `size-4`
+  glyph is 1rem and grows exactly in step with the root font size (measured
+  2026-08-29 — 16.00px at 100%, 22.39px at 140%). What did not track was the
+  RATIO. Body copy is 0.875rem and the commonest glyph sizes are 0.875rem and
+  0.75rem, so an icon sits at or below the size of the word beside it, and on a
+  yard laptop that reads as "the icons are tiny" however large the type gets.
+
+  Capped at 1.5. Beyond that a glyph outgrows the fixed-height icon buttons it
+  sits in — those are sized from the type scale, not this one — and the control
+  stops looking like a control.
+*/
+export const ICON_SCALES = ["1.0", "1.15", "1.3", "1.5"] as const;
 
 export type Density = "comfortable" | "compact";
 
@@ -477,6 +563,7 @@ export type ThemePrefs = {
   themeName: ThemeName;
   fontFamily: FontFamilyName;
   fontScale: string;
+  iconScale: string;
   density: Density;
   dashboard: {
     widgets: Record<string, boolean>;
@@ -487,9 +574,10 @@ export type ThemePrefs = {
 };
 
 export const DEFAULT_PREFS: ThemePrefs = {
-  themeName: "forest",
+  themeName: "blocky",
   fontFamily: "system",
   fontScale: "1.0",
+  iconScale: "1.0",
   density: "comfortable",
   dashboard: { widgets: {} },
 };

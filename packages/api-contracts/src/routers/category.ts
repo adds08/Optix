@@ -140,7 +140,7 @@ export const categoryRouter = router({
         await tx
           .update(schema.category)
           .set({ name })
-          .where(eq(schema.category.id, input.id));
+          .where(and(eq(schema.category.id, input.id), eq(schema.category.tenantId, tid)));
         await tx
           .update(schema.asset)
           .set({ categoryName: name, updatedAt: new Date() })
@@ -186,7 +186,7 @@ export const categoryRouter = router({
         });
       }
 
-      await ctx.db.delete(schema.category).where(eq(schema.category.id, input.id));
+      await ctx.db.delete(schema.category).where(and(eq(schema.category.id, input.id), eq(schema.category.tenantId, tid)));
       await logEvent(ctx, {
         category: "asset",
         action: "category.delete",
