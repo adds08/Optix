@@ -253,6 +253,13 @@
       "when": 1788036515871,
       "tag": "0036_polite_silvermane",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1788096654872,
+      "tag": "0037_tired_paper_doll",
+      "breakpoints": true
     }
   ]
 }

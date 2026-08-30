@@ -107,8 +107,7 @@ const NO_UI_BY_DESIGN: Record<string, string> = {
   "category.adoptInUse": "TODO: the same missing screen. It promotes a free-text category somebody typed on a tool into a real one — the tidy-up step for a register that accepts either.",
   "department.create": "TODO: there is no department admin page at all; only `department.list` is consumed, as a picker.",
   "department.update": "TODO: the same missing page. Departments are the cost target for shop tools, so getting one wrong misroutes a mechanic's charges rather than just a label.",
-  "vehicle.delete": "TODO: `vehicle.update` has a UI and its delete does not. It carries the friendly guard in front of the composite-FK error (STI-203), so the reasoning exists and only the affordance is missing.",
-  "location.delete": "TODO: same shape as vehicle.delete — a place can be created and edited from the locations screen but never removed, so a decommissioned gang box stays in every picker forever.",
+  "location.delete": "TODO: same shape as vehicle.delete used to be — a place can be created and edited from the locations screen but never removed, so a decommissioned gang box stays in every picker forever.",
   "notification.all": "TODO: the tenant-wide alert view for the desk. `notification.list` (your own) is wired; this is not.",
   "messaging.feed":
     "TODO: admin oversight across channels with the intent readout — a different thing from `messaging.messages`, which is per-channel and IS wired. Unbuilt, not duplicated.",

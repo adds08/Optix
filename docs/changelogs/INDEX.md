@@ -26,6 +26,11 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-08-30 | [The browser suite leaves CI, and takes its own prediction with it](2026-08-30-the-browser-suite-leaves-ci-and-takes-its-ticket-with-it.md) |
+| 2026-08-30 | [The owner account gets Urban's name, and a fourth admin role doesn't happen](2026-08-30-the-owner-account-gets-urbans-name.md) |
+| 2026-08-30 | [Equipment gets a register, and the Registry group fills its reserved slot](2026-08-30-equipment-gets-a-register.md) |
+| 2026-08-30 | [A foreman shows up before holding a tool, and a picker says which one](2026-08-30-a-foreman-shows-up-before-holding-a-tool.md) |
+| 2026-08-30 | [A blob becomes a line, and a pin stays in its lane](2026-08-30-a-blob-becomes-a-line-and-a-pin-stays-in-its-lane.md) |
 | 2026-08-30 | [Two candidates, one generated avatar, and no third REST endpoint](2026-08-30-two-candidates-one-avatar-and-no-third-rest-endpoint.md) |
 | 2026-08-30 | [A header that says something, and a Name column that was never really there](2026-08-30-a-header-that-says-something-and-a-name-column-that-was-never-there.md) |
 | 2026-08-30 | [A fourth state nobody had to build twice](2026-08-30-a-fourth-state-nobody-had-to-build-twice.md) |

@@ -78,8 +78,18 @@ export function AppSidebar({
   const active = groups.find((g) => groupKey(g) === activeGroupKey) ?? groups[0];
 
   /* The intersection, and the only place it happens. An id in storage naming a
-     route this actor cannot reach simply does not come back out. */
-  const pinned = pinnedItems(groups, order);
+     route this actor cannot reach simply does not come back out.
+
+     Scoped to the ACTIVE group only (changed 2026-08-30) — a pin from Registry
+     used to surface in the Pinned section while standing in Organization too,
+     on the reasoning that "the screens you actually live in should be one
+     click away regardless of module". In practice that read as the Pinned
+     section randomly changing contents as you moved the rail, which is a
+     worse surprise than the shortcut it bought. `pinnedItems` only needs the
+     one group's items to resolve against — passing `[active]` instead of the
+     full `groups` array is the entire change, since the function's own
+     intersection logic already does the filtering. */
+  const pinned = active ? pinnedItems([active], order) : [];
 
   /* A nav row is current for its own page and everything under it, so a tool's
      detail page keeps Tool Register lit. `matchItem` resolves the LONGEST

@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Users, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, Users, Workflow, Wrench } from "lucide-react";
 
 export type NavItem = {
   /*
@@ -170,28 +170,38 @@ export const DESK_NAV: NavGroup[] = [
   },
   /*
     REGISTRY is the entity shelf: one row per kind of thing the business keeps a
-    record of. Small Tools is the only one built.
+    record of.
 
     It was called "Equipment" until 2026-08-27, and that name read as correct
-    while being wrong, which is why it survived a rebuild. The single row under
-    it is the SMALL TOOLS register: the data is drills, saws, generators,
-    grinders, blowers, survey gear and compaction plant, and there is no
-    excavator, loader, backhoe, dozer, skid steer, forklift or crane anywhere in
-    `asset`. The menu advertised a resource the product does not have and hid the
-    one it does.
+    while being wrong, which is why it survived a rebuild. The first row is the
+    SMALL TOOLS register: the data is drills, saws, generators, grinders,
+    blowers, survey gear and compaction plant, and there is no excavator,
+    loader, backhoe, dozer, skid steer, forklift or crane anywhere in `asset`.
+    The menu used to advertise a resource the product did not have and hide the
+    one it did.
 
     Equipment is a real and separate entity — trucks and trailers ARE equipment,
-    small tools are not — and it lands here as its own row when it is built. It
-    is not the same register. See `docs/10-entity-model.md` for the attachment
-    model and for why `vehicle` is already that register in embryo.
+    small tools are not — and it got its own row on 2026-08-30: `/equipment`,
+    backed by the `vehicle` table, which already carried `equipmentClass`
+    (vehicle | heavy), a `code`/`description` pair matching the small-tools
+    "Code" convention, and GPS status. Trucks and trailers are what the
+    register actually holds today; a `heavy` row needs no new screen, just
+    data.
 
-    `id` is deliberately still `tool-register`. Labels are free to change and ids
-    are not: renaming this row must not empty anybody's pins.
+    `id` is deliberately still `tool-register` on the first row. Labels are
+    free to change and ids are not: renaming a row must not empty anybody's
+    pins.
   */
   {
     label: "Registry",
     icon: Boxes,
-    items: [{ id: "tool-register", href: "/tools", label: "Small Tools", icon: Wrench, perm: "asset.read" }],
+    items: [
+      { id: "tool-register", href: "/tools", label: "Small Tools", icon: Wrench, perm: "asset.read" },
+      /* The row this group's own comment has been reserving since
+         2026-08-27: trucks and trailers today, heavy plant the moment a row
+         exists for it. `vehicle.read` gates it, same as the fleet map. */
+      { id: "equipment-register", href: "/equipment", label: "Equipment", icon: Truck, perm: "vehicle.read" },
+    ],
   },
   {
     label: "Organization",

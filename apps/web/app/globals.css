@@ -699,11 +699,18 @@ tr.sti-freeze-row > .sti-freeze {
 
 /* The seam. A rule alone is invisible against the grid the table already draws,
    so the last frozen column carries a short shadow as well — that is the part
-   that says "the columns continue underneath this", which a border cannot. */
+   that says "the columns continue underneath this", which a border cannot.
+
+   The blur/spread pair here is deliberately small (found on 2026-08-30: an
+   -6px spread insets the shadow 6px above and below EVERY cell before an 8px
+   blur rounds what's left, so a whole column of cells reads as a stack of
+   soft pills instead of one line). A small blur with near-zero spread keeps
+   each cell's shadow the same height as the cell, so adjacent rows' shadows
+   meet exactly at the shared border and read as one continuous seam. */
 .sti-freeze-edge {
   box-shadow:
     1px 0 0 0 var(--border),
-    6px 0 8px -6px color-mix(in oklch, var(--foreground) 45%, transparent);
+    3px 0 3px -2px color-mix(in oklch, var(--foreground) 45%, transparent);
 }
 
 /* The same seam, mirrored, for a column frozen to the RIGHT edge instead of
@@ -713,5 +720,5 @@ tr.sti-freeze-row > .sti-freeze {
 .sti-freeze-edge-right {
   box-shadow:
     -1px 0 0 0 var(--border),
-    -6px 0 8px -6px color-mix(in oklch, var(--foreground) 45%, transparent);
+    -3px 0 3px -2px color-mix(in oklch, var(--foreground) 45%, transparent);
 }

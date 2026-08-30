@@ -733,6 +733,10 @@ export function DataTable<T>({
                              there; without it the cell needs its own. */
                           hasValue ? "pr-1" : "pr-3",
                           numeric && "justify-end",
+                          /* The select-all checkbox, matching how each row's own
+                             checkbox is now centred in its cell — see the body
+                             cell rendering below. */
+                          h.column.id === "__select" && "justify-center",
                         )}
                       >
                         <span className="truncate">
@@ -802,6 +806,12 @@ export function DataTable<T>({
                     const meta = (c.column.columnDef.meta as { numeric?: boolean; width?: string; stickyRight?: boolean } | undefined) ?? {};
                     const frz = freezeProps(i);
                     const stickyR = stickyRightProps(meta);
+                    /* The checkbox and the row's action-menu trigger are both
+                       small fixed-size controls in an otherwise-empty cell —
+                       left them at the cell's default alignment and they sit
+                       flush against the left padding instead of centred under
+                       their header. Every other column stays untouched. */
+                    const centerContent = c.column.id === "__select" || meta.stickyRight;
                     return (
                       <TableCell
                         key={c.id}
@@ -819,7 +829,13 @@ export function DataTable<T>({
                           ...stickyR.style,
                         }}
                       >
-                        {flexRender(c.column.columnDef.cell, c.getContext())}
+                        {centerContent ? (
+                          <div className="flex items-center justify-center">
+                            {flexRender(c.column.columnDef.cell, c.getContext())}
+                          </div>
+                        ) : (
+                          flexRender(c.column.columnDef.cell, c.getContext())
+                        )}
                       </TableCell>
                     );
                   })}

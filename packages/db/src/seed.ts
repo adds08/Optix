@@ -190,7 +190,7 @@ async function main() {
   // ---- Tenant ----
   const [t] = await db
     .insert(tenant)
-    .values({ name: "Urban Infraconstruction", slug: "urban" })
+    .values({ name: "Urban Infraconstruction LLC", slug: "urban" })
     .returning();
   if (!t) throw new Error("tenant insert failed");
   const tid = t.id;
@@ -502,6 +502,8 @@ async function main() {
          where it is ledger-derived like every other "where is it". */
       canAttach: v.vtype === "truck",
       isAttachable: v.vtype === "trailer",
+      code: v.code ?? null,
+      description: v.description ?? null,
       unit: v.unit,
       plate: v.plate,
       makeModel: v.make,
@@ -947,7 +949,7 @@ Login — password  stinventory-demo  for every account (STI-304).
 One per role, because a permission system only ever tested as 'owner'
 is not a tested permission system. See docs/SETUP.md.
 
-  owner@stinventory.local        Demo Owner      System Administrator — everything
+  owner@stinventory.local        Urban Admin     System Administrator — everything
   admin@stinventory.local        Karen Osei      Equipment Administrator
   office@stinventory.local       Lena Boyd       Office Administrator — no custody, no config
   warehouse@stinventory.local    Yard Desk       Warehouse — the yard desk

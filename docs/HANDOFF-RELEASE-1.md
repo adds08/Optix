@@ -316,9 +316,9 @@ make e2e-install     # once
 make ENV=local e2e
 ```
 
-It drives a real browser against the running stack from outside, per role. It is
-**non-blocking in CI** for now, deliberately, until it has a fortnight of clean history —
-tracked as STI-122.
+It drives a real browser against the running stack from outside, per role. It runs
+**locally only** — the `e2e` CI job was non-blocking from 2026-08-22 and was removed on
+2026-08-30 after the nav-pin specs went red. Putting it back, green, is STI-122.
 
 ---
 
@@ -340,8 +340,9 @@ Each has a ticket and a stated reason.
   ignored. Two entries look like real product holes rather than absent screens:
   `assignment.return` and `task.approve` — **a desk can refuse a request from the UI and
   cannot grant one.**
-- **STI-122** — make the browser suite blocking in CI, once it has a fortnight of clean
-  history behind it. It is deliberately non-blocking until then.
+- **STI-122** — get the browser suite back into CI and then make it blocking. Three nav
+  specs are red as of 2026-08-30 and the job was removed rather than fixed; the ticket
+  names which ones and where the cause probably is.
 
 ### Found during the 2026-08-23 QA round
 

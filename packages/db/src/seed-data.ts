@@ -20,7 +20,7 @@ export type PostingSeed = { emp: string; proj: string; from: string; to: string 
 export type TeamSeed = { emp: string; proj: string; role: string; from: string; note: string };
 export type LocSeed = { key: string; type: string; name: string; warehouse: string | null; project: string | null; custodian: string | null };
 export type VehLocSeed = { key: string; type: string; name: string; project: string | null; custodian: string | null };
-export type VehSeed = { key: string; loc: string; vtype: 'truck' | 'trailer'; unit: string; plate: string | null; make: string | null; own: string; payee: string | null; allow: string | null; freq: string | null; proj: string | null; foreman: string | null; lat: string | null; lng: string | null };
+export type VehSeed = { key: string; loc: string; vtype: 'truck' | 'trailer'; unit: string; plate: string | null; make: string | null; own: string; payee: string | null; allow: string | null; freq: string | null; proj: string | null; foreman: string | null; lat: string | null; lng: string | null; code?: string | null; description?: string | null };
 export type AssetSeed = { tag: string | null; make: string | null; modelNumber: string | null; description: string | null; serial: string | null; isSerialized: boolean; quantity: number; cost: string | null; own: string | null; dept: boolean; status: string; cust: string | null; cur: string | null; loc: string };
 export type AssignSeed = { tag: string; cust: string; proj: string | null; loc: string; type: string; start: string; end: string | null };
 export type TxSeed = { tag: string; event: string; at: string; note: string; ref: string };
@@ -507,7 +507,7 @@ export const vehSpecs: VehSeed[] = [
     fabricating fleet data. The ZZ- unit and "(synthetic)" naming exist so no
     report reader can mistake it for Urban's fleet.
   */
-  { key: "v-ZZ-SEED-TRUCK", loc: "l-ZZ-SEED-TRUCK", vtype: "truck", unit: "ZZ-SEED-TRUCK (synthetic)", plate: null, make: "SYNTHETIC — seed-only truck, not Urban fleet data", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm001", lat: "32.7766", lng: "-96.7970" },
+  { key: "v-ZZ-SEED-TRUCK", loc: "l-ZZ-SEED-TRUCK", vtype: "truck", unit: "ZZ-SEED-TRUCK (synthetic)", plate: null, make: "SYNTHETIC — seed-only truck, not Urban fleet data", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm001", lat: "32.7766", lng: "-96.7970", code: "EQ-0001", description: "Seed-only synthetic truck exercising the equipment register's code and description columns." },
   /*
     The SECOND synthetic truck, and the only `personal_allowance` vehicle.
 
@@ -2816,7 +2816,13 @@ export const txSpecs: TxSeed[] = [
 ];
 
 export const userSpecs: UserSeed[] = [
-  { email: "owner@stinventory.local", first: "Demo", last: "Owner", role: "owner", employeeKey: null },
+  /*
+    System Administrator, per SYSTEM_PLAN.md §2 — the `owner` role, not a
+    second all-permissions role. Named "Urban Admin" rather than "Demo
+    Owner" so a fresh seed reads as Urban's own top-authority account
+    rather than a placeholder nobody is meant to keep.
+  */
+  { email: "owner@stinventory.local", first: "Urban", last: "Admin", role: "owner", employeeKey: null },
   { email: "admin@stinventory.local", first: "Karen", last: "Osei", role: "equipment_admin", employeeKey: "e-karen" },
   { email: "warehouse@stinventory.local", first: "Yard", last: "Desk", role: "warehouse", employeeKey: "e-yard" },
   /*

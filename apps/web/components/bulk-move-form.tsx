@@ -5,8 +5,10 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityField, type EntityOption } from "@/components/ui/entity-picker";
 import { RidePicker } from "./ride-picker";
 import { useViewTier } from "./use-permissions";
+import { humanize } from "./sti/status";
 
 /*
   One dialog for moving a selection of tools — the bulk path that turns the
@@ -52,6 +54,24 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
     const ids = new Set(myForemen.data?.map((f) => f.id) ?? []);
     custodianOptions = custodianOptions.filter((e) => ids.has(e.id));
   }
+
+  /* Code before name — see transfer-form.tsx, which this dialog otherwise
+     mirrors field for field. */
+  const custodianEntityOptions: EntityOption[] = custodianOptions.map((e) => ({
+    value: e.id, label: e.name, hint: e.externalId ?? undefined,
+  }));
+  const projectEntityOptions: EntityOption[] = (projects.data ?? []).map((p) => ({
+    value: p.id, label: p.name, hint: p.externalId ?? undefined,
+  }));
+  const locationEntityOptions: EntityOption[] = (locations.data ?? [])
+    .filter((l) => l.type !== "vehicle")
+    .map((l) => ({
+      value: l.id,
+      label: l.name,
+      hint: [humanize(l.type), l.projectName ?? l.warehouseName, l.custodianName ? `held by ${l.custodianName}` : null]
+        .filter(Boolean)
+        .join(" · "),
+    }));
 
   const [custodianId, setCustodianId] = useState("");
   const [projectId, setProjectId] = useState("");
@@ -154,53 +174,37 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
 
           <div className="space-y-2">
             <label className="text-sm font-medium">To custodian</label>
-            <select
+            <EntityField
+              options={custodianEntityOptions}
               value={custodianId}
-              onChange={(e) => setCustodianId(e.target.value)}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="">No change</option>
-              {custodianOptions.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
+              onChange={setCustodianId}
+              placeholder="No change"
+              searchPlaceholder="Name or employee code"
+            />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">To project</label>
-            <select
+            <EntityField
+              options={projectEntityOptions}
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="">No change</option>
-              {projects.data?.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              onChange={setProjectId}
+              placeholder="No change"
+              searchPlaceholder="Project name or code"
+            />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium">To gang box / place</label>
             {/* Vehicles are filtered out since STI-203: "in a truck" is the
                 rig fields below, a per-assignment fact — not a location. */}
-            <select
+            <EntityField
+              options={locationEntityOptions}
               value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="">No change</option>
-              {locations.data?.filter((l) => l.type !== "vehicle").map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                  {l.custodianName ? ` — ${l.custodianName}` : ""}
-                </option>
-              ))}
-            </select>
+              onChange={setLocationId}
+              placeholder="No change"
+              searchPlaceholder="Yard, gang box or container"
+            />
             <p className="text-xs text-muted-foreground">
               A foreman, a project, a place and the rig can all change at once — or just one of them.
             </p>

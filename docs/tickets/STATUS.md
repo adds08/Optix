@@ -266,9 +266,9 @@ rather than deleted, because the *before* is what makes the change legible.
 
   Two things to know before extending it. **It is read-only by design** — that is what lets
   it run in parallel against a shared database with no isolation mechanism, and the first
-  mutating spec needs one chosen first (the note is in `e2e/playwright.config.ts`). And the
-  **CI job is deliberately non-blocking** for now; STI-122 makes it blocking once it has a
-  fortnight of clean history, because a permanently non-blocking job decays into noise.
+  mutating spec needs one chosen first (the note is in `e2e/playwright.config.ts`). And it
+  **no longer runs in CI** — the `e2e` job was removed on 2026-08-30 after the pin specs
+  went red; it is a local target now, `make ENV=local e2e`. STI-122 covers putting it back.
 
 ### Reachability: a set of procedures still have no UI caller
 

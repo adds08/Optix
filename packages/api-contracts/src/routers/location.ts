@@ -646,6 +646,9 @@ export const vehicleRouter = router({
         .select({
           id: schema.vehicle.id,
           vehicleType: schema.vehicle.vehicleType,
+          equipmentClass: schema.vehicle.equipmentClass,
+          code: schema.vehicle.code,
+          description: schema.vehicle.description,
           unit: schema.vehicle.unit,
           plate: schema.vehicle.plate,
           makeModel: schema.vehicle.makeModel,
@@ -713,6 +716,8 @@ export const vehicleRouter = router({
       z.object({
         vehicleType: z.enum(["truck", "trailer"]),
         unit: z.string().min(1).max(40),
+        code: z.string().max(60).optional(),
+        description: z.string().max(2000).optional(),
         plate: z.string().optional(),
         makeModel: z.string().optional(),
         ownershipType: z.enum(["company_owned", "personal_allowance"]).default("company_owned"),
@@ -775,6 +780,8 @@ export const vehicleRouter = router({
           locationId: loc.id,
           vehicleType: input.vehicleType,
           unit: input.unit,
+          code: input.code ?? null,
+          description: input.description ?? null,
           plate: input.plate ?? null,
           makeModel: input.makeModel ?? null,
           ownershipType: input.ownershipType,
@@ -793,6 +800,8 @@ export const vehicleRouter = router({
       z.object({
         id: z.string().uuid(),
         unit: z.string().min(1).max(40).optional(),
+        code: z.string().max(60).nullable().optional(),
+        description: z.string().max(2000).nullable().optional(),
         plate: z.string().max(40).nullable().optional(),
         makeModel: z.string().max(120).nullable().optional(),
         vehicleType: z.enum(["truck", "trailer"]).optional(),
