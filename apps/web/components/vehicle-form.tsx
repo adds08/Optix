@@ -9,6 +9,8 @@ export type VehicleEditable = {
   id: string;
   unit: string;
   vehicleType: string;
+  code?: string | null;
+  description?: string | null;
   plate?: string | null;
   makeModel?: string | null;
   ownershipType?: string | null;
@@ -37,6 +39,8 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
     (edit?.vehicleType as "truck" | "trailer") ?? "truck",
   );
   const [unit, setUnit] = useState(edit?.unit ?? "");
+  const [code, setCode] = useState(edit?.code ?? "");
+  const [description, setDescription] = useState(edit?.description ?? "");
   const [plate, setPlate] = useState(edit?.plate ?? "");
   const [makeModel, setMakeModel] = useState(edit?.makeModel ?? "");
   const [ownershipType, setOwnershipType] = useState<"company_owned" | "personal_allowance">(
@@ -56,6 +60,8 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
       if (edit) {
         await utils.client.vehicle.update.mutate({
           id: edit.id, vehicleType, unit,
+          code: code || null,
+          description: description || null,
           plate: plate || null,
           makeModel: makeModel || null,
           ownershipType,
@@ -64,7 +70,10 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
         });
       } else {
         await utils.client.vehicle.create.mutate({
-          vehicleType, unit, plate: plate || undefined,
+          vehicleType, unit,
+          code: code || undefined,
+          description: description || undefined,
+          plate: plate || undefined,
           makeModel: makeModel || undefined, ownershipType,
           projectId: projectId || undefined,
           foremanEmployeeId: foremanEmployeeId || undefined,
@@ -90,6 +99,14 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
           <div className="space-y-2">
             <label className="text-sm font-medium">Unit *</label>
             <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="e.g. TRU-005 / TRA-004" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Code</label>
+            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Equipment register code" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Description</label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

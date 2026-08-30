@@ -94,6 +94,16 @@ export const vehicle = pgTable(
     */
     canAttach: boolean("can_attach").notNull().default(false),
     isAttachable: boolean("is_attachable").notNull().default(false),
+    /*
+      The equipment register's own identifier, shown before the name — the
+      same "Code" convention `asset.serialNumber`/`isManualCode` established
+      for small tools. Additive: `unit` stays the unique operational number
+      it always was (assignment, the fleet map, the import spec all key off
+      it); `code` is nullable and free to be blank on a row nobody has typed
+      one in for yet.
+    */
+    code: text("code"),
+    description: text("description"),
     unit: text("unit").notNull(),
     plate: text("plate"),
     makeModel: text("make_model"),

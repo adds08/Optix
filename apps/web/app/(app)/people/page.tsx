@@ -122,6 +122,12 @@ export default function PeoplePage() {
           </Link>
         ),
       }),
+      col<EmployeeRow>({
+        header: "Email",
+        accessorFn: (e) => e.email ?? "",
+        width: "13rem",
+        cell: (e) => e.email ?? <span className="text-muted-foreground">—</span>,
+      }),
       /* The role register, not the legacy enum. `roleName` is snake_case
          because the seed and the permission matrix name rows by it; nobody
          should ever see that, hence `humanize`. */

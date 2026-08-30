@@ -198,6 +198,9 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
       { key: "unit", header: "unit", type: "text", required: true, example: "TRU-012",
         hint: "Unit number. Must be unique." },
       { key: "vehicleType", header: "type", type: "enum", required: true, values: VEHICLE_TYPES, example: "truck" },
+      { key: "code", header: "code", type: "text", example: "EQ-0012",
+        hint: "The equipment register's own code, shown before the name — not the unit number." },
+      { key: "description", header: "description", type: "text", example: "2023 F-250, GPK crew" },
       { key: "plate", header: "plate", type: "text", example: "TX 8823NM" },
       { key: "makeModel", header: "make_model", type: "text", example: "2023 Ford F-250" },
       {

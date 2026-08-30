@@ -502,6 +502,8 @@ async function main() {
          where it is ledger-derived like every other "where is it". */
       canAttach: v.vtype === "truck",
       isAttachable: v.vtype === "trailer",
+      code: v.code ?? null,
+      description: v.description ?? null,
       unit: v.unit,
       plate: v.plate,
       makeModel: v.make,

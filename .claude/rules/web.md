@@ -14,7 +14,7 @@ the `(app)` route group:
 
 `/home` (the project monitor — the wall board, see below) · `/old-dash` (the widget dashboard
 `/home` used to be, kept until the monitor has been lived with) ·
-`/tools` + `/tools/[id]` · `/custody` · `/jobsites` · `/map` ·
+`/tools` + `/tools/[id]` · `/equipment` + `/equipment/[id]` · `/custody` · `/jobsites` · `/map` ·
 `/reports` + `/reports/[slug]` + `/reports/charts/[slug]` + `/reports/audit-trail` ·
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/job-groups` ·
 `/my-tools` · `/profile` · `/settings` + `/settings/ai` + `/settings/appearance` · `/design/*`
@@ -101,19 +101,23 @@ the map while the register sat under `Entity`, which meant a new module had nowh
 to land.
 
 **The Registry group was called `Equipment` until 2026-08-27, and the rename matters.** Its
-one row is the SMALL TOOLS register: `asset` holds drills, saws, generators, grinders,
+first row is the SMALL TOOLS register: `asset` holds drills, saws, generators, grinders,
 survey gear and compaction plant, and no excavator, loader, backhoe, dozer, skid steer,
-forklift or crane. The menu was advertising a resource the product does not have and hiding
-the one it does. Equipment is a real and separate entity — **trucks and trailers are
-equipment, small tools are not** — and it gets its own Registry row when it is built.
+forklift or crane. The menu used to advertise a resource the product did not have and hide
+the one it did. Equipment is a real and separate entity — **trucks and trailers are
+equipment, small tools are not** — and it got its own Registry row (`/equipment`,
+`equipment-register`) on 2026-08-30.
 
-The equipment register already exists as the table named `vehicle`, now carrying
-`equipment_class` (`vehicle` | `heavy`) plus `can_attach` / `is_attachable`. Those two are
-CAPABILITY (a truck can tow, a trailer can be towed), never current state — what is hitched
-to what lives in `assignment.truckId`/`trailerId` and stays ledger-derived. Do not add an
-`attached_to_id` column; that is a second way to write custody. The table keeps the wrong
-name on purpose: renaming it reaches `assignment`'s composite foreign keys, `transfer`,
-every router and the seed, and that is its own change.
+The equipment register is the table named `vehicle`, carrying `equipment_class`
+(`vehicle` | `heavy`) plus `can_attach` / `is_attachable`, and since 2026-08-30 a
+`code`/`description` pair matching the small-tools "Code" convention. Those capability
+flags are never current state — what is hitched to what lives in
+`assignment.truckId`/`trailerId` and stays ledger-derived. Do not add an `attached_to_id`
+column; that is a second way to write custody. The table keeps the wrong name on purpose:
+renaming it reaches `assignment`'s composite foreign keys, `transfer`, every router and the
+seed, and that is its own change. `/equipment` shows every row regardless of
+`equipment_class` — today that's trucks and trailers because nothing else exists, and a
+`heavy` row needs no new screen, just data.
 
 **Every `NavItem` carries a stable `id`.** It is never derived from the route, and it is
 what a pin stores — see below. Renaming a route must leave every pin where it was, so
