@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /*
   Post a person to a job.
@@ -81,18 +82,14 @@ export function PostingForm({
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Project *</label>
-            <select
+            <EntityField
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="">Select...</option>
-              {options.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.externalId ? `${p.name} — ${p.externalId}` : p.name}
-                </option>
-              ))}
-            </select>
+              onChange={setProjectId}
+              placeholder="Select..."
+              searchPlaceholder="Project name or code"
+              emptyLabel="No job matches."
+              options={options.map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+            />
           </div>
 
           <div className="space-y-2">

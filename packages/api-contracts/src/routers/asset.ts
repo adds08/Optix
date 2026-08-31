@@ -5,7 +5,7 @@ import * as schema from "@stinventory/db/schema";
 import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
-import { COST_TARGETS, formatAssetModel } from "@stinventory/types";
+import { ASSET_STATUSES, COST_TARGETS, formatAssetModel } from "@stinventory/types";
 import { foldAssetState, hasSnapshotEvidence, reconcileProjections, type EventEnvelope } from "@stinventory/domain";
 import { assetVisibility, assetScopeWhere } from "../scope.js";
 
@@ -335,6 +335,37 @@ export const assetRouter = router({
          written retroactively, so STI-110's sweep reported the asset as
          no_evidence forever. Same shape as the importer's insertOne. */
       const row = await ctx.db.transaction(async (tx) => {
+        /*
+          Refuse a tag already in the register (KNOWN-ISSUES 4).
+
+          `asset.update` has raised CONFLICT on this since it was written and
+          `import.commit` checks both the database and the file for duplicates;
+          this path checked nothing, so the one way to get two tools answering
+          to the same tag was the single-asset form the desk uses most.
+
+          Worth being clear about what this is NOT protecting. `asset.tag` is a
+          LABEL, not an identifier — `asset.id` is identity — so a duplicate is
+          a data-quality problem for the people reading the register, never a
+          referential one. That is also why this is a check and not a unique
+          index: the register legitimately carries untagged rows, and rows
+          imported before anyone cared may already collide.
+
+          Inside the transaction, so the check and the insert cannot straddle
+          another writer. It is still check-then-act and two simultaneous
+          creates of the same tag can both pass; the same is true of `update`,
+          and the failure is a duplicate label rather than lost custody.
+        */
+        if (input.tag) {
+          const [clash] = await tx
+            .select({ id: schema.asset.id })
+            .from(schema.asset)
+            .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.tag, input.tag)))
+            .limit(1);
+          if (clash) {
+            throw new TRPCError({ code: "CONFLICT", message: `${input.tag} is already in the register` });
+          }
+        }
+
         const [created] = await tx
           .insert(schema.asset)
           .values({
@@ -596,7 +627,18 @@ export const assetRouter = router({
     .input(
       z.object({
         id: z.string().uuid(),
-        status: z.string(),
+        /*
+          The enum, not `z.string()` (KNOWN-ISSUES 3).
+
+          Status columns are plain `text` by design — the vocabularies live in
+          packages/types and Zod at the router edge is what enforces them (see
+          .claude/rules/database.md). This procedure was the hole in that
+          arrangement: it accepted any string, wrote it to the projection AND
+          into the ledger `to_state`, and because the ledger is append-only the
+          bad value folds back out forever. There was nothing between the
+          client and the system of record.
+        */
+        status: z.enum(ASSET_STATUSES),
         note: z.string().optional(),
       }),
     )

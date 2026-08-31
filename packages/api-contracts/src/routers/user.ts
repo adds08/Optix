@@ -312,14 +312,28 @@ export const userRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      /* Trimmed, NOT lower-cased. `login()` compares the address verbatim, so
-         folding case here would store an address the person cannot type back. */
+      /* Stored as typed, minus surrounding space. The address is shown back to
+         people and printed on invitations, so `Bob.Smith@urban.com` stays that
+         way; what changed on 2026-09-01 is that nothing COMPARES it verbatim
+         any more. */
       const email = input.email.trim();
+
+      /*
+         Both duplicate checks fold case (KNOWN-ISSUES 5).
+
+         They have to, now that `login()` matches case-insensitively. Left
+         verbatim, this would happily create `alice@x.com` beside an existing
+         `Alice@x.com` — and login would then match two rows, hit its ambiguity
+         guard and refuse BOTH accounts, with no screen able to explain why.
+         The two files are one decision, which is why the comment that used to
+         sit here pointed at `login()`.
+      */
+      const sameEmail = sql`lower(${schema.user.email}) = ${email.toLowerCase()}`;
 
       const [clash] = await ctx.db
         .select({ id: schema.user.id })
         .from(schema.user)
-        .where(and(eq(schema.user.tenantId, tid), eq(schema.user.email, email)))
+        .where(and(eq(schema.user.tenantId, tid), sameEmail))
         .limit(1);
       if (clash) throw duplicateEmail(email);
 
@@ -328,7 +342,7 @@ export const userRouter = router({
       const [elsewhere] = await ctx.db
         .select({ id: schema.user.id })
         .from(schema.user)
-        .where(eq(schema.user.email, email))
+        .where(sameEmail)
         .limit(1);
       if (elsewhere) throw takenElsewhere(email);
 

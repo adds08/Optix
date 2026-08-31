@@ -9,6 +9,12 @@ These came out of a full-repository audit on 2026-08-15 and were re-verified on
 that has since changed enough to be misleading; the document was deleted and these
 were kept, because the findings outlived the document.
 
+Three were fixed on 2026-09-01 and their sections deleted per the rule below:
+`asset.setStatus` accepting any string, `asset.create` not checking tag uniqueness,
+and the case-sensitive login lookup. What remains are the two that are not one-line
+changes — a trusted-proxy allow-list and worker concurrency — plus the SMS channel,
+which is a decision rather than a defect.
+
 **When you fix one, delete its section from this file** and say so in the
 changelog. Do not leave it here marked resolved.
 
@@ -44,40 +50,7 @@ Today the deployment is a single droplet running one process, so none of this
 fires. It is recorded because **the first horizontal scale-out is where it bites**,
 and by then the symptom is duplicated custody actions rather than an error.
 
-## 3. `asset.setStatus` accepts any string
-
-`packages/api-contracts/src/routers/asset.ts` declares `status: z.string()` rather
-than the status enum. The database columns are plain `text`, so **nothing between
-the client and the ledger rejects an unknown value** — it is written to the
-projection and into the `to_state` snapshot, where it will be folded back out
-forever.
-
-This is the one to fix first if you want a cheap win: it is a one-line change to a
-`z.enum`, and the enum already exists in `packages/types`.
-
-## 4. Tag uniqueness is enforced on update but not on create
-
-`asset.update` raises a `CONFLICT` when a tag already exists in the register.
-`asset.create` does not check at all, so two assets can be created with the same
-tag.
-
-`import.commit` does check — both against the database and for duplicates within
-the file — so the gap is the single-asset create path only.
-
-Worth remembering what a tag is when fixing this: **`asset.tag` is a label, not an
-identifier.** `asset.id` is identity. A duplicate tag is a data-quality problem for
-the people reading the register, not a referential one.
-
-## 5. Login email lookup is case-sensitive
-
-`packages/auth/src/index.ts` matches with `eq(schema.user.email, email)` and no
-normalisation, so `Alice@x.com` will not match a stored `alice@x.com`.
-
-The mismatch is what makes it confusing rather than merely strict: the rate-limit
-key in `apps/api/src/index.ts` **does** lowercase the address. So the two halves of
-the same request disagree about what the user's email is.
-
-## 6. There is no SMS channel
+## 3. There is no SMS channel
 
 `SMTP_*` is wired and email genuinely sends — `nodemailer` is a real dependency,
 `sendMail` is called, and delivery attempts and errors are tracked on the

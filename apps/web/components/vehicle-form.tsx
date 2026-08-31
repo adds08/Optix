@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityField } from "@/components/ui/entity-picker";
 
 export type VehicleEditable = {
   id: string;
@@ -111,10 +112,15 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Type</label>
-              <select value={vehicleType} onChange={(e) => setVehicleType(e.target.value as "truck" | "trailer")} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="truck">Truck</option>
-                <option value="trailer">Trailer</option>
-              </select>
+              <EntityField
+                value={vehicleType}
+                onChange={(v) => setVehicleType(v as "truck" | "trailer")}
+                placeholder="Truck or trailer"
+                options={[
+                  { value: "truck", label: "Truck" },
+                  { value: "trailer", label: "Trailer" },
+                ]}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Plate</label>
@@ -127,26 +133,39 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Ownership</label>
-            <select value={ownershipType} onChange={(e) => setOwnershipType(e.target.value as "company_owned" | "personal_allowance")} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="company_owned">Company owned</option>
-              <option value="personal_allowance">Personal allowance</option>
-            </select>
+            <EntityField
+              value={ownershipType}
+              onChange={(v) => setOwnershipType(v as "company_owned" | "personal_allowance")}
+              placeholder="How it is owned"
+              options={[
+                { value: "company_owned", label: "Company owned" },
+                { value: "personal_allowance", label: "Personal allowance" },
+              ]}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Project</label>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Select...</option>
-              {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <EntityField
+              value={projectId}
+              onChange={setProjectId}
+              placeholder="Select..."
+              searchPlaceholder="Project name or code"
+              emptyLabel="No job matches."
+              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+            />
           </div>
           {/* Create-only. Changing who has a truck is Hand over on Locations,
               which moves the tools aboard with it. */}
           <div className={edit ? "hidden" : "space-y-2"}>
             <label className="text-sm font-medium">Foreman</label>
-            <select value={foremanEmployeeId} onChange={(e) => setForemanEmployeeId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Select...</option>
-              {foremanOptions.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
+            <EntityField
+              value={foremanEmployeeId}
+              onChange={setForemanEmployeeId}
+              placeholder="Select..."
+              searchPlaceholder="Name or employee number"
+              emptyLabel="Nobody matches."
+              options={foremanOptions.map((f) => ({ value: f.id, label: f.name, hint: f.externalId ?? undefined }))}
+            />
           </div>
           {/* Trailers only. This is how a superintendent tells the system which
               truck a trailer is hitched to — the trailer then rides with that
@@ -154,15 +173,14 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
           {vehicleType === "trailer" ? (
             <div className="space-y-2">
               <label className="text-sm font-medium">Attached to truck</label>
-              <select value={attachedToVehicleId} onChange={(e) => setAttachedToVehicleId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="">Not hitched to a truck</option>
-                {truckOptions.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.unit}
-                    {t.foremanName ? ` — ${t.foremanName}` : ""}
-                  </option>
-                ))}
-              </select>
+              <EntityField
+                value={attachedToVehicleId}
+                onChange={setAttachedToVehicleId}
+                placeholder="Not hitched to a truck"
+                searchPlaceholder="Unit number"
+                emptyLabel="No truck matches."
+                options={truckOptions.map((t) => ({ value: t.id, label: t.unit, hint: t.foremanName ?? undefined }))}
+              />
               <p className="text-xs text-muted-foreground">
                 The trailer and its tools follow the truck — hand the truck to a foreman and the trailer goes with it.
               </p>

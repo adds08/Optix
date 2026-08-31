@@ -3,6 +3,7 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { EntityField } from "@/components/ui/entity-picker";
 
 type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
 
@@ -38,10 +39,15 @@ export function ReportForm({ open, onClose, assetId, assetTag }: Props) {
           <p className="text-sm text-muted-foreground">Reporting: <span className="font-medium text-foreground">{assetTag}</span></p>
           <div className="space-y-2">
             <label className="text-sm font-medium">Issue type</label>
-            <select value={issueType} onChange={(e) => setIssueType(e.target.value as "lost" | "in_maintenance")} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="in_maintenance">Needs repair / maintenance</option>
-              <option value="lost">Lost / missing</option>
-            </select>
+            <EntityField
+              value={issueType}
+              onChange={(v) => setIssueType(v as "lost" | "in_maintenance")}
+              placeholder="What is wrong"
+              options={[
+                { value: "in_maintenance", label: "Needs repair / maintenance" },
+                { value: "lost", label: "Lost / missing" },
+              ]}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Note</label>

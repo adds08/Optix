@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SaveBar, useHydrateOnce, useTenantSettings } from "@/components/settings/tenant-settings";
 import { BRANDING_LAYOUT_MODES, type BrandingLayoutMode } from "@stinventory/types";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /*
   Tenant configuration: the operational decisions that used to be reachable
@@ -101,15 +102,15 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Sidebar layout</label>
-            <select
+            <EntityField
               value={brandingLayoutMode}
-              onChange={(e) => setBrandingLayoutMode(e.target.value as BrandingLayoutMode)}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              {BRANDING_LAYOUT_MODES.map((m) => (
-                <option key={m} value={m}>{m === "icon_and_text" ? "Icon and name" : "Icon only"}</option>
-              ))}
-            </select>
+              onChange={(v) => setBrandingLayoutMode(v as BrandingLayoutMode)}
+              placeholder="How the mark is shown"
+              options={BRANDING_LAYOUT_MODES.map((m) => ({
+                value: m,
+                label: m === "icon_and_text" ? "Icon and name" : "Icon only",
+              }))}
+            />
           </div>
         </div>
       </section>
