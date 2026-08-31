@@ -37,8 +37,35 @@ export type CostTarget = (typeof COST_TARGETS)[number];
 
 /* Roles that can hold a tool. Foremen carry them to jobs; mechanics keep them
    in the shop. Every custodian picker reads this rather than testing for
-   "foreman" itself — three of them had drifted apart before it existed. */
-export const CUSTODIAN_ROLES = ["foreman", "mechanic"] as const;
+   "foreman" itself — three of them had drifted apart before it existed.
+
+   `superintendent` joined on 2026-09-01. A job is often awarded and rigged
+   before its foreman is hired, and until then the superintendent running the
+   crews is the person physically holding the small tools, the truck and the
+   trailer. Leaving them out did not stop that happening — it stopped it being
+   RECORDED, so the register showed a rigged job with nobody holding anything.
+   Mirrored by `canHoldCustody` on the `superintendent` row in seed-data.ts and
+   by migration 0039 for databases that were seeded before this; the flag and
+   this list must agree, which is what `rbac-matrix.test.ts` checks. */
+export const CUSTODIAN_ROLES = ["foreman", "superintendent", "mechanic"] as const;
+
+/*
+  Where a project-team row came from.
+
+  Purely descriptive — nothing branches on it and nothing should. Urban's crews
+  are keyed differently in the equipment department, in payroll and in whatever
+  the next system turns out to be, so when two of them disagree about who is on
+  a job the reconciliation needs to know which one wrote the row. That question
+  is unanswerable after the fact unless the row carries the answer from the
+  start, which is why this exists before there is a second writer.
+
+  `equipment_department` is the default because the jobsite hub and the people
+  screen are the only writers today. Add a value when a new writer appears;
+  never repurpose one.
+*/
+export const TEAM_SOURCES = ["equipment_department", "payroll_import", "manual_entry", "api_sync"] as const;
+export type TeamSource = (typeof TEAM_SOURCES)[number];
+export const DEFAULT_TEAM_SOURCE: TeamSource = "equipment_department";
 export const EMPLOYMENT_STATUSES = ["active", "terminated", "on_leave"] as const;
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
 export const PROJECT_STATUSES = [

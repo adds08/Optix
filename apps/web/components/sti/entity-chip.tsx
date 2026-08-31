@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Briefcase, HardHat, ShieldCheck, Wrench, type LucideIcon } from "lucide-react";
+import { ArrowRight, Briefcase, ClipboardCheck, HardHat, ShieldCheck, Wrench, type LucideIcon } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +45,15 @@ import { cn } from "@/lib/utils";
 */
 const ROLE: Record<string, { icon: LucideIcon; hat: string; label: string }> = {
   pm: { icon: Briefcase, hat: "text-hat-white", label: "Project manager" },
-  superintendent: { icon: ShieldCheck, hat: "text-hat-white", label: "Superintendent" },
+  /* Its own glyph as of 2026-09-01, and the reason is new: a superintendent
+     can hold custody now, so they appear as a CREW ROW on the jobsite board,
+     directly above and below foremen. Sharing `ShieldCheck` with
+     `equipment_admin` was harmless while the two never appeared in the same
+     list and is not any more — the row has to say at a glance whether the
+     tools are with the crew's foreman or with the super covering a job that
+     has not got one yet. The white hat stays: this map models real hard-hat
+     colour, where white IS supervision, and only the glyph is free to differ. */
+  superintendent: { icon: ClipboardCheck, hat: "text-hat-white", label: "Superintendent" },
   equipment_admin: { icon: ShieldCheck, hat: "text-hat-white", label: "Equipment admin" },
   foreman: { icon: HardHat, hat: "text-hat-foreman", label: "Foreman" },
   mechanic: { icon: Wrench, hat: "text-hat-trade", label: "Mechanic" },

@@ -155,6 +155,15 @@ export const projectTeamMember = pgTable(
     startedOn: date("started_on").notNull(),
     endedOn: date("ended_on"),
     note: text("note"),
+    /* Which system put this row here — see TEAM_SOURCES in packages/types.
+       Descriptive only: nothing branches on it, and nothing should. It exists
+       so that when the equipment department's idea of a crew and payroll's
+       disagree, the reconciliation can tell which one wrote the row. That is
+       not answerable retrospectively, so the column is added before there is a
+       second writer rather than after. Plain `text` like every other
+       vocabulary here (see .claude/rules/database.md) — Zod at the router edge
+       is what refuses an unlisted value. */
+    source: text("source").notNull().default("equipment_department"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

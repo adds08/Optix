@@ -146,10 +146,48 @@ export default function JobsitesPage() {
   const [poolView, setPoolView] = useState<"jobs" | "pool">("jobs");
   const [openJobs, setOpenJobs] = useState<Record<string, boolean>>({});
   const [openCrews, setOpenCrews] = useState<Record<string, boolean>>({});
-  /* Jobs are expanded by default and CREWS ARE NOT (STI-401) — a job with
-     nine crews should show you its nine crews, not nine tool tables. This
-     flips the job-card default; per-item toggles still override it. */
-  const [collapseAll, setCollapseAll] = useState(false);
+  /*
+    The master expand/collapse, as four clicks over three states.
+
+    Two things were wrong with the boolean this replaces.
+
+    It could not WIN. Per-card state lived in `openJobs`, and the read was
+    `collapseAll ? (openJobs[id] ?? false) : (openJobs[id] ?? true)` — a
+    default, not an override. So the master only ever moved cards nobody had
+    touched: open one job by hand and that card ignored "Collapse all" for the
+    rest of the session, which reads as a broken button rather than as a
+    subtle precedence rule. Each master click now CLEARS the per-card maps, so
+    it always applies to everything and per-card toggles resume from there.
+
+    And it could not reach the state people actually wanted. Jobs and crews
+    are two levels (STI-401: a job with nine crews should show nine crews, not
+    nine tool tables), and one boolean cannot say "open the jobs but leave the
+    crews shut". The step below is the level being addressed:
+
+      0  jobs open, crews shut     — the default, and what STI-401 chose
+      1  jobs open, crews open     — everything visible
+      2  jobs open, crews shut     — back to the overview, jobs still open
+      3  everything shut           — the whole list as headers
+
+    Step 2 repeats step 0's state deliberately: coming back from "all crews
+    open" should land on the overview, not skip to a fully collapsed list.
+    That is why four clicks cycle three states.
+  */
+  const [expandStep, setExpandStep] = useState(0);
+  const MASTER_STEPS = [
+    { jobs: true, crews: false, next: "Expand crews" },
+    { jobs: true, crews: true, next: "Collapse crews" },
+    { jobs: true, crews: false, next: "Collapse all" },
+    { jobs: false, crews: false, next: "Expand all" },
+  ] as const;
+  const master = MASTER_STEPS[expandStep]!;
+  /* Clearing both maps is the whole fix for "the main button does nothing
+     after I touch a card". */
+  const stepMaster = () => {
+    setExpandStep((i) => (i + 1) % MASTER_STEPS.length);
+    setOpenJobs({});
+    setOpenCrews({});
+  };
   const [picker, setPicker] = useState<PickerRequest | null>(null);
   const [assign, setAssign] = useState<CrewAssignRequest | null>(null);
   /* Loose tools ticked on a card's "nobody holding" section, per card. */
@@ -416,7 +454,17 @@ export default function JobsitesPage() {
          and off the screen entirely. Caught by walking the two tabs and
          counting cards rather than by trusting the diff. */
       const isYard = c.id === YARD || isYardProject(c.name);
-      if (poolView === "jobs" && isYard) return false;
+      /*
+        The yard shows in BOTH tabs as of 2026-09-01, pinned last in Jobs.
+
+        It was excluded from Jobs because it is not a job — true, and it turned
+        out to be the wrong conclusion. The yard is where the tools NOT on a job
+        are, which is the question the Jobs tab is being read to answer: a desk
+        scanning the list for "what is spare" had to know the Pool tab existed
+        and go and look. Sorting it in with the jobs was the original mistake
+        (it out-ranked real jobs on "most tools" and led the board), so it is
+        pinned to the bottom instead of ranked — present, never competing.
+      */
 
       /* Pool view shows the unassigned groups only — the yard, the yard
          projects, and the project-less people. Jobs drop out entirely (the
@@ -433,10 +481,18 @@ export default function JobsitesPage() {
       if (anyFilter && c.toolCount === 0 && c.crews.length === 0) return false;
       return true;
     }).sort((a, b) => {
-      /* NOJOB stays pinned last; the yard sorts with the jobs by the same key
-         so the list never splits the two apart mid-sort. */
+      /* Two pinned tails, in order: the yard sits below every job, and the
+         project-less people sit below the yard. Both are answers to "what is
+         NOT on a job", and neither should ever out-rank a job on tool count —
+         the yard holds more tools than any single site by definition, so
+         sorting it by the same key put the warehouse at the top of a board
+         about job sites. Checked before the sort keys so no key can reorder
+         them. */
       if (a.id === NOJOB) return 1;
       if (b.id === NOJOB) return -1;
+      const aYard = a.id === YARD || isYardProject(a.name);
+      const bYard = b.id === YARD || isYardProject(b.name);
+      if (aYard !== bYard) return aYard ? 1 : -1;
       if (cardSort === "name") return a.name.localeCompare(b.name);
       if (cardSort === "gaps") return b.gaps.length - a.gaps.length || b.toolCount - a.toolCount;
       if (cardSort === "value") return b.value - a.value || b.toolCount - a.toolCount;
@@ -719,18 +775,15 @@ export default function JobsitesPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCollapseAll((v) => !v)}
-                  title={collapseAll ? "Expand every card and tool table" : "Collapse every card and tool table"}
+                  onClick={stepMaster}
+                  title="Steps through: jobs open, crews open, crews shut, everything shut"
                 >
-                  {collapseAll ? (
-                    <>
-                      <Eye className="size-3.5" /> Expand all
-                    </>
+                  {master.next === "Expand all" || master.next === "Expand crews" ? (
+                    <Eye className="size-3.5" />
                   ) : (
-                    <>
-                      <ChevronDown className="size-3.5 rotate-180" /> Collapse all
-                    </>
+                    <ChevronDown className={cn("size-3.5", master.next === "Collapse all" && "rotate-180")} />
                   )}
+                  {master.next}
                 </Button>
               </div>
             </div>
@@ -741,7 +794,7 @@ export default function JobsitesPage() {
           ) : null}
 
           {cards.map((card) => {
-            const open = collapseAll ? (openJobs[card.id] ?? false) : (openJobs[card.id] ?? true);
+            const open = openJobs[card.id] ?? master.jobs;
             /* Each card kind has its own icon: jobs are sites, the yard is the
                warehouse, the project-less people are a crew waiting for work. */
             const CardIcon = card.id === NOJOB ? Users : card.id === YARD ? Warehouse : Building2;
@@ -896,14 +949,16 @@ export default function JobsitesPage() {
                       <CrewCard
                         key={crew.id}
                         crew={crew}
-                        /* STI-401: jobs open, CREWS CLOSED by default. Urban
-                           runs ~28 crews, so expanding every crew's tool
-                           table turned the department's morning question
-                           ("who needs a vehicle") into a scroll. `collapseAll`
-                           still closes the jobs above; a crew the desk opens
-                           stays open via `openCrews`. */
-                        expanded={openCrews[crew.id] ?? false}
-                        onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(o[crew.id] ?? false) }))}
+                        /* STI-401: jobs open, CREWS CLOSED by default, which
+                           is `master.crews` at step 0. Urban runs ~28 crews,
+                           so expanding every crew's tool table turned the
+                           department's morning question ("who needs a
+                           vehicle") into a scroll. A crew the desk opens stays
+                           open via `openCrews` until the master steps, which
+                           clears the map so it can address every crew at once
+                           — the second level the old boolean could not reach. */
+                        expanded={openCrews[crew.id] ?? master.crews}
+                        onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(o[crew.id] ?? master.crews) }))}
                         onPick={setPicker}
                         onAddTools={
                           canAssignTools
