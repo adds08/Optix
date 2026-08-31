@@ -215,12 +215,10 @@ the seed for `finance`, `procurement` and `read_only` (it grants them `assignmen
 for Urban; they are a reconciliation job for STI-308 once the table is confirmed. They are
 recorded here so nobody reads this table as a description of the running system.
 
-**The same claim was baked into the Jira import.** `docs/workings/gen-jira.js:78` carried
-"Urban has now resolved the three open definitions" inside a ticket description, and
-`jira-import.csv` / `.json` are generated from it. All three were corrected in place with the
-same replacement text, so the generator and its artefacts stay in step without a full
-regeneration. **If that import has already been run, the ticket text in the tracker is still
-wrong in the way this document was** — it needs correcting there by hand.
+**The same claim was carried into the tracker.** The import generator that put it there
+was deleted on 2026-08-31 along with its generated artefacts, so there is nothing left in
+this repository to correct. **If that import was ever run, the ticket text in the tracker
+is still wrong in the way this document was** — it can only be fixed there by hand.
 
 ---
 
