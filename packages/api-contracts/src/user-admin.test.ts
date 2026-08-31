@@ -289,6 +289,33 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
     expect(err!.message).not.toMatch(/user_tenant_email_uq|23505/);
   });
 
+  /*
+    KNOWN-ISSUES 5, the half that is not about logging in.
+
+    `login()` matches case-insensitively as of 2026-09-01, so this check has to
+    as well. Left comparing verbatim it would happily create `alice@x.com`
+    beside an existing `Alice@x.com` — and login would then match two rows, hit
+    STI-305's ambiguity guard and refuse BOTH accounts, with no screen able to
+    explain why. The two files are one decision; this test is what keeps them
+    from drifting apart again.
+  */
+  it("refuses an address that differs from an existing one only by case", async () => {
+    const email = emailFor("casedupe");
+    await admin().create({ email, firstName: "First", lastName: "Claim", password: "first-claim-pw" });
+
+    const err = await admin()
+      .create({
+        email: email.toUpperCase(),
+        firstName: "Second",
+        lastName: "Claim",
+        password: "second-claim-pw",
+      })
+      .then(() => null, (e: Error) => e);
+
+    expect(err).toBeInstanceOf(Error);
+    expect(err!.message).toMatch(/already has an account/i);
+  });
+
   it("refuses the same address in ANOTHER tenant, through the router, and writes nothing", async () => {
     /* Claimed by the previous test, in `tenantId`. */
     const email = emailFor("dupe");

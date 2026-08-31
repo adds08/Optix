@@ -246,7 +246,14 @@ export function ToolMenu({
               <DialogTitle>Change status of {assetTag}</DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-1 gap-1.5">
-              {(heldBySomeone ? ["reserved", "in_maintenance", "lost"] : ["available", "reserved", "in_maintenance", "lost"]).map(
+              {/* `as const` so the array is the four literals rather than
+                  string[]. `asset.setStatus` takes the status enum since
+                  KNOWN-ISSUES 3 was fixed, and without this the widened type
+                  is what let an arbitrary string reach the ledger. */}
+              {(heldBySomeone
+                ? (["reserved", "in_maintenance", "lost"] as const)
+                : (["available", "reserved", "in_maintenance", "lost"] as const)
+              ).map(
                 (s) => (
                   <button
                     key={s}
