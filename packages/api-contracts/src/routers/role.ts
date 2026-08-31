@@ -133,8 +133,34 @@ export const roleRouter = router({
       : [];
     const peopleByRole = new Map(people.map((p) => [p.roleId!, Number(p.c)]));
 
+    /*
+      A grant naming a permission the code no longer has is dropped here.
+
+      `rental.read` and `rental.manage` were retired in 9907416 with no
+      migration to delete the rows, and the live database still held them for
+      owner, equipment_admin and warehouse. The editor renders its checkboxes
+      from PERMISSION_GROUPS, so a name absent from the code got no checkbox —
+      invisible, and impossible to untick — while still sitting in the draft
+      this endpoint seeds. Save posted it straight back into
+      `z.array(permissionEnum)`, which refused it, and the screen showed only
+      "Could not save those permissions." — permanently, because the one
+      control that could have cleared the row was the control the row jammed.
+
+      0038 deletes the two rows this was written for. The filter is what makes
+      the NEXT retired permission a no-op rather than a second deadlock, and it
+      is self-healing: `setPermissions` replaces the whole set, so the first
+      save after one appears writes it out of the database.
+
+      Only this screen reads these. Authorization does not: `resolveSession`
+      reads `role_permission` itself, where an unknown name is inert because
+      nothing ever checks for it.
+    */
+    const known = new Set<string>(PERMISSIONS);
     const byRole = new Map<string, string[]>();
-    for (const g of grants) byRole.set(g.roleId, [...(byRole.get(g.roleId) ?? []), g.name]);
+    for (const g of grants) {
+      if (!known.has(g.name)) continue;
+      byRole.set(g.roleId, [...(byRole.get(g.roleId) ?? []), g.name]);
+    }
     const countByRole = new Map(holders.map((h) => [h.roleId, Number(h.c)]));
 
     /* Which roles came from the seed. A tenant role the seed does not know

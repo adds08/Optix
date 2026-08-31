@@ -258,5 +258,42 @@ describe.skipIf(!url)("role administration", () => {
       const rows = await admin().list();
       expect(rows.some((r) => r.id === otherTenantRoleId)).toBe(false);
     });
+
+    /*
+      A retired permission must not be able to jam the screen that retires it.
+
+      `rental.read` and `rental.manage` were dropped from PERMISSIONS in
+      9907416 with nothing to delete the rows, so Urban's live database kept
+      granting them to owner, equipment_admin and warehouse. `list` returned
+      them raw, the page seeded its draft from that, the catalogue rendered no
+      checkbox for a name the code no longer has — so it could not be unticked
+      — and Save posted it back into `z.array(permissionEnum)`, which refused
+      it. Every save on those three roles failed with "Could not save those
+      permissions." from 2026-08-10 until 0038.
+
+      The round trip is the assertion. Reading a role and writing it straight
+      back is exactly what the screen does, and it is what was impossible.
+    */
+    it("drops a grant naming a permission the code no longer has, and stays saveable", async () => {
+      await db.insert(schema.permission).values({ name: "rental.read" }).onConflictDoNothing();
+      await db.insert(schema.rolePermission).values({ roleId: foremanRoleId, permissionName: "rental.read" });
+
+      const before = await admin().list();
+      const listed = before.find((r) => r.id === foremanRoleId)!.permissions;
+      expect(listed).not.toContain("rental.read");
+
+      /* The read-modify-nothing-write the page performs on Save. Before the
+         filter this threw a ZodError whose userMessage the formatter nulls,
+         which is why the screen could only show its generic fallback. */
+      await expect(
+        admin().setPermissions({ roleId: foremanRoleId, permissions: listed as Permission[] }),
+      ).resolves.toMatchObject({ ok: true });
+
+      /* Self-healing: setPermissions replaces the whole set, so the first save
+         after a stale grant appears is what removes it from the database. */
+      expect(await grantsOf(foremanRoleId)).not.toContain("rental.read");
+
+      await db.delete(schema.permission).where(eq(schema.permission.name, "rental.read"));
+    });
   });
 });

@@ -87,6 +87,36 @@ The API container migrates on boot and refuses to serve if it fails. `push` is d
 named **`push-dangerous`** — it diffs a live database and applies with no review and no
 record. Do not reach for it because a migration is inconvenient.
 
+### Seed data needs migrations too — this has now cost three tickets
+
+`permission`, `role` and `role_permission` are written by the **seed**, and the seed only
+ever runs against a fresh database. So every edit to `PERMISSIONS` (`packages/types`) or to
+`role-perms.ts` reaches every dev machine and **no live one**. `role-perms.ts` grants
+`owner` and `equipment_admin` `[...PERMISSIONS]`, and a spread is evaluated at seed time —
+it does not mean "always everything", it means "everything as of the day this database was
+created".
+
+Urban's production database was seeded on 2026-07-28. Three separate migrations exist only
+to repair what that gap left behind:
+
+- `0020` — the four `assets.view.*` scopes. Without it every user saw an empty register,
+  because `viewTierOf` resolves an actor holding no scope to "none", which is empty and not
+  unscoped.
+- `0025` — `user.manage`. Without it `/admin/users` was gated on a permission nobody held,
+  the owner account included.
+- `0038` — the four project-team permissions, still ungranted because 0020's own
+  owner/equipment_admin backfill covered only the `assets.view.*` scopes; **and** the
+  retired `rental.*` grants, which deadlocked `/admin/roles` outright (`role.list` returned
+  a name `permissionEnum` no longer accepts, so every Save failed with a Zod error the
+  formatter renders as a generic message).
+
+**So: adding a permission means a migration granting it. Retiring one means a migration
+deleting its rows.** Neither is optional, and the tests will not catch you —
+`rbac-matrix.test.ts` asserts a **freshly seeded** tenant matches `role-perms.ts`, which is
+exactly the database that was never broken. Write the grant as a
+`SELECT ... FROM tbl_entity_permission` where the source of truth is a spread, so the
+statement says the same thing the code says instead of naming that day's list.
+
 ## The database enforces less than you think
 
 - **One exception — the ledger is append-only by trigger.** `0014_append_only_ledger.sql`
@@ -119,7 +149,7 @@ record. Do not reach for it because a migration is inconvenient.
   map is passed to `drizzle()`, but `with:` eager loading is unavailable — every join is a
   hand-written `leftJoin`/`innerJoin`.
 - Missing unique constraints worth knowing about: `user.email`, `asset.tag`,
-  `asset.serial_number`, `channel.slug`, `rental_order.external_number`, `vehicle.location_id`,
+  `asset.serial_number`, `channel.slug`, `vehicle.location_id`,
   `tenant_settings.tenant_id`.
 
 ## The seed

@@ -22,10 +22,17 @@ When picking up unfamiliar work, read the entries that name the file you are abo
 to edit before reading the file. Several of them record a decision that the code
 alone cannot explain.
 
+## 2026-09
+
+| Date | Entry |
+|---|---|
+| 2026-09-01 | [The screen that grants permissions could not be saved](2026-09-01-the-screen-that-grants-permissions-could-not-be-saved.md) |
+
 ## 2026-08
 
 | Date | Entry |
 |---|---|
+| 2026-08-31 | [The ticket numbers were lying, so they are gone, and Jira goes with them](2026-08-31-the-ticket-numbers-were-lying-so-they-are-gone.md) |
 | 2026-08-31 | [A notification belongs to somebody, and the bell stops counting a deleted feature](2026-08-31-a-notification-belongs-to-somebody.md) |
 | 2026-08-30 | [The browser suite leaves CI, and takes its own prediction with it](2026-08-30-the-browser-suite-leaves-ci-and-takes-its-ticket-with-it.md) |
 | 2026-08-30 | [The owner account gets Urban's name, and a fourth admin role doesn't happen](2026-08-30-the-owner-account-gets-urbans-name.md) |

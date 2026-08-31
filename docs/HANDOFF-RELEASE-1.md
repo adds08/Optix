@@ -60,7 +60,7 @@ Two things to know before you trust that directory:
    lines were not maintained. `docs/tickets/STATUS.md` is closer to the truth, and the code
    is closer still.
 2. **There is a second, unrelated `STI-xxx` numbering** in
-   `docs/workings/RELEASE_1_SPRINT_PLAN.md`, used by the Jira tickets. The same ID means
+   `docs/workings/RELEASE_1_SPRINT_PLAN.md`. The same ID means
    different things in the two documents — `STI-103` is "one active assignment per asset"
    here and "Equipment entity management" there. Check which document a number came from
    before acting on it.
@@ -351,7 +351,7 @@ Each has a ticket and a stated reason.
 ### Found during the 2026-08-23 QA round
 
 Side-findings from root-causing the production bugs. None had a ticket when it was found —
-they existed only as prose in a Jira comment, which is how things get lost.
+they existed only as prose in a tracker comment, which is how things get lost.
 
 | Finding | State |
 |---|---|

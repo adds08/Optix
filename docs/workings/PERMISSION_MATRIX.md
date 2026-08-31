@@ -49,9 +49,9 @@ Draft proposal 2026-08-15 · corrected 2026-08-22 · implemented 2026-08-22
 
 > **Correction, 2026-08-22.** The first version of this document said it was "drafted from
 > Urban's answers on the three questions that were open." **No record of those answers
-> exists** — not in this repository, not in any meeting note, and `docs/tickets/STI-301`
-> (written the day *after* this file) still carries **`Status: BLOCKED on Urban`** with the
-> same questions listed as unanswered. The role definitions in §1 are **Bodhi Labs'
+> exists** — not in this repository and not in any meeting note. The permission-matrix
+> ticket, written the day *after* this file, still carried **`Status: BLOCKED on Urban`**
+> with the same questions listed as unanswered. The role definitions in §1 are **Bodhi Labs'
 > proposals**, not decisions Urban has taken. They are presented here so Urban confirms or
 > corrects a concrete document rather than inventing one in a meeting — which was always the
 > intent — but nothing below is agreed until Urban says so.
@@ -215,12 +215,10 @@ the seed for `finance`, `procurement` and `read_only` (it grants them `assignmen
 for Urban; they are a reconciliation job for STI-308 once the table is confirmed. They are
 recorded here so nobody reads this table as a description of the running system.
 
-**The same claim was baked into the Jira import.** `docs/workings/gen-jira.js:78` carried
-"Urban has now resolved the three open definitions" inside a ticket description, and
-`jira-import.csv` / `.json` are generated from it. All three were corrected in place with the
-same replacement text, so the generator and its artefacts stay in step without a full
-regeneration. **If that import has already been run, the ticket text in the tracker is still
-wrong in the way this document was** — it needs correcting there by hand.
+**The same claim was carried into the tracker.** The import generator that put it there
+was deleted on 2026-08-31 along with its generated artefacts, so there is nothing left in
+this repository to correct. **If that import was ever run, the ticket text in the tracker
+is still wrong in the way this document was** — it can only be fixed there by hand.
 
 ---
 

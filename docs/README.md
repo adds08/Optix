@@ -13,7 +13,6 @@ repository and in the changelogs.
 | `../SYSTEM_PLAN.md` (repo root) | **Start here.** What the system is, what exists, what is being built, what comes next |
 | `workings/RELEASE_2_SPRINT_PLAN.md` | **The current plan.** Ship-blockers, the navigation frame, the assigned-where dashboard, and removing what nothing uses |
 | `workings/RELEASE_1_SPRINT_PLAN.md` | Release 1 — shipped. Kept for the story format and the sizing table, which Release 2 reuses rather than restating |
-| `workings/jira-import.csv` · `.json` · `gen-jira.js` | **Release 1 only** — the generator has not been pointed at Release 2. Both files are generated: edit the plan, then run `node gen-jira.js .` |
 | `architecture/` | **The map of the system as built.** Data model, backend, frontend, data flow, features |
 | `CODEMAP.md` | Where things are and what to read before changing them. Written for somebody arriving cold |
 | `KNOWN-ISSUES.md` | **Open defects**, each verified against the code. Fix one, delete its section |

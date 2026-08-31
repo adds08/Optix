@@ -5,19 +5,13 @@
 
 This is the handover document. It converts the eleven agreed deliverables into epics,
 stories, and tasks with acceptance criteria, sequencing, and the mechanism each one
-implements. Machine-readable copies for import sit beside it:
+implements.
 
-- `jira-import.csv` — Jira CSV importer, validated against the **`UI` Scrum project**.
-  No Issue Key column (Jira assigns them), epics linked by Epic Name, `Original Estimate`
-  in hours, and the plan ID carried in the summary as `[STI-nnn]` plus a label so an
-  imported `UI-42` stays traceable to this document.
-  **Sprint travels as a label** (`sprint-1`, `sprint-2`, …), not as a Sprint column — the
-  importer requires numeric sprint ids, which do not exist until the sprints are created
-  on the board. Import first, then bulk-move each label into its sprint from the backlog
-- `jira-import.json` — same content, structured, for the REST API or scripting
-- `gen-jira.js` — generates both from one source. **Edit the plan, then regenerate.**
-  It refuses to emit if epic totals disagree, a dependency points at a later sprint, or
-  Sprint 1 exceeds its capacity ceiling.
+It once had machine-readable companions — a CSV and JSON tracker import and the generator
+that emitted both. They were **deleted on 2026-08-31**: the generator was never pointed at
+Release 2, and the ids it wrote into ticket summaries turned out to be a second, competing
+numbering that did not match this repository's own. This document is now history, read for
+the story format and the sizing table rather than run.
 
 > **The whole backlog is 772 hours — about 96 developer-days. Six working days buys 160
 > hours.** §14 sets out
@@ -32,7 +26,7 @@ implements. Machine-readable copies for import sit beside it:
 Every story ID is stable and self-describing: `STI-<epic><nn>`. The epic digit never
 changes, so `STI-4xx` is always custody context. Sub-tasks are `STI-<parent>-<n>`.
 
-**Sizing is in hours**, because Urban's Jira is time-tracked rather than point-based.
+**Sizing is in hours**, because Urban tracked delivery in time rather than points.
 Estimates are drawn from one table so they stay comparable — the team argues about relative
 size, and the hours follow:
 
@@ -45,8 +39,8 @@ size, and the hours follow:
 | XL | 20h | two and a half days |
 | XXL | 32h | four days — **split it if it grows** |
 
-An 8-hour day and a 5-day week. `gen-jira.js` derives every Jira `Original Estimate` from
-this table, so the document and the board cannot disagree.
+An 8-hour day and a 5-day week. Every estimate in this plan is drawn from this table, so
+the sizes stay comparable to each other.
 
 Each story carries:
 
@@ -1043,8 +1037,7 @@ engineer has nothing in this release.
 
 `SYSTEM_PLAN.md` §6 arrives at the same number by a different route — 48 units at half a
 developer-day each is 24 developer-days. Two independent estimates agreeing at ~20–24
-developer-days is the strongest capacity signal available, so **the ceiling is 160 hours**
-and `gen-jira.js` refuses to emit if Sprint 1 exceeds it.
+developer-days is the strongest capacity signal available, so **the ceiling was 160 hours**.
 
 Sprint 1 as scoped is **exactly 160 hours**. That is a plan with no slack in it, which is
 what a six-day commitment means — see the checkpoints below.
