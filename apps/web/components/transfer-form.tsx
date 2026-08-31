@@ -38,6 +38,9 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
   /* Distinguishes "it worked but is waiting" from "it failed" — both used to
      render in the same red text. */
   const [pending, setPending] = useState(false);
+  /* UI-77: an immediate transfer closed the dialog with nothing said. A plain
+     success now holds it open with a confirmation, like the approval path. */
+  const [done, setDone] = useState(false);
 
   /* Tools go where the foreman is: picking a recipient pre-fills the project
      from their current job. It stays editable — a default, not a lock. The
@@ -89,7 +92,9 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
           "Sent for a second signature. This tool is worth enough that another administrator has to approve the move — it stays where it is until they do.",
         );
       } else {
-        onClose();
+        const who = custodianOptions.find((e) => e.id === toCustodianId)?.name ?? "the new custodian";
+        setDone(true);
+        setResult(`${assetTag} is now with ${who}.`);
       }
     } catch (err) {
       setResult(err instanceof Error ? err.message : "Could not save. Try again.");
@@ -144,7 +149,11 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
           {result ? (
             <p
               className={`rounded-md border px-3 py-2 text-sm ${
-                pending ? "border-warn/40 bg-warn-bg text-warn" : "border-destructive/40 text-destructive"
+                pending
+                  ? "border-warn/40 bg-warn-bg text-warn"
+                  : done
+                    ? "border-ok/40 bg-ok-bg text-ok"
+                    : "border-destructive/40 text-destructive"
               }`}
             >
               {result}
@@ -154,6 +163,8 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
         <DialogFooter>
           {pending ? (
             <Button onClick={onClose}>Close</Button>
+          ) : done ? (
+            <Button onClick={onClose}>Done</Button>
           ) : (
             <>
               <Button variant="outline" onClick={onClose}>Cancel</Button>

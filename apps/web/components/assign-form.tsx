@@ -51,6 +51,10 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   /* Same fix as transfer-form: "waiting" is a success, not a failure, and it
      needs the dialog to stay open long enough to be read. */
   const [pending, setPending] = useState(false);
+  /* UI-77: an immediate assignment used to close the dialog with nothing said,
+     so "did that work?" had no answer. A plain success now holds the dialog
+     open with a confirmation, exactly like the approval path already did. */
+  const [done, setDone] = useState(false);
 
   useEffect(() => { setAssetId(preselectedAssetId ?? ""); }, [preselectedAssetId]);
 
@@ -78,6 +82,11 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
         truckId: truckId || undefined,
         trailerId: trailerId || undefined,
       });
+      utils.assignment.list.invalidate();
+      utils.asset.list.invalidate();
+      utils.dashboard.kpis.invalidate();
+      utils.dashboard.pendingApprovals.invalidate();
+      utils.dashboard.recentActivity.invalidate();
       if (res.needsApproval) {
         setPending(true);
         setResult(
@@ -85,14 +94,12 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
              tasks and messages and cannot act on an assignment row (STI-105). */
           "Sent to the equipment desk. This tool is above the value that needs a second signature — it stays where it is until someone approves it in the Custody approval queue.",
         );
+      } else {
+        const tag = assets.data?.find((a) => a.id === assetId)?.tag ?? "The tool";
+        const who = custodianOptions.find((e) => e.id === custodianId)?.name ?? "the custodian";
+        setDone(true);
+        setResult(`${tag} is now with ${who}.`);
       }
-      utils.assignment.list.invalidate();
-      utils.asset.list.invalidate();
-      utils.dashboard.kpis.invalidate();
-      utils.dashboard.pendingApprovals.invalidate();
-      utils.dashboard.recentActivity.invalidate();
-      /* Close only when the register actually changed. */
-      if (!res.needsApproval) onClose();
     } catch (err) {
       setResult(err instanceof Error ? err.message : "Could not save. Try again.");
     }
@@ -173,7 +180,11 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
           {result ? (
             <p
               className={`rounded-md border px-3 py-2 text-sm ${
-                pending ? "border-warn/40 bg-warn-bg text-warn" : "border-destructive/40 text-destructive"
+                pending
+                  ? "border-warn/40 bg-warn-bg text-warn"
+                  : done
+                    ? "border-ok/40 bg-ok-bg text-ok"
+                    : "border-destructive/40 text-destructive"
               }`}
             >
               {result}
@@ -183,6 +194,8 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
         <DialogFooter>
           {pending ? (
             <Button onClick={onClose}>Close</Button>
+          ) : done ? (
+            <Button onClick={onClose}>Done</Button>
           ) : (
             <>
               <Button variant="outline" onClick={onClose}>Cancel</Button>
