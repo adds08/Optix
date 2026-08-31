@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /*
   Roles & Permissions — what each role may do.
@@ -373,14 +374,14 @@ export default function AdminRolesPage() {
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="font-medium">Start from</span>
-              <select
+              <EntityField
                 value={copyFrom}
-                onChange={(e) => setCopyFrom(e.target.value)}
-                className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm"
-              >
-                <option value="">Nothing — start empty</option>
-                {roles.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-              </select>
+                onChange={setCopyFrom}
+                placeholder="Nothing — start empty"
+                searchPlaceholder="Search roles…"
+                emptyLabel="No role matches."
+                options={(roles.data ?? []).map((r) => ({ value: r.id, label: r.name }))}
+              />
               <span className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Copy className="mt-0.5 size-3 shrink-0" />
                 Copying is usually what you want — &quot;a superintendent, but without approval&quot;. Starting empty means

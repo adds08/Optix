@@ -10,10 +10,18 @@ import { cn } from "@/lib/utils";
 /*
   Type-to-search for one entity, on the desk side.
 
-  The web forms mostly use a `<select>` of every row in the tenant, which is
-  fine at seed scale and unusable at four hundred tools. This is the same
-  search the `@` list runs, narrowed to one kind — so the desk finds a tool the
-  way the field does, by typing part of a tag.
+  The forms no longer use native `<select>` at all — that sweep finished on
+  2026-09-01 — but the two pickers still answer different questions and both
+  are needed. `EntityField` in `ui/entity-picker.tsx` chooses from a list the
+  caller already holds; THIS one searches the whole tenant over `entity.search`
+  and never loads a list at all, which is what makes it right for four hundred
+  tools where fetching every row to filter it client-side is not.
+
+  It runs the same search the `@` list runs, narrowed to one kind — so the desk
+  finds a tool the way the field does, by typing part of a tag.
+
+  They share a name, which is a genuine trap: importing the wrong one type-errors
+  rather than misbehaving, and `resolve-message.tsx` needs both and aliases one.
 
   The value is an id or it is nothing: free text cannot be submitted, which is
   what stops a form producing the dangling references the parser can produce on

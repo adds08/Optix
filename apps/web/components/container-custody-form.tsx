@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /*
   Hand a trailer, truck or gang box to a foreman — or take it back.
@@ -81,19 +82,14 @@ export function ContainerCustodyForm({
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Held by</label>
-            <select
+            <EntityField
               value={custodianId}
-              onChange={(e) => setCustodianId(e.target.value)}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="">Nobody — back in the yard</option>
-              {people.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                  {e.primaryProjectName ? ` — ${e.primaryProjectName}` : ""}
-                </option>
-              ))}
-            </select>
+              onChange={setCustodianId}
+              placeholder="Nobody — back in the yard"
+              searchPlaceholder="Name or employee number"
+              emptyLabel="Nobody matches."
+              options={people.map((e) => ({ value: e.id, label: e.name, hint: e.primaryProjectName ?? undefined }))}
+            />
             {currentCustodianName ? (
               <p className="text-xs text-muted-foreground">
                 Currently with {currentCustodianName}.

@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityField } from "@/components/ui/entity-picker";
 
 export type LocationEditable = {
   id: string;
@@ -73,35 +74,52 @@ export function LocationForm({ open, onClose, edit }: Props) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Type</label>
-            <select value={type} onChange={(e) => setType(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="warehouse">Warehouse</option>
-              <option value="site_container">Site container</option>
-              <option value="gang_box">Gang box</option>
-              <option value="project_site">Project site</option>
-            </select>
+            <EntityField
+              value={type}
+              onChange={setType}
+              placeholder="What kind of place"
+              options={[
+                { value: "warehouse", label: "Warehouse" },
+                { value: "site_container", label: "Site container" },
+                { value: "gang_box", label: "Gang box" },
+                { value: "project_site", label: "Project site" },
+              ]}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Warehouse (parent)</label>
-            <select value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">None</option>
-              {whOptions.map((w) => <option key={w.warehouseId!} value={w.warehouseId!}>{w.name}</option>)}
-            </select>
+            <EntityField
+              value={warehouseId}
+              onChange={setWarehouseId}
+              placeholder="None"
+              searchPlaceholder="Search warehouses…"
+              emptyLabel="No warehouse matches."
+              options={whOptions.map((w) => ({ value: w.warehouseId!, label: w.name }))}
+            />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Project</label>
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">None</option>
-              {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <EntityField
+              value={projectId}
+              onChange={setProjectId}
+              placeholder="None"
+              searchPlaceholder="Project name or code"
+              emptyLabel="No job matches."
+              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+            />
           </div>
           {/* A container someone carries; a yard nobody does. Leaving this blank
               is the right answer for warehouses and project sites. */}
           <div className={edit ? "hidden" : "space-y-2"}>
             <label className="text-sm font-medium">Held by</label>
-            <select value={custodianEmployeeId} onChange={(e) => setCustodianEmployeeId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Nobody carries it</option>
-              {employees.data?.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
+            <EntityField
+              value={custodianEmployeeId}
+              onChange={setCustodianEmployeeId}
+              placeholder="Nobody carries it"
+              searchPlaceholder="Name or employee number"
+              emptyLabel="Nobody matches."
+              options={(employees.data ?? []).map((e) => ({ value: e.id, label: e.name, hint: e.externalId ?? undefined }))}
+            />
           </div>
           {result && <p className="text-sm text-destructive">{result}</p>}
         </div>

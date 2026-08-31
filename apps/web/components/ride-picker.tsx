@@ -1,6 +1,7 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /*
   The rig a tool rides out in, for the custody forms (STI-203).
@@ -25,9 +26,6 @@ import { trpc } from "@/lib/trpc";
     router's assertVehicleContext turns that into a readable refusal — but the
     honest UI never offers the mistake in the first place.
 */
-const SELECT_CLS =
-  "flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
-
 export function RidePicker({
   truckId,
   trailerId,
@@ -50,21 +48,25 @@ export function RidePicker({
     <div className="grid grid-cols-2 gap-3">
       <div className="space-y-2">
         <label className="text-sm font-medium">Truck</label>
-        <select value={truckId} onChange={(e) => onTruck(e.target.value)} className={SELECT_CLS}>
-          <option value="">None recorded</option>
-          {trucks.map((v) => (
-            <option key={v.id} value={v.id}>{label(v)}</option>
-          ))}
-        </select>
+        <EntityField
+          value={truckId}
+          onChange={onTruck}
+          placeholder="None recorded"
+          searchPlaceholder="Unit number or plate"
+          emptyLabel="No truck matches."
+          options={trucks.map((v) => ({ value: v.id, label: label(v) }))}
+        />
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">Trailer</label>
-        <select value={trailerId} onChange={(e) => onTrailer(e.target.value)} className={SELECT_CLS}>
-          <option value="">None recorded</option>
-          {trailers.map((v) => (
-            <option key={v.id} value={v.id}>{label(v)}</option>
-          ))}
-        </select>
+        <EntityField
+          value={trailerId}
+          onChange={onTrailer}
+          placeholder="None recorded"
+          searchPlaceholder="Unit number or plate"
+          emptyLabel="No trailer matches."
+          options={trailers.map((v) => ({ value: v.id, label: label(v) }))}
+        />
       </div>
       <p className="col-span-2 -mt-1 text-xs text-muted-foreground">
         The rig this move rides in — recorded on the hand-off itself. Left blank means no

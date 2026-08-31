@@ -161,13 +161,18 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
           <RidePicker truckId={toTruckId} trailerId={toTrailerId} onTruck={setToTruckId} onTrailer={setToTrailerId} />
           <div className="space-y-2">
             <label className="text-sm font-medium">Reason</label>
-            <select value={reason} onChange={(e) => setReason(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="reallocation">Reallocation</option>
-              <option value="project_complete">Project complete</option>
-              <option value="hr_offboarding">HR offboarding</option>
-              <option value="repair">Repair</option>
-              <option value="handoff">Handoff</option>
-            </select>
+            <EntityField
+              value={reason}
+              onChange={setReason}
+              placeholder="Why it is moving"
+              options={[
+                { value: "reallocation", label: "Reallocation" },
+                { value: "project_complete", label: "Project complete" },
+                { value: "hr_offboarding", label: "HR offboarding" },
+                { value: "repair", label: "Repair" },
+                { value: "handoff", label: "Handoff" },
+              ]}
+            />
           </div>
           {result ? (
             <p

@@ -23,6 +23,10 @@ import { cn } from "@/lib/utils";
   team strip — could not be searched at all, which is how "+ SUP" ended up
   offering eight rows several of which read identically.
 
+  The last of the native ones went on 2026-09-01: every dropdown in the web app
+  is now this picker or `SearchSelect`, which is built on it. See the rule in
+  `.claude/rules/web.md` before reaching for a `<select>` again.
+
   `hint` is not decoration. People in this register frequently share a display
   name and often have no external id, so a label alone cannot identify a row.
   Callers pass whatever distinguishes them — department, current job, unit
@@ -127,9 +131,10 @@ export function EntityPicker({
 
   This exists so a form field and an inline "+ SUP" chip cannot drift apart:
   they are the same list, the same filtering and the same empty state, differing
-  only in what you click to open them. It replaces the raw <select> elements in
-  the assign and departure forms, where a native dropdown was being asked to
-  hold several hundred tools with no way to type at it.
+  only in what you click to open them. It replaced the raw <select> elements in
+  the assign and departure forms first — a native dropdown was being asked to
+  hold several hundred tools with no way to type at it — and as of 2026-09-01
+  it is what every form field in the app uses, short static lists included.
 */
 export function EntityField({
   options,
@@ -139,6 +144,7 @@ export function EntityField({
   emptyLabel,
   searchPlaceholder,
   id,
+  disabled,
 }: {
   options: EntityOption[];
   value: string;
@@ -149,6 +155,10 @@ export function EntityField({
   emptyLabel?: string;
   searchPlaceholder?: string;
   id?: string;
+  /* For the one caller whose change fires a mutation (settings/modules) and
+     must not accept a second pick while the first is in flight. A native
+     <select> had this for free; replacing it must not lose it. */
+  disabled?: boolean;
 }) {
   const selected = options.find((o) => o.value === value);
   return (
@@ -162,9 +172,11 @@ export function EntityField({
         <button
           type="button"
           id={id}
+          disabled={disabled}
           className={cn(
             "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-2.5 py-1 text-left text-sm",
             "transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+            disabled && "cursor-not-allowed opacity-50",
           )}
         >
           <span className={cn("min-w-0 truncate", !selected && "text-muted-foreground")}>
