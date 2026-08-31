@@ -335,6 +335,10 @@ Each has a ticket and a stated reason.
 - **STI-002** — the six critical-path browser journeys. The harness exists; the journeys do
   not, because a **mutating** browser test needs a database-isolation mechanism designed
   first, and every spec in the suite today is read-only for exactly that reason.
+- **STI-123** — the repair loop never closes. Approving a repair emits `repair_start`;
+  `repair_complete` is a declared event type with no writer anywhere, so a tool leaves
+  maintenance only by somebody editing its status. The ledger says every repaired tool is
+  still in the shop. Carries a decision — who signs a repair off — that needs Urban.
 - **STI-121** — procedures no screen can reach. `reachability.test.ts` enumerates them, each
   with a written reason, and fails the build on any new one. So this is *managed*, not
   ignored. Two entries look like real product holes rather than absent screens:

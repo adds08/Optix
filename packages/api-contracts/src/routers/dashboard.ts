@@ -470,11 +470,15 @@ export const dashboardRouter = router({
     The bell in the top bar: one round-trip that answers "is anything waiting,
     and what is it".
 
-    The badge is the same sum the inbox shows — unread alerts plus every desk
-    queue — so the bell and the inbox cannot disagree about the number. The
-    alerts list is the top unread notifications for THIS user; the queue counts
-    are tenant-wide, because the desk owns them and the bell is how the desk
-    sees them without opening the page.
+    `unread` is the badge: your own unread alerts plus the three desk queues a
+    person can actually work. It deliberately does NOT equal the number the
+    popover prints beside "Open the inbox" — that one counts the queues only,
+    because your alerts are not inbox rows. This comment used to claim the two
+    were the same sum and could not disagree; they were never equal, and saying
+    so hid the fact that the badge was also summing in `clearance` (below).
+
+    The alerts list is the top unread notifications for THIS user; the queue
+    counts are scoped to the assets the caller may see.
   */
   notifications: requirePermission("notification.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
@@ -501,19 +505,50 @@ export const dashboardRouter = router({
     const mayCountAssets = ctx.session.permissions.has("asset.read");
     const today = new Date().toISOString().slice(0, 10);
 
-    const [alerts, approvals, tasks, messages, clearance] = await Promise.all([
-      ctx.db
-        .select({ id: schema.notification.id, title: schema.notification.title, body: schema.notification.body, createdAt: schema.notification.createdAt })
-        .from(schema.notification)
-        .where(
-          and(
-            eq(schema.notification.tenantId, tid),
-            isNull(schema.notification.readAt),
-            empId ? eq(schema.notification.recipientEmployeeId, empId) : undefined,
-          ),
+    /*
+      No employee record means no alerts, full stop. A notification is delivered
+      TO an employee — `recipientEmployeeId` is never null on a delivered row —
+      so an account without one is the recipient of nothing.
+
+      This used to pass `undefined` as the recipient predicate, which Drizzle's
+      `and()` DROPS rather than reading as "match nothing": the filter vanished
+      and the query returned every unread notification in the tenant. Seven of
+      the fifteen seeded accounts have no employee row (`owner@`, `hr@`,
+      `finance@`, `office@`, `procurement@`, `readonly@`, `invited@`), and in
+      production the owner was being shown other people's repair decisions —
+      then could not clear them, because `notification.markRead` scopes to the
+      recipient and correctly refused. One nullable column, two symptoms.
+
+      Written as a short-circuit rather than a `sql`false`` predicate so the
+      round-trip is not made at all.
+    */
+    const myUnread = empId
+      ? and(
+          eq(schema.notification.tenantId, tid),
+          isNull(schema.notification.readAt),
+          eq(schema.notification.recipientEmployeeId, empId),
         )
-        .orderBy(desc(schema.notification.createdAt))
-        .limit(5),
+      : null;
+
+    const [alerts, unreadAlerts, approvals, tasks, messages, clearance] = await Promise.all([
+      myUnread
+        ? ctx.db
+            .select({ id: schema.notification.id, title: schema.notification.title, body: schema.notification.body, createdAt: schema.notification.createdAt })
+            .from(schema.notification)
+            .where(myUnread)
+            .orderBy(desc(schema.notification.createdAt))
+            .limit(5)
+        : Promise.resolve([] as { id: string; title: string; body: string | null; createdAt: Date }[]),
+      /* The TRUE count, not `alerts.length` — that list is capped at five for
+         the popover, so the badge silently under-reported anyone with a real
+         backlog at exactly the moment the number mattered most. */
+      myUnread
+        ? ctx.db
+            .select({ c: count() })
+            .from(schema.notification)
+            .where(myUnread)
+            .then((r) => Number(r[0]?.c ?? 0))
+        : Promise.resolve(0),
       (async () => {
         if (!mayCountAssets) return 0;
         const [a, t] = await Promise.all([
@@ -588,7 +623,18 @@ export const dashboardRouter = router({
         createdAt: a.createdAt,
       })),
       queues: { approvals, tasks, messages, clearance },
-      unread: alerts.length + approvals + tasks + messages + clearance,
+      /*
+        `clearance` is counted and returned but NOT summed into the badge. It
+        is the HR offboarding gate, which was removed on 2026-08-27 — the
+        popover already declines to list it as a queue for that reason, so
+        summing it here inflated the bell with work nobody is asked to do and
+        no screen can clear. It was 23 of 30 on a seeded database.
+
+        Left in `queues` rather than deleted: the count is a real thing (tools
+        still held by terminated employees) and `dashboard.notifications` is
+        not the place to decide whether the product wants it back.
+      */
+      unread: unreadAlerts + approvals + tasks + messages,
     };
   }),
 
