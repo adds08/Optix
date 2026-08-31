@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, notInArray } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
+import { moveCustody } from "./custody.js";
 
 /* The employee roles that map straight onto a project-team role when the
    caller says "auto". A named list rather than a chain of `||` comparisons —
@@ -54,6 +55,20 @@ export async function moveEmployeeToProject(
     /* Off only for a correction — posting somebody retroactively where their
        tools already moved by hand. */
     moveTools?: boolean;
+    /* Only meaningful when `moveTools` is false, and it is the difference
+       between the two reasons somebody says "no".
+
+       A CORRECTION means "the tools are already right, do not touch them" —
+       that is plain `moveTools: false`, and it writes nothing.
+
+       A DELIBERATE HAND-BACK means "this person is leaving the job and the
+       tools are staying on it". Left alone, those tools would keep the
+       departing person as custodian while they work somewhere else, so the
+       register would name a holder who is no longer there — the same failure
+       STI-306 was written for, arriving through a different door. This
+       releases them instead: custodian cleared, project and location kept, so
+       they land in the "nobody holding" state the jobsite cards already draw. */
+    releaseToolsInPlace?: boolean;
     /* On by default the other way: a foreman's trucks, and the trailers
        hitched to them, go to the new job with the tools — the tools physically
        live in them. Turn this on to leave the trailer (and its tools) behind;
@@ -63,6 +78,9 @@ export async function moveEmployeeToProject(
        lockstep (close on any other project, open on this one). `"auto"` uses
        the person's own role when it is a team role. */
     role?: "pm" | "superintendent" | "foreman" | "auto";
+    /* Stamped on the roster row this opens. Descriptive provenance only — see
+       TEAM_SOURCES in packages/types. */
+    source?: string;
   },
 ): Promise<MoveResult> {
   const {
@@ -72,8 +90,10 @@ export async function moveEmployeeToProject(
     actorUserId,
     note,
     moveTools = true,
+    releaseToolsInPlace = false,
     leaveContainers = false,
     role,
+    source = "equipment_department",
   } = args;
   const startedOn = args.startedOn ?? new Date().toISOString().slice(0, 10);
 
@@ -188,10 +208,101 @@ export async function moveEmployeeToProject(
           assignedByUserId: actorUserId,
           startedOn,
           note: note ?? null,
+          source,
         });
     }
 
-    if (!moveTools) return { postingId: posting?.id ?? null, toolsMoved: 0, containersMoved: 0 };
+    if (!moveTools) {
+      if (!releaseToolsInPlace) return { postingId: posting?.id ?? null, toolsMoved: 0, containersMoved: 0 };
+
+      /*
+        Hand the tools back to the job rather than dragging them to the new one.
+
+        Only what the person holds DIRECTLY. Tools merely aboard their truck or
+        trailer are not touched: the rig leaves with them, and a tool inside a
+        departing trailer has not been left behind in any sense a yard would
+        recognise.
+
+        Through `moveCustody` because this changes the CUSTODIAN, which the
+        project-change path below never does — that one rewrites a project
+        column and is legitimately not a custody write. This one is, and
+        custody.ts is the only writer allowed to close a link.
+
+        Truck and trailer are stamped explicitly null: the rig is going to the
+        new job with its owner, so the tool is demonstrably no longer riding on
+        it. Both keys are emitted as affirmative nulls rather than omitted, per
+        the shape-boundary rule in packages/domain/src/fold.ts — an absent key
+        folds to "not recorded" and a rebuild would keep quoting the old rig.
+      */
+      const holding = await tx
+        .select({
+          id: schema.asset.id,
+          currentStatus: schema.asset.currentStatus,
+          currentCustodianId: schema.asset.currentCustodianId,
+          currentProjectId: schema.asset.currentProjectId,
+          currentLocationId: schema.asset.currentLocationId,
+        })
+        .from(schema.asset)
+        .where(
+          and(
+            eq(schema.asset.tenantId, tid),
+            eq(schema.asset.currentCustodianId, employeeId),
+            notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
+          ),
+        );
+
+      for (const a of holding) {
+        /* `assigned` is the one status that is a statement about a custodian,
+           so it cannot survive the custodian being cleared. Everything else is
+           a statement about the tool — a spanner in for repair is still in for
+           repair the moment its holder changes job — and is carried, the same
+           reasoning departure.ts applies when it refuses to stamp a status. */
+        const status = a.currentStatus === "assigned" ? "available" : a.currentStatus;
+
+        await moveCustody(tx, {
+          tenantId: tid,
+          assetId: a.id,
+          toCustodianId: null,
+          projectId: a.currentProjectId,
+          locationId: a.currentLocationId,
+          truckId: null,
+          trailerId: null,
+          actorUserId,
+          closeAs: "returned",
+        });
+
+        await tx
+          .update(schema.asset)
+          .set({ currentCustodianId: null, currentStatus: status, updatedAt: new Date() })
+          .where(and(eq(schema.asset.id, a.id), eq(schema.asset.tenantId, tid)));
+
+        await tx.insert(schema.transaction).values({
+          tenantId: tid,
+          assetId: a.id,
+          eventType: "custodian_change",
+          actorId: actorUserId,
+          fromState: {
+            status: a.currentStatus,
+            custodianId: a.currentCustodianId,
+            projectId: a.currentProjectId,
+            locationId: a.currentLocationId,
+          },
+          toState: {
+            status,
+            custodianId: null,
+            projectId: a.currentProjectId,
+            locationId: a.currentLocationId,
+            truckId: null,
+            trailerId: null,
+          },
+          refType: "employee_project_assignment",
+          refId: posting?.id ?? null,
+          note: `Left on the job when ${person.name} moved to ${proj.name}`,
+        });
+      }
+
+      return { postingId: posting?.id ?? null, toolsMoved: holding.length, containersMoved: 0 };
+    }
 
     /* Lost and disposed tools stay where the record says they were lost.
        Dragging them onto the new job would quietly rewrite where a police

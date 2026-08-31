@@ -26,4 +26,8 @@ export { schema };
    test (STI-308), which is why it is exported from the package root rather
    than reached into by path. */
 export { ROLE_PERMS, PM_PERMS } from "./role-perms";
+/* The role register's factory defaults, exported for the same reason: the RBAC
+   matrix test pins `canHoldCustody` against `CUSTODIAN_ROLES`, and a test that
+   reached in by path would be one more thing to fix when the file moves. */
+export { roleSpecs } from "./seed-data";
 export * from "./schema/index";

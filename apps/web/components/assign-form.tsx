@@ -152,21 +152,35 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Where it goes</label>
+            <label className="text-sm font-medium">Where it goes on site</label>
             {/* Vehicles are filtered out since STI-203: "in a truck" is the
                 rig fields below, a per-assignment fact — not a location. Old
-                rows that recorded a vehicle here stay valid (schema/asset.ts). */}
-            <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Leave where it is</option>
-              {locations.data?.filter((l) => l.type !== "vehicle").map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                  {l.custodianName ? ` — ${l.custodianName}` : ""}
-                </option>
-              ))}
-            </select>
+                rows that recorded a vehicle here stay valid (schema/asset.ts).
+
+                The label and the hint both say "on site" as of 2026-09-01.
+                "Where it goes" over a list that reads *Gang Box A — Miguel
+                Torres* was taken to mean the rig, which made the field look
+                like a duplicate of the truck and trailer pickers below it and
+                led to a request to delete it. It is not a duplicate and the
+                distinction is the point: the rig is how the tool TRAVELS, this
+                is where it LIVES once it arrives, and nothing else records the
+                second. Say which, in the words a yard uses. */}
+            <EntityField
+              value={locationId}
+              onChange={setLocationId}
+              placeholder="Leave where it is"
+              searchPlaceholder="Search gang boxes, containers, yards…"
+              emptyLabel="No place matches."
+              options={(locations.data ?? [])
+                .filter((l) => l.type !== "vehicle")
+                .map((l) => ({
+                  value: l.id,
+                  label: l.name,
+                  hint: l.custodianName ?? undefined,
+                }))}
+            />
             <p className="text-xs text-muted-foreground">
-              A gang box, yard or warehouse, if the tool is going into one.
+              The gang box, container or yard it sits in once it gets there — not how it travels. The truck and trailer below are that.
             </p>
           </div>
           <RidePicker truckId={truckId} trailerId={trailerId} onTruck={setTruckId} onTrailer={setTrailerId} />

@@ -6,7 +6,7 @@ import { protectedProcedure, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { moveEmployeeToProject } from "../project-assign.js";
 import { visibleProjectScope } from "../scope.js";
-import type { Permission } from "@stinventory/types";
+import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory/types";
 
 /*
   The project team roster — who runs a job and who is working it.
@@ -52,10 +52,17 @@ type TeamRole = (typeof TEAM_ROLES)[number];
 /* Team roles whose project link MOVES CUSTODY. Named rather than compared
    against the literal "foreman" in three places, which is how
    `CUSTODIAN_ROLES` came to exist in packages/types after three custodian
-   pickers had drifted apart. Deliberately separate from `CUSTODIAN_ROLES`:
-   that answers "may hold a tool" and includes `mechanic`, who is never on a
-   project team. */
-const TOOLS_FOLLOW: readonly TeamRole[] = ["foreman"];
+   pickers had drifted apart. Still deliberately separate from
+   `CUSTODIAN_ROLES`: that answers "may hold a tool" and includes `mechanic`,
+   who is never on a project team.
+
+   `superintendent` joined on 2026-09-01, with `canHoldCustody` in the role
+   register. A job is often awarded and rigged before its foreman is hired, and
+   the superintendent is who holds the tools until then — so their project link
+   has to move custody for the same reason a foreman's does, or the tools stay
+   booked to whatever job they were rigged on. A superintendent who holds
+   nothing is unaffected: the move finds no tools and does nothing. */
+const TOOLS_FOLLOW: readonly TeamRole[] = ["foreman", "superintendent"];
 const toolsFollow = (role: TeamRole) => TOOLS_FOLLOW.includes(role);
 
 const PERM_FOR_ROLE: Record<TeamRole, Permission> = {
@@ -158,6 +165,14 @@ export const projectTeamRouter = router({
         role: z.enum(TEAM_ROLES),
         startedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         note: z.string().max(500).optional(),
+        /* Default TRUE, which is both the old unconditional behaviour and the
+           right answer nearly always: tools follow the person. False means the
+           tools stay on the job being left, released to nobody — see
+           `releaseToolsInPlace` in project-assign.ts for why that is a custody
+           write and not just a skipped one. Ignored for roles whose link never
+           moved custody in the first place. */
+        moveTools: z.boolean().default(true),
+        source: z.enum(TEAM_SOURCES).default(DEFAULT_TEAM_SOURCE),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -189,7 +204,14 @@ export const projectTeamRouter = router({
           actorUserId: ctx.session.userId,
           startedOn: input.startedOn,
           note: input.note,
-          role: "foreman",
+          /* The team role being assigned, not a hard-coded "foreman" — a
+             superintendent's link moves custody too since 2026-09-01, and
+             passing the wrong role here would open their posting as somebody
+             else's. */
+          role: input.role,
+          moveTools: input.moveTools,
+          releaseToolsInPlace: !input.moveTools,
+          source: input.source,
         });
         moved = { toolsMoved: res.toolsMoved, containersMoved: res.containersMoved };
       } else {
@@ -217,6 +239,7 @@ export const projectTeamRouter = router({
               assignedByUserId: ctx.session.userId,
               startedOn,
               note: input.note ?? null,
+              source: input.source,
             });
         });
       }

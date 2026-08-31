@@ -6,6 +6,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { rigOf } from "@/lib/rig";
 import { cn } from "@/lib/utils";
 
@@ -90,7 +91,24 @@ export function RigPicker({
   /* Every picker action stops here first. The copy states what will actually
      happen — assigning, detaching, re-hitching, taking over or moving — and
      the desk commits it out loud instead of by stray click. */
-  const [confirm, setConfirm] = useState<{ title: string; body: string; action: string; run: () => void } | null>(null);
+  /*
+    `option` is the confirm dialog's one optional checkbox, and `run` receives
+    its state. Added for "move all tools with them" rather than a second dialog
+    component, because every other action here already confirms through this
+    one and a parallel dialog is how two confirmations drift apart in wording.
+    Callers that pass no `option` ignore the argument entirely.
+  */
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    body: string;
+    action: string;
+    option?: { label: string; hint: string };
+    run: (optionOn: boolean) => void;
+  } | null>(null);
+  /* Reset to true by `ask` on every open: the default is "the tools come with
+     them", and a checkbox that remembered being unticked would quietly apply a
+     previous decision to an unrelated crew. */
+  const [optionOn, setOptionOn] = useState(true);
 
   const setCustodian = trpc.location.setCustodian.useMutation();
   const updateVehicle = trpc.vehicle.update.useMutation();
@@ -114,7 +132,16 @@ export function RigPicker({
     setBusy(false);
   };
 
-  const ask = (title: string, body: string, action: string, run: () => void) => setConfirm({ title, body, action, run });
+  const ask = (
+    title: string,
+    body: string,
+    action: string,
+    run: (optionOn: boolean) => void,
+    option?: { label: string; hint: string },
+  ) => {
+    setOptionOn(true);
+    setConfirm({ title, body, action, run, option });
+  };
 
   const foremanNameOf = (id: string) => foremen.find((f) => f.id === id)?.name ?? "this foreman";
 
@@ -133,14 +160,44 @@ export function RigPicker({
           title: f.externalId ? `${f.externalId} · ${f.name}` : f.name,
           meta: `${rig.truck ? rig.truck.unit : "no truck"}${rig.trailer ? ` + ${rig.trailer.unit}` : ""} · ${f.role}`,
           selected: !!onJob,
-          disabled: !rig.truck && !rig.trailer,
-          hint: rig.truck || rig.trailer ? undefined : "Give them a truck or a trailer first — those are what move to a job.",
+          /*
+            No longer disabled without a rig.
+
+            This used to refuse anybody holding neither truck nor trailer, on
+            the reasoning that "those are what move to a job". They are what
+            CARRIES tools to a job, which is a different claim: a crew is put
+            on a job before it is rigged all the time — the job is awarded, the
+            foreman is named, and the truck is allocated the following week.
+            Refusing meant the roster could not describe the fortnight in
+            between, so the desk recorded it nowhere and the job read as having
+            no crew at all. The gap is still worth SAYING, which is what the
+            hint does; it is not worth blocking.
+          */
+          hint: rig.truck || rig.trailer ? undefined : "No truck or trailer yet — they can still be put on the job.",
           onSelect: () =>
             ask(
               `Add ${f.name} to ${proj?.name ?? "this job"}?`,
-              `${f.name} is posted to this project: their posting and primary project move, and their truck, trailer and the tools aboard follow.`,
+              `${f.name} is posted to this project: their posting and primary project move${
+                rig.truck || rig.trailer ? ", and their truck, trailer and the tools aboard follow" : ""
+              }.`,
               "Add crew",
-              () => run(() => assignForeman.mutateAsync({ projectId: request.projectId, employeeId: f.id, role: "foreman" })),
+              (withTools) =>
+                run(() =>
+                  assignForeman.mutateAsync({
+                    projectId: request.projectId,
+                    employeeId: f.id,
+                    /* The person's own role, not a hard-coded "foreman".
+                       A superintendent holds custody since 2026-09-01, so
+                       posting one as a foreman would file them under the wrong
+                       team role and move somebody else's roster row. */
+                    role: f.role === "superintendent" ? "superintendent" : "foreman",
+                    moveTools: withTools,
+                  }),
+                ),
+              {
+                label: "Move their tools to this job",
+                hint: "Unticked, the tools stay on the job they are on now with nobody holding them — the truck and trailer still travel.",
+              },
             ),
         };
       });
@@ -418,14 +475,31 @@ export function RigPicker({
             <DialogTitle>{confirm?.title}</DialogTitle>
           </DialogHeader>
           <p className="-mt-2 text-sm text-muted-foreground">{confirm?.body}</p>
+          {confirm?.option ? (
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-md border bg-muted/30 p-3">
+              <Checkbox
+                checked={optionOn}
+                onCheckedChange={(v) => setOptionOn(v === true)}
+                className="mt-0.5"
+                aria-describedby="rig-confirm-option-hint"
+              />
+              <span className="space-y-1">
+                <span className="block text-sm font-medium leading-none">{confirm.option.label}</span>
+                <span id="rig-confirm-option-hint" className="block text-xs text-muted-foreground">
+                  {confirm.option.hint}
+                </span>
+              </span>
+            </label>
+          ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirm(null)}>Cancel</Button>
             <Button
               disabled={busy}
               onClick={() => {
                 const c = confirm;
+                const on = optionOn;
                 setConfirm(null);
-                c?.run();
+                c?.run(on);
               }}
             >
               {confirm?.action ?? "Continue"}

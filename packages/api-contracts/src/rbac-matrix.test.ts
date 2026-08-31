@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
-import { createDb, schema, ROLE_PERMS, type Database } from "@stinventory/db";
-import { PERMISSIONS, ROLES, VIEW_SCOPES, type Permission } from "@stinventory/types";
+import { createDb, schema, ROLE_PERMS, roleSpecs, type Database } from "@stinventory/db";
+import { CUSTODIAN_ROLES, PERMISSIONS, ROLES, VIEW_SCOPES, type Permission } from "@stinventory/types";
 import { appRouter } from "./index.js";
 import { assetVisibility, assetScopeWhere, viewTierOf } from "./scope.js";
 import { assetRouter } from "./routers/asset.js";
@@ -47,6 +47,44 @@ import type { Context } from "./trpc.js";
   assert that the test's own fixtures are self-consistent.
 */
 const url = process.env.DATABASE_URL;
+
+
+/*
+  Every role a custodian picker offers must be one the register says can hold a
+  tool.
+
+  `CUSTODIAN_ROLES` (packages/types) is what the pickers read; `canHoldCustody`
+  on `roleSpecs` (packages/db) is what the role register seeds. They are two
+  statements of one fact, in two packages, and nothing connected them until
+  2026-09-01 — the comments on both claimed this test enforced it while it did
+  not, which is worse than no claim. Adding `superintendent` to one and
+  forgetting the other would have offered a custodian the database refuses.
+
+  Asserted in ONE direction on purpose. `canHoldCustody` is the wider set:
+  `crew` carries it — most of a yard holds tools and never signs in — and is
+  deliberately absent from `CUSTODIAN_ROLES`, which lists the roles a picker
+  offers. The direction that can actually hurt is a picker naming a role the
+  register cannot back.
+
+  Pure — no database, no fixtures. Both sides are literals in code.
+*/
+describe("custodian roles and the role register agree", () => {
+  it("gives every CUSTODIAN_ROLE canHoldCustody in the seeded register", () => {
+    for (const role of CUSTODIAN_ROLES) {
+      const spec = roleSpecs.find((r) => r.name === role);
+      expect(spec, `CUSTODIAN_ROLES names "${role}", which roleSpecs does not define`).toBeDefined();
+      expect(spec!.canHoldCustody, `"${role}" is offered as a custodian but roleSpecs says it cannot hold custody`).toBe(true);
+    }
+  });
+
+  it("keeps crew holding custody without being an offered custodian role", () => {
+    /* The asymmetry, pinned so a future tidy-up does not "fix" it by adding
+       crew to CUSTODIAN_ROLES and putting non-login labourers into every
+       custodian dropdown in the product. */
+    expect(roleSpecs.find((r) => r.name === "crew")!.canHoldCustody).toBe(true);
+    expect(CUSTODIAN_ROLES as readonly string[]).not.toContain("crew");
+  });
+});
 
 describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
   let db: Database;

@@ -97,11 +97,16 @@ export const departmentSpecs: DeptSeed[] = [
   CLAUDE.md rule 9: a flag nothing seeds is behaviour nobody tests, and the edge
   that trips the rule is the one worth having.
 
-  The booleans reproduce exactly what was hard-coded before, so this is a move
-  rather than a redesign: `canHoldCustody` is the old `CUSTODIAN_ROLES`
-  (foreman, mechanic) and `usesFieldLayout` is the old `FIELD_ROLES` (foreman,
-  superintendent, mechanic). Verify against `packages/types/src/enums.ts` and
-  `nav-config.ts` before changing either.
+  The booleans started as a move rather than a redesign: `canHoldCustody` was
+  the old `CUSTODIAN_ROLES` and `usesFieldLayout` the old `FIELD_ROLES`. They
+  are no longer frozen — `superintendent` gained `canHoldCustody` on
+  2026-09-01, because a job is routinely rigged before its foreman is hired and
+  the superintendent is who actually holds the tools until then.
+  `canHoldCustody` and `CUSTODIAN_ROLES` must still agree in both directions,
+  which `rbac-matrix.test.ts` asserts for a freshly seeded tenant — and a live
+  database needs a migration to follow, since the seed never runs there. Verify
+  against `packages/types/src/enums.ts` and `nav-config.ts` before changing
+  either.
 */
 export type RoleSeed = {
   name: string;
@@ -120,7 +125,7 @@ export const roleSpecs: RoleSeed[] = [
   { name: "procurement", description: "Buys equipment and materials. Reads the register, does not move custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
   { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
   { name: "engineer", description: "Runs work on a job. Same reach as a project manager where tools are concerned.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "superintendent", description: "Runs several crews. Sees what their foremen hold, across jobs.", needsLogin: true, canHoldCustody: false, usesFieldLayout: true, isSystem: true },
+  { name: "superintendent", description: "Runs several crews, and holds tools directly when a job has no foreman yet.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
   { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
   { name: "mechanic", description: "Works out of the shop and keeps tools there. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
   { name: "hr", description: "People records. No access to the register or to custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
@@ -1299,9 +1304,31 @@ export const assetSpecs: AssetSeed[] = [
   { tag: "TOOL-0752", make: null, modelNumber: null, description: "PC-006", serial: null, isSerialized: false, quantity: 1, cost: null, own: "p-little-elm-23009", dept: false, status: "assigned", cust: "e-fm025", cur: "p-little-elm-23009", loc: "l-TE-035" },
   { tag: "TOOL-0753", make: "Honda", modelNumber: null, description: "Power Generator", serial: "EBCL-1520042", isSerialized: true, quantity: 1, cost: null, own: null, dept: true, status: "assigned", cust: "e-fm025", cur: "p-little-elm-23009", loc: "l-TE-035" },
   { tag: "TOOL-0754", make: null, modelNumber: "6600", description: "Wacker Newson", serial: "5590605", isSerialized: true, quantity: 1, cost: null, own: null, dept: true, status: "assigned", cust: "e-fm025", cur: "p-little-elm-23009", loc: "l-TE-035" },
+  /*
+    Two tools held by a SUPERINTENDENT, not a foreman.
+
+    `superintendent` gained `canHoldCustody` on 2026-09-01 because a job is
+    routinely awarded and rigged before its foreman is hired, and the super
+    running the crews is who physically holds the small tools until then. Every
+    seeded tool was held by a foreman or a mechanic, so that path was reachable
+    only by hand-editing rows — CLAUDE.md rule 9's "data the seed cannot
+    produce is behaviour nobody tests", and the same gap the acquisition-cost
+    and personal-truck rows above were added to close.
+
+    Deliberately at the Dallas Yard rather than in a trailer: the point of the
+    case is a super holding tools with no crew rig under them, which is what
+    makes the custodian picker, the crew row and its new glyph worth having.
+  */
+  { tag: "ZZ-SUP-01", make: "SYNTHETIC", modelNumber: "SEED-SUP-1", description: "SYNTHETIC — seed-only, superintendent custody", serial: null, isSerialized: false, quantity: 1, cost: "410.00", own: null, dept: true, status: "assigned", cust: "e-sup001", cur: "p-lone-star-22018", loc: "l-dal" },
+  { tag: "ZZ-SUP-02", make: "SYNTHETIC", modelNumber: "SEED-SUP-2", description: "SYNTHETIC — seed-only, superintendent custody", serial: null, isSerialized: false, quantity: 1, cost: "380.00", own: null, dept: true, status: "assigned", cust: "e-sup001", cur: "p-lone-star-22018", loc: "l-dal" },
 ];
 
 export const assignSpecs: AssignSeed[] = [
+  /* The custody links for the two superintendent-held tools above. Without
+     these the asset rows would name a custodian with no open assignment, which
+     is the projection/ledger divergence the boot sweep raises. */
+  { tag: "ZZ-SUP-01", cust: "e-sup001", proj: "p-lone-star-22018", loc: "l-dal", type: "permanent", start: "2025-01-06", end: null },
+  { tag: "ZZ-SUP-02", cust: "e-sup001", proj: "p-lone-star-22018", loc: "l-dal", type: "permanent", start: "2025-01-06", end: null },
   { tag: "TOOL-0001", cust: "e-fm001", proj: "p-lone-star-22018", loc: "l-TE-006", type: "permanent", start: "2025-01-06", end: null },
   { tag: "TOOL-0002", cust: "e-fm001", proj: "p-lone-star-22018", loc: "l-TE-006", type: "permanent", start: "2025-01-06", end: null },
   { tag: "TOOL-0003", cust: "e-fm001", proj: "p-lone-star-22018", loc: "l-TE-006", type: "permanent", start: "2025-01-06", end: null },
