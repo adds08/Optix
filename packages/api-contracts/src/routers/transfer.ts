@@ -106,29 +106,6 @@ export const transferRouter = router({
          is tenant-blind and answers a wrong type with a raw 500 (custody.ts). */
       await assertVehicleContext(ctx.db, tid, input.toTruckId, input.toTrailerId);
 
-      /*
-        One open hand-off per tool.
-
-        Nothing stopped a second identical transfer being raised while the first
-        was still waiting, and the desk got two rows for one physical event —
-        approve one and the other stays in the queue forever, pointing at a
-        hand-off that already happened. Easy to hit by tapping twice on bad
-        signal, which is the normal condition in a yard.
-      */
-      const openTransfer = await ctx.db.query.transfer.findFirst({
-        where: and(
-          eq(schema.transfer.tenantId, tid),
-          eq(schema.transfer.assetId, input.assetId),
-          eq(schema.transfer.status, "pending_approval"),
-        ),
-      });
-      if (openTransfer) {
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "This tool already has a transfer waiting for approval at the equipment desk.",
-        });
-      }
-
       const settings = await ctx.db.query.tenantSettings.findFirst({ where: eq(schema.tenantSettings.tenantId, tid) });
       const outcome = custodyOutcome({
         assetCost: asset.acquisitionCost ? Number(asset.acquisitionCost) : null,
@@ -147,6 +124,45 @@ export const transferRouter = router({
          concurrent hand-offs of one tool could both open a link. The custody
          move takes the asset-row lock inside custody.ts, so they serialise. */
       const row = await ctx.db.transaction(async (tx) => {
+        /*
+          One open hand-off per tool — checked HERE, inside the transaction and
+          behind the asset-row lock, not before it (UI-89 / UI-90, same shape as
+          the STI-109 re-check-under-lock fixes on approve/decline/return).
+
+          The check this replaced ran on `ctx.db` with nothing behind it in the
+          database — no partial unique index, unlike `assignment_one_active_uq`.
+          Two requests fired on bad signal ("the normal condition in a yard", as
+          the old comment put it) both read no open transfer and both inserted:
+          one physical hand-off, two transfer rows and two entries in UIC-1003's
+          custody chain at the same minute. Taking `SELECT … FOR UPDATE` on the
+          asset row first — the same anchor `custody.ts` locks — serialises
+          concurrent creates for one tool, so the loser sees the committed row
+          below and is refused. A `transfer_one_pending_uq` partial index is the
+          intended database backstop (see schema/asset.ts).
+        */
+        await tx
+          .select({ id: schema.asset.id })
+          .from(schema.asset)
+          .where(and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)))
+          .for("update");
+        const [openTransfer] = await tx
+          .select({ id: schema.transfer.id })
+          .from(schema.transfer)
+          .where(
+            and(
+              eq(schema.transfer.tenantId, tid),
+              eq(schema.transfer.assetId, input.assetId),
+              eq(schema.transfer.status, "pending_approval"),
+            ),
+          )
+          .limit(1);
+        if (openTransfer) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This tool already has a transfer waiting for approval at the equipment desk.",
+          });
+        }
+
         const [created] = await tx
           .insert(schema.transfer)
           .values({

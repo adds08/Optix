@@ -405,6 +405,44 @@ describe.skipIf(!url)("double decisions write exactly one ledger event (STI-109,
     await expect(confirmMessageAction(ctx, msg!.id)).rejects.toThrow(/No matching assets/);
   });
 
+  /* UI-89 / UI-90: the create-side race. `transfer.create`'s "one open hand-off
+     per tool" check ran on ctx.db before the transaction and had no database
+     backstop, so two rapid submits both inserted a pending row — one physical
+     hand-off, two Moving-tab rows and two custody-chain lines at the same
+     minute. The check now runs inside the transaction behind the asset-row
+     lock. Needs a high-value tool so the outcome is "approve" (a pending row);
+     the auto path completes and moves custody, which the STI-102 lock already
+     serialises. */
+  it("two simultaneous transfer creates for one tool: one pending row, one CONFLICT", async () => {
+    const caller = transferRouter.createCaller({
+      ...ctx,
+      session: { ...ctx.session, permissions: new Set<Permission>([...ctx.session.permissions, "transfer.create"]) },
+    });
+    /* Throwaway tenant, no settings row yet — plain insert. `tenant_settings`
+       carries no unique on tenant_id (.claude/rules/database.md), so there is
+       nothing to upsert against. */
+    await db.insert(schema.tenantSettings).values({ tenantId, highValueThreshold: 1 });
+
+    for (let i = 0; i < 5; i++) {
+      const [asset] = await db
+        .insert(schema.asset)
+        .values({ tenantId, description: "UI-90 generator", acquisitionCost: "5000" })
+        .returning({ id: schema.asset.id });
+
+      const results = await Promise.allSettled([
+        caller.create({ assetId: asset!.id, toCustodianId: empB }),
+        caller.create({ assetId: asset!.id, toCustodianId: empB }),
+      ]);
+      expectOneWinner(results);
+
+      const rows = await db
+        .select({ id: schema.transfer.id })
+        .from(schema.transfer)
+        .where(and(eq(schema.transfer.tenantId, tenantId), eq(schema.transfer.assetId, asset!.id)));
+      expect(rows).toHaveLength(1);
+    }
+  });
+
   it("two simultaneous transfer approves: one wins, one CONFLICT, one ledger event", async () => {
     const caller = transferRouter.createCaller(ctx);
     for (let i = 0; i < 5; i++) {

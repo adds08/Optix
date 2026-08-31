@@ -266,6 +266,19 @@ export const transfer = pgTable(
     tenantIdx: index("transfer_tenant_idx").on(t.tenantId),
     assetIdx: index("transfer_asset_idx").on(t.assetId),
     statusIdx: index("transfer_status_idx").on(t.status),
+    /*
+      One waiting hand-off per tool, enforced by the database (UI-89 / UI-90).
+      The router check alone let two rapid `transfer.create` calls both insert a
+      pending row for one tool — one physical hand-off, two queue entries and two
+      custody-chain lines. Mirror of `assignment_one_active_uq` above, down to
+      the raw `sql` predicate: drizzle-kit 0.28.1 turns `eq()` inside a
+      partial-index WHERE into a `$1` placeholder that fails at migrate time.
+      The generated migration must dedupe any existing pending pairs before
+      creating the index — see 0023 for the shape.
+    */
+    onePendingUq: uniqueIndex("transfer_one_pending_uq")
+      .on(t.assetId)
+      .where(sql`${t.status} = 'pending_approval'`),
     toTruckIdx: index("transfer_to_truck_idx").on(t.toTruckId),
     toTrailerIdx: index("transfer_to_trailer_idx").on(t.toTrailerId),
     toTruckFk: foreignKey({
