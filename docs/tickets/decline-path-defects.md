@@ -1,4 +1,4 @@
-# STI-112 — Decline path: broken message, and a missing ledger event
+# Decline path: broken message, and a missing ledger event
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit

@@ -1,4 +1,4 @@
-# STI-203 — Carry truck and trailer through custody and `toState`
+# Carry truck and trailer through custody and `toState`
 
 **Phase:** 2 — Assignment detail
 **Size:** 2 units

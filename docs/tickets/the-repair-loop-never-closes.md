@@ -1,4 +1,4 @@
-# STI-123 — The repair loop never closes: `repair_complete` has no writer
+# The repair loop never closes: `repair_complete` has no writer
 
 **Phase:** 1 — Custody trail (follow-up)
 **Size:** 2 units (a writer, an affordance, and the decision about who signs it off)

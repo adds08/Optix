@@ -49,9 +49,9 @@ Draft proposal 2026-08-15 · corrected 2026-08-22 · implemented 2026-08-22
 
 > **Correction, 2026-08-22.** The first version of this document said it was "drafted from
 > Urban's answers on the three questions that were open." **No record of those answers
-> exists** — not in this repository, not in any meeting note, and `docs/tickets/STI-301`
-> (written the day *after* this file) still carries **`Status: BLOCKED on Urban`** with the
-> same questions listed as unanswered. The role definitions in §1 are **Bodhi Labs'
+> exists** — not in this repository and not in any meeting note. The permission-matrix
+> ticket, written the day *after* this file, still carried **`Status: BLOCKED on Urban`**
+> with the same questions listed as unanswered. The role definitions in §1 are **Bodhi Labs'
 > proposals**, not decisions Urban has taken. They are presented here so Urban confirms or
 > corrects a concrete document rather than inventing one in a meeting — which was always the
 > intent — but nothing below is agreed until Urban says so.

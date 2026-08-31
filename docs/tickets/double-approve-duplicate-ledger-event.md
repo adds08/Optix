@@ -1,4 +1,4 @@
-# STI-109 — Concurrent double-approve writes a duplicate ledger event
+# Concurrent double-approve writes a duplicate ledger event
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit

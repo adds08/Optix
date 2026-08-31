@@ -1,4 +1,4 @@
-# STI-202 — Truck and trailer as first-class assignment fields
+# Truck and trailer as first-class assignment fields
 
 **Phase:** 2 — Assignment detail
 **Size:** 3 units

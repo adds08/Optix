@@ -1,4 +1,4 @@
-# STI-117 — Three reads that escaped the lock discipline
+# Three reads that escaped the lock discipline
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit

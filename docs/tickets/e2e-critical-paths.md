@@ -1,4 +1,4 @@
-# STI-002 — E2E specs for the custody critical paths
+# E2E specs for the custody critical paths
 
 **Phase:** cross-cutting
 **Size:** 2 units

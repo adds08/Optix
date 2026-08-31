@@ -1,4 +1,4 @@
-# STI-111 — Remove the dead `pending_verification` remnants
+# Remove the dead `pending_verification` remnants
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit

@@ -1,4 +1,4 @@
-# STI-105 — Desk queue screen: approve / verify / decline
+# Desk queue screen: approve / verify / decline
 
 **Phase:** 1 — Custody trail
 **Size:** 3 units

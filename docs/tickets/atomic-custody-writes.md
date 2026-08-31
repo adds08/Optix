@@ -1,4 +1,4 @@
-# STI-102 — Atomic custody writes: one transaction, row-locked
+# Atomic custody writes: one transaction, row-locked
 
 **Phase:** 1 — Custody trail
 **Size:** 3 units

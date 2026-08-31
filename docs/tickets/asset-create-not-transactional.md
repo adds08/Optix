@@ -1,4 +1,4 @@
-# STI-115 — `asset.create` is not transactional
+# `asset.create` is not transactional
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit

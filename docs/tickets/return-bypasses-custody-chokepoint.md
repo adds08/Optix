@@ -1,4 +1,4 @@
-# STI-114 — `assignment.return` is the last custody writer bypassing the chokepoint
+# `assignment.return` is the last custody writer bypassing the chokepoint
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit

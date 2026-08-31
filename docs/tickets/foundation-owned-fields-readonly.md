@@ -1,4 +1,4 @@
-# STI-404 — Foundation-owned fields read-only in the UI
+# Foundation-owned fields read-only in the UI
 
 **Phase:** 4 — Foundation entity load
 **Size:** 1 unit

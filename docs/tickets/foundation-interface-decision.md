@@ -1,4 +1,4 @@
-# STI-401 — Decision: the Foundation interface, and whether `phase` returns
+# Decision: the Foundation interface, and whether `phase` returns
 
 **Phase:** 4 — Foundation entity load
 **Size:** 0 units (decision record)

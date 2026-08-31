@@ -1,4 +1,4 @@
-# STI-113 — `assignment.return` writes a partial `toState` that blanks project and location
+# `assignment.return` writes a partial `toState` that blanks project and location
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit

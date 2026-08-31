@@ -1,4 +1,4 @@
-# STI-106 — Reconciliation check that reports divergence
+# Reconciliation check that reports divergence
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit

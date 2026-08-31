@@ -11,13 +11,15 @@ and is blocked on Urban**, who owns the interface question — that is the only 
 > | 1 — Custody trail | Complete. All five invariants enforced |
 > | 2 — Truck & trailer | Complete |
 > | 3 — Roles, accounts, visibility | **Complete.** One login per role, the four-tier ladder applied to the query on every read path, no role-name branching in server code, RBAC matrix test |
-> | 4 — Foundation load | **Not started. Blocked on Urban** (STI-401) |
+> | 4 — Foundation load | **Not started. Blocked on Urban** — see `foundation-interface-decision.md` |
 > | 5 — Desk views by role | **Complete**, four panels of five — the fifth specifies a deleted concept, see below |
 >
-> **A warning about this directory.** Most `STI-1xx`/`STI-2xx` ticket files still say
-> `Status: READY` while the work shipped weeks ago. The Status lines were not maintained;
-> the code is the truth. Verify against code before believing either a ticket or this file
-> — that is CLAUDE.md behaviour rule 3 and this board is not exempt from it.
+> **A warning about this directory.** The ticket files carry `Status:` lines that were
+> never maintained — many said `READY` while the work had shipped weeks earlier. The
+> closed ones were deleted on 2026-08-31 and the survivors renamed off the old `STI-nnn`
+> numbering, but the stale Status lines inside them were not audited. **The code is the
+> truth.** Verify against it before believing either a ticket or this file — that is
+> CLAUDE.md behaviour rule 3, and this board is not exempt from it.
 
 ### The permission matrix stopped being a blocker
 
@@ -30,7 +32,7 @@ per role — in plain English, not dotted identifiers — and create roles of th
 changes what they disagree with, with no developer and no deploy.
 
 What it cost is worth knowing before touching the RBAC tests: `packages/db/src/role-perms.ts`
-used to **be** the matrix, and STI-308 asserted the database matched it exactly in both
+used to **be** the matrix, and the RBAC matrix test asserted the database matched it exactly in both
 directions. That cannot hold once grants are editable — the moment somebody unticks a box
 the database is *supposed* to differ. `role-perms.ts` is now the **factory default**, the
 test asserts a freshly seeded tenant matches it, and the live database is guarded by the
@@ -41,16 +43,16 @@ because a procedure names it, so one typed into a screen would gate nothing.
 
 ### An adversarial audit ran over this work, and found three things
 
-Four read-only agents audited SYSTEM_PLAN §1–§9 and every STI-1xx/2xx ticket against the
+Four read-only agents audited SYSTEM_PLAN §1–§9 and every Phase 1 and 2 ticket against the
 code rather than against the Status lines. Worth recording what they caught, because two
 were **overclaims in work that had just been marked done**:
 
-1. **STI-119 was claimed done and was not.** The sweep scanned only
+1. **The tenant-predicate sweep was claimed done and was not.** It scanned only
    `packages/api-contracts` and reported clean while four writes in `apps/api` — the photo
    upload and delete routes, the messaging worker's project lookup, the entity resolver's
    asset lookup — were untouched. *A sweep that cannot see half the writes is worse than no
    sweep, because it produces a green tick.* The test now scans both roots.
-2. **STI-120 was the most severe open item and had not been looked at.** Fixed — see below.
+2. **The chat sign-off recovery work was the most severe open item and had not been looked at.** Fixed — see below.
 3. Several §1/§5 claims were false rather than merely stale: "No mobile application" (there
    is one), "Vendors read-only" (there is no vendor table at all), "No error boundaries"
    (there are two). All corrected in place.
@@ -68,7 +70,7 @@ were **overclaims in work that had just been marked done**:
 - **`messaging.dismiss` let any account empty the desk's queue.** Same walk.
 - **Nothing can go overdue** — the borrow model went on 2026-08-09 — yet SYSTEM_PLAN §6.5
   still asked for an overdue panel and four other documents still described it as live.
-- **A chat retry appended permanent duplicate ledger events** (STI-120). `applyChatAction`
+- **A chat retry appended permanent duplicate ledger events.** `applyChatAction`
   writes one asset per transaction, so a multi-asset action failing partway left some
   applied; the caller un-claimed the message and the Confirm button worked again, and
   pressing it re-applied the ones that had landed. **No crash required.** The ledger is
@@ -103,12 +105,12 @@ make ENV=local up          # stack: web :3100, api :4100, postgres
 make ENV=local test        # expect 267 passing
 ```
 
-Then read, in this order:
-1. This file — where things stand.
-2. `docs/tickets/README.md` — the board.
-3. `docs/tickets/EXECUTION-PLAN.md` — wave order and *why* tickets collide.
+Then read this file for where things stand, and the ticket beside it for whatever you are
+picking up. The Release 1 delivery board and its wave-ordering plan were deleted on
+2026-08-31 along with the closed tickets they scheduled — the changelogs are the record of
+what was actually done and why.
 
-To run a ticket end to end: **`/feature-delivery STI-207`**. That skill orchestrates
+To run a ticket end to end: **`/feature-delivery <ticket-file>`**. That skill orchestrates
 ticket → branch → implement → adversarial QA → review. It never fires on its own.
 
 ---
@@ -126,7 +128,7 @@ real controls; the fifth is deferred with Phase 2.
 | 2 | Ledger is append-only | A source comment | Postgres trigger raising `0A000` on UPDATE, DELETE **and** TRUNCATE. Cascade deletes blocked. Test-pinned. |
 | 3 | Custody writes are atomic | Three unwrapped statements | One transaction per procedure, anchored on the asset row. Passing a raw `db` handle is a **compile error**. |
 | 4 | Projection is derivable | Untestable — the fold was a no-op | Folds cleanly. One fold, not two. Divergence sweep every 6h + at boot, reporting **two distinct kinds**. |
-| 5 | Assignment carries truck and trailer | Fails | **Delivered (STI-202 + STI-203).** Composite FK enforces vehicle type at the database; every custody writer fills both keys; held transfers keep the pick through approval (`0017`); jobsites and tool detail show it. |
+| 5 | Assignment carries truck and trailer | Fails | **Delivered.** Composite FK enforces vehicle type at the database; every custody writer fills both keys; held transfers keep the pick through approval (`0017`); jobsites and tool detail show it. |
 
 ### Feature by feature, in Phase 1's own terms
 
@@ -158,7 +160,7 @@ owner, and Postgres treats an owner as holding all grant options. Shipped as a t
 which fires for every role including superuser.
 
 **The ledger can actually be folded.** All 754 rows had `to_state = NULL` — invariant 4 was
-not failing, it was *unmeasurable*. Migration `0013` backfilled history and STI-108 fixed
+not failing, it was *unmeasurable*. Migration `0013` backfilled history and the seed work fixed
 the seed, so a fresh database folds to its own projection by construction.
 
 **Reconciliation reports instead of silently repairing**, and now distinguishes **"the
@@ -207,16 +209,16 @@ and it is not guessed at in code.
 Found by implementers and QA who were instructed to report adjacent problems rather than
 fix them. None is Phase 1 scope; none blocks anything delivered above.
 
-**STI-115, STI-116 and STI-117 are all now DONE.** The three below replaced them, found by
+**The `asset.create`, REST-surface and lock-discipline tickets are all now DONE.** The three below replaced them, found by
 the greps and probes those tickets required.
 
 | Ticket | What | Why it matters |
 |---|---|---|
-| [STI-118](STI-118-intake-and-setstatus-not-atomic.md) | `applyIntake` and `asset.setStatus` split a projection from its ledger event | `applyIntake` is the **chat** path, so this is the remaining route to a no-evidence asset a user can actually reach |
-| [STI-119](STI-119-untenanted-predicate-sweep.md) | Queries without a tenant predicate | None exploitable today; the value is a rule with no exceptions to reason about. Includes one **legitimate** exception (login) that needs documenting, not fixing |
-| [STI-120](STI-120-confirm-claim-crash-recovery.md) | Chat sign-off can duplicate events and strand requests | **A partial multi-asset apply re-applies the successful part on retry — no crash needed.** Also: a stranded task has no sweeper at all |
+| `applyIntake` / `asset.setStatus` atomicity | `applyIntake` and `asset.setStatus` split a projection from its ledger event | `applyIntake` is the **chat** path, so this is the remaining route to a no-evidence asset a user can actually reach |
+| Untenanted predicate sweep | Queries without a tenant predicate | None exploitable today; the value is a rule with no exceptions to reason about. Includes one **legitimate** exception (login) that needs documenting, not fixing |
+| Chat sign-off crash recovery | Chat sign-off can duplicate events and strand requests | **A partial multi-asset apply re-applies the successful part on retry — no crash needed.** Also: a stranded task has no sweeper at all |
 
-**STI-120 is the one to look at first**, and it grew during the work: it was opened as a
+**The chat sign-off ticket is the one to look at first**, and it grew during the work: it was opened as a
 narrow crash-window ticket and QA then showed a duplicate-write reachable by an ordinary
 retry, with no crash involved. Re-size it before starting.
 
@@ -224,11 +226,11 @@ retry, with no crash involved. Re-size it before starting.
 
 | Ticket | Outcome |
 |---|---|
-| [STI-206](STI-206-approval-queue-hides-the-rig.md) | **DONE.** The queue shows the rig. Nothing recorded renders as an empty cell, never a dash — after the three-state rule an absent vehicle is an absence, not a claim of "no truck" |
-| [STI-207](STI-207-container-membership-is-still-location-based.md) | **DONE.** The active assignment is the truth for a vehicle, by **precedence** not union: a tool with no active assignment is aboard by its location row, because an unheld tool has no `trailerId` to be aboard of |
-| [STI-208](STI-208-hitching-a-trailer-could-assert-the-new-truck.md) | **CLOSED — the answer was "no."** Hitching keeps carrying the recorded truck forward. Reasoning recorded at the call site and in the rules, so it is not re-raised |
+| Approval queue hides the rig | **DONE.** The queue shows the rig. Nothing recorded renders as an empty cell, never a dash — after the three-state rule an absent vehicle is an absence, not a claim of "no truck" |
+| Container membership was location-based | **DONE.** The active assignment is the truth for a vehicle, by **precedence** not union: a tool with no active assignment is aboard by its location row, because an unheld tool has no `trailerId` to be aboard of |
+| Hitching a trailer could assert the new truck | **CLOSED — the answer was "no."** Hitching keeps carrying the recorded truck forward. Reasoning recorded at the call site and in the rules, so it is not re-raised |
 
-**Two defects in STI-207's first cut were caught by adversarial review before they shipped**,
+**Two defects in the container-membership fix's first cut were caught by adversarial review before they shipped**,
 and both are now pinned by tests confirmed to fail when the fix is reverted:
 
 - The writer stamped the **container's location** onto the link and the ledger snapshot while
@@ -248,17 +250,17 @@ rather than deleted, because the *before* is what makes the change legible.
 - ~~**No user administration of any kind.** Creating a user means editing `seed-data.ts` and
   reseeding. Three accounts exist.~~ **Fourteen accounts, one per role**, created through
   `/admin/users`.
-- ~~**Login is tenant-blind.**~~ STI-305: `user_tenant_email_uq` (`0018`) plus a `login()`
+- ~~**Login is tenant-blind.**~~ Tenant-scoped login: `user_tenant_email_uq` (`0018`) plus a `login()`
   that **refuses** an ambiguous address rather than picking a row.
 - ~~No four-tier visibility ladder — a superintendent and a foreman are indistinguishable to
-  the scoping layer, and the KPI dashboard ignores project scope.~~ STI-302: the ladder is
+  the scoping layer, and the KPI dashboard ignores project scope.~~ The visibility ladder is
   applied to the QUERY on every read path, dashboard aggregates included — those were the
   widest leak, because a total over rows you may not read is a read of those rows.
 - ~~No Foundation load, no departure reassignment, no permission-driven desk panels.~~
-  Departure reassignment shipped (STI-306); the Desk is at `/desk`, composed from the panel
-  registry by permission (STI-501/502). **Foundation load remains — it is Phase 4 and is
+  Departure reassignment shipped; the Desk is at `/desk`, composed from the panel
+  registry by permission. **Foundation load remains — it is Phase 4 and is
   blocked on Urban**, who owns the interface question.
-- ~~**No E2E harness.**~~ **Built (STI-001).** `e2e/` is its own workspace package; run it
+- ~~**No E2E harness.**~~ **Built.** `e2e/` is its own workspace package; run it
   with `make ENV=local e2e` against the running stack. 27 specs across five roles: each
   lands where it should, is offered the routes its permissions imply, is **not** offered the
   ones they forbid, and loads with no console error. Plus a named spec for the desk approval
@@ -268,7 +270,8 @@ rather than deleted, because the *before* is what makes the change legible.
   it run in parallel against a shared database with no isolation mechanism, and the first
   mutating spec needs one chosen first (the note is in `e2e/playwright.config.ts`). And it
   **no longer runs in CI** — the `e2e` job was removed on 2026-08-30 after the pin specs
-  went red; it is a local target now, `make ENV=local e2e`. STI-122 covers putting it back.
+  went red; it is a local target now, `make ENV=local e2e`. `make-the-browser-suite-blocking.md`
+  covers putting it back.
 
 ### Reachability: a set of procedures still have no UI caller
 
@@ -279,8 +282,8 @@ the acceptance standard. A sweep of `appRouter` against both clients on 2026-08-
 `.<key>.<proc>`; the count moves whenever a screen is added. Two were dealt with:
 
 - `messaging.pendingVerification` — **deleted.** It was the removed `verify` queue: dead
-  code with a live permission, the same class STI-111 swept.
-- `user.changePassword` — **now reachable** at `/account/password`. STI-303 set
+  code with a live permission, the same class the dead-remnant sweep covered.
+- `user.changePassword` — **now reachable** at `/account/password`. The user-administration work set
   `must_change_password` on every created and reset account and nothing read it, so users
   were told to change a password they had no way to change. The shell now redirects them.
 
@@ -298,7 +301,7 @@ outstanding.
 
 ### One thing a human must do before production
 
-**The production duplicate check for STI-103 has not been run.** No agent has production
+**The production duplicate check for the one-active-assignment index has not been run.** No agent has production
 access and none sought it. Before migration `0015` is applied to production, run:
 
 ```bash
@@ -328,7 +331,7 @@ After `make ENV=local reset`:
 | Boot sweep | `2 divergent asset(s)`, both `kind: "no_evidence"` |
 | Append-only triggers | both `tgenabled = 'O'` |
 | `assignment_one_active_uq` | present |
-| `vehicle_one_truck_per_foreman_uq` | present (migration `0024`, STI-502 — was `0022`, orphaned by a merge) |
+| `vehicle_one_truck_per_foreman_uq` | present (migration `0024` — was `0022`, orphaned by a merge) |
 | Project statuses reachable | all four — Richardson `closing`, Mesquite `complete`, City of Kemp `awarded` |
 | Categories | 8 seeded; 414 of 756 tools filed, 342 unfiled |
 | Desk queue | 1 pending assignment (carries the personal-allowance truck) + 1 pending transfer (trailer only) |
@@ -393,7 +396,6 @@ If the boot sweep reports ~754 divergences, the seed has regressed — run
 | | |
 |---|---|
 | Board and all tickets | `docs/tickets/` |
-| Wave order and collision rules | `docs/tickets/EXECUTION-PLAN.md` |
 | Pinned versions that differ from public docs | `docs/tickets/STACK-NOTES.md` |
 | Delivery workflow | `.claude/skills/feature-delivery/SKILL.md` |
 | Production preflight for migration 0015 | `scripts/sti-103-production-preflight.sh` |

@@ -1,4 +1,4 @@
-# STI-121 — Procedures with no UI caller
+# Procedures with no UI caller
 
 **Phase:** 1 — Custody trail (follow-up)
 **Size:** unsized — the triage is the first half of the work

@@ -1,4 +1,4 @@
-# STI-403 — Idempotent loader with adopt-by-natural-key
+# Idempotent loader with adopt-by-natural-key
 
 **Phase:** 4 — Foundation entity load
 **Size:** 2 units

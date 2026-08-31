@@ -1,4 +1,4 @@
-# STI-110 — A no-snapshot divergence is reported forever and can never be cleared
+# A no-snapshot divergence is reported forever and can never be cleared
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit

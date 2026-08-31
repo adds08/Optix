@@ -1,4 +1,4 @@
-# STI-204 — Typed `TRPCError` across the chat/action path
+# Typed `TRPCError` across the chat/action path
 
 **Phase:** 2 — Assignment detail
 **Size:** 2 units

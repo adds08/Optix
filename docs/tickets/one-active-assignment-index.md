@@ -1,4 +1,4 @@
-# STI-103 — Partial unique index for one-active-assignment
+# Partial unique index for one-active-assignment
 
 **Phase:** 1 — Custody trail
 **Size:** 2 units

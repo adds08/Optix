@@ -1,4 +1,4 @@
-# STI-402 — `external_ref`, `source` and `last_synced_at` identity columns
+# `external_ref`, `source` and `last_synced_at` identity columns
 
 **Phase:** 4 — Foundation entity load
 **Size:** 2 units

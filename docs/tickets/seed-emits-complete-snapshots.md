@@ -1,4 +1,4 @@
-# STI-108 — The seed must emit complete `toState` snapshots, and reach the rules it gates
+# The seed must emit complete `toState` snapshots, and reach the rules it gates
 
 **Phase:** 1 — Custody trail
 **Size:** 2 units *(was 1; acquisition costs added)*

@@ -1,4 +1,4 @@
-# STI-122 — Put the browser suite back in CI, then make it block a merge
+# Put the browser suite back in CI, then make it block a merge
 
 **Phase:** 1 — Custody trail (follow-up)
 **Size:** 1 unit (fix the red specs; the CI wiring itself is a few lines)

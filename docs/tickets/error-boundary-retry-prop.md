@@ -1,4 +1,4 @@
-# STI-205 — Error boundaries use the removed `reset` prop
+# Error boundaries use the removed `reset` prop
 
 **Phase:** 2 — Assignment detail
 **Size:** 1 unit

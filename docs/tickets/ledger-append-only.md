@@ -1,4 +1,4 @@
-# STI-104 — Enforce ledger append-only at the database
+# Enforce ledger append-only at the database
 
 **Phase:** 1 — Custody trail
 **Size:** 1 unit
