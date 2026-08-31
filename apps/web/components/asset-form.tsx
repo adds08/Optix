@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { CategorySelect } from "@/components/category-select";
 import { PhotoUpload } from "@/components/photo-upload";
 import { cn } from "@/lib/utils";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /*
   One dialog for both jobs.
@@ -223,36 +224,53 @@ export function AssetForm({ open, onClose, edit }: Props) {
               ))}
             </div>
             {costTarget === "project" ? (
-              <select value={owningProjectId} onChange={(e) => setOwningProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="">Select...</option>
-                {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <EntityField
+                value={owningProjectId}
+                onChange={setOwningProjectId}
+                placeholder="Select..."
+                searchPlaceholder="Project name or code"
+                emptyLabel="No job matches."
+                options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+              />
             ) : (
-              <select value={owningDepartmentId} onChange={(e) => setOwningDepartmentId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="">Select...</option>
-                {departments.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <EntityField
+                value={owningDepartmentId}
+                onChange={setOwningDepartmentId}
+                placeholder="Select..."
+                searchPlaceholder="Search departments…"
+                emptyLabel="No department matches."
+                options={(departments.data ?? []).map((d) => ({ value: d.id, label: d.name }))}
+              />
             )}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Condition</label>
-            <select value={condition} onChange={(e) => setCondition(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="new">New</option>
-              <option value="good">Good</option>
-              <option value="fair">Fair</option>
-              <option value="poor">Poor</option>
-              <option value="damaged">Damaged</option>
-            </select>
+            <EntityField
+              value={condition}
+              onChange={setCondition}
+              placeholder="Select..."
+              options={[
+                { value: "new", label: "New" },
+                { value: "good", label: "Good" },
+                { value: "fair", label: "Fair" },
+                { value: "poor", label: "Poor" },
+                { value: "damaged", label: "Damaged" },
+              ]}
+            />
           </div>
           {/* Only when creating. On an existing tool, where it is comes from
               the ledger — use Assign, Transfer or Return to move it. */}
           {edit ? null : (
             <div className="space-y-2">
               <label className="text-sm font-medium">Location</label>
-              <select value={locationId} onChange={(e) => setLocationId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="">Select...</option>
-                {locations.data?.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
+              <EntityField
+                value={locationId}
+                onChange={setLocationId}
+                placeholder="Select..."
+                searchPlaceholder="Yard, gang box or container"
+                emptyLabel="No place matches."
+                options={(locations.data ?? []).map((l) => ({ value: l.id, label: l.name }))}
+              />
             </div>
           )}
           {result && <p className="text-sm text-destructive">{result}</p>}

@@ -6,6 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/entity-field";
+/* Aliased because this file needs BOTH pickers and they share a name. The one
+   above searches the whole tenant over `entity.search` and is for "find me any
+   tool"; this one picks from a list the caller already has. Two components,
+   one name, one import line apart — the alias is here rather than a rename
+   because renaming either reaches a dozen call sites for a collision that
+   occurs exactly once. */
+import { EntityField as OptionField } from "@/components/ui/entity-picker";
 
 /*
   The desk turning a message the parser could not read into a record — or
@@ -111,15 +118,12 @@ export function ResolveMessage({
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Action</label>
-            <select
+            <OptionField
               value={actionType}
-              onChange={(e) => setActionType(e.target.value)}
-              className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              {ACTIONS.map((a) => (
-                <option key={a.value} value={a.value}>{a.label}</option>
-              ))}
-            </select>
+              onChange={setActionType}
+              placeholder="What to do"
+              options={ACTIONS.map((a) => ({ value: a.value, label: a.label }))}
+            />
           </div>
 
           <EntityField label="Tool" kind="asset" value={assetId} onChange={setAssetId} required />

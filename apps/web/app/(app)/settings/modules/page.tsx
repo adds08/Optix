@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { FEATURE_STATES, type FeatureState } from "@stinventory/types";
 import { DESK_NAV, FIELD_NAV, isSettingsItemId, type NavItem } from "@/components/sti/nav-config";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /*
   ADR-13 (docs/06-decisions.md) made concrete: one row per feature key, a
@@ -67,16 +68,15 @@ export default function ModulesSettingsPage() {
         <span className="text-sm font-medium">{label}</span>
         {description ? <span className="text-xs text-muted-foreground">{description}</span> : null}
       </div>
-      <select
-        value={stateOf(keyName)}
-        onChange={(e) => set.mutate({ key: keyName, state: e.target.value as FeatureState })}
-        disabled={set.isPending}
-        className="flex h-8 w-36 shrink-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        {FEATURE_STATES.map((s) => (
-          <option key={s} value={s}>{STATE_LABELS[s]}</option>
-        ))}
-      </select>
+      <div className="w-36 shrink-0">
+        <EntityField
+          value={stateOf(keyName)}
+          onChange={(v) => set.mutate({ key: keyName, state: v as FeatureState })}
+          placeholder="State"
+          disabled={set.isPending}
+          options={FEATURE_STATES.map((s) => ({ value: s, label: STATE_LABELS[s] }))}
+        />
+      </div>
     </div>
   );
 

@@ -166,6 +166,14 @@ with them.
 `tbl_entity_employee`, `tbl_entity_employee_contact`, `tbl_entity_department`,
 `tbl_ops_employee_project_assignment`, `tbl_ops_project_team_member`.
 
+**`tbl_ops_project_team_member.source` records which system wrote the roster
+row** — see `TEAM_SOURCES` in `packages/types`, defaulting to
+`equipment_department`. It is descriptive and nothing branches on it. Urban's
+crews are keyed differently in the equipment department, in payroll, and in
+whatever arrives next, so when two of them disagree about who is on a job the
+reconciliation has to know which one wrote the row. That is unanswerable
+retrospectively, which is why the column landed before a second writer existed.
+
 **`tbl_entity_employee.external_id` is the HR-issued employee ID, and it is a
 naming trap.** Urban sometimes calls that identifier "contact". It has nothing to
 do with `tbl_entity_employee_contact`, which holds phone numbers and email

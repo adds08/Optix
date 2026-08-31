@@ -84,7 +84,11 @@ that will execute it. Optimise the output for the small model, not for yourself.
 
 `entity-resolve.ts` tries tag patterns (`UIC-\d{3,4}`, `TR[AU]-\d{3}`) against `asset.tag` then
 `vehicle.unit`, then token-by-token `ilike` across employee → project → location → asset.
-Custodians are filtered to `CUSTODIAN_ROLES` (`foreman`, `mechanic`) and active employment.
+Custodians are filtered to `CUSTODIAN_ROLES` and active employment. That list gained
+`superintendent` on 2026-09-01 — a job is routinely rigged before its foreman is hired, and
+the super holds the tools until then — so read the list from `packages/types/src/enums.ts`
+rather than trusting a copy of it here or anywhere else. It must agree with `canHoldCustody`
+in the role register, which `rbac-matrix.test.ts` now enforces in that direction.
 Every query is tenant-scoped.
 
 **An @-mention always beats a fuzzy match** — the worker skips resolution entirely for picked

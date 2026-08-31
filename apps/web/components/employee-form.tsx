@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityField } from "@/components/ui/entity-picker";
 
 export type EmployeeEditable = {
   id: string;
@@ -137,18 +138,14 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
                   rather than `config.manage`, because choosing somebody's role
                   is not the same authority as changing what a role may do. */}
               <label className="text-sm font-medium">Role</label>
-              <select
+              <EntityField
                 value={roleId}
-                onChange={(e) => setRoleId(e.target.value)}
-                className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                <option value="">Choose a role…</option>
-                {(roleOptions.data ?? []).map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {humanizeRole(r.name)}
-                  </option>
-                ))}
-              </select>
+                onChange={setRoleId}
+                placeholder="Choose a role…"
+                searchPlaceholder="Search roles…"
+                emptyLabel="No role matches."
+                options={(roleOptions.data ?? []).map((r) => ({ value: r.id, label: humanizeRole(r.name) }))}
+              />
               {chosen ? (
                 <p className="text-xs text-muted-foreground">
                   {chosen.description}
@@ -173,11 +170,16 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
           {edit ? (
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
-              <select value={employmentStatus} onChange={(e) => setEmploymentStatus(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="active">Active</option>
-                <option value="on_leave">On leave</option>
-                <option value="terminated">Terminated</option>
-              </select>
+              <EntityField
+                value={employmentStatus}
+                onChange={setEmploymentStatus}
+                placeholder="Employment status"
+                options={[
+                  { value: "active", label: "Active" },
+                  { value: "on_leave", label: "On leave" },
+                  { value: "terminated", label: "Terminated" },
+                ]}
+              />
               <p className="text-xs text-muted-foreground">
                 Terminating stamps the date. Anything they hold stays on their name until
                 somebody moves it — nothing is blocked, and the ledger keeps the history.
@@ -186,10 +188,14 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
           ) : null}
           <div className={edit ? "hidden" : "space-y-2"}>
             <label className="text-sm font-medium">Primary project</label>
-            <select value={primaryProjectId} onChange={(e) => setPrimaryProjectId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-              <option value="">Select...</option>
-              {projects.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <EntityField
+              value={primaryProjectId}
+              onChange={setPrimaryProjectId}
+              placeholder="Select..."
+              searchPlaceholder="Project name or code"
+              emptyLabel="No job matches."
+              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+            />
           </div>
           {/* DOMAIN DATA again — the role of the person being edited, not of the
               signed-in user. Only a foreman reports to a superintendent, so
@@ -203,10 +209,14 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
           {chosen?.name === "foreman" && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Reports to (superintendent)</label>
-              <select value={reportsToEmployeeId} onChange={(e) => setReportsToEmployeeId(e.target.value)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="">None</option>
-                {superintendents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <EntityField
+                value={reportsToEmployeeId}
+                onChange={setReportsToEmployeeId}
+                placeholder="None"
+                searchPlaceholder="Name or employee number"
+                emptyLabel="Nobody matches."
+                options={superintendents.map((s) => ({ value: s.id, label: s.name, hint: s.externalId ?? undefined }))}
+              />
             </div>
           )}
           {result && <p className="text-sm text-destructive">{result}</p>}

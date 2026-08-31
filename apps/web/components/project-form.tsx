@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PROJECT_STATUSES, type ProjectStatus } from "@stinventory/types";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /* Sentence case for the select; the values themselves come from the shared
    enum, so a new status appears here without an edit and cannot appear here
@@ -96,11 +97,12 @@ export function ProjectForm({ open, onClose, edit }: Props) {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value as ProjectStatus)} className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
-                {PROJECT_STATUSES.map((s) => (
-                  <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                ))}
-              </select>
+              <EntityField
+                value={status}
+                onChange={(v) => setStatus(v as ProjectStatus)}
+                placeholder="Status"
+                options={PROJECT_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+              />
             </div>
           </div>
           <div className="space-y-2">

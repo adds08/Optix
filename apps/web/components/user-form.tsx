@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /*
   New login account — by invite, not by a password an admin hands over.
@@ -21,9 +22,6 @@ import { Input } from "@/components/ui/input";
   does not create one, and leaving it blank is the normal case for office
   staff who sign in but never carry a grinder.
 */
-const SELECT_CLASS =
-  "flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
-
 /*
   The one moment a credential is readable, shown to the admin who asked for it.
 
@@ -159,21 +157,25 @@ export function UserForm({ open, onClose }: { open: boolean; onClose: () => void
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Role</label>
-              <select value={roleId} onChange={(e) => setRoleId(e.target.value)} className={SELECT_CLASS}>
-                <option value="">No role — can sign in, sees nothing</option>
-                {roles.data?.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
+              <EntityField
+                value={roleId}
+                onChange={setRoleId}
+                placeholder="No role — can sign in, sees nothing"
+                searchPlaceholder="Search roles…"
+                emptyLabel="No role matches."
+                options={(roles.data ?? []).map((r) => ({ value: r.id, label: r.name }))}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Linked person</label>
-              <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className={SELECT_CLASS}>
-                <option value="">Not linked — office account</option>
-                {employees.data?.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
+              <EntityField
+                value={employeeId}
+                onChange={setEmployeeId}
+                placeholder="Not linked — office account"
+                searchPlaceholder="Name or employee number"
+                emptyLabel="Nobody matches."
+                options={(employees.data ?? []).map((e) => ({ value: e.id, label: e.name, hint: e.externalId ?? undefined }))}
+              />
               <p className="text-xs text-muted-foreground">
                 Optional, both ways. People hold tools; accounts sign in. A foreman on the People
                 register needs no account, and this account needs no person.

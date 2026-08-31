@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-01 | [Every dropdown is the same dropdown](2026-09-01-every-dropdown-is-the-same-dropdown.md) |
 | 2026-09-01 | [The jobsite board learns two levels, and superintendents can hold tools](2026-09-01-the-jobsite-board-learns-two-levels-and-a-second-custodian.md) |
 | 2026-09-01 | [The screen that grants permissions could not be saved](2026-09-01-the-screen-that-grants-permissions-could-not-be-saved.md) |
 

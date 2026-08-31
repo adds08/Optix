@@ -255,6 +255,40 @@ ledger feed, every report, every dashboard tile and chart — through the visibi
 was true when it was written and is the reason the dashboard totals leaked.) The selector can
 only narrow what the API already returned; it cannot widen it.
 
+## There is no native `<select>` in this app
+
+**Every dropdown is `EntityField` (`components/ui/entity-picker.tsx`) or
+`SearchSelect` (`components/ui/search-select.tsx`).** As of 2026-09-01 the
+sweep is complete: `grep -rn '<select' apps/web --include='*.tsx'` returns
+comments and nothing else. Keep it that way.
+
+A native `<select>` renders the operating system's own widget, so the same form
+looks like macOS on one desk and Windows on another while every other control
+is shadcn. It also has no search — the moment a list is ten rows long it is a
+scroll, and Urban has four hundred tools, forty-five people and sixteen jobs.
+The rule is not "searchable where the list is long": a control that changes
+shape depending on how much data a tenant happens to have is a control nobody
+can describe, so **all** of them are the same picker, short static lists
+included.
+
+Two components, deliberately, and they answer different questions:
+
+- **`EntityField` in `ui/entity-picker.tsx`** — picks from a list the caller
+  already holds. This is the form default.
+- **`EntityField` in `components/entity-field.tsx`** — searches the whole
+  tenant over `entity.search` and never loads a list. For "find me any tool"
+  where fetching every row to filter it client-side is the wrong shape.
+
+**They share a name.** Importing the wrong one type-errors rather than
+misbehaving, which is survivable, but `resolve-message.tsx` needs both and
+aliases the second. If you add a third caller that needs both, alias there too
+rather than renaming — a rename reaches a dozen call sites for a collision that
+happens twice.
+
+`SearchSelect` is the filter-bar variant of the same picker, and keeps one
+behaviour of its own: picking the option already selected CLEARS it, because a
+filter needs "show me everything again" without a separate reset button.
+
 ## Row actions: one menu, one trigger
 
 **Anything you can do to a row lives behind `ActionMenuTrigger`

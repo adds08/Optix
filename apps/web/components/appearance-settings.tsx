@@ -17,6 +17,7 @@ import {
   type ThemePrefs,
 } from "@/lib/themes/themes";
 import { cn } from "@/lib/utils";
+import { EntityField } from "@/components/ui/entity-picker";
 
 /*
   Appearance: the theme engine's controls (docs/19).
@@ -127,18 +128,14 @@ export function AppearanceSettings() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="app-font">Font family</label>
-          <select
+          <EntityField
             id="app-font"
             value={fontFamily}
-            onChange={(e) => { const v = e.target.value as FontFamilyName; setFontFamily(v); preview({ fontFamily: v }); }}
-            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            {Object.entries(FONT_FAMILY_LABELS).map(([value, f]) => (
-              <option key={value} value={value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => { setFontFamily(v as FontFamilyName); preview({ fontFamily: v as FontFamilyName }); }}
+            placeholder="Typeface"
+            searchPlaceholder="Search typefaces…"
+            options={Object.entries(FONT_FAMILY_LABELS).map(([value, f]) => ({ value, label: f.label }))}
+          />
           <p className="text-xs text-muted-foreground">
             {FONT_FAMILY_LABELS[fontFamily]?.hint}
           </p>
@@ -146,16 +143,13 @@ export function AppearanceSettings() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="app-scale">Font size</label>
-          <select
+          <EntityField
             id="app-scale"
             value={fontScale}
-            onChange={(e) => { const v = e.target.value; setFontScale(v); preview({ fontScale: v }); }}
-            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            {FONT_SCALES.map((s) => (
-              <option key={s} value={s}>{Math.round(parseFloat(s) * 100)}%</option>
-            ))}
-          </select>
+            onChange={(v) => { setFontScale(v); preview({ fontScale: v }); }}
+            placeholder="Text size"
+            options={FONT_SCALES.map((s) => ({ value: s, label: `${Math.round(parseFloat(s) * 100)}%` }))}
+          />
         </div>
       </div>
 
@@ -172,16 +166,13 @@ export function AppearanceSettings() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="app-icon-scale">Icon size</label>
-          <select
+          <EntityField
             id="app-icon-scale"
             value={iconScale}
-            onChange={(e) => { const v = e.target.value; setIconScale(v); preview({ iconScale: v }); }}
-            className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-          >
-            {ICON_SCALES.map((s) => (
-              <option key={s} value={s}>{Math.round(parseFloat(s) * 100)}%</option>
-            ))}
-          </select>
+            onChange={(v) => { setIconScale(v); preview({ iconScale: v }); }}
+            placeholder="Icon size"
+            options={ICON_SCALES.map((s) => ({ value: s, label: `${Math.round(parseFloat(s) * 100)}%` }))}
+          />
           <p className="text-xs text-muted-foreground">
             Separate from font size — icons already grow with the type; this changes how
             large they are beside it.
