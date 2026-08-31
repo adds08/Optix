@@ -4,16 +4,27 @@ import * as schema from "@stinventory/db/schema";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 
 export const notificationRouter = router({
+  /*
+    YOUR alerts. An account with no employee record is the recipient of none,
+    so it gets an empty list — not the tenant's.
+
+    The fallback here used to re-state `eq(tenantId, tid)`, which reads like a
+    scope and is not one: it widened the query to every notification in the
+    tenant for exactly the accounts that should see none. `owner@`, `hr@` and
+    five more seeded accounts have no employee row. The tenant-wide view is a
+    real thing and it is `notification.all`, one procedure down, behind
+    `notification.manage` — this is not that.
+  */
   list: protectedProcedure.query(async ({ ctx }) => {
-    const tid = ctx.session.tenantId;
     const empId = ctx.session.employeeId;
+    if (!empId) return [];
     return ctx.db
       .select()
       .from(schema.notification)
       .where(
         and(
-          eq(schema.notification.tenantId, tid),
-          empId ? eq(schema.notification.recipientEmployeeId, empId) : eq(schema.notification.tenantId, tid),
+          eq(schema.notification.tenantId, ctx.session.tenantId),
+          eq(schema.notification.recipientEmployeeId, empId),
         ),
       )
       .orderBy(schema.notification.createdAt);
