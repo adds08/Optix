@@ -124,6 +124,13 @@ If minimalism or convenience conflicts with any of these, they win — say so ou
 - **Comments carry the rationale, not the mechanics.** This codebase's best trait: rules name
   the specific bug they prevent, often with the real tool tag involved. Preserve it — when you
   change custody logic, update the comment explaining *why*.
+- **No agent attribution in commits or pull requests.** No `Co-Authored-By: Claude ...`
+  trailer, no "Generated with Claude Code" line, no emoji. A commit message is imperative
+  subject, blank line, prose explaining *why* — and it ends on the last paragraph. Several
+  agent harnesses append these by default and their own instructions say to; this repo's
+  rule overrides that, so strip them before committing rather than after being asked. The
+  history is read by people looking for a decision, and a trailer naming the tool that typed
+  it answers a question nobody has.
 - **Migrations, never push.** `make generate` → commit the SQL → `make migrate`. `push` is
   deliberately named `push-dangerous`.
 - **Don't state counts in documentation** — of tables, tests, routes, report pages. They go
