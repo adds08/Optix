@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-01 | [Commit messages stop naming the tool that typed them](2026-09-01-commit-messages-stop-naming-the-tool-that-typed-them.md) |
 | 2026-09-01 | [The jobsite board learns two levels, and superintendents can hold tools](2026-09-01-the-jobsite-board-learns-two-levels-and-a-second-custodian.md) |
 | 2026-09-01 | [The screen that grants permissions could not be saved](2026-09-01-the-screen-that-grants-permissions-could-not-be-saved.md) |
 

@@ -101,26 +101,56 @@ C="docker compose -f docker-compose.prod.yml --env-file .env.production"
 $C ps                 # what is running
 $C logs -f api        # follow the API
 $C restart api
-$C up -d --build api  # after new code is rsynced
+$C up -d --build api  # after ./docker/deploy.sh has fetched new code
 ```
 
 **Careful with SSH.** The firewall applies `ufw limit` to port 22: six
 connections from one IP inside 30 seconds and you are blocked for a while. A
 polling loop will lock you out of your own box. Use one session and stay in it.
 
-Redeploy after a code change:
+## Deploying: merge to `main`
+
+**There is nothing to run.** A push to `main` — in practice, merging a pull
+request — is the deploy. CI runs typecheck, lint, tests, all three image builds
+and an API boot against a freshly migrated Postgres, and only then does the
+`deploy` job fire. It is gated on `github.ref == 'refs/heads/main'`, so a branch
+or a PR build never deploys.
+
+The job opens one SSH session to the droplet with a key that is restricted
+**server-side** to running `docker/deploy.sh` and nothing else — the key reaches
+docker, which is effectively root, so the restriction is the difference between
+"CI can deploy" and "anyone holding the CI secret owns the box". That script
+fetches `origin/main`, `git reset --hard`s to it, rebuilds, restarts Caddy to
+pick up its bind-mounted config, polls `/health` for five minutes, and **rolls
+back to the previous commit** if it never comes up.
+
+Expect a short 502 during the rebuild. The droplet has 1GB and the build briefly
+starves the running containers.
+
+Migrations run when the API container starts and it refuses to serve if they
+fail, so a bad migration stops the deploy rather than producing an API talking to
+a schema it does not match.
+
+To deploy by hand — recovering from a failed CI run, or deploying a branch:
 
 ```bash
-# from the repo on your laptop
-rsync -az --delete --exclude-from=/tmp/sti-rsync-exclude \
-  -e "ssh -i ~/.ssh/do@it_urban" ./ root@68.183.27.164:/opt/stinventory/
-ssh -i ~/.ssh/do@it_urban root@68.183.27.164 \
-  'cd /opt/stinventory && docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build'
+ssh -i ~/.ssh/do@it_urban root@68.183.27.164
+cd /opt/stinventory && DEPLOY_BRANCH=main ./docker/deploy.sh
 ```
 
-Migrations run automatically when the API container starts, and the container
-refuses to serve if they fail — so a bad migration stops the deploy rather than
-producing an API talking to a schema it does not match.
+### Do not rsync from a laptop
+
+This document described an `rsync -az --delete` from the working copy until
+2026-09-01, and that flow **twice deleted files that exist only on the server** —
+`.env.production` and the Expo export — because `--delete` cannot tell "removed
+from the repo" from "never in the repo". It also referenced an exclude file at
+`/tmp/sti-rsync-exclude` that is on nobody's machine, so following the
+instructions verbatim either failed or destroyed production configuration.
+
+`docker/deploy.sh` replaced it precisely for this, and says so in its own header.
+A `git reset --hard` cannot make the same mistake: it only touches tracked files,
+and `.env.production`, `field/` and `.admin-credential` are gitignored so that
+this is true rather than merely hoped for.
 
 ---
 
