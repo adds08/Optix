@@ -147,4 +147,49 @@ maybe("tenant-scoped login (STI-305)", () => {
       .set({ isActive: true })
       .where(and(eq(schema.user.tenantId, tenantA), eq(schema.user.email, soloEmail)));
   });
+
+  /*
+    KNOWN-ISSUES 5 — the lookup compared the address verbatim.
+
+    `Alice@x.com` did not find a stored `alice@x.com`. What made it confusing
+    rather than merely strict is that the rate-limit key in apps/api DOES
+    lowercase the address, so the two halves of one request disagreed about
+    what the user's email was: a person typing the wrong case was throttled
+    under a key that matched while being told their credentials were wrong.
+
+    Both directions are asserted, because the fix has to lower the COLUMN and
+    not just the input — normalising the input alone would still miss a row
+    stored with capitals, which is the case that actually locks somebody out.
+  */
+  it("finds the account whatever case the address is typed in", async () => {
+    expect((await login(db, soloEmail.toUpperCase(), "password-solo")).ok).toBe(true);
+    expect((await login(db, mixedCase(soloEmail), "password-solo")).ok).toBe(true);
+    /* Surrounding space is trimmed too — it is what a paste from an email
+       client routinely carries. */
+    expect((await login(db, `  ${soloEmail}  `, "password-solo")).ok).toBe(true);
+  });
+
+  it("still refuses the wrong password however the address is cased", async () => {
+    /* The guard must widen the LOOKUP and nothing else. */
+    expect((await login(db, soloEmail.toUpperCase(), "nope")).ok).toBe(false);
+  });
+
+  it("keeps the tenant hint working when the case differs", async () => {
+    const r = await login(db, shared.toUpperCase(), "password-for-A", slugA);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.tenantId).toBe(tenantA);
+  });
+
+  it("still refuses an ambiguous address typed in another case", async () => {
+    /* Case-insensitivity must not become a way around STI-305's refusal. */
+    const r = await login(db, shared.toUpperCase(), "password-for-A");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("invalid_credentials");
+  });
 });
+
+/* Alternating case — a real paste from a phone keyboard looks more like this
+   than a clean upper-casing does. */
+function mixedCase(s: string): string {
+  return [...s].map((c, i) => (i % 2 ? c.toUpperCase() : c.toLowerCase())).join("");
+}

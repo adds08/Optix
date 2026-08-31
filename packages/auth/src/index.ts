@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
@@ -73,6 +73,30 @@ export async function login(
   password: string,
   tenantSlug?: string,
 ): Promise<LoginResult> {
+  /*
+    Matched case-insensitively (KNOWN-ISSUES 5).
+
+    This compared verbatim, so `Alice@x.com` did not find a stored
+    `alice@x.com`. What made it confusing rather than merely strict is that the
+    rate-limit key in apps/api/src/index.ts DOES lowercase the address — the two
+    halves of one request disagreed about what the user's email was, so a person
+    typing the wrong case got throttled under a key that matched while being
+    told their credentials were wrong.
+
+    Lowering the COLUMN, not just the input, because rows already stored with
+    capitals have to be reachable — normalising on write alone would fix new
+    accounts and leave existing ones locked out. No index covers
+    `lower(email)`, so this is a scan on a table with tens of rows; revisit if
+    that stops being true.
+
+    Safe against the pair it makes possible: if a tenant somehow holds both
+    `Alice@` and `alice@`, this now matches two rows and the ambiguity guard
+    below refuses the login. That is the same fail-closed answer STI-305 chose
+    for a cross-tenant collision, and `user.create` refuses to create the pair
+    in the first place.
+  */
+  const emailMatch = sql`lower(${schema.user.email}) = ${email.trim().toLowerCase()}`;
+
   /* Two rows are enough to know the address is ambiguous; there is no reason
      to read every account sharing it. */
   const matches = await db
@@ -87,8 +111,8 @@ export async function login(
     .innerJoin(schema.tenant, eq(schema.tenant.id, schema.user.tenantId))
     .where(
       tenantSlug
-        ? and(eq(schema.user.email, email), eq(schema.tenant.slug, tenantSlug))
-        : eq(schema.user.email, email),
+        ? and(emailMatch, eq(schema.tenant.slug, tenantSlug))
+        : emailMatch,
     )
     .limit(2);
 

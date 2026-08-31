@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { createDb, schema, type Database } from "@stinventory/db";
 import type { Permission } from "@stinventory/types";
 import { assetRouter } from "./routers/asset.js";
@@ -140,5 +140,87 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
       projectId: null,
       locationId,
     });
+  });
+
+  /*
+    KNOWN-ISSUES 4 — a tag could be duplicated by the one path the desk uses most.
+
+    `asset.update` has refused this since it was written and `import.commit`
+    checks both the database and the file, so the single-asset create was the
+    only door left open. The register is read by people who call a tool by its
+    tag out loud, and two rows answering to one tag makes that conversation
+    ambiguous.
+  */
+  it("refuses a tag already in the register", async () => {
+    const ctx = makeCtx(db);
+    await assetRouter.createCaller(ctx).create({ description: "first grinder", tag: "DUP-001" });
+
+    await expect(
+      assetRouter.createCaller(ctx).create({ description: "second grinder", tag: "DUP-001" }),
+    ).rejects.toThrow(/already in the register/i);
+
+    const rows = await db
+      .select({ id: schema.asset.id })
+      .from(schema.asset)
+      .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.tag, "DUP-001")));
+    expect(rows).toHaveLength(1);
+  });
+
+  /*
+    Untagged rows are a NORMAL state, not a collision.
+
+    `asset.tag` is nullable on purpose — the "Needs a Tag" report exists to be
+    the label gun's worklist — so the guard must key on a tag being given, not
+    on the column. A naive `WHERE tag = input.tag` with both null would refuse
+    the second untagged tool in the register.
+  */
+  it("still allows any number of untagged tools", async () => {
+    const ctx = makeCtx(db);
+    await assetRouter.createCaller(ctx).create({ description: "untagged one" });
+    await assetRouter.createCaller(ctx).create({ description: "untagged two" });
+
+    const rows = await db
+      .select({ id: schema.asset.id })
+      .from(schema.asset)
+      .where(and(eq(schema.asset.tenantId, tenantId), isNull(schema.asset.tag)));
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+  });
+
+  /*
+    KNOWN-ISSUES 3 — `setStatus` declared `status: z.string()`.
+
+    Status columns are plain `text` by design and Zod at the router edge is the
+    only thing enforcing the vocabulary, so this procedure was the hole: an
+    unknown value was written to the projection AND into the ledger snapshot,
+    and the ledger is append-only, so it folds back out forever.
+  */
+  it("refuses a status that is not in the vocabulary", async () => {
+    const ctx = makeCtx(db);
+    const row = await assetRouter.createCaller(ctx).create({ description: "status guard drill" });
+
+    await expect(
+      /* Cast because the input type now forbids this at compile time as well —
+         which is the other half of the fix, and is what caught a caller in
+         tool-menu.tsx passing a widened string[]. */
+      assetRouter.createCaller(ctx).setStatus({ id: row!.id, status: "banana" as never }),
+    ).rejects.toThrow();
+
+    const [after] = await db
+      .select({ status: schema.asset.currentStatus })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, row!.id));
+    expect(after!.status).toBe("available");
+  });
+
+  it("still accepts a status that is in the vocabulary", async () => {
+    const ctx = makeCtx(db);
+    const row = await assetRouter.createCaller(ctx).create({ description: "status happy drill" });
+    await assetRouter.createCaller(ctx).setStatus({ id: row!.id, status: "in_maintenance" });
+
+    const [after] = await db
+      .select({ status: schema.asset.currentStatus })
+      .from(schema.asset)
+      .where(eq(schema.asset.id, row!.id));
+    expect(after!.status).toBe("in_maintenance");
   });
 });
