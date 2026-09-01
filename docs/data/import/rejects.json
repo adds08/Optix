@@ -1,0 +1,590 @@
+{
+  "purpose": "Rows that are NOT safe to load, and rows that load but carry a question. severity=reject means loading it would collide, misidentify a person, or invent an id. Every one needs a human decision; none is auto-resolved.",
+  "source_files": [
+    "docs/data/TOOL LIST BY NAME NEW.xlsx",
+    "Latest update on company truck.pdf (transcribed into build_import.py)"
+  ],
+  "counts": {
+    "reject": 12,
+    "warn": 42,
+    "info": 10
+  },
+  "rows": [
+    {
+      "entity": "employee",
+      "id": "Alejandro Capuchino | Alejandro Aranda Capuchino",
+      "reason": "possible duplicate person — same surname + first initial. NOT merged. Alejandro Capuchino: jobs=['22018'] sources=['TE', 'sheet:TE-006']; Alejandro Aranda Capuchino: jobs=['22018'] sources=['truck-pdf']",
+      "severity": "reject",
+      "raw": {}
+    },
+    {
+      "entity": "employee",
+      "id": "FLORENCIO LOZA SR. | FLORIBERTO LOZA SR.",
+      "reason": "possible duplicate person — same surname + first initial. NOT merged. FLORENCIO LOZA SR.: jobs=['22018'] sources=['TE']; FLORIBERTO LOZA SR.: jobs=['22018'] sources=['sheet:TE-025']",
+      "severity": "reject",
+      "raw": {}
+    },
+    {
+      "entity": "employee",
+      "id": "Gilmer Medina | Gilmar Medina",
+      "reason": "possible duplicate person — same surname + first initial. NOT merged. Gilmer Medina: jobs=- sources=['TE']; Gilmar Medina: jobs=['24002'] sources=['truck-pdf']",
+      "severity": "reject",
+      "raw": {}
+    },
+    {
+      "entity": "employee",
+      "id": "JUAN MARTINEZ | Juan Carlos Martinez",
+      "reason": "possible duplicate person — same surname + first initial. NOT merged. JUAN MARTINEZ: jobs=['22017'] sources=['TE', 'sheet:TE-028']; Juan Carlos Martinez: jobs=['25001'] sources=['truck-pdf']",
+      "severity": "reject",
+      "raw": {}
+    },
+    {
+      "entity": "employee",
+      "id": "JUAN MARTINEZ | Juan Martinez (1975)",
+      "reason": "possible duplicate person — one name is a subset of the other. NOT merged. JUAN MARTINEZ: jobs=['22017'] sources=['TE', 'sheet:TE-028']; Juan Martinez (1975): jobs=['22017'] sources=['truck-pdf']",
+      "severity": "reject",
+      "raw": {}
+    },
+    {
+      "entity": "employee",
+      "id": "Jobani Abarca | JOVANI ABARCA",
+      "reason": "possible duplicate person — same surname + first initial. NOT merged. Jobani Abarca: jobs=['24002'] sources=['TE']; JOVANI ABARCA: jobs=['23009', '25015'] sources=['sheet:TE-007', 'truck-pdf']",
+      "severity": "reject",
+      "raw": {}
+    },
+    {
+      "entity": "employee",
+      "id": "Romualdo | Romualdo Almaguer",
+      "reason": "possible duplicate person — one name is a subset of the other. NOT merged. Romualdo: jobs=- sources=['TE']; Romualdo Almaguer: jobs=['26002'] sources=['truck-pdf']",
+      "severity": "reject",
+      "raw": {}
+    },
+    {
+      "entity": "employee",
+      "id": "SAN ANTONIO",
+      "reason": "a place name in the FOREMAN NAME column",
+      "severity": "reject",
+      "raw": {
+        "sheet": "TE",
+        "row": 53,
+        "project": "NEX"
+      }
+    },
+    {
+      "entity": "project",
+      "id": "24002",
+      "reason": "job 24002 is used BOTH as the Equipment Yard (TE-007) and as a real job with its own superintendent/surveyor (TRK-020/036/038/045). This is the same collision that renders duplicate 'Equipment Yard' cards today — a human must say which rows belong to the yard and which to job 24002",
+      "severity": "reject",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-016",
+      "reason": "source says out of service / remove from portal — deliberately NOT imported",
+      "severity": "reject",
+      "raw": {
+        "holder": "Equipment Department( out of service)remove it from portal",
+        "vin": "3C63RRHL4MG616766",
+        "license": "THR-6180"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-035",
+      "reason": "duplicate license plate 'TWD3850', already on TRK-034 — one of the two is wrong",
+      "severity": "reject",
+      "raw": {
+        "vin": "1FTEW1KP6RKD63997",
+        "holder": "Carlos Espinosa"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-10001",
+      "reason": "VIN is not 17 valid characters: '1FDFF6L2RDA34315'",
+      "severity": "reject",
+      "raw": {
+        "holder": "Jose Zamora"
+      }
+    },
+    {
+      "entity": "assignment",
+      "id": "Anup Tamrakar",
+      "reason": "holds 2 vehicles (SUV-001, TRK-025) — legal, but confirm it is one person and not two people sharing a name",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "assignment",
+      "id": "Bill Taylor",
+      "reason": "foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for",
+      "severity": "warn",
+      "raw": {
+        "project": "",
+        "job": "",
+        "sheet": "TE",
+        "row": 58
+      }
+    },
+    {
+      "entity": "assignment",
+      "id": "Bobby Valdez",
+      "reason": "foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for",
+      "severity": "warn",
+      "raw": {
+        "project": "City of Kemp",
+        "job": "",
+        "sheet": "TE",
+        "row": 56
+      }
+    },
+    {
+      "entity": "assignment",
+      "id": "FLORENCIO LOZA SR.",
+      "reason": "foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for",
+      "severity": "warn",
+      "raw": {
+        "project": "Lone Star",
+        "job": "22018",
+        "sheet": "TE",
+        "row": 51
+      }
+    },
+    {
+      "entity": "assignment",
+      "id": "Gilmer Medina",
+      "reason": "foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for",
+      "severity": "warn",
+      "raw": {
+        "project": "Traffic Control",
+        "job": "",
+        "sheet": "TE",
+        "row": 54
+      }
+    },
+    {
+      "entity": "assignment",
+      "id": "JOSUE ROMERO",
+      "reason": "foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for",
+      "severity": "warn",
+      "raw": {
+        "project": "Lone Star",
+        "job": "22018",
+        "sheet": "TE",
+        "row": 52
+      }
+    },
+    {
+      "entity": "assignment",
+      "id": "Luis Luna",
+      "reason": "foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for",
+      "severity": "warn",
+      "raw": {
+        "project": "Mesquite",
+        "job": "24005",
+        "sheet": "TE",
+        "row": 55
+      }
+    },
+    {
+      "entity": "assignment",
+      "id": "Romualdo",
+      "reason": "foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for",
+      "severity": "warn",
+      "raw": {
+        "project": "Traffic Control",
+        "job": "",
+        "sheet": "TE",
+        "row": 59
+      }
+    },
+    {
+      "entity": "assignment",
+      "id": "Romualdo Almaguer",
+      "reason": "holds 2 vehicles (TRK-012, TRK-058) — legal, but confirm it is one person and not two people sharing a name",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "employee",
+      "id": "TE-007",
+      "reason": "foreman disagrees between sources: TE says 'Jobani Abarca', sheet TE-007 says 'JOVANI ABARCA'",
+      "severity": "warn",
+      "raw": {
+        "unit": "TE-007",
+        "sheet": "TE-007"
+      }
+    },
+    {
+      "entity": "employee",
+      "id": "TE-021",
+      "reason": "foreman disagrees between sources: TE says 'GABRIEL VILLAREAL', sheet TE-021 says 'Jose Danery'",
+      "severity": "warn",
+      "raw": {
+        "unit": "TE-021",
+        "sheet": "TE-021"
+      }
+    },
+    {
+      "entity": "employee",
+      "id": "TE-023",
+      "reason": "foreman disagrees between sources: TE says 'RAFAEL JAIMES', sheet TE-023 says 'RAFAEL JIMENEZ'",
+      "severity": "warn",
+      "raw": {
+        "unit": "TE-023",
+        "sheet": "TE-023"
+      }
+    },
+    {
+      "entity": "employee",
+      "id": "TE-025",
+      "reason": "foreman disagrees between sources: TE says 'JOSE RICO', sheet TE-025 says 'FLORIBERTO LOZA SR.'",
+      "severity": "warn",
+      "raw": {
+        "unit": "TE-025",
+        "sheet": "TE-025"
+      }
+    },
+    {
+      "entity": "project",
+      "id": "TE-007",
+      "reason": "job number disagrees between sources: TE says 24002, sheet TE-007 says 23009",
+      "severity": "warn",
+      "raw": {
+        "unit": "TE-007",
+        "sheet": "TE-007"
+      }
+    },
+    {
+      "entity": "tool",
+      "id": "TOOL-0314",
+      "reason": "qty 2 but 1 serial(s) — cannot tell how many serialized units this row is",
+      "severity": "warn",
+      "raw": {
+        "sheet": "TE-021",
+        "description": "Skillsaw 7-1/4\""
+      }
+    },
+    {
+      "entity": "tool",
+      "id": "TOOL-0562",
+      "reason": "qty 2 but 1 serial(s) — cannot tell how many serialized units this row is",
+      "severity": "warn",
+      "raw": {
+        "sheet": "TE-028",
+        "description": "14\" Quicky Saw"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "SUV-2",
+      "reason": "holder is a department, not a person ('Equipment Department') — truck is real but has no custodian to assign it to",
+      "severity": "warn",
+      "raw": {
+        "vin": "JTEZU5JR8B5029107",
+        "license": "CX9-P896",
+        "job": "Estimate department"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "SUV-2",
+      "reason": "unit number not zero-padded like its siblings (SUV-2 vs SUV-001) — will not sort or match consistently",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "SUV-2",
+      "reason": "job cell unusable — not a job number: 'Estimate department'",
+      "severity": "warn",
+      "raw": {
+        "holder": "Equipment Department",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-001",
+      "reason": "trailer has no custodian — flagged in source as 'DAMAGE'",
+      "severity": "warn",
+      "raw": {
+        "project": "Equipment Yard"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-002",
+      "reason": "trailer has no custodian — flagged in source as 'Structure- Concrete pouring'",
+      "severity": "warn",
+      "raw": {
+        "project": "Lone Star",
+        "job": "22018"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-003",
+      "reason": "trailer has no custodian — flagged in source as 'DAMAGE'",
+      "severity": "warn",
+      "raw": {
+        "project": "Equipment Yard"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-004",
+      "reason": "trailer has no custodian — flagged in source as 'Need Reapairs'",
+      "severity": "warn",
+      "raw": {
+        "project": "Equipment Yard"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-005",
+      "reason": "trailer has no custodian — flagged in source as 'DAMAGE'",
+      "severity": "warn",
+      "raw": {
+        "project": "Equipment Yard"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-031",
+      "reason": "trailer has no custodian — no foreman in TE and none in a TE-* sheet",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-032",
+      "reason": "trailer has no custodian — no foreman in TE and none in a TE-* sheet",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-034",
+      "reason": "trailer has no custodian — no foreman in TE and none in a TE-* sheet",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-037",
+      "reason": "trailer has no custodian — no foreman in TE and none in a TE-* sheet",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-038",
+      "reason": "trailer has no custodian — no foreman in TE and none in a TE-* sheet",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-039",
+      "reason": "trailer has no custodian — no foreman in TE and none in a TE-* sheet",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-040",
+      "reason": "trailer has no custodian — no foreman in TE and none in a TE-* sheet",
+      "severity": "warn",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-003",
+      "reason": "a truck row inside the trailer list (TE sheet); cross-check against the truck source before loading",
+      "severity": "warn",
+      "raw": {
+        "holder": "Francisco Perez",
+        "project": "Mechanic",
+        "sheet": "TE",
+        "row": 57
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-013",
+      "reason": "job cell unusable — multiple or mangled job numbers: '25011/25012'",
+      "severity": "warn",
+      "raw": {
+        "holder": "Gabriel Garcia",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-022",
+      "reason": "job cell unusable — not a job number: 'Safety Department'",
+      "severity": "warn",
+      "raw": {
+        "holder": "Dago Ruiz",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-024",
+      "reason": "job cell unusable — multiple or mangled job numbers: '24005/23002/24006'",
+      "severity": "warn",
+      "raw": {
+        "holder": "Yajju Maharjan",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-026",
+      "reason": "job cell unusable — multiple or mangled job numbers: '25001/24014'",
+      "severity": "warn",
+      "raw": {
+        "holder": "Richard Willis",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-028",
+      "reason": "job cell unusable — multiple or mangled job numbers: '25001/24014'",
+      "severity": "warn",
+      "raw": {
+        "holder": "Joel Gonzalez",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-034",
+      "reason": "job cell unusable — multiple or mangled job numbers: '24014/24019'",
+      "severity": "warn",
+      "raw": {
+        "holder": "Mohamad Nooh Ansari",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-039",
+      "reason": "job cell unusable — multiple or mangled job numbers: '2,201,826,002'",
+      "severity": "warn",
+      "raw": {
+        "holder": "John Solorzano",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-049",
+      "reason": "job cell unusable — multiple or mangled job numbers: '21026/26002'",
+      "severity": "warn",
+      "raw": {
+        "holder": "Santiago Gonzalez Franco",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-051",
+      "reason": "job cell unusable — multiple or mangled job numbers: '25001 & 25002'",
+      "severity": "warn",
+      "raw": {
+        "holder": "Eduardo Reyana",
+        "note": "truck can load; its project link cannot"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TRK-058",
+      "reason": "model year 2026 is in the future",
+      "severity": "warn",
+      "raw": {
+        "vin": "1FD7X2BA7TEC24591",
+        "holder": "Romualdo Almaguer"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-015",
+      "reason": "no project or job anywhere — parked at Equipment Yard",
+      "severity": "info",
+      "raw": {
+        "custodian": "MARIO NUNEZ"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-025",
+      "reason": "no project or job anywhere — parked at Equipment Yard",
+      "severity": "info",
+      "raw": {
+        "custodian": "JOSE RICO"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-029,TE-030,TE-031,TE-033",
+      "reason": "8 blank repeat row(s) in TE discarded; a blank never overwrote a populated assignment",
+      "severity": "info",
+      "raw": {
+        "sheet": "TE"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-031",
+      "reason": "no project or job anywhere — parked at Equipment Yard",
+      "severity": "info",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-032",
+      "reason": "no project or job anywhere — parked at Equipment Yard",
+      "severity": "info",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-034",
+      "reason": "no project or job anywhere — parked at Equipment Yard",
+      "severity": "info",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-037",
+      "reason": "no project or job anywhere — parked at Equipment Yard",
+      "severity": "info",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-038",
+      "reason": "no project or job anywhere — parked at Equipment Yard",
+      "severity": "info",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-039",
+      "reason": "no project or job anywhere — parked at Equipment Yard",
+      "severity": "info",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-040",
+      "reason": "no project or job anywhere — parked at Equipment Yard",
+      "severity": "info",
+      "raw": {}
+    }
+  ]
+}

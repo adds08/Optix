@@ -1,0 +1,65 @@
+severity,entity,id,reason,raw
+reject,employee,Alejandro Capuchino | Alejandro Aranda Capuchino,"possible duplicate person — same surname + first initial. NOT merged. Alejandro Capuchino: jobs=['22018'] sources=['TE', 'sheet:TE-006']; Alejandro Aranda Capuchino: jobs=['22018'] sources=['truck-pdf']",{}
+reject,employee,FLORENCIO LOZA SR. | FLORIBERTO LOZA SR.,possible duplicate person — same surname + first initial. NOT merged. FLORENCIO LOZA SR.: jobs=['22018'] sources=['TE']; FLORIBERTO LOZA SR.: jobs=['22018'] sources=['sheet:TE-025'],{}
+reject,employee,Gilmer Medina | Gilmar Medina,possible duplicate person — same surname + first initial. NOT merged. Gilmer Medina: jobs=- sources=['TE']; Gilmar Medina: jobs=['24002'] sources=['truck-pdf'],{}
+reject,employee,JUAN MARTINEZ | Juan Carlos Martinez,"possible duplicate person — same surname + first initial. NOT merged. JUAN MARTINEZ: jobs=['22017'] sources=['TE', 'sheet:TE-028']; Juan Carlos Martinez: jobs=['25001'] sources=['truck-pdf']",{}
+reject,employee,JUAN MARTINEZ | Juan Martinez (1975),"possible duplicate person — one name is a subset of the other. NOT merged. JUAN MARTINEZ: jobs=['22017'] sources=['TE', 'sheet:TE-028']; Juan Martinez (1975): jobs=['22017'] sources=['truck-pdf']",{}
+reject,employee,Jobani Abarca | JOVANI ABARCA,"possible duplicate person — same surname + first initial. NOT merged. Jobani Abarca: jobs=['24002'] sources=['TE']; JOVANI ABARCA: jobs=['23009', '25015'] sources=['sheet:TE-007', 'truck-pdf']",{}
+reject,employee,Romualdo | Romualdo Almaguer,possible duplicate person — one name is a subset of the other. NOT merged. Romualdo: jobs=- sources=['TE']; Romualdo Almaguer: jobs=['26002'] sources=['truck-pdf'],{}
+reject,employee,SAN ANTONIO,a place name in the FOREMAN NAME column,"{""sheet"": ""TE"", ""row"": 53, ""project"": ""NEX""}"
+reject,project,24002,job 24002 is used BOTH as the Equipment Yard (TE-007) and as a real job with its own superintendent/surveyor (TRK-020/036/038/045). This is the same collision that renders duplicate 'Equipment Yard' cards today — a human must say which rows belong to the yard and which to job 24002,{}
+reject,vehicle,TRK-016,source says out of service / remove from portal — deliberately NOT imported,"{""holder"": ""Equipment Department( out of service)remove it from portal"", ""vin"": ""3C63RRHL4MG616766"", ""license"": ""THR-6180""}"
+reject,vehicle,TRK-035,"duplicate license plate 'TWD3850', already on TRK-034 — one of the two is wrong","{""vin"": ""1FTEW1KP6RKD63997"", ""holder"": ""Carlos Espinosa""}"
+reject,vehicle,TRK-10001,VIN is not 17 valid characters: '1FDFF6L2RDA34315',"{""holder"": ""Jose Zamora""}"
+warn,assignment,Anup Tamrakar,"holds 2 vehicles (SUV-001, TRK-025) — legal, but confirm it is one person and not two people sharing a name",{}
+warn,assignment,Bill Taylor,foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for,"{""project"": """", ""job"": """", ""sheet"": ""TE"", ""row"": 58}"
+warn,assignment,Bobby Valdez,foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for,"{""project"": ""City of Kemp"", ""job"": """", ""sheet"": ""TE"", ""row"": 56}"
+warn,assignment,FLORENCIO LOZA SR.,foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for,"{""project"": ""Lone Star"", ""job"": ""22018"", ""sheet"": ""TE"", ""row"": 51}"
+warn,assignment,Gilmer Medina,foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for,"{""project"": ""Traffic Control"", ""job"": """", ""sheet"": ""TE"", ""row"": 54}"
+warn,assignment,JOSUE ROMERO,foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for,"{""project"": ""Lone Star"", ""job"": ""22018"", ""sheet"": ""TE"", ""row"": 52}"
+warn,assignment,Luis Luna,foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for,"{""project"": ""Mesquite"", ""job"": ""24005"", ""sheet"": ""TE"", ""row"": 55}"
+warn,assignment,Romualdo,foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for,"{""project"": ""Traffic Control"", ""job"": """", ""sheet"": ""TE"", ""row"": 59}"
+warn,assignment,Romualdo Almaguer,"holds 2 vehicles (TRK-012, TRK-058) — legal, but confirm it is one person and not two people sharing a name",{}
+warn,employee,TE-007,"foreman disagrees between sources: TE says 'Jobani Abarca', sheet TE-007 says 'JOVANI ABARCA'","{""unit"": ""TE-007"", ""sheet"": ""TE-007""}"
+warn,employee,TE-021,"foreman disagrees between sources: TE says 'GABRIEL VILLAREAL', sheet TE-021 says 'Jose Danery'","{""unit"": ""TE-021"", ""sheet"": ""TE-021""}"
+warn,employee,TE-023,"foreman disagrees between sources: TE says 'RAFAEL JAIMES', sheet TE-023 says 'RAFAEL JIMENEZ'","{""unit"": ""TE-023"", ""sheet"": ""TE-023""}"
+warn,employee,TE-025,"foreman disagrees between sources: TE says 'JOSE RICO', sheet TE-025 says 'FLORIBERTO LOZA SR.'","{""unit"": ""TE-025"", ""sheet"": ""TE-025""}"
+warn,project,TE-007,"job number disagrees between sources: TE says 24002, sheet TE-007 says 23009","{""unit"": ""TE-007"", ""sheet"": ""TE-007""}"
+warn,tool,TOOL-0314,qty 2 but 1 serial(s) — cannot tell how many serialized units this row is,"{""sheet"": ""TE-021"", ""description"": ""Skillsaw 7-1/4\""""}"
+warn,tool,TOOL-0562,qty 2 but 1 serial(s) — cannot tell how many serialized units this row is,"{""sheet"": ""TE-028"", ""description"": ""14\"" Quicky Saw""}"
+warn,vehicle,SUV-2,"holder is a department, not a person ('Equipment Department') — truck is real but has no custodian to assign it to","{""vin"": ""JTEZU5JR8B5029107"", ""license"": ""CX9-P896"", ""job"": ""Estimate department""}"
+warn,vehicle,SUV-2,unit number not zero-padded like its siblings (SUV-2 vs SUV-001) — will not sort or match consistently,{}
+warn,vehicle,SUV-2,job cell unusable — not a job number: 'Estimate department',"{""holder"": ""Equipment Department"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TE-001,trailer has no custodian — flagged in source as 'DAMAGE',"{""project"": ""Equipment Yard""}"
+warn,vehicle,TE-002,trailer has no custodian — flagged in source as 'Structure- Concrete pouring',"{""project"": ""Lone Star"", ""job"": ""22018""}"
+warn,vehicle,TE-003,trailer has no custodian — flagged in source as 'DAMAGE',"{""project"": ""Equipment Yard""}"
+warn,vehicle,TE-004,trailer has no custodian — flagged in source as 'Need Reapairs',"{""project"": ""Equipment Yard""}"
+warn,vehicle,TE-005,trailer has no custodian — flagged in source as 'DAMAGE',"{""project"": ""Equipment Yard""}"
+warn,vehicle,TE-031,trailer has no custodian — no foreman in TE and none in a TE-* sheet,{}
+warn,vehicle,TE-032,trailer has no custodian — no foreman in TE and none in a TE-* sheet,{}
+warn,vehicle,TE-034,trailer has no custodian — no foreman in TE and none in a TE-* sheet,{}
+warn,vehicle,TE-037,trailer has no custodian — no foreman in TE and none in a TE-* sheet,{}
+warn,vehicle,TE-038,trailer has no custodian — no foreman in TE and none in a TE-* sheet,{}
+warn,vehicle,TE-039,trailer has no custodian — no foreman in TE and none in a TE-* sheet,{}
+warn,vehicle,TE-040,trailer has no custodian — no foreman in TE and none in a TE-* sheet,{}
+warn,vehicle,TRK-003,a truck row inside the trailer list (TE sheet); cross-check against the truck source before loading,"{""holder"": ""Francisco Perez"", ""project"": ""Mechanic"", ""sheet"": ""TE"", ""row"": 57}"
+warn,vehicle,TRK-013,job cell unusable — multiple or mangled job numbers: '25011/25012',"{""holder"": ""Gabriel Garcia"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TRK-022,job cell unusable — not a job number: 'Safety Department',"{""holder"": ""Dago Ruiz"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TRK-024,job cell unusable — multiple or mangled job numbers: '24005/23002/24006',"{""holder"": ""Yajju Maharjan"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TRK-026,job cell unusable — multiple or mangled job numbers: '25001/24014',"{""holder"": ""Richard Willis"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TRK-028,job cell unusable — multiple or mangled job numbers: '25001/24014',"{""holder"": ""Joel Gonzalez"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TRK-034,job cell unusable — multiple or mangled job numbers: '24014/24019',"{""holder"": ""Mohamad Nooh Ansari"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TRK-039,"job cell unusable — multiple or mangled job numbers: '2,201,826,002'","{""holder"": ""John Solorzano"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TRK-049,job cell unusable — multiple or mangled job numbers: '21026/26002',"{""holder"": ""Santiago Gonzalez Franco"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TRK-051,job cell unusable — multiple or mangled job numbers: '25001 & 25002',"{""holder"": ""Eduardo Reyana"", ""note"": ""truck can load; its project link cannot""}"
+warn,vehicle,TRK-058,model year 2026 is in the future,"{""vin"": ""1FD7X2BA7TEC24591"", ""holder"": ""Romualdo Almaguer""}"
+info,vehicle,TE-015,no project or job anywhere — parked at Equipment Yard,"{""custodian"": ""MARIO NUNEZ""}"
+info,vehicle,TE-025,no project or job anywhere — parked at Equipment Yard,"{""custodian"": ""JOSE RICO""}"
+info,vehicle,"TE-029,TE-030,TE-031,TE-033",8 blank repeat row(s) in TE discarded; a blank never overwrote a populated assignment,"{""sheet"": ""TE""}"
+info,vehicle,TE-031,no project or job anywhere — parked at Equipment Yard,{}
+info,vehicle,TE-032,no project or job anywhere — parked at Equipment Yard,{}
+info,vehicle,TE-034,no project or job anywhere — parked at Equipment Yard,{}
+info,vehicle,TE-037,no project or job anywhere — parked at Equipment Yard,{}
+info,vehicle,TE-038,no project or job anywhere — parked at Equipment Yard,{}
+info,vehicle,TE-039,no project or job anywhere — parked at Equipment Yard,{}
+info,vehicle,TE-040,no project or job anywhere — parked at Equipment Yard,{}
