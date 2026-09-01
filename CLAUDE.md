@@ -35,6 +35,7 @@ it now) are separate axes, and tools follow the person, not the site.
 | Anything that will produce a diff — plan, implement, review | **`minimal-change`**, before proposing the diff |
 | Any bug, test failure, wrong state, stuck message | **`systematic-debugging`**, before proposing a fix |
 | "Explain this", "I want visuals", a subsystem too big for chat | **`visual-explainer`** |
+| A change that has to be *seen* working — a UI regression, a layout or permission question, "is this reachable" | **`test-on-playwright`** — drives the real stack in a browser |
 | Delivering a whole ticket or feature end to end | **`/feature-delivery <TICKET-ID>`** — ticket, branch, implement, adversarial QA, correctness + security review, PR |
 | A task that produced a diff, as the last step before you report done | **`changelog`** — reconstructs the entry from `git`, writes `docs/changelogs/YYYY-MM-DD-slug.md` |
 
