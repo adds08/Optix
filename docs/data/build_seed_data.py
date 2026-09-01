@@ -27,7 +27,8 @@ import unicodedata
 
 ROOT = "/Users/adds08/Development/Urbaniconstruction/STInventory"
 IMP = f"{ROOT}/docs/data/import"
-TARGET = f"{ROOT}/packages/db/src/seed-data.ts"
+TARGET = f"{ROOT}/packages/db/src/seed-data.urban.ts"
+DEMO = f"{ROOT}/packages/db/src/seed-data.ts"
 
 START = "2025-01-06"
 END = "2030-12-31"
@@ -251,9 +252,35 @@ posting_rows = list(posting_rows.values())
 team_rows = list(team_rows.values())
 
 # ------------------------------------------------------------------ emit
-src = open(TARGET).read()
-i_data = src.index("export const projectSpecs")
-head = src[:i_data]
+# Types are declared once, in the demo module, and imported here -- two copies
+# of the same nine type aliases would drift.
+head = (
+    "/* GENERATED from docs/data/import/*.csv by docs/data/build_seed_data.py.\n"
+    "   Do not edit by hand -- re-run the generator.\n"
+    "\n"
+    "   Urban Infraconstruction's REAL register, kept deliberately separate from the\n"
+    "   demo dataset in ./seed-data.ts. That file is a test fixture: its synthetic\n"
+    "   people and accounts are what rbac-matrix.test.ts drives the visibility ladder\n"
+    "   through, so replacing it with real data made a security test unrunnable and\n"
+    "   turned CI red. seed.ts picks between the two on SEED_DATASET.\n"
+    "\n"
+    "   Rows that could not be trusted are NOT here. They are listed with reasons in\n"
+    "   docs/data/import/rejects.json and rendered for Urban to correct in\n"
+    "   docs/data/import/data-issues.html. */\n"
+    "import type {\n"
+    "  AssetSeed,\n"
+    "  AssignSeed,\n"
+    "  EmployeeSeed,\n"
+    "  LocSeed,\n"
+    "  PostingSeed,\n"
+    "  ProjectSeed,\n"
+    "  TeamSeed,\n"
+    "  TxSeed,\n"
+    "  UserSeed,\n"
+    "  VehLocSeed,\n"
+    "  VehSeed,\n"
+    "} from \"./seed-data.js\";\n\n"
+)
 
 L = []
 A = L.append

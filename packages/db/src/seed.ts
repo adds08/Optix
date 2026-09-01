@@ -37,9 +37,9 @@ import {
   vehicle,
   warehouse,
 } from "./schema/index.js";
+/* The static vocabularies are shared by both datasets — a category, a role and a
+   unit of measure mean the same thing whichever register is loaded. */
 import {
-  assetSpecs,
-  assignSpecs,
   categorySpecs,
   departmentSpecs,
   companyRoleSpecs,
@@ -47,6 +47,34 @@ import {
   legacyEmployeeRoleToRole,
   uomCategorySpecs,
   uomSpecs,
+} from "./seed-data.js";
+import * as demoDataset from "./seed-data.js";
+import * as urbanDataset from "./seed-data.urban.js";
+
+/*
+  TWO datasets, and they answer different questions.
+
+  `seed-data.ts` is a TEST FIXTURE. Its people, tools and fifteen per-role
+  accounts are engineered so every permission tier is reachable and assertable —
+  rbac-matrix.test.ts signs in as each of them and proves the visibility ladder
+  narrows, which only works because a PM and a superintendent were built to hold
+  deliberately different sets. Replacing it wholesale with real data removed
+  those accounts and those relationships, and five of its thirty-six tests
+  stopped being runnable at all. A security test that cannot run is worse than a
+  failing one.
+
+  `seed-data.urban.ts` is Urban Infraconstruction's REAL register, generated from
+  the enclosed-trailer workbook and the company vehicle list, carrying one real
+  owner account and no demo passwords.
+
+  So neither replaces the other. SEED_DATASET=urban loads the real one; anything
+  else keeps the fixture, which is what CI, the tests and a local dev database
+  all want.
+*/
+const USE_URBAN = process.env.SEED_DATASET === "urban";
+const {
+  assetSpecs,
+  assignSpecs,
   employeeSpecs,
   locSpecs,
   postingSpecs,
@@ -56,7 +84,7 @@ import {
   userSpecs,
   vehLocSpecs,
   vehSpecs,
-} from "./seed-data.js";
+} = USE_URBAN ? urbanDataset : demoDataset;
 
 const url = process.env.DATABASE_URL ?? "postgres://postgres:stinventory@localhost:5433/stinventory";
 const client = postgres(url, { max: 1 });
@@ -129,6 +157,14 @@ const SEED_COSTS: Record<string, string> = {
 
 async function main() {
   console.log("[seed] target:", url.replace(/:[^@]+@/, ":***@"));
+  /* Say which register is being written. Loading the demo fixture onto a real
+     deployment, or Urban's register onto a machine running the RBAC tests, both
+     look like success without this line. */
+  console.log(
+    USE_URBAN
+      ? "[seed] dataset: URBAN — the real register (SEED_DATASET=urban)"
+      : "[seed] dataset: demo fixture — set SEED_DATASET=urban for the real register",
+  );
 
   if (process.env.SEED_RESET === "1") {
     console.log("[seed] SEED_RESET=1 — wiping data first");
@@ -408,15 +444,23 @@ async function main() {
   console.log(`[seed] ${teamSpecs.length} project team members`);
 
   // ---- Login users ----
-  /* No password in the source tree, and no guessable default.
-     `stinventory-demo` was hardcoded here and shared by fifteen accounts, one of
-     them an owner with every permission — fine for a throwaway demo database,
-     and a full compromise on any deployment reachable from the internet.
-     SEED_OWNER_PASSWORD is the supported way in; without it a random one is
-     generated and printed ONCE, so a real deployment always ends up with a
-     credential nobody can find in git. */
-  const generatedPassword = process.env.SEED_OWNER_PASSWORD ? null : randomBytes(12).toString("base64url");
-  const seedPassword = process.env.SEED_OWNER_PASSWORD ?? generatedPassword!;
+  /* The real register gets a real credential; the fixture keeps its shared one.
+     `stinventory-demo` used to be hardcoded for all fifteen accounts, one of them
+     an owner with every permission — fine for a throwaway demo database, and a
+     full compromise on any deployment reachable from the internet.
+
+     The DEMO fixture keeps that password on purpose: `e2e/roles.ts` signs every
+     browser test in with it and the login page offers one-click demo accounts
+     that use it, so changing it there breaks the suite for no gain — that
+     dataset is not meant to exist anywhere real.
+
+     The URBAN dataset takes SEED_OWNER_PASSWORD, or a random one printed ONCE,
+     so a real deployment never ends up with a credential that is in git. */
+  const generatedPassword =
+    USE_URBAN && !process.env.SEED_OWNER_PASSWORD ? randomBytes(12).toString("base64url") : null;
+  const seedPassword = USE_URBAN
+    ? process.env.SEED_OWNER_PASSWORD ?? generatedPassword!
+    : "stinventory-demo";
   const passwordHash = await bcrypt.hash(seedPassword, 10);
   /* The one pending-invite row (see the comment on `userSpecs`) gets a
      password nobody was ever shown rather than the shared demo one — sharing
@@ -996,17 +1040,24 @@ async function main() {
   console.log(`
 [seed] DONE.
 
-Login — ONE account, the system owner:
+${USE_URBAN
+  ? `Login — ONE account, the system owner:
 
   ${userRows[0]?.email ?? "(no account seeded)"}
   password: ${generatedPassword
-    ? `${generatedPassword}      <-- GENERATED, shown once. Save it now.`
-    : "(taken from SEED_OWNER_PASSWORD)"}
+      ? `${generatedPassword}      <-- GENERATED, shown once. Save it now.`
+      : "(taken from SEED_OWNER_PASSWORD)"}
 
-The fifteen per-role demo accounts that used to be seeded here are gone. They
-all shared one published password, which is why this seed still refuses to run
-with NODE_ENV=production unless SEED_ALLOW_PRODUCTION=1. Create further accounts
-through /admin/users, each with its own password.
+No demo accounts were created. Add colleagues through /admin/users, each with
+their own password.`
+  : `Login — password  stinventory-demo  for every account (STI-304).
+One per role, because a permission system only ever tested as 'owner'
+is not a tested permission system. See docs/SETUP.md.
+
+This is the DEMO fixture, not a real register. e2e/roles.ts and the login
+page's one-click accounts both depend on that password, and rbac-matrix.test.ts
+drives the visibility ladder through these accounts. For Urban's real data:
+SEED_DATASET=urban`}
 `);
   await client.end();
 }
