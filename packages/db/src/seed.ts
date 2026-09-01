@@ -442,6 +442,14 @@ async function main() {
     )
     .returning();
   const userByEmail = Object.fromEntries(userRows.map((u) => [u.email, u]));
+  /* The account the seed itself acts as: it creates the asset rows, actors the
+     genesis ledger events and owns the seeded desk messages. It named the demo
+     equipment-admin, which no longer exists — three separate call sites each
+     asserted it non-null, so deleting that account broke the seed in three
+     places at once. Resolved once, here, and falls back to the first seeded
+     account (the owner), which is honest: on a real deployment the import IS
+     performed by whoever holds the system. */
+  const seedActor = userByEmail["admin@stinventory.local"] ?? userRows[0]!;
   for (const u of userRows) {
     const spec = userSpecs.find((s) => s.email === u.email)!;
     await db.insert(userRole).values({ userId: u.id, roleId: roleByName[spec.role]!.id });
@@ -665,7 +673,7 @@ async function main() {
         currentProjectId: a.cur ? projectByKey[a.cur]! : null,
         currentLocationId: locByKey[locKeyOf(a.tag, a.loc)]!,
         condition: "good",
-        createdBy: userByEmail["admin@stinventory.local"]!.id,
+        createdBy: seedActor.id,
       })),
     )
     .returning();
@@ -680,12 +688,7 @@ async function main() {
   console.log(`[seed] ${assetSpecs.length} assets`);
 
   // ---- Assignments (active custody). One per tool with a foreman. ----
-  /* Who the genesis-import ledger rows are attributed to. This named the demo
-     equipment-admin account, which no longer exists — so it resolves to the
-     first seeded account instead, i.e. the owner. Every ledger row needs an
-     actor and an import genuinely was performed by whoever holds the system,
-     so attributing it to the owner is honest rather than a placeholder. */
-  const adminId = (userByEmail["admin@stinventory.local"] ?? userRows[0]!).id;
+  const adminId = seedActor.id;
   await db.insert(assignment).values(
     assignSpecs.map((s) => ({
       tenantId: tid,
@@ -834,8 +837,8 @@ async function main() {
     requestedBy: adminId,
     approvedBy: null,
   });
+    console.log("[seed] 1 pending assignment + 1 pending transfer (desk queue)");
   }
-  console.log("[seed] 1 pending assignment + 1 pending transfer (desk queue)");
 
   // ---- Tenant settings ----
   await db.insert(tenantSettings).values({
@@ -908,7 +911,7 @@ async function main() {
     running the worker, because the parse needs a model and the seed must work
     with no LLM configured at all.
   */
-  const deskUserId = userByEmail["admin@stinventory.local"]!.id;
+  const deskUserId = seedActor.id;
   const foremanEmpId = empByKey["e-fm001"]!;
   const repairAsset = assetByTag["TOOL-0004"]!;
 
