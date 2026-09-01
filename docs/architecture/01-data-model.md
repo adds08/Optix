@@ -191,6 +191,17 @@ Trucks and trailers are equipment *and* moving locations. A tool "in TE-006" is
 recorded through the vehicle columns on the custody row, not through a location
 row — see below.
 
+`vehicle` carries two columns that answer different questions and must not be
+confused (2026-09-01, migration `0040`): `vehicle_type` (`truck | trailer`) is
+the STRUCTURAL discriminator the composite FKs above depend on — never rewrite
+it on an existing row, or every custody row naming it orphans. `equipment_class`
+(`vehicle | attachment | heavy | other`) is how the yard FILES the row, plain
+text with no constraint, freely changeable, and unrelated to the FKs. A trailer
+is `vehicle_type: 'trailer'` AND `equipment_class: 'attachment'` at once. `vin`
+is nullable text with no unique index or length check — real VINs in this
+dataset are inconsistent (one is 16 characters), so format is reported by the
+importer, never enforced at the write.
+
 ### Projects — `schema/project.ts`, `schema/projectGroup.ts`
 
 `tbl_entity_project`, `tbl_entity_project_group`,

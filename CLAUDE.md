@@ -1,15 +1,20 @@
 # STInventory
 
-Internal small-tools & equipment **custody** platform for Urban Infraconstruction.
+**Optix** is a small-tools & equipment **custody** SaaS, in production for its first tenant
+— Urban Infraconstruction — at `urban.optixtec.com`. A timesheet product is being ported
+onto the same stack to sell alongside it (`docs/workings/TIMESHEET_PORT.md`). It began as
+Urban's internal tool; that framing is history now, not the present tense — a push to
+`main` that passes CI deploys to production automatically (`.github/workflows/ci.yml`,
+`DEPLOY.md`). "STInventory" is the repo name, not the product: see below.
 pnpm + Turbo monorepo · Hono + tRPC API · Next.js 15 web · Expo mobile · Drizzle/Postgres.
 
 **The product is called Optix** (Optix Technologies) in the interface, as of 2026-08-27.
 STInventory is the repo, the package scope `@stinventory/*`, the seeded `*.local` email
-domain and the `sti-*` storage keys — all of which stay. The rename is user-facing text and
-the mark only, and `apps/web/components/optix-mark.tsx` is its single definition. Docs and
-tickets written before that date still say STInventory and are not wrong about anything but
-the name; don't rename the world to make them agree, and don't put "STInventory" back on a
-screen.
+domain (on the demo dataset only — see `.claude/rules/database.md`) and the `sti-*` storage
+keys — all of which stay. The rename is user-facing text and the mark only, and
+`apps/web/components/optix-mark.tsx` is its single definition. Docs and tickets written
+before that date still say STInventory and are not wrong about anything but the name; don't
+rename the world to make them agree, and don't put "STInventory" back on a screen.
 
 **The one idea that explains the codebase:** where a tool is, is *calculated* from an
 append-only ledger — never typed into a field. `transaction` is the system of record; every

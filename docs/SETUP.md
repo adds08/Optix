@@ -11,8 +11,12 @@ Node 22+, pnpm 9+, Docker. Postgres comes from Docker — you do not need one in
 ```bash
 cp .env.example .env.local     # required — the Makefile hard-errors without it
 make ENV=local up              # builds + starts postgres, api, web
-make ENV=local seed            # sample data from the real trailer sheets
+make ENV=local seed            # demo fixture — one account per permission tier
 ```
+
+To load Urban's real register instead (real projects, employees, vehicles and tools —
+see `docs/data/README.md`), set `SEED_DATASET=urban` before seeding. It seeds one login,
+not the table below.
 
 | Service | Where |
 |---|---|
@@ -20,11 +24,12 @@ make ENV=local seed            # sample data from the real trailer sheets
 | API | <http://localhost:4100> — health at `/health` |
 | Postgres | `postgres://postgres:stinventory@localhost:5433/stinventory` |
 
-### Sign-in accounts
+### Sign-in accounts (demo fixture — `SEED_DATASET` unset)
 
 Password `stinventory-demo` for every account except `invited@` (below), which has none yet
-by design. **Development credentials only** — the seed refuses to run against
-`NODE_ENV=production` for exactly this reason.
+by design. **Development credentials only, and only for this dataset** — the seed refuses
+to run against `NODE_ENV=production` for exactly this reason. `SEED_DATASET=urban` seeds a
+single real login instead; see `docs/data/README.md`.
 
 Since STI-304 there is **one account per role**, which is what makes a permission denial
 observable at all: until then the only three accounts were `owner`, `equipment_admin` and

@@ -15,14 +15,26 @@ If you read only one section, read **§2 Precedence** and **§6 Traps**.
    `@stinventory/*`, the seeded `*.local` email domain and the `sti-*` browser
    storage keys all still say **STInventory**. That is deliberate, not drift. Do
    not rename them. Do not put "STInventory" on a screen.
-2. **It tracks custody of small tools** — hand and power tools — for Urban
-   Infraconstruction, a US construction contractor. Not heavy equipment. Trucks
-   and trailers exist only because tools ride on them.
+2. **It tracks custody of equipment** — small hand and power tools, and, as of
+   2026-09-01, the equipment register itself (trucks, trailers, attachments and
+   heavy plant — `vehicle.equipmentClass`: `vehicle | attachment | heavy | other`)
+   — for Urban Infraconstruction, a US construction contractor. **This fact was
+   wrong here until 2026-09-02**: it used to say "not heavy equipment," which was
+   true only because no form could write the column. It can now.
 3. **Where a tool is, is *calculated* from an append-only ledger.** It is never
    typed into a field. `tbl_ops_transaction` is the system of record; every
    `tbl_entity_asset.current_*` column is a projection of it.
 4. **Current version: `v1.0.0`**, tagged 2026-08-29, "Optix for small tools
-   implemented". `TAG_TILL_HERE` points at the same commit.
+   implemented". `TAG_TILL_HERE` points at the same commit. Substantial work has
+   landed since without a new tag — trust the code over the version string.
+5. **It is a production SaaS, not an internal tool.** Optix Technologies runs it
+   for Urban Infraconstruction as its first tenant at `urban.optixtec.com`
+   (`main` branch), with a separate dev/showcase environment at
+   `urban.bodhitechlabs.com` (`development` branch) — each on its own VPC-private
+   database droplet (`DEPLOY.md`). A timesheet product is being ported onto the
+   same stack to sell alongside it (`docs/workings/TIMESHEET_PORT.md`). Deploying
+   to production is not hypothetical: a push to `main` that passes CI deploys
+   there automatically (`.github/workflows/ci.yml`).
 
 ---
 
@@ -147,6 +159,20 @@ Each of these has actually cost time. Check them before you spend an hour.
 
 Docs written before that date carry a banner saying so. Docs in `archive/` may not.
 
+### The seed is TWO datasets, and replacing the wrong one turns CI red
+
+`packages/db/src/seed.ts` chooses on `SEED_DATASET`: default is `seed-data.ts`,
+a **test fixture** whose synthetic people and fifteen per-role accounts are what
+`rbac-matrix.test.ts` drives the permission ladder through; `SEED_DATASET=urban`
+loads `seed-data.urban.ts`, Urban's **real register** (one owner login,
+`optix_it@optixtec.com`, no shared demo password). This happened on 2026-09-01:
+replacing the fixture with real data typechecked, ran, and turned `main`'s CI
+red, because the real staff have no reason to reproduce the fixture's engineered
+"a PM and a superintendent see different tools" relationships the RBAC test
+asserts on. Full account in `.claude/rules/database.md` and
+`docs/changelogs/2026-09-01-urbans-real-register-loads-beside-the-test-fixture.md`.
+**Never regenerate `seed-data.ts` from real data — only `seed-data.urban.ts`.**
+
 ### Testing
 
 - **`pnpm test` on a host with no database prints green while the important suites
@@ -233,4 +259,5 @@ else. It is deliberately built to resist that:
 - **Update it when a document moves, is retired, or starts lying**, and when a
   feature is deleted such that documents will keep describing it. Not otherwise.
 
-Last reconciled against the repository: **2026-08-29**, at `v1.0.0`.
+Last reconciled against the repository: **2026-09-02**. No new tag since `v1.0.0`
+(2026-08-29) — see fact 4 in §1.

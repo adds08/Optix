@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-02 | [The orientation docs catch up to a week of real changes](2026-09-02-the-orientation-docs-catch-up-to-a-week-of-real-changes.md) |
 | 2026-09-02 | [Jobsites gains a card view whose tools open in a right sheet](2026-09-02-jobsites-gains-a-card-view-with-a-tool-sheet.md) |
 | 2026-09-01 | [The register gets a VIN, and an equipment type somebody can actually set](2026-09-01-the-register-gets-a-vin-and-an-equipment-type.md) |
 | 2026-09-01 | [Urban's real register loads beside the test fixture, not instead of it](2026-09-01-urbans-real-register-loads-beside-the-test-fixture.md) |
