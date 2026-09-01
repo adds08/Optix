@@ -165,17 +165,21 @@ async function main() {
   }
 
   /*
-    Demo logins must never exist on a production database.
+    The seed REPLACES a database; it does not merge into one.
 
-    This seed creates five accounts with the password `stinventory-demo`,
-    including an owner with every permission. That is exactly right for a demo
-    and catastrophic on a real deployment — and "we will remember not to run
-    it" is not a control.
+    The shared-password demo accounts this guard was written for are gone — one
+    owner account is seeded now, with a password from SEED_OWNER_PASSWORD or a
+    generated one printed once. The guard stays, because the reason widened
+    rather than disappeared: SEED_RESET=1 deletes every tenant, employee,
+    vehicle, asset and ledger row, and the ledger's append-only trigger is
+    dropped to do it. That is right on a fresh deployment and catastrophic on a
+    live one, and "we will remember" is not a control.
   */
   if (process.env.NODE_ENV === "production" && process.env.SEED_ALLOW_PRODUCTION !== "1") {
     console.error(
-      "[seed] refusing to run with NODE_ENV=production — this creates demo logins " +
-        "with a published password. Set SEED_ALLOW_PRODUCTION=1 only if you are certain.",
+      "[seed] refusing to run with NODE_ENV=production — this wipes and replaces the " +
+        "database. Set SEED_ALLOW_PRODUCTION=1 only if you are certain it is empty " +
+        "or expendable, and take a backup first.",
     );
     process.exit(1);
   }
@@ -404,7 +408,16 @@ async function main() {
   console.log(`[seed] ${teamSpecs.length} project team members`);
 
   // ---- Login users ----
-  const passwordHash = await bcrypt.hash("stinventory-demo", 10);
+  /* No password in the source tree, and no guessable default.
+     `stinventory-demo` was hardcoded here and shared by fifteen accounts, one of
+     them an owner with every permission — fine for a throwaway demo database,
+     and a full compromise on any deployment reachable from the internet.
+     SEED_OWNER_PASSWORD is the supported way in; without it a random one is
+     generated and printed ONCE, so a real deployment always ends up with a
+     credential nobody can find in git. */
+  const generatedPassword = process.env.SEED_OWNER_PASSWORD ? null : randomBytes(12).toString("base64url");
+  const seedPassword = process.env.SEED_OWNER_PASSWORD ?? generatedPassword!;
+  const passwordHash = await bcrypt.hash(seedPassword, 10);
   /* The one pending-invite row (see the comment on `userSpecs`) gets a
      password nobody was ever shown rather than the shared demo one — sharing
      it would let this "invited" account sign in the normal way, which is
@@ -429,6 +442,14 @@ async function main() {
     )
     .returning();
   const userByEmail = Object.fromEntries(userRows.map((u) => [u.email, u]));
+  /* The account the seed itself acts as: it creates the asset rows, actors the
+     genesis ledger events and owns the seeded desk messages. It named the demo
+     equipment-admin, which no longer exists — three separate call sites each
+     asserted it non-null, so deleting that account broke the seed in three
+     places at once. Resolved once, here, and falls back to the first seeded
+     account (the owner), which is honest: on a real deployment the import IS
+     performed by whoever holds the system. */
+  const seedActor = userByEmail["admin@stinventory.local"] ?? userRows[0]!;
   for (const u of userRows) {
     const spec = userSpecs.find((s) => s.email === u.email)!;
     await db.insert(userRole).values({ userId: u.id, roleId: roleByName[spec.role]!.id });
@@ -563,9 +584,20 @@ async function main() {
      on its vehSpecs entry. Without a tool on it the "personal" marker on the
      jobsite table, tool detail and the approval queue stays unreachable from a
      clean database. */
-  const seedPersonalTruckId = vehicleRows[vehSpecs.findIndex((v) => v.own === "personal_allowance")]!.id;
+  /* OPTIONAL, and it has to be: Urban's real imported fleet is entirely
+     company-owned, so a dataset generated from the source sheets carries no
+     personal-allowance vehicle at all. This used to be a bare non-null
+     assertion, which made `findIndex` return -1, `vehicleRows[-1]` undefined,
+     and the whole seed die on `.id` — the demo dataset's synthetic personal
+     truck was silently load-bearing. When there is no such vehicle no tool
+     rides one, which is the honest outcome; inventing an ownership type to
+     keep a fixture reachable would put a lie in the register. */
+  const personalTruckIdx = vehSpecs.findIndex((v) => v.own === "personal_allowance");
+  const seedPersonalTruckId = personalTruckIdx >= 0 ? vehicleRows[personalTruckIdx]!.id : null;
   const personalTruckTag =
-    assignSpecs.find((s) => s.tag !== "TOOL-0001" && s.tag !== modelCorrectTag)?.tag ?? null;
+    seedPersonalTruckId === null
+      ? null
+      : assignSpecs.find((s) => s.tag !== "TOOL-0001" && s.tag !== modelCorrectTag)?.tag ?? null;
   const truckIdFor = (tag: string | null) =>
     tag === "TOOL-0001" ? seedTruckId : tag === personalTruckTag ? seedPersonalTruckId : null;
   const YARD_LOC_KEY = "l-dal";
@@ -641,7 +673,7 @@ async function main() {
         currentProjectId: a.cur ? projectByKey[a.cur]! : null,
         currentLocationId: locByKey[locKeyOf(a.tag, a.loc)]!,
         condition: "good",
-        createdBy: userByEmail["admin@stinventory.local"]!.id,
+        createdBy: seedActor.id,
       })),
     )
     .returning();
@@ -656,7 +688,7 @@ async function main() {
   console.log(`[seed] ${assetSpecs.length} assets`);
 
   // ---- Assignments (active custody). One per tool with a foreman. ----
-  const adminId = userByEmail["admin@stinventory.local"]!.id;
+  const adminId = seedActor.id;
   await db.insert(assignment).values(
     assignSpecs.map((s) => ({
       tenantId: tid,
@@ -745,6 +777,24 @@ async function main() {
      write for the `approve` outcome. Custody WRITES still go through
      custody.ts; these rows are paperwork awaiting a second signature. */
 
+  /* Both blocks below name specific tools, foremen, projects and trailers from
+     the DEMO dataset. A dataset generated from Urban's own sheets has none of
+     those keys, so the lookups resolved to undefined and the insert failed on a
+     NOT NULL custodian_id — the queue fixture was silently load-bearing for the
+     whole seed. They are skipped when their fixtures are absent: an empty desk
+     queue on a real register is correct (nothing has been proposed yet), and
+     inventing a pending approval between two real people would be paperwork
+     nobody asked for. */
+  const deskQueueReady =
+    assetByTag["TOOL-0053"] && assetByTag["TOOL-0142"] &&
+    empByKey["e-fm005"] && empByKey["e-fm007"] && empByKey["e-fm011"] &&
+    projectByKey["p-nex-22017"] && projectByKey["p-garland-22015"] &&
+    projectByKey["p-dart-20011"] &&
+    locByKey["l-TE-011"] && locByKey["l-TE-013"] && locByKey["l-TE-017"];
+
+  if (!deskQueueReady) {
+    console.log("[seed] desk approval queue skipped — this dataset has none of its fixtures");
+  } else {
   // TOOL-0053 (HONDA EB6500X, exactly $5000.00 — the `>=` edge) is held by
   // Jose Luis Rodriguez; the desk proposed moving it to Andres Flores (NEX).
   await db.insert(assignment).values({
@@ -787,7 +837,8 @@ async function main() {
     requestedBy: adminId,
     approvedBy: null,
   });
-  console.log("[seed] 1 pending assignment + 1 pending transfer (desk queue)");
+    console.log("[seed] 1 pending assignment + 1 pending transfer (desk queue)");
+  }
 
   // ---- Tenant settings ----
   await db.insert(tenantSettings).values({
@@ -860,7 +911,7 @@ async function main() {
     running the worker, because the parse needs a model and the seed must work
     with no LLM configured at all.
   */
-  const deskUserId = userByEmail["admin@stinventory.local"]!.id;
+  const deskUserId = seedActor.id;
   const foremanEmpId = empByKey["e-fm001"]!;
   const repairAsset = assetByTag["TOOL-0004"]!;
 
@@ -945,36 +996,17 @@ async function main() {
   console.log(`
 [seed] DONE.
 
-Login — password  stinventory-demo  for every account (STI-304).
-One per role, because a permission system only ever tested as 'owner'
-is not a tested permission system. See docs/SETUP.md.
+Login — ONE account, the system owner:
 
-  owner@stinventory.local        Urban Admin     System Administrator — everything
-  admin@stinventory.local        Karen Osei      Equipment Administrator
-  office@stinventory.local       Lena Boyd       Office Administrator — no custody, no config
-  warehouse@stinventory.local    Yard Desk       Warehouse — the yard desk
-  pm@stinventory.local           Dana Whitmore   Project Manager — Lone Star only
-  engineer@stinventory.local     Priya Raman     Engineer — DART only
-  super@stinventory.local        Marcus Whitfield Superintendent — his crew, across two jobs
-  foreman@stinventory.local      Alejandro Capuchino  Foreman — his own tools only
-  mechanic@stinventory.local     Ruben Ortiz     Mechanic — his own tools, charged to the department
-  procurement@stinventory.local  Nadia Kerr      Procurement
-  hr@stinventory.local           Tomas Reyes     HR — people, deliberately NOT tools
-  finance@stinventory.local      Grace Lin       Finance
-  readonly@stinventory.local     Read Only       Read-only
-  jobani@stinventory.local       Jobani Abarca   DEACTIVATED — cannot sign in, by design
+  ${userRows[0]?.email ?? "(no account seeded)"}
+  password: ${generatedPassword
+    ? `${generatedPassword}      <-- GENERATED, shown once. Save it now.`
+    : "(taken from SEED_OWNER_PASSWORD)"}
 
-Visibility (STI-302) — the ladder, on this data:
-  owner/admin/office/warehouse/hr/finance/procurement/readonly  every tool
-  pm        -> the tools on Lone Star
-  engineer  -> the tools on DART
-  super     -> the tools his crew hold, which spans Lone Star and DART
-  foreman   -> the ${assignSpecs.filter((a) => a.cust === "e-fm001").length} tools in his own hands
-  mechanic  -> the ${assignSpecs.filter((a) => a.cust === "e-mech001").length} shop tools in his
-
-Data (from TOOL LIST BY NAME.xlsx):
-  ${employeeRows.length} people, ${projectRows.length} projects,
-  ${trailerCount} trailers (+2 synthetic trucks, seed-only), ${assetRows.length} tools
+The fifteen per-role demo accounts that used to be seeded here are gone. They
+all shared one published password, which is why this seed still refuses to run
+with NODE_ENV=production unless SEED_ALLOW_PRODUCTION=1. Create further accounts
+through /admin/users, each with its own password.
 `);
   await client.end();
 }

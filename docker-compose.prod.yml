@@ -4,10 +4,10 @@
 # `pnpm dev`, no source mounts, restart policies, and healthchecks with
 # dependency gating.
 #
-# Postgres is included so a single-droplet deployment works out of the box, but
-# a managed database is the better call: `make backup` is not a backup strategy,
-# and point-in-time recovery is not something you can retrofit after you need
-# it. To use one, delete the postgres service and point DATABASE_URL at it.
+# Postgres is not here. Both environments (dev and prod) run it on a
+# dedicated droplet of its own — optix-{dev,prod}-db-01 — reachable only over
+# that environment's VPC private IP, never from this box's compose network.
+# DATABASE_URL in .env.production points at it directly. See DEPLOY.md.
 
 services:
   # TLS terminator and the only thing bound to the host's network. Everything
@@ -38,25 +38,6 @@ services:
       - web
       - api
       - minio
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: stinventory-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-stinventory}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    # Not published to the host. Reachable only on the compose network.
-    expose:
-      - "5432"
 
   # The Python parser service was removed. It had drifted into a second,
   # unreachable copy of the intent logic: the API never called it (it talks to
@@ -120,7 +101,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4100
-      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-stinventory}}
+      # Always the DB droplet's private IP — see DEPLOY.md. No local fallback:
+      # a missing value should fail loudly, not silently try a compose-network
+      # hostname that no longer exists.
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL to the environment's DB droplet}
       # No default. A guessable session secret in production is the same as no
       # authentication at all, so the stack refuses to start without one.
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET to 32+ random chars}
@@ -149,9 +133,6 @@ services:
       TWILIO_FROM: ${TWILIO_FROM:-}
     expose:
       - "4100"
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   web:
     build:
@@ -185,6 +166,5 @@ services:
 
 volumes:
   minio_data:
-  postgres_data:
   caddy_data:
   caddy_config:

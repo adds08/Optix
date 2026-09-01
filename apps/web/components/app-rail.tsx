@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bot } from "lucide-react";
-import { OptixGlyph } from "@/components/optix-mark";
+import { OptixTile } from "@/components/optix-mark";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { footGroups, groupKey, mainGroups, type NavGroup } from "@/components/sti/nav-config";
@@ -50,15 +50,12 @@ export function AppRail({
       aria-label="Sections"
       className="hidden w-12 shrink-0 flex-col items-center gap-0.5 border-r border-rail-accent/20 bg-rail py-2.5 md:flex"
     >
-      {/* The mark, at the head of the chassis. It is drawn rather than set in
-          type — `optix-mark.tsx` is the one definition, shared with the sign-in
-          lockup and the boot splash, so the three cannot drift. */}
-      <Link
-        href="/home"
-        aria-label="Optix home"
-        className="mb-2.5 grid size-8 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground"
-      >
-        <OptixGlyph className="size-[18px]" />
+      {/* The mark, at the head of the chassis — the logo on its own plate, not
+          the app's primary blue borrowed for a tile. `optix-mark.tsx` is the
+          one definition, shared with the sign-in page and the boot splash, so
+          the three cannot drift. */}
+      <Link href="/home" aria-label="Optix home" className="mb-2.5 shrink-0">
+        <OptixTile className="size-8" />
       </Link>
 
       {mainGroups(groups).map((g) => (

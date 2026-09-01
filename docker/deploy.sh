@@ -20,7 +20,6 @@ set -euo pipefail
 
 APP_DIR=/opt/stinventory
 COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.production"
-HEALTH_URL="https://urban.bodhitechlabs.com/health"
 BRANCH="${DEPLOY_BRANCH:-main}"
 
 cd "$APP_DIR"
@@ -53,6 +52,13 @@ if [ ! -f .env.production ]; then
   log "FATAL: .env.production is missing — refusing to deploy"
   exit 1
 fi
+
+# Same script on every droplet — the health URL comes from this box's own
+# .env.production (WEB_ORIGIN) rather than being hardcoded, so dev
+# (urban.bodhitechlabs.com) and prod (urban.optixtec.com) both run this
+# unmodified.
+WEB_ORIGIN=$(grep -m1 '^WEB_ORIGIN=' .env.production | cut -d= -f2-)
+HEALTH_URL="${WEB_ORIGIN%/}/health"
 
 # --- build and start --------------------------------------------------------
 # Built here rather than pulled from a registry. On a 1GB droplet this is slow

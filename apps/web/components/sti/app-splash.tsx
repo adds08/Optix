@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { OptixGlyph } from "@/components/optix-mark";
+import { OptixWordmark } from "@/components/optix-mark";
 import { DUR, EASE } from "@/lib/motion";
 
 /*
@@ -42,13 +42,13 @@ export function AppSplash({ show }: { show: boolean }) {
           aria-hidden
         >
           <motion.div
-            className="flex flex-col items-center gap-4 text-primary"
+            className="flex flex-col items-center gap-4"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: DUR.base, ease: EASE.out }}
           >
-            <OptixGlyph className="size-11" />
+            <OptixWordmark className="h-8 text-brand-mark" />
             {/* The same indeterminate strip `working-bar.tsx` uses, at the same
                 keyframe. A boot that stalls on a slow API must not look frozen,
                 and the app already has one idiom for "something is happening" —

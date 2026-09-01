@@ -137,17 +137,24 @@ The tunnel carries only the web page; the browser's API calls still go to
 
 ## Live deployment
 
-| | |
-|---|---|
-| Desk app | <https://urban.bodhitechlabs.com> |
-| Field app (Expo web export) | <https://urban.bodhitechlabs.com/field> |
-| Host | DigitalOcean droplet `stinventory-01`, nyc1, 1 vCPU / 1GB |
+Two environments, each with its own app droplet and its own database droplet
+— see `DEPLOY.md` for the full topology.
 
-Pushing to `main` deploys, **only if** typecheck/lint/test, the production image
-builds, and a migrate-and-boot smoke test all pass. A deploy that runs regardless
-is a slower way to break production. The droplet is a git checkout; `deploy.sh`
-fetches and resets, which touches only tracked files, and rolls back if `/health`
-never comes up.
+| | dev (test) | production |
+|---|---|---|
+| Desk app | <https://urban.bodhitechlabs.com> | <https://urban.optixtec.com> |
+| Field app (Expo web export) | <https://urban.bodhitechlabs.com/field> | <https://urban.optixtec.com/field> |
+| App droplet | `optix-dev-app-01`, nyc1 | `optix-prod-app-01`, nyc1 |
+| DB droplet | `optix-dev-db-01`, nyc1 | `optix-prod-db-01`, nyc1 |
+| Branch that deploys it | `development` | `main` |
+| Demo logins | on (`NEXT_PUBLIC_SHOW_DEMO_LOGINS=1`) | off |
 
-Demo accounts are deliberately still enabled in production. `DEPLOY.md` has the
-operational detail, including how to turn them off.
+Pushing to `development` deploys dev; pushing to `main` deploys production —
+**only if** typecheck/lint/test, the production image builds, and a
+migrate-and-boot smoke test all pass. A deploy that runs regardless is a
+slower way to break things. Each droplet is a git checkout; `deploy.sh`
+fetches and resets, which touches only tracked files, and rolls back if
+`/health` never comes up.
+
+Demo accounts are deliberately enabled on dev — it's the showcase deployment.
+Production has them off. `DEPLOY.md` has the operational detail.

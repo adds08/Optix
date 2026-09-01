@@ -9,20 +9,32 @@
 #   make ENV=local psql      # psql shell on the DB
 #   make ENV=local test      # run vitest in api container
 #
-# Production (the droplet — nothing here needs ENV):
-#   make deploy              # ship main to production
-#   make prod-status         # what is running there
-#   make prod-logs           # tail its logs
+# Two droplets, nothing here needs ENV:
+#   make deploy               # ship main to production (urban.optixtec.com)
+#   make prod-status          # what is running there
+#   make prod-logs            # tail its logs
+#   make dev-deploy           # ship development to dev (urban.bodhitechlabs.com)
+#   make dev-status           # what is running there
+#   make dev-logs             # tail its logs
 
-# --- production droplet -------------------------------------------------------
+# --- production droplet (optix-prod-app-01, urban.optixtec.com) --------------
 # Overridable, but these are the real values so `make deploy` works unconfigured.
-PROD_HOST ?= 68.183.27.164
+PROD_HOST ?= 157.245.129.195
 PROD_USER ?= root
 PROD_KEY  ?= $(HOME)/.ssh/do@it_urban
-PROD_URL  ?= https://urban.bodhitechlabs.com
+PROD_URL  ?= https://urban.optixtec.com
 PROD_SSH  := ssh -o ConnectTimeout=20 -i $(PROD_KEY) $(PROD_USER)@$(PROD_HOST)
 PROD_DIR  := /opt/stinventory
 PROD_COMPOSE := cd $(PROD_DIR) && docker compose -f docker-compose.prod.yml --env-file .env.production
+
+# --- dev/test droplet (optix-dev-app-01, urban.bodhitechlabs.com) ------------
+DEV_HOST ?= 68.183.27.164
+DEV_USER ?= root
+DEV_KEY  ?= $(HOME)/.ssh/do@it_urban
+DEV_URL  ?= https://urban.bodhitechlabs.com
+DEV_SSH  := ssh -o ConnectTimeout=20 -i $(DEV_KEY) $(DEV_USER)@$(DEV_HOST)
+DEV_DIR  := /opt/stinventory
+DEV_COMPOSE := cd $(DEV_DIR) && docker compose -f docker-compose.prod.yml --env-file .env.production
 
 ENV ?= local
 ENV_FILE := .env.$(ENV)
@@ -41,7 +53,7 @@ SVC ?= api
 # file of the same name and prints "'e2e' is up to date" without running
 # anything. The browser suite silently did not run for anyone invoking it
 # through make. CI calls playwright directly, so CI never noticed.
-.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint e2e e2e-install mobile deploy prod-status prod-logs prod-shell
+.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint e2e e2e-install mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -186,8 +198,27 @@ prod-status: ## What is running on the droplet, and at which commit
 	@printf "\n  health -> "; curl -s --max-time 20 $(PROD_URL)/health || echo "unreachable"
 	@echo ""
 
-prod-logs: ## Tail production logs (SVC=api|web|postgres|caddy)
+prod-logs: ## Tail production logs (SVC=api|web|caddy)
 	@$(PROD_SSH) -t "$(PROD_COMPOSE) logs -f --tail 100 $(SVC)"
 
 prod-shell: ## Shell on the droplet
 	@$(PROD_SSH) -t "cd $(PROD_DIR) && bash"
+
+dev-deploy: ## Ship development to the dev droplet (CI does this on push; this is the manual path)
+	@if [ -n "$$(git status --porcelain)" ]; then 		echo "  ! Uncommitted changes — these will NOT be deployed:"; 		git status --short | sed 's/^/      /'; 		echo ""; 	fi
+	@UNPUSHED=$$(git rev-list --count origin/development..development 2>/dev/null || echo 0); 	if [ "$$UNPUSHED" != "0" ]; then 		echo "  ! $$UNPUSHED commit(s) on development not pushed. The server pulls from origin,"; 		echo "    so it cannot deploy them. Run: git push origin development"; 		echo ""; 		exit 1; 	fi
+	@echo "  deploying $$(git rev-parse --short origin/development) to $(DEV_HOST)"
+	@$(DEV_SSH) DEPLOY_BRANCH=development bash $(DEV_DIR)/docker/deploy.sh
+	@echo ""
+	@printf "  %s -> " "$(DEV_URL)"; curl -s -o /dev/null -w "%{http_code}\n" --max-time 20 $(DEV_URL)
+
+dev-status: ## What is running on the dev droplet, and at which commit
+	@$(DEV_SSH) "cd $(DEV_DIR) && echo 'commit:' \$$(git rev-parse --short HEAD) \"\$$(git log -1 --format=%s)\" && $(DEV_COMPOSE) ps --format '{{.Name}}\t{{.Status}}'"
+	@printf "\n  health -> "; curl -s --max-time 20 $(DEV_URL)/health || echo "unreachable"
+	@echo ""
+
+dev-logs: ## Tail dev logs (SVC=api|web|caddy)
+	@$(DEV_SSH) -t "$(DEV_COMPOSE) logs -f --tail 100 $(SVC)"
+
+dev-shell: ## Shell on the dev droplet
+	@$(DEV_SSH) -t "cd $(DEV_DIR) && bash"
