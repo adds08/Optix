@@ -1,45 +1,45 @@
 tag,description,make,model,serial,extra_serials,qty,trailer_unit,custodian_name,job,project_name,department,note,source_sheet
-TOOL-0001,HAMMER DRILL EXTREME BULL DOG (8A),BOSCH,11255VSR,331009023,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0002,"4- 1/2"" ANGEL GRAINDER",BOSCH,GWS10-450P,329033250,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0003,"4- 1/2"" ANGEL GRAINDER",BOSCH,GWS10-450P,130007194,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0004,"14"" QUIKIE SAW",STIHL,TS-420,,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Purchased Department,USED,TE-006
-TOOL-0005,"ELECTRIC DRILL 1/2""",DEWALL,DW511,DKJM5J0,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,USED,TE-006
-TOOL-0006,"7- 1/4"" WARM DRIVE CIRCLE SAW",SKILL SAW,,321000552,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,USED,TE-006
-TOOL-0007,HAMMER DRILL 13A,BOSCH,11264EVS,328000452,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0008,QUIKIE SAW,STIHL,TS-420,,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Purchased Department,USED,TE-006
-TOOL-0009,"1/2"" IMPACT WRENCH",BOSCH,GDS18V-740CB14,131000704,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0010,LEAF BLOWER,STIHL,BG56C,539161106,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0011,WALLSCANNER W/CHARGE& BATTERY,BOSCH,D-TECT2000,325049330,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0012,Performance 2 tool combo kit,BOSCH,GXL18V-227B25,I#224006591 D#227000542,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0013,Plate Compactor,WACKER NEWSON,WP1550AW,10835754,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,USED,TE-006
-TOOL-0014,"1/2"" Drill Kit",BOSCH,GSB18V-975CB25,223005412,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0015,Performance 2 tool combo kit,BOSCH,GXL18V-227B25,I#41000059 D#224003659,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0016,QUIKIE SAW,STIHL,TS-420,195116602,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0017,"7""ANGEL GRAINDER",BOSCH,1974-8,326000573,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0018,"1/2"" Impact Wrench w/charger",BOSCH,GDS18V-740CB14,227000190,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0019,"4-1/2"" Angle Grainder",BOSCH,GWS10-450P,332039546,,1,TE-006,ALEJANDRO CAPUCHINO,22018,Lone Star,Equipment Department,NEW,TE-006
-TOOL-0020,GENERATOR,Waker Newson,GP6600,24579919,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,USED,TE-007
-TOOL-0021,GENERATOR,Waker Newson,GP6600,24563435,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,USED,TE-007
-TOOL-0022,QUIKIE SAW,STIHL,TS-420,,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Purchased Department,USED,TE-007
-TOOL-0023,QUIKIE SAW,STIHL,TS-420,,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Purchased Department,USED,TE-007
-TOOL-0024,LEAF BLOWER,STIHL,BG86,4241-011-175,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,,TE-007
-TOOL-0025,HAMMER DRILL,BOSCH,11264EVS,228001280,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,RH-029,TE-007
-TOOL-0026,HAMMER DRILL,BOSCH,11264EVS,228001276,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,RH-030,TE-007
-TOOL-0027,GENERATOR,Waker Newson,GP6600,,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Purchased Department,USED,TE-007
-TOOL-0028,BACK PACK VIBRATOR,Waker Newson,BV50A-h,24627123,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,USED,TE-007
-TOOL-0029,HAMMER DRILL,BOSCH,11264EVS,328001279,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,RH-024,TE-007
-TOOL-0030,HAMMER DRILL,BOSCH,11264EVS,28000640,228001276,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,RH-027,TE-007
-TOOL-0031,Skill Saw,,,330001083,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,Broke,TE-007
-TOOL-0032,QUIKIE SAW,,TS-420,N,A,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,Broke,TE-007
-TOOL-0033,BACK PACK VIBRATOR,,,24642294,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,Broke,TE-007
-TOOL-0034,BACK PACK VIBRATOR,,GCBYT-208246,24629536,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,Repair,TE-007
-TOOL-0035,QUIKIE SAW,,,,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Purchased Department,Repair,TE-007
-TOOL-0036,Skill Saw,,,13200481,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,Repair,TE-007
-TOOL-0037,HAMMER DRILL,BOSCH,11264EVS,42200711,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,Repair,TE-007
-TOOL-0038,Grease Gun,Dewalt,DCG6571,WISUJDL,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,,TE-007
-TOOL-0039,Charger & Battery 4AH,,,,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Purchased Department,,TE-007
-TOOL-0040,Hammer Breaker,BOSCH,11264EVS,422000711,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,Broke,TE-007
-TOOL-0041,Hammer Breaker,BOSCH,RH540M,424005550,,1,TE-007,JOVANI ABARCA,23009,Little Elm,Equipment Department,Repair,TE-007
+TOOL-0001,HAMMER DRILL EXTREME BULL DOG (8A),BOSCH,11255VSR,331009023,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0002,"4- 1/2"" ANGEL GRAINDER",BOSCH,GWS10-450P,329033250,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0003,"4- 1/2"" ANGEL GRAINDER",BOSCH,GWS10-450P,130007194,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0004,"14"" QUIKIE SAW",STIHL,TS-420,,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Purchased Department,USED,TE-006
+TOOL-0005,"ELECTRIC DRILL 1/2""",DEWALL,DW511,DKJM5J0,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,USED,TE-006
+TOOL-0006,"7- 1/4"" WARM DRIVE CIRCLE SAW",SKILL SAW,,321000552,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,USED,TE-006
+TOOL-0007,HAMMER DRILL 13A,BOSCH,11264EVS,328000452,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0008,QUIKIE SAW,STIHL,TS-420,,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Purchased Department,USED,TE-006
+TOOL-0009,"1/2"" IMPACT WRENCH",BOSCH,GDS18V-740CB14,131000704,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0010,LEAF BLOWER,STIHL,BG56C,539161106,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0011,WALLSCANNER W/CHARGE& BATTERY,BOSCH,D-TECT2000,325049330,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0012,Performance 2 tool combo kit,BOSCH,GXL18V-227B25,I#224006591 D#227000542,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0013,Plate Compactor,WACKER NEWSON,WP1550AW,10835754,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,USED,TE-006
+TOOL-0014,"1/2"" Drill Kit",BOSCH,GSB18V-975CB25,223005412,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0015,Performance 2 tool combo kit,BOSCH,GXL18V-227B25,I#41000059 D#224003659,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0016,QUIKIE SAW,STIHL,TS-420,195116602,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0017,"7""ANGEL GRAINDER",BOSCH,1974-8,326000573,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0018,"1/2"" Impact Wrench w/charger",BOSCH,GDS18V-740CB14,227000190,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0019,"4-1/2"" Angle Grainder",BOSCH,GWS10-450P,332039546,,1,TE-006,Alejandro Capuchino,22018,Lone Star,Equipment Department,NEW,TE-006
+TOOL-0020,GENERATOR,Waker Newson,GP6600,24579919,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,USED,TE-007
+TOOL-0021,GENERATOR,Waker Newson,GP6600,24563435,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,USED,TE-007
+TOOL-0022,QUIKIE SAW,STIHL,TS-420,,,1,TE-007,Jobani Abarca,,Equipment Yard,Purchased Department,USED,TE-007
+TOOL-0023,QUIKIE SAW,STIHL,TS-420,,,1,TE-007,Jobani Abarca,,Equipment Yard,Purchased Department,USED,TE-007
+TOOL-0024,LEAF BLOWER,STIHL,BG86,4241-011-175,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,,TE-007
+TOOL-0025,HAMMER DRILL,BOSCH,11264EVS,228001280,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,RH-029,TE-007
+TOOL-0026,HAMMER DRILL,BOSCH,11264EVS,228001276,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,RH-030,TE-007
+TOOL-0027,GENERATOR,Waker Newson,GP6600,,,1,TE-007,Jobani Abarca,,Equipment Yard,Purchased Department,USED,TE-007
+TOOL-0028,BACK PACK VIBRATOR,Waker Newson,BV50A-h,24627123,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,USED,TE-007
+TOOL-0029,HAMMER DRILL,BOSCH,11264EVS,328001279,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,RH-024,TE-007
+TOOL-0030,HAMMER DRILL,BOSCH,11264EVS,28000640,228001276,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,RH-027,TE-007
+TOOL-0031,Skill Saw,,,330001083,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,Broke,TE-007
+TOOL-0032,QUIKIE SAW,,TS-420,N,A,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,Broke,TE-007
+TOOL-0033,BACK PACK VIBRATOR,,,24642294,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,Broke,TE-007
+TOOL-0034,BACK PACK VIBRATOR,,GCBYT-208246,24629536,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,Repair,TE-007
+TOOL-0035,QUIKIE SAW,,,,,1,TE-007,Jobani Abarca,,Equipment Yard,Purchased Department,Repair,TE-007
+TOOL-0036,Skill Saw,,,13200481,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,Repair,TE-007
+TOOL-0037,HAMMER DRILL,BOSCH,11264EVS,42200711,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,Repair,TE-007
+TOOL-0038,Grease Gun,Dewalt,DCG6571,WISUJDL,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,,TE-007
+TOOL-0039,Charger & Battery 4AH,,,,,1,TE-007,Jobani Abarca,,Equipment Yard,Purchased Department,,TE-007
+TOOL-0040,Hammer Breaker,BOSCH,11264EVS,422000711,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,Broke,TE-007
+TOOL-0041,Hammer Breaker,BOSCH,RH540M,424005550,,1,TE-007,Jobani Abarca,,Equipment Yard,Equipment Department,Repair,TE-007
 TOOL-0042,PRESICION LASER W/TRIPOT AND SCALE ROD.,SPECTRA,LL100N,,,1,TE-009,ELEASAR MURILLO,22018,Lone Star,Purchased Department,USED,TE-009
 TOOL-0043,4' SMART LEAVEL,STABILA,,,,1,TE-009,ELEASAR MURILLO,22018,Lone Star,Purchased Department,USED,TE-009
 TOOL-0044,Performance 2 tool combo kit,BOSCH,GXL18V-227B25,I#224006494 D#227000484,,1,TE-009,ELEASAR MURILLO,22018,Lone Star,Equipment Department,NEW,TE-009
@@ -62,45 +62,45 @@ TOOL-0060,Leaf Blower,Stihl,BG56C,535860162,,1,TE-010,JOSE LUIS RODRIGUEZ,23004,
 TOOL-0061,"7"" Angle Grinder 15A",,1772-6,423029666,,1,TE-010,JOSE LUIS RODRIGUEZ,23004,Colony Phase 12,Equipment Department,,TE-010
 TOOL-0062,"4 1/2"" Angle grinder 10A",,GWS10-450P,527052717,,1,TE-010,JOSE LUIS RODRIGUEZ,23004,Colony Phase 12,Equipment Department,,TE-010
 TOOL-0063,Diamond Cup Wheel,BOSCH,DC4518,,,1,TE-010,JOSE LUIS RODRIGUEZ,23004,Colony Phase 12,Purchased Department,,TE-010
-TOOL-0064,"1/2"" Hammer Drill/Driver",Milwaukee,2904-20,M64AF230206819,,1,TE-011,Andres Flores,22017,NEX,Equipment Department,,TE-011
-TOOL-0065,"1/2"" Hammer Drill/Driver",Milwaukee,2904-20,M64AF230206821,,1,TE-011,Andres Flores,22017,NEX,Equipment Department,,TE-011
-TOOL-0066,"1/2"" Hammer Drill/Driver",Milwaukee,,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0067,"4-1/2"" Angel Grinder",Milwaukee,2880-20,L64BF225004744,,1,TE-011,Andres Flores,22017,NEX,Equipment Department,,TE-011
-TOOL-0068,"4-1/2""Angel Grinder",Milwaukee,2880-20,L64BF226004745,,1,TE-011,Andres Flores,22017,NEX,Equipment Department,,TE-011
-TOOL-0069,Lever Hoist,Magna,LH200,115932,,1,TE-011,Andres Flores,22017,NEX,Equipment Department,,TE-011
-TOOL-0070,Lever Hoist,Magna,LH200,115916,,1,TE-011,Andres Flores,22017,NEX,Equipment Department,,TE-011
-TOOL-0071,Reciprocating Saw,Milwaukee,2821-22,L37AD231702607,,1,TE-011,Andres Flores,22017,NEX,Equipment Department,,TE-011
-TOOL-0072,concrete Vibrators,Wacker Newson,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0073,Extension Cord 100',Yellow Jacket,,,,3,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0074,Hand Blower electric,Milwaukee,,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0075,"14"" Quikie saw",Stihl,TS-420,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0076,Trash Water Pump,,,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0077,"1/2"" Drill",Milwaukee,,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0078,1/4 Hex impact,Bosch,,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0079,"7-1/2"" warm drive Circular saw",Skillsaw,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0080,Headlamps for Employees,Cosoos,,,,6,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0081,Harness M-L,Guardian,,,,5,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0082,Yellow Strap 20',Kennedy Wire Rope,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0083,Blue Strap 10',Kennedy Wire Rope,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0084,"48"" Shovel Square",Union Tools,,,,3,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0085,"48"" Shovel Point",Union Tools,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0086,Wheel barrow,True Temper,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0087,sledge hammer 10lbs,True Temper,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0088,"Extension ladder 24""",Werner,,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0089,Power Generator,Wacker Newson,GP6500,24560443,,1,TE-011,Andres Flores,22017,NEX,Equipment Department,,TE-011
-TOOL-0090,Power Generator,Wacker Newson,GP6500,24560444,,1,TE-011,Andres Flores,22017,NEX,Equipment Department,,TE-011
-TOOL-0091,Chopsaw,Stihl,,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0092,Harness M-L,,,,,5,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0093,Yellow Strap 20',,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0094,Blue Strap 10',,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0095,sledge hammer 10lbs,,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0096,Gas can 2 gal,,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0097,Gas can 5 gal,,,,,3,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0098,Form Release Red Can,,,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0099,"Wrench pipe 36""",,,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0100,"Pry Bar 60""",,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0101,Wheel barrow,True Temper,,,,2,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
-TOOL-0102,"1/2"" High Torque",Milwaukee,2767-20,,,1,TE-011,Andres Flores,22017,NEX,Purchased Department,,TE-011
+TOOL-0064,"1/2"" Hammer Drill/Driver",Milwaukee,2904-20,M64AF230206819,,1,TE-011,ANDRES FLORES,22017,NEX,Equipment Department,,TE-011
+TOOL-0065,"1/2"" Hammer Drill/Driver",Milwaukee,2904-20,M64AF230206821,,1,TE-011,ANDRES FLORES,22017,NEX,Equipment Department,,TE-011
+TOOL-0066,"1/2"" Hammer Drill/Driver",Milwaukee,,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0067,"4-1/2"" Angel Grinder",Milwaukee,2880-20,L64BF225004744,,1,TE-011,ANDRES FLORES,22017,NEX,Equipment Department,,TE-011
+TOOL-0068,"4-1/2""Angel Grinder",Milwaukee,2880-20,L64BF226004745,,1,TE-011,ANDRES FLORES,22017,NEX,Equipment Department,,TE-011
+TOOL-0069,Lever Hoist,Magna,LH200,115932,,1,TE-011,ANDRES FLORES,22017,NEX,Equipment Department,,TE-011
+TOOL-0070,Lever Hoist,Magna,LH200,115916,,1,TE-011,ANDRES FLORES,22017,NEX,Equipment Department,,TE-011
+TOOL-0071,Reciprocating Saw,Milwaukee,2821-22,L37AD231702607,,1,TE-011,ANDRES FLORES,22017,NEX,Equipment Department,,TE-011
+TOOL-0072,concrete Vibrators,Wacker Newson,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0073,Extension Cord 100',Yellow Jacket,,,,3,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0074,Hand Blower electric,Milwaukee,,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0075,"14"" Quikie saw",Stihl,TS-420,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0076,Trash Water Pump,,,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0077,"1/2"" Drill",Milwaukee,,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0078,1/4 Hex impact,Bosch,,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0079,"7-1/2"" warm drive Circular saw",Skillsaw,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0080,Headlamps for Employees,Cosoos,,,,6,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0081,Harness M-L,Guardian,,,,5,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0082,Yellow Strap 20',Kennedy Wire Rope,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0083,Blue Strap 10',Kennedy Wire Rope,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0084,"48"" Shovel Square",Union Tools,,,,3,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0085,"48"" Shovel Point",Union Tools,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0086,Wheel barrow,True Temper,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0087,sledge hammer 10lbs,True Temper,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0088,"Extension ladder 24""",Werner,,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0089,Power Generator,Wacker Newson,GP6500,24560443,,1,TE-011,ANDRES FLORES,22017,NEX,Equipment Department,,TE-011
+TOOL-0090,Power Generator,Wacker Newson,GP6500,24560444,,1,TE-011,ANDRES FLORES,22017,NEX,Equipment Department,,TE-011
+TOOL-0091,Chopsaw,Stihl,,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0092,Harness M-L,,,,,5,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0093,Yellow Strap 20',,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0094,Blue Strap 10',,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0095,sledge hammer 10lbs,,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0096,Gas can 2 gal,,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0097,Gas can 5 gal,,,,,3,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0098,Form Release Red Can,,,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0099,"Wrench pipe 36""",,,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0100,"Pry Bar 60""",,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0101,Wheel barrow,True Temper,,,,2,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
+TOOL-0102,"1/2"" High Torque",Milwaukee,2767-20,,,1,TE-011,ANDRES FLORES,22017,NEX,Purchased Department,,TE-011
 TOOL-0103,GENERATOR,WACKER NEWSON,GP6600,24560604,,1,TE-012,HUGO NUNEZ,24003,Plano Arterial Renewal-2,Equipment Department,USED,TE-012
 TOOL-0104,GENERATOR,WACKER NEWSON,GP6600,24564189,,1,TE-012,HUGO NUNEZ,24003,Plano Arterial Renewal-2,Equipment Department,USED,TE-012
 TOOL-0105,PLATE COMPACTOR,MULTIQUIP,MVC-88VTHW,J12534,,1,TE-012,HUGO NUNEZ,24003,Plano Arterial Renewal-2,Equipment Department,USED,TE-012
@@ -136,48 +136,48 @@ TOOL-0134,ELECTRIC HAMMER DRILL,BOSCH,11264EVS,328001314,,1,TE-012,HUGO NUNEZ,24
 TOOL-0135,ELECTRIC HAMMER DRILL,BOSCH,RH-540M,703001198,,1,TE-012,HUGO NUNEZ,24003,Plano Arterial Renewal-2,Equipment Department,USED,TE-012
 TOOL-0136,BACK PACK VIBRATOR,Wacker Neuson,BV50A-h,24592229,,1,TE-012,HUGO NUNEZ,24003,Plano Arterial Renewal-2,Equipment Department,USED,TE-012
 TOOL-0137,Concrete vibrator Shaft w/ head,Wacker Neuson,,,,1,TE-012,HUGO NUNEZ,24003,Plano Arterial Renewal-2,Purchased Department,,TE-012
-TOOL-0138,BACK PACK VIBRATOR,WACKER NEWSON,BV50A-H,24523179,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,USED,TE-013
-TOOL-0139,Quicky Saw,STHIL,TS-420,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0140,Quicky Saw,STHIL,TS-420,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0141,GENERATOR,HONDA,EB6500X,EBLC-1520520,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0142,GENERATOR,HONDA,EB6500X,EBLC-1514786,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0143,PLATE COMPACTOR,WACKER NEWSON,WP1550AW,11714586,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0144,"20"" Walk Behind Concrete Saw",HUSQVARNA,FS400LV,20220500089,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0145,Leaf Blower,Stihl,BG86,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,Broken don’t work,TE-013
-TOOL-0146,FIRE EXTINGUISHER,KIDDE,3 LB,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0147,FIRE EXTINGUISHER,KIDDE,5 LB,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0148,100' Heavy Duty Extension Cords,,,,,3,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0149,"4-1/2"" Angel Grinder",Dewalt,,21286,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0150,Air Compressor 2.6 Gallon,Porter Cable,,2471289383,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0151,"7-1/2"" warm drive Circular saw",Skillsaw,,31003157,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0152,Drill Driver,Milwaukee,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0153,Drill Driver,Dewalt,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0154,Hammer Drill,Dewalt,,8018,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0155,"7-1/2""Angel Grinder",Bosch,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0156,"7-1/2"" Warm Drive Circle Saw",Dewalt,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0157,SDS Max Drill,Milwaukee,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0158,Hammer Drill,Dewalt,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0159,SDS Max Drill,Bosch,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0160,SDS Plus Drill,Metabo,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0161,Water Pump,Koshin,,30075501,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0162,Concrete vibrator Nozzle,Wacker Neuson,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0163,pick,,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0164,Shovel,,,,,4,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0165,Bull Float,,,,,2,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0166,Fresno,,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0167,Bull float Handles,,,,,6,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0168,Rebar Bender,,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0169,Metal Gasoline Can With Flex Funnel Nozzle Red,Eagle,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0170,Level with Tripod,Topcon,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0171,"Smart Level 4""",,,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,,TE-013
-TOOL-0172,BACK PACK VIBRATOR,Wacker Neuson,BV50A-H,24629586,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,New,TE-013
-TOOL-0173,Flexible Shaft 7',Wacker Neuson,SM-2S,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,New,TE-013
-TOOL-0174,"1-3/8"" Hybrid vibrator head",Wacker Neuson,H35HA,,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Purchased Department,New,TE-013
-TOOL-0175,Skill Saw,Bosch,CSW41,127000250,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0176,Hammer Drill,Bosch,11264EVS,328001279,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,Repair,TE-013
-TOOL-0177,Hammer Drill,Bosch,11264EVS,42003825,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,Broken,TE-013
-TOOL-0178,Quicky Saw,STHIL,TS-420,198226016,,1,TE-013,Alberto Mendes Aleman,22015,Garland,Equipment Department,,TE-013
-TOOL-0179,Hammer Drill,Bosch,11264EVS,228001280,,1,TE-014,Cesar Rodriguez,,Equipment Yard,Equipment Department,Used,TE-014
+TOOL-0138,BACK PACK VIBRATOR,WACKER NEWSON,BV50A-H,24523179,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,USED,TE-013
+TOOL-0139,Quicky Saw,STHIL,TS-420,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0140,Quicky Saw,STHIL,TS-420,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0141,GENERATOR,HONDA,EB6500X,EBLC-1520520,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0142,GENERATOR,HONDA,EB6500X,EBLC-1514786,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0143,PLATE COMPACTOR,WACKER NEWSON,WP1550AW,11714586,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0144,"20"" Walk Behind Concrete Saw",HUSQVARNA,FS400LV,20220500089,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0145,Leaf Blower,Stihl,BG86,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,Broken don’t work,TE-013
+TOOL-0146,FIRE EXTINGUISHER,KIDDE,3 LB,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0147,FIRE EXTINGUISHER,KIDDE,5 LB,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0148,100' Heavy Duty Extension Cords,,,,,3,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0149,"4-1/2"" Angel Grinder",Dewalt,,21286,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0150,Air Compressor 2.6 Gallon,Porter Cable,,2471289383,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0151,"7-1/2"" warm drive Circular saw",Skillsaw,,31003157,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0152,Drill Driver,Milwaukee,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0153,Drill Driver,Dewalt,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0154,Hammer Drill,Dewalt,,8018,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0155,"7-1/2""Angel Grinder",Bosch,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0156,"7-1/2"" Warm Drive Circle Saw",Dewalt,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0157,SDS Max Drill,Milwaukee,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0158,Hammer Drill,Dewalt,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0159,SDS Max Drill,Bosch,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0160,SDS Plus Drill,Metabo,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0161,Water Pump,Koshin,,30075501,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0162,Concrete vibrator Nozzle,Wacker Neuson,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0163,pick,,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0164,Shovel,,,,,4,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0165,Bull Float,,,,,2,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0166,Fresno,,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0167,Bull float Handles,,,,,6,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0168,Rebar Bender,,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0169,Metal Gasoline Can With Flex Funnel Nozzle Red,Eagle,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0170,Level with Tripod,Topcon,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0171,"Smart Level 4""",,,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,,TE-013
+TOOL-0172,BACK PACK VIBRATOR,Wacker Neuson,BV50A-H,24629586,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,New,TE-013
+TOOL-0173,Flexible Shaft 7',Wacker Neuson,SM-2S,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,New,TE-013
+TOOL-0174,"1-3/8"" Hybrid vibrator head",Wacker Neuson,H35HA,,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Purchased Department,New,TE-013
+TOOL-0175,Skill Saw,Bosch,CSW41,127000250,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0176,Hammer Drill,Bosch,11264EVS,328001279,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,Repair,TE-013
+TOOL-0177,Hammer Drill,Bosch,11264EVS,42003825,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,Broken,TE-013
+TOOL-0178,Quicky Saw,STHIL,TS-420,198226016,,1,TE-013,ALBERTO MENDES ALEMAN,22015,Garland,Equipment Department,,TE-013
+TOOL-0179,Hammer Drill,Bosch,11264EVS,228001280,,1,TE-014,CESAR RODRIGUEZ,24007,Austin Lane,Equipment Department,Used,TE-014
 TOOL-0180,CORD LESS RECIPROCATING SAW COMBO,BOSCH,GSA18V-110,229003993,,1,TE-016,ZELVIN PEREZ,22018,Lone Star,Equipment Department,NEW,TE-016
 TOOL-0181,"7 1/4"" WORM DRIVE CIRCLE SAW",BOSCH,CSW41,329000182,,1,TE-016,ZELVIN PEREZ,22018,Lone Star,Equipment Department,NEW,TE-016
 TOOL-0182,ELECTRIC EXTENSION CORD 100FT,,,,,1,TE-016,ZELVIN PEREZ,22018,Lone Star,Purchased Department,USED,TE-016
@@ -199,57 +199,57 @@ TOOL-0197,Charger 4 A/ 18 V,BOSCH,GAL18V-40,,,1,TE-016,ZELVIN PEREZ,22018,Lone S
 TOOL-0198,Hammer Drill,BOSCH,11264EVS,427000426,,1,TE-016,ZELVIN PEREZ,22018,Lone Star,Equipment Department,,TE-016
 TOOL-0199,Reciprocating Saw,BOSCH,RS325,226001064,,1,TE-016,ZELVIN PEREZ,22018,Lone Star,Equipment Department,,TE-016
 TOOL-0200,"4"" Smart Level",,GIM 120,428000067,,1,TE-016,ZELVIN PEREZ,22018,Lone Star,Equipment Department,,TE-016
-TOOL-0201,50' Heavy Duty Extension cords,,,,,3,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0202,"7-1/2"" Warm Drive Circular saw",Skilsaw,,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0203,"Drill Driver 1/4""",Bosch,,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0204,"Hammer Drill 1/2""",Bosch,,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0205,Power Generator,Honda,,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0206,Quicky Saw,Stihl,,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0207,Pick,,,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0208,Shovel,,,,,4,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0209,Concrete Back Pack Vibrator,Wacker Newson,,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0210,Leaf Blower,Stihl,BG86,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0211,Quicky Saw,Stihl,TS-420,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0212,Comelongs concrete tools,,,,,4,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0213,Bull Float 6',,,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0214,Fresno 4' concrete tools,,,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0215,Geangle Concrete tools,,,,,6,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0216,Metal Gasoline Can with Flex funnel Nozzle Red,Eagle,,,,3,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0217,Battery Charger 18V,Bosch,GAL18V-40,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0218,Floodlight,Bosch,GLI18V-1900N,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0219,Hight Power Battery 8Ah,Bosch,GBA18V80,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0220,"chisel 18""",Bosch,HS1912,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0221,"Chisel 16""",Bosch,HS1936,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0222,"concrete diamond blade 14""",Bosch,DB1441E,,,1,TE-017,Felipe Portillo,20011,DART,Purchased Department,,TE-017
-TOOL-0223,"1/2"" High Torque",Milwaukee,2767-20,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0224,"1/2"" High Torque",Milwaukee,2767-20,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0225,"1/4"" Hex Impact Driver",Milwaukee,2953-20,M67AF231403532,,1,TE-018,Rafael PLacencia,22017,NEX,Equipment Department,,TE-018
-TOOL-0226,"1/4"" Hex Impact Driver",Milwaukee,2953-20,M67AF231627506,,1,TE-018,Rafael PLacencia,22017,NEX,Equipment Department,,TE-018
-TOOL-0227,"1/4"" Hex Impact Driver",Bosch,GDX18V-1860C,227000888,,1,TE-018,Rafael PLacencia,22017,NEX,Equipment Department,,TE-018
-TOOL-0228,Concrete Vibrator,Wacker Newson,510000600,11609405,,1,TE-018,Rafael PLacencia,22017,NEX,Equipment Department,,TE-018
-TOOL-0229,Concrete Vibrator,Wacker Newson,510000600,11599923,,1,TE-018,Rafael PLacencia,22017,NEX,Equipment Department,,TE-018
-TOOL-0230,Sawzall Reciprocating Saw,Milwaukee,2821-22,L37AD231702655,,1,TE-018,Rafael PLacencia,22017,NEX,Equipment Department,,TE-018
-TOOL-0231,SDS Max Hammer Drill,Bosch,11264EVS,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0232,Chopsaw,Sthil,,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0233,Extension Cord 100',Yellow Jacket,,,,4,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0234,Generator,Honda,GP5600a,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0235,"7-1/2"" warm drive Circular saw",Skillsaw,,,,2,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0236,Headlamps for Employees,Cosoos,,,,6,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0237,Harnes M-L,Guardian,6,,,6,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0238,"Magnetic Level 72""",,,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0239,"Magnetic Level 48""",,,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0240,"Wrench pipe 36""",,,,,2,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0241,Blue Straps 10',,,,,3,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0242,Lever Hoist 1-1/2Ton,,,,,2,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0243,"48"" Shovel Square",,,,,2,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0244,Gas blower,Stihl,BG50,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0245,"Pry Bar 60""",Kraft,,,,2,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0246,"16""x3-1/4"" Magnesium Float",Kraft,,,,2,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0247,Gas can 5 gal,Eagle,,,,2,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0248,Gas can 2 gal,Eagle,,,,2,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0249,Form Release Red Can,Chapin,,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0250,Form Release Red Can,Chapin,,,,1,TE-018,Rafael PLacencia,22017,NEX,Purchased Department,,TE-018
-TOOL-0251,Hammer Drill,Bosch,RH450M,225001099,,1,TE-019,Miguel Quijas,,Equipment Yard,Equipment Department,New,TE-019
+TOOL-0201,50' Heavy Duty Extension cords,,,,,3,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0202,"7-1/2"" Warm Drive Circular saw",Skilsaw,,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0203,"Drill Driver 1/4""",Bosch,,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0204,"Hammer Drill 1/2""",Bosch,,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0205,Power Generator,Honda,,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0206,Quicky Saw,Stihl,,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0207,Pick,,,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0208,Shovel,,,,,4,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0209,Concrete Back Pack Vibrator,Wacker Newson,,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0210,Leaf Blower,Stihl,BG86,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0211,Quicky Saw,Stihl,TS-420,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0212,Comelongs concrete tools,,,,,4,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0213,Bull Float 6',,,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0214,Fresno 4' concrete tools,,,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0215,Geangle Concrete tools,,,,,6,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0216,Metal Gasoline Can with Flex funnel Nozzle Red,Eagle,,,,3,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0217,Battery Charger 18V,Bosch,GAL18V-40,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0218,Floodlight,Bosch,GLI18V-1900N,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0219,Hight Power Battery 8Ah,Bosch,GBA18V80,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0220,"chisel 18""",Bosch,HS1912,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0221,"Chisel 16""",Bosch,HS1936,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0222,"concrete diamond blade 14""",Bosch,DB1441E,,,1,TE-017,FELIPE PORTILLO,20011,DART,Purchased Department,,TE-017
+TOOL-0223,"1/2"" High Torque",Milwaukee,2767-20,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0224,"1/2"" High Torque",Milwaukee,2767-20,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0225,"1/4"" Hex Impact Driver",Milwaukee,2953-20,M67AF231403532,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Equipment Department,,TE-018
+TOOL-0226,"1/4"" Hex Impact Driver",Milwaukee,2953-20,M67AF231627506,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Equipment Department,,TE-018
+TOOL-0227,"1/4"" Hex Impact Driver",Bosch,GDX18V-1860C,227000888,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Equipment Department,,TE-018
+TOOL-0228,Concrete Vibrator,Wacker Newson,510000600,11609405,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Equipment Department,,TE-018
+TOOL-0229,Concrete Vibrator,Wacker Newson,510000600,11599923,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Equipment Department,,TE-018
+TOOL-0230,Sawzall Reciprocating Saw,Milwaukee,2821-22,L37AD231702655,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Equipment Department,,TE-018
+TOOL-0231,SDS Max Hammer Drill,Bosch,11264EVS,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0232,Chopsaw,Sthil,,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0233,Extension Cord 100',Yellow Jacket,,,,4,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0234,Generator,Honda,GP5600a,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0235,"7-1/2"" warm drive Circular saw",Skillsaw,,,,2,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0236,Headlamps for Employees,Cosoos,,,,6,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0237,Harnes M-L,Guardian,6,,,6,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0238,"Magnetic Level 72""",,,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0239,"Magnetic Level 48""",,,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0240,"Wrench pipe 36""",,,,,2,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0241,Blue Straps 10',,,,,3,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0242,Lever Hoist 1-1/2Ton,,,,,2,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0243,"48"" Shovel Square",,,,,2,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0244,Gas blower,Stihl,BG50,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0245,"Pry Bar 60""",Kraft,,,,2,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0246,"16""x3-1/4"" Magnesium Float",Kraft,,,,2,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0247,Gas can 5 gal,Eagle,,,,2,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0248,Gas can 2 gal,Eagle,,,,2,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0249,Form Release Red Can,Chapin,,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0250,Form Release Red Can,Chapin,,,,1,TE-018,RAFAEL PLACENCIA,22017,NEX,Purchased Department,,TE-018
+TOOL-0251,Hammer Drill,Bosch,RH450M,225001099,,1,TE-019,Miguel Quijas,24007,Austin Lane,Equipment Department,New,TE-019
 TOOL-0252,QUIKIE SAW,STIHL,TS-420,,,1,TE-020,MARIANO JIMENEZ,23002,Richardson,Purchased Department,,TE-020
 TOOL-0253,QUIKIE SAW,STIHL,TS-420,,,1,TE-020,MARIANO JIMENEZ,23002,Richardson,Purchased Department,,TE-020
 TOOL-0254,GENERATOR,HONDA,EB6500X,EBCL-1513008,,1,TE-020,MARIANO JIMENEZ,23002,Richardson,Equipment Department,,TE-020
@@ -305,69 +305,69 @@ TOOL-0303,Skill Saw,,,332004110,,1,TE-020,MARIANO JIMENEZ,23002,Richardson,Equip
 TOOL-0304,Skill Saw,,,0 32000875,,1,TE-020,MARIANO JIMENEZ,23002,Richardson,Equipment Department,Broke,TE-020
 TOOL-0305,QUIKIE SAW,,,N,A,1,TE-020,MARIANO JIMENEZ,23002,Richardson,Equipment Department,Broke,TE-020
 TOOL-0306,Skill Saw,,,330001083,,1,TE-020,MARIANO JIMENEZ,23002,Richardson,Equipment Department,Repair,TE-020
-TOOL-0307,"1/2"" Hammer Drill/Driver",DeWalt,DCD996P2,DW235G,,1,TE-021,Jose Danery,22017,NEX,Equipment Department,,TE-021
-TOOL-0308,"1/2"" Impact Wrench",Milwaukee,2767-20,H96AM225119205,,1,TE-021,Jose Danery,22017,NEX,Equipment Department,,TE-021
-TOOL-0309,"1/2"" Impact Wrench",Milwaukee,2767-20,H96AM225119067,,1,TE-021,Jose Danery,22017,NEX,Equipment Department,,TE-021
-TOOL-0310,"1/4"" Hex Impact Driver",Milwaukee,2953-20,M67AF231403677,,1,TE-021,Jose Danery,22017,NEX,Equipment Department,,TE-021
-TOOL-0311,Power Generator,Honda,EB 6500X,2431600,,1,TE-021,Jose Danery,22017,NEX,Equipment Department,,TE-021
-TOOL-0312,Portable Inverter Generator,Honda,EU 2200i,EAMT-2741926,,1,TE-021,Jose Danery,22017,NEX,Equipment Department,,TE-021
-TOOL-0313,SDS Max Hammer,Bosch,,3611 B64012,,1,TE-021,Jose Danery,22017,NEX,Equipment Department,,TE-021
-TOOL-0314,"Skillsaw 7-1/4""",Skillsaw,,325000128,,2,TE-021,Jose Danery,22017,NEX,Equipment Department,,TE-021
-TOOL-0315,Extension Cord 100',Yellow Jacket,,,,2,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0316,"14"" cutquick saw",Stihl,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0317,"4-1/2""/5"" Grinder Paddle Switch",Bosch,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0318,Air Compressor,,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0319,Nail Gun,Makita,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0320,Sawzall Reciprocating Saw,Milwaukee,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0321,Headlamps for Employees,Cosoos,,,,7,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0322,Harness M-L,Guardian,,,,7,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0323,"48"" Shovel Square",Union Tools,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0324,"48"" Shovel Point",Union Tools,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0325,"Wrench pipe 48""",Ridgid,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0326,Sledge Hammer 16lbs,True Temper,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0327,Backpack Concrete Vibrator,Wacker Newuson,BV50A-H,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0328,Gas blower,Stihl,BG50,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0329,"Pry Bar 60""",Kraft,,,,2,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0330,"48"" Finish broom w/bracket",Marshalltown,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0331,Gas can 5 gal,Eagle,,,,4,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0332,Diesel can 5 gal,Eagle,,,,3,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0333,Form Release Red Can,Chapin,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0334,"Magnetic Level 72""",Milwaukee,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0335,"Magnetic Level 48""",Milwaukee,,,,1,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0336,"7 1/4"" Skill Saw",,,330000050,,1,TE-021,Jose Danery,22017,NEX,Equipment Department,broke,TE-021
-TOOL-0337,Quikie Saw,,,N,A,1,TE-021,Jose Danery,22017,NEX,Equipment Department,broke,TE-021
-TOOL-0338,Skill Saw,,,32000875,,1,TE-021,Jose Danery,22017,NEX,Equipment Department,Repair,TE-021
-TOOL-0339,Fire Extinguisher,,5 LB,,,4,TE-021,Jose Danery,22017,NEX,Purchased Department,,TE-021
-TOOL-0340,Electric Rebar Bender,VEVOR,NRB-25,23092859864,,1,TE-022,Senovio Acuna,23010,Bell,Equipment Department,NEW,TE-022
-TOOL-0341,"Heaby Dutty Chain 1/2""",,,,,1,TE-022,Senovio Acuna,23010,Bell,Purchased Department,USED,TE-022
-TOOL-0342,"Heaby Dutty Chain 3/8""",,,,,1,TE-022,Senovio Acuna,23010,Bell,Purchased Department,USED,TE-022
-TOOL-0343,Chain Tensioner,,,,,2,TE-022,Senovio Acuna,23010,Bell,Purchased Department,NEW,TE-022
-TOOL-0344,100' Heavy Duty Extension cords,,,,,2,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0345,"4-1/2"" Angel Grinder",,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0346,Battery Chargers,Dewalt,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0347,Warm Drive Circular Saw,Skilsaw,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0348,"7"" Angel Grinder",Dewalt,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0349,Hammer Drill,Bosch,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0350,Water pump,,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0351,Reciprocator Saw,Dewalt,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0352,"Wrench 1/2"" drive with battery",Wacker Newson,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0353,Electric Vibrator,Wacker Newson,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0354,3M Harnesses,,,,,3,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0355,Safty Can Red,Justrite,,,,2,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0356,Concrete Vibrator Nozzle,,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0357,Hammer,Bosch,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0358,Pick,,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0359,Shovel,,,,,3,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0360,Hand Blower,Stihl,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0361,Plate Compactor,Wacker Newson,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0362,Power Generator,Wacker Newson,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0363,Quicky Saw,Stihl,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0364,Comealong Concrete Tools,,,,,3,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0365,Bull Float 6',,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0366,Screed 16',,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0367,Screed 10',,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0368,Pipe Extension Handles 6',,,,,6,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
-TOOL-0369,Concrete Finish Brush -Broom,,,,,1,TE-023,RAFAEL JIMENEZ,20011,DART,Purchased Department,,TE-023
+TOOL-0307,"1/2"" Hammer Drill/Driver",DeWalt,DCD996P2,DW235G,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,,TE-021
+TOOL-0308,"1/2"" Impact Wrench",Milwaukee,2767-20,H96AM225119205,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,,TE-021
+TOOL-0309,"1/2"" Impact Wrench",Milwaukee,2767-20,H96AM225119067,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,,TE-021
+TOOL-0310,"1/4"" Hex Impact Driver",Milwaukee,2953-20,M67AF231403677,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,,TE-021
+TOOL-0311,Power Generator,Honda,EB 6500X,2431600,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,,TE-021
+TOOL-0312,Portable Inverter Generator,Honda,EU 2200i,EAMT-2741926,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,,TE-021
+TOOL-0313,SDS Max Hammer,Bosch,,3611 B64012,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,,TE-021
+TOOL-0314,"Skillsaw 7-1/4""",Skillsaw,,325000128,,2,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,,TE-021
+TOOL-0315,Extension Cord 100',Yellow Jacket,,,,2,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0316,"14"" cutquick saw",Stihl,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0317,"4-1/2""/5"" Grinder Paddle Switch",Bosch,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0318,Air Compressor,,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0319,Nail Gun,Makita,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0320,Sawzall Reciprocating Saw,Milwaukee,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0321,Headlamps for Employees,Cosoos,,,,7,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0322,Harness M-L,Guardian,,,,7,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0323,"48"" Shovel Square",Union Tools,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0324,"48"" Shovel Point",Union Tools,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0325,"Wrench pipe 48""",Ridgid,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0326,Sledge Hammer 16lbs,True Temper,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0327,Backpack Concrete Vibrator,Wacker Newuson,BV50A-H,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0328,Gas blower,Stihl,BG50,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0329,"Pry Bar 60""",Kraft,,,,2,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0330,"48"" Finish broom w/bracket",Marshalltown,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0331,Gas can 5 gal,Eagle,,,,4,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0332,Diesel can 5 gal,Eagle,,,,3,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0333,Form Release Red Can,Chapin,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0334,"Magnetic Level 72""",Milwaukee,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0335,"Magnetic Level 48""",Milwaukee,,,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0336,"7 1/4"" Skill Saw",,,330000050,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,broke,TE-021
+TOOL-0337,Quikie Saw,,,N,A,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,broke,TE-021
+TOOL-0338,Skill Saw,,,32000875,,1,TE-021,GABRIEL VILLAREAL,22017,NEX,Equipment Department,Repair,TE-021
+TOOL-0339,Fire Extinguisher,,5 LB,,,4,TE-021,GABRIEL VILLAREAL,22017,NEX,Purchased Department,,TE-021
+TOOL-0340,Electric Rebar Bender,VEVOR,NRB-25,23092859864,,1,TE-022,SENOVIO ACUNA,23010,Bell,Equipment Department,NEW,TE-022
+TOOL-0341,"Heaby Dutty Chain 1/2""",,,,,1,TE-022,SENOVIO ACUNA,23010,Bell,Purchased Department,USED,TE-022
+TOOL-0342,"Heaby Dutty Chain 3/8""",,,,,1,TE-022,SENOVIO ACUNA,23010,Bell,Purchased Department,USED,TE-022
+TOOL-0343,Chain Tensioner,,,,,2,TE-022,SENOVIO ACUNA,23010,Bell,Purchased Department,NEW,TE-022
+TOOL-0344,100' Heavy Duty Extension cords,,,,,2,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0345,"4-1/2"" Angel Grinder",,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0346,Battery Chargers,Dewalt,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0347,Warm Drive Circular Saw,Skilsaw,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0348,"7"" Angel Grinder",Dewalt,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0349,Hammer Drill,Bosch,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0350,Water pump,,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0351,Reciprocator Saw,Dewalt,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0352,"Wrench 1/2"" drive with battery",Wacker Newson,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0353,Electric Vibrator,Wacker Newson,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0354,3M Harnesses,,,,,3,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0355,Safty Can Red,Justrite,,,,2,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0356,Concrete Vibrator Nozzle,,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0357,Hammer,Bosch,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0358,Pick,,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0359,Shovel,,,,,3,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0360,Hand Blower,Stihl,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0361,Plate Compactor,Wacker Newson,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0362,Power Generator,Wacker Newson,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0363,Quicky Saw,Stihl,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0364,Comealong Concrete Tools,,,,,3,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0365,Bull Float 6',,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0366,Screed 16',,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0367,Screed 10',,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0368,Pipe Extension Handles 6',,,,,6,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
+TOOL-0369,Concrete Finish Brush -Broom,,,,,1,TE-023,RAFAEL JAIMES,20011,DART,Purchased Department,,TE-023
 TOOL-0370,GENERATOR,HONDA,EB6500X,EBLC-1520001,,1,TE-024,NICOLAS DIRCIO,23004,Colony Phase 12,Equipment Department,USED,TE-024
 TOOL-0371,GENERATOR,HONDA,EB6500X,EBLC-1318881,,1,TE-024,NICOLAS DIRCIO,23004,Colony Phase 12,Equipment Department,USED,TE-024
 TOOL-0372,PLATE COMPACTOR,WACKER NEWSON,WP1550AW,11856380,,1,TE-024,NICOLAS DIRCIO,23004,Colony Phase 12,Equipment Department,NEW,TE-024
@@ -390,310 +390,310 @@ TOOL-0388,Bull Float,,,,,1,TE-024,NICOLAS DIRCIO,23004,Colony Phase 12,Purchased
 TOOL-0389,Fresno,,,,,1,TE-024,NICOLAS DIRCIO,23004,Colony Phase 12,Purchased Department,,TE-024
 TOOL-0390,Ply Bars,,,,,2,TE-024,NICOLAS DIRCIO,23004,Colony Phase 12,Purchased Department,,TE-024
 TOOL-0391,Metal Gasoline Can With Flex Funnel Nozzle Red,Eagle,,,,2,TE-024,NICOLAS DIRCIO,23004,Colony Phase 12,Purchased Department,,TE-024
-TOOL-0392,Perforamance 2 tool Combo Kit,BOSCH,GXL18V-227B25,D#22700527 I#224006545,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,NEW,TE-025
-TOOL-0393,Quiki Saw,STIHL,TS-420,193914403,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,NEW,TE-025
-TOOL-0394,"Impact Wrench 1/2""",Bosch,GDS18V-740CB14,223000081,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0395,Hammer Drill,Bosch,11264EVS,328001245,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0396,Plate Compactor,,,,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Purchased Department,,TE-025
-TOOL-0397,QUIKIE SAW,STIHL,TS-420,,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Purchased Department,,TE-025
-TOOL-0398,LEAF BLOWER,STIHL,BS-50,,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Purchased Department,,TE-025
-TOOL-0399,Generator,Honda,EB5000X,EB-50-AN,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0400,Vibroplate,Mikasa MQ,G13076,PC-012,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0401,Cordless Impact Wrench,Bosch,GDS18V-740C,,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Purchased Department,,TE-025
-TOOL-0402,Cordless Impact Wrench,Milwaukee,2 Tool Kit Impact M18 Fuel,2997-22,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0403,Cordless Impact Wrench,DeWalt,Cordless,DCF899,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0404,Rotary Hammer,Bosch,RH540M,029012917,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0405,"7-1/4"" Worm Drive Saw",Skilsaw,E490426,032001988,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0406,"7-1/4"" Worm Drive Saw",Skilsaw,E490426,131001401,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0407,Cutquiksaw,Stihl,TS420,42383510502B,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0408,Blower,Stihl,BG50,42297010609A,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0409,Rotary Hammer,Bosch,11255VSR,12505,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0410,Rotary Hammer,Bosch,11264EVS,3611B64012,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0411,Grinder,DeWalt,DWE402,DWE402,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0412,Grinder,Bosch,GWS10-45P,124000438,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0413,Automatic Level,Spectra Precision,Optical Automatic Level,AL24A,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0414,Laser,Spectra Precision,CR600,LL300N,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0415,Fall Protection,Sala,Twin Class 2 3500276,0914197,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0416,Fall Protection,Sala,Twin Class 2 3500276,0914198,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0417,Fall Protection,Sala,Twin Class 2 3500276,09132204,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0418,Fall Protection,Sala,Twin Class 2 3500276,09132205,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0419,Fall Protection,Sala,Twin Class 2 3500276,0914251,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0420,Fall Protection,Sala,Twin Class 2 3500276,0914252,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0421,Safety Harness,Protecta,3M Protecta,1161205PR3,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0422,Safety Harness,Protecta,3M Protecta,1161205PR3,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0423,Safety Harness,Protecta,3M Protecta,1161205PR3,,1,TE-025,FLORIBERTO LOZA SR.,22018,Lone Star,Equipment Department,,TE-025
-TOOL-0424,GENERATOR,WAKER NEWSON,GP6600,24560605,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,USED,TE-026
-TOOL-0425,GENERATOR,WAKER NEWSON,GP6600,24560606,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,USED,TE-026
-TOOL-0426,PLATE COMPACTOR,WAKER NEWSON,VP1550,5100029054,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,USED,TE-026
-TOOL-0427,QUIKIE SAW,STIHL,TS-420,N,A,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,USED,TE-026
-TOOL-0428,HAMMER DRILL,BOSCH,RH540M,330003021,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,NEW,TE-026
-TOOL-0429,QUIKIE SAW,STIHL,TS-420,194730816,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,NEW,TE-026
-TOOL-0430,"6 1/2"" WATER PAINT BRUSCH",,,,,3,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,NEW,TE-026
-TOOL-0431,"24"" CONCRETE FINISHER HORSE HAIR BROOM",,,,,2,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,NEW,TE-026
-TOOL-0432,10 LB. SLEDGE HAMMER,,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,NEW,TE-026
-TOOL-0433,BACK PACK VIBRATOR,OZTEC,GXH50UT,AP3229811,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,NEW,TE-026
-TOOL-0434,6' BAKER BROOM,,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,NEW,TE-026
-TOOL-0435,"16' X 1 1/2""X 3 1/2"" MAGNESIUM SCREED CRAFT",,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,NEW,TE-026
-TOOL-0436,"28X AUTO BUILDERS LEVEL W/CASE, TRIPOD AND ROD",SPECTRA,,919717,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,NEW,TE-026
-TOOL-0437,7' FLEXIBLE VIBRATOR SHAFT,OZTEC,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,NEW,TE-026
-TOOL-0438,"2"" VIBRATOR HEAD",OZTEC,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,NEW,TE-026
-TOOL-0439,100' Heavy Duty Extension Cords,,,,,4,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0440,50' Heavy Duty Extension Cords,,,,,2,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0441,"4-1/2"" Angel Grinder",,,,,2,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0442,Air Compressor 2.5 Gallon Electric,Dewalt,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0443,"7 - 1/2"" Warm Drive Circular Saw",Bosch,,125001343,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0444,"7 - 1/2"" Warm Drive Circular Saw",Skillsaw,,5060011989,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0445,Concrete vibrator Electric,Walker Neason,,AM1200573,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0446,Drill Driver,Dewalt,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0447,SDS Max Drill,Bosch,RH540M,330003021,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,NEW,TE-026
-TOOL-0448,SDS Max Drill,Dewalt,,3691B64012,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0449,SDS Plus Drill,Milwaukee,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0450,Water Pump,Wacker Newson,,2A5A133213,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0451,Metal Gasoline Can With Flex Funnel Nozzle Red,Eagle,,,,2,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0452,Leaf Blower,Stihl,BG86,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0453,pick,,,,,3,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0454,Shovel,,,,,6,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0455,Level with Tripod,Topcon,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0456,Smart Level 4',,,,,2,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0457,Bull Float,,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0458,Fresno,,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0459,Bull float Handles,,,,,8,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0460,Rebar Bender,,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0461,BACK PACK VIBRATOR,Wacker Newson,BV50A-h,24528057,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,used,TE-026
-TOOL-0462,BACK PACK VIBRATOR,OZTEC,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0463,BACK PACK VIBRATOR,Wacker Newson,BV50A-h,24624707,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,used,TE-026
-TOOL-0464,Flexible Shaft 7',Wacker Newson,SM2S,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,NEW,TE-026
-TOOL-0465,Flexible Shaft 10',Wacker Newson,SM3S,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,NEW,TE-026
-TOOL-0466,Vibrator Motor,Wacker Newson,M2500,11756304,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,NEW,TE-026
-TOOL-0467,BACK PACK VIBRATOR,Wacker Newson,Bv-003,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0468,Quickie saw,Ts-420,,N,A,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0469,"worm drive saw 7/4""",BOSCH,ESW-41,329000328,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0470,Skillsaw,,SPT77W,422000122,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0471,Impact Drill,Milwaukee,,N,A,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0472,1/2 Drill,Dewalt,DW2359,DFC-J007,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0473,Leaf Blower,STIHL,BG50,541787597,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0474,HAMMER DRILL,BOSCH,11264EVS,423000281,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0475,Hammer DRILL,BOSCH,11264EVS,422000740,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0476,PLATE COMPACTOR,Wacker Newson,VP1550,11377925,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0477,Power Generator,Wacker Newson,GP6600,N,A,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0478,Electric Cord Extension,,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0479,"Angle Grinder 5""",BOSCH,GWS18V-10P 3061JJ4112,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0480,2 Combo Kit,BOSCH,GDX18V-1860C 330000775,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0481,Water Pump,Wacker Newson,PST2-400,24583097,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0482,HAMMER DRILL,BOSCH,11264EVS,2208001279,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0483,HAMMER DRILL,BOSCH,11264EVS,330000589,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0484,HAMMER DRILL,BOSCH,11255VSR,331008983,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0485,"Drill bits 1/2"" x 6",BOSCH,,,,10,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0486,Hand Blower,,BG-050,547335331,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0487,Hand Blower,,BG-050,547335333,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0488,Pin Pull,,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0489,HAMMER DRILL,,,228000410,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0490,Quickie saw,,,N,A,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0491,Hand Blower,,,534800747,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0492,"5"" Angle Grinder",,,328050252,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0493,"5/1"" Angle Grinder",,,328050223,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0494,"7 1/4"" Worm Drive Saw",,CSW41,428001091,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,,TE-026
-TOOL-0495,Hammer Drill,,,,,2,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,broke,TE-026
-TOOL-0496,Quickie saw,,,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,Broke,TE-026
-TOOL-0497,Sds Max Drill,,RH540M,328007103,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,Repair,TE-026
-TOOL-0498,Sds Max Drill,,RH540M,330000208,,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,Repair,TE-026
-TOOL-0499,Quickie saw,,,N,A,1,TE-026,Candelario Castaneda,23009,Little Elm,Equipment Department,Repair,TE-026
-TOOL-0500,Generator,,S600,,,1,TE-026,Candelario Castaneda,23009,Little Elm,Purchased Department,,TE-026
-TOOL-0501,100' Heavy Duty Extension cords,,,,,2,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0502,Batteries,Dewalt,,,,2,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0503,Chargers,Dewalt,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0504,Chargers,,,,,2,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0505,Warm Drive Circular Saw,Skilsaw,,,,2,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0506,Drill Driver,Dewalt,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0507,"7"" Angel Grinder",Dewalt,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0508,Hammer Drill,Dewalt,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0509,Quicky Saw,Stihl,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0510,Water pump,,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0511,"Wrench 1/2"" drive with battery",Impact,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,Low Battery,TE-027
-TOOL-0512,"Wrench 1/4"" Drive with Battery",Impact,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0513,3M Harnesses,,,,,4,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0514,Concrete Vibrator Nozzle,,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0515,Hammer,,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0516,Pick,,,,,2,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0517,Ropes,,,,,2,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0518,Shovel,,,,,4,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0519,Leaf Blower,Stihl,BG86,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0520,Come alongs Concrete tools,,,,,2,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0521,Handles,,,,,4,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0522,Handle Floats concrete tools,,,,,2,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0523,Fresno 4' concrete tools,,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0524,Bull Float 6',,,,,1,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0525,Metal Gasoline Can with Flex funnel Nozzle Red,Eagle,,,,3,TE-027,Felipe Portillo,20011,DART,Purchased Department,,TE-027
-TOOL-0526,"7"" Angel Grinder",Bosch,16219748,3260000650,,1,TE-027,Felipe Portillo,20011,DART,Equipment Department,,TE-027
-TOOL-0527,"4-1/2"" Angel Grinder",Bosch,162GWS10450PD,328028630,,1,TE-027,Felipe Portillo,20011,DART,Equipment Department,,TE-027
-TOOL-0528,"1/2"" Impact Wrench",Bosch,GDS18V-740CB14,223000098,,1,TE-027,Felipe Portillo,20011,DART,Equipment Department,,TE-027
-TOOL-0529,"1/2"" Impact Wrench",Bosch,GDS18V-740CB14,223000094,,1,TE-027,Felipe Portillo,20011,DART,Equipment Department,,TE-027
-TOOL-0530,Generator,Wacker Neuson,GP 5600,24438481,,1,TE-027,Felipe Portillo,20011,DART,Equipment Department,Used,TE-027
-TOOL-0531,"1/2"" High Torque",Milwaukee,2767-20,H96AM225115870,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0532,"1/4"" Hex Impact Driver",Milwaukee,2953-20,M674F222813362,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0533,"4-1/2"" Angel Grinder",Milwaukee,61117-31,C92ED232000622,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0534,Warm Drive Circular Saw,Stihl,SPT77W,132000481,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0535,"1/4"" Hex Impact Driver",Milwaukee,2953-20,F27CF213300061,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0536,"7-1/4"" Blade Left Worm Saw",Bosch,CSW41,125000877,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0537,M18 / M12 Multi Voltage Charger,Milwaukee,48-59-1812,D63DC225023350D,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0538,M18 / M12 Multi Voltage Charger,Milwaukee,48-59-1812,D63DB213210838D,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0539,Reciprocating Saw,DeWalt,DWE305,315361,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0540,Battery Pack 5.0 Ah,Milwaukee,48-11-1850,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0541,Hammer Drill,HILTI,TE-60-AVR,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0542,"5/8"" Mixer",Bosch,GBM9-16,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0543,Angle Grinder 10A,Bosch,GWX1045E,910111247,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0544,"1/2"" High Torque",DeWalt,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0545,"1/2"" High Torque",Milwaukee,2767-22R,H96AM225115752,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0546,Extension Cord 100',Yellow Jacket,,,,3,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0547,Lever Hoist 1-1/2Ton,Jet,,,,3,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0548,Headlamps for Employees,Cosoos,,,,6,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0549,Harnes M-L,Guardian,,,,5,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0550,yelow Strap 20',Kennedy Wire Rope,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0551,Blue Straps 14',Kennedy Wire Rope,,,,4,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0552,Blue Straps 20',Kennedy Wire Rope,,,,2,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0553,"48"" Shovel Square",Union Tools,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0554,"48"" Shovel Point",Union Tools,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0555,"Wrench pipe 48""",Ridgid,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0556,Sledge Hammer,True Temper,,,,2,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0557,Concrete Spreader,Kraft,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0558,Leaf Blower,Stihl,BG50,540138103,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0559,Leaf Blower,Stihl,BG50,530210159,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,4229-011-1722,TE-028
-TOOL-0560,Power Generator,Wacker Neuson,GP6600,2443820,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,5100042220,TE-028
-TOOL-0561,Concrete Vibrator,Wacker Neuson,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0562,"14"" Quicky Saw",Stihl,TS 420,192747218,,2,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0563,"16""x3-1/4"" Magnesium Float",Kraft,,,,2,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0564,"Magnetic Level 72""",Milwaukee,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0565,"Magnetic Level 48""",Milwaukee,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0566,"Pry Bar 60""",Kraft,,,,2,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0567,Gas can 5 gal,Eagle,,,,2,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0568,Gas can 2 gal,Eagle,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0569,Form Release Red Can,Chapin,,,,1,TE-028,Juan Martinez,22017,NEX,Purchased Department,,TE-028
-TOOL-0570,Hammer Drill,,GBH18V-26DK26,902001213,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0571,Battery,,,128120309,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0572,Battery,,,128140289,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0573,Hammer Drill,Bosch,11255VSR,522004017,,1,TE-028,Juan Martinez,22017,NEX,Equipment Department,,TE-028
-TOOL-0574,Portable Inverter Generator,Honda,EU 2200i,EAMT-2954941,,1,TE-029,Roque Guerrero,22017,NEX,Equipment Department,,TE-029
-TOOL-0575,"1/2"" Impact Wrench",BOSCH,GDS18V-740CB14,131000151,131000286,2,TE-029,Roque Guerrero,22017,NEX,Equipment Department,,TE-029
-TOOL-0576,"Combo kit (1/2"" Drill-1/4"" Impact)",BOSCH,GXL18V-227B25,227001674,32202690,1,TE-029,Roque Guerrero,22017,NEX,Equipment Department,,TE-029
-TOOL-0577,"combo kit (1/2"" Drill-1/4"" Impact)",BOSCH,GXL18V-227B25,227001654,322002640,1,TE-029,Roque Guerrero,22017,NEX,Equipment Department,,TE-029
-TOOL-0578,"7-1/4"" Warm Drive Circular Saw",BOSCH,CS10,326006188,,1,TE-029,Roque Guerrero,22017,NEX,Equipment Department,,TE-029
-TOOL-0579,"4-1/2"" Angle Grinder",BOSCH,GWS10450P,231012444,,1,TE-029,Roque Guerrero,22017,NEX,Equipment Department,,TE-029
-TOOL-0580,HD Caulk Gun,Husky,19PT0902,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0581,12 Gallon wet/dry Vacuum,Ridgid,HD1200,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0582,"3/4""x16""x21' SDS Drill bit",Bosch,HCFC5031,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0583,"3/4"" x10""x12"" SDS drill bit",Bosch,HC2124,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0584,"7/8"" x 16""x21"" SDS Max drill bit",Bosch,HCFC5041,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0585,"7/8""x8""x10"" SDS drill bit",Bosch,HC2146,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0586,"5/8""x16""x21"" sds drill bit",Bosch,HC5021,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0587,6 Mil 20'x100' Black Poly,Bosch,3100,,,6,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0588,50' Extension Cord,Prime,500365,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0589,Strobe Light for Truck,Linkitom,,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0590,Headlamps for Employees,Cosoos,,,,6,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0591,2.5HP Vibrator motor,Wacker Neuson,5100006000,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0592,Head shaft for Vibrator,Wacker Neuson,5100025592,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0593,Tripod work light 1000watt,Voltec,800211,,,4,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0594,"5/8"" Tagline",,,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0595,"4""x10' Eye Sling yellow",Kennedy Wire Rope,,,,4,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0596,14' Blue Sling,Kennedy Wire Rope,,,,4,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0597,"6"" x2' sleeve protectors",Kennedy Wire Rope,,,,10,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0598,Harness M-L,Guardian,37193,,,8,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0599,Harness XL,Guardian,37193,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0600,Nano-lok 6' Twin,3M DBI/SALA,3101271,,,5,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0601,Sledge Hammer,True Temper,,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0602,Open Reel 100ft,Milwaukee,48-22-5201,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0603,"12"" Adjustable Wrench",Milwaukee,48-22-7412,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0604,"36"" Steel Pipe",Milwaukee,48-22-7136,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0605,"24"" Steel Pipe",Milwaukee,48-22-7124,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0606,"1-1/4"" Shackle",1018570,,,,8,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0607,"1-1/8"" Shackle",1018552,,,,8,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0608,"7/8"" Shackle",1018516,,,,4,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0609,"24"" T Type Wrecking Bar",Hit Tools,09WB24T1,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0610,"1-1/16"" x 1/4"" x10"" bull pin",Klein Tools,3256,,,3,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0611,"48"" Shovel Point",Union Tools,40191,,,3,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0612,"48"" Shovel Square",Union Tools,40184,,,3,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0613,14pc Titanium Drill bit,DeWalt,DW1354,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0614,9pc Spade bit set,Diablo,DSP2930S9,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0615,"3/4"" impact socket 1/2"" drive",DeWalt,DWMT73938OSP,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0616,"1-1/8"" impact socket 1/2"" drive",DeWalt,DWMT74659OSP,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0617,"1-1/4"" impact socket 1/2"" drive",DeWalt,DWMT74658OSP,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0618,"7/8"" impact socket 1/2"" drive",DeWalt,DWMT73940OSP,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0619,2lb Hammer,True Temper,20184100,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0620,16' ladder,Werner,D62162,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0621,"10' 1-1/2""Ton lever hoist",Jet,287401,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0622,20' 3/4Ton lever hoist,Jet,287303,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0623,Bosch PH3,Bosch,27362B10,,,5,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0624,Leaf Blower,Stihl,BG50,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0625,Power Generator,Wacker Neuson,GP5600a,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0626,Power Generator,Honda,EB 6500X,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0627,"16""x3-1/4"" Magnesium Float",Kraft,CF016PF,,,4,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0628,Concrete Spreader,Anvil,57536,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0629,"24"" push Broom",Magnolia,3524,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0630,"78"" Magnetic Level",Milwaukee,500M78,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0631,"78"" Magnetic Level",Milwaukee,500M78,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0632,"24"" Magnetic Level",Milwaukee,500M24,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0633,"48"" Magnetic Level",Milwaukee,500M48,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0634,Red Concrete Sprayer,Chapin,1961N,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0635,5gal clear bucket,Argee,RG5600WC,,,4,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0636,"Drill Bid 1/4x6""",,,,,2,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0637,"1 5/8""-1 1/8""-1 1/4"" Drill Bid",,,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0638,"3/4""x 21"" Drill Bid",,HCF5031,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0639,"7/8""x 21"" Drill Bid",,HCF5040,,,1,TE-029,Roque Guerrero,22017,NEX,Purchased Department,,TE-029
-TOOL-0640,Hammer Drill,Bosch,11264EVS,228001565,,1,TE-029,Roque Guerrero,22017,NEX,Equipment Department,New,TE-029
-TOOL-0641,100' Heavy Duty Extension cords,,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0642,100' Heavy Duty Extension Cords,,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0643,"4-1/2"" Angel Grinder",Corded,,322001513,,1,TE-030,Margarito Noyola,24007,Austin Lane,Equipment Department,New,TE-030
-TOOL-0644,Batteries,Dewalt,,,,3,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0645,Chargers,Dewalt,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0646,Chopsaw,,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0647,Warm Drive Circular Saw,Skilsaw,,,,2,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0648,"7"" Angel Grinder",Dewalt,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0649,Hammer Drill,Dewalt,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0650,Water Pump,,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0651,Wrenchn1/2 drive with battery,impact,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0652,Wrenchn1/4 drive with battery,impact,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0653,Wrenchn3/4 drive with battery,impact,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0654,3M Harnesses,Bolt Float,,,,3,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0655,Concrete Vibrator Nozzle,,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0656,Pick,,,,,2,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0657,Ropes,,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0658,Shovel,,,,,4,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0659,Hand Blower,STIHL,BG86,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0660,Power Generator,,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0661,Quicky Saw,STIHL,,,,1,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0662,Concrete come along tool,,,,,4,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0663,Metal Gasoline CAN with Flex funnel Nozzle Red,Eagle,,,,4,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,,TE-030
-TOOL-0664,"4-1/2"" Angel Grinder",Bosch,GW10-45PE,908052132,,1,TE-030,Margarito Noyola,24007,Austin Lane,Equipment Department,New,TE-030
-TOOL-0665,"4-1/2"" Angel Grinder",Bosch,GW10-45PE,908059426,,1,TE-030,Margarito Noyola,24007,Austin Lane,Equipment Department,New,TE-030
-TOOL-0666,"Drill Bet Bulldog 1/4""X6""",Bosch,HC2041,,,10,TE-030,Margarito Noyola,24007,Austin Lane,Purchased Department,New,TE-030
-TOOL-0667,"4-1/2"" Angel Grinder",Bosch,GW510-450PD,130006037,,1,TE-030,Margarito Noyola,24007,Austin Lane,Equipment Department,New,TE-030
-TOOL-0668,Hammer Drill,Bosch,RH540M,424000727,,1,TE-030,Margarito Noyola,24007,Austin Lane,Equipment Department,New,TE-030
-TOOL-0669,ELECTRIC HAMMER DRILL 13A,BOSCH,11264EVS,328000453,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0670,ELECTRIC HAMMER DRILL EXTREME BULL DOG,BOSCH,11255VSR,331009031,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0671,"7"" ANGEL GRAINDER 15 A",BOSCH,,32700162,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0672,"14"" QUIKIE SAW",STIHL,TS-420,,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Purchased Department,USED,TE-032
-TOOL-0673,ELECTRIC EXTENSION CORD 100FT,,,,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Purchased Department,USED,TE-032
-TOOL-0674,"7 -1/4"" WORM DRIVE CIRCLE SAW 15A",SKILL SAW,,231000213,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,USED,TE-032
-TOOL-0675,"7 -1/4"" WORM DRIVE CIRCLE SAW 15A",BOSCH,,329000171,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0676,"7"" ANGEL GRAINDER 15 A",DEWALL,DWE4517,5926,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,USED,TE-032
-TOOL-0677,"3/4"" IMPACT WRENCH (tool only)",BOSCH,GDS18V-740N,231000256,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0678,CHARGER W/ BATTERY,BOSCH,GXS18V-12N14,N,A,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0679,ELECTRIC CONCRETE VIBRATOR,WACKER NEWSON,CONVERTER FUFLEX,11576583,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,USED,TE-032
-TOOL-0680,PERFORMANCE 2 TOOL COMBO KIT,BOSCH,GXL18V-227B25,I#224006583 D#227000555,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0681,"3/4"" IMPACT WRENCH (tool only)",BOSCH,GDS18V-770LN,130000284,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0682,CHARGER W/ BATTERY LITHIUM KIT 8Ah.,BOSCH,,,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Purchased Department,NEW,TE-032
-TOOL-0683,LEAF BLOWER,STIHL,BG56C,539161101,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0684,"1/2"" Impact Wrench w/charger",BOSCH,GDS18V-740CB14,131000748,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0685,High Power Battery (8 Ah),BOSCH,GDA18V80,321070136,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0686,High Power Battery (8 Ah),BOSCH,GDA18V80,231210583,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0687,Charger 4 A/ 18 V,BOSCH,GAL18V-40,,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Purchased Department,NEW,TE-032
-TOOL-0688,Charger 4 A/ 18 V,BOSCH,GAL18V-40,,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Purchased Department,NEW,TE-032
-TOOL-0689,ELECTRIC HAMMER DRILL 13A,BOSCH,11264EVS,321004181,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0690,"1/2"" Impact Wrench w/charger",BOSCH,GDS18V-740CB14,223000085,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0691,"4 1/2"" Angel Grainder 10A",BOSCH,GWS10-450P,421040451,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0692,"4 1/2"" Angel Grainder 10A",BOSCH,GWS10-450P,329032444,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,NEW,TE-032
-TOOL-0693,Generetor,Honda,EB6500X,EBLC-1520222,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,USED,TE-032
-TOOL-0694,"2"" Water Pump",Honda,,WAKT-3031003,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,used,TE-032
-TOOL-0695,Hammer Drill,BOSCH,RH-540M,228006344,,1,TE-032,FELICIANO VALENCIA,22018,Lone Star,Equipment Department,used,TE-032
+TOOL-0392,Perforamance 2 tool Combo Kit,BOSCH,GXL18V-227B25,D#22700527 I#224006545,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,NEW,TE-025
+TOOL-0393,Quiki Saw,STIHL,TS-420,193914403,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,NEW,TE-025
+TOOL-0394,"Impact Wrench 1/2""",Bosch,GDS18V-740CB14,223000081,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0395,Hammer Drill,Bosch,11264EVS,328001245,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0396,Plate Compactor,,,,,1,TE-025,JOSE RICO,,Equipment Yard,Purchased Department,,TE-025
+TOOL-0397,QUIKIE SAW,STIHL,TS-420,,,1,TE-025,JOSE RICO,,Equipment Yard,Purchased Department,,TE-025
+TOOL-0398,LEAF BLOWER,STIHL,BS-50,,,1,TE-025,JOSE RICO,,Equipment Yard,Purchased Department,,TE-025
+TOOL-0399,Generator,Honda,EB5000X,EB-50-AN,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0400,Vibroplate,Mikasa MQ,G13076,PC-012,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0401,Cordless Impact Wrench,Bosch,GDS18V-740C,,,1,TE-025,JOSE RICO,,Equipment Yard,Purchased Department,,TE-025
+TOOL-0402,Cordless Impact Wrench,Milwaukee,2 Tool Kit Impact M18 Fuel,2997-22,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0403,Cordless Impact Wrench,DeWalt,Cordless,DCF899,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0404,Rotary Hammer,Bosch,RH540M,029012917,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0405,"7-1/4"" Worm Drive Saw",Skilsaw,E490426,032001988,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0406,"7-1/4"" Worm Drive Saw",Skilsaw,E490426,131001401,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0407,Cutquiksaw,Stihl,TS420,42383510502B,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0408,Blower,Stihl,BG50,42297010609A,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0409,Rotary Hammer,Bosch,11255VSR,12505,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0410,Rotary Hammer,Bosch,11264EVS,3611B64012,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0411,Grinder,DeWalt,DWE402,DWE402,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0412,Grinder,Bosch,GWS10-45P,124000438,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0413,Automatic Level,Spectra Precision,Optical Automatic Level,AL24A,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0414,Laser,Spectra Precision,CR600,LL300N,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0415,Fall Protection,Sala,Twin Class 2 3500276,0914197,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0416,Fall Protection,Sala,Twin Class 2 3500276,0914198,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0417,Fall Protection,Sala,Twin Class 2 3500276,09132204,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0418,Fall Protection,Sala,Twin Class 2 3500276,09132205,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0419,Fall Protection,Sala,Twin Class 2 3500276,0914251,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0420,Fall Protection,Sala,Twin Class 2 3500276,0914252,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0421,Safety Harness,Protecta,3M Protecta,1161205PR3,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0422,Safety Harness,Protecta,3M Protecta,1161205PR3,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0423,Safety Harness,Protecta,3M Protecta,1161205PR3,,1,TE-025,JOSE RICO,,Equipment Yard,Equipment Department,,TE-025
+TOOL-0424,GENERATOR,WAKER NEWSON,GP6600,24560605,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,USED,TE-026
+TOOL-0425,GENERATOR,WAKER NEWSON,GP6600,24560606,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,USED,TE-026
+TOOL-0426,PLATE COMPACTOR,WAKER NEWSON,VP1550,5100029054,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,USED,TE-026
+TOOL-0427,QUIKIE SAW,STIHL,TS-420,N,A,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,USED,TE-026
+TOOL-0428,HAMMER DRILL,BOSCH,RH540M,330003021,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,NEW,TE-026
+TOOL-0429,QUIKIE SAW,STIHL,TS-420,194730816,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,NEW,TE-026
+TOOL-0430,"6 1/2"" WATER PAINT BRUSCH",,,,,3,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,NEW,TE-026
+TOOL-0431,"24"" CONCRETE FINISHER HORSE HAIR BROOM",,,,,2,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,NEW,TE-026
+TOOL-0432,10 LB. SLEDGE HAMMER,,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,NEW,TE-026
+TOOL-0433,BACK PACK VIBRATOR,OZTEC,GXH50UT,AP3229811,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,NEW,TE-026
+TOOL-0434,6' BAKER BROOM,,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,NEW,TE-026
+TOOL-0435,"16' X 1 1/2""X 3 1/2"" MAGNESIUM SCREED CRAFT",,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,NEW,TE-026
+TOOL-0436,"28X AUTO BUILDERS LEVEL W/CASE, TRIPOD AND ROD",SPECTRA,,919717,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,NEW,TE-026
+TOOL-0437,7' FLEXIBLE VIBRATOR SHAFT,OZTEC,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,NEW,TE-026
+TOOL-0438,"2"" VIBRATOR HEAD",OZTEC,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,NEW,TE-026
+TOOL-0439,100' Heavy Duty Extension Cords,,,,,4,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0440,50' Heavy Duty Extension Cords,,,,,2,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0441,"4-1/2"" Angel Grinder",,,,,2,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0442,Air Compressor 2.5 Gallon Electric,Dewalt,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0443,"7 - 1/2"" Warm Drive Circular Saw",Bosch,,125001343,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0444,"7 - 1/2"" Warm Drive Circular Saw",Skillsaw,,5060011989,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0445,Concrete vibrator Electric,Walker Neason,,AM1200573,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0446,Drill Driver,Dewalt,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0447,SDS Max Drill,Bosch,RH540M,330003021,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,NEW,TE-026
+TOOL-0448,SDS Max Drill,Dewalt,,3691B64012,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0449,SDS Plus Drill,Milwaukee,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0450,Water Pump,Wacker Newson,,2A5A133213,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0451,Metal Gasoline Can With Flex Funnel Nozzle Red,Eagle,,,,2,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0452,Leaf Blower,Stihl,BG86,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0453,pick,,,,,3,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0454,Shovel,,,,,6,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0455,Level with Tripod,Topcon,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0456,Smart Level 4',,,,,2,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0457,Bull Float,,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0458,Fresno,,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0459,Bull float Handles,,,,,8,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0460,Rebar Bender,,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0461,BACK PACK VIBRATOR,Wacker Newson,BV50A-h,24528057,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,used,TE-026
+TOOL-0462,BACK PACK VIBRATOR,OZTEC,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0463,BACK PACK VIBRATOR,Wacker Newson,BV50A-h,24624707,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,used,TE-026
+TOOL-0464,Flexible Shaft 7',Wacker Newson,SM2S,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,NEW,TE-026
+TOOL-0465,Flexible Shaft 10',Wacker Newson,SM3S,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,NEW,TE-026
+TOOL-0466,Vibrator Motor,Wacker Newson,M2500,11756304,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,NEW,TE-026
+TOOL-0467,BACK PACK VIBRATOR,Wacker Newson,Bv-003,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0468,Quickie saw,Ts-420,,N,A,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0469,"worm drive saw 7/4""",BOSCH,ESW-41,329000328,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0470,Skillsaw,,SPT77W,422000122,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0471,Impact Drill,Milwaukee,,N,A,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0472,1/2 Drill,Dewalt,DW2359,DFC-J007,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0473,Leaf Blower,STIHL,BG50,541787597,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0474,HAMMER DRILL,BOSCH,11264EVS,423000281,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0475,Hammer DRILL,BOSCH,11264EVS,422000740,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0476,PLATE COMPACTOR,Wacker Newson,VP1550,11377925,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0477,Power Generator,Wacker Newson,GP6600,N,A,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0478,Electric Cord Extension,,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0479,"Angle Grinder 5""",BOSCH,GWS18V-10P 3061JJ4112,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0480,2 Combo Kit,BOSCH,GDX18V-1860C 330000775,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0481,Water Pump,Wacker Newson,PST2-400,24583097,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0482,HAMMER DRILL,BOSCH,11264EVS,2208001279,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0483,HAMMER DRILL,BOSCH,11264EVS,330000589,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0484,HAMMER DRILL,BOSCH,11255VSR,331008983,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0485,"Drill bits 1/2"" x 6",BOSCH,,,,10,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0486,Hand Blower,,BG-050,547335331,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0487,Hand Blower,,BG-050,547335333,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0488,Pin Pull,,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0489,HAMMER DRILL,,,228000410,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0490,Quickie saw,,,N,A,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0491,Hand Blower,,,534800747,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0492,"5"" Angle Grinder",,,328050252,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0493,"5/1"" Angle Grinder",,,328050223,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0494,"7 1/4"" Worm Drive Saw",,CSW41,428001091,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,,TE-026
+TOOL-0495,Hammer Drill,,,,,2,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,broke,TE-026
+TOOL-0496,Quickie saw,,,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,Broke,TE-026
+TOOL-0497,Sds Max Drill,,RH540M,328007103,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,Repair,TE-026
+TOOL-0498,Sds Max Drill,,RH540M,330000208,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,Repair,TE-026
+TOOL-0499,Quickie saw,,,N,A,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Equipment Department,Repair,TE-026
+TOOL-0500,Generator,,S600,,,1,TE-026,CANDELARIO CASTANEDA,23009,Little Elm,Purchased Department,,TE-026
+TOOL-0501,100' Heavy Duty Extension cords,,,,,2,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0502,Batteries,Dewalt,,,,2,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0503,Chargers,Dewalt,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0504,Chargers,,,,,2,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0505,Warm Drive Circular Saw,Skilsaw,,,,2,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0506,Drill Driver,Dewalt,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0507,"7"" Angel Grinder",Dewalt,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0508,Hammer Drill,Dewalt,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0509,Quicky Saw,Stihl,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0510,Water pump,,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0511,"Wrench 1/2"" drive with battery",Impact,,,,1,TE-027,,20011,DART,Purchased Department,Low Battery,TE-027
+TOOL-0512,"Wrench 1/4"" Drive with Battery",Impact,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0513,3M Harnesses,,,,,4,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0514,Concrete Vibrator Nozzle,,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0515,Hammer,,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0516,Pick,,,,,2,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0517,Ropes,,,,,2,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0518,Shovel,,,,,4,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0519,Leaf Blower,Stihl,BG86,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0520,Come alongs Concrete tools,,,,,2,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0521,Handles,,,,,4,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0522,Handle Floats concrete tools,,,,,2,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0523,Fresno 4' concrete tools,,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0524,Bull Float 6',,,,,1,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0525,Metal Gasoline Can with Flex funnel Nozzle Red,Eagle,,,,3,TE-027,,20011,DART,Purchased Department,,TE-027
+TOOL-0526,"7"" Angel Grinder",Bosch,16219748,3260000650,,1,TE-027,,20011,DART,Equipment Department,,TE-027
+TOOL-0527,"4-1/2"" Angel Grinder",Bosch,162GWS10450PD,328028630,,1,TE-027,,20011,DART,Equipment Department,,TE-027
+TOOL-0528,"1/2"" Impact Wrench",Bosch,GDS18V-740CB14,223000098,,1,TE-027,,20011,DART,Equipment Department,,TE-027
+TOOL-0529,"1/2"" Impact Wrench",Bosch,GDS18V-740CB14,223000094,,1,TE-027,,20011,DART,Equipment Department,,TE-027
+TOOL-0530,Generator,Wacker Neuson,GP 5600,24438481,,1,TE-027,,20011,DART,Equipment Department,Used,TE-027
+TOOL-0531,"1/2"" High Torque",Milwaukee,2767-20,H96AM225115870,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0532,"1/4"" Hex Impact Driver",Milwaukee,2953-20,M674F222813362,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0533,"4-1/2"" Angel Grinder",Milwaukee,61117-31,C92ED232000622,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0534,Warm Drive Circular Saw,Stihl,SPT77W,132000481,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0535,"1/4"" Hex Impact Driver",Milwaukee,2953-20,F27CF213300061,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0536,"7-1/4"" Blade Left Worm Saw",Bosch,CSW41,125000877,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0537,M18 / M12 Multi Voltage Charger,Milwaukee,48-59-1812,D63DC225023350D,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0538,M18 / M12 Multi Voltage Charger,Milwaukee,48-59-1812,D63DB213210838D,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0539,Reciprocating Saw,DeWalt,DWE305,315361,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0540,Battery Pack 5.0 Ah,Milwaukee,48-11-1850,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0541,Hammer Drill,HILTI,TE-60-AVR,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0542,"5/8"" Mixer",Bosch,GBM9-16,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0543,Angle Grinder 10A,Bosch,GWX1045E,910111247,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0544,"1/2"" High Torque",DeWalt,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0545,"1/2"" High Torque",Milwaukee,2767-22R,H96AM225115752,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0546,Extension Cord 100',Yellow Jacket,,,,3,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0547,Lever Hoist 1-1/2Ton,Jet,,,,3,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0548,Headlamps for Employees,Cosoos,,,,6,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0549,Harnes M-L,Guardian,,,,5,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0550,yelow Strap 20',Kennedy Wire Rope,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0551,Blue Straps 14',Kennedy Wire Rope,,,,4,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0552,Blue Straps 20',Kennedy Wire Rope,,,,2,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0553,"48"" Shovel Square",Union Tools,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0554,"48"" Shovel Point",Union Tools,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0555,"Wrench pipe 48""",Ridgid,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0556,Sledge Hammer,True Temper,,,,2,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0557,Concrete Spreader,Kraft,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0558,Leaf Blower,Stihl,BG50,540138103,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0559,Leaf Blower,Stihl,BG50,530210159,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,4229-011-1722,TE-028
+TOOL-0560,Power Generator,Wacker Neuson,GP6600,2443820,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,5100042220,TE-028
+TOOL-0561,Concrete Vibrator,Wacker Neuson,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0562,"14"" Quicky Saw",Stihl,TS 420,192747218,,2,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0563,"16""x3-1/4"" Magnesium Float",Kraft,,,,2,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0564,"Magnetic Level 72""",Milwaukee,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0565,"Magnetic Level 48""",Milwaukee,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0566,"Pry Bar 60""",Kraft,,,,2,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0567,Gas can 5 gal,Eagle,,,,2,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0568,Gas can 2 gal,Eagle,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0569,Form Release Red Can,Chapin,,,,1,TE-028,Juan Martinez (1975),22017,NEX,Purchased Department,,TE-028
+TOOL-0570,Hammer Drill,,GBH18V-26DK26,902001213,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0571,Battery,,,128120309,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0572,Battery,,,128140289,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0573,Hammer Drill,Bosch,11255VSR,522004017,,1,TE-028,Juan Martinez (1975),22017,NEX,Equipment Department,,TE-028
+TOOL-0574,Portable Inverter Generator,Honda,EU 2200i,EAMT-2954941,,1,TE-029,ROQUE GUERRERO,22017,NEX,Equipment Department,,TE-029
+TOOL-0575,"1/2"" Impact Wrench",BOSCH,GDS18V-740CB14,131000151,131000286,2,TE-029,ROQUE GUERRERO,22017,NEX,Equipment Department,,TE-029
+TOOL-0576,"Combo kit (1/2"" Drill-1/4"" Impact)",BOSCH,GXL18V-227B25,227001674,32202690,1,TE-029,ROQUE GUERRERO,22017,NEX,Equipment Department,,TE-029
+TOOL-0577,"combo kit (1/2"" Drill-1/4"" Impact)",BOSCH,GXL18V-227B25,227001654,322002640,1,TE-029,ROQUE GUERRERO,22017,NEX,Equipment Department,,TE-029
+TOOL-0578,"7-1/4"" Warm Drive Circular Saw",BOSCH,CS10,326006188,,1,TE-029,ROQUE GUERRERO,22017,NEX,Equipment Department,,TE-029
+TOOL-0579,"4-1/2"" Angle Grinder",BOSCH,GWS10450P,231012444,,1,TE-029,ROQUE GUERRERO,22017,NEX,Equipment Department,,TE-029
+TOOL-0580,HD Caulk Gun,Husky,19PT0902,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0581,12 Gallon wet/dry Vacuum,Ridgid,HD1200,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0582,"3/4""x16""x21' SDS Drill bit",Bosch,HCFC5031,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0583,"3/4"" x10""x12"" SDS drill bit",Bosch,HC2124,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0584,"7/8"" x 16""x21"" SDS Max drill bit",Bosch,HCFC5041,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0585,"7/8""x8""x10"" SDS drill bit",Bosch,HC2146,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0586,"5/8""x16""x21"" sds drill bit",Bosch,HC5021,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0587,6 Mil 20'x100' Black Poly,Bosch,3100,,,6,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0588,50' Extension Cord,Prime,500365,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0589,Strobe Light for Truck,Linkitom,,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0590,Headlamps for Employees,Cosoos,,,,6,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0591,2.5HP Vibrator motor,Wacker Neuson,5100006000,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0592,Head shaft for Vibrator,Wacker Neuson,5100025592,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0593,Tripod work light 1000watt,Voltec,800211,,,4,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0594,"5/8"" Tagline",,,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0595,"4""x10' Eye Sling yellow",Kennedy Wire Rope,,,,4,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0596,14' Blue Sling,Kennedy Wire Rope,,,,4,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0597,"6"" x2' sleeve protectors",Kennedy Wire Rope,,,,10,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0598,Harness M-L,Guardian,37193,,,8,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0599,Harness XL,Guardian,37193,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0600,Nano-lok 6' Twin,3M DBI/SALA,3101271,,,5,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0601,Sledge Hammer,True Temper,,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0602,Open Reel 100ft,Milwaukee,48-22-5201,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0603,"12"" Adjustable Wrench",Milwaukee,48-22-7412,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0604,"36"" Steel Pipe",Milwaukee,48-22-7136,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0605,"24"" Steel Pipe",Milwaukee,48-22-7124,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0606,"1-1/4"" Shackle",1018570,,,,8,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0607,"1-1/8"" Shackle",1018552,,,,8,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0608,"7/8"" Shackle",1018516,,,,4,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0609,"24"" T Type Wrecking Bar",Hit Tools,09WB24T1,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0610,"1-1/16"" x 1/4"" x10"" bull pin",Klein Tools,3256,,,3,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0611,"48"" Shovel Point",Union Tools,40191,,,3,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0612,"48"" Shovel Square",Union Tools,40184,,,3,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0613,14pc Titanium Drill bit,DeWalt,DW1354,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0614,9pc Spade bit set,Diablo,DSP2930S9,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0615,"3/4"" impact socket 1/2"" drive",DeWalt,DWMT73938OSP,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0616,"1-1/8"" impact socket 1/2"" drive",DeWalt,DWMT74659OSP,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0617,"1-1/4"" impact socket 1/2"" drive",DeWalt,DWMT74658OSP,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0618,"7/8"" impact socket 1/2"" drive",DeWalt,DWMT73940OSP,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0619,2lb Hammer,True Temper,20184100,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0620,16' ladder,Werner,D62162,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0621,"10' 1-1/2""Ton lever hoist",Jet,287401,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0622,20' 3/4Ton lever hoist,Jet,287303,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0623,Bosch PH3,Bosch,27362B10,,,5,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0624,Leaf Blower,Stihl,BG50,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0625,Power Generator,Wacker Neuson,GP5600a,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0626,Power Generator,Honda,EB 6500X,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0627,"16""x3-1/4"" Magnesium Float",Kraft,CF016PF,,,4,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0628,Concrete Spreader,Anvil,57536,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0629,"24"" push Broom",Magnolia,3524,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0630,"78"" Magnetic Level",Milwaukee,500M78,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0631,"78"" Magnetic Level",Milwaukee,500M78,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0632,"24"" Magnetic Level",Milwaukee,500M24,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0633,"48"" Magnetic Level",Milwaukee,500M48,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0634,Red Concrete Sprayer,Chapin,1961N,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0635,5gal clear bucket,Argee,RG5600WC,,,4,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0636,"Drill Bid 1/4x6""",,,,,2,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0637,"1 5/8""-1 1/8""-1 1/4"" Drill Bid",,,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0638,"3/4""x 21"" Drill Bid",,HCF5031,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0639,"7/8""x 21"" Drill Bid",,HCF5040,,,1,TE-029,ROQUE GUERRERO,22017,NEX,Purchased Department,,TE-029
+TOOL-0640,Hammer Drill,Bosch,11264EVS,228001565,,1,TE-029,ROQUE GUERRERO,22017,NEX,Equipment Department,New,TE-029
+TOOL-0641,100' Heavy Duty Extension cords,,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0642,100' Heavy Duty Extension Cords,,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0643,"4-1/2"" Angel Grinder",Corded,,322001513,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Equipment Department,New,TE-030
+TOOL-0644,Batteries,Dewalt,,,,3,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0645,Chargers,Dewalt,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0646,Chopsaw,,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0647,Warm Drive Circular Saw,Skilsaw,,,,2,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0648,"7"" Angel Grinder",Dewalt,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0649,Hammer Drill,Dewalt,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0650,Water Pump,,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0651,Wrenchn1/2 drive with battery,impact,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0652,Wrenchn1/4 drive with battery,impact,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0653,Wrenchn3/4 drive with battery,impact,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0654,3M Harnesses,Bolt Float,,,,3,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0655,Concrete Vibrator Nozzle,,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0656,Pick,,,,,2,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0657,Ropes,,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0658,Shovel,,,,,4,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0659,Hand Blower,STIHL,BG86,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0660,Power Generator,,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0661,Quicky Saw,STIHL,,,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0662,Concrete come along tool,,,,,4,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0663,Metal Gasoline CAN with Flex funnel Nozzle Red,Eagle,,,,4,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,,TE-030
+TOOL-0664,"4-1/2"" Angel Grinder",Bosch,GW10-45PE,908052132,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Equipment Department,New,TE-030
+TOOL-0665,"4-1/2"" Angel Grinder",Bosch,GW10-45PE,908059426,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Equipment Department,New,TE-030
+TOOL-0666,"Drill Bet Bulldog 1/4""X6""",Bosch,HC2041,,,10,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Purchased Department,New,TE-030
+TOOL-0667,"4-1/2"" Angel Grinder",Bosch,GW510-450PD,130006037,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Equipment Department,New,TE-030
+TOOL-0668,Hammer Drill,Bosch,RH540M,424000727,,1,TE-030,MARGARITO NOYOLA,24007,Austin Lane,Equipment Department,New,TE-030
+TOOL-0669,ELECTRIC HAMMER DRILL 13A,BOSCH,11264EVS,328000453,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0670,ELECTRIC HAMMER DRILL EXTREME BULL DOG,BOSCH,11255VSR,331009031,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0671,"7"" ANGEL GRAINDER 15 A",BOSCH,,32700162,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0672,"14"" QUIKIE SAW",STIHL,TS-420,,,1,TE-032,,,Equipment Yard,Purchased Department,USED,TE-032
+TOOL-0673,ELECTRIC EXTENSION CORD 100FT,,,,,1,TE-032,,,Equipment Yard,Purchased Department,USED,TE-032
+TOOL-0674,"7 -1/4"" WORM DRIVE CIRCLE SAW 15A",SKILL SAW,,231000213,,1,TE-032,,,Equipment Yard,Equipment Department,USED,TE-032
+TOOL-0675,"7 -1/4"" WORM DRIVE CIRCLE SAW 15A",BOSCH,,329000171,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0676,"7"" ANGEL GRAINDER 15 A",DEWALL,DWE4517,5926,,1,TE-032,,,Equipment Yard,Equipment Department,USED,TE-032
+TOOL-0677,"3/4"" IMPACT WRENCH (tool only)",BOSCH,GDS18V-740N,231000256,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0678,CHARGER W/ BATTERY,BOSCH,GXS18V-12N14,N,A,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0679,ELECTRIC CONCRETE VIBRATOR,WACKER NEWSON,CONVERTER FUFLEX,11576583,,1,TE-032,,,Equipment Yard,Equipment Department,USED,TE-032
+TOOL-0680,PERFORMANCE 2 TOOL COMBO KIT,BOSCH,GXL18V-227B25,I#224006583 D#227000555,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0681,"3/4"" IMPACT WRENCH (tool only)",BOSCH,GDS18V-770LN,130000284,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0682,CHARGER W/ BATTERY LITHIUM KIT 8Ah.,BOSCH,,,,1,TE-032,,,Equipment Yard,Purchased Department,NEW,TE-032
+TOOL-0683,LEAF BLOWER,STIHL,BG56C,539161101,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0684,"1/2"" Impact Wrench w/charger",BOSCH,GDS18V-740CB14,131000748,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0685,High Power Battery (8 Ah),BOSCH,GDA18V80,321070136,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0686,High Power Battery (8 Ah),BOSCH,GDA18V80,231210583,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0687,Charger 4 A/ 18 V,BOSCH,GAL18V-40,,,1,TE-032,,,Equipment Yard,Purchased Department,NEW,TE-032
+TOOL-0688,Charger 4 A/ 18 V,BOSCH,GAL18V-40,,,1,TE-032,,,Equipment Yard,Purchased Department,NEW,TE-032
+TOOL-0689,ELECTRIC HAMMER DRILL 13A,BOSCH,11264EVS,321004181,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0690,"1/2"" Impact Wrench w/charger",BOSCH,GDS18V-740CB14,223000085,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0691,"4 1/2"" Angel Grainder 10A",BOSCH,GWS10-450P,421040451,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0692,"4 1/2"" Angel Grainder 10A",BOSCH,GWS10-450P,329032444,,1,TE-032,,,Equipment Yard,Equipment Department,NEW,TE-032
+TOOL-0693,Generetor,Honda,EB6500X,EBLC-1520222,,1,TE-032,,,Equipment Yard,Equipment Department,USED,TE-032
+TOOL-0694,"2"" Water Pump",Honda,,WAKT-3031003,,1,TE-032,,,Equipment Yard,Equipment Department,used,TE-032
+TOOL-0695,Hammer Drill,BOSCH,RH-540M,228006344,,1,TE-032,,,Equipment Yard,Equipment Department,used,TE-032
 TOOL-0696,ELECTRIC HAMMER DRILL,BOSCH,RH540M,331008833,,1,TE-033,EDWIN ROMERO,22018,Lone Star,Equipment Department,NEW,TE-033
 TOOL-0697,ELECTRIC HAMMER DRILL EXTREME BULL DOG,BOSCH,11255VSR,331009014,,1,TE-033,EDWIN ROMERO,22018,Lone Star,Equipment Department,NEW,TE-033
 TOOL-0698,"14"" QUIKIE SAW",STIHL,TS-420,193794053,,1,TE-033,EDWIN ROMERO,22018,Lone Star,Equipment Department,NEW,TE-033
@@ -725,29 +725,29 @@ TOOL-0723,Fire Extinguishers,,5 LB,,,2,TE-033,EDWIN ROMERO,22018,Lone Star,Purch
 TOOL-0724,Power Generator,Mita,GEN-2000-IMMl/R200iSPB-A,A2309080514,,1,TE-033,EDWIN ROMERO,22018,Lone Star,Equipment Department,,TE-033
 TOOL-0725,7k generator/Welder,Klutch,7RW MP195i,24126000034,,1,TE-033,EDWIN ROMERO,22018,Lone Star,Equipment Department,,TE-033
 TOOL-0726,"50 ft"" Cable Set",,,,,1,TE-033,EDWIN ROMERO,22018,Lone Star,Purchased Department,,TE-033
-TOOL-0727,Grinder,Bosch,GWS18V-10P,325019608,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0728,Grinder,Bosch,GWS18V-10,223025331,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0729,Worm Drive,Bosch,CSW41,332000099,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0730,Worm Drive,Bosch,CSW41,332000085,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0731,Cordless Impact Wrench,Bosch,GDX18V-1860C,421001713,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0732,Cordless Drill,Bosch,GSB18V-975C,227001278,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0733,Rotary Hammer,Bosch,RH540M,424005550,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0734,Cordless Impact Wrench,Bosch,GDS18V-740C,227000246,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0735,Cordless Impact Wrench,Bosch,GDS18V-740C,223000014,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0736,Reciprocating Saw,Bosch,GSA18V-110,229002156,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0737,Rotary Hammer,Bosch,GBH2-28L,426001456,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0738,Blower,Bosch,GBL18V-71,225002893,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0739,100' Heavy Duty Extension Cords,,,,,5,TE-034,Yoxel Perez,,Equipment Yard,Purchased Department,New,TE-034
-TOOL-0740,50' Heavy Duty Extension Cords,,,,,2,TE-034,Yoxel Perez,,Equipment Yard,Purchased Department,New,TE-034
-TOOL-0741,"48"" Shovel Square",,,,,4,TE-034,Yoxel Perez,,Equipment Yard,Purchased Department,,TE-034
-TOOL-0742,heavy duty Ply Bars,,,,,2,TE-034,Yoxel Perez,,Equipment Yard,Purchased Department,,TE-034
-TOOL-0743,Generator,Honda,EB6500X,EBLC-1526883,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0744,Generator,Honda,EB6500X,EBLC-1526877,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0745,Quikie Saw,Stihl,TS 420-Z,42380112821,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0746,Leaf Blower,Stihl,BG-50,542629612,,1,TE-034,Yoxel Perez,,Equipment Yard,Equipment Department,New,TE-034
-TOOL-0747,Pull Pin Tool,,,,,1,TE-034,Yoxel Perez,,Equipment Yard,Purchased Department,New,TE-034
-TOOL-0748,4' Leavel,,,,,1,TE-034,Yoxel Perez,,Equipment Yard,Purchased Department,Used,TE-034
-TOOL-0749,"3-1/2"" Heavy Duty strap",,,,,2,TE-034,Yoxel Perez,,Equipment Yard,Purchased Department,Used,TE-034
+TOOL-0727,Grinder,Bosch,GWS18V-10P,325019608,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0728,Grinder,Bosch,GWS18V-10,223025331,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0729,Worm Drive,Bosch,CSW41,332000099,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0730,Worm Drive,Bosch,CSW41,332000085,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0731,Cordless Impact Wrench,Bosch,GDX18V-1860C,421001713,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0732,Cordless Drill,Bosch,GSB18V-975C,227001278,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0733,Rotary Hammer,Bosch,RH540M,424005550,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0734,Cordless Impact Wrench,Bosch,GDS18V-740C,227000246,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0735,Cordless Impact Wrench,Bosch,GDS18V-740C,223000014,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0736,Reciprocating Saw,Bosch,GSA18V-110,229002156,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0737,Rotary Hammer,Bosch,GBH2-28L,426001456,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0738,Blower,Bosch,GBL18V-71,225002893,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0739,100' Heavy Duty Extension Cords,,,,,5,TE-034,,,Equipment Yard,Purchased Department,New,TE-034
+TOOL-0740,50' Heavy Duty Extension Cords,,,,,2,TE-034,,,Equipment Yard,Purchased Department,New,TE-034
+TOOL-0741,"48"" Shovel Square",,,,,4,TE-034,,,Equipment Yard,Purchased Department,,TE-034
+TOOL-0742,heavy duty Ply Bars,,,,,2,TE-034,,,Equipment Yard,Purchased Department,,TE-034
+TOOL-0743,Generator,Honda,EB6500X,EBLC-1526883,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0744,Generator,Honda,EB6500X,EBLC-1526877,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0745,Quikie Saw,Stihl,TS 420-Z,42380112821,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0746,Leaf Blower,Stihl,BG-50,542629612,,1,TE-034,,,Equipment Yard,Equipment Department,New,TE-034
+TOOL-0747,Pull Pin Tool,,,,,1,TE-034,,,Equipment Yard,Purchased Department,New,TE-034
+TOOL-0748,4' Leavel,,,,,1,TE-034,,,Equipment Yard,Purchased Department,Used,TE-034
+TOOL-0749,"3-1/2"" Heavy Duty strap",,,,,2,TE-034,,,Equipment Yard,Purchased Department,Used,TE-034
 TOOL-0750,PC-016,,,,,1,TE-035,Santiago Zetina,23009,Little Elm,Purchased Department,Replaced,Te-035
 TOOL-0751,PC-006,,,,,1,TE-035,Santiago Zetina,23009,Little Elm,Purchased Department,Broke,Te-035
 TOOL-0752,Power Generator,Honda,,EBCL-1520042,,1,TE-035,Santiago Zetina,23009,Little Elm,Equipment Department,,Te-035

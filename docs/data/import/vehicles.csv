@@ -13,9 +13,9 @@ TRK-020,TRK-020,vehicle,truck,F-250,VHX7593,1FT7W2B63LEC90333,2020,yes,Gilmar Me
 TRK-021,TRK-021,vehicle,truck,F-150,XLW1035,1FTEW1CP0PKE81997,2023,yes,Luis Luna,Superintendent,25001,25001,company_owned
 TRK-022,TRK-022,vehicle,truck,F-150,TNW8872,1FTEW1CP6PKE66565,2023,yes,Dago Ruiz,Saftey Manager,,Safety Department,company_owned
 TRK-024,TRK-024,vehicle,truck,F-150,TTY0037,1FTEW1CP8PFD31984,2023,yes,Yajju Maharjan,"Assitant Project Manager,24005",,24005/23002/24006,company_owned
-TRK-025,TRK-025,vehicle,truck,F-150,TTY0036,1FTEW1CPXPKF37377,2023,yes,Anup Tamrakar,CEO,,,company_owned
+TRK-025,TRK-025,vehicle,truck,F-150,TTY0036,1FTEW1CPXPKF37377,2023,yes,,CEO,,,company_owned
 TRK-026,TRK-026,vehicle,truck,F-150,TTY0035,1FTEW1CP4PFD31495,2023,yes,Richard Willis,Project Manager,,25001/24014,company_owned
-TRK-027,TRK-027,vehicle,truck,F-250,TYN0462,1FT7W2AA8REC08644,2024,no,Jovani Abarca,Forman,25015,25015,company_owned
+TRK-027,TRK-027,vehicle,truck,F-250,TYN0462,1FT7W2AA8REC08644,2024,no,JOVANI ABARCA,Forman,25015,25015,company_owned
 TRK-028,TRK-028,vehicle,truck,F-150,TVZ4180,1FTEW1CP4PKF88681,2023,no,Joel Gonzalez,Field Engineer,,25001/24014,company_owned
 TRK-029,TRK-029,vehicle,truck,F-150,TVZ4179,1FTEW1C55PKF74349,2023,no,Aryana Jimenez,Field Engineer,22017,22017,company_owned
 TRK-030,TRK-030,vehicle,truck,F-150,TVZ3848,1FTEW1CPXPKG21764,2023,no,Julius Guerra,Superintendent,26002,26002,company_owned
@@ -30,7 +30,7 @@ TRK-038,TRK-038,vehicle,truck,F-150,VPL7462,1FTEW1CB5PKF73157,2023,no,Orlando Gu
 TRK-039,TRK-039,vehicle,truck,F-150,VPL7461,1FTEW1CB2PKF73715,2023,no,John Solorzano,PM,,"2,201,826,002",company_owned
 TRK-040,TRK-040,vehicle,truck,F-150,VPM2222,1FTEW1CB5PKF73191,2023,no,Daniel Stewart,Quality Manager,25008,25008,company_owned
 TRK-041,TRK-041,vehicle,truck,F-250,VNX8590,1FT7W2BA2RED13078,2024,no,Fernando Aguillon,Forman,26007,26007,company_owned
-TRK-042,TRK-042,vehicle,truck,F-250,VJB0953,1FT7W2BA2RED13873,2024,no,Zelvin Perez,Forman,22018,22018,company_owned
+TRK-042,TRK-042,vehicle,truck,F-250,VJB0953,1FT7W2BA2RED13873,2024,no,ZELVIN PEREZ,Forman,22018,22018,company_owned
 TRK-043,TRK-043,vehicle,truck,F-250,VMT5561,1FT7W2BA2RED13217,2024,no,Bryon Arevalo,Forman,24015,24015,company_owned
 TRK-044,TRK-044,vehicle,truck,F-250,VSN3520,1FT7W2BA4REE58008,2024,no,Juan Martinez (1975),Forman,22017,22017,company_owned
 TRK-045,TRK-045,vehicle,truck,F-150,VPM2223,1FTEW1CB8PKF73881,2023,no,Kevin Zalasar,field Engineer,24002,24002,company_owned
@@ -46,7 +46,7 @@ TRK-054,TRK-054,vehicle,truck,F-250,WGN6717,1FT7W2BA9REF22950,2024,yes,Yunior Ru
 TRK-055,TRK-055,vehicle,truck,F-250,WJS5646,1FT7W2BA7REF23322,2024,yes,Misael Hernandez Rivas,Forman,26002,26002,company_owned
 TRK-056,TRK-056,vehicle,truck,F-250,WDS2705,1FT7W2BA8REF23233,2024,yes,Gabrial Zuniga Franco,Forman,24014,24014,company_owned
 TRK-057,TRK-057,vehicle,truck,F-650,YDT9949,1FDFF6LT1TDA09011,2025,no,Armando Morado,Paving Mechanic,25011,25011,company_owned
-TRK-058,TRK-058,vehicle,truck,F-250,Temproary,1FD7X2BA7TEC24591,2026,no,Romualdo Almaguer,Traffic control,26002,26002,company_owned
+TRK-058,TRK-058,vehicle,truck,F-250,Temproary,1FD7X2BA7TEC24591,2026,no,,Traffic control,26002,26002,company_owned
 TRK-10001,TRK-10001,vehicle,truck,F550,XCY9662,1FDFF6L2RDA34315,2024,yes,Jose Zamora,Mechanic,10001,10001,company_owned
 TE-001,TE-001,attachment,trailer,Enclosed trailer,,,,no,,,,,company_owned
 TE-002,TE-002,attachment,trailer,Enclosed trailer,,,,no,,,22018,22018,company_owned
@@ -54,7 +54,7 @@ TE-003,TE-003,attachment,trailer,Enclosed trailer,,,,no,,,,,company_owned
 TE-004,TE-004,attachment,trailer,Enclosed trailer,,,,no,,,,,company_owned
 TE-005,TE-005,attachment,trailer,Enclosed trailer,,,,no,,,,,company_owned
 TE-006,TE-006,attachment,trailer,Enclosed trailer,,,,no,Alejandro Capuchino,Foreman,22018,22018,company_owned
-TE-007,TE-007,attachment,trailer,Enclosed trailer,,,,no,Jobani Abarca,Foreman,24002,24002,company_owned
+TE-007,TE-007,attachment,trailer,Enclosed trailer,,,,no,Jobani Abarca,Foreman,,,company_owned
 TE-009,TE-009,attachment,trailer,Enclosed trailer,,,,no,ELEASAR MURILLO,Foreman,22018,22018,company_owned
 TE-010,TE-010,attachment,trailer,Enclosed trailer,,,,no,JOSE LUIS RODRIGUEZ,Foreman,23004,23004,company_owned
 TE-011,TE-011,attachment,trailer,Enclosed trailer,,,,no,ANDRES FLORES,Foreman,22017,22017,company_owned
@@ -73,8 +73,8 @@ TE-023,TE-023,attachment,trailer,Enclosed trailer,,,,no,RAFAEL JAIMES,Foreman,20
 TE-024,TE-024,attachment,trailer,Enclosed trailer,,,,no,NICOLAS DIRCIO,Foreman,23004,23004,company_owned
 TE-025,TE-025,attachment,trailer,Enclosed trailer,,,,no,JOSE RICO,Foreman,,,company_owned
 TE-026,TE-026,attachment,trailer,Enclosed trailer,,,,no,CANDELARIO CASTANEDA,Foreman,23009,23009,company_owned
-TE-027,TE-027,attachment,trailer,Enclosed trailer,,,,no,FELIPE PORTILLO,Foreman,20011,20011,company_owned
-TE-028,TE-028,attachment,trailer,Enclosed trailer,,,,no,JUAN MARTINEZ,Foreman,22017,22017,company_owned
+TE-027,TE-027,attachment,trailer,Enclosed trailer,,,,no,,,20011,20011,company_owned
+TE-028,TE-028,attachment,trailer,Enclosed trailer,,,,no,Juan Martinez (1975),Foreman,22017,22017,company_owned
 TE-029,TE-029,attachment,trailer,Enclosed trailer,,,,no,ROQUE GUERRERO,Foreman,22017,22017,company_owned
 TE-030,TE-030,attachment,trailer,Enclosed trailer,,,,no,MARGARITO NOYOLA,Foreman,24007,24007,company_owned
 TE-031,TE-031,attachment,trailer,Enclosed trailer,,,,no,,,,,company_owned

@@ -1,0 +1,656 @@
+<title>Urban Data Handover Issues</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Palette taken from the product's own brand tokens (globals.css):
+     navy #082F49 and yellow #FFCA00. Neutrals carry a cool bias toward the
+     navy so they read as chosen rather than inherited. Severity colour is
+     separate from the brand accent. */
+  :root {
+    --navy: #082F49;
+    --yellow: #FFCA00;
+    --bg: #F7F9FA;
+    --surface: #FFFFFF;
+    --ink: #0F1C24;
+    --ink-2: #46606F;
+    --ink-3: #7C949F;
+    --rule: #DCE5E9;
+    --rule-2: #EDF2F4;
+    --critical: #B3231C;
+    --critical-bg: #FDF0EF;
+    --warn: #9A5B00;
+    --warn-bg: #FEF6EA;
+    --info: #1C5A78;
+    --info-bg: #EFF6FA;
+    --excluded: #4A5560;
+    --excluded-bg: #F2F4F5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0A1419;
+      --surface: #101E26;
+      --ink: #E8F0F3;
+      --ink-2: #9DB4BF;
+      --ink-3: #6B838F;
+      --rule: #22333D;
+      --rule-2: #1A2A33;
+      --critical: #FF8A80;
+      --critical-bg: #2A1614;
+      --warn: #F5BE6B;
+      --warn-bg: #2A2013;
+      --info: #7FC5E6;
+      --info-bg: #12242E;
+      --excluded: #9AA7B0;
+      --excluded-bg: #1A2429;
+      --navy: #0C2333;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0A1419;
+    --surface: #101E26;
+    --ink: #E8F0F3;
+    --ink-2: #9DB4BF;
+    --ink-3: #6B838F;
+    --rule: #22333D;
+    --rule-2: #1A2A33;
+    --critical: #FF8A80;
+    --critical-bg: #2A1614;
+    --warn: #F5BE6B;
+    --warn-bg: #2A2013;
+    --info: #7FC5E6;
+    --info-bg: #12242E;
+    --excluded: #9AA7B0;
+    --excluded-bg: #1A2429;
+    --navy: #0C2333;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Inter Tight", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88em;
+    font-variant-numeric: tabular-nums;
+  }
+  code {
+    background: var(--rule-2);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.5px 4px;
+    white-space: nowrap;
+  }
+  .wrap { max-width: 60rem; margin: 0 auto; padding: 0 1.5rem 5rem; }
+
+  /* ---- masthead ---- */
+  header {
+    background: var(--navy);
+    color: #EAF2F6;
+    padding: 2.5rem 0 2.25rem;
+    border-bottom: 3px solid var(--yellow);
+  }
+  header .wrap { padding-bottom: 0; }
+  .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--yellow); margin: 0 0 0.6rem;
+  }
+  h1 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 700;
+    letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 0.75rem;
+    text-wrap: balance;
+  }
+  .standfirst {
+    margin: 0; max-width: 46ch; color: #B9CEDA; font-size: 1rem;
+  }
+
+  /* ---- counts ---- */
+  .tally {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 1px; background: var(--rule); border: 1px solid var(--rule);
+    border-radius: 6px; overflow: hidden; margin: 2rem 0 2.75rem;
+  }
+  .tally div { background: var(--surface); padding: 0.9rem 1rem; }
+  .tally dt {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-3); margin: 0 0 0.3rem;
+  }
+  .tally dd {
+    margin: 0; font-size: 1.65rem; font-weight: 600; letter-spacing: -0.02em;
+  }
+  .tally dd.is-critical { color: var(--critical); }
+
+  .lede {
+    border-left: 3px solid var(--yellow); padding: 0.1rem 0 0.1rem 1rem;
+    margin: 0 0 2.75rem; color: var(--ink-2); max-width: 62ch;
+  }
+  .lede p { margin: 0 0 0.6rem; }
+  .lede p:last-child { margin-bottom: 0; }
+
+  /* ---- groups ---- */
+  section { margin-bottom: 2.5rem; }
+  .head { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+  h2 {
+    font-size: 1.2rem; font-weight: 600; letter-spacing: -0.015em;
+    margin: 0; text-wrap: balance;
+  }
+  .pill {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
+    border: 1px solid currentColor;
+  }
+  .k-critical { color: var(--critical); background: var(--critical-bg); }
+  .k-warn     { color: var(--warn);     background: var(--warn-bg); }
+  .k-info     { color: var(--info);     background: var(--info-bg); }
+  .k-excluded { color: var(--excluded); background: var(--excluded-bg); }
+  .note { margin: 0 0 1rem; color: var(--ink-2); max-width: 68ch; font-size: 14px; }
+
+  .rows { border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--surface); }
+  .row {
+    display: grid; grid-template-columns: 8.5rem 1fr;
+    gap: 1rem; padding: 0.7rem 1rem 0.75rem;
+    border-top: 1px solid var(--rule-2); border-left: 3px solid transparent;
+  }
+  .row:first-child { border-top: 0; }
+  .row.s-critical { border-left-color: var(--critical); }
+  .row.s-warn     { border-left-color: var(--warn); }
+  .row.s-info     { border-left-color: var(--info); }
+  .row.s-excluded { border-left-color: var(--excluded); }
+  .id { font-weight: 500; color: var(--ink); word-break: break-word; }
+  .why { color: var(--ink-2); font-size: 14px; }
+  .why .raw { display: block; margin-top: 0.3rem; color: var(--ink-3); font-size: 12.5px; }
+  @media (max-width: 34rem) { .row { grid-template-columns: 1fr; gap: 0.25rem; } }
+
+  footer {
+    margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--rule);
+    color: var(--ink-3); font-size: 13px;
+  }
+  footer p { margin: 0 0 0.4rem; }
+</style>
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow">Optix &middot; data handover</p>
+    <h1>Issues found in the equipment and tool data</h1>
+    <p class="standfirst">Everything below came out of the two source files. Each entry
+      says what is wrong and who can fix it.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+<dl class="tally">
+<div><dt>Rows flagged</dt><dd>64</dd></div>
+<div><dt>Wrong in source</dt><dd class="is-critical">2</dd></div>
+<div><dt>Needs a decision</dt><dd>43</dd></div>
+<div><dt>Noted only</dt><dd>17</dd></div>
+</dl>
+<div class="lede">
+  <p><strong>What this is.</strong> The tool and trailer workbook and the company
+  vehicle list were read row by row and checked against each other. Every row that
+  contradicts itself, is missing a piece of information, or could be two different
+  people is listed here.</p>
+  <p><strong>What was done about it.</strong> Nothing was guessed. Where two sources
+  disagreed, the summary sheet was used and the disagreement recorded. Where a name
+  could be one person or two, it was kept as two &mdash; that is the mistake that can
+  be undone. Anything with no trailer, job or foreman is parked at the Equipment Yard
+  rather than dropped.</p>
+</div>
+<section>
+<div class="head">
+<h2>Wrong in the source — needs a correction</h2>
+<span class="pill k-critical">2</span>
+</div>
+<p class="note">These contradict themselves. The data is loaded as-is, so the register will show the wrong value until somebody fixes the spreadsheet.</p>
+<div class="rows">
+<div class="row s-critical">
+<div class="id mono"><code>TRK-035</code></div>
+<div class="why">
+duplicate license plate &#x27;TWD3850&#x27;, already on <code>TRK-034</code> — one of the two is wrong
+<span class="raw">vin: <code>1FTEW1KP6RKD63997</code> &middot; holder: Carlos Espinosa</span>
+</div></div>
+<div class="row s-critical">
+<div class="id mono"><code>TRK-10001</code></div>
+<div class="why">
+VIN is not 17 valid characters: &#x27;<code>1FDFF6L2RDA34315</code>&#x27;
+<span class="raw">holder: Jose Zamora</span>
+</div></div>
+</div></section>
+<section>
+<div class="head">
+<h2>Left out of the system on purpose</h2>
+<span class="pill k-excluded">2</span>
+</div>
+<p class="note">Loaded nowhere. Each one was excluded for the reason given.</p>
+<div class="rows">
+<div class="row s-excluded">
+<div class="id mono"><code>TRK-016</code></div>
+<div class="why">
+source says out of service / remove from portal — deliberately NOT imported
+<span class="raw">holder: Equipment Department( out of service)remove it from portal &middot; vin: <code>3C63RRHL4MG616766</code> &middot; license: THR-6180</span>
+</div></div>
+<div class="row s-excluded">
+<div class="id mono">SAN ANTONIO</div>
+<div class="why">
+a place name in the FOREMAN NAME column
+<span class="raw">sheet: TE &middot; row: 53 &middot; project: NEX</span>
+</div></div>
+</div></section>
+<section>
+<div class="head">
+<h2>Trailers nobody is holding</h2>
+<span class="pill k-warn">13</span>
+</div>
+<p class="note">The trailer is in the register, but no foreman is recorded against it, so its tools sit with the trailer rather than with a person. Naming a foreman in the app takes one action each.</p>
+<div class="rows">
+<div class="row s-warn">
+<div class="id mono"><code>TE-001</code></div>
+<div class="why">
+trailer has no custodian — flagged in source as &#x27;DAMAGE&#x27;
+<span class="raw">project: Equipment Yard</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-002</code></div>
+<div class="why">
+trailer has no custodian — flagged in source as &#x27;Structure- Concrete pouring&#x27;
+<span class="raw">project: Lone Star &middot; job: <code>22018</code></span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-003</code></div>
+<div class="why">
+trailer has no custodian — flagged in source as &#x27;DAMAGE&#x27;
+<span class="raw">project: Equipment Yard</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-004</code></div>
+<div class="why">
+trailer has no custodian — flagged in source as &#x27;Need Reapairs&#x27;
+<span class="raw">project: Equipment Yard</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-005</code></div>
+<div class="why">
+trailer has no custodian — flagged in source as &#x27;DAMAGE&#x27;
+<span class="raw">project: Equipment Yard</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-031</code></div>
+<div class="why">
+trailer has no custodian — no foreman in TE and none in a TE-* sheet
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-032</code></div>
+<div class="why">
+trailer has no custodian — no foreman in TE and none in a TE-* sheet
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-034</code></div>
+<div class="why">
+trailer has no custodian — no foreman in TE and none in a TE-* sheet
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-037</code></div>
+<div class="why">
+trailer has no custodian — no foreman in TE and none in a TE-* sheet
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-038</code></div>
+<div class="why">
+trailer has no custodian — no foreman in TE and none in a TE-* sheet
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-039</code></div>
+<div class="why">
+trailer has no custodian — no foreman in TE and none in a TE-* sheet
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-040</code></div>
+<div class="why">
+trailer has no custodian — no foreman in TE and none in a TE-* sheet
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-027</code></div>
+<div class="why">
+source names &#x27;FELIPE PORTILLO&#x27; as custodian, but this trailer is loaded with NO custodian by decision — that person already holds another trailer. Its tools stay with the trailer, assigned to nobody, until Urban says who runs it
+<span class="raw">project: DART &middot; job: <code>20011</code></span>
+</div></div>
+</div></section>
+<section>
+<div class="head">
+<h2>Foremen with no trailer</h2>
+<span class="pill k-warn">7</span>
+</div>
+<p class="note">A name and a job, but no trailer number anywhere — so there is nothing to give them custody of. Either they hold no trailer, or the trailer number is missing from the sheet.</p>
+<div class="rows">
+<div class="row s-warn">
+<div class="id mono">Bill Taylor</div>
+<div class="why">
+foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for
+<span class="raw">project:  &middot; job:  &middot; sheet: TE &middot; row: 58</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono">Bobby Valdez</div>
+<div class="why">
+foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for
+<span class="raw">project: City of Kemp &middot; job:  &middot; sheet: TE &middot; row: 56</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono">FLORENCIO LOZA SR.</div>
+<div class="why">
+foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for
+<span class="raw">project: Lone Star &middot; job: <code>22018</code> &middot; sheet: TE &middot; row: 51</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono">Gilmer Medina</div>
+<div class="why">
+foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for
+<span class="raw">project: Traffic Control &middot; job:  &middot; sheet: TE &middot; row: 54</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono">JOSUE ROMERO</div>
+<div class="why">
+foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for
+<span class="raw">project: Lone Star &middot; job: <code>22018</code> &middot; sheet: TE &middot; row: 52</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono">Luis Luna</div>
+<div class="why">
+foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for
+<span class="raw">project: Mesquite &middot; job: <code>24005</code> &middot; sheet: TE &middot; row: 55</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono">Romualdo</div>
+<div class="why">
+foreman with a project but NO trailer id — cannot create a custody row without the equipment it is for
+<span class="raw">project: Traffic Control &middot; job:  &middot; sheet: TE &middot; row: 59</span>
+</div></div>
+</div></section>
+<section>
+<div class="head">
+<h2>Two sources disagree about who holds a trailer</h2>
+<span class="pill k-warn">5</span>
+</div>
+<p class="note">The TE summary sheet and the trailer&#x27;s own sheet name different foremen. The TE sheet was used. Confirm which is current.</p>
+<div class="rows">
+<div class="row s-warn">
+<div class="id mono"><code>TE-007</code></div>
+<div class="why">
+foreman disagrees between sources: TE says &#x27;Jobani Abarca&#x27;, sheet <code>TE-007</code> says &#x27;JOVANI ABARCA&#x27;
+<span class="raw">unit: <code>TE-007</code> &middot; sheet: <code>TE-007</code></span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-021</code></div>
+<div class="why">
+foreman disagrees between sources: TE says &#x27;GABRIEL VILLAREAL&#x27;, sheet <code>TE-021</code> says &#x27;Jose Danery&#x27;
+<span class="raw">unit: <code>TE-021</code> &middot; sheet: <code>TE-021</code></span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-023</code></div>
+<div class="why">
+foreman disagrees between sources: TE says &#x27;RAFAEL JAIMES&#x27;, sheet <code>TE-023</code> says &#x27;RAFAEL JIMENEZ&#x27;
+<span class="raw">unit: <code>TE-023</code> &middot; sheet: <code>TE-023</code></span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-025</code></div>
+<div class="why">
+foreman disagrees between sources: TE says &#x27;JOSE RICO&#x27;, sheet <code>TE-025</code> says &#x27;FLORIBERTO LOZA SR.&#x27;
+<span class="raw">unit: <code>TE-025</code> &middot; sheet: <code>TE-025</code></span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TE-007</code></div>
+<div class="why">
+job number disagrees between sources: TE says <code>24002</code>, sheet <code>TE-007</code> says <code>23009</code>
+<span class="raw">unit: <code>TE-007</code> &middot; sheet: <code>TE-007</code></span>
+</div></div>
+</div></section>
+<section>
+<div class="head">
+<h2>Job numbers that are not job numbers</h2>
+<span class="pill k-warn">11</span>
+</div>
+<p class="note">The job cell holds several numbers, or a department name. The vehicle loads; its link to a job does not, so it will show no project until one is chosen.</p>
+<div class="rows">
+<div class="row s-warn">
+<div class="id mono"><code>SUV-2</code></div>
+<div class="why">
+job cell unusable — not a job number: &#x27;Estimate department&#x27;
+<span class="raw">holder: Equipment Department &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-013</code></div>
+<div class="why">
+job cell unusable — multiple or mangled job numbers: &#x27;<code>25011</code>/<code>25012</code>&#x27;
+<span class="raw">holder: Gabriel Garcia &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-022</code></div>
+<div class="why">
+job cell unusable — not a job number: &#x27;Safety Department&#x27;
+<span class="raw">holder: Dago Ruiz &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-024</code></div>
+<div class="why">
+job cell unusable — multiple or mangled job numbers: &#x27;<code>24005</code>/<code>23002</code>/<code>24006</code>&#x27;
+<span class="raw">holder: Yajju Maharjan &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-026</code></div>
+<div class="why">
+job cell unusable — multiple or mangled job numbers: &#x27;<code>25001</code>/<code>24014</code>&#x27;
+<span class="raw">holder: Richard Willis &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-028</code></div>
+<div class="why">
+job cell unusable — multiple or mangled job numbers: &#x27;<code>25001</code>/<code>24014</code>&#x27;
+<span class="raw">holder: Joel Gonzalez &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-034</code></div>
+<div class="why">
+job cell unusable — multiple or mangled job numbers: &#x27;<code>24014</code>/<code>24019</code>&#x27;
+<span class="raw">holder: Mohamad Nooh Ansari &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-039</code></div>
+<div class="why">
+job cell unusable — multiple or mangled job numbers: &#x27;2,201,826,002&#x27;
+<span class="raw">holder: John Solorzano &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-049</code></div>
+<div class="why">
+job cell unusable — multiple or mangled job numbers: &#x27;<code>21026</code>/<code>26002</code>&#x27;
+<span class="raw">holder: Santiago Gonzalez Franco &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-051</code></div>
+<div class="why">
+job cell unusable — multiple or mangled job numbers: &#x27;<code>25001</code> &amp; <code>25002</code>&#x27;
+<span class="raw">holder: Eduardo Reyana &middot; note: truck can load; its project link cannot</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>24002</code></div>
+<div class="why">
+resolved as a real job, separate from the Equipment Yard (it has a superintendent <code>TRK-036</code>, surveyor <code>TRK-038</code>, traffic control foreman <code>TRK-020</code> and field engineer <code>TRK-045</code>). Its PROPER NAME is not in either source — loaded as &#x27;Job <code>24002</code>&#x27; and needs renaming
+<span class="raw">crew: <code>TRK-020</code>, <code>TRK-036</code>, <code>TRK-038</code>, <code>TRK-045</code></span>
+</div></div>
+</div></section>
+<section>
+<div class="head">
+<h2>Names that may be the same person</h2>
+<span class="pill k-info">5</span>
+</div>
+<p class="note">Deliberately loaded as two people each. A wrong merge hands one man another man&#x27;s tools; two duplicates can be merged later from the register in seconds.</p>
+<div class="rows">
+<div class="row s-info">
+<div class="id mono">Alejandro Capuchino | Alejandro Aranda Capuchino</div>
+<div class="why">
+near-match reviewed and DELIBERATELY kept separate (same surname + first initial). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person
+<span class="raw">a jobs: <code>22018</code> &middot; b jobs: <code>22018</code></span>
+</div></div>
+<div class="row s-info">
+<div class="id mono">FLORENCIO LOZA SR. | FLORIBERTO LOZA SR.</div>
+<div class="why">
+near-match reviewed and DELIBERATELY kept separate (same surname + first initial). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person
+<span class="raw">a jobs: <code>22018</code> &middot; b jobs: <code>22018</code></span>
+</div></div>
+<div class="row s-info">
+<div class="id mono">Gilmer Medina | Gilmar Medina</div>
+<div class="why">
+near-match reviewed and DELIBERATELY kept separate (same surname + first initial). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person
+<span class="raw">b jobs: <code>24002</code></span>
+</div></div>
+<div class="row s-info">
+<div class="id mono">Jobani Abarca | JOVANI ABARCA</div>
+<div class="why">
+near-match reviewed and DELIBERATELY kept separate (same surname + first initial). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person
+<span class="raw">a jobs: <code>24002</code> &middot; b jobs: <code>23009</code>, <code>25015</code></span>
+</div></div>
+<div class="row s-info">
+<div class="id mono">Romualdo | Romualdo Almaguer</div>
+<div class="why">
+near-match reviewed and DELIBERATELY kept separate (one name is a subset of the other). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person
+<span class="raw">b jobs: <code>26002</code></span>
+</div></div>
+</div></section>
+<section>
+<div class="head">
+<h2>One person, more than one vehicle</h2>
+<span class="pill k-info">2</span>
+</div>
+<p class="note">Allowed, and probably correct — but worth confirming it is one person and not two people who share a name.</p>
+<div class="rows">
+<div class="row s-warn">
+<div class="id mono">Anup Tamrakar</div>
+<div class="why">
+holds 2 vehicles (<code>SUV-001</code>, <code>TRK-025</code>) — legal, but confirm it is one person and not two people sharing a name
+</div></div>
+<div class="row s-warn">
+<div class="id mono">Romualdo Almaguer</div>
+<div class="why">
+holds 2 vehicles (<code>TRK-012</code>, <code>TRK-058</code>) — legal, but confirm it is one person and not two people sharing a name
+</div></div>
+</div></section>
+<section>
+<div class="head">
+<h2>Tool counts that do not add up</h2>
+<span class="pill k-warn">2</span>
+</div>
+<p class="note">The quantity and the number of serial numbers disagree, so it is unclear how many serialised units the row is.</p>
+<div class="rows">
+<div class="row s-warn">
+<div class="id mono"><code>TOOL-0314</code></div>
+<div class="why">
+qty 2 but 1 serial(s) — cannot tell how many serialized units this row is
+<span class="raw">sheet: <code>TE-021</code> &middot; description: Skillsaw 7-1/4&quot;</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TOOL-0562</code></div>
+<div class="why">
+qty 2 but 1 serial(s) — cannot tell how many serialized units this row is
+<span class="raw">sheet: <code>TE-028</code> &middot; description: 14&quot; Quicky Saw</span>
+</div></div>
+</div></section>
+<section>
+<div class="head">
+<h2>Everything else</h2>
+<span class="pill k-info">15</span>
+</div>
+<p class="note">Recorded for completeness; none of these stops a row from loading.</p>
+<div class="rows">
+<div class="row s-warn">
+<div class="id mono"><code>SUV-2</code></div>
+<div class="why">
+holder is a department, not a person (&#x27;Equipment Department&#x27;) — truck is real but has no custodian to assign it to
+<span class="raw">vin: <code>JTEZU5JR8B5029107</code> &middot; license: CX9-P896 &middot; job: Estimate department</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>SUV-2</code></div>
+<div class="why">
+unit number not zero-padded like its siblings (<code>SUV-2</code> vs <code>SUV-001</code>) — will not sort or match consistently
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-003</code></div>
+<div class="why">
+a truck row inside the trailer list (TE sheet); cross-check against the truck source before loading
+<span class="raw">holder: Francisco Perez &middot; project: Mechanic &middot; sheet: TE &middot; row: 57</span>
+</div></div>
+<div class="row s-warn">
+<div class="id mono"><code>TRK-058</code></div>
+<div class="why">
+model year 2026 is in the future
+<span class="raw">vin: <code>1FD7X2BA7TEC24591</code> &middot; holder: Romualdo Almaguer</span>
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-007</code></div>
+<div class="why">
+TE lists this trailer as YARD with job #<code>24002</code>; the yard carries no job number, so the job link is dropped and the trailer stays at the Equipment Yard
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-015</code></div>
+<div class="why">
+no project or job anywhere — parked at Equipment Yard
+<span class="raw">custodian: MARIO NUNEZ</span>
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-025</code></div>
+<div class="why">
+no project or job anywhere — parked at Equipment Yard
+<span class="raw">custodian: JOSE RICO</span>
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-029</code>,<code>TE-030</code>,<code>TE-031</code>,<code>TE-033</code></div>
+<div class="why">
+8 blank repeat row(s) in TE discarded; a blank never overwrote a populated assignment
+<span class="raw">sheet: TE</span>
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-031</code></div>
+<div class="why">
+no project or job anywhere — parked at Equipment Yard
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-032</code></div>
+<div class="why">
+no project or job anywhere — parked at Equipment Yard
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-034</code></div>
+<div class="why">
+no project or job anywhere — parked at Equipment Yard
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-037</code></div>
+<div class="why">
+no project or job anywhere — parked at Equipment Yard
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-038</code></div>
+<div class="why">
+no project or job anywhere — parked at Equipment Yard
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-039</code></div>
+<div class="why">
+no project or job anywhere — parked at Equipment Yard
+</div></div>
+<div class="row s-info">
+<div class="id mono"><code>TE-040</code></div>
+<div class="why">
+no project or job anywhere — parked at Equipment Yard
+</div></div>
+</div></section>
+<footer>
+  <p>Sources: <code>TOOL LIST BY NAME NEW.xlsx</code> (the TE summary sheet and every
+  TE&#8209;* trailer sheet) and the company vehicle list PDF.</p>
+  <p>Generated from <code>docs/data/import/rejects.json</code>. Re-run
+  <code>build_report.py</code> after the source files are corrected and this page
+  reflects what is left.</p>
+</footer>
+</div>

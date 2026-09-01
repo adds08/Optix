@@ -5,60 +5,11 @@
     "Latest update on company truck.pdf (transcribed into build_import.py)"
   ],
   "counts": {
-    "reject": 12,
-    "warn": 42,
-    "info": 10
+    "reject": 4,
+    "warn": 43,
+    "info": 17
   },
   "rows": [
-    {
-      "entity": "employee",
-      "id": "Alejandro Capuchino | Alejandro Aranda Capuchino",
-      "reason": "possible duplicate person — same surname + first initial. NOT merged. Alejandro Capuchino: jobs=['22018'] sources=['TE', 'sheet:TE-006']; Alejandro Aranda Capuchino: jobs=['22018'] sources=['truck-pdf']",
-      "severity": "reject",
-      "raw": {}
-    },
-    {
-      "entity": "employee",
-      "id": "FLORENCIO LOZA SR. | FLORIBERTO LOZA SR.",
-      "reason": "possible duplicate person — same surname + first initial. NOT merged. FLORENCIO LOZA SR.: jobs=['22018'] sources=['TE']; FLORIBERTO LOZA SR.: jobs=['22018'] sources=['sheet:TE-025']",
-      "severity": "reject",
-      "raw": {}
-    },
-    {
-      "entity": "employee",
-      "id": "Gilmer Medina | Gilmar Medina",
-      "reason": "possible duplicate person — same surname + first initial. NOT merged. Gilmer Medina: jobs=- sources=['TE']; Gilmar Medina: jobs=['24002'] sources=['truck-pdf']",
-      "severity": "reject",
-      "raw": {}
-    },
-    {
-      "entity": "employee",
-      "id": "JUAN MARTINEZ | Juan Carlos Martinez",
-      "reason": "possible duplicate person — same surname + first initial. NOT merged. JUAN MARTINEZ: jobs=['22017'] sources=['TE', 'sheet:TE-028']; Juan Carlos Martinez: jobs=['25001'] sources=['truck-pdf']",
-      "severity": "reject",
-      "raw": {}
-    },
-    {
-      "entity": "employee",
-      "id": "JUAN MARTINEZ | Juan Martinez (1975)",
-      "reason": "possible duplicate person — one name is a subset of the other. NOT merged. JUAN MARTINEZ: jobs=['22017'] sources=['TE', 'sheet:TE-028']; Juan Martinez (1975): jobs=['22017'] sources=['truck-pdf']",
-      "severity": "reject",
-      "raw": {}
-    },
-    {
-      "entity": "employee",
-      "id": "Jobani Abarca | JOVANI ABARCA",
-      "reason": "possible duplicate person — same surname + first initial. NOT merged. Jobani Abarca: jobs=['24002'] sources=['TE']; JOVANI ABARCA: jobs=['23009', '25015'] sources=['sheet:TE-007', 'truck-pdf']",
-      "severity": "reject",
-      "raw": {}
-    },
-    {
-      "entity": "employee",
-      "id": "Romualdo | Romualdo Almaguer",
-      "reason": "possible duplicate person — one name is a subset of the other. NOT merged. Romualdo: jobs=- sources=['TE']; Romualdo Almaguer: jobs=['26002'] sources=['truck-pdf']",
-      "severity": "reject",
-      "raw": {}
-    },
     {
       "entity": "employee",
       "id": "SAN ANTONIO",
@@ -69,13 +20,6 @@
         "row": 53,
         "project": "NEX"
       }
-    },
-    {
-      "entity": "project",
-      "id": "24002",
-      "reason": "job 24002 is used BOTH as the Equipment Yard (TE-007) and as a real job with its own superintendent/surveyor (TRK-020/036/038/045). This is the same collision that renders duplicate 'Equipment Yard' cards today — a human must say which rows belong to the yard and which to job 24002",
-      "severity": "reject",
-      "raw": {}
     },
     {
       "entity": "vehicle",
@@ -106,13 +50,6 @@
       "raw": {
         "holder": "Jose Zamora"
       }
-    },
-    {
-      "entity": "assignment",
-      "id": "Anup Tamrakar",
-      "reason": "holds 2 vehicles (SUV-001, TRK-025) — legal, but confirm it is one person and not two people sharing a name",
-      "severity": "warn",
-      "raw": {}
     },
     {
       "entity": "assignment",
@@ -199,13 +136,6 @@
       }
     },
     {
-      "entity": "assignment",
-      "id": "Romualdo Almaguer",
-      "reason": "holds 2 vehicles (TRK-012, TRK-058) — legal, but confirm it is one person and not two people sharing a name",
-      "severity": "warn",
-      "raw": {}
-    },
-    {
       "entity": "employee",
       "id": "TE-007",
       "reason": "foreman disagrees between sources: TE says 'Jobani Abarca', sheet TE-007 says 'JOVANI ABARCA'",
@@ -243,6 +173,15 @@
       "raw": {
         "unit": "TE-025",
         "sheet": "TE-025"
+      }
+    },
+    {
+      "entity": "project",
+      "id": "24002",
+      "reason": "resolved as a real job, separate from the Equipment Yard (it has a superintendent TRK-036, surveyor TRK-038, traffic control foreman TRK-020 and field engineer TRK-045). Its PROPER NAME is not in either source — loaded as 'Job 24002' and needs renaming",
+      "severity": "warn",
+      "raw": {
+        "crew": "TRK-020, TRK-036, TRK-038, TRK-045"
       }
     },
     {
@@ -442,6 +381,16 @@
     },
     {
       "entity": "vehicle",
+      "id": "TRK-025",
+      "reason": "Anup Tamrakar already holds SUV-001, and the register allows one company truck per person (vehicle_one_truck_per_foreman_uq). This truck loads with NO custodian — confirm which vehicle is really theirs",
+      "severity": "warn",
+      "raw": {
+        "vin": "1FTEW1CPXPKF37377",
+        "license": "TTY0036"
+      }
+    },
+    {
+      "entity": "vehicle",
       "id": "TRK-026",
       "reason": "job cell unusable — multiple or mangled job numbers: '25001/24014'",
       "severity": "warn",
@@ -512,6 +461,71 @@
     },
     {
       "entity": "vehicle",
+      "id": "TRK-058",
+      "reason": "Romualdo Almaguer already holds TRK-012, and the register allows one company truck per person (vehicle_one_truck_per_foreman_uq). This truck loads with NO custodian — confirm which vehicle is really theirs",
+      "severity": "warn",
+      "raw": {
+        "vin": "1FD7X2BA7TEC24591",
+        "license": "Temproary"
+      }
+    },
+    {
+      "entity": "employee",
+      "id": "Alejandro Capuchino | Alejandro Aranda Capuchino",
+      "reason": "near-match reviewed and DELIBERATELY kept separate (same surname + first initial). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person",
+      "severity": "info",
+      "raw": {
+        "a_jobs": "22018",
+        "b_jobs": "22018"
+      }
+    },
+    {
+      "entity": "employee",
+      "id": "FLORENCIO LOZA SR. | FLORIBERTO LOZA SR.",
+      "reason": "near-match reviewed and DELIBERATELY kept separate (same surname + first initial). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person",
+      "severity": "info",
+      "raw": {
+        "a_jobs": "22018",
+        "b_jobs": "22018"
+      }
+    },
+    {
+      "entity": "employee",
+      "id": "Gilmer Medina | Gilmar Medina",
+      "reason": "near-match reviewed and DELIBERATELY kept separate (same surname + first initial). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person",
+      "severity": "info",
+      "raw": {
+        "b_jobs": "24002"
+      }
+    },
+    {
+      "entity": "employee",
+      "id": "Jobani Abarca | JOVANI ABARCA",
+      "reason": "near-match reviewed and DELIBERATELY kept separate (same surname + first initial). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person",
+      "severity": "info",
+      "raw": {
+        "a_jobs": "24002",
+        "b_jobs": "23009, 25015"
+      }
+    },
+    {
+      "entity": "employee",
+      "id": "Romualdo | Romualdo Almaguer",
+      "reason": "near-match reviewed and DELIBERATELY kept separate (one name is a subset of the other). Loading both as two employees is the intended outcome; merge in the app later if they turn out to be one person",
+      "severity": "info",
+      "raw": {
+        "b_jobs": "26002"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-007",
+      "reason": "TE lists this trailer as YARD with job #24002; the yard carries no job number, so the job link is dropped and the trailer stays at the Equipment Yard",
+      "severity": "info",
+      "raw": {}
+    },
+    {
+      "entity": "vehicle",
       "id": "TE-015",
       "reason": "no project or job anywhere — parked at Equipment Yard",
       "severity": "info",
@@ -526,6 +540,16 @@
       "severity": "info",
       "raw": {
         "custodian": "JOSE RICO"
+      }
+    },
+    {
+      "entity": "vehicle",
+      "id": "TE-027",
+      "reason": "source names 'FELIPE PORTILLO' as custodian, but this trailer is loaded with NO custodian by decision — that person already holds another trailer. Its tools stay with the trailer, assigned to nobody, until Urban says who runs it",
+      "severity": "info",
+      "raw": {
+        "project": "DART",
+        "job": "20011"
       }
     },
     {

@@ -35,8 +35,63 @@ OUT = f"{ROOT}/docs/data/import"
 
 # The yard is NOT a job, so it carries no job number. Job 24002 is a separate
 # real job (it has its own superintendent and surveyor in the truck list) that
-# somebody also typed against the yard on TE-007 — see rejects.
+# somebody also typed against the yard on TE-007 — see DECISIONS.
+#
+# The name must stay exactly "Equipment Yard": apps/web/app/(app)/jobsites/page.tsx
+# matches the yard by name (`YARD_PROJECT_NAME = "equipment yard"`), so calling
+# this project "YARD" would make isYardProject() miss it and draw the yard as an
+# ordinary job card — the bug that page exists to fix.
 YARD = "Equipment Yard"
+
+# ---------------------------------------------------------------- DECISIONS
+# Human rulings on the identity collisions, 2026-09-01. Recorded here rather
+# than applied silently, because every one of them decides whether two rows are
+# one person — and a wrong merge produces a custody record for somebody who does
+# not exist. Each entry says who ruled and on what evidence.
+#
+# 1. Juan Martinez: TWO people, not three.
+#    "JUAN MARTINEZ" (TE + TE-028 sheet, NEX #22017) and "Juan Martinez (1975)"
+#    (TRK-044, job 22017) are the same man — same job, same role. The "(1975)"
+#    was added by somebody at Urban precisely because a second Juan Martinez
+#    exists, which is evidence FOR the split, not against it.
+#    "Juan Carlos Martinez" (TRK-032, job 25001) is that second man: different
+#    job, different crew. Kept separate.
+#
+# 2. The other five near-matches are KEPT SEPARATE, deliberately.
+#    LOZA SR., Abarca, Medina, Almaguer and Capuchino each look like one person
+#    spelled two ways, and an earlier pass at this data (generate_seed.py's
+#    NAME_TOKEN_ALIASES) merged two of them. Urban's call is to split: a wrong
+#    merge silently hands one man another man's tools, while a wrong split leaves
+#    two obvious duplicates a human can merge later from the register. The
+#    reversible error is the one to make.
+#
+# 3. Equipment Yard is the yard itself and carries NO job number.
+#    Job 24002 becomes its own real project — it has a superintendent (TRK-036),
+#    a surveyor (TRK-038), a traffic control foreman (TRK-020) and a field
+#    engineer (TRK-045), which is a job crew, not yard staff. The duplicate
+#    "Equipment Yard / 24002" project row is what draws a third yard card today.
+#
+# 4. TE-027 has NO foreman for now.
+#    FELIPE PORTILLO appeared as custodian of both TE-017 and TE-027 (both DART
+#    #20011), and one person holding two enclosed trailers is not how Urban runs.
+#    Rather than invent a second Felipe, TE-027 is loaded with no custodian and
+#    its tools stay with the TRAILER — located on TE-027, assigned to nobody.
+#    Whoever actually runs TE-027 can be set in the app in one action.
+MERGE_PEOPLE = {
+    "juan martinez": "Juan Martinez (1975)",
+    "juan martinez (1975)": "Juan Martinez (1975)",
+}
+# Pairs a human looked at and chose NOT to merge. Recorded so the next run does
+# not re-raise them as open questions.
+KEPT_SEPARATE = [
+    ("FLORENCIO LOZA SR.", "FLORIBERTO LOZA SR."),
+    ("Jobani Abarca", "JOVANI ABARCA"),
+    ("Gilmer Medina", "Gilmar Medina"),
+    ("Romualdo", "Romualdo Almaguer"),
+    ("Alejandro Capuchino", "Alejandro Aranda Capuchino"),
+]
+# Trailers deliberately loaded with no custodian (decision 4).
+NO_CUSTODIAN_TRAILERS = {"TE-027"}
 
 rejects = []
 
@@ -60,6 +115,13 @@ def nkey(s):
     return norm(s).lower()
 
 
+def pkey(s):
+    """The key a name is stored under in the people registry, after any
+    human-ruled merge. nkey() alone is wrong for a merged spelling."""
+    n = norm(s)
+    return nkey(MERGE_PEOPLE.get(nkey(n), n))
+
+
 # ---------------------------------------------------------------- people
 # A name is the single easiest thing to get wrong here: the sources are
 # hand-typed, and two different people genuinely share a surname. So this
@@ -74,6 +136,8 @@ class People:
         n = norm(raw)
         if not n:
             return None
+        # Only an explicit, human-ruled merge collapses two spellings (DECISIONS 1).
+        n = MERGE_PEOPLE.get(nkey(n), n)
         k = nkey(n)
         if k not in self.by_name:
             self.by_name[k] = {
@@ -107,6 +171,18 @@ class People:
 
 
 people = People()
+
+
+def canon_name(raw):
+    """The canonical display name for a person, after any human-ruled merge.
+    Every CSV that names a custodian must use this, or a merged spelling leaves
+    a row pointing at a person the employee list does not contain."""
+    if not raw:
+        return None
+    k = pkey(raw)
+    return people.by_name[k]["name"] if k in people.by_name else norm(raw)
+
+
 
 # ---------------------------------------------------------------- trucks (PDF)
 # Transcribed from "Latest update on company truck.pdf". Kept verbatim,
@@ -495,10 +571,39 @@ for unit, holder, position, job, model, vin, plate, toll, year in TRUCKS:
         "equipment_kind": "vehicle", "vehicle_type": "truck",
         "make_model": norm(model), "plate": plate, "vin": vin,
         "year": year, "toll_tag": "yes" if (toll or "").lower() == "yes" else "no",
-        "custodian_name": custodian, "position": norm(position),
+        "custodian_name": canon_name(custodian), "position": norm(position),
         "job": jobnum, "job_raw": norm(job) if job else None,
         "ownership": "company_owned",
     })
+
+# ------------------------------------------------- one truck per foreman
+# `vehicle_one_truck_per_foreman_uq` is a REAL unique index on
+# (tenant_id, foreman_employee_id) WHERE vehicle_type='truck' AND
+# ownership_type='company_owned' (migration 0030). A second company truck for
+# the same person does not warn, it aborts the load. So the first truck keeps
+# the custodian and any later one is loaded with none, rather than dropping a
+# real vehicle out of the register.
+#
+# Note the index is deliberately TRUCKS ONLY -- see the rationale at
+# schema/location.ts:161, which records that one Urban foreman really does run
+# two loaded trailers. Do not generalise this to trailers.
+_truck_held = {}
+for t in truck_rows:
+    if t["vehicle_type"] != "truck" or t["ownership"] != "company_owned":
+        continue
+    who = t["custodian_name"]
+    if not who:
+        continue
+    k = nkey(who)
+    if k in _truck_held:
+        reject("vehicle", t["unit"],
+               f"{who} already holds {_truck_held[k]}, and the register allows one "
+               "company truck per person (vehicle_one_truck_per_foreman_uq). This "
+               "truck loads with NO custodian — confirm which vehicle is really theirs",
+               "warn", vin=t["vin"], license=t["plate"])
+        t["custodian_name"] = None
+    else:
+        _truck_held[k] = t["unit"]
 
 # ---------------------------------------------------------------- projects
 projects = OrderedDict()
@@ -526,19 +631,49 @@ for t in tools:
     if t["job"]:
         add_project(JOB_CANON.get(t["job"]), t["job"])
 
-# 24002 is claimed by both the yard (TE-007) and by real jobs in the truck list.
+# DECISIONS 3: the yard is the yard and carries no job number; 24002 is a real
+# job of its own. Enforce both rather than trusting whichever row was seen first.
+yard_key = nkey(YARD)
+if yard_key in projects:
+    projects[yard_key]["external_id"] = None
+    projects[yard_key]["name"] = YARD
+
 if "24002" in projects:
-    reject("project", "24002",
-           "job 24002 is used BOTH as the Equipment Yard (TE-007) and as a real job "
-           "with its own superintendent/surveyor (TRK-020/036/038/045). This is the "
-           "same collision that renders duplicate 'Equipment Yard' cards today — a "
-           "human must say which rows belong to the yard and which to job 24002",
-           "reject")
+    p = projects["24002"]
+    if nkey(p["name"]) == yard_key or p["name"].startswith("Job "):
+        # TE-007 typed the yard against 24002. The truck list proves 24002 is a
+        # real job, but names nobody's project — so the name is genuinely unknown.
+        p["name"] = "Job 24002"
+        reject("project", "24002",
+               "resolved as a real job, separate from the Equipment Yard (it has a "
+               "superintendent TRK-036, surveyor TRK-038, traffic control foreman "
+               "TRK-020 and field engineer TRK-045). Its PROPER NAME is not in "
+               "either source — loaded as 'Job 24002' and needs renaming",
+               "warn", crew="TRK-020, TRK-036, TRK-038, TRK-045")
+
+# TE-007 named the yard but carried job 24002; the trailer keeps the yard.
+for t in trailers.values():
+    if t["job"] == "24002" and t["project"] and nkey(t["project"]) == yard_key:
+        t["job"] = None
+        reject("vehicle", t["unit"],
+               "TE lists this trailer as YARD with job #24002; the yard carries no "
+               "job number, so the job link is dropped and the trailer stays at the "
+               "Equipment Yard", "info")
 
 # ---------------------------------------------------------------- ambiguous people
+settled = {frozenset((nkey(a), nkey(b))) for a, b in KEPT_SEPARATE}
 for a, b, why in people.ambiguities():
+    pair = frozenset((nkey(a["name"]), nkey(b["name"])))
+    if pair in settled:
+        reject("employee", f"{a['name']} | {b['name']}",
+               f"near-match reviewed and DELIBERATELY kept separate ({why}). "
+               "Loading both as two employees is the intended outcome; merge in "
+               "the app later if they turn out to be one person",
+               "info",
+               a_jobs=", ".join(a["jobs"]) or None, b_jobs=", ".join(b["jobs"]) or None)
+        continue
     reject("employee", f"{a['name']} | {b['name']}",
-           f"possible duplicate person — {why}. NOT merged. "
+           f"possible duplicate person — {why}. NOT merged, and NOT yet ruled on. "
            f"{a['name']}: jobs={a['jobs'] or '-'} sources={a['sources']}; "
            f"{b['name']}: jobs={b['jobs'] or '-'} sources={b['sources']}",
            "reject")
@@ -547,7 +682,7 @@ for a, b, why in people.ambiguities():
 holders = defaultdict(list)
 for t in truck_rows:
     if t["custodian_name"]:
-        holders[nkey(t["custodian_name"])].append(t["unit"])
+        holders[pkey(t["custodian_name"])].append(t["unit"])
 for k, units in holders.items():
     if len(units) > 1:
         reject("assignment", people.by_name[k]["name"],
@@ -556,6 +691,21 @@ for k, units in holders.items():
                "warn")
 
 # ---------------------------------------------------------------- trailers out
+# One person holding two enclosed trailers is not how Urban runs, so it is a
+# data question every time rather than something to load quietly. TE-027 is the
+# known case and is resolved in DECISIONS 4; a NEW one must stop the load.
+held = defaultdict(list)
+for t in trailers.values():
+    if t["foreman"] and t["unit"] not in NO_CUSTODIAN_TRAILERS:
+        held[pkey(t["foreman"])].append(t["unit"])
+for k, units in held.items():
+    if len(units) > 1:
+        reject("vehicle", ", ".join(sorted(units)),
+               f"{people.by_name[k]['name']!r} holds {len(units)} enclosed trailers — "
+               "one person runs one trailer, so either these are two people with the "
+               "same name or one row is stale. Not resolvable from the source",
+               "reject", custodian=people.by_name[k]["name"])
+
 trailer_rows = []
 for t in trailers.values():
     unit = t["unit"]
@@ -563,7 +713,18 @@ for t in trailers.values():
     job = t["job"]
     custodian = t["foreman"]
 
-    if not custodian:
+    # DECISIONS 4: loaded with no custodian on purpose.
+    if unit in NO_CUSTODIAN_TRAILERS:
+        if custodian:
+            reject("vehicle", unit,
+                   f"source names {custodian!r} as custodian, but this trailer is "
+                   "loaded with NO custodian by decision — that person already holds "
+                   "another trailer. Its tools stay with the trailer, assigned to "
+                   "nobody, until Urban says who runs it",
+                   "info", project=proj, job=job)
+        custodian = None
+
+    if not custodian and unit not in NO_CUSTODIAN_TRAILERS:
         why = (f"flagged in source as {t['status']!r}" if t["status"]
                else "no foreman in TE and none in a TE-* sheet")
         reject("vehicle", unit, f"trailer has no custodian — {why}", "warn",
@@ -579,19 +740,38 @@ for t in trailers.values():
         "equipment_kind": "attachment", "vehicle_type": "trailer",
         "make_model": "Enclosed trailer", "plate": None, "vin": None,
         "year": None, "toll_tag": "no",
-        "custodian_name": custodian, "position": "Foreman" if custodian else None,
+        "custodian_name": canon_name(custodian), "position": "Foreman" if custodian else None,
         "job": job, "job_raw": job, "ownership": "company_owned",
     })
 
 # ---------------------------------------------------------------- tools out
 tool_rows = []
+# Where a trailer ended up, after the custodian decisions above. A tool follows
+# the TRAILER it is aboard — its project and its custodian are the trailer's, not
+# the sheet header's, so a trailer loaded with no custodian carries unassigned
+# tools rather than sending them to the yard (DECISIONS 4).
+trailer_by_unit = {r["unit"]: r for r in trailer_rows}
+
 for t in tools:
-    proj_job = t["job"]
-    project_name = JOB_CANON.get(proj_job) if proj_job else None
-    confusing = not t["trailer_unit"] or not t["foreman"] or not (proj_job or project_name)
-    if confusing:
-        project_name = YARD
+    unit = t["trailer_unit"]
+    veh = trailer_by_unit.get(unit) if unit else None
+
+    if veh:
+        custodian = veh["custodian_name"]
+        proj_job = veh["job"]
+        project_name = JOB_CANON.get(proj_job) if proj_job else None
+        if not project_name and not proj_job:
+            project_name = YARD
+    else:
+        # No trailer to sit on: "anything confusing, especially on small tools,
+        # goes to Equipment Yard."
+        custodian = None
         proj_job = None
+        project_name = YARD
+        reject("tool", t["tag"],
+               f"no trailer resolved from sheet {t['sheet']!r} — parked at Equipment Yard",
+               "info", description=t["description"])
+
     serials = t["serials"] + t["extra_serials"]
     tool_rows.append({
         "tag": t["tag"],
@@ -600,8 +780,8 @@ for t in tools:
         "serial": serials[0] if serials else None,
         "extra_serials": ";".join(serials[1:]) if len(serials) > 1 else None,
         "qty": t["qty"],
-        "trailer_unit": t["trailer_unit"],
-        "custodian_name": t["foreman"],
+        "trailer_unit": unit,
+        "custodian_name": canon_name(custodian),
         "job": proj_job,
         "project_name": project_name,
         # serial -> Equipment Department, none -> Purchased Department
