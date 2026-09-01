@@ -5,7 +5,9 @@ name: CI
 # fixed by hand recently with nothing to catch the next regression.
 on:
   push:
-    branches: [main]
+    # main deploys to production (urban.optixtec.com), development deploys to
+    # dev (urban.bodhitechlabs.com) — see the deploy-prod/deploy-dev jobs below.
+    branches: [main, development]
   pull_request:
 
 concurrency:
@@ -198,22 +200,22 @@ jobs:
           done
           echo "API did not become healthy"; exit 1
 
-  deploy:
-    name: deploy to production
+  deploy-prod:
+    name: deploy to production (urban.optixtec.com)
     # Only after the code is proven: types, tests, all three images building,
     # and the API booting against a freshly migrated database. A deploy that
     # runs regardless of the checks is just a slower way to break production.
     needs: [check, build, smoke]
-    # Never on a pull request, and never from a branch.
+    # Never on a pull request, and never from a branch other than main.
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    # Serialised: two deploys building on a 1GB droplet at once would starve it.
+    # Serialised: two deploys building on this droplet at once would starve it.
     concurrency:
       group: production-deploy
       cancel-in-progress: false
     environment:
       name: production
-      url: https://urban.bodhitechlabs.com
+      url: https://urban.optixtec.com
     steps:
       - name: Open an SSH session to the droplet
         run: |
@@ -229,7 +231,48 @@ jobs:
         # The key is restricted server-side to running docker/deploy.sh, so the
         # command sent here is ignored — whatever is asked for, the server runs
         # the deploy. That script fetches, rebuilds, waits for /health and rolls
-        # back to the previous commit if it never comes up.
+        # back to the previous commit if it never comes up. This environment's
+        # secrets point at optix-prod-app-01, with a deploy key distinct from
+        # dev's — so a compromised dev deploy key can't reach production.
+        run: |
+          ssh -i ~/.ssh/deploy_key -o ConnectTimeout=20 \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" deploy
+
+      - name: Confirm the site is serving the new build
+        run: |
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 https://urban.optixtec.com/health || true)
+            [ "$code" = "200" ] && { echo "healthy"; exit 0; }
+            sleep 10
+          done
+          echo "site did not come back healthy"; exit 1
+
+  deploy-dev:
+    name: deploy to dev (urban.bodhitechlabs.com)
+    needs: [check, build, smoke]
+    # Never on a pull request, and never from a branch other than development.
+    if: github.ref == 'refs/heads/development' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: dev-deploy
+      cancel-in-progress: false
+    environment:
+      name: dev
+      url: https://urban.bodhitechlabs.com
+    steps:
+      - name: Open an SSH session to the droplet
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy
+        # As above: the forced command in authorized_keys ignores whatever is
+        # sent here. This droplet's restricted command is set server-side to
+        # `DEPLOY_BRANCH=development docker/deploy.sh` — see DEPLOY.md — so it
+        # deploys development, not main, without the client controlling that.
         run: |
           ssh -i ~/.ssh/deploy_key -o ConnectTimeout=20 \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" deploy
