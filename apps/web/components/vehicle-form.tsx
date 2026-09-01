@@ -11,8 +11,16 @@ export type VehicleEditable = {
   id: string;
   unit: string;
   vehicleType: string;
-  equipmentClass?: string | null;
-  vin?: string | null;
+  /* REQUIRED, unlike the optional fields around them, and that is the whole
+     point. Both were optional when they were added, so the two call sites that
+     build an `edit` object silently omitted them and the form fell back to its
+     create-time default: opening "Edit" on a truck filed as `heavy` showed
+     "Vehicle", and saving any unrelated field — a plate, a project — wrote that
+     default back and blanked the VIN. Typecheck said nothing, because absent is
+     a legal value for an optional field. Making them required is what turns
+     that class of mistake back into a build error. */
+  equipmentClass: string | null;
+  vin: string | null;
   code?: string | null;
   description?: string | null;
   plate?: string | null;

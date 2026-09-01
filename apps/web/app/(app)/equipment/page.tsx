@@ -134,6 +134,8 @@ export default function EquipmentPage() {
                 id: v.id,
                 unit: v.unit,
                 vehicleType: v.vehicleType,
+                equipmentClass: v.equipmentClass,
+                vin: v.vin,
                 code: v.code,
                 description: v.description,
                 plate: v.plate,
