@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-02 | [A tag search actually narrows the board now](2026-09-02-a-tag-search-actually-narrows-the-board-now.md) |
 | 2026-09-02 | [The sheet stops scrolling sideways, and search shows its work](2026-09-02-the-sheet-stops-scrolling-sideways-and-search-shows-its-work.md) |
 | 2026-09-02 | [The orientation docs catch up to a week of real changes](2026-09-02-the-orientation-docs-catch-up-to-a-week-of-real-changes.md) |
 | 2026-09-02 | [Jobsites gains a card view whose tools open in a right sheet](2026-09-02-jobsites-gains-a-card-view-with-a-tool-sheet.md) |

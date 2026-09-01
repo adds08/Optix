@@ -507,8 +507,32 @@ export default function JobsitesPage() {
       if (gapFilter === "no_crew" && c.crews.length) return false;
       if (gapFilter === "no_truck" && !c.crews.some((x) => !x.rig.truck)) return false;
       if (gapFilter === "no_trailer" && !c.crews.some((x) => !x.rig.trailer)) return false;
-      /* A card filtered down to nothing is noise, not information. */
-      if (anyFilter && c.toolCount === 0 && c.crews.length === 0) return false;
+      /*
+        A card filtered down to nothing is noise, not information — but a
+        text search and the browsing filters (status/category/gap) disagree
+        on what "nothing" means, and conflating them was the bug.
+
+        `crews.length` counts every foreman ON THE PROJECT, built before any
+        filter runs (buildCrews always pushes a crew, even one whose `tools`
+        the filter emptied out) — so it stays non-zero for almost any staffed
+        job regardless of what was typed. That is exactly the right thing to
+        lean on for status/category/gap: "this crew has nobody matching THIS
+        filter, but they're real people on a real job" is worth keeping
+        visible. It is exactly the wrong thing for a text search: typing a
+        tag or a serial and getting back every staffed job on the board,
+        holding none of it, is the "everything is shown" a foreman actually
+        hit searching for one tool by its code.
+
+        So a non-empty search drops a toolless card outright UNLESS the job's
+        own name or code is what matched (`hit` against `c.name`/`c.code`,
+        the same predicate `jobHit` used above) — a newly awarded job with
+        zero tools yet is still the right answer to searching its own name.
+        Every other filter keeps the old, more forgiving rule.
+      */
+      if (c.toolCount === 0) {
+        if (q.trim() && !hit(`${c.name} ${c.code ?? ""}`)) return false;
+        if (anyFilter && c.crews.length === 0) return false;
+      }
       return true;
     }).sort((a, b) => {
       /* Two pinned tails, in order: the yard sits below every job, and the
