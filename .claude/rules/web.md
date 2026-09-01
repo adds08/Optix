@@ -130,16 +130,42 @@ the one it did. Equipment is a real and separate entity — **trucks and trailer
 equipment, small tools are not** — and it got its own Registry row (`/equipment`,
 `equipment-register`) on 2026-08-30.
 
-The equipment register is the table named `vehicle`, carrying `equipment_class`
-(`vehicle` | `heavy`) plus `can_attach` / `is_attachable`, and since 2026-08-30 a
-`code`/`description` pair matching the small-tools "Code" convention. Those capability
-flags are never current state — what is hitched to what lives in
-`assignment.truckId`/`trailerId` and stays ledger-derived. Do not add an `attached_to_id`
-column; that is a second way to write custody. The table keeps the wrong name on purpose:
-renaming it reaches `assignment`'s composite foreign keys, `transfer`, every router and the
-seed, and that is its own change. `/equipment` shows every row regardless of
-`equipment_class` — today that's trucks and trailers because nothing else exists, and a
-`heavy` row needs no new screen, just data.
+The equipment register is the table named `vehicle`, carrying `can_attach` /
+`is_attachable`, a `code`/`description` pair matching the small-tools "Code" convention
+(2026-08-30), and a `vin` (2026-09-01, migration `0040`). Those capability flags are
+never current state — what is hitched to what lives in `assignment.truckId`/`trailerId`
+and stays ledger-derived. Do not add an `attached_to_id` column; that is a second way to
+write custody. The table keeps the wrong name on purpose: renaming it reaches
+`assignment`'s composite foreign keys, `transfer`, every router and the seed, and that is
+its own change. `/equipment` shows every row regardless of class.
+
+**`vin` is nullable and unconstrained on purpose.** No unique index, no length check:
+Urban's real fleet includes a sixteen-character VIN and five trucks sharing an
+improbable prefix, and a constraint would abort a whole import over one typo rather than
+let the row land and be corrected. Format is reported by `docs/data/build_import.py`,
+never enforced at the write.
+
+**Two columns say "type" and they are not interchangeable.** Getting this wrong breaks
+custody rather than looking wrong:
+
+| Column | Question | Changeable |
+|---|---|---|
+| `vehicle_type` | truck or trailer — STRUCTURAL | **No.** `assignment.truck_id`/`trailer_id` reference `vehicle_id_type_uq` on `(id, vehicle_type)` through composite FKs with a generated constant, so retyping a row orphans every assignment naming it. |
+| `equipment_class` | how the yard FILES it — `vehicle` \| `attachment` \| `heavy` \| `other` (`EQUIPMENT_CLASSES` in `packages/types`) | Yes. Nothing references it. |
+
+A trailer is `vehicle_type: 'trailer'` AND `equipment_class: 'attachment'`; both are true
+at once. Put a new category on `equipment_class`, never on `vehicle_type`.
+
+`equipment_class` gained `attachment` and `other` on 2026-09-01 **together with the form
+control that writes it**. Until then no UI set the column at all, so `heavy` had been
+unreachable since the day it was added and every row held the default — which is how a
+category can exist in the schema and be true of nothing. Migration `0040` backfilled
+existing trailers.
+
+**The class-to-icon mapping is `apps/web/lib/equipment-icon.ts`, and it is the one
+definition.** The register list and the detail page each carried
+`equipmentClass === "heavy" ? Wrench : Truck` inline; correct for two values and silently
+wrong for four, with an attachment drawing a truck on both pages and nothing failing.
 
 **Every `NavItem` carries a stable `id`.** It is never derived from the route, and it is
 what a pin stores — see below. Renaming a route must leave every pin where it was, so
