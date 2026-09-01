@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Building2, ChevronDown, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
@@ -11,6 +11,7 @@ import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { FilterPills, FilterField } from "@/components/sti/facets";
 import { isHighValue } from "@/components/sti/flags";
 import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
+import { JobsiteCardView } from "@/components/jobsite-card-view";
 import { JobsiteTeamStrip } from "@/components/jobsite-team-strip";
 import { RigPicker, type PickerRequest } from "@/components/rig-picker";
 import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assign-dialog";
@@ -144,6 +145,35 @@ export default function JobsitesPage() {
     apart is the whole fix.
   */
   const [poolView, setPoolView] = useState<"jobs" | "pool">("jobs");
+  /*
+     How the cards are DRAWN — the detailed list (default) or the compact grid
+     whose tools open in a right sheet. Distinct from `poolView` above, which
+     picks WHICH cards exist; the two compose. Named `renderView` — the comment
+     on `poolView` records the merge break a bare `view` binding caused here
+     once already.
+
+     Per-browser, like column widths: a presentation preference, not data.
+     Starts as "list" and reads storage in an effect so the server HTML and the
+     first client render agree (the nav-pins pattern) — which also means e2e
+     runs, which start with clean storage, always land on the list view the
+     jobsites specs measure.
+  */
+  const [renderView, setRenderView] = useState<"list" | "cards">("list");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("sti-jobsites-view") === "cards") setRenderView("cards");
+    } catch {
+      /* Never break rendering over a cache. */
+    }
+  }, []);
+  const pickRenderView = (v: "list" | "cards") => {
+    setRenderView(v);
+    try {
+      localStorage.setItem("sti-jobsites-view", v);
+    } catch {
+      /* Quota / private mode — the choice just does not stick. */
+    }
+  };
   const [openJobs, setOpenJobs] = useState<Record<string, boolean>>({});
   const [openCrews, setOpenCrews] = useState<Record<string, boolean>>({});
   /*
@@ -734,6 +764,27 @@ export default function JobsitesPage() {
                 </span>
               ) : null}
               <div className="ml-auto flex items-center gap-2">
+                {/* List or compact cards. Same segmented pattern as Jobs/Pool
+                    beside it — text, not icons, so the two controls read as
+                    siblings rather than one of them looking like a toolbar. */}
+                <div className="flex overflow-hidden rounded-md border" role="group" aria-label="Layout">
+                  {([["list", "List"], ["cards", "Cards"]] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => pickRenderView(key)}
+                      aria-pressed={renderView === key}
+                      className={cn(
+                        "min-w-[4.5rem] px-4 py-1.5 text-xs transition-colors",
+                        renderView === key
+                          ? "bg-muted font-medium text-foreground"
+                          : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 {/* Blocky concept delta: the Jobs / Unassigned pool split. */}
                 <div className="flex overflow-hidden rounded-md border" role="group" aria-label="View">
                   {([["jobs", "Jobs"], ["pool", "Pool"]] as const).map(([key, label]) => (
@@ -772,6 +823,7 @@ export default function JobsitesPage() {
                     <DropdownMenuItem onSelect={() => setCardSort("name")}>Name</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {renderView === "list" ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -785,6 +837,7 @@ export default function JobsitesPage() {
                   )}
                   {master.next}
                 </Button>
+                ) : null}
               </div>
             </div>
           </section>
@@ -793,7 +846,23 @@ export default function JobsitesPage() {
             <EmptyState icon={Building2} title="Nothing matches those filters" description="Clear a filter, or search for a different unit." />
           ) : null}
 
-          {cards.map((card) => {
+          {renderView === "cards" ? (
+            /* The same `cards` array the list maps over — both views are one
+               derivation with two layouts, so a filter, the scope selector or
+               the Pool tab can never show different worlds in the two modes.
+               The icon is chosen HERE because this file owns the YARD/NOJOB
+               sentinels; the card view rendering them would mean the string
+               literals living in two files. */
+            <JobsiteCardView
+              cards={cards.map((c) => ({
+                ...c,
+                icon: c.id === NOJOB ? Users : c.id === YARD ? Warehouse : Building2,
+              }))}
+              canAct={canActTools}
+              highlight={q}
+            />
+          ) : (
+          cards.map((card) => {
             const open = openJobs[card.id] ?? master.jobs;
             /* Each card kind has its own icon: jobs are sites, the yard is the
                warehouse, the project-less people are a crew waiting for work. */
@@ -1015,7 +1084,8 @@ export default function JobsitesPage() {
                 ) : null}
               </section>
             );
-          })}
+          })
+          )}
           </>
       </div>
     </div>
