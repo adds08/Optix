@@ -32,11 +32,13 @@ test("the card face shows who runs the job and how rigged it is", async ({ page 
   await page.getByRole("group", { name: "Layout" }).getByRole("button", { name: "Cards" }).click();
 
   // Lone Star is seeded with both a PM (Dana Whitmore) and a superintendent
-  // (Marcus Whitfield) — the card face should name at least one of them,
-  // in plain text, without opening anything.
+  // (Marcus Whitfield) — the card face should name both, WITH their employee
+  // code, in the same chip style (and abbreviation, "SUP" not "Super") the
+  // real team strip in the sheet uses, without opening anything.
   const loneStar = page.getByRole("button", { name: "Open tools on Lone Star" });
   await expect(loneStar).toBeVisible();
-  await expect(loneStar.getByText(/PM |Super /)).toBeVisible();
+  await expect(loneStar.getByText("PM-001 · Dana Whitmore")).toBeVisible();
+  await expect(loneStar.getByText("SUP-001 · Marcus Whitfield")).toBeVisible();
   await expect(loneStar.getByText(/\d+\/\d+ rigged/)).toBeVisible();
 });
 

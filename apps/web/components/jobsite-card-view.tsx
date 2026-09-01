@@ -185,7 +185,10 @@ export function JobsiteCardView({
             onClick={() => setOpenId(card.id)}
             aria-label={`Open tools on ${card.name}`}
             className={cn(
-              "flex flex-col gap-2.5 rounded-md border bg-card p-3 text-left transition-colors",
+              /* A touch more room than the first cut — p-3/gap-2.5 read
+                 cramped once the roster chips joined the tool-count/value
+                 row, three dense lines pressed against a 12px edge. */
+              "flex flex-col gap-3 rounded-md border bg-card p-3.5 text-left transition-colors",
               "hover:border-primary/50 focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-2",
               card.tint,
             )}
@@ -215,19 +218,33 @@ export function JobsiteCardView({
               ) : null}
             </span>
             {card.isJob && (leadersByProject.get(card.id)?.length || card.crews.length) ? (
-              /* Who runs it and how rigged it is — plain text, not the
-                 interactive JobsiteTeamStrip: the whole card is a <button>
-                 opening the sheet, and a Popover trigger nested inside
-                 another interactive element is invalid HTML that breaks
-                 click handling either way. The real, editable strip lives in
-                 the sheet below, where it isn't nested inside anything. */
-              <span className="flex w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                {leadersByProject
-                  .get(card.id)!
-                  .map((m) => `${m.role === "pm" ? "PM" : "Super"} ${m.name}`)
-                  .join(" · ") || "No PM or superintendent assigned"}
+              /* Who runs it and how rigged it is. Same chip the real
+                 JobsiteTeamStrip draws in the sheet below — role-tinted pill,
+                 code before name, always both — just without ITS remove
+                 button: the whole card is a <button> opening the sheet, and
+                 nesting that control inside another interactive element is
+                 invalid HTML that breaks click handling either way. */
+              <span className="flex w-full flex-wrap items-center gap-1.5">
+                {leadersByProject.get(card.id)?.length ? (
+                  leadersByProject.get(card.id)!.map((m) => (
+                    <span
+                      key={m.id}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]",
+                        m.role === "pm"
+                          ? "border-primary/25 bg-primary/5 text-foreground"
+                          : "border-warn/25 bg-warn-bg text-foreground",
+                      )}
+                    >
+                      {m.role === "pm" ? "PM" : "SUP"}
+                      <span className="font-medium">{m.externalId ? `${m.externalId} · ${m.name}` : m.name}</span>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">No PM or superintendent assigned</span>
+                )}
                 {card.crews.length ? (
-                  <span className={cn("tnum ml-auto", card.fullyRigged < card.crews.length && "text-warn")}>
+                  <span className={cn("tnum ml-auto text-[11px] text-muted-foreground", card.fullyRigged < card.crews.length && "text-warn")}>
                     {card.fullyRigged}/{card.crews.length} rigged
                   </span>
                 ) : null}

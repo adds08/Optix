@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-02 | [The roster line gets real chips, and a little more room](2026-09-02-the-roster-line-gets-real-chips-and-a-little-room.md) |
 | 2026-09-02 | [The card view can assign a crew too, not just look at one](2026-09-02-the-card-view-can-assign-a-crew-too-now.md) |
 | 2026-09-02 | [A tag search actually narrows the board now](2026-09-02-a-tag-search-actually-narrows-the-board-now.md) |
 | 2026-09-02 | [The sheet stops scrolling sideways, and search shows its work](2026-09-02-the-sheet-stops-scrolling-sideways-and-search-shows-its-work.md) |
