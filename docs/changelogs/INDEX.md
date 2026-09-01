@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-01 | [Urban's real register loads beside the test fixture, not instead of it](2026-09-01-urbans-real-register-loads-beside-the-test-fixture.md) |
 | 2026-09-01 | [Three off the known-issues list](2026-09-01-three-off-the-known-issues-list.md) |
 | 2026-09-01 | [Every dropdown is the same dropdown](2026-09-01-every-dropdown-is-the-same-dropdown.md) |
 | 2026-09-01 | [Commit messages stop naming the tool that typed them](2026-09-01-commit-messages-stop-naming-the-tool-that-typed-them.md) |
