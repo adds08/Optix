@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { TriangleAlert, type LucideIcon } from "lucide-react";
+import { formatAssetModel } from "@stinventory/types";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
 import { type Crew } from "@/components/jobsite-crew-card";
 import { Highlight } from "@/components/highlight";
@@ -51,6 +52,16 @@ export type JobsiteCard = {
   icon: LucideIcon;
 };
 
+/* Same rule <Highlight> uses to decide whether to paint a mark — four letters
+   or longer, case-insensitive substring — so "this card previews a match"
+   never disagrees with "nothing on this card is actually marked". Matched
+   against the same text a person reads (tag, serial, the formatted model),
+   not against fields the card face never shows. */
+function toolMatches(t: ToolRow, needle: string): boolean {
+  const hay = `${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t) ?? ""}`.toLowerCase();
+  return hay.includes(needle);
+}
+
 export function JobsiteCardView({
   cards,
   canAct,
@@ -65,6 +76,28 @@ export function JobsiteCardView({
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = openId ? (cards.find((c) => c.id === openId) ?? null) : null;
+
+  /*
+    Which of THIS card's tools actually matched the search, so the face can
+    show where a match is before anybody opens the sheet — the compact face
+    otherwise carries only counts, and a card full of gap badges gives no clue
+    which one is worth opening. Every tool on a card is already the result of
+    the page's own filter (`toolOk` + free-text `hit`); this re-tests the same
+    substring rule only to pick WHICH of those survivors to preview, never to
+    decide whether the card belongs in the grid at all — that stays the page's
+    job, and stays one derivation.
+  */
+  const previews = useMemo(() => {
+    const needle = highlight.trim().toLowerCase();
+    const m = new Map<string, ToolRow[]>();
+    if (needle.length < 4) return m;
+    for (const card of cards) {
+      const all = [...card.crews.flatMap((c) => c.tools), ...card.loose];
+      const hits = all.filter((t) => toolMatches(t, needle));
+      if (hits.length) m.set(card.id, hits);
+    }
+    return m;
+  }, [cards, highlight]);
 
   return (
     <>
@@ -105,6 +138,31 @@ export function JobsiteCardView({
                 </span>
               ) : null}
             </span>
+            {previews.has(card.id) ? (
+              /* "Where the match is" — up to three of this card's tools that
+                 matched, so the search you just typed is visible on the face
+                 you're looking at rather than a fact you'd only learn by
+                 opening the sheet. */
+              <span className="flex w-full flex-col gap-0.5 border-t pt-1.5">
+                {previews
+                  .get(card.id)!
+                  .slice(0, 3)
+                  .map((t) => (
+                    <span key={t.id} className="truncate text-[11px] text-muted-foreground">
+                      <span className="font-mono text-foreground/70">
+                        <Highlight text={t.tag ?? t.serialNumber ?? "Untagged"} q={highlight} />
+                      </span>{" "}
+                      <Highlight text={formatAssetModel(t) || "No description"} q={highlight} />
+                    </span>
+                  ))}
+                {previews.get(card.id)!.length > 3 ? (
+                  <span className="text-[11px] text-muted-foreground/70">
+                    +{previews.get(card.id)!.length - 3} more match
+                    {previews.get(card.id)!.length - 3 === 1 ? "" : "es"}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
             <span className="flex w-full items-center gap-2">
               <span className="rounded-sm border bg-muted/50 px-2 py-0.5 text-xs">
                 <span className="tnum font-semibold text-foreground">{card.toolCount}</span> tool
@@ -122,12 +180,12 @@ export function JobsiteCardView({
       </div>
 
       <Sheet open={open !== null} onOpenChange={(v) => (v ? null : setOpenId(null))}>
-        {/* Wider than the sheet default (sm:max-w-sm): the tool table carries
-            real columns, and while its own .sti-table-scroll wrapper keeps any
-            overflow internal, a 24rem panel would make every row a scroll. The
-            document itself never scrolls sideways — that stays true under
-            icon-scale.spec.ts's check on this route. gap-0 because the header
-            draws its own rule and the body owns its spacing. */}
+        {/* Wider than the sheet default (sm:max-w-sm): even the compact tool
+            rows (no fixed columns, see ToolTable's `compact` prop) need real
+            room for a tag, a name and a status to sit on one line before
+            wrapping. The document itself never scrolls sideways — that stays
+            true under icon-scale.spec.ts's check on this route. gap-0 because
+            the header draws its own rule and the body owns its spacing. */}
         <SheetContent side="right" className="w-full gap-0 sm:max-w-xl">
           {open ? (
             <>
@@ -170,7 +228,7 @@ export function JobsiteCardView({
                          .sti-grid drops the last row's bottom rule for exactly
                          this wrapper (globals.css's note on jobsite tables). */
                       <div className="rounded-md border">
-                        <ToolTable rows={crew.tools} highlight={highlight} actions={canAct} />
+                        <ToolTable rows={crew.tools} highlight={highlight} actions={canAct} compact />
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">No tools in hand.</p>
@@ -189,7 +247,7 @@ export function JobsiteCardView({
                       </span>
                     </header>
                     <div className="rounded-md border">
-                      <ToolTable rows={open.loose} showWhere highlight={highlight} actions={canAct} />
+                      <ToolTable rows={open.loose} showWhere highlight={highlight} actions={canAct} compact />
                     </div>
                   </section>
                 ) : null}

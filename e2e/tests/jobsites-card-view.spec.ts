@@ -54,17 +54,23 @@ test("a card's sheet shows its tools, and the search filter reaches them", async
   await page.getByRole("group", { name: "Layout" }).getByRole("button", { name: "Cards" }).click();
   await expect(cardFaces(page).first()).toBeVisible();
 
-  // Narrow with the same search box the list obeys, then open a surviving
-  // card. Every tool row left in the sheet must match — highlighted by the
-  // same <mark> the list uses — or the sheet is filtering differently.
+  // Narrow with the same search box the list obeys.
   await page.getByPlaceholder(/search/i).fill("grinder");
   await expect(cardFaces(page).first()).toBeVisible();
+
+  // The match preview is the whole point: a surviving card shows WHERE the
+  // match is, marked, before anyone opens the sheet — not just a count.
+  await expect(cardFaces(page).first().locator("mark").first()).toBeVisible();
+
   await cardFaces(page).first().click();
 
   const sheet = page.getByRole("dialog");
   await expect(sheet).toBeVisible();
-  // The sheet renders ToolTable — a ruled .sti-grid table with a mark on the hit.
-  await expect(sheet.locator("table").first()).toBeVisible();
+  // The sheet renders ToolTable in `compact` mode — flexible rows, not a
+  // fixed-column table (a table's columns don't fit a narrow panel without a
+  // second, nested horizontal scrollbar). Rows carry role="listitem"; a match
+  // is still marked exactly like the list view's.
+  await expect(sheet.getByRole("listitem").first()).toBeVisible();
   await expect(sheet.locator("mark").first()).toBeVisible();
 
   // Escape closes the sheet and the grid is still there.

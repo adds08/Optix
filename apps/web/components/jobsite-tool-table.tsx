@@ -64,6 +64,7 @@ export function ToolTable({
   onToggle,
   highlight,
   actions,
+  compact,
 }: {
   rows: ToolRow[];
   showWhere?: boolean;
@@ -78,6 +79,17 @@ export function ToolTable({
      "how do I change this tool's status or take it off its foreman" is the
      same gesture everywhere. */
   actions?: boolean;
+  /* A flexible row instead of a fixed-column table — for the jobsite card
+     view's right sheet, which is too narrow for Tag/Tool/Category/Status/
+     Condition to sit side by side. Fitting them anyway forced
+     `.sti-table-scroll` to scroll HORIZONTALLY nested inside the sheet's own
+     vertical scroll — two scrollbars in one panel, which is the exact
+     stacked-scroll-container shape `web.md` already warns about for the
+     shell wrapper, just one level down. Compact mode drops the column grid
+     entirely rather than trimming columns, so there is nothing left that can
+     overflow sideways. Sort, the highlight, the fold and ToolMenu are all
+     shared with the table branch below — only the layout differs. */
+  compact?: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
   /*
@@ -108,6 +120,101 @@ export function ToolTable({
      a wrong colSpan fails silently — the empty row just stops spanning. */
   const colCount =
     5 + (selectable ? 1 : 0) + (showWhere ? 1 : 0) + (actions ? 1 : 0);
+
+  if (compact) {
+    return (
+      <div>
+        {/* No `.sti-table-scroll` wrapper and no fixed-width cells — this is
+            the whole fix. Each row is free to wrap its own text rather than
+            demanding a lane, so the panel's own vertical scroll is the only
+            scroll anything here does. */}
+        <div role="list" className="divide-y">
+          {visible.map((t, i) => (
+            <div
+              key={t.id}
+              role="listitem"
+              className={cn(
+                "flex items-start gap-2.5 px-3 py-2.5 transition-colors hover:bg-accent/40",
+                i % 2 ? "bg-muted/25" : "bg-transparent",
+              )}
+            >
+              {selectable && onToggle ? (
+                <input
+                  type="checkbox"
+                  checked={selectedIds?.has(t.id) ?? false}
+                  onChange={() => onToggle(t.id)}
+                  aria-label={`Select ${t.tag ?? t.serialNumber ?? "this tool"}`}
+                  className="mt-0.5 size-4 shrink-0 accent-primary"
+                />
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={`/tools/${t.id}`}
+                        className="shrink-0 font-mono text-xs text-foreground/75 underline-offset-4 hover:text-primary hover:underline"
+                      >
+                        <Highlight text={t.tag ?? t.serialNumber ?? "Untagged"} q={highlight} />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-64">
+                      <span className="block font-semibold">{formatAssetModel(t) || "No description"}</span>
+                      {t.serialNumber ? <span className="block font-mono opacity-80">{t.serialNumber}</span> : null}
+                      <span className="block capitalize opacity-80">{humanize(t.status)}</span>
+                      {t.custodianName ? <span className="block opacity-80">Held by {t.custodianName}</span> : null}
+                      <span className="mt-1 block opacity-60">Click to open</span>
+                    </TooltipContent>
+                  </Tooltip>
+                  <span className="min-w-0 truncate text-[13px] text-foreground">
+                    <Highlight text={formatAssetModel(t) || "No description"} q={highlight} />
+                  </span>
+                </div>
+                {/* One subtext line carries what used to be three columns —
+                    Category, Condition, Where — comma-separated and free to
+                    wrap. Nothing here is load-bearing for width the way a
+                    `<td>` was, so a long value just takes a second line. */}
+                <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                  {t.categoryName ?? "Uncategorized"}
+                  {" · "}
+                  <span className={cn("capitalize", CONDITION_TONE[(t.condition ?? "").toLowerCase()] ?? "")}>
+                    {t.condition ?? "condition unknown"}
+                  </span>
+                  {showWhere ? (
+                    <>
+                      {" · "}
+                      {t.locationName ?? t.currentTruckUnit ?? t.currentTrailerUnit ?? "—"}
+                      {t.currentTruckUnit && t.currentTruckOwnership === "personal_allowance" ? (
+                        <span className="ml-1 rounded-sm border border-warn/30 bg-warn-bg px-1 text-[10px] font-medium text-warn">
+                          personal
+                        </span>
+                      ) : null}
+                    </>
+                  ) : null}
+                </p>
+              </div>
+              <span className="shrink-0 whitespace-nowrap pt-0.5 text-[11px] text-muted-foreground">
+                {humanize(t.status)}
+              </span>
+              {actions ? (
+                <ToolMenu assetId={t.id} assetTag={t.tag ?? t.serialNumber ?? "Untagged"} heldBySomeone={!!t.custodianId} />
+              ) : null}
+            </div>
+          ))}
+          {visible.length === 0 ? <p className="px-3 py-2.5 text-sm text-muted-foreground">Nothing here.</p> : null}
+        </div>
+        {rows.length > TOOL_LIMIT ? (
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="w-full border-t px-3 py-1.5 text-center text-xs font-medium text-primary hover:bg-accent/40"
+          >
+            {showAll ? "Show fewer" : `Show ${remaining} more of ${rows.length}`}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div>
