@@ -884,6 +884,15 @@ export default function JobsitesPage() {
               }))}
               canAct={canActTools}
               highlight={q}
+              onPick={setPicker}
+              onAssignRequest={setAssign}
+              canManage={canDrive}
+              canAssignCrew={canAssignCrew}
+              canAssignTools={canAssignTools}
+              team={team.data ?? []}
+              employees={employees.data ?? []}
+              canAssignPm={canAssignPm}
+              canAssignSuper={canAssignSuper}
             />
           ) : (
           cards.map((card) => {

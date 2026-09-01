@@ -52,6 +52,7 @@ export function CrewCard({
   canAct = false,
   striped = false,
   highlight,
+  compact = false,
 }: {
   crew: Crew;
   projectId: string;
@@ -72,6 +73,16 @@ export function CrewCard({
   striped?: boolean;
   /* The live search text, for marking the foreman's name. */
   highlight?: string;
+  /* A stacked layout instead of the wide row below, for the jobsite card
+     view's right sheet — added alongside ToolTable's own `compact` prop and
+     for the same reason. The wide row's rig zone is a FIXED `w-[23rem]`
+     three-track grid, deliberate for a dense list (it is what lines up the
+     hitch down every row), and exactly the kind of fixed width that does not
+     fit a ~32rem sheet without wrapping badly. Compact drops the grid for a
+     flex-wrap group instead — every `onPick`/`onAddTools` call, every
+     DropdownMenu item, stays byte-identical; only the layout branches, so the
+     two views can never offer different actions for the same crew. */
+  compact?: boolean;
 }) {
   const { rig } = crew;
 
@@ -163,6 +174,88 @@ export function CrewCard({
     ) : (
       <span className="text-xs text-muted-foreground">no {kind}</span>
     );
+
+  if (compact) {
+    return (
+      <div className={cn("overflow-visible rounded-md border", striped ? "bg-muted/15" : "bg-card")}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onToggle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onToggle();
+            }
+          }}
+          aria-expanded={expanded}
+          className="crew-row flex cursor-pointer flex-col gap-1.5 px-3 py-2.5 transition-colors hover:bg-muted/40"
+        >
+          <div className="flex items-start gap-2">
+            <span aria-hidden className={cn("mt-1 h-[16px] w-[3px] shrink-0 rounded-sm", rigged ? "bg-ok" : "bg-warn")} />
+            <ChevronRight
+              aria-hidden
+              className={cn("mt-1 size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", expanded && "rotate-90")}
+            />
+            <span className="min-w-0 flex-1">
+              <PersonChip
+                id={crew.foremanId}
+                externalId={crew.foremanExternalId}
+                name={crew.foremanName}
+                role={crew.foremanRole}
+                detail={[
+                  `${crew.tools.length} tool${crew.tools.length === 1 ? "" : "s"}`,
+                  moneyShort(value),
+                  crew.otherJobs ? `also on ${crew.otherJobs} other job${crew.otherJobs === 1 ? "" : "s"}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              />
+            </span>
+            {canManage ? (
+              <DropdownMenu>
+                <ActionMenuTrigger label={crew.foremanName} onClick={(e) => e.stopPropagation()} />
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem onSelect={() => onPick({ kind: "truck", foremanId: crew.foremanId })}>
+                    {rig.truck ? "Change truck" : "Assign truck"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id })}>
+                    {rig.trailer ? "Change hitched trailer" : rig.truck ? "Hitch a trailer" : "Assign a trailer"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => onPick({ kind: "move", foremanId: crew.foremanId, projectId })}>
+                    Move this crew to another job
+                  </DropdownMenuItem>
+                  {onAddTools ? <DropdownMenuItem onSelect={onAddTools}>Add tools to this crew</DropdownMenuItem> : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
+          {/* Rig slots wrap instead of sitting in a fixed 23rem track — nothing
+              here needs to line up down a column the way the list's does,
+              since crews stack one at a time in the sheet rather than sitting
+              beside each other. */}
+          <div
+            className="ml-[23px] flex flex-wrap items-center gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {slot(rig.truck?.unit, "truck", () => onPick({ kind: "truck", foremanId: crew.foremanId }))}
+            <Hitch broken={brokenHitch} />
+            {slot(rig.trailer?.unit, "trailer", () => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id }))}
+          </div>
+        </div>
+        {expanded ? (
+          <div className="border-t bg-muted/10">
+            {crew.tools.length ? (
+              <ToolTable rows={crew.tools} highlight={highlight} actions={canAct} compact />
+            ) : (
+              <p className="px-3 py-2.5 text-sm text-muted-foreground">This crew is holding nothing yet.</p>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("overflow-visible rounded-md border", striped ? "bg-muted/15" : "bg-card")}>
