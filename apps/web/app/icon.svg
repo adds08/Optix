@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!--
+    The browser-tab icon. Next serves any app/icon.* as the favicon, so this
+    file is the whole of it — there was none before 2026-09-01 and every tab
+    showed the browser's blank page glyph.
+
+    It is the short mark from components/optix-mark.tsx on the supplied navy,
+    with the two colours written out because a file served straight to the
+    browser cannot read the app's custom properties. If the glyph changes there,
+    change it here; there is no way to share geometry across that boundary.
+  -->
+  <rect width="64" height="64" rx="14" fill="#082F49"/>
+  <g transform="translate(12.16 12.16) scale(1.653)" fill="none" stroke="#FFCA00" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.6"/>
+    <path d="M7 7.4 H17 L14.6 12 L17 16.6 H7 L9.4 12 Z" fill="#FFCA00" stroke="none"/>
+  </g>
+</svg>

@@ -63,6 +63,14 @@
   --color-rail-foreground: var(--rail-foreground);
   --color-rail-accent: var(--rail-accent);
   --color-rail-accent-foreground: var(--rail-accent-foreground);
+
+  /* The logo's two colours, and the one decision about which of them a bare
+     wordmark takes. Never a decorative hue — the mark is the only thing
+     allowed to be these. */
+  --color-brand-navy: var(--brand-navy);
+  --color-brand-yellow: var(--brand-yellow);
+  --color-brand-mark: var(--brand-mark);
+
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
@@ -169,6 +177,18 @@
   --rail-foreground: oklch(0.620 0.018 250);
   --rail-accent: oklch(0.250 0.037 257);
   --rail-accent-foreground: oklch(0.820 0.050 252);
+
+  /* The logo, exactly as supplied. Hex rather than oklch — everything else in
+     this file is a palette decision that may be tuned, and these two are a
+     measurement of the artwork. A logo colour that has drifted through a
+     colour-space conversion is a logo colour that is wrong.
+
+     `--brand-mark` is the colour a bare wordmark takes on a page: navy on
+     paper, and yellow on the dark surface below, where navy would disappear.
+     On a photograph or any ground the page does not control, use the plate. */
+  --brand-navy: #082F49;
+  --brand-yellow: #FFCA00;
+  --brand-mark: var(--brand-navy);
 }
 
 .dark {
@@ -230,6 +250,10 @@
   --rail-foreground: oklch(0.659 0.017 248);
   --rail-accent: oklch(0.250 0.037 257);
   --rail-accent-foreground: oklch(0.895 0.045 252);
+
+  /* The two brand colours do not flip — a logo is not a palette. Only the
+     question of which one a bare wordmark takes has a different answer here. */
+  --brand-mark: var(--brand-yellow);
 }
 
 /* Two-pane shell (Blocky): the 48px primary rail (app-rail.tsx) owns the left
@@ -358,88 +382,12 @@
     animation: sti-draw-in 0.6s ease-out forwards;
   }
 
-  /* ---- Auth panel: the yard, drawn (docs/20, E) -------------------------
-
-     The line art draws itself on rather than fading in. Every shape in an
-     `.sti-ink` svg carries pathLength="1", which normalises its geometry to
-     a single unit — so one dash rule animates paths, rects, circles and
-     arcs alike. Nothing measures a path in JS, and editing a `d` attribute
-     never desynchronises a hand-tuned dash length.
-
-     The hidden start state is declared INSIDE the no-preference query on
-     purpose. Reduced-motion visitors must land on the finished drawing; a
-     dashoffset declared outside would leave them staring at a blank panel,
-     which is the usual way "respecting the preference" gets broken. */
-  @keyframes sti-ink {
-    to { stroke-dashoffset: 0; }
-  }
-  /* The custody route. Dashes march toward the job site so the line reads as
-     a direction of travel rather than a decorative border. -24 is three whole
-     1+7 periods, so the loop restart is invisible. */
-  @keyframes sti-march {
-    to { stroke-dashoffset: -24; }
-  }
-  /* One tool's journey: the yard, a pause at the truck — the hand-off this
-     product exists to record — then the site. The pause is the point. */
-  @keyframes sti-travel {
-    0%   { offset-distance: 0%;   opacity: 0; }
-    6%   { offset-distance: 0%;   opacity: 1; }
-    38%  { offset-distance: 50%;  opacity: 1; }
-    52%  { offset-distance: 50%;  opacity: 1; }
-    86%  { offset-distance: 100%; opacity: 1; }
-    95%  { offset-distance: 100%; opacity: 0; }
-    100% { offset-distance: 100%; opacity: 0; }
-  }
-  /* Each station flares as the token reaches it — the receipt, not the move. */
-  @keyframes sti-arrive {
-    0%   { opacity: 0; transform: scale(0.75); }
-    14%  { opacity: 0.28; transform: scale(1); }
-    46%  { opacity: 0; transform: scale(1.5); }
-    100% { opacity: 0; transform: scale(1.5); }
-  }
-  /* A scanner crossing the sheet, rarely. Background-position rather than a
-     transform so the travel distance is a share of the panel, not of the
-     element — the panel's width is a browser-window question. */
-  @keyframes sti-sweep {
-    0%   { background-position: -34% 0; opacity: 0; }
-    12%  { opacity: 1; }
-    72%  { opacity: 1; }
-    100% { background-position: 134% 0; opacity: 0; }
-  }
-
-  /* The route is a fixed curve in the diagram's own viewBox units, so the
-     token's path is written once here and mirrored by the `d` in the markup.
-     Keep the two in step. */
-  .sti-token {
-    offset-path: path("M48 80 Q124 42 200 80 T352 80");
-    offset-rotate: 0deg;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .sti-ink > * {
-      stroke-dasharray: 1;
-      stroke-dashoffset: 1;
-      animation: sti-ink 1.5s cubic-bezier(0.65, 0, 0.35, 1) var(--ink-delay, 0s) forwards;
-    }
-    .sti-ink > :nth-child(2) { animation-delay: calc(var(--ink-delay, 0s) + 0.09s); }
-    .sti-ink > :nth-child(3) { animation-delay: calc(var(--ink-delay, 0s) + 0.18s); }
-    .sti-ink > :nth-child(4) { animation-delay: calc(var(--ink-delay, 0s) + 0.27s); }
-    .sti-ink > :nth-child(n + 5) { animation-delay: calc(var(--ink-delay, 0s) + 0.36s); }
-
-    /* ~~`.ink-bubble`, `.ink-tape-blade`, `.ink-tape-hook`, `.ink-blade`~~ —
-       the drifting spirit level, the tape measure's blade and the spinning saw
-       rim. Removed 2026-08-27 with the glyphs they animated: the auth panel's
-       strip now draws the RESOURCES a job consumes rather than five hand
-       tools, because the old strip was most of why the sign-in page read as a
-       tool crib. Their keyframes went too — see the note in `auth-panel.tsx`.
-       Nothing else ever used them; check there before reviving one. */
-
-    .sti-float { animation: sti-float-y 6s ease-in-out var(--ink-delay, 0s) infinite; }
-    .sti-route { animation: sti-march 1.4s linear infinite; }
-    .sti-token { animation: sti-travel 9s cubic-bezier(0.5, 0, 0.5, 1) infinite; }
-    .sti-arrive { animation: sti-arrive 9s ease-out var(--arrive-delay, 0s) infinite; }
-    .sti-sweep { animation: sti-sweep 19s cubic-bezier(0.4, 0, 0.6, 1) 3s infinite; }
-  }
+  /* ~~The auth panel's line art~~ — `.sti-ink` draw-on, `.sti-route` marching
+     dashes, `.sti-token` riding an offset-path, `.sti-arrive` station flares
+     and the `.sti-sweep` scanner. Removed 2026-09-01 with `auth-panel.tsx`:
+     the sign-in page is a photograph now, and five keyframes nothing renders
+     are five things a future reader has to prove are dead. They are in git
+     with the component that used them. */
 }
 
 /* ---- The yard's own vocabulary ------------------------------------------

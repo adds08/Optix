@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -49,13 +50,26 @@ export default function LoginScreen() {
         contentContainerStyle={SCREEN_CONTENT}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="gap-2">
-            <View className="h-10 w-10 items-center justify-center rounded-md bg-primary">
-              <Text className="text-[13px] font-bold text-primary-foreground">ST</Text>
-            </View>
-            <Text className="pt-3 text-[30px] font-bold tracking-tight text-foreground">
-              STInventory
-            </Text>
+          <View className="gap-3">
+            {/*
+              The logo on its plate — the supplied artwork, composed once into
+              `assets/optix-logo.png` rather than redrawn. It replaced an "ST"
+              tile and the word STInventory on 2026-09-01: the product is Optix
+              in the interface, and this screen was the last place the old name
+              was still being read out to a user.
+
+              A raster rather than the web app's SVG paths because this app has
+              no `react-native-svg` and a logo is not worth a native dependency.
+              The plate carries its own two colours, so it needs nothing from
+              the theme and reads on any background.
+            */}
+            <Image
+              source={require("../assets/optix-logo.png")}
+              style={{ width: 174, height: 64 }}
+              resizeMode="contain"
+              accessibilityRole="image"
+              accessibilityLabel="Optix"
+            />
             <Text className="text-[15px] leading-5 text-muted-foreground">
               Sign in to see what you are holding and hand tools over.
             </Text>

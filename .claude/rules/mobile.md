@@ -36,6 +36,12 @@ the README describes**, but less than a field-ready app.
   never gate the submit on it, or the field app and the desk will disagree about what happened.
 - `EXPO_PUBLIC_API_URL` at build time; for a physical device it must be the laptop's LAN IP,
   not `localhost`.
+- **The logo is a raster here, deliberately.** `assets/optix-logo.png` (the navy plate) and
+  the icon set were composed from the supplied artwork on 2026-09-01; the web app draws the
+  same mark as SVG paths, which this app cannot do without `react-native-svg`. A logo is
+  not worth a native dependency. If the artwork is reissued, regenerate these from it —
+  the geometry lives in `apps/web/components/optix-mark.tsx`, and the two are kept in step
+  by hand because nothing can share a path across that boundary.
 - `apps/mobile` is **not** in `docker/Dockerfile.dev`'s COPY list and has no compose volume,
   so container-run `make typecheck` fails here (it also pins a different TypeScript major).
   Run mobile checks on the host.

@@ -9,7 +9,7 @@ import { login, getSession, setSession } from "@/lib/auth";
 import { LAND_ON_PIN } from "@/components/sti/nav-pins";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AuthPanel } from "@/components/auth-panel";
+import { AuthSlideshow } from "@/components/auth-slideshow";
 import { OptixLockup } from "@/components/optix-mark";
 import { DUR, EASE } from "@/lib/motion";
 
@@ -140,11 +140,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-svh lg:grid-cols-[1.05fr_1fr]">
-      {/* The yard, animated — left (docs/20, E). The form is the task; this
-          panel is the reason to bother, and it must never slow the form. */}
-      <aside className="relative hidden overflow-hidden border-r bg-muted/30 lg:block">
-        <AuthPanel />
+    <main className="grid min-h-svh lg:grid-cols-[1.4fr_1fr]">
+      {/* The job, photographed — left. The form is the task; this panel is the
+          reason to bother, and it must never slow the form, which is why it
+          paints with backgrounds a narrow viewport never fetches. */}
+      <aside className="relative hidden overflow-hidden lg:block">
+        <AuthSlideshow />
       </aside>
 
       <div className="flex items-center justify-center px-6 py-12">

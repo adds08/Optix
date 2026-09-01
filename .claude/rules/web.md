@@ -21,20 +21,42 @@ the `(app)` route group:
 
 The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory, which
 survives as the repo name, the package scope (`@stinventory/*`), the seeded email domain and
-the `sti-*` localStorage keys. Nothing user-facing says STInventory any more; the mark is
-`components/optix-mark.tsx` (`OptixGlyph` / `OptixLockup`) and it is the ONE definition,
-shared by the rail, the auth pages and the boot splash. Don't add a second copy.
+the `sti-*` localStorage keys. Nothing user-facing says STInventory any more.
 
-**The sign-in panel's subject is the OPERATION, not the toolbox.**
-`components/auth-panel.tsx` drew one tool's journey out of a gang box until
-2026-08-27 — three stations reading Yard → Truck → Job Site, a strip of five hand tools,
-and a ledger of tool transfers only. That was correct for STInventory and precisely wrong
-for the front door of a product being sold to run a construction operation. The route now
-runs between two JOBS, the strip draws ADR-9's top-level resources (crew, plant, small
-tools, materials, hours) and the ledger mixes them. Don't narrow it back. The strip is
-deliberately unlabelled and the copy names no screen: Labour, Materials and Purchasing are
-accepted architecture, not shipped surfaces, and a captioned tile would advertise a module
-that does not exist.
+**`components/optix-mark.tsx` is the ONE definition of the mark** and it is the real
+artwork as of 2026-09-01: the supplied `logo.png` measured off its alpha channel and
+rebuilt as stroked paths, not the drawn iris that stood in for it before. Five exports,
+and which one you want is a question about the surface:
+
+| Surface | Export |
+|---|---|
+| A page whose background the app controls | `OptixLockup` (wordmark + tagline) or `OptixWordmark` |
+| A photograph, or any ground the app does not control | `OptixPlate` — the navy stadium |
+| A square slot: the rail head, an icon | `OptixTile`, or `OptixGlyph` on its own |
+
+Two rules. **The coordinates are measurements, not choices** — they were checked back
+against the raster pixel for pixel, so nudging one bends a letter and nothing will tell
+you; re-measure if the artwork is reissued. And **the colours are `--brand-navy` /
+`--brand-yellow` in `globals.css`, written as hex** because everything else in that file
+is a palette decision that may be tuned and these two are the logo. `--brand-mark` answers
+"which of the two does a bare wordmark take" once — navy on paper, yellow on the dark
+surface. Nothing but the mark may use these.
+
+**The sign-in panel is a photograph, and the form is the point.**
+`components/auth-slideshow.tsx` cross-fades the four jobsite photographs the timesheet
+product signs in on (`public/login/`, copied from `timesheet/public_html/img/loginpage`) —
+matching it deliberately, because the two are being sold as one platform. It replaced
+`auth-panel.tsx` on 2026-09-01, a drawn diagram of a resource moving between two jobs with
+four animation loops running beside a two-field form; every piece of it was considered and
+together they were too much. The headline it carried is the best copy in the product and
+moved across with it.
+
+**The photographs are CSS backgrounds, not `<img>`.** The panel is `hidden lg:block`, and a
+`display: none` element does not fetch a background — four stacked `<img>` tags would cost
+a phone 780KB of pictures it can never see. Only the first slide is in the server HTML; the
+rest mount after hydration, and `prefers-reduced-motion` holds the panel on that first frame.
+The indicators are `<span>`s on purpose: four tab stops in front of the email field is a real
+cost for a choice nobody signing in wants to make.
 
 Login is at `/`, not `/login`. Three more routes sit OUTSIDE `(app)`, unauthenticated by
 construction, added with the invite/reset work: `/forgot-password`, `/invite/[token]` and
@@ -645,9 +667,11 @@ capable of making the whole thing feel slow; leave it short.
 Wall surfaces (`fullBleed`) are deliberately NOT transitioned: the monitor is a board left
 running on a screen across the room, and it needs its `h-full` chain unbroken by a wrapper.
 
-The pre-existing CSS keyframes in `globals.css` (`sti-ink`, `sti-travel`, `sti-slide`, the
-auth panel's whole line-art system) stay as they are. They are declarative, gated on
-`prefers-reduced-motion`, and rewriting them in JS would buy nothing.
+The CSS keyframes that remain in `globals.css` (`sti-slide` under the boot splash,
+`sti-draw-in`) stay as they are: declarative, and rewriting them in JS would buy nothing.
+The auth panel's whole line-art system — `sti-ink`, `sti-march`, `sti-travel`, `sti-arrive`,
+`sti-sweep` and `.sti-token`'s offset-path — went with the component on 2026-09-01. Five
+keyframes nothing renders are five things the next reader has to prove are dead.
 
 ## House style
 
