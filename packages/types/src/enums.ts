@@ -15,8 +15,49 @@ export const LOCATION_TYPES = [
   "project_site",
 ] as const;
 export type LocationType = (typeof LOCATION_TYPES)[number];
+/*
+  What a row IS, for the composite foreign keys — not what kind of equipment it
+  is. `assignment.truckId`/`trailerId` reference `vehicle_id_type_uq` on
+  `(id, vehicle_type)` with a generated constant, which is the only way a plain
+  FK can insist that a truckId names a truck. So these two values are load-
+  bearing literals: adding a third here, or retyping an existing row, breaks
+  every assignment referencing it.
+
+  The CATEGORY question — is this a vehicle, an attachment, plant? — is
+  `EQUIPMENT_CLASSES` below, which nothing references and is free to grow.
+*/
 export const VEHICLE_TYPES = ["truck", "trailer"] as const;
 export type VehicleType = (typeof VEHICLE_TYPES)[number];
+
+/*
+  What KIND of equipment a register row is, as Urban files it.
+
+  Separate from `VEHICLE_TYPES` on purpose, and the two are easy to confuse:
+  `vehicleType` answers a structural question the database enforces, this one
+  answers an operational question a person answers on a form. A trailer is
+  `vehicleType: 'trailer'` AND `equipmentClass: 'attachment'`, and both are
+  true at once.
+
+  `heavy` predates the rest — it was added when the register was trucks and
+  trailers only, as a placeholder for plant that had not arrived yet, and
+  nothing ever wrote it because no form offered it. `attachment` and `other`
+  join it on 2026-09-01 with the control that finally sets them.
+
+  Optional on the form: a yard that has not decided how it files something
+  should not be blocked from registering it, so rows default to `vehicle`.
+*/
+export const EQUIPMENT_CLASSES = ["vehicle", "attachment", "heavy", "other"] as const;
+export type EquipmentClass = (typeof EQUIPMENT_CLASSES)[number];
+
+/* What each class is called on screen. The register draws these; don't
+   hand-write the strings at call sites, or they drift apart the way three
+   custodian pickers did before CUSTODIAN_ROLES existed. */
+export const EQUIPMENT_CLASS_LABELS: Record<EquipmentClass, string> = {
+  vehicle: "Vehicle",
+  attachment: "Attachment",
+  heavy: "Heavy equipment",
+  other: "Other",
+};
 export const VEHICLE_OWNERSHIP = ["company_owned", "personal_allowance"] as const;
 export type VehicleOwnership = (typeof VEHICLE_OWNERSHIP)[number];
 export const EMPLOYEE_ROLES = [

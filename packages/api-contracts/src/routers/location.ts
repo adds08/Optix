@@ -2,7 +2,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import { vehicleStatus, type VehicleStatus } from "@stinventory/types";
+import { EQUIPMENT_CLASSES, vehicleStatus, type VehicleStatus } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { visibleProjectScope } from "../scope.js";
 import { TRPCError } from "@trpc/server";
@@ -648,6 +648,7 @@ export const vehicleRouter = router({
           vehicleType: schema.vehicle.vehicleType,
           equipmentClass: schema.vehicle.equipmentClass,
           code: schema.vehicle.code,
+          vin: schema.vehicle.vin,
           description: schema.vehicle.description,
           unit: schema.vehicle.unit,
           plate: schema.vehicle.plate,
@@ -715,10 +716,18 @@ export const vehicleRouter = router({
     .input(
       z.object({
         vehicleType: z.enum(["truck", "trailer"]),
+        /* How the yard FILES this, as opposed to what the foreign keys need it
+           to be. Optional and defaulted, so registering a machine is never
+           blocked on deciding its category. */
+        equipmentClass: z.enum(EQUIPMENT_CLASSES).default("vehicle"),
         unit: z.string().min(1).max(40),
         code: z.string().max(60).optional(),
         description: z.string().max(2000).optional(),
         plate: z.string().optional(),
+        /* Unconstrained on purpose — see the column comment. A malformed VIN is
+           reported by the importer, not refused here, because refusing loses
+           the whole vehicle over a typo in one field. */
+        vin: z.string().max(40).optional(),
         makeModel: z.string().optional(),
         ownershipType: z.enum(["company_owned", "personal_allowance"]).default("company_owned"),
         payeeEmployeeId: z.string().uuid().optional(),
@@ -780,6 +789,8 @@ export const vehicleRouter = router({
           locationId: loc.id,
           vehicleType: input.vehicleType,
           unit: input.unit,
+          equipmentClass: input.equipmentClass,
+          vin: input.vin ?? null,
           code: input.code ?? null,
           description: input.description ?? null,
           plate: input.plate ?? null,
@@ -803,8 +814,12 @@ export const vehicleRouter = router({
         code: z.string().max(60).nullable().optional(),
         description: z.string().max(2000).nullable().optional(),
         plate: z.string().max(40).nullable().optional(),
+        vin: z.string().max(40).nullable().optional(),
         makeModel: z.string().max(120).nullable().optional(),
         vehicleType: z.enum(["truck", "trailer"]).optional(),
+        /* Freely changeable, unlike `vehicleType` above: nothing references it,
+           so refiling a machine cannot orphan an assignment row. */
+        equipmentClass: z.enum(EQUIPMENT_CLASSES).optional(),
         ownershipType: z.enum(["company_owned", "personal_allowance"]).optional(),
         payeeEmployeeId: z.string().uuid().nullable().optional(),
         allowanceRate: z.string().max(20).nullable().optional(),

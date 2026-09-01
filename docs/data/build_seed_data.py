@@ -195,7 +195,13 @@ for v in vehicles_csv:
         "key": f"v-{slug(unit)}", "loc": loc_key,
         # The register models a trailer as vehicleType 'trailer'; the
         # vehicle/attachment split the templates carry has no column yet.
-        "vtype": v["vehicle_type"], "unit": unit, "code": v["code"] or None,
+        "vtype": v["vehicle_type"],
+        # The category Urban files it under, straight from the templates.
+        "eclass": v["equipment_kind"] or None,
+        # The VIN finally has a column to land in (migration 0040); before it,
+        # every one of these was read from the source and silently dropped.
+        "vin": v["vin"] or None,
+        "unit": unit, "code": v["code"] or None,
         "description": v["make_model"] or None,
         "plate": v["plate"] or None, "make": v["make_model"] or None,
         "own": v["ownership"] or "company_owned",
@@ -346,6 +352,7 @@ A("")
 A("export const vehSpecs: VehSeed[] = [")
 for x in veh_rows:
     A(f'  {{ key: {ts(x["key"])}, loc: {ts(x["loc"])}, vtype: {ts(x["vtype"])}, '
+      f'eclass: {ts(x["eclass"])}, vin: {ts(x["vin"])}, '
       f'unit: {ts(x["unit"])}, code: {ts(x["code"])}, description: {ts(x["description"])}, '
       f'plate: {ts(x["plate"])}, make: {ts(x["make"])}, own: {ts(x["own"])}, '
       f'payee: {ts(x["payee"])}, allow: {ts(x["allow"])}, freq: {ts(x["freq"])}, '

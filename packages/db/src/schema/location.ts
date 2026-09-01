@@ -77,7 +77,11 @@ export const vehicle = pgTable(
       referenced in a truck or trailer slot, which is correct: you do not tow a
       gang box with an excavator.
     */
-    equipmentClass: text("equipment_class").notNull().default("vehicle"), // vehicle | heavy
+    // EQUIPMENT_CLASSES in packages/types: vehicle | attachment | heavy | other.
+    // Gained `attachment` and `other` on 2026-09-01, together with the form
+    // control that writes it — until then no UI set this column at all, so
+    // every row in the register held the default and `heavy` was unreachable.
+    equipmentClass: text("equipment_class").notNull().default("vehicle"),
     vehicleType: text("vehicle_type").notNull(), // truck | trailer (class 'vehicle'); plant type for 'heavy'
     /*
       CAPABILITY, not state. `canAttach` means this thing can tow or carry
@@ -106,6 +110,22 @@ export const vehicle = pgTable(
     description: text("description"),
     unit: text("unit").notNull(),
     plate: text("plate"),
+    /*
+      The manufacturer's VIN, and the only permanent identity a vehicle has —
+      `unit` and `plate` are both reassigned, a VIN is not. Added 2026-09-01
+      with Urban's fleet import, which arrived carrying a VIN for every truck
+      and had nowhere to put it: the rows loaded and the VINs were dropped on
+      the floor.
+
+      NULLABLE and UNCONSTRAINED, deliberately. No unique index and no length
+      check, because the real data has neither property: TRK-10001's VIN is
+      sixteen characters where seventeen is the standard, and five trucks share
+      an improbable `1FTEW1KP6RKD` prefix that looks hand-typed. A constraint
+      here would abort the whole import over a typo rather than let the row
+      land and be corrected. Format is checked at the router edge and reported,
+      never enforced — see `docs/data/import/rejects.json` for what that found.
+    */
+    vin: text("vin"),
     makeModel: text("make_model"),
     ownershipType: text("ownership_type").notNull().default("company_owned"), // company_owned | personal_allowance
     payeeEmployeeId: uuid("payee_employee_id").references(() => employee.id, { onDelete: "set null" }),

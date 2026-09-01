@@ -5,11 +5,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { EQUIPMENT_CLASSES, EQUIPMENT_CLASS_LABELS, type EquipmentClass } from "@stinventory/types";
 
 export type VehicleEditable = {
   id: string;
   unit: string;
   vehicleType: string;
+  equipmentClass?: string | null;
+  vin?: string | null;
   code?: string | null;
   description?: string | null;
   plate?: string | null;
@@ -39,6 +42,13 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
   const [vehicleType, setVehicleType] = useState<"truck" | "trailer">(
     (edit?.vehicleType as "truck" | "trailer") ?? "truck",
   );
+  /* How the yard files it. Defaults to matching the structural type rather than
+     always to "vehicle": a trailer IS an attachment, and pre-selecting the
+     obvious answer beats making somebody restate it on every trailer. */
+  const [equipmentClass, setEquipmentClass] = useState<EquipmentClass>(
+    (edit?.equipmentClass as EquipmentClass) ?? (edit?.vehicleType === "trailer" ? "attachment" : "vehicle"),
+  );
+  const [vin, setVin] = useState(edit?.vin ?? "");
   const [unit, setUnit] = useState(edit?.unit ?? "");
   const [code, setCode] = useState(edit?.code ?? "");
   const [description, setDescription] = useState(edit?.description ?? "");
@@ -60,7 +70,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
     try {
       if (edit) {
         await utils.client.vehicle.update.mutate({
-          id: edit.id, vehicleType, unit,
+          id: edit.id, vehicleType, equipmentClass, vin: vin || null, unit,
           code: code || null,
           description: description || null,
           plate: plate || null,
@@ -71,7 +81,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
         });
       } else {
         await utils.client.vehicle.create.mutate({
-          vehicleType, unit,
+          vehicleType, equipmentClass, vin: vin || undefined, unit,
           code: code || undefined,
           description: description || undefined,
           plate: plate || undefined,
@@ -105,6 +115,21 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
             <label className="text-sm font-medium">Code</label>
             <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Equipment register code" />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Equipment type</label>
+              <EntityField
+                value={equipmentClass}
+                onChange={(v) => setEquipmentClass(v as EquipmentClass)}
+                placeholder="How is it filed?"
+                options={EQUIPMENT_CLASSES.map((c) => ({ value: c, label: EQUIPMENT_CLASS_LABELS[c] }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">VIN</label>
+              <Input value={vin} onChange={(e) => setVin(e.target.value)} placeholder="Chassis number" />
+            </div>
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Description</label>
             <Input value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -114,7 +139,17 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
               <label className="text-sm font-medium">Type</label>
               <EntityField
                 value={vehicleType}
-                onChange={(v) => setVehicleType(v as "truck" | "trailer")}
+                onChange={(v) => {
+                  const next = v as "truck" | "trailer";
+                  setVehicleType(next);
+                  /* Follow the type only while creating, and only if the class
+                     is still the one we picked for them — never overwrite a
+                     filing somebody chose, and never re-file an existing row
+                     behind their back. */
+                  if (!edit && (equipmentClass === "vehicle" || equipmentClass === "attachment")) {
+                    setEquipmentClass(next === "trailer" ? "attachment" : "vehicle");
+                  }
+                }}
                 placeholder="Truck or trailer"
                 options={[
                   { value: "truck", label: "Truck" },

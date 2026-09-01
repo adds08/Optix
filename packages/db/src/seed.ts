@@ -558,15 +558,17 @@ async function main() {
       tenantId: tid,
       locationId: locByKey[v.loc]!,
       vehicleType: v.vtype,
-      /* Every seeded row is a road vehicle; heavy plant is not in the source
-         data. The column exists so the register can hold it — see `vehicle` in
-         the schema for why classifying was the point rather than renaming. */
-      equipmentClass: "vehicle",
       /* CAPABILITY, not current state: a truck can tow, a trailer can be towed.
          What is hitched to what right now lives in `assignment.trailerId`,
          where it is ledger-derived like every other "where is it". */
       canAttach: v.vtype === "truck",
       isAttachable: v.vtype === "trailer",
+      /* Falls back to the structural type rather than the column default: a
+         trailer is an attachment, and a dataset that predates the category
+         should still file itself correctly instead of calling everything a
+         vehicle. */
+      equipmentClass: v.eclass ?? (v.vtype === "trailer" ? "attachment" : "vehicle"),
+      vin: v.vin ?? null,
       code: v.code ?? null,
       description: v.description ?? null,
       unit: v.unit,
