@@ -14,6 +14,7 @@ export function PageHeader({
   actions,
   icon: Icon,
   compact = false,
+  hideTitle = false,
 }: {
   eyebrow?: string;
   title: string;
@@ -21,12 +22,32 @@ export function PageHeader({
   actions?: React.ReactNode;
   /* Names the subject of the page — the tool's category, the report's shape.
      Decorative by construction: the title beside it already says the same
-     thing, so it is hidden from assistive tech rather than labelled. */
+     thing, so it is hidden from assistive tech rather than labelled. Ignored
+     entirely when `hideTitle` is set — there is no title beside it any more. */
   icon?: React.ComponentType<{ className?: string }>;
   /* One-line header for pages whose context lives elsewhere (tabs, tables).
      Saves the vertical space the big title+description block takes on pages
      that do not need to announce themselves (docs/20, A3). */
   compact?: boolean;
+  /*
+    Drops the icon box and the big `<h1>`, keeping `description` and
+    `actions` exactly where they were. `title` stays REQUIRED regardless —
+    every caller still names the page in code, for the same reason `alt` text
+    is not optional just because a decorative image usually renders fine
+    without one — but it renders nowhere.
+
+    Added 2026-09-03, reported directly: the shell's top bar
+    (`app-shell.tsx`) already renders the active nav item's label for every
+    route but `/home`, so the big icon+title here was a second "Projects" or
+    "People" a few pixels under the first one. `compact` does not fit this
+    case — it has no `description` slot at all, and these pages' description
+    sentences and action buttons (Add, Export) are the reason `PageHeader`
+    is here, not decoration to cut along with the title. `org-chart` and
+    `settings/team-roles` had neither and dropped `PageHeader` entirely
+    instead; reach for that first if a page has nothing else this component
+    is doing for it.
+  */
+  hideTitle?: boolean;
 }) {
   if (compact) {
     return (
@@ -42,7 +63,7 @@ export function PageHeader({
   return (
     <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-5">
       <div className="flex min-w-0 items-start gap-3">
-        {Icon ? (
+        {Icon && !hideTitle ? (
           <span
             aria-hidden
             className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-md border border-primary/15 bg-accent text-accent-foreground"
@@ -52,7 +73,9 @@ export function PageHeader({
         ) : null}
         <div className="flex min-w-0 flex-col gap-1.5">
           {eyebrow ? <span className="label-xs">{eyebrow}</span> : null}
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
+          {hideTitle ? null : (
+            <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
+          )}
           {description ? (
             <p className="max-w-[62ch] text-sm text-muted-foreground text-pretty">{description}</p>
           ) : null}

@@ -137,6 +137,7 @@ export default function ProjectsPage() {
       <PageHeader
         icon={HardHat}
         title="Projects"
+        hideTitle
         description="The jobs tools and people are assigned to, and what gets charged against them."
         actions={
           <>

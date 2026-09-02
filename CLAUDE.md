@@ -43,10 +43,19 @@ it now) are separate axes, and tools follow the person, not the site.
 | A change that has to be *seen* working — a UI regression, a layout or permission question, "is this reachable" | **`test-on-playwright`** — drives the real stack in a browser |
 | Delivering a whole ticket or feature end to end | **`/feature-delivery <TICKET-ID>`** — ticket, branch, implement, adversarial QA, correctness + security review, PR |
 | A task that produced a diff, as the last step before you report done | **`changelog`** — reconstructs the entry from `git`, writes `docs/changelogs/YYYY-MM-DD-slug.md` |
+| Orienting cold on "what does screen X actually do" — building or rebuilding the map | **`optix-map-evaluate`** — synthesizes `.claude/optix-screen-map.yaml` from nav-config, page source, docs and memory |
+| Keeping that map in step after a routine code change (new page, renamed route) | **`optix-map-update`** — fast, code-only sync; not a substitute for the full evaluation |
+| About to ask the user to decide something involving jargon, an env var, or a destructive action | **`optix-explain-before-deciding`** — explain each option in plain terms first, separately from the question |
 
 `/feature-delivery` never fires on its own; it runs only when you invoke it. Tunables
 and the off switch are in `.claude/workflow.config.json`. Agents review and comment —
 **a human is the sole approver, and no agent merges.**
+
+**User-created skills for this repo carry the `optix-*` prefix** (`optix-map-evaluate`,
+`optix-map-update`, `optix-explain-before-deciding`) to distinguish them from the
+generic ones this project inherited from elsewhere (`minimal-change`,
+`systematic-debugging`, `changelog`, `test-on-playwright`, `visual-explainer`,
+`feature-delivery`). Give a new STInventory-specific skill the same prefix.
 
 These live in `.claude/skills/` and are tuned to this repo. (They sat directly under
 `.claude/` until 2026-08-18, which meant the `Skill` tool could not find them and every

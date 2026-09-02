@@ -160,6 +160,7 @@ export default function EquipmentPage() {
       <PageHeader
         icon={Truck}
         title="Equipment"
+        hideTitle
         description="Trucks and trailers today, heavy plant when it joins the register — the fleet, not the small tools riding on it."
         actions={
           <>

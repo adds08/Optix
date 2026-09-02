@@ -269,6 +269,7 @@ export default function PeoplePage() {
       <PageHeader
         icon={Users}
         title="People"
+        hideTitle
         description="Everyone who can hold a tool or sign in — foremen, mechanics, and the account they may or may not have."
         actions={
           <>
