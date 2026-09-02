@@ -17,3 +17,11 @@ export {
   type CustodyOutcome,
   isIdleAsset,
 } from "./rules.js";
+export {
+  buildOrgForest,
+  visibleEmployeeIds,
+  findCycle,
+  SYNTHETIC_PREFIX,
+  type OrgMemberInput,
+  type OrgNode,
+} from "./org-chart.js";
