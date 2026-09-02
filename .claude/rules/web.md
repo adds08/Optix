@@ -16,8 +16,17 @@ the `(app)` route group:
 `/home` used to be, kept until the monitor has been lived with) ·
 `/tools` + `/tools/[id]` · `/equipment` + `/equipment/[id]` · `/custody` · `/jobsites` · `/map` ·
 `/reports` + `/reports/[slug]` + `/reports/charts/[slug]` + `/reports/audit-trail` ·
-`/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/job-groups` ·
-`/my-tools` · `/profile` · `/settings` + `/settings/ai` + `/settings/appearance` · `/design/*`
+`/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/org-chart` ·
+`/admin/roles` · `/my-tools` · `/profile` · `/account/password` ·
+`/settings` + `/settings/ai` + `/settings/appearance` + `/settings/modules` +
+`/settings/team-roles` · `/design/*`
+
+**`/job-groups` is UNLISTED** — it exists (page, `projectGroup.*` router, schema) and is
+reachable by direct URL, but carries no entry in `nav-config.ts` and no link from anywhere
+in the shell as of 2026-09-03. Verified by grepping `nav-config.ts` and every component
+directory for a link to it; neither exists. Left off the route list above because listing
+it beside routes a person can actually click to would misstate what "the real tree" means
+for this one entry. See `docs/architecture/05-features.md` for the same finding.
 
 The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory, which
 survives as the repo name, the package scope (`@stinventory/*`), the seeded email domain and

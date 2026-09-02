@@ -92,9 +92,17 @@ not asked about, not a staleness bug. Do not "fix" it.
 
 | | |
 |---|---|
-| Screens | `/people`, `/people/[id]`, `/projects`, `/job-groups` |
+| Screens | `/people`, `/people/[id]`, `/projects`, `/org-chart`, `/job-groups` (UNLISTED — see below) |
 | Procedures | `employee.*`, `project.*`, `projectTeam.*`, `projectGroup.*`, `user.*` |
 | Tables | `tbl_entity_employee`, `tbl_entity_employee_contact`, `tbl_entity_project`, `tbl_ops_project_team_member`, `tbl_entity_project_group` |
+
+**`/job-groups` has no entry in `nav-config.ts`** as of 2026-09-03 — verified by grepping
+the file directly, not assumed from this doc's own prior claim. The page, its router
+(`projectGroup.*`) and its schema (`tbl_entity_project_group`) are all live and reachable by
+direct URL, but nothing in the shell links to it, and the tenant's own `project_group` table
+holds zero rows. Whether this is an accidental drop from a past nav refactor or a deliberate
+retirement nobody finished is not decided here — flagged rather than guessed at, and rather
+than this doc continuing to assert it is an ordinary route.
 
 **A login is a property of a person.** There is no separate user register — the
 People row carries the account state directly, in five states ordered so each is
@@ -122,9 +130,20 @@ Roles carry permissions *and* behavioural flags: `needs_login`, `can_hold_custod
 `uses_field_layout`, `is_system`.
 
 > **Partly unreached:** the flags are stored, seeded and editable, but
-> `nav-config.ts` and the custodian pickers still read hard-coded role lists.
-> `can_hold_custody` is the easy half (a field on `employee.list`);
-> `uses_field_layout` needs the session payload.
+> `nav-config.ts`'s `FIELD_ROLES` (which layout a person gets) still reads a
+> hard-coded role-name set. `can_hold_custody` is the easy half (a field on
+> `employee.list`); `uses_field_layout` needs the session payload.
+>
+> **One layer down is now data.** `TEAM_ROLES` — which job-function tiers
+> (`pm`, `superintendent`, `foreman`, and whatever a tenant adds) can go on a
+> `project_team_member` row — moved from a hard-coded array to
+> `tbl_entity_team_role`, admin-editable at `/settings/team-roles`, on
+> 2026-09-03. This is a DIFFERENT hard-coded-role problem than the one above:
+> `tbl_entity_role` (this section) is the login/permission role;
+> `tbl_entity_team_role` is the job-FUNCTION a person holds on a project, and
+> the two vocabularies deliberately diverge for the same person (one seeded
+> account's login role is `engineer`, its team role is `pm`). See
+> `packages/db/src/schema/reference.ts`'s `teamRole` comment.
 
 ## Conversational layer
 
@@ -192,8 +211,8 @@ here because tools ride on them.
 
 | | |
 |---|---|
-| Screens | `/settings`, `/settings/ai`, `/settings/appearance`, `/profile`, `/account/password` |
-| Procedures | `settings.get`, `update`, `testLlm`, `testEmail`; `preferences.get`, `set`; `notification.*` |
+| Screens | `/settings`, `/settings/ai`, `/settings/appearance`, `/settings/modules`, `/profile`, `/account/password` |
+| Procedures | `settings.get`, `update`, `testLlm`, `testEmail`; `preferences.get`, `set`; `feature.states`, `set`; `notification.*` |
 | Tables | `tbl_entity_tenant_settings`, `tbl_entity_user_preferences`, `tbl_ops_notification` |
 
 Tenant settings carry the high-value threshold and the LLM configuration. **The LLM
