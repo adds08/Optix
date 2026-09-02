@@ -77,10 +77,22 @@ export async function moveEmployeeToProject(
     /* When given, keep the person's project_team_member row for this role in
        lockstep (close on any other project, open on this one). `"auto"` uses
        the person's own role when it is a team role. */
-    role?: "pm" | "superintendent" | "foreman" | "auto";
+    /* A team-role name (data since 2026-09-03, `tbl_entity_team_role`) or
+       "auto" to infer it from `person.role` via TEAM_ROLE_FROM_EMPLOYEE. Not a
+       closed union any more — the register is what the Zod edge in
+       `projectTeam.assign` validates against, not this signature. */
+    role?: string | "auto";
     /* Stamped on the roster row this opens. Descriptive provenance only — see
        TEAM_SOURCES in packages/types. */
     source?: string;
+    /* Who this person answers to on this job — the org chart's only edge.
+       Threaded through here rather than written by the caller afterwards so the
+       foreman path (which comes through this function) and the PM/super path
+       (which does its own insert) cannot end up disagreeing about it, the same
+       reason the roster row itself is written here. Undefined means "not
+       stated" and leaves the column null. The CALLER checks for cycles
+       (`findCycle`); this function only persists. */
+    reportsToEmployeeId?: string | null;
   },
 ): Promise<MoveResult> {
   const {
@@ -93,6 +105,7 @@ export async function moveEmployeeToProject(
     releaseToolsInPlace = false,
     leaveContainers = false,
     role,
+    reportsToEmployeeId,
     source = "equipment_department",
   } = args;
   const startedOn = args.startedOn ?? new Date().toISOString().slice(0, 10);
@@ -209,6 +222,7 @@ export async function moveEmployeeToProject(
           startedOn,
           note: note ?? null,
           source,
+          reportsToEmployeeId: reportsToEmployeeId ?? null,
         });
     }
 
