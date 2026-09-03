@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { money, num } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { REPORTS } from "./registry";
 
 /*
@@ -58,12 +58,24 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Report group">
-        <GroupChip active={group === "all"} onClick={() => setGroup("all")}>All</GroupChip>
+      {/* The group chips classify the surface — a filter, not a view switch,
+          so ToggleGroup (single value), not Tabs. spacing>0 keeps them as
+          separated rounded chips rather than the joined segmented look. */}
+      <ToggleGroup
+        type="single"
+        value={group}
+        onValueChange={(v) => v && setGroup(v)}
+        variant="outline"
+        size="sm"
+        spacing={1}
+        aria-label="Report group"
+        className="w-full flex-wrap"
+      >
+        <ToggleGroupItem value="all" className="px-2.5 text-xs">All</ToggleGroupItem>
         {groups.map((g) => (
-          <GroupChip key={g} active={group === g} onClick={() => setGroup(g)}>{g}</GroupChip>
+          <ToggleGroupItem key={g} value={g} className="px-2.5 text-xs">{g}</ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {visible.map((r) => {
@@ -99,23 +111,5 @@ export default function ReportsPage() {
         })}
       </div>
     </div>
-  );
-}
-
-function GroupChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "rounded-sm border px-2.5 py-1 text-xs transition-colors",
-        active
-          ? "border-primary/40 bg-primary/10 font-medium text-primary"
-          : "border-border bg-card text-muted-foreground hover:bg-accent",
-      )}
-    >
-      {children}
-    </button>
   );
 }
