@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchSelect } from "@/components/ui/search-select";
 import { EntityPicker } from "@/components/ui/entity-picker";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 /*
@@ -446,34 +447,23 @@ export default function OrgChartPage() {
             </div>
           </div>
 
-          {/* `role="tablist"`/`role="tab"`/`aria-selected` match the pattern
-              `/custody` already uses. Without them a screen reader announces
-              three unlabelled buttons and never says which view is showing —
-              these shipped without any of it on 2026-09-03. */}
-          <div className="flex gap-1 border-b" role="tablist">
-            {([
-              ["chart", "Chart", Users],
-              ["jobsite", "By Jobsite", Building2],
-              ["unassigned", `No reporting line (${unassigned.length})`, TriangleAlert],
-            ] as const).map(([id, label, Icon]) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={tab === id}
-                onClick={() => setTab(id as Tab)}
-                className={cn(
-                  "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
-                  tab === id
-                    ? "border-primary font-medium text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon className="size-4" />
-                {label}
-              </button>
-            ))}
-          </div>
+          {/* Radix owns the tablist roles and roving focus (arrow keys move
+              between tabs); the hand-rolled underline tabs shipped without
+              either on 2026-09-03. `variant="line"` is the underline look
+              that was already on screen. */}
+          <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+            <TabsList variant="line">
+              <TabsTrigger value="chart">
+                <Users className="size-4" /> Chart
+              </TabsTrigger>
+              <TabsTrigger value="jobsite">
+                <Building2 className="size-4" /> By Jobsite
+              </TabsTrigger>
+              <TabsTrigger value="unassigned">
+                <TriangleAlert className="size-4" /> No reporting line ({unassigned.length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {tab === "chart" &&
             (forest.length === 0 ? (
