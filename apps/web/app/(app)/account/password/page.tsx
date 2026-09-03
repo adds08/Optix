@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { PageHeader } from "@/components/sti/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -73,21 +74,17 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <KeyRound className="size-5 text-muted-foreground" />
-          <h1 className="text-lg font-medium">Change your password</h1>
-        </div>
-        {forced ? (
-          <p className="text-sm text-warn">
-            Your password was set for you. Choose your own before carrying on.
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Changing this signs you out of your other devices.
-          </p>
-        )}
-      </div>
+      <PageHeader
+        icon={KeyRound}
+        eyebrow="Your account"
+        title="Change your password"
+        description={forced ? undefined : "Changing this signs you out of your other devices."}
+      />
+      {forced ? (
+        <p className="rounded-md border border-warn/30 bg-warn-bg px-3 py-2 text-sm text-warn">
+          Your password was set for you. Choose your own before carrying on.
+        </p>
+      ) : null}
 
       {done ? (
         <p className="rounded-md border bg-card p-4 text-sm">

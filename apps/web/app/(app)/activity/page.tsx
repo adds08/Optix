@@ -1,7 +1,7 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote } from "@/components/sti/page";
+import { PageHeader, TableSkeleton, ErrorNote } from "@/components/sti/page";
 import { JobsiteActivity } from "@/components/jobsite-activity";
 
 /*
@@ -16,8 +16,12 @@ export default function ActivityPage() {
   const options = (projects.data ?? []).map((p) => ({ id: p.id, name: p.name }));
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">Activity</h1>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Activity"
+        hideTitle
+        description="The live tool-movement feed — every assignment, transfer and return as it lands."
+      />
       {projects.isLoading ? (
         <TableSkeleton cols={1} />
       ) : projects.isError ? (

@@ -27,6 +27,7 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { StatusPill, Tag } from "@/components/sti/status";
+import { PageHeader } from "@/components/sti/page";
 import { cn } from "@/lib/utils";
 
 /*
@@ -123,15 +124,11 @@ const NAV = [
 export default function IconComparisonPage() {
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-1.5 border-b pb-5">
-        <span className="label-xs">Design scratch</span>
-        <h1 className="text-2xl font-semibold tracking-tight">Icon treatments</h1>
-        <p className="max-w-[62ch] text-sm text-muted-foreground text-pretty">
-          The same five surfaces under four treatments. Change the theme or dark mode in Settings
-          and this page follows — a treatment that only works in Drafting Ink light is not a
-          treatment. Pick a column and the rest of the app gets it.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Design scratch"
+        title="Icon treatments"
+        description="The same five surfaces under four treatments. Change the theme or dark mode in Settings and this page follows — a treatment that only works in Drafting Ink light is not a treatment. Pick a column and the rest of the app gets it."
+      />
 
       <Surface title="Register rows" hint="The densest surface — 754 of these, scanned not read.">
         {(t) => (

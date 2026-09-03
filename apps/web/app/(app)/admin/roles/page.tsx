@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Info, ShieldAlert, Trash2, Users } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { EmptyState, ErrorNote, TableSkeleton } from "@/components/sti/page";
+import { EmptyState, ErrorNote, TableSkeleton, PageHeader } from "@/components/sti/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,17 +172,16 @@ export default function AdminRolesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-medium">Roles &amp; Permissions</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            What each role may do. Changes apply on each person&apos;s next page load.
-          </p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
-          New role
-        </Button>
-      </div>
+      <PageHeader
+        title="Roles & Permissions"
+        hideTitle
+        description="What each role may do. Changes apply on each person&apos;s next page load."
+        actions={
+          <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
+            New role
+          </Button>
+        }
+      />
 
       {roles.isError ? <ErrorNote message="Roles could not be loaded." /> : null}
 
