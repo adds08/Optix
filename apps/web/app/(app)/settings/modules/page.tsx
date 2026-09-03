@@ -1,7 +1,7 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
-import { ErrorNote, TableSkeleton } from "@/components/sti/page";
+import { ErrorNote, TableSkeleton, PageHeader } from "@/components/sti/page";
 import { FEATURE_STATES, type FeatureState } from "@stinventory/types";
 import { DESK_NAV, FIELD_NAV, isSettingsItemId, type NavItem } from "@/components/sti/nav-config";
 import { EntityField } from "@/components/ui/entity-picker";
@@ -82,6 +82,11 @@ export default function ModulesSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Modules"
+        hideTitle
+        description="Which parts of the product this organisation actually uses — navigation rows and in-page features."
+      />
       <section className="flex flex-col gap-2 rounded-md border bg-card p-5">
         <div className="flex flex-col gap-1">
           <h2 className="text-sm font-medium">Navigation</h2>

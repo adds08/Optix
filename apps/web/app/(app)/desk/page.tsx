@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/sti/page";
 import { Desk } from "@/components/desk/desk";
 
 /*
@@ -22,5 +23,14 @@ import { Desk } from "@/components/desk/desk";
   file nor any role logic.
 */
 export default function DeskPage() {
-  return <Desk />;
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Desk"
+        hideTitle
+        description="The command surface — every panel your account may open, assembled from one registry."
+      />
+      <Desk />
+    </div>
+  );
 }

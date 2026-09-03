@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/sti/page";
 import { AppearanceSettings } from "@/components/appearance-settings";
 import { MonitorSettings } from "@/components/monitor-settings";
 
@@ -14,14 +15,15 @@ import { MonitorSettings } from "@/components/monitor-settings";
   filtered individually that falls out of the routing instead of being defended
   in a render branch — this page never asks the server for tenant config, so
   there is nothing to be refused.
-
-  No page header: the rail names the group, the sidebar names the row and the
-  top bar repeats it. A fourth copy of the word "Appearance" would only cost
-  vertical space.
 */
 export default function AppearanceSettingsPage() {
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Appearance"
+        hideTitle
+        description="Your own theme, type and density — followed to any browser you sign in on. The wall monitor's pace is set per screen."
+      />
       <AppearanceSettings />
       <MonitorSettings />
     </div>

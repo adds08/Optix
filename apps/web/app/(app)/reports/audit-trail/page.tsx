@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { DataTable, type DataTableServerState } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 import { Tag } from "@/components/sti/status";
+import { PageHeader } from "@/components/sti/page";
 import { MovementsWidget } from "@/components/dashboard-widgets";
 import { dateTime } from "@/lib/format";
 
@@ -90,6 +91,11 @@ export default function AuditTrailPage() {
         <ArrowLeft className="size-4" />
         All reports
       </Link>
+
+      <PageHeader
+        title="Audit trail"
+        description="Every movement in ledger order — the append-only history behind the register, searchable and paged."
+      />
 
       <MovementsWidget />
 

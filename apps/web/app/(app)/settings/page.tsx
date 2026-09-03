@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Loader2, Mail } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { ErrorNote, TableSkeleton } from "@/components/sti/page";
+import { ErrorNote, TableSkeleton, PageHeader } from "@/components/sti/page";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SaveBar, useHydrateOnce, useTenantSettings } from "@/components/settings/tenant-settings";
@@ -82,6 +82,14 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Content below is carded <section>s with their own <h2>s; this header
+          is `hideTitle` so it never reads as a third heading level above the
+          card titles. */}
+      <PageHeader
+        title="General"
+        hideTitle
+        description="Tenant-wide configuration — branding, the custody approval threshold, notifications and mail."
+      />
       {/* ---- branding ---- */}
       <section className="flex flex-col gap-4 rounded-md border bg-card p-5">
         <div className="flex flex-col gap-1">
