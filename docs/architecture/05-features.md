@@ -92,9 +92,25 @@ not asked about, not a staleness bug. Do not "fix" it.
 
 | | |
 |---|---|
-| Screens | `/people`, `/people/[id]`, `/projects`, `/job-groups` |
+| Screens | `/people`, `/people/[id]`, `/projects`, `/org-chart`; job groups live in the sidebar switcher, not a page — see below |
 | Procedures | `employee.*`, `project.*`, `projectTeam.*`, `projectGroup.*`, `user.*` |
 | Tables | `tbl_entity_employee`, `tbl_entity_employee_contact`, `tbl_entity_project`, `tbl_ops_project_team_member`, `tbl_entity_project_group` |
+
+**Job groups are a sidebar control, not a screen.** `/job-groups` was deleted on
+2026-09-03; the feature it duplicated is `components/project-switcher.tsx`, mounted in the
+app sidebar and so present on every route. That switcher lists jobs and job groups, drills
+into a group, and creates one; `components/job-group-modal.tsx` edits the name, the
+description, the member jobs (`projectGroup.setProjects`) and **the users who can see the
+group** (`projectGroup.setUsers`) — the last of which the deleted page could not do at all.
+
+This is what job groups are FOR: a PM on sixteen jobs groups two or three of them and
+scopes the whole product to that set. `projectGroup.mine` is what `job-scope.tsx` reads to
+do it. An empty `tbl_entity_project_group` means nobody has made a group yet, not that the
+feature is dead — the switcher says exactly that ("No job groups yet — create one below").
+
+This doc previously listed `/job-groups` as an ordinary route, which was wrong twice over:
+it had no nav entry, and it was redundant with a better control. Do not re-add a standalone
+screen for this.
 
 **A login is a property of a person.** There is no separate user register — the
 People row carries the account state directly, in five states ordered so each is
@@ -122,9 +138,20 @@ Roles carry permissions *and* behavioural flags: `needs_login`, `can_hold_custod
 `uses_field_layout`, `is_system`.
 
 > **Partly unreached:** the flags are stored, seeded and editable, but
-> `nav-config.ts` and the custodian pickers still read hard-coded role lists.
-> `can_hold_custody` is the easy half (a field on `employee.list`);
-> `uses_field_layout` needs the session payload.
+> `nav-config.ts`'s `FIELD_ROLES` (which layout a person gets) still reads a
+> hard-coded role-name set. `can_hold_custody` is the easy half (a field on
+> `employee.list`); `uses_field_layout` needs the session payload.
+>
+> **One layer down is now data.** `TEAM_ROLES` — which job-function tiers
+> (`pm`, `superintendent`, `foreman`, and whatever a tenant adds) can go on a
+> `project_team_member` row — moved from a hard-coded array to
+> `tbl_entity_team_role`, admin-editable at `/settings/team-roles`, on
+> 2026-09-03. This is a DIFFERENT hard-coded-role problem than the one above:
+> `tbl_entity_role` (this section) is the login/permission role;
+> `tbl_entity_team_role` is the job-FUNCTION a person holds on a project, and
+> the two vocabularies deliberately diverge for the same person (one seeded
+> account's login role is `engineer`, its team role is `pm`). See
+> `packages/db/src/schema/reference.ts`'s `teamRole` comment.
 
 ## Conversational layer
 
@@ -192,8 +219,8 @@ here because tools ride on them.
 
 | | |
 |---|---|
-| Screens | `/settings`, `/settings/ai`, `/settings/appearance`, `/profile`, `/account/password` |
-| Procedures | `settings.get`, `update`, `testLlm`, `testEmail`; `preferences.get`, `set`; `notification.*` |
+| Screens | `/settings`, `/settings/ai`, `/settings/appearance`, `/settings/modules`, `/profile`, `/account/password` |
+| Procedures | `settings.get`, `update`, `testLlm`, `testEmail`; `preferences.get`, `set`; `feature.states`, `set`; `notification.*` |
 | Tables | `tbl_entity_tenant_settings`, `tbl_entity_user_preferences`, `tbl_ops_notification` |
 
 Tenant settings carry the high-value threshold and the LLM configuration. **The LLM

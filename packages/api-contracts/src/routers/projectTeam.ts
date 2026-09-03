@@ -2,10 +2,11 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { moveEmployeeToProject } from "../project-assign.js";
-import { visibleProjectScope } from "../scope.js";
+import { visibleProjectScope, viewTierOf } from "../scope.js";
+import { buildOrgForest, findCycle, visibleEmployeeIds } from "@stinventory/domain";
 import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory/types";
 
 /*
@@ -43,48 +44,71 @@ import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory
   statement about what the CALLER may do.
 
   Authorisation in this file is entirely permission-based and always was —
-  `PERM_FOR_ROLE` maps the target role to the permission it costs, and
   `assertCanAssign` is the only gate. Nothing here reads `session.roleName`.
 */
-const TEAM_ROLES = ["pm", "superintendent", "foreman"] as const;
-type TeamRole = (typeof TEAM_ROLES)[number];
 
-/* Team roles whose project link MOVES CUSTODY. Named rather than compared
-   against the literal "foreman" in three places, which is how
-   `CUSTODIAN_ROLES` came to exist in packages/types after three custodian
-   pickers had drifted apart. Still deliberately separate from
-   `CUSTODIAN_ROLES`: that answers "may hold a tool" and includes `mechanic`,
-   who is never on a project team.
+/*
+  Team roles were the literal array `["pm", "superintendent", "foreman"]` until
+  2026-09-03. That stopped being tenable the moment the client described a
+  chain — director, area in-charge, PM & general superintendent, superintendent,
+  foreman — with more tiers than the product has, and said plainly that "the
+  roles and tiers are not fully set, this can expand later". A literal array
+  needs a code change and a deploy for every tenant's variation on that chain;
+  `tbl_entity_team_role` (packages/db/src/schema/reference.ts) is the register
+  an administrator edits instead.
 
-   `superintendent` joined on 2026-09-01, with `canHoldCustody` in the role
-   register. A job is often awarded and rigged before its foreman is hired, and
-   the superintendent is who holds the tools until then — so their project link
-   has to move custody for the same reason a foreman's does, or the tools stay
-   booked to whatever job they were rigged on. A superintendent who holds
-   nothing is unaffected: the move finds no tools and does nothing. */
-const TOOLS_FOLLOW: readonly TeamRole[] = ["foreman", "superintendent"];
-const toolsFollow = (role: TeamRole) => TOOLS_FOLLOW.includes(role);
+  `pm`, `superintendent` and `foreman` keep their OWN permissions
+  (`project.assign.pm` etc.) unchanged — nothing about assigning those three
+  moved, and `rbac-matrix.test.ts` still exercises exactly the grants it always
+  did. A row a tenant adds has no such permission by construction (the
+  `Permission` union is fixed code, edited by nobody in a settings screen) and
+  falls to `project.team.assign` instead — see the comment on that string in
+  packages/types.
 
-const PERM_FOR_ROLE: Record<TeamRole, Permission> = {
+  NOT the login/permission role (`tbl_entity_role`, `/admin/roles`) and not a
+  lookup between them. Confirmed deliberately separate after nearly conflating
+  the two on 2026-09-03: the seed carries one person whose LOGIN role is
+  `engineer` and whose TEAM role is `pm` — the two vocabularies diverge for the
+  same person on purpose. A lookup would be the two-lists-that-drift pattern
+  `role`'s own header comment exists to end.
+*/
+const BUILT_IN_PERM: Partial<Record<string, Permission>> = {
   pm: "project.assign.pm",
   superintendent: "project.assign.superintendent",
   foreman: "project.assign.foreman",
 };
 
-function assertCanAssign(permissions: ReadonlySet<Permission>, role: TeamRole): void {
-  /* The GATE is `PERM_FOR_ROLE[role]` — a permission, never a role name. The
-     comparisons below it only choose which sentence to show; getting one wrong
-     mis-words a refusal that has already happened. STI-307 AC 5 survivor,
-     annotated. */
-  if (!permissions.has(PERM_FOR_ROLE[role])) {
+type TeamRoleRow = { name: string; label: string; canHoldCustody: boolean; isSystem: boolean };
+
+async function requireTeamRole(db: any, tid: string, name: string): Promise<TeamRoleRow> {
+  const [row] = await db
+    .select({
+      name: schema.teamRole.name,
+      label: schema.teamRole.label,
+      canHoldCustody: schema.teamRole.canHoldCustody,
+      isSystem: schema.teamRole.isSystem,
+    })
+    .from(schema.teamRole)
+    .where(and(eq(schema.teamRole.tenantId, tid), eq(schema.teamRole.name, name)));
+  if (!row) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `"${name}" is not a team role in this tenant.` });
+  }
+  return row;
+}
+
+function assertCanAssign(permissions: ReadonlySet<Permission>, role: TeamRoleRow): void {
+  const perm = BUILT_IN_PERM[role.name] ?? "project.team.assign";
+  if (!permissions.has(perm)) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message:
-        role === "pm"
+        role.name === "pm"
           ? "Only admins and the equipment department can put a PM on a project."
-          : role === "superintendent"
+          : role.name === "superintendent"
             ? "PMs and admins assign superintendents to projects."
-            : "You need to be a PM, superintendent, admin or the equipment department to assign a foreman.",
+            : role.name === "foreman"
+              ? "You need to be a PM, superintendent, admin or the equipment department to assign a foreman."
+              : `You do not have permission to assign the "${role.label}" role.`,
     });
   }
 }
@@ -150,6 +174,126 @@ export const projectTeamRouter = router({
   }),
 
   /*
+    The organisation chart, scoped.
+
+    A SEPARATE procedure from `all` rather than a flag on it, because the two
+    answer different questions and are gated differently. `all` answers "who is
+    on the jobs I can see" and is scoped by PROJECT. This answers "who is in my
+    reporting line" and is scoped by PERSON: a superintendent sees the PM above
+    them and their own crew below, and NOT the next superintendent's crew, even
+    though both supers are on the same job and `all` shows both.
+
+    The filtering is here and not in the browser on purpose. Sending every row
+    and hiding some with CSS is not an access rule — it ships the whole
+    company's reporting structure to anybody who opens devtools.
+
+    Returns FLAT rows, not a tree. The tree is built by `buildOrgForest` in
+    packages/domain, which the client calls on the rows it receives — one tested
+    implementation of the shape rather than one here and a second in the page.
+  */
+  orgChart: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session.permissions.has("project.team.read")) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "missing permission: project.team.read" });
+    }
+    const tid = ctx.session.tenantId;
+
+    const rows = await ctx.db
+      .select({
+        id: schema.projectTeamMember.id,
+        projectId: schema.projectTeamMember.projectId,
+        projectName: schema.project.name,
+        projectExternalId: schema.project.externalId,
+        projectStatus: schema.project.status,
+        employeeId: schema.projectTeamMember.employeeId,
+        role: schema.projectTeamMember.role,
+        reportsToEmployeeId: schema.projectTeamMember.reportsToEmployeeId,
+        startedOn: schema.projectTeamMember.startedOn,
+        note: schema.projectTeamMember.note,
+        name: schema.employee.name,
+        externalId: schema.employee.externalId,
+        employeeRole: schema.employee.role,
+        employeeStatus: schema.employee.employmentStatus,
+      })
+      .from(schema.projectTeamMember)
+      .leftJoin(schema.employee, eq(schema.projectTeamMember.employeeId, schema.employee.id))
+      .leftJoin(schema.project, eq(schema.projectTeamMember.projectId, schema.project.id))
+      .where(
+        and(
+          eq(schema.projectTeamMember.tenantId, tid),
+          isNull(schema.projectTeamMember.endedOn),
+        ),
+      );
+
+    /*
+      Who may see the whole chart. Reuses the existing view ladder rather than
+      inventing a second idea of "admin" — `assets.view.all` is already what the
+      owner, the equipment department and HR hold, and a second test here would
+      be one more thing to keep in step with role-perms.ts.
+    */
+    const tier = viewTierOf(ctx.session);
+    const seesAll = tier === "assets.view.all";
+
+    /* An account with no employee record is not a person: it cannot be on a
+       team and cannot have a reporting line, so the honest answer is nothing
+       rather than everything. Same reasoning as scope.ts assetVisibility. */
+    if (!seesAll && !ctx.session.employeeId) {
+      return { members: [], referenced: [], viewerEmployeeId: null, scoped: true as const };
+    }
+
+    const visible = seesAll
+      ? null
+      : visibleEmployeeIds(
+          rows.map((r) => ({
+            id: r.id,
+            projectId: r.projectId,
+            employeeId: r.employeeId,
+            role: r.role,
+            reportsToEmployeeId: r.reportsToEmployeeId,
+          })),
+          ctx.session.employeeId!,
+        );
+
+    const members = (visible ? rows.filter((r) => visible.has(r.employeeId)) : rows).map((r) => ({
+      ...r,
+      name: r.name ?? "Unknown",
+      projectName: r.projectName ?? "Unknown job",
+    }));
+
+    /*
+      People who are POINTED AT but hold no roster row of their own — the
+      director above forty jobs. `buildOrgForest` renders them as synthetic
+      nodes and needs their names, which are not in `members` by definition.
+    */
+    const have = new Set(members.map((m) => m.employeeId));
+    const wanted = [
+      ...new Set(
+        members
+          .map((m) => m.reportsToEmployeeId)
+          .filter((id): id is string => !!id && !have.has(id) && (!visible || visible.has(id))),
+      ),
+    ];
+    const referenced = wanted.length
+      ? await ctx.db
+          .select({
+            id: schema.employee.id,
+            name: schema.employee.name,
+            externalId: schema.employee.externalId,
+            employeeRole: schema.employee.role,
+            employeeStatus: schema.employee.employmentStatus,
+          })
+          .from(schema.employee)
+          .where(and(eq(schema.employee.tenantId, tid), inArray(schema.employee.id, wanted)))
+      : [];
+
+    return {
+      members,
+      referenced,
+      viewerEmployeeId: ctx.session.employeeId ?? null,
+      scoped: !seesAll,
+    };
+  }),
+
+  /*
     Put a person on a project in the role being assigned.
 
     A foreman assignment is the move itself — the same transaction
@@ -162,7 +306,9 @@ export const projectTeamRouter = router({
       z.object({
         projectId: z.string().uuid(),
         employeeId: z.string().uuid(),
-        role: z.enum(TEAM_ROLES),
+        /* Validated against the tenant's team-role register inside the
+           handler, not by a static enum — the whole point of making this data. */
+        role: z.string().min(1),
         startedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         note: z.string().max(500).optional(),
         /* Default TRUE, which is both the old unconditional behaviour and the
@@ -173,11 +319,55 @@ export const projectTeamRouter = router({
            moved custody in the first place. */
         moveTools: z.boolean().default(true),
         source: z.enum(TEAM_SOURCES).default(DEFAULT_TEAM_SOURCE),
+        /* Who this person answers to on this job. Null clears it; omitted
+           leaves it unset. See the schema comment for why the edge lives on the
+           roster row and not on the employee. */
+        reportsToEmployeeId: z.string().uuid().nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      assertCanAssign(ctx.session.permissions, input.role);
+      const roleRow = await requireTeamRole(ctx.db, tid, input.role);
+      assertCanAssign(ctx.session.permissions, roleRow);
+
+      /*
+        Refuse an edge that would close a loop, at ANY depth.
+
+        `routers/project.ts` already rejects the depth-1 case on the employee
+        column ("Somebody cannot report to themselves"). That is not the case
+        that bites: A -> B -> C -> A is entered one innocent row at a time by
+        three different people, none of whom can see the whole chain. A loop
+        makes the chart unrenderable and the visibility rule unanswerable, so it
+        is refused at the door rather than tolerated downstream — `buildOrgForest`
+        breaks loops defensively, but that is a net, not a policy.
+      */
+      if (input.reportsToEmployeeId) {
+        const edges = await ctx.db
+          .select({
+            id: schema.projectTeamMember.id,
+            projectId: schema.projectTeamMember.projectId,
+            employeeId: schema.projectTeamMember.employeeId,
+            role: schema.projectTeamMember.role,
+            reportsToEmployeeId: schema.projectTeamMember.reportsToEmployeeId,
+          })
+          .from(schema.projectTeamMember)
+          .where(
+            and(
+              eq(schema.projectTeamMember.tenantId, tid),
+              isNull(schema.projectTeamMember.endedOn),
+            ),
+          );
+        const loop = findCycle(edges, input.employeeId, input.reportsToEmployeeId);
+        if (loop) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              loop.length <= 2
+                ? "Somebody cannot report to themselves."
+                : "That would make the reporting line circular — the person you picked already reports up to this one.",
+          });
+        }
+      }
 
       const [person] = await ctx.db
         .select({ id: schema.employee.id, name: schema.employee.name, role: schema.employee.role })
@@ -193,7 +383,7 @@ export const projectTeamRouter = router({
 
       let moved: { toolsMoved: number; containersMoved: number } | null = null;
 
-      if (toolsFollow(input.role)) {
+      if (roleRow.canHoldCustody) {
         /* A foreman linked to a project IS a foreman working it: the same
            move employee.assignToProject performs, with the roster row kept in
            lockstep inside the transaction. */
@@ -212,6 +402,7 @@ export const projectTeamRouter = router({
           moveTools: input.moveTools,
           releaseToolsInPlace: !input.moveTools,
           source: input.source,
+          reportsToEmployeeId: input.reportsToEmployeeId,
         });
         moved = { toolsMoved: res.toolsMoved, containersMoved: res.containersMoved };
       } else {
@@ -240,6 +431,7 @@ export const projectTeamRouter = router({
               startedOn,
               note: input.note ?? null,
               source: input.source,
+              reportsToEmployeeId: input.reportsToEmployeeId ?? null,
             });
         });
       }
@@ -265,10 +457,11 @@ export const projectTeamRouter = router({
      project cannot be unlinked without first moving them — otherwise the
      register would show tools working a job their holder no longer works. */
   remove: protectedProcedure
-    .input(z.object({ projectId: z.string().uuid(), employeeId: z.string().uuid(), role: z.enum(TEAM_ROLES) }))
+    .input(z.object({ projectId: z.string().uuid(), employeeId: z.string().uuid(), role: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      assertCanAssign(ctx.session.permissions, input.role);
+      const roleRow = await requireTeamRole(ctx.db, tid, input.role);
+      assertCanAssign(ctx.session.permissions, roleRow);
 
       const [row] = await ctx.db
         .select({
@@ -288,7 +481,7 @@ export const projectTeamRouter = router({
         .limit(1);
       if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "That person is not on this project in that role." });
 
-      if (toolsFollow(input.role)) {
+      if (roleRow.canHoldCustody) {
         const [person] = await ctx.db
           .select({ id: schema.employee.id, primaryProjectId: schema.employee.primaryProjectId })
           .from(schema.employee)
@@ -318,4 +511,204 @@ export const projectTeamRouter = router({
 
       return { ok: true };
     }),
+
+  /*
+    Change who a roster row answers to, WITHOUT touching custody.
+
+    Deliberately not "call assign again with a different reportsToEmployeeId".
+    `assign` on a custody-moving role runs `moveEmployeeToProject` even when
+    the project and employee are unchanged, which would close and reopen a
+    real custody link — a tools move nobody asked for — to edit a pointer on
+    the roster row. This procedure updates exactly `reports_to_employee_id` on
+    the existing active row and nothing else: no ledger write, no custody
+    touch, no `endedOn` stamp. Same permission gate as putting the person in
+    the role in the first place — changing who a PM answers to is the same
+    kind of act as assigning the PM.
+  */
+  setReportsTo: protectedProcedure
+    .input(z.object({ id: z.string().uuid(), reportsToEmployeeId: z.string().uuid().nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const [row] = await ctx.db
+        .select({
+          id: schema.projectTeamMember.id,
+          employeeId: schema.projectTeamMember.employeeId,
+          role: schema.projectTeamMember.role,
+        })
+        .from(schema.projectTeamMember)
+        .where(
+          and(
+            eq(schema.projectTeamMember.id, input.id),
+            eq(schema.projectTeamMember.tenantId, tid),
+            isNull(schema.projectTeamMember.endedOn),
+          ),
+        );
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "That roster row is not active." });
+
+      const roleRow = await requireTeamRole(ctx.db, tid, row.role);
+      assertCanAssign(ctx.session.permissions, roleRow);
+
+      if (input.reportsToEmployeeId === row.employeeId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Somebody cannot report to themselves." });
+      }
+      if (input.reportsToEmployeeId) {
+        const edges = await ctx.db
+          .select({
+            id: schema.projectTeamMember.id,
+            projectId: schema.projectTeamMember.projectId,
+            employeeId: schema.projectTeamMember.employeeId,
+            role: schema.projectTeamMember.role,
+            reportsToEmployeeId: schema.projectTeamMember.reportsToEmployeeId,
+          })
+          .from(schema.projectTeamMember)
+          .where(and(eq(schema.projectTeamMember.tenantId, tid), isNull(schema.projectTeamMember.endedOn)));
+        const loop = findCycle(edges, row.employeeId, input.reportsToEmployeeId);
+        if (loop) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "That would make the reporting line circular — the person you picked already reports up to this one.",
+          });
+        }
+      }
+
+      await ctx.db
+        .update(schema.projectTeamMember)
+        .set({ reportsToEmployeeId: input.reportsToEmployeeId })
+        .where(and(eq(schema.projectTeamMember.id, row.id), eq(schema.projectTeamMember.tenantId, tid)));
+
+      await logEvent(ctx, {
+        category: "project", action: "project.team.setReportsTo", entityType: "project_team_member",
+        entityId: row.id, details: { reportsToEmployeeId: input.reportsToEmployeeId },
+      });
+      return { ok: true };
+    }),
+
+  /*
+    The team-role register itself — Director, Area In-charge, General
+    Superintendent join here, not in code. `pm`/`superintendent`/`foreman` ship
+    seeded and `isSystem`; a tenant's own additions do not carry a dedicated
+    `project.assign.*` permission (see BUILT_IN_PERM above) and are gated by
+    `project.team.assign` at assignment time instead.
+
+    Gated on `project.team.manage`, distinct from `project.team.assign`: adding
+    a TIER to the vocabulary is a different act from putting one PERSON in an
+    existing tier, the same split `config.manage` and `project.assign.*` already
+    keep for roles generally.
+  */
+  roles: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      if (!ctx.session.permissions.has("project.team.read")) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "missing permission: project.team.read" });
+      }
+      return ctx.db
+        .select({
+          id: schema.teamRole.id,
+          name: schema.teamRole.name,
+          label: schema.teamRole.label,
+          canHoldCustody: schema.teamRole.canHoldCustody,
+          isSystem: schema.teamRole.isSystem,
+        })
+        .from(schema.teamRole)
+        .where(eq(schema.teamRole.tenantId, ctx.session.tenantId))
+        .orderBy(schema.teamRole.isSystem, schema.teamRole.label);
+    }),
+
+    create: requirePermission("project.team.manage")
+      .input(
+        z.object({
+          /* Lower-case, no spaces — this is the value written into
+             `project_team_member.role`, so it has to survive round-tripping
+             through a URL and a Zod `.min(1)` check the same way `pm` does. */
+          name: z.string().min(1).max(40).regex(/^[a-z][a-z0-9_]*$/, "lowercase letters, digits and underscores only"),
+          label: z.string().min(1).max(60),
+          canHoldCustody: z.boolean().default(false),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = ctx.session.tenantId;
+        const [clash] = await ctx.db
+          .select({ id: schema.teamRole.id })
+          .from(schema.teamRole)
+          .where(and(eq(schema.teamRole.tenantId, tid), eq(schema.teamRole.name, input.name)))
+          .limit(1);
+        if (clash) {
+          throw new TRPCError({ code: "CONFLICT", message: `There is already a team role called "${input.name}".` });
+        }
+        const [created] = await ctx.db
+          .insert(schema.teamRole)
+          .values({
+            tenantId: tid,
+            name: input.name,
+            label: input.label,
+            canHoldCustody: input.canHoldCustody,
+            isSystem: false,
+          })
+          .returning({ id: schema.teamRole.id, name: schema.teamRole.name, label: schema.teamRole.label });
+        await logEvent(ctx, {
+          category: "project", action: "project.team.roles.create", entityType: "team_role",
+          entityId: created!.id, entityLabel: created!.label,
+        });
+        return created;
+      }),
+
+    update: requirePermission("project.team.manage")
+      .input(z.object({ id: z.string().uuid(), label: z.string().min(1).max(60).optional(), canHoldCustody: z.boolean().optional() }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = ctx.session.tenantId;
+        const patch: Record<string, unknown> = {};
+        if (input.label !== undefined) patch.label = input.label;
+        if (input.canHoldCustody !== undefined) patch.canHoldCustody = input.canHoldCustody;
+        if (Object.keys(patch).length === 0) return { ok: true };
+        await ctx.db
+          .update(schema.teamRole)
+          .set(patch)
+          .where(and(eq(schema.teamRole.id, input.id), eq(schema.teamRole.tenantId, tid)));
+        await logEvent(ctx, {
+          category: "project", action: "project.team.roles.update", entityType: "team_role", entityId: input.id, details: patch,
+        });
+        return { ok: true };
+      }),
+
+    /* `pm`/`superintendent`/`foreman` cannot be deleted — the assignment
+       hierarchy, the seed and `rbac-matrix.test.ts` all name them directly, the
+       same reason `role.delete` refuses `isSystem` rows. A tenant's own tier
+       CAN be deleted if nothing currently uses it; if something does, deleting
+       it would leave live `project_team_member` rows naming a role the Zod edge
+       no longer recognises, so it is refused rather than orphaning history. */
+    delete: requirePermission("project.team.manage")
+      .input(z.object({ id: z.string().uuid() }))
+      .mutation(async ({ ctx, input }) => {
+        const tid = ctx.session.tenantId;
+        const [row] = await ctx.db
+          .select({ id: schema.teamRole.id, name: schema.teamRole.name, label: schema.teamRole.label, isSystem: schema.teamRole.isSystem })
+          .from(schema.teamRole)
+          .where(and(eq(schema.teamRole.id, input.id), eq(schema.teamRole.tenantId, tid)));
+        if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "No such team role" });
+        if (row.isSystem) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `"${row.label}" ships with the product and cannot be deleted.` });
+        }
+        const [inUse] = await ctx.db
+          .select({ id: schema.projectTeamMember.id })
+          .from(schema.projectTeamMember)
+          .where(
+            and(
+              eq(schema.projectTeamMember.tenantId, tid),
+              eq(schema.projectTeamMember.role, row.name),
+              isNull(schema.projectTeamMember.endedOn),
+            ),
+          )
+          .limit(1);
+        if (inUse) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `"${row.label}" is currently assigned on at least one job. Remove those first.`,
+          });
+        }
+        await ctx.db.delete(schema.teamRole).where(eq(schema.teamRole.id, input.id));
+        await logEvent(ctx, {
+          category: "project", action: "project.team.roles.delete", entityType: "team_role", entityId: input.id, entityLabel: row.label,
+        });
+        return { ok: true };
+      }),
+  }),
 });

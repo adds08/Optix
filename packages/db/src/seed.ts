@@ -14,6 +14,7 @@ import {
   channel,
   department,
   companyRole,
+  teamRole,
   uomCategory,
   unitOfMeasure,
   employeeContact,
@@ -44,6 +45,7 @@ import {
   departmentSpecs,
   companyRoleSpecs,
   roleSpecs,
+  teamRoleSpecs,
   legacyEmployeeRoleToRole,
   uomCategorySpecs,
   uomSpecs,
@@ -267,6 +269,22 @@ async function main() {
     }
   }
 
+  /* Job-function tiers a roster row can occupy — pm, superintendent, foreman.
+     Data since 2026-09-03, not the literal `TEAM_ROLES` array it replaced, for
+     the reason on `teamRole`'s schema comment: this vocabulary is NOT the login
+     role above it and must not be confused with it. */
+  await db
+    .insert(teamRole)
+    .values(
+      teamRoleSpecs.map((r) => ({
+        tenantId: tid,
+        name: r.name,
+        label: r.label,
+        canHoldCustody: r.canHoldCustody,
+        isSystem: r.isSystem,
+      })),
+    );
+
   // ---- Departments ----
   /* Repair & Maintenance is infrastructure; Equipment and Purchased are the
      two cost owners the tools-list mapping assigns to (serial -> Equipment,
@@ -439,6 +457,9 @@ async function main() {
       role: s.role,
       startedOn: s.from,
       note: s.note,
+      /* The org chart's only edge. A key that names somebody with no roster row
+         of their own is intentional — that is the director case. */
+      reportsToEmployeeId: s.reportsTo ? empByKey[s.reportsTo]! : null,
     })),
   );
   console.log(`[seed] ${teamSpecs.length} project team members`);

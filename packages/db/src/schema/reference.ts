@@ -111,3 +111,49 @@ export const companyRole = pgTable(
     tenantNameUq: uniqueIndex("company_role_tenant_name_uq").on(t.tenantId, t.name),
   }),
 );
+
+/*
+  The tiers a project_team_member row can occupy — pm, superintendent, foreman
+  today. A table rather than the literal array `TEAM_ROLES` used to be
+  (`routers/projectTeam.ts`), for the reason the client stated directly:
+  "the roles and tiers are not fully set, this can expand later" — Urban's real
+  chain is director -> area in-charge -> PM & general superintendent ->
+  superintendent -> foreman, deeper than the three the product launched with,
+  and the NEXT tenant's chain will not be the same shape at all.
+
+  NOT the same thing as `role` (tbl_entity_role, the login/permission role) or
+  `companyRole` (tbl_entity_company_role, the HR job title). Confirmed
+  deliberately separate 2026-09-03 after nearly conflating this with `role`:
+  the seed already has one person whose LOGIN role is `engineer` and whose team
+  role is `pm` — the two vocabularies diverge for the same person on purpose,
+  and a lookup between them would be exactly the two-lists-that-drift pattern
+  `role`'s own header comment was written to end.
+
+  `name` is what gets written into `project_team_member.role` and validated by
+  the Zod edge in `projectTeam.assign`/`remove` — so renaming a row here that a
+  project is currently using orphans that history's display, the same trade-off
+  `department.code` already accepts. `canHoldCustody` replaces the hard-coded
+  `TOOLS_FOLLOW` array: a tier can run a job without moving tools, which is
+  exactly what a director or an area in-charge is.
+*/
+export const teamRole = pgTable(
+  "tbl_entity_team_role",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    label: text("label").notNull(),
+    canHoldCustody: boolean("can_hold_custody").notNull().default(false),
+    /* pm, superintendent, foreman ship with the product and cannot be deleted
+       — `projectTeam.remove` and the existing permission matrix
+       (`project.assign.pm` etc.) name them directly. A tenant's own additions
+       (director, area in-charge, ...) carry no dedicated permission and are
+       gated by `project.team.assign` instead — see `assertCanAssign`. */
+    isSystem: boolean("is_system").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("team_role_tenant_idx").on(t.tenantId),
+    tenantNameUq: uniqueIndex("team_role_tenant_name_uq").on(t.tenantId, t.name),
+  }),
+);

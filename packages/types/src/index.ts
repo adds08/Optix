@@ -104,6 +104,14 @@ export const PERMISSIONS = [
   "project.assign.pm",
   "project.assign.superintendent",
   "project.assign.foreman",
+  /* Assigns a TENANT-ADDED team role — one with no dedicated permission of its
+     own because it did not exist when this list was written (director, area
+     in-charge, ...). `pm`/`superintendent`/`foreman` keep their own permissions
+     above; this is the fallback `assertCanAssign` reaches for everything else,
+     so a new tier is usable the moment an admin creates it in the team-role
+     register, with no new Permission string required. */
+  "project.team.assign",
+  "project.team.manage",
   "employee.read",
   "employee.manage",
   "assignment.read",
@@ -221,6 +229,8 @@ export const PERMISSION_GROUPS = [
       ["project.assign.pm", "Put a project manager on a job"],
       ["project.assign.superintendent", "Put a superintendent on a job"],
       ["project.assign.foreman", "Put a foreman on a job — this MOVES their tools"],
+      ["project.team.assign", "Put a person in a team role that has no permission of its own yet"],
+      ["project.team.manage", "Add or edit the team-role register (Director, Area In-charge, ...)"],
       ["employee.read", "See the people register — everyone, not just their crew"],
       ["employee.manage", "Add and edit people"],
     ],

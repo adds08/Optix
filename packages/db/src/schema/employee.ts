@@ -151,6 +151,35 @@ export const projectTeamMember = pgTable(
     projectId: uuid("project_id").notNull().references(() => project.id, { onDelete: "cascade" }),
     employeeId: uuid("employee_id").notNull().references(() => employee.id, { onDelete: "cascade" }),
     role: text("role").notNull(), // 'pm' | 'superintendent' | 'foreman'
+    /*
+      Who this person answers to ON THIS JOB — the org chart's only edge.
+
+      Deliberately NOT a rank on the role. A rank asserts one company-wide
+      ladder ("a PM always outranks a superintendent"), and Optix is multi-tenant
+      selling to construction firms whose structures genuinely differ — the
+      client's own chain is director -> area in-charge -> PM & general
+      superintendent -> superintendent -> foreman, and the next customer's will
+      not be. Recording the edge per row asserts nothing and can represent any
+      shape, including the messy ones: a PM who acts as area in-charge on the one
+      job in his patch is two rows, not a contradiction.
+
+      NOT the same thing as `employee.reportsToEmployeeId`, and not a revival of
+      it. That column was dropped from scoping on 2026-08-23 (scope.ts crewOf)
+      precisely because it lived on the PERSON, away from the roster, and drifted
+      from it. This lives on the roster row itself, so it cannot disagree with
+      the row that says where the person is working. `employee.reportsToEmployeeId`
+      stays what it became: a display field on the People screen.
+
+      NULL is normal and legal — "no boss recorded yet". Those rows hang off the
+      project in the chart rather than being rejected at the door; a yard that
+      has not decided who reports to whom must still be able to record that
+      somebody is on the job.
+
+      Points at an EMPLOYEE, not at another team row, so the person named needs
+      no row of their own on this project. That is what lets one director sit
+      above forty jobs without forty rows restating it.
+    */
+    reportsToEmployeeId: uuid("reports_to_employee_id").references(() => employee.id, { onDelete: "set null" }),
     assignedByUserId: uuid("assigned_by_user_id").references(() => user.id, { onDelete: "set null" }),
     startedOn: date("started_on").notNull(),
     endedOn: date("ended_on"),
@@ -170,6 +199,9 @@ export const projectTeamMember = pgTable(
     tenantIdx: index("ptm_tenant_idx").on(t.tenantId),
     projectIdx: index("ptm_project_idx").on(t.projectId),
     employeeIdx: index("ptm_employee_idx").on(t.employeeId),
+    /* The chart walks DOWN this edge ("who reports to X") far more than up, so
+       the index is on the target, not the source. */
+    reportsToIdx: index("ptm_reports_to_idx").on(t.reportsToEmployeeId),
     oneActiveUq: uniqueIndex("ptm_one_active_uq")
       .on(t.tenantId, t.projectId, t.employeeId, t.role)
       .where(sql`${t.endedOn} is null`),

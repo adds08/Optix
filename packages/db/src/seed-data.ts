@@ -17,7 +17,7 @@
 export type ProjectSeed = { key: string; extId: string | null; name: string; description?: string; status: string; start: string; end: string; site: string | null };
 export type EmployeeSeed = { key: string; extId: string; name: string; role: string; primary: string | null; status: string; email: string | null; phone: string | null; reportsTo: string | null };
 export type PostingSeed = { emp: string; proj: string; from: string; to: string | null; note: string };
-export type TeamSeed = { emp: string; proj: string; role: string; from: string; note: string };
+export type TeamSeed = { emp: string; proj: string; role: string; from: string; note: string; reportsTo?: string | null };
 export type LocSeed = { key: string; type: string; name: string; warehouse: string | null; project: string | null; custodian: string | null };
 export type VehLocSeed = { key: string; type: string; name: string; project: string | null; custodian: string | null };
 export type VehSeed = { key: string; loc: string; vtype: 'truck' | 'trailer'; eclass?: string | null; vin?: string | null; unit: string; plate: string | null; make: string | null; own: string; payee: string | null; allow: string | null; freq: string | null; proj: string | null; foreman: string | null; lat: string | null; lng: string | null; code?: string | null; description?: string | null };
@@ -179,6 +179,13 @@ export const uomSpecs: { symbol: string; name: string; category: string }[] = [
   the operational role the system branches on; see `company_role` in the schema.
   Seeded so the join on `employee.company_role_id` has something to resolve.
 */
+export type TeamRoleSeed = { name: string; label: string; canHoldCustody: boolean; isSystem: boolean };
+export const teamRoleSpecs: TeamRoleSeed[] = [
+  { name: "pm", label: "Project Manager", canHoldCustody: false, isSystem: true },
+  { name: "superintendent", label: "Superintendent", canHoldCustody: true, isSystem: true },
+  { name: "foreman", label: "Foreman", canHoldCustody: true, isSystem: true },
+];
+
 export const companyRoleSpecs: { name: string; code: string }[] = [
   { name: "Foreman", code: "FRMN" },
   { name: "Superintendent", code: "SUPT" },
@@ -290,6 +297,12 @@ export const employeeSpecs: EmployeeSeed[] = [
   { key: "e-fm038", extId: "FM-038", name: "FELICIANO VALENCIA", role: "foreman", primary: "p-lone-star-22018", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-fm039", extId: "FM-039", name: "Yoxel Perez", role: "foreman", primary: "p-lone-star-22018", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-karen", extId: "0199", name: "Karen Osei", role: "equipment_admin", primary: null, status: "active", email: "karen.osei@urban.local", phone: "214-555-0100", reportsTo: null },
+  /* The top of the org chart. Her employee `role` is `pm` because EMPLOYEE_ROLES
+     has no "director" — which is the point the chart is built around: the TIER
+     somebody occupies is the reporting edge, not their job title. She holds no
+     project_team_member row at all, so she exercises the synthetic-node path in
+     buildOrgForest: one director above every job without a row on any of them. */
+  { key: "e-dir001", extId: "0150", name: "Ruth Calloway", role: "pm", primary: null, status: "active", email: "ruth.calloway@urban.local", phone: "214-555-0150", reportsTo: null },
   { key: "e-yard", extId: "7712", name: "Yard Desk", role: "warehouse", primary: null, status: "active", email: "yard@urban.local", phone: "214-555-0199", reportsTo: null },
   /*
     STI-304 — the people behind the login roles that had none.
@@ -358,39 +371,39 @@ export const postingSpecs: PostingSeed[] = [
 ];
 
 export const teamSpecs: TeamSeed[] = [
-  { emp: "e-fm001", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-006" },
+  { emp: "e-fm001", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-006", reportsTo: "e-sup001" },
   { emp: "e-fm002", proj: "p-equipment-yard-24002", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-007" },
-  { emp: "e-fm003", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-009" },
+  { emp: "e-fm003", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-009", reportsTo: "e-sup001" },
   { emp: "e-fm004", proj: "p-colony-phase-12-23004", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-010" },
   { emp: "e-fm005", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-011" },
   { emp: "e-fm006", proj: "p-plano-arterial-renewal-2-24003", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-012" },
   { emp: "e-fm007", proj: "p-garland-22015", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-013" },
   { emp: "e-fm008", proj: "p-austin-lane-24007", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-014" },
-  { emp: "e-fm010", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-016" },
-  { emp: "e-fm011", proj: "p-dart-20011", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-017, TE-027" },
+  { emp: "e-fm010", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-016", reportsTo: "e-sup001" },
+  { emp: "e-fm011", proj: "p-dart-20011", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-017, TE-027", reportsTo: "e-sup001" },
   { emp: "e-fm012", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-018" },
   { emp: "e-fm013", proj: "p-austin-lane-24007", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-019" },
   { emp: "e-fm014", proj: "p-richardson-23002", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-020" },
   { emp: "e-fm015", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-021" },
   { emp: "e-fm016", proj: "p-bell-23010", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-022" },
-  { emp: "e-fm017", proj: "p-dart-20011", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-023" },
+  { emp: "e-fm017", proj: "p-dart-20011", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-023", reportsTo: "e-sup001" },
   { emp: "e-fm018", proj: "p-colony-phase-12-23004", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-024" },
-  { emp: "e-fm019", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-025" },
+  { emp: "e-fm019", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-025", reportsTo: "e-sup001" },
   { emp: "e-fm020", proj: "p-little-elm-23009", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-026" },
   { emp: "e-fm021", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-028" },
   { emp: "e-fm022", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-029" },
   { emp: "e-fm023", proj: "p-austin-lane-24007", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-030" },
-  { emp: "e-fm024", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-033" },
-  { emp: "e-fm038", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-032" },
-  { emp: "e-fm039", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-034" },
+  { emp: "e-fm024", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-033", reportsTo: "e-sup001" },
+  { emp: "e-fm038", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-032", reportsTo: "e-sup001" },
+  { emp: "e-fm039", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-034", reportsTo: "e-sup001" },
   { emp: "e-fm025", proj: "p-little-elm-23009", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-035" },
-  { emp: "e-fm026", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-036" },
+  { emp: "e-fm026", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-036", reportsTo: "e-sup001" },
   /* STI-304/STI-302: the only two non-foreman team rows in the seed, and the
      entire basis of `assets.view.project`. Every row above is a foreman, so
      before these the project tier resolved to an empty set for every account
      that held it. */
-  { emp: "e-pm001", proj: "p-lone-star-22018", role: "pm", from: "2025-01-06", note: "Project manager" },
-  { emp: "e-eng001", proj: "p-dart-20011", role: "pm", from: "2025-01-06", note: "Project engineer — login role `engineer`, employee role `pm`" },
+  { emp: "e-pm001", proj: "p-lone-star-22018", role: "pm", from: "2025-01-06", note: "Project manager", reportsTo: "e-dir001" },
+  { emp: "e-eng001", proj: "p-dart-20011", role: "pm", from: "2025-01-06", note: "Project engineer — login role `engineer`, employee role `pm`", reportsTo: "e-dir001" },
   /*
     2026-08-23: Marcus's crew now comes from the PROJECT TEAM, not
     `reportsToEmployeeId` (scope.ts crewOf, myForemen, departure successor). His
@@ -398,8 +411,8 @@ export const teamSpecs: TeamSeed[] = [
     this is what keeps "crew" and "project" from meaning the same thing: Dana
     sees only Lone Star, Marcus's crew spans two jobs.
   */
-  { emp: "e-sup001", proj: "p-lone-star-22018", role: "superintendent", from: "2025-01-06", note: "Superintendent" },
-  { emp: "e-sup001", proj: "p-dart-20011", role: "superintendent", from: "2025-01-06", note: "Superintendent" },
+  { emp: "e-sup001", proj: "p-lone-star-22018", role: "superintendent", from: "2025-01-06", note: "Superintendent", reportsTo: "e-pm001" },
+  { emp: "e-sup001", proj: "p-dart-20011", role: "superintendent", from: "2025-01-06", note: "Superintendent", reportsTo: "e-eng001" },
 ];
 
 export const locSpecs: LocSeed[] = [

@@ -79,6 +79,12 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
        default taken). Placing supers and foremen does not — that is the job
        of whoever runs the work. */
     "project.assign.pm",
+    /* Tenant-added team roles (director, area in-charge, ...) have no
+       dedicated permission of their own — see the comment on this string in
+       packages/types. Granted alongside project.assign.pm for the same
+       reason: placing somebody in a leadership tier reads as administrative. */
+    "project.team.assign",
+    "project.team.manage",
     "employee.read",
     "employee.manage",
     "user.manage",

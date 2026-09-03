@@ -16,8 +16,28 @@ the `(app)` route group:
 `/home` used to be, kept until the monitor has been lived with) ·
 `/tools` + `/tools/[id]` · `/equipment` + `/equipment/[id]` · `/custody` · `/jobsites` · `/map` ·
 `/reports` + `/reports/[slug]` + `/reports/charts/[slug]` + `/reports/audit-trail` ·
-`/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/job-groups` ·
-`/my-tools` · `/profile` · `/settings` + `/settings/ai` + `/settings/appearance` · `/design/*`
+`/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/org-chart` ·
+`/admin/roles` · `/my-tools` · `/profile` · `/account/password` ·
+`/settings` + `/settings/ai` + `/settings/appearance` + `/settings/modules` +
+`/settings/team-roles` · `/design/*`
+
+**`/job-groups` was DELETED on 2026-09-03**, and job groups are alive and well — those are
+two different statements and the second is the important one.
+
+The FEATURE is `components/project-switcher.tsx`, mounted in `app-sidebar.tsx` and therefore
+present on every screen: it lists JOBS and JOB GROUPS, drills into a group's jobs, and offers
+"Create new group". Group create/edit is `components/job-group-modal.tsx`, which sets the
+name, the description, **which jobs are in the group** (`projectGroup.setProjects`) and
+**which users can see it** (`projectGroup.setUsers`).
+
+The deleted PAGE was a strictly weaker duplicate of that: same modal, same job list, and no
+way to assign users at all — which is the half that makes group scoping actually do anything.
+It had no `nav-config.ts` entry and nothing in the shell linked to it, which read as an
+accidental drop until the switcher was compared against it feature by feature. It was not a
+drop; the page had simply been superseded and never deleted.
+
+**Do not re-add a standalone job-groups screen.** If group management needs more room, it
+belongs in the switcher or its modal, next to the scope selector it exists to serve.
 
 The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory, which
 survives as the repo name, the package scope (`@stinventory/*`), the seeded email domain and

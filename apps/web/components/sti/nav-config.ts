@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, Users, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, Users, Workflow, Wrench } from "lucide-react";
 
 export type NavItem = {
   /*
@@ -92,6 +92,13 @@ const SETTINGS_GROUP: NavGroup = {
        state in its own column. Inviting, resetting, deactivating and resending
        all live on the person's row menu. Don't add this back. */
     { id: "roles-permissions", href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage" },
+    /* Distinct from "Roles & Permissions" above: that gates what an ACCOUNT
+       may do, this defines the tiers a PERSON can hold on a project team —
+       pm/superintendent/foreman today, whatever an organization adds
+       tomorrow. Gated on project.team.manage, not config.manage, because
+       adding a tier here needs neither platform config access nor a login
+       role edit. */
+    { id: "team-roles", href: "/settings/team-roles", label: "Team Roles", icon: HardHat, perm: "project.team.manage" },
   ],
 };
 
@@ -210,6 +217,11 @@ export const DESK_NAV: NavGroup[] = [
       { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read" },
       /* A job and a project are the same thing — the job ID is the cost code. */
       { id: "projects", href: "/projects", label: "Projects", icon: HardHat, perm: "project.read" },
+      /* The reporting structure, read from the same project_team_member rows
+         the Tools by Jobsite team strip writes — not a second store. Gated on
+         `project.team.read` like the roster it draws; the procedure narrows a
+         non-admin to their own chain, so the LINK does not need a second gate. */
+      { id: "org-chart", href: "/org-chart", label: "Org Chart", icon: Network, perm: "project.team.read" },
     ],
   },
   {
