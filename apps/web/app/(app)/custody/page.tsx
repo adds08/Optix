@@ -10,10 +10,10 @@ import { StatusPill, Tag } from "@/components/sti/status";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 import { shortDate, relative, idName } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 /*
   Assignments and transfers on one screen. Splitting them across two pages
@@ -237,28 +237,22 @@ export default function CustodyPage() {
     <div className="flex flex-col gap-6">
       {/* Counts ride on the tabs, so there is no card row here repeating them
           back. In-motion gets one line of text because it is not a tab of its
-          own. */}
+          own. Radix owns the tablist roles and roving focus (arrow keys move
+          between tabs); the old hand-rolled pills had neither. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex gap-1" role="tablist">
-          {([["held", "Held", active.length], ["moving", "Moving", transfers.data?.length ?? 0], ["queue", "Approval queue", queue.length]] as const).map(
-            ([k, label, n]) => (
-              <button
-                key={k}
-                role="tab"
-                aria-selected={tab === k}
-                onClick={() => setTab(k)}
-                className={cn(
-                  "rounded-sm border px-3 py-1.5 text-sm transition-colors",
-                  tab === k
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )}
-              >
-                {label} <span className="tnum opacity-75">{n}</span>
-              </button>
-            ),
-          )}
-        </div>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <TabsList variant="default">
+            <TabsTrigger value="held">
+              Held <span className="tnum opacity-75">{active.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="moving">
+              Moving <span className="tnum opacity-75">{transfers.data?.length ?? 0}</span>
+            </TabsTrigger>
+            <TabsTrigger value="queue">
+              Approval queue <span className="tnum opacity-75">{queue.length}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         <p className="text-sm text-muted-foreground">
           <span className="tnum">{inFlight.length}</span> in motion
         </p>
