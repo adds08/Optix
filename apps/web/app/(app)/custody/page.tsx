@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeftRight, CheckCircle2, Wrench } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, PageHeader } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
@@ -235,6 +235,12 @@ export default function CustodyPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader
+        icon={ArrowLeftRight}
+        title="Custody"
+        hideTitle
+        description="Who holds what, what is moving between custodians, and the approval queue the desk signs off."
+      />
       {/* Counts ride on the tabs, so there is no card row here repeating them
           back. In-motion gets one line of text because it is not a tab of its
           own. Radix owns the tablist roles and roving focus (arrow keys move
