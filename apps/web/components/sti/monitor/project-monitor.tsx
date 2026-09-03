@@ -398,7 +398,7 @@ export function ProjectMonitor() {
       {/* ───── band 3: the payload ───── */}
       <div className="relative flex min-h-0 flex-1">
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-hidden">
-          <table className="sti-grid w-full table-fixed border-collapse">
+          <table className="sti-grid w-full table-fixed">
             <thead className="sticky top-0 z-10 bg-card">
               <tr className="border-b">
                 <Th className="w-[9rem]">Tag</Th>

@@ -218,7 +218,7 @@ export function ToolTable({
 
   return (
     <div>
-      <div className="sti-table-scroll overflow-x-auto"><table className="sti-grid w-full border-collapse text-sm">
+      <div className="sti-table-scroll overflow-x-auto"><table className="sti-grid w-full text-sm">
         {/*
           The header is a distinct band, not a slightly tinted first row.
 

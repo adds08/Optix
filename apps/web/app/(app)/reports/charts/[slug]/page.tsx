@@ -4,7 +4,7 @@ import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { PageHeader, TableSkeleton } from "@/components/sti/page";
+import { ErrorNote, PageHeader, TableSkeleton } from "@/components/sti/page";
 import { CapitalSplitWidget, StatusWidget, MovementsWidget } from "@/components/dashboard-widgets";
 
 /*
@@ -64,7 +64,13 @@ export default function ChartReportPage({ params }: { params: Promise<{ slug: st
         All reports
       </Link>
       <PageHeader title={meta.title} eyebrow="Chart report" description={meta.body} />
-      {charts.isLoading ? <TableSkeleton cols={2} /> : <Widget />}
+      {charts.isLoading ? (
+        <TableSkeleton cols={2} />
+      ) : charts.isError ? (
+        <ErrorNote message="This chart could not be loaded. Check that the API is running, then reload." />
+      ) : (
+        <Widget />
+      )}
     </div>
   );
 }

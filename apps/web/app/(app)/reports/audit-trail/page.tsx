@@ -8,7 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { DataTable, type DataTableServerState } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 import { Tag } from "@/components/sti/status";
-import { PageHeader } from "@/components/sti/page";
+import { PageHeader, ErrorNote } from "@/components/sti/page";
 import { MovementsWidget } from "@/components/dashboard-widgets";
 import { dateTime } from "@/lib/format";
 
@@ -99,22 +99,26 @@ export default function AuditTrailPage() {
 
       <MovementsWidget />
 
-      <DataTable<AuditRow>
-        mode="server"
-        columns={columns}
-        rows={query.data?.rows ?? []}
-        rowCount={query.data?.total ?? 0}
-        rowId={(r) => String(r.id)}
-        state={state}
-        onStateChange={setState}
-        searchPlaceholder="Search tag, model or note…"
-        emptyTitle="No movements recorded yet"
-        emptyDescription="The ledger is empty — every assignment, transfer and return will appear here."
-        filename="audit-trail"
-        enableSelection
-        selection={selectedIds}
-        onSelectionChange={setSelectedIds}
-      />
+      {query.isError ? (
+        <ErrorNote message="The audit trail could not be loaded. Check that the API is running, then reload." />
+      ) : (
+        <DataTable<AuditRow>
+          mode="server"
+          columns={columns}
+          rows={query.data?.rows ?? []}
+          rowCount={query.data?.total ?? 0}
+          rowId={(r) => String(r.id)}
+          state={state}
+          onStateChange={setState}
+          searchPlaceholder="Search tag, model or note…"
+          emptyTitle="No movements recorded yet"
+          emptyDescription="The ledger is empty — every assignment, transfer and return will appear here."
+          filename="audit-trail"
+          enableSelection
+          selection={selectedIds}
+          onSelectionChange={setSelectedIds}
+        />
+      )}
     </div>
   );
 }

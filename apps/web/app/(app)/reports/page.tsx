@@ -7,7 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { money, num } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { PageHeader } from "@/components/sti/page";
+import { ErrorNote, PageHeader } from "@/components/sti/page";
 import { REPORTS } from "./registry";
 
 /*
@@ -57,6 +57,10 @@ export default function ReportsPage() {
 
   const visible = REPORTS.filter((r) => group === "all" || r.group === group);
 
+  /* Any one of the six headline queries failing should not read as "no data"
+     across every card. One ErrorNote, above the grid, names the real state. */
+  const queryError = [register, idle, lost, byProject, byForeman, capital].find((q) => q.isError);
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -82,6 +86,10 @@ export default function ReportsPage() {
           <ToggleGroupItem key={g} value={g} className="px-2.5 text-xs">{g}</ToggleGroupItem>
         ))}
       </ToggleGroup>
+
+      {queryError ? (
+        <ErrorNote message="The headline figures could not be loaded. Check that the API is running, then reload." />
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {visible.map((r) => {

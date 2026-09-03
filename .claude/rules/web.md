@@ -391,8 +391,12 @@ a menu can never reopen already armed. Keep that if you add a destructive item.
 
 **Not everything is a row action.** Custody's Approve/Decline stays as two
 buttons — it is an approval queue, and its primary action should not cost a
-click to reach. Panel headers (`admin/roles`, `job-groups`) keep their buttons
-too; a primary Save behind an ellipsis is a regression, not consistency.
+click to reach. The Inbox's Recognized rows are the same case: Do it / Decline
+are the row's whole purpose, the queue is short by construction (nothing past
+the first screen of requests), and hiding the action behind a menu would put a
+click between the desk and every settlement. Panel headers (`admin/roles`,
+`job-groups`) keep their buttons too; a primary Save behind an ellipsis is a
+regression, not consistency.
 
 ## Nothing moves when you tick a checkbox
 

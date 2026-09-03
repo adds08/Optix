@@ -126,7 +126,7 @@ export function ReportTable<T extends Record<string, unknown>>({
         />
       ) : (
         <TableWrap>
-          <div className="sti-table-scroll overflow-x-auto"><table className="sti-grid w-full border-collapse text-sm">
+          <div className="sti-table-scroll overflow-x-auto"><table className="sti-grid w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
                 {cols.map((c) => {
