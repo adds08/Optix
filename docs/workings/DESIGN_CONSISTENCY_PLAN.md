@@ -267,3 +267,51 @@ majority, and the `gap-4` pages will look crowded once a description is added. T
 - **Part B adds vertical space to 19 pages** — exactly the cost objected to on `/org-chart`.
   **Do `/custody` first and look at it** before committing to all nineteen.
 - `settings/*` may end up with three heading levels.
+
+---
+
+## Status — A, B and most of C landed 2026-09-03
+
+Implemented and committed on branch `fix/ui-inconsistency` (this file's A/B/C
+plan superseded by that execution; the doc above remains the audit record).
+
+### Landed
+
+- **A1** — tuned `ui/tabs.tsx`, `ui/toggle-group.tsx`, `ui/toggle.tsx` (radius,
+  no shadow depth, `after:bg-primary`, content-width triggers; verified
+  `spacing=0` joined vs `spacing>0` separated under Tailwind v4).
+- **A4** — `/jobsites` "without a truck" filter chip is a real `Button`; the
+  mandatory `no-layout-shift` spec is green (7/7).
+- **A2** — `/custody`, `/org-chart`, `/old-dash` (since deleted) hand-rolled
+  tabs → Radix `Tabs`. Keyboard (arrow-key) navigation verified in a browser.
+- **A3** — the four real segmented controls → `ToggleGroup` type=single:
+  reports group chips, monitor pace, appearance density, asset-form cost
+  target (last, form-value semantics preserved).
+- **B** — shared `PageHeader` (hideTitle + one-line description) on every list
+  page; five hand-rolled headings swapped for it; page wrappers unified on
+  `flex flex-col gap-6`. Pilot `/custody` reviewed before the rest.
+- **C2** — the three remaining pages that swallowed query errors (reports hub,
+  reports charts, audit trail) now render an `ErrorNote`. `/profile` was
+  already correct; `/old-dash` was deleted.
+- **C3** — the redundant Tailwind `border-collapse` utility removed from the
+  three `.sti-grid` tables that fought the class.
+- **C4** — **the `/desk` and `/old-dash` surfaces were fully removed at the
+  user's direction** (see the C4 heading below), reversing this plan's own
+  "keep all three" lean. Routes, components, the orphaned `dashboard.briefing`
+  procedure, the seed's hidden-module row, e2e role expectations and the
+  nav-feature-flags hidden tests went with them. `dashboard-widgets.tsx`
+  survives with only the three chart widgets `/reports/*` uses.
+- **C5** — web.md now names the Inbox Recognized rows beside Custody as the
+  deliberate row-action-strip exception (approve/decline is the row's purpose).
+- **C6 (half)** — `config-eslint/next` now fails the build on a native
+  `<select>` element, encoding web.md's ban. Zero current violations.
+
+### Outstanding (needs a browser / product decision, not a refactor)
+
+- **C1 status pills** — the equipment GPS badge tone table, the three warn-pill
+  sizes and the PM/SUP chip copies are visual consolidations that want the
+  browser pass; none was forced through blind.
+- **C6 palette-class guardrail** — the `<select>` half is in; the hardcoded
+  colour half should encode the C1 policy once that is chosen.
+- Browser review outstanding for everything above (keyboard + light/dark, two
+  palettes), per the Verification section.
