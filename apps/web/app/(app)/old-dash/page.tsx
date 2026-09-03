@@ -28,6 +28,7 @@ import { Metric, EmptyState } from "@/components/sti/page";
 import { Tag } from "@/components/sti/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -177,24 +178,13 @@ export default function OldDashPage() {
 
       {/* ---- tabs: the page's only header ---- */}
       <div className="flex items-center gap-2 border-b pb-3">
-        <div className="flex overflow-hidden rounded-md border" role="group" aria-label="Dashboard view">
-          {([["fleet", "Fleet at a Glance"], ["command", "Command Center"], ["blocky", "Blocky"]] as const).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => { touched.current = true; setTab(key); }}
-              aria-pressed={tab === key}
-              className={cn(
-                "px-3.5 py-2 text-sm transition-colors",
-                tab === key
-                  ? "bg-muted font-medium text-foreground"
-                  : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={tab} onValueChange={(v) => { touched.current = true; setTab(v as Tab); }}>
+          <TabsList variant="default">
+            <TabsTrigger value="fleet">Fleet at a Glance</TabsTrigger>
+            <TabsTrigger value="command">Command Center</TabsTrigger>
+            <TabsTrigger value="blocky">Blocky</TabsTrigger>
+          </TabsList>
+        </Tabs>
         {/* The star, per tab: whichever view is starred opens first. The
             concept tab is not a valid default, so starring it is a no-op. */}
         <button
