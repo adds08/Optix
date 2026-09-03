@@ -18,6 +18,7 @@ import {
 } from "@/lib/themes/themes";
 import { cn } from "@/lib/utils";
 import { EntityField } from "@/components/ui/entity-picker";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 /*
   Appearance: the theme engine's controls (docs/19).
@@ -191,22 +192,22 @@ export function AppearanceSettings() {
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Density</label>
-        <div className="grid grid-cols-2 gap-2 rounded-md border p-1" role="group" aria-label="Density">
-          {(["comfortable", "compact"] as const).map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => { setDensity(d); preview({ density: d }); }}
-              aria-pressed={density === d}
-              className={cn(
-                "rounded-sm px-3 py-1.5 text-sm capitalize transition-colors",
-                density === d ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-accent",
-              )}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
+        <ToggleGroup
+          type="single"
+          value={density}
+          onValueChange={(v) => {
+            if (!v) return;
+            setDensity(v as Density);
+            preview({ density: v as Density });
+          }}
+          variant="outline"
+          spacing={0}
+          aria-label="Density"
+          className="w-full"
+        >
+          <ToggleGroupItem value="comfortable" className="w-1/2 capitalize">comfortable</ToggleGroupItem>
+          <ToggleGroupItem value="compact" className="w-1/2 capitalize">compact</ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
