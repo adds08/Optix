@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/sti/page";
 
 /*
   The fleet at a glance — the trucks and trailers with the small tools aboard
@@ -17,6 +18,11 @@ const VehicleMap = dynamic(() => import("@/components/vehicle-map").then((m) => 
 export default function MapPage() {
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Fleet map"
+        hideTitle
+        description="Where the trucks and trailers are right now — and the tools riding in them."
+      />
       <VehicleMap />
     </div>
   );

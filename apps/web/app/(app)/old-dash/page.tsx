@@ -24,7 +24,7 @@ import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
 import { isFieldRole } from "@/components/sti/nav-config";
-import { Metric, EmptyState } from "@/components/sti/page";
+import { PageHeader, Metric, EmptyState } from "@/components/sti/page";
 import { Tag } from "@/components/sti/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -166,7 +166,12 @@ export default function OldDashPage() {
   const idleCount = idleReport.data?.length ?? 0;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Old dashboard"
+        hideTitle
+        description="The previous desk dashboard, kept while the project monitor is lived with."
+      />
       {/* ---- the greeting + weather wash, above everything (docs/20, B2) ----
           Not part of either tab: it is the top of the page, greeting whoever
           opened the dashboard regardless of the view below. */}

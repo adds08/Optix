@@ -6,7 +6,7 @@ import { Boxes, Download, Pencil, Search } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { ToolIcon } from "@/components/sti/tool-icon";
 import { FacetGroup, FacetRow, ClearFacets, FilterPills } from "@/components/sti/facets";
@@ -516,6 +516,15 @@ export default function ToolsPage() {
           onApplied={() => setSelectedIds(new Set())}
         />
       ) : null}
+      {/* Deliberately no `actions` here: Import/Export/New live in the toolbar
+          row below, which is the same row the bulk-action bar swaps into.
+          Moving them up reintroduces the 58px jump
+          e2e/tests/no-layout-shift.spec.ts asserts never comes back. */}
+      <PageHeader
+        title="Small tools"
+        hideTitle
+        description="Every small tool the yard owns — what is out on a job, what is idle, and what is missing."
+      />
       <div className="flex flex-col gap-3">
         {/* One toolbar: job scope, search, the filter sheet (the former facet
             rail), and the saved-view menu. */}

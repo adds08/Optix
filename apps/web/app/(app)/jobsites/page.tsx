@@ -6,7 +6,7 @@ import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
-import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { FilterPills, FilterField } from "@/components/sti/facets";
 import { isHighValue } from "@/components/sti/flags";
@@ -590,7 +590,12 @@ export default function JobsitesPage() {
   if (assets.isError || projects.isError) return <ErrorNote message="The jobsite view could not be loaded." />;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Tools by Jobsite"
+        hideTitle
+        description="One card per job — its crews, the truck and trailer each foreman runs, and the tools riding with them."
+      />
       <RigPicker request={picker} onClose={() => setPicker(null)} onDone={invalidate} foremen={foremen} vehicles={vehicles.data ?? []} projects={projects.data ?? []} />
       <CrewAssignDialog
         request={assign}

@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import { Building2, ChevronLeft, ChevronRight, Maximize, Minus, Plus, Search, TriangleAlert, Users, X } from "lucide-react";
 import { buildOrgForest, type OrgNode } from "@stinventory/domain/org-chart";
 import { trpc } from "@/lib/trpc";
-import { EmptyState, ErrorNote, TableSkeleton } from "@/components/sti/page";
+import { PageHeader, EmptyState, ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { TreeNode, type NodeState } from "@/components/org-chart/tree";
 import type { ChartMember } from "@/components/org-chart/types";
 import { Button } from "@/components/ui/button";
@@ -349,18 +349,12 @@ export default function OrgChartPage() {
   };
 
   return (
-    <div className="space-y-4">
-      {/*
-        NO PageHeader at all — not even `compact`. The top bar
-        (`app-shell.tsx`) already renders the active nav item's label for
-        every route but `/home`, so a title here was a second "Org Chart"
-        rendered a few pixels under the first one, and `compact` only made
-        the duplicate smaller. Reported directly. If this should hold for
-        every desk page — several (`/people`, `/projects`, ...) still render
-        the full title+description block, which IS the same duplication —
-        that is a shared-component change across those pages, not a decision
-        to make unilaterally inside this one.
-      */}
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Org chart"
+        hideTitle
+        description="Who answers to whom, on each job — the reporting structure over every roster row."
+      />
       {q.isLoading && <TableSkeleton />}
       {q.error && <ErrorNote message={q.error.message} />}
 

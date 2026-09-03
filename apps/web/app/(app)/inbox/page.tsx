@@ -3,7 +3,7 @@
 import { Check, CheckCircle2, CircleAlert, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
-import { EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
+import { EmptyState, TableSkeleton, ErrorNote, PageHeader } from "@/components/sti/page";
 import { StatusPill } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
 import { dateTime, relative } from "@/lib/format";
@@ -52,6 +52,11 @@ export default function InboxPage() {
   if (!isDesk) {
     return (
       <div className="flex flex-col gap-6">
+        <PageHeader
+          title="Alerts"
+          hideTitle
+          description="Notifications about your tools and the requests you have sent."
+        />
         {alerts.isLoading ? (
           <TableSkeleton cols={2} />
         ) : !unread.length ? (
@@ -93,6 +98,11 @@ export default function InboxPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Inbox"
+        hideTitle
+        description="The desk&apos;s queue — requests the parser recognized, ones it did not, and what has already been settled."
+      />
       {/* No metric row: the three buckets are the page, and each heading below
           carries its own count. Cards on top only delayed the first item. */}
       {classified.isLoading ? (

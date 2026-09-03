@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Check, CircleAlert, Loader2, MessageSquare, Send } from "lucide-react";
 import type { ChatMention } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { EmptyState, ErrorNote, TableSkeleton } from "@/components/sti/page";
+import { EmptyState, ErrorNote, PageHeader, TableSkeleton } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
 import { MentionInput, MentionChips } from "@/components/mention-input";
@@ -114,7 +114,12 @@ export default function ChatPage() {
   const groups = useGroups(messages);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Hand off"
+        hideTitle
+        description="Say it like you would in a group chat — the request becomes a confirmable custody action for the desk."
+      />
       {channels.isLoading ? (
         <TableSkeleton rows={4} cols={2} />
       ) : channels.isError || !channelId ? (
