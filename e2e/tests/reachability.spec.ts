@@ -53,8 +53,8 @@ async function offeredRoutes(page: Page, start: string): Promise<string[]> {
     `identity.me` after the first paint. Until it resolves, `perms` is `[]` and
     the only rows that survive the filter are the ones carrying no `perm` at
     all. Collected at that moment, an owner who can see everything reports
-    exactly `/desk`, `/home`, `/old-dash` and `/settings/appearance` — the four
-    ungated rows — and every gated group looks forbidden.
+    exactly `/home` and `/settings/appearance` — the two ungated rows — and
+    every gated group looks forbidden.
 
     The account button is the signal: `app-shell.tsx` renders it only once
     `identity.me` has resolved, which is the same fact the nav filter is waiting
@@ -62,7 +62,7 @@ async function offeredRoutes(page: Page, start: string): Promise<string[]> {
     network.
 
     `networkidle` was tried first and is wrong here. The shell polls
-    `dashboard.notifications` on an interval and the desk pages hold live
+    `dashboard.notifications` on an interval and several screens hold live
     queries, so "the network went quiet for 500ms" is a condition this app
     reaches late or not at all: the same suite that runs in ninety seconds with
     the wait below took twenty-two minutes with `networkidle`, and still failed.
@@ -188,17 +188,18 @@ test.describe("the visibility ladder narrows what a browser shows", () => {
     that proves a person actually sees the difference. Two roles, side by side,
     on the same screen: the numbers must differ.
   */
-  test("the desk's Tools-by-Jobsite panel outnumbers a foreman's holdings", async ({ browser }) => {
+  test("the register outnumbers a foreman's holdings", async ({ browser }) => {
     const desk = await (await browser.newContext({ storageState: authFile("warehouse") })).newPage();
     const foreman = await (await browser.newContext({ storageState: authFile("foreman") })).newPage();
 
-    /* Both read the SAME panel source — `asset.list` — through two sessions,
-       which is the point: one procedure, two answers, decided by the ladder. */
-    await desk.goto("/desk");
+    /* Both read the SAME source — `asset.list` — through two sessions, which
+       is the point: one procedure, two answers, decided by the ladder. The
+       register is the whole-tenant count; My Tools is the foreman's own. */
+    await desk.goto("/tools");
     await foreman.goto("/my-tools");
 
-    const deskText = await desk.getByText(/of \d+ record the truck or trailer/).textContent();
-    const deskTotal = Number(/of (\d+)/.exec(deskText ?? "")?.[1] ?? "0");
+    const deskText = await desk.getByText(/(\d+) tools?/).textContent();
+    const deskTotal = Number(/(\d+)/.exec(deskText ?? "")?.[1] ?? "0");
 
     await expect(foreman.getByText(/You are holding \d+ tool/)).toBeVisible({ timeout: 10_000 });
     const heldText = await foreman.getByText(/You are holding \d+ tool/).textContent();
@@ -206,7 +207,7 @@ test.describe("the visibility ladder narrows what a browser shows", () => {
 
     /* Both non-zero, or the comparison holds vacuously for a ladder wired to
        return nothing — the failure this whole suite is most likely to miss. */
-    expect(deskTotal, "the desk sees no tools at all").toBeGreaterThan(0);
+    expect(deskTotal, "the register sees no tools at all").toBeGreaterThan(0);
     expect(held, "the foreman sees no tools at all").toBeGreaterThan(0);
     /* Strictly greater, not >=. Equal would mean the foreman is seeing the
        whole fleet, which is exactly the leak STI-302 closed. */

@@ -1,12 +1,12 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, Users, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, Users, Workflow, Wrench } from "lucide-react";
 
 export type NavItem = {
   /*
     Stable identity, never derived from the route.
 
-    A pin stores THIS, not the href — see `nav-pins.ts`. Renaming `/old-dash`
-    or moving Custody under a different prefix has to leave everybody's pins
+    A pin stores THIS, not the href — see `nav-pins.ts`. Renaming a route or
+    moving Custody under a different prefix has to leave everybody's pins
     where they were; keying on the route means a rename silently empties a
     sidebar section nobody edited, and nothing fails loudly enough for anyone
     to connect the two. Change a label, change a route, change a permission —
@@ -107,13 +107,6 @@ export const FIELD_NAV: NavGroup[] = [
     label: "Field",
     icon: Wrench,
     items: [
-      /* STI-501: the Desk is in BOTH navs on purpose. SYSTEM_PLAN §6.5 calls it
-         "the intended long-term surface for the entire system", and two of its
-         four panels — `tools.mine` and `crew.tools` — exist for exactly the
-         people this nav serves. It carries no `perm`: the Desk composes itself
-         from the registry and shows an explanation when nothing matches, so
-         gating the LINK would be a second, cruder copy of that rule. */
-      { id: "desk", href: "/desk", label: "Desk", icon: LayoutDashboard, hint: "Everything you can act on" },
       { id: "my-tools", href: "/my-tools", label: "My Tools", icon: Wrench, hint: "What you are holding" },
       { id: "handoff", href: "/chat", label: "Hand Off", icon: MessageSquare, hint: "Type it in one sentence" },
       /* ~~"Overdue and requests"~~ — nothing goes overdue; the borrow model and
@@ -154,12 +147,11 @@ export const DESK_NAV: NavGroup[] = [
     label: "Overview",
     icon: LayoutGrid,
     items: [
-      { id: "desk", href: "/desk", label: "Desk", icon: LayoutGrid, hint: "Composed from your permissions" },
       /* The project monitor — a wall surface, cycling one job at a time. It
-         replaced the widget dashboard on 2026-08-23; that page still exists,
-         unchanged, one row down, until this one has been lived with. */
+         replaced the widget dashboard and the Desk command surface on
+         2026-08-23; both were removed on 2026-09-03 once the monitor had been
+         lived with. */
       { id: "dashboard", href: "/home", label: "Dashboard", icon: LayoutDashboard, fullBleed: true },
-      { id: "old-dashboard", href: "/old-dash", label: "Old Dash", icon: History },
     ],
   },
   {

@@ -169,33 +169,6 @@ _meta:
     - docs/architecture/05-features.md
     - .claude/rules/custody-and-ledger.md
 
-/desk:
-  id: desk
-  label: Desk
-  group: Overview
-  layout: both
-  permission: null
-  file: apps/web/app/(app)/desk/page.tsx
-  purpose: >
-    SYSTEM_PLAN §6.5's intended long-term surface — composes itself entirely
-    from the viewer's permissions rather than being a fixed screen. In both
-    FIELD_NAV and DESK_NAV on purpose (two of its panels exist specifically
-    for field roles).
-  features:
-    - No fixed chrome — renders a permission-filtered grid from a panel
-      registry (My Tools, Crew Tools, Tools by Jobsite, the approval queue)
-    - EmptyState when no panel matches the actor's permissions
-  key_procedures:
-    - identity.me
-    - asset.list
-    - employee.myForemen
-    - dashboard.pendingApprovals
-  navigation: Overview group (desk) or Field group (field layout); carries no
-    permission itself, so the link always renders — the composition inside it
-    is what narrows.
-  known_gaps: []
-  sources: []
-
 /equipment:
   id: equipment-register
   label: Equipment
@@ -260,7 +233,9 @@ _meta:
   file: apps/web/app/(app)/home/page.tsx
   purpose: >
     The project monitor — a wall-board that cycles one job at a time. Full
-    bleed; replaced the widget dashboard (now /old-dash) on 2026-08-23.
+    bleed; replaced the widget dashboard on 2026-08-23, and the widget
+    dashboard (/old-dash) plus the /desk command surface were removed on
+    2026-09-03.
   features:
     - Redirects field roles straight to /my-tools
     - Otherwise a thin wrapper around the full-bleed cycling ProjectMonitor component
@@ -269,9 +244,8 @@ _meta:
     by default); fullBleed route, so the shell drops its max-width and padding.
   known_gaps:
     - "Not responsive by design — fixed row heights sized for a wall screen.
-       Measured at 390px it overlaps its own text; the fix is routing narrow
-       viewports to /old-dash's Command Center tab, not a media query
-       (05-features.md)."
+       Measured at 390px it overlaps its own text; that wants a product
+       decision rather than a media query (05-features.md)."
   sources:
     - docs/architecture/05-features.md
 
@@ -344,35 +318,6 @@ _meta:
     account lands on /home.
   known_gaps: []
   sources: []
-
-/old-dash:
-  id: old-dashboard
-  label: Old Dash
-  group: Overview
-  layout: desk
-  permission: null
-  file: apps/web/app/(app)/old-dash/page.tsx
-  purpose: >
-    The widget dashboard /home used to be, kept as a fallback while the
-    project-monitor wall board (2026-08-23) is lived with.
-  features:
-    - Three tabs — Fleet at a Glance / Command Center / Blocky (a "System
-      Shell v3" concept view) — with a star to set the default tab
-    - Embedded fleet map panel, an 8-tile metric grid linking out to reports,
-      a movement chart, a recent-activity strip
-    - Command Center tab has a widget-visibility customize dropdown
-  key_procedures:
-    - dashboard.kpis
-    - dashboard.pendingApprovals
-    - dashboard.recentActivity
-    - report.idle
-    - preferences.set
-  navigation: Overview group in the desk sidebar, or /old-dash directly.
-  known_gaps:
-    - "Kept explicitly until /home's wall board 'has been lived with' — not
-       a permanent fixture (nav-config.ts's own comment)."
-  sources:
-    - apps/web/components/sti/nav-config.ts
 
 /org-chart:
   id: org-chart

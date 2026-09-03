@@ -39,7 +39,7 @@ start.
 
 | | |
 |---|---|
-| Screens | `/custody`, `/desk`, `/my-tools` |
+| Screens | `/custody`, `/my-tools` |
 | Procedures | `assignment.create`, `approve`, `decline`, `return`; `transfer.create`, `approve`, `decline`; `departure.preview`, `reassign` |
 | Tables | `tbl_ops_smalltools_custody`, `tbl_ops_transfer`, `tbl_ops_transaction` |
 | Rules | `.claude/rules/custody-and-ledger.md` |
@@ -159,7 +159,7 @@ Roles carry permissions *and* behavioural flags: `needs_login`, `can_hold_custod
 
 | | |
 |---|---|
-| Screens | `/chat`, `/inbox`, `/desk` |
+| Screens | `/chat`, `/inbox` |
 | Procedures | `messaging.*`, `inbox.*`, `action.submit` |
 | Tables | `tbl_ops_channel`, `tbl_ops_message`, `tbl_ops_task` |
 | Docs | `docs/07-conversational-layer.md`, `docs/08-custom-intents.md` |
@@ -189,13 +189,15 @@ axes pays off: a mechanic's custody charges Equipment, a foreman's charges the j
 
 | | |
 |---|---|
-| Screens | `/home`, `/old-dash` |
-| Procedures | `dashboard.kpis`, `recentActivity`, `awaitingDesk`, `briefing`, `pendingApprovals`, `notifications`, `charts` |
+| Screens | `/home` |
+| Procedures | `dashboard.kpis`, `recentActivity`, `awaitingDesk`, `pendingApprovals`, `notifications`, `charts` |
 
 `/home`'s fleet monitor is a **wall-board** — fixed row heights, sized for a screen
 on a wall. Measured at 390px it overlaps its own text. That wants a product
-decision (route narrow viewports to the `command` tab), not a media query;
-reflowing it would degrade the display it was built for.
+decision (narrow viewports to a usable layout), not a media query; reflowing it
+would degrade the display it was built for. The widget dashboard `/home` replaced
+on 2026-08-23 (`/old-dash`) and the `/desk` command surface were both removed on
+2026-09-03.
 
 `dashboard.clearanceQueue` is **built, unreached** — see Custody.
 

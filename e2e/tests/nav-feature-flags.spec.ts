@@ -6,15 +6,21 @@ import { authFile } from "../roles.js";
 
   Read-only against the database, like every other spec here — the seed
   carries the tenant_feature rows this exercises (packages/db/src/seed.ts):
-  `old-dashboard` hidden, `activity` beta, and — the one that must never
-  actually take effect — `settings-general` hidden. Nothing here writes a row.
+  `activity` beta, and — the one that must never actually take effect —
+  `settings-general` hidden. Nothing here writes a row.
+
+  The hidden-module half of this file left with /old-dash on 2026-09-03: the
+  widget dashboard was that demo's subject (a real module seeded `hidden` so a
+  browser could prove the row vanishes and a direct URL redirects). Both the
+  module and the demo row are gone, so those two proofs now rest on the unit
+  tests in packages/api-contracts/src/feature-visibility.test.ts plus the
+  exemption test below — a stray row hiding the General settings row is the
+  one hidden-state the product still seeds on purpose.
 
   Two properties matter, the same two ADR-11 always cared about for its
   binary predecessor:
 
-    - a hidden module disappears from the nav AND a direct URL redirects,
-      so a bookmark cannot land on a screen the rail no longer offers a door
-      to.
+    - a beta-flagged module still opens and carries its badge.
     - Settings can never be hidden, no matter what a stored row says — proven
       against a seeded row that says exactly that, not just against the
       absence of one.
@@ -24,19 +30,6 @@ import { authFile } from "../roles.js";
   covers what a browser shows.
 */
 test.use({ storageState: authFile("owner") });
-
-test("a hidden module (Old Dash) does not appear in its group", async ({ page }) => {
-  await page.goto("/home");
-  await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 30_000 });
-  // Overview is the default active group and holds Old Dash.
-  await expect(page.getByRole("link", { name: "Desk", exact: true })).toBeVisible();
-  await expect(page.locator('a[href="/old-dash"]')).toHaveCount(0);
-});
-
-test("a direct URL to a hidden module redirects to /home", async ({ page }) => {
-  await page.goto("/old-dash");
-  await expect(page).toHaveURL(/\/home$/, { timeout: 15_000 });
-});
 
 test("Settings stays reachable despite a stray row saying it's hidden", async ({ page }) => {
   await page.goto("/settings");

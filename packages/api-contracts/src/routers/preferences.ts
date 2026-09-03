@@ -42,9 +42,10 @@ const prefsInput = z.object({
   density: z.enum(["comfortable", "compact"]),
   dashboard: z.object({
     widgets: z.record(z.string(), z.boolean()),
-    /* The Desk (STI-501) is a ROUTE, not a tab — it is at /desk and appears in
-       both navs — so it deliberately does not belong in this enum. A dashboard
-       tab preference names one of the two dashboard tabs and nothing else. */
+    /* The dashboard-tab preference named one of the two old widget-dashboard
+       tabs (Fleet / Command Center) and deliberately nothing else. Both the
+       Desk — once a separate /desk route, removed 2026-09-03 — and the old
+       dashboard itself are gone; the field is retained for stored rows. */
     defaultTab: z.enum(["fleet", "command"]).optional(),
   }),
 });

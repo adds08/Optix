@@ -72,9 +72,9 @@ Read `apps/web/components/sti/nav-config.ts` for `FIELD_NAV` and `DESK_NAV`:
 every `NavItem`'s `id`, `href`, `label`, `perm`, and which group it sits in.
 Then walk `apps/web/app/(app)/**/page.tsx` (a `find` or `Glob` is enough) and
 diff that list against the nav — routes that exist in code but not in the nav
-(`/old-dash`, detail routes like `/people/[id]`, anything behind a feature
-flag) still get an entry, marked `layout: unlisted` with a note on how a
-person actually reaches it (a row link, a redirect, nothing yet).
+(detail routes like `/people/[id]`, anything behind a feature flag) still get
+an entry, marked `layout: unlisted` with a note on how a person actually
+reaches it (a row link, a redirect, nothing yet).
 
 **2. Ground `features` in the actual page source, not assumption.**
 

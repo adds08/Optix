@@ -8,8 +8,9 @@ import { ProjectMonitor } from "@/components/sti/monitor/project-monitor";
 
 /*
   The dashboard is the project monitor: the jobs in scope, cycling one at a
-  time, on a screen that does not need a mouse. The widget dashboard it replaced
-  on 2026-08-23 is still here, unchanged, at /old-dash.
+  time, on a screen that does not need a mouse. The widget dashboard and the
+  Desk command surface it replaced on 2026-08-23 were removed on 2026-09-03 —
+  the monitor has been lived with and they are gone.
 
   The field redirect is carried over from that page verbatim and is not
   incidental — a wall board is the wrong thing to hand a foreman holding a

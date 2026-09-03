@@ -921,27 +921,25 @@ async function main() {
 
   /*
     Feature states seeded from a clean database rather than only reachable by
-    hand-editing a row (CLAUDE.md rule 9) — and, for `old-dashboard`, because
-    STI-1204's own acceptance criteria says so directly: "seed a tenant with
-    at least one module disabled. A setting no seeded data exercises is a
-    setting nobody tests."
+    hand-editing a row (CLAUDE.md rule 9). STI-1204's own acceptance criteria
+    says so directly: "seed a tenant with at least one module disabled. A
+    setting no seeded data exercises is a setting nobody tests."
 
     - `import.ai` upcoming is the state the AI Import button actually ships in.
     - `activity` beta exercises the nav-badge path on a real row.
-    - `old-dashboard` hidden is the real disabled-module case: `/old-dash` is
-      the widget dashboard `/home` replaced on 2026-08-23, kept only "until
-      this one has been lived with" (see nav-config.ts) — the safest real
-      candidate to demonstrate hiding without removing anything anyone
-      still depends on.
     - `settings-general` hidden proves the one thing that must never work:
       Settings is exempt from hiding regardless of what a row here says. If
       this ever starts hiding the General settings row, the exemption in
       `applyFeatureStates` broke.
+
+    The disabled-module demo row that used to sit here (`old-dashboard`
+    hidden, the widget dashboard waiting to be retired) went with the module:
+    /old-dash was removed on 2026-09-03, so hiding it would prove nothing a
+    browser could still navigate to.
   */
   await db.insert(tenantFeature).values([
     { tenantId: tid, key: "import.ai", state: "upcoming" },
     { tenantId: tid, key: "activity", state: "beta" },
-    { tenantId: tid, key: "old-dashboard", state: "hidden" },
     { tenantId: tid, key: "settings-general", state: "hidden" },
   ]);
 

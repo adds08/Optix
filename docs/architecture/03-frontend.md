@@ -24,9 +24,9 @@ Everything behind a login is in the `(app)` route group, which supplies the shel
 | Area | Routes |
 |---|---|
 | Entry | `/`, `/forgot-password`, `/invite/[token]`, `/reset/[token]` |
-| Dashboard | `/home`, `/old-dash` |
+| Dashboard | `/home` |
 | Registry | `/tools`, `/tools/[id]`, `/equipment`, `/equipment/[id]` |
-| Operations | `/jobsites`, `/custody`, `/map`, `/desk`, `/inbox` |
+| Operations | `/jobsites`, `/custody`, `/map`, `/inbox` |
 | Organization | `/people`, `/people/[id]`, `/projects`, `/org-chart` |
 | Field | `/my-tools`, `/chat` |
 | Reporting | `/reports`, `/reports/[slug]`, `/reports/audit-trail`, `/reports/charts/[slug]` |

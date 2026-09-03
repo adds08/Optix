@@ -12,8 +12,7 @@ Next.js 15 App Router, shadcn/new-york, TanStack Query via tRPC.
 The README says routes live under `/d02`. They do not, and never do now. Real tree, all under
 the `(app)` route group:
 
-`/home` (the project monitor — the wall board, see below) · `/old-dash` (the widget dashboard
-`/home` used to be, kept until the monitor has been lived with) ·
+`/home` (the project monitor — the wall board, see below) ·
 `/tools` + `/tools/[id]` · `/equipment` + `/equipment/[id]` · `/custody` · `/jobsites` · `/map` ·
 `/reports` + `/reports/[slug]` + `/reports/charts/[slug]` + `/reports/audit-trail` ·
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/org-chart` ·
