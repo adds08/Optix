@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategorySelect } from "@/components/category-select";
 import { PhotoUpload } from "@/components/photo-upload";
-import { cn } from "@/lib/utils";
 import { EntityField } from "@/components/ui/entity-picker";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 /*
   One dialog for both jobs.
@@ -205,24 +205,24 @@ export function AssetForm({ open, onClose, edit }: Props) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Charged to</label>
-            <div className="grid grid-cols-2 gap-2 rounded-md border p-1" role="group" aria-label="Cost target">
-              {(["project", "department"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => switchTarget(t)}
-                  aria-pressed={costTarget === t}
-                  className={cn(
-                    "rounded-sm px-3 py-1.5 text-sm transition-colors",
-                    costTarget === t
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-accent",
-                  )}
-                >
-                  {t === "project" ? "Project" : "Department"}
-                </button>
-              ))}
-            </div>
+            {/* A form field: whichever target is selected decides which
+                EntityField renders below AND which id reaches submit — the
+                same state drives both, and ToggleGroup type=single writes it
+                back through the same switchTarget. */}
+            <ToggleGroup
+              type="single"
+              value={costTarget}
+              onValueChange={(v) => {
+                if (v === "project" || v === "department") switchTarget(v);
+              }}
+              variant="outline"
+              spacing={0}
+              aria-label="Cost target"
+              className="w-full"
+            >
+              <ToggleGroupItem value="project" className="w-1/2">Project</ToggleGroupItem>
+              <ToggleGroupItem value="department" className="w-1/2">Department</ToggleGroupItem>
+            </ToggleGroup>
             {costTarget === "project" ? (
               <EntityField
                 value={owningProjectId}
