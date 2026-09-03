@@ -16,10 +16,12 @@ import { cn } from "@/lib/utils";
   easier than extracting them.
 
   Vertical, not horizontal, and that is not only taste: `MoreHorizontal`
-  already means "there are hidden items here" in `ui/breadcrumb.tsx`, so
-  reserving the horizontal glyph for truncation leaves the vertical one free to
-  mean "act on this thing". It is also what "three dot menu" refers to
-  everywhere else.
+  conventionally means "there are hidden items here" — truncation — so
+  reserving the horizontal glyph for that leaves the vertical one free to mean
+  "act on this thing". It is also what "three dot menu" refers to everywhere
+  else. (This used to cite `ui/breadcrumb.tsx` as the in-repo example of the
+  truncation meaning; that file was deleted on 2026-09-03 as one of eight
+  shadcn primitives with no importers. The convention stands on its own.)
 
   Built on `Button` rather than styling `DropdownMenuTrigger` directly, so the
   focus ring, the disabled state and the press animation come from the same

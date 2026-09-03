@@ -252,7 +252,8 @@ export default function OrgChartPage() {
   const toggle = (key: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
 
@@ -365,7 +366,7 @@ export default function OrgChartPage() {
       {q.data && (
         <>
           {q.data.scoped && (
-            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            <p className="rounded-md border border-warn/30 bg-warn-bg px-3 py-2 text-xs text-warn">
               You are seeing your own reporting line — the people above you and everyone
               beneath you. Administrators see the whole organisation.
             </p>
@@ -445,7 +446,11 @@ export default function OrgChartPage() {
             </div>
           </div>
 
-          <div className="flex gap-1 border-b">
+          {/* `role="tablist"`/`role="tab"`/`aria-selected` match the pattern
+              `/custody` already uses. Without them a screen reader announces
+              three unlabelled buttons and never says which view is showing —
+              these shipped without any of it on 2026-09-03. */}
+          <div className="flex gap-1 border-b" role="tablist">
             {([
               ["chart", "Chart", Users],
               ["jobsite", "By Jobsite", Building2],
@@ -454,6 +459,8 @@ export default function OrgChartPage() {
               <button
                 key={id}
                 type="button"
+                role="tab"
+                aria-selected={tab === id}
                 onClick={() => setTab(id as Tab)}
                 className={cn(
                   "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
