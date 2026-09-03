@@ -21,12 +21,23 @@ the `(app)` route group:
 `/settings` + `/settings/ai` + `/settings/appearance` + `/settings/modules` +
 `/settings/team-roles` · `/design/*`
 
-**`/job-groups` is UNLISTED** — it exists (page, `projectGroup.*` router, schema) and is
-reachable by direct URL, but carries no entry in `nav-config.ts` and no link from anywhere
-in the shell as of 2026-09-03. Verified by grepping `nav-config.ts` and every component
-directory for a link to it; neither exists. Left off the route list above because listing
-it beside routes a person can actually click to would misstate what "the real tree" means
-for this one entry. See `docs/architecture/05-features.md` for the same finding.
+**`/job-groups` was DELETED on 2026-09-03**, and job groups are alive and well — those are
+two different statements and the second is the important one.
+
+The FEATURE is `components/project-switcher.tsx`, mounted in `app-sidebar.tsx` and therefore
+present on every screen: it lists JOBS and JOB GROUPS, drills into a group's jobs, and offers
+"Create new group". Group create/edit is `components/job-group-modal.tsx`, which sets the
+name, the description, **which jobs are in the group** (`projectGroup.setProjects`) and
+**which users can see it** (`projectGroup.setUsers`).
+
+The deleted PAGE was a strictly weaker duplicate of that: same modal, same job list, and no
+way to assign users at all — which is the half that makes group scoping actually do anything.
+It had no `nav-config.ts` entry and nothing in the shell linked to it, which read as an
+accidental drop until the switcher was compared against it feature by feature. It was not a
+drop; the page had simply been superseded and never deleted.
+
+**Do not re-add a standalone job-groups screen.** If group management needs more room, it
+belongs in the switcher or its modal, next to the scope selector it exists to serve.
 
 The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory, which
 survives as the repo name, the package scope (`@stinventory/*`), the seeded email domain and

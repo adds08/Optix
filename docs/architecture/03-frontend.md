@@ -25,12 +25,12 @@ Everything behind a login is in the `(app)` route group, which supplies the shel
 |---|---|
 | Entry | `/`, `/forgot-password`, `/invite/[token]`, `/reset/[token]` |
 | Dashboard | `/home`, `/old-dash` |
-| Registry | `/tools`, `/tools/[id]` |
+| Registry | `/tools`, `/tools/[id]`, `/equipment`, `/equipment/[id]` |
 | Operations | `/jobsites`, `/custody`, `/map`, `/desk`, `/inbox` |
-| Organization | `/people`, `/people/[id]`, `/projects`, `/job-groups` |
+| Organization | `/people`, `/people/[id]`, `/projects`, `/org-chart` |
 | Field | `/my-tools`, `/chat` |
 | Reporting | `/reports`, `/reports/[slug]`, `/reports/audit-trail`, `/reports/charts/[slug]` |
-| Admin | `/admin/roles`, `/settings`, `/settings/ai`, `/settings/appearance`, `/activity` |
+| Admin | `/admin/roles`, `/settings`, `/settings/ai`, `/settings/appearance`, `/settings/modules`, `/settings/team-roles`, `/activity` |
 | Self | `/profile`, `/account/password` |
 | Design references | `/design/construction`, `/design/icons` |
 

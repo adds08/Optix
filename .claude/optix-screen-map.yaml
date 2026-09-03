@@ -15,13 +15,18 @@
 _meta:
   last_full_evaluation: 2026-09-03
   last_code_sync: 2026-09-03
-  route_count: 33
+  route_count: 32
   notes: >
-    Two stale doc claims were found and fixed in the same change this map was
-    built in, per this skill's own step 7: docs/architecture/05-features.md
-    and .claude/rules/web.md both asserted /job-groups was an ordinary listed
-    route; nav-config.ts has no entry for it at all, and no component links to
-    it. Both docs now say so. See /job-groups below.
+    Built alongside the org-chart and team-role work of the same date. The
+    evaluation found /job-groups orphaned from the nav and first recorded it
+    as undecided — an accidental drop, or an unfinished retirement. That was
+    resolved the same day, and the resolution is the more useful finding: the
+    page was a strictly weaker duplicate of components/project-switcher.tsx
+    (the sidebar scope selector, present on every route), which does
+    everything the page did AND assigns users to a group, which the page
+    could not. The page was deleted; the FEATURE is very much alive.
+    docs/architecture/05-features.md, 03-frontend.md and
+    .claude/rules/web.md all corrected to match.
 
 /account/password:
   id: null
@@ -299,41 +304,6 @@ _meta:
   known_gaps: []
   sources:
     - .claude/rules/web.md
-
-/job-groups:
-  id: null
-  label: Job Groups
-  group: null
-  layout: unlisted
-  permission: project.manage
-  file: apps/web/app/(app)/job-groups/page.tsx
-  purpose: >
-    The equipment desk's named buckets of jobs, handed to users so a PM or
-    superintendent sees only the jobs in their groups. Fully built and
-    reachable by direct URL — but see known_gaps.
-  features:
-    - Two-pane layout — group list + selected group's job list
-    - New group / edit group (JobGroupModal — name, description, visible users)
-    - Job search within the detail pane; per-job checkbox writes membership
-      immediately (optimistic, isPending-guarded against rapid double-ticks)
-  key_procedures:
-    - projectGroup.list
-    - project.list
-    - projectGroup.setProjects
-    - projectGroup.mine
-  navigation: >
-    NOT IN nav-config.ts, and nothing else in the shell links to it —
-    verified by grep, not assumed. Reachable only by typing /job-groups
-    directly. Fixed in docs/architecture/05-features.md and
-    .claude/rules/web.md, both of which previously listed it as an ordinary
-    route.
-  known_gaps:
-    - "Zero rows in project_group for the live tenant — the feature has
-       never actually been used, not just unlinked."
-    - "Whether this is an accidental nav drop or an unfinished retirement is
-       UNDECIDED. A real product question, not something this map guesses at."
-  sources:
-    - docs/architecture/05-features.md
 
 /map:
   id: fleet-map

@@ -92,17 +92,25 @@ not asked about, not a staleness bug. Do not "fix" it.
 
 | | |
 |---|---|
-| Screens | `/people`, `/people/[id]`, `/projects`, `/org-chart`, `/job-groups` (UNLISTED — see below) |
+| Screens | `/people`, `/people/[id]`, `/projects`, `/org-chart`; job groups live in the sidebar switcher, not a page — see below |
 | Procedures | `employee.*`, `project.*`, `projectTeam.*`, `projectGroup.*`, `user.*` |
 | Tables | `tbl_entity_employee`, `tbl_entity_employee_contact`, `tbl_entity_project`, `tbl_ops_project_team_member`, `tbl_entity_project_group` |
 
-**`/job-groups` has no entry in `nav-config.ts`** as of 2026-09-03 — verified by grepping
-the file directly, not assumed from this doc's own prior claim. The page, its router
-(`projectGroup.*`) and its schema (`tbl_entity_project_group`) are all live and reachable by
-direct URL, but nothing in the shell links to it, and the tenant's own `project_group` table
-holds zero rows. Whether this is an accidental drop from a past nav refactor or a deliberate
-retirement nobody finished is not decided here — flagged rather than guessed at, and rather
-than this doc continuing to assert it is an ordinary route.
+**Job groups are a sidebar control, not a screen.** `/job-groups` was deleted on
+2026-09-03; the feature it duplicated is `components/project-switcher.tsx`, mounted in the
+app sidebar and so present on every route. That switcher lists jobs and job groups, drills
+into a group, and creates one; `components/job-group-modal.tsx` edits the name, the
+description, the member jobs (`projectGroup.setProjects`) and **the users who can see the
+group** (`projectGroup.setUsers`) — the last of which the deleted page could not do at all.
+
+This is what job groups are FOR: a PM on sixteen jobs groups two or three of them and
+scopes the whole product to that set. `projectGroup.mine` is what `job-scope.tsx` reads to
+do it. An empty `tbl_entity_project_group` means nobody has made a group yet, not that the
+feature is dead — the switcher says exactly that ("No job groups yet — create one below").
+
+This doc previously listed `/job-groups` as an ordinary route, which was wrong twice over:
+it had no nav entry, and it was redundant with a better control. Do not re-add a standalone
+screen for this.
 
 **A login is a property of a person.** There is no separate user register — the
 People row carries the account state directly, in five states ordered so each is

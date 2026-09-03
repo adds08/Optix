@@ -493,6 +493,8 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       // (a) in-body, input-dependent
       "projectTeam.assign": "assertCanAssign(permissions, input.role) — the permission is per target role",
       "projectTeam.remove": "assertCanAssign(permissions, input.role) — same gate as assign",
+      "projectTeam.setReportsTo":
+        "assertCanAssign(permissions, roleRow) — the permission is per team role, and WHICH role is not in the input: it is read off the roster row being edited, so it cannot be known until the call arrives",
       "task.approve": "canApplyAction(task.actionType, permissions) — charged against the APPROVER, by action",
       "task.decline": "canApplyAction(task.actionType, permissions) — declining costs what approving costs",
       "action.submit": "canApplyAction(input.type, permissions) — and falls back to a request when refused",
