@@ -7,6 +7,7 @@ import { EmptyState, ErrorNote, PageHeader, TableSkeleton } from "@/components/s
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 /*
@@ -95,22 +96,27 @@ export default function TeamRolesPage() {
       {roles.isLoading && <TableSkeleton />}
       {roles.error && <ErrorNote message={roles.error.message} />}
 
+      {/* The shared `Table` primitive below, not a raw table element. It
+          carries `.sti-grid` (the ruled cells every other table in the app has)
+          and emits the `data-slot` attributes compact density targets — a raw
+          table is silently density-blind, which is not a cosmetic difference.
+          This screen was the only table in the app missing both. */}
       {roles.data && (
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2">Role</th>
-                <th className="px-3 py-2">Holds tools &amp; a truck</th>
-                <th className="px-3 py-2">Source</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+        <div className="overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Role</TableHead>
+                <TableHead>Holds tools &amp; a truck</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {roles.data.map((r) => (
-                <tr key={r.id}>
-                  <td className="px-3 py-2 font-medium">{r.label}</td>
-                  <td className="px-3 py-2">
+                <TableRow key={r.id}>
+                  <TableCell className="font-medium">{r.label}</TableCell>
+                  <TableCell>
                     {/* Built-in rows keep their seeded flag — the assignment
                         hierarchy and TOOLS_FOLLOW were written against these
                         three exactly as shipped, so this cell is read-only for
@@ -126,11 +132,11 @@ export default function TeamRolesPage() {
                         {r.canHoldCustody ? "Yes" : "No"}
                       </label>
                     )}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
                     {r.isSystem ? "Built in" : "Added by your organization"}
-                  </td>
-                  <td className="px-3 py-2 text-right">
+                  </TableCell>
+                  <TableCell className="text-right">
                     {!r.isSystem && (
                       <Button
                         variant="ghost"
@@ -142,11 +148,11 @@ export default function TeamRolesPage() {
                         <Trash2 className="size-4" />
                       </Button>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

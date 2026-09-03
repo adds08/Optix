@@ -10,6 +10,7 @@ import { humanize } from "@/components/sti/status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/components/use-permissions";
+import { useThemeStore } from "@/lib/themes/store";
 
 /*
   The map itself, shared by the /map page and the dashboard panel.
@@ -24,13 +25,68 @@ import { usePermissions } from "@/components/use-permissions";
   same query, so they cannot drift.
 */
 
-/* The status colours ARE the design tokens (globals.css --ok/--warn/--idle),
-   passed through as CSS colours so the map and the pills cannot drift apart. */
-export const VEHICLE_STATUS_COLOR: Record<VehicleStatus, string> = {
+/*
+  The status colours are the design tokens — NAMED, not copied.
+
+  This used to hold the literal oklch values of --ok/--warn/--idle with a
+  comment claiming the map and the pills "cannot drift apart". They were copies,
+  and they were the LIGHT-mode copies: globals.css gives every status token a
+  second value under `.dark`, so in dark mode every pill flipped and the map
+  dots did not. A copied token is not a token.
+
+  Two consumers, two mechanisms, because SVG forces it:
+
+  - `VEHICLE_STATUS_VAR` is for anything set through a CSS property — the legend
+    swatches' inline `backgroundColor`. `var()` resolves there.
+  - `useVehicleStatusColors()` is for Leaflet, which writes `fillColor` onto the
+    SVG `fill` PRESENTATION ATTRIBUTE. Presentation attributes are parsed as SVG
+    syntax, not CSS, so `fill="var(--ok)"` does not resolve in any current
+    browser. That path has to read the computed value itself.
+*/
+const STATUS_TOKEN: Record<VehicleStatus, string> = {
+  online: "--ok",
+  offline: "--warn",
+  no_signal: "--idle",
+};
+
+export const VEHICLE_STATUS_VAR: Record<VehicleStatus, string> = {
+  online: "var(--ok)",
+  offline: "var(--warn)",
+  no_signal: "var(--idle)",
+};
+
+/* Light-mode values, used only for the first paint before the effect below
+   runs (and under SSR, where there is no computed style to read). They are
+   deliberately the same numbers globals.css declares for `:root`. */
+const STATUS_FALLBACK: Record<VehicleStatus, string> = {
   online: "oklch(0.505 0.092 168)",
   offline: "oklch(0.545 0.115 62)",
   no_signal: "oklch(0.545 0.012 245)",
 };
+
+/**
+ * The resolved status colours, re-read whenever the palette or light/dark
+ * changes. `dark` and `themeName` are the two things `apply-theme` writes to
+ * the root, so they are the correct dependencies: when either moves, the
+ * custom properties on <html> have already been rewritten.
+ */
+export function useVehicleStatusColors(): Record<VehicleStatus, string> {
+  const dark = useThemeStore((s) => s.dark);
+  const themeName = useThemeStore((s) => s.prefs?.themeName ?? null);
+  const [colors, setColors] = useState<Record<VehicleStatus, string>>(STATUS_FALLBACK);
+
+  useEffect(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const read = (token: string, fallback: string) => cs.getPropertyValue(token).trim() || fallback;
+    setColors({
+      online: read(STATUS_TOKEN.online, STATUS_FALLBACK.online),
+      offline: read(STATUS_TOKEN.offline, STATUS_FALLBACK.offline),
+      no_signal: read(STATUS_TOKEN.no_signal, STATUS_FALLBACK.no_signal),
+    });
+  }, [dark, themeName]);
+
+  return colors;
+}
 
 export const VEHICLE_STATUS_LABEL: Record<VehicleStatus, string> = {
   online: "Online",
@@ -107,6 +163,10 @@ export function FleetMapView({
      query is gated on the same permission the procedure requires and the panel
      says so instead of rendering an empty map. */
   const { has } = usePermissions();
+  /* Resolved, not `var()` — Leaflet writes fillColor onto the SVG `fill`
+     presentation attribute, where var() does not resolve. See the comment on
+     useVehicleStatusColors. */
+  const statusColors = useVehicleStatusColors();
   const maySeeVehicles = has("vehicle.read");
   const maySeeAssets = has("asset.read");
   const vehicles = trpc.vehicle.list.useQuery(undefined, { enabled: maySeeVehicles });
@@ -188,7 +248,7 @@ export function FleetMapView({
                    is a guess when a yard holds an online and an offline truck,
                    so the count below and the list in the popup carry the truth
                    rather than the dot pretending to. */
-                fillColor: VEHICLE_STATUS_COLOR[v.status],
+                fillColor: statusColors[v.status],
                 fillOpacity: 0.85,
               }}
             >
@@ -246,9 +306,9 @@ export function FleetMapView({
 export function FleetLegend() {
   return (
     <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-      {(Object.keys(VEHICLE_STATUS_COLOR) as VehicleStatus[]).map((s) => (
+      {(Object.keys(VEHICLE_STATUS_VAR) as VehicleStatus[]).map((s) => (
         <span key={s} className="inline-flex items-center gap-1.5">
-          <span aria-hidden className="size-2.5 rounded-full" style={{ backgroundColor: VEHICLE_STATUS_COLOR[s] }} />
+          <span aria-hidden className="size-2.5 rounded-full" style={{ backgroundColor: VEHICLE_STATUS_VAR[s] }} />
           {VEHICLE_STATUS_LABEL[s]}
         </span>
       ))}

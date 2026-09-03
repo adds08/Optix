@@ -209,7 +209,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                     <span>
                       {a.currentTruckUnit}
                       {a.currentTruckOwnership === "personal_allowance" ? (
-                        <span className="ml-1.5 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                        <span className="ml-1.5 rounded bg-warn-bg px-1 text-[10px] font-medium text-warn">
                           personal
                         </span>
                       ) : null}

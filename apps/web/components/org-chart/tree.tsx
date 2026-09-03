@@ -58,7 +58,7 @@ function Card({ node, state }: { node: OrgNode<ChartMember>; state: NodeState })
         "relative w-56 shrink-0 rounded-lg border bg-card p-3 text-left shadow-sm transition",
         dimmed && "opacity-35",
         hit && "ring-2 ring-primary border-primary",
-        state.focusKey === node.key && "ring-2 ring-amber-500",
+        state.focusKey === node.key && "ring-2 ring-ring",
       )}
     >
       <div className="flex items-start gap-2">
@@ -96,7 +96,7 @@ function Card({ node, state }: { node: OrgNode<ChartMember>; state: NodeState })
         <button
           type="button"
           onClick={() => state.onPick(employeeId)}
-          className="mt-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+          className="mt-2 inline-flex rounded-sm bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-foreground hover:bg-accent/80"
         >
           also on {others} other {others === 1 ? "job" : "jobs"}
         </button>

@@ -189,7 +189,7 @@ export default function CustodyPage() {
                     truck. It is also the distinction the departure path keys
                     off. */}
                 {r.truckOwnership === "personal_allowance" ? (
-                  <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                  <span className="ml-1 rounded bg-warn-bg px-1 text-[10px] font-medium text-warn">
                     personal
                   </span>
                 ) : null}
