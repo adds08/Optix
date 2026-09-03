@@ -765,17 +765,18 @@ export default function JobsitesPage() {
                   haul anything and then having to open the sheet to find them
                   is a dead end where a link belongs. */}
               {crewsWithoutTruck ? (
-                <button
-                  type="button"
+                /* The button that clears it ("Clear filters") is a `Button`
+                   ghost — this chip is the same control family and is now one
+                   too, not a raw `<button>` styled to look like its sibling. */
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn("tnum h-6 rounded-full px-2 text-warn", gapFilter === "no_truck" && "bg-warn-bg")}
                   onClick={() => setGapFilter(gapFilter === "no_truck" ? "" : "no_truck")}
                   aria-pressed={gapFilter === "no_truck"}
-                  className={cn(
-                    "tnum rounded-full px-2 py-0.5 font-medium text-warn transition-colors hover:bg-warn-bg",
-                    gapFilter === "no_truck" && "bg-warn-bg",
-                  )}
                 >
                   {crewsWithoutTruck} without a truck
-                </button>
+                </Button>
               ) : null}
               {anyFilter ? (
                 <Button variant="ghost" size="sm" className="h-6 rounded-full px-2 text-primary" onClick={clearFilters}>
