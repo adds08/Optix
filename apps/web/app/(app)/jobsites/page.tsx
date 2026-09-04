@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Building2, ChevronDown, ChevronRight, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, LayoutGrid, Package, PackageOpen, Plus, Rows3, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
@@ -774,28 +774,45 @@ export default function JobsitesPage() {
                   <span className="tnum font-medium text-foreground">{poolCounts.noJob}</span> held with no job
                 </span>
               ) : null}
+              {/* View MODE — a simple icon switch, kept apart from the tools
+                  below. Two text tabs read like another data filter; and the
+                  words swapped the row's width when toggling, which is the
+                  "UI jumping" between the two layouts. Icons have a fixed
+                  width, so the mode changes without the row shifting. */}
+              <div className="flex items-center overflow-hidden rounded-md border" role="group" aria-label="Layout">
+                <button
+                  type="button"
+                  onClick={() => pickRenderView("list")}
+                  aria-pressed={renderView === "list"}
+                  aria-label="List view"
+                  title="Full cards, crews and tools inline"
+                  className={cn(
+                    "grid size-7 place-items-center transition-colors",
+                    renderView === "list"
+                      ? "bg-muted text-foreground"
+                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  <Rows3 className="size-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => pickRenderView("cards")}
+                  aria-pressed={renderView === "cards"}
+                  aria-label="Cards view"
+                  title="Compact cards, tools in a side sheet"
+                  className={cn(
+                    "grid size-7 place-items-center transition-colors",
+                    renderView === "cards"
+                      ? "bg-muted text-foreground"
+                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  <LayoutGrid className="size-4" aria-hidden />
+                </button>
+              </div>
+
               <div className="ml-auto flex items-center gap-2">
-                {/* List or compact cards. Same segmented pattern as Projects/In
-                    Yard beside it — text, not icons, so the two controls read as
-                    siblings rather than one of them looking like a toolbar. */}
-                <div className="flex overflow-hidden rounded-md border" role="group" aria-label="Layout">
-                  {([["list", "List"], ["cards", "Cards"]] as const).map(([key, label]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => pickRenderView(key)}
-                      aria-pressed={renderView === key}
-                      className={cn(
-                        "min-w-[4.5rem] px-4 py-1.5 text-xs transition-colors",
-                        renderView === key
-                          ? "bg-muted font-medium text-foreground"
-                          : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
                 {/* Projects / In Yard split. "Jobs" named a thing this tab is
                     only partly about (a job is a site; this is also where
                     unassigned-foreman crews sit), and "Pool" was jargon. The
@@ -837,6 +854,9 @@ export default function JobsitesPage() {
                     <DropdownMenuItem onSelect={() => setCardSort("name")}>Name</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {/* Expand / collapse is a property of the FULL cards — the
+                    layout where crews open inline. The compact grid opens
+                    sheets instead, so it has no master expand to offer. */}
                 {renderView === "list" ? (
                 <Button
                   variant="outline"
@@ -969,15 +989,18 @@ export default function JobsitesPage() {
                     <CardIcon className="size-4.5" aria-hidden />
                   </span>
                   <span className="flex min-w-40 flex-1 flex-wrap items-center gap-2">
-                    <span className="text-[15px] font-semibold tracking-tight">
-                      <Highlight text={card.name} q={q} />
-                    </span>
+                    {/* The job code leads the name — a yard talks in units
+                        ("JOB 22017"), and a row of cards scanning on the code
+                        reads faster than one scanning prose. */}
                     {card.code ? (
                       <span className="tnum rounded-sm border bg-muted/60 px-2 py-0.5 font-mono text-sm text-foreground/75">
                         {card.isJob ? <span className="text-muted-foreground">JOB </span> : null}
                         {card.code}
                       </span>
                     ) : null}
+                    <span className="text-[15px] font-semibold tracking-tight">
+                      <Highlight text={card.name} q={q} />
+                    </span>
                     <span className="text-sm text-muted-foreground">
                       {card.isJob ? (card.crews.length ? `${card.crews.length} crew${card.crews.length === 1 ? "" : "s"}` : "no crew yet") : "between jobs"}
                     </span>

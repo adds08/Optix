@@ -57,11 +57,9 @@ export type JobsiteCard = {
   value: number;
   gaps: string[];
   tint: string;
-  /* Rig coverage — already computed once by the page for the same metric bar
-     the list view shows; carried through so the face can answer "how rigged
-     is this job" without opening anything. */
-  trucks: number;
-  trailers: number;
+  /* Rig coverage — already computed once by the page for the metric the card
+     face shows; carried through so the face can answer "how rigged is this
+     job" without opening anything. */
   fullyRigged: number;
   /* Chosen by the page, which owns the YARD/NOJOB sentinels — duplicating
      those string literals here is how the two views would drift. */
@@ -199,6 +197,15 @@ export function JobsiteCardView({
               <span className="grid size-9 shrink-0 place-items-center rounded-md bg-muted/70 text-muted-foreground">
                 <card.icon className="size-4.5" aria-hidden />
               </span>
+              {/* The job code leads the name here too, matching the list
+                  header — a yard talks in units, so both faces scan the same
+                  way. */}
+              {card.code ? (
+                <span className="tnum shrink-0 rounded-sm border bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-foreground/75">
+                  {card.isJob ? "JOB " : ""}
+                  {card.code}
+                </span>
+              ) : null}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-semibold tracking-tight">
                   <Highlight text={card.name} q={highlight} />
@@ -211,11 +218,6 @@ export function JobsiteCardView({
                     : "between jobs"}
                 </span>
               </span>
-              {card.code ? (
-                <span className="tnum shrink-0 rounded-sm border bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-foreground/75">
-                  {card.code}
-                </span>
-              ) : null}
             </span>
             {card.isJob && (leadersByProject.get(card.id)?.length || card.crews.length) ? (
               /* Who runs it and how rigged it is. Same chip the real
@@ -312,12 +314,13 @@ export function JobsiteCardView({
                     the reserved gap. */}
                 <span className="flex flex-wrap items-center gap-2 pr-8">
                   <SheetTitle className="flex flex-wrap items-center gap-2">
-                    <Highlight text={open.name} q={highlight} />
                     {open.code ? (
                       <span className="tnum rounded-sm border bg-muted/60 px-2 py-0.5 font-mono text-sm font-normal text-foreground/75">
+                        {open.isJob ? "JOB " : ""}
                         {open.code}
                       </span>
                     ) : null}
+                    <Highlight text={open.name} q={highlight} />
                   </SheetTitle>
                   {open.isJob && canAssignCrew ? (
                     <Button
