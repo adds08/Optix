@@ -4,7 +4,7 @@ import { ChevronRight, Container, Pencil, Truck } from "lucide-react";
 import { ActionMenuTrigger } from "@/components/sti/action-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
-import { PersonChip } from "@/components/sti/entity-chip";
+import { PersonChip, personToneBg } from "@/components/sti/entity-chip";
 import type { PickerRequest } from "@/components/rig-picker";
 import { moneyShort } from "@/lib/format";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -93,24 +93,18 @@ export function CrewCard({
 }) {
   const { rig } = crew;
 
-  /* The crew tick (design readme, "The edge accent"): crews get a short 3x20px
-     mark rather than the full-height bar a job card carries, so a column of
-     crews inside one job never competes with the job's own edge. It states the
-     rig, which is the crew-level question the board exists to answer — amber
-     the moment a crew cannot haul, accent once truck and trailer are both on. */
   /*
-    The crew tick marks the EXCEPTION, not the rule.
+    The crew tick (design readme, "The edge accent"): a short 3x20px mark
+    rather than the full-height bar a job card carries, so a column of crews
+    inside one job never competes with the job's own edge.
 
-    It first shipped as warn-when-no-truck, which is defensible until you look
-    at a real yard: 49 of 51 crews have no truck, so every row lit amber and a
-    column of identical marks carried no information at all. Worse, on an amber
-    palette warn and primary are the same hue, so the marks were indistinguish-
-    able from the chrome around them.
-
-    A fully rigged crew is the rare, good state, so that is what gets the
-    accent; everything else gets the border colour and stays quiet. The missing
-    truck is not lost — the row already carries a "+ Truck" control saying so in
-    words, and the job header above counts them.
+    Its colour is the FOREMAN's identity hue, deterministic per person (see
+    `personToneBg`): on a board where the desk scans a column of foremen, the
+    tick is what tells two rows apart at a glance, and the same foreman stays
+    the same colour on every job. It used to state the RIG (green when a crew
+    could haul, amber when not) — but 49 of 51 crews have no truck, so every
+    row lit amber and the signal said nothing; the row already says "no
+    truck" in words on the chip, so the rig is not lost.
 
     Whole class strings, never `before:${tone}`: Tailwind scans source text, so
     a class assembled at runtime is never generated and the tick renders with no
@@ -119,16 +113,10 @@ export function CrewCard({
   /*
     The crew row, 1:1 with the design (App.jsx CrewCard).
 
-    Rigged is the whole signal on the left edge: a 3x22 bar, GREEN when the crew
-    has both a truck and a trailer and AMBER when it does not. That is the one
-    piece of state a foreman's row carries, and unlike the earlier version it
-    actually varies down a list, because most crews are missing one or the other.
-
     The header is the toggle. There is no separate chevron button on the right —
     the whole strip is clickable and the caret on the left rotates. A row that
     opens a table should not need you to find a 32px target at the far edge.
   */
-  const rigged = !!rig.truck && !!rig.trailer;
   const value = crew.tools.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0);
 
   /* A trailer with no truck is legal here — assigning one hands it straight to
@@ -199,7 +187,10 @@ export function CrewCard({
           className="crew-row flex cursor-pointer flex-col gap-1.5 px-3 py-2.5 transition-colors hover:bg-muted/40"
         >
           <div className="flex items-start gap-2">
-            <span aria-hidden className={cn("mt-1 h-[16px] w-[3px] shrink-0 rounded-sm", rigged ? "bg-ok" : "bg-warn")} />
+            <span
+              aria-hidden
+              className={cn("mt-1 h-[16px] w-[3px] shrink-0 rounded-sm", personToneBg(crew.foremanId))}
+            />
             <ChevronRight
               aria-hidden
               className={cn("mt-1 size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", expanded && "rotate-90")}
@@ -210,7 +201,6 @@ export function CrewCard({
                 externalId={crew.foremanExternalId}
                 name={crew.foremanName}
                 role={crew.foremanRole}
-                personId={crew.foremanId}
                 detail={[
                   `${crew.tools.length} tool${crew.tools.length === 1 ? "" : "s"}`,
                   moneyShort(value),
@@ -287,7 +277,7 @@ export function CrewCard({
       >
         <span
           aria-hidden
-          className={cn("h-[22px] w-[3px] shrink-0 rounded-sm", rigged ? "bg-ok" : "bg-warn")}
+          className={cn("h-[22px] w-[3px] shrink-0 rounded-sm", personToneBg(crew.foremanId))}
         />
         <ChevronRight
           aria-hidden
@@ -306,7 +296,6 @@ export function CrewCard({
             externalId={crew.foremanExternalId}
             name={crew.foremanName}
             role={crew.foremanRole}
-            personId={crew.foremanId}
             detail={[
               `${crew.tools.length} tool${crew.tools.length === 1 ? "" : "s"}`,
               rig.truck ? `truck ${rig.truck.unit}` : "no truck",
