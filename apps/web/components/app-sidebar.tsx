@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, ChevronUp, Pin, PinOff } from "lucide-react";
+import { OptixWordmark } from "@/components/optix-mark";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { DUR, EASE } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -61,7 +62,6 @@ export function AppSidebar({
   groups,
   activeGroupKey,
   inboxCount,
-  tenant,
   navPins,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
@@ -69,11 +69,6 @@ export function AppSidebar({
   activeGroupKey: string | undefined;
   inboxCount: number;
   navPins: NavPins;
-  /* Candidate placement A (2026-08-30) — a permanent org-identity block in
-     the footer, compared live against candidate B, the same block merged
-     into UserMenu. Whichever the client prefers stays; the other gets
-     deleted in a follow-up, not left behind half-used. */
-  tenant?: SidebarTenant;
 }) {
   const pathname = usePathname();
   const { pins, order, toggle, move } = navPins;
@@ -206,11 +201,15 @@ export function AppSidebar({
         ) : null}
       </SidebarContent>
 
-      {tenant ? (
-        <SidebarFooter className="border-t border-sidebar-border p-2">
-          <OrgIdentity tenant={tenant} />
-        </SidebarFooter>
-      ) : null}
+      {/* The product signature — Optix, in the brand mark colour (navy on
+          light, yellow on dark), set off by its footer border. The tenant's
+          own identity lives in the account menu, not here: the customer does
+          not need their own name under the nav. */}
+      <SidebarFooter className="border-t border-sidebar-border p-2">
+        <div className="px-1 pb-1 pt-2">
+          <OptixWordmark className="h-4 text-brand-mark" />
+        </div>
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>
@@ -218,36 +217,17 @@ export function AppSidebar({
 }
 
 /*
-  Candidate placement A — a permanent org-identity block, always visible,
-  every screen. No switcher: `session.tenantId` is singular today (a user
-  belongs to exactly one tenant), so there is nothing to switch between yet.
-  This renders the identity now and leaves room for a switcher the day that
-  stops being true, rather than building one against data that cannot yet
-  hold a second tenant.
-*/
-function OrgIdentity({ tenant }: { tenant: NonNullable<SidebarTenant> }) {
-  const displayName = tenant.brandingName || tenant.name || "—";
-  const iconOnly = tenant.brandingLayoutMode === "icon_only";
-  return (
-    <div className="flex items-center gap-2 px-1 py-1">
-      <OrgAvatar name={displayName} />
-      {!iconOnly ? (
-        <div className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</span>
-          {tenant.slug ? (
-            <span className="truncate text-xs text-sidebar-foreground/50">{tenant.slug}</span>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
+  Same shape as UserMenu's initials avatar, deliberately — an org and a
+  person are both "an identity with a name and no picture yet" until a logo
+  upload exists (see the schema comment on tenantSettings.brandingName). A
+  square rather than a circle is the only difference, so the two are never
+  mistaken for each other at a glance.
 
-/* Same shape as UserMenu's initials avatar, deliberately — an org and a
-   person are both "an identity with a name and no picture yet" until a logo
-   upload exists (see the schema comment on tenantSettings.brandingName). A
-   square rather than a circle is the only difference, so the two are never
-   mistaken for each other at a glance. */
+  The org identity is NOT rendered in the sidebar footer any more
+  (2026-09-04) — the account menu carries it — so the tenant block that used
+  to live there is deleted; only this avatar shape survives, because
+  UserMenu uses it by itself.
+*/
 export function OrgAvatar({ name, className }: { name: string; className?: string }) {
   const initial = name.trim()[0]?.toUpperCase() ?? "?";
   return (

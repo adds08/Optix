@@ -5,12 +5,16 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Blocky radii (ADR-7): 3px controls, 4px containers, 6px dialogs/sheets.
-     No pill shapes — the only circle in the system is the user avatar. */
-  --radius-sm: 3px;
+  /* Corner radii (ADR-7), now a scale around ONE knob.
+     `--radius` is the container size and is what Appearance → Corners sets;
+     every other token derives from it so a preset moves the whole system
+     together instead of leaving chips sharp while cards soften. The blocky
+     preset (0.25rem) reproduces the old 3/4/6/6 set exactly — this is the
+     same arithmetic, generalised. */
+  --radius-sm: calc(var(--radius) - 1px);
   --radius-md: var(--radius);
-  --radius-lg: 6px;
-  --radius-xl: 6px;
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 2px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -79,7 +83,9 @@
 /*
   STInventory palette.
   Neutrals carry a slight cool bias toward the accent so they read as chosen,
-  not inherited. Radius is tight (6px) — this is a yard tool, not a consumer app.
+  not inherited. Corners are the Appearance → Corners presets below: the soft
+  default keeps the system at 8px containers with a lighter feel than the old
+  tight 4px "Blocky" look, which stays available as a preset.
 */
 /*
   The base tokens ARE the Blocky palette (ADR-7).
@@ -105,7 +111,11 @@
   every palette: they mean the same thing in all of them.
 */
 :root {
-  --radius: 0.25rem;
+  /* The corner preset, applied per user through Appearance → Corners.
+     "soft" (0.5rem = 8px surfaces) is the default — the design file's
+     corners; "blocky" (0.25rem) restores the tight 4px house look; "round"
+     (0.75rem) is the generous end. Set inline by lib/themes/apply-theme.ts. */
+  --radius: 0.5rem;
 
   --background: oklch(0.970 0.003 265);         /* #F4F5F7 */
   --foreground: oklch(0.234 0.013 258);         /* #1A1E24 */
@@ -268,6 +278,11 @@
    utility's `top-0`/`left-0`. */
 [data-slot="sidebar-wrapper"] [data-slot="sidebar-container"] {
   top: 3.5rem; /* h-14 — the top bar that now spans the full width. */
+  bottom: 0;
+  /* The component's own `h-dvh` is the whole viewport; with `top` moved down
+     3.5rem that would run 56px past the bottom edge and chop the footer.
+     `auto` here restores "between the bar and the bottom of the window". */
+  height: auto;
 }
 
 @layer base {

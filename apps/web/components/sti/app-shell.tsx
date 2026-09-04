@@ -16,7 +16,6 @@ import { NotificationCenter } from "@/components/notification-center";
 import { UserMenu } from "@/components/user-menu";
 import { CommandPalette, useCommandPalette } from "@/components/command-palette";
 import { Search } from "lucide-react";
-import { OptixTile } from "@/components/optix-mark";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorkingBar } from "@/components/working-bar";
@@ -356,11 +355,15 @@ export function AppShell({
           selector, the group + page breadcrumb that opens the feature
           launcher, then search, notifications, theme and account. */}
       <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card px-4 lg:px-6">
-        {/* Brand mark — the design carries the logo at the head of the bar,
-            not on a separate rail. `optix-mark.tsx` is the one definition,
-            shared with the sign-in page and the boot splash. */}
-        <Link href="/home" aria-label="Optix home" className="-ml-1.5 shrink-0">
-          <OptixTile className="size-8" />
+        {/* The tenant mark — `assets/urban_logo.svg` is the supplied artwork,
+            green + yellow, used verbatim like the design's own `urban-wordmark`
+            image. A logo is not a palette, so it does not flip with the theme;
+            `aria-label` not `alt` because it is a link, not content. */}
+        {/* The supplied artwork is an SVG file with its own fixed colours —
+            inlining it would make the one definition copyable and driftable.
+            `alt=""` because the link carries the accessible name. */}
+        <Link href="/home" aria-label="Urban Infraconstruction home" className="-ml-1.5 shrink-0">
+          <img src="/assets/urban_logo.svg" alt="" className="h-7 w-auto" />
         </Link>
         <SidebarTrigger className="-ml-1.5" />
         <span className="hidden h-6 w-px shrink-0 bg-border md:block" aria-hidden />
@@ -423,7 +426,6 @@ export function AppShell({
           groups={railGroups}
           activeGroupKey={activeGroupKey}
           inboxCount={inboxCount}
-          tenant={me.data?.tenant ?? null}
           navPins={navPins}
         />
         <SidebarInset className="min-h-0 min-w-0 flex-1">
