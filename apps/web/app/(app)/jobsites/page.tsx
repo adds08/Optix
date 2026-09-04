@@ -6,7 +6,7 @@ import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
-import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { FilterPills, FilterField } from "@/components/sti/facets";
 import { isHighValue } from "@/components/sti/flags";
@@ -591,11 +591,6 @@ export default function JobsitesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Tools by Jobsite"
-        hideTitle
-        description="One card per job — its crews, the truck and trailer each foreman runs, and the tools riding with them."
-      />
       <RigPicker request={picker} onClose={() => setPicker(null)} onDone={invalidate} foremen={foremen} vehicles={vehicles.data ?? []} projects={projects.data ?? []} />
       <CrewAssignDialog
         request={assign}
@@ -608,15 +603,12 @@ export default function JobsitesPage() {
 
       <div className="flex min-w-0 flex-col gap-3">
           <>
-          {/* Bare, on the page background — NOT a bordered `bg-card` panel.
-              This toolbar was the only carded one in the product: /tools,
-              /people, /equipment, /custody, /projects and /org-chart all put
-              their search and filters straight on the page. No changelog ever
-              argued for the card, so it was an unexamined difference rather
-              than a decision, and it read as one screen belonging to a
-              different app. If a toolbar ever does need a panel, every one of
-              them gets it in the same change. */}
-          <section className="flex flex-col gap-2">
+          {/* Carded on `bg-card`, same as every other search/filter bar: the
+              toolbar is a control strip, so it sits on the surface controls
+              are drawn on rather than floating on the page background. The
+              one bar that used to be carded and the ones that were bare are
+              now the same treatment. */}
+          <section className="flex flex-col gap-2 rounded-md border bg-card p-2">
             {/* Search stays on the bar because it is the one control used on
                 every visit. The other six live in the sheet — as loose
                 dropdowns they wrapped to one per line the moment the window

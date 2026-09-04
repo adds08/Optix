@@ -527,8 +527,9 @@ export default function ToolsPage() {
       />
       <div className="flex flex-col gap-3">
         {/* One toolbar: job scope, search, the filter sheet (the former facet
-            rail), and the saved-view menu. */}
-        <div className="flex flex-wrap items-center gap-2">
+            rail), and the saved-view menu. Carded on `bg-card` so it reads as
+            a control strip rather than controls floating on the page. */}
+        <div className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-2">
           <div className="relative min-w-[200px] max-w-sm flex-1">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
