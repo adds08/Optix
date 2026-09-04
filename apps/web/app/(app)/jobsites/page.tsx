@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Building2, ChevronDown, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
@@ -383,11 +383,12 @@ export default function JobsitesPage() {
         toolCount,
         value,
         gaps,
-        /* No tint. The card already carries an icon chip, the gap pill and
-           the crew list under a plain header; a primary wash behind all of it
-           was the third use of the same hue in one strip. The header is
-           separated by the card's own border and the body's rule, not by
-           colour. */
+        /* No tint: the job header gets its band from the render site's
+           fallback (bg-muted/40) rather than a coloured wash. The card
+           already carries an icon chip, the gap pill and the crew list; a
+           primary wash behind all of it was the third use of the same hue in
+           one strip. The special (yard / between jobs) cards tint differently
+           because there the colour says what kind of pile this is. */
         tint: "",
         fullyRigged: crews.filter((c) => c.rig.truck && c.rig.trailer).length,
       });
@@ -934,16 +935,32 @@ export default function JobsitesPage() {
               >
                 <header
                   className={cn(
-                    /* Slim list header, per the design: no full-width muted
-                       band and no double rule. The special (yard / between
-                       jobs) cards keep their tint — there the wash says what
-                       kind of pile this is — and a normal job's header is the
-                       plain surface with the card's own border around it. The
-                       open body below draws the one rule that separates it. */
-                    "flex flex-wrap items-center gap-3 px-3 py-2.5",
-                    card.tint,
+                    /* Slim list header, per the design: the icon chip, the
+                       name, the counts. Normal jobs carry a faint wash so the
+                       project row reads as the outer level of the nested
+                       layout — the foreman boxes that open below are white
+                       cards on the tinted body, and the header is the band
+                       they hang from. The special (yard / between jobs) cards
+                       keep their stronger tints — there the colour says what
+                       kind of pile this is. */
+                    "flex flex-wrap items-center gap-2 px-2.5 py-2",
+                    card.tint || "bg-muted/40",
                   )}
                 >
+                  {/* Expand / collapse at the FRONT, beside the foreman
+                      chevrons that open under it — the desk clicks down the
+                      left edge, and a project toggle stranded at the far right
+                      would cost a mouse trip across every card. */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="order-first -ml-1 size-8 shrink-0"
+                    aria-label={open ? `Collapse ${card.name}` : `Expand ${card.name}`}
+                    aria-expanded={open}
+                    onClick={() => setOpenJobs((o) => ({ ...o, [card.id]: !open }))}
+                  >
+                    <ChevronRight className={cn("size-4 transition-transform", open && "rotate-90")} />
+                  </Button>
                   {/* The chip identifies the KIND of card (job / yard / between jobs). That
                       is not a state, so it does not take the accent — with the
                       edge bar right beside it, an accent chip made the same point
@@ -1002,23 +1019,22 @@ export default function JobsitesPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button variant="outline" size="icon" className="size-8" aria-label="Expand" onClick={() => setOpenJobs((o) => ({ ...o, [card.id]: !open }))}>
-                      <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
-                    </Button>
                   </span>
                 </header>
 
                 {open ? (
                   /* One bordered container per foreman, nested inside the job
                      card — the design's two-level shape, not a flat register.
-                     Each crew box carries its own header row and the tool table
-                     opens under it (folded to five rows + "Show more" inside
-                     ToolTable). The loose section keeps its tinted band below
-                     as its own row under the crew list. */
-                  <div className="border-t border-border">
+                     The body carries a faint wash so the white crew boxes read
+                     as cards ON it, not as one more flat surface; each crew
+                     box has its own header row and the tool table opens under
+                     it (folded to five rows + "Show more" inside ToolTable).
+                     The loose section keeps its tinted band below as its own
+                     row under the crew list. */
+                  <div className="border-t border-border bg-muted/10">
                     <div className="flex flex-col gap-2 p-2">
                       {card.crews.length ? (
-                        card.crews.map((crew, i) => (
+                        card.crews.map((crew) => (
                           <CrewCard
                             key={crew.id}
                             crew={crew}
@@ -1040,7 +1056,6 @@ export default function JobsitesPage() {
                             }
                             canManage={canDrive}
                             canAct={canActTools}
-                            striped={i % 2 === 1}
                             highlight={q}
                             projectId={card.id}
                           />
