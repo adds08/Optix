@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0}
+body{background:#F4F5F7;font-family:'Inter Tight',system-ui,sans-serif;color:#1A1E24}
+a{color:#3A6E9E;text-decoration:none}
+a:hover{color:#1E3A54}
+input::placeholder{color:#6E7681}
+button{font-family:inherit}
+@keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;height:100vh;overflow:hidden;background:#F4F5F7;color:#1A1E24;font-family:'Inter Tight',system-ui,sans-serif">
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <g id="i-base" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></g>
+    <symbol id="i-desk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></symbol>
+    <symbol id="i-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-jobsites" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 21 8l-9 4.8L3 8l9-4.8Z"/><path d="M3 12.4 12 17.2 21 12.4"/><path d="M3 16.6 12 21.4 21 16.6"/></symbol>
+    <symbol id="i-custody" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.5" width="15" height="16" rx="2.2"/><path d="M9 3.4h6v3.2H9z"/><path d="m9 13 2.2 2.2L15.4 11"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 10.4c0 5-7 11-7 11s-7-6-7-11a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10.2" r="2.6"/></symbol>
+    <symbol id="i-reports" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.2H6.8A1.8 1.8 0 0 0 5 5v14a1.8 1.8 0 0 0 1.8 1.8h10.4A1.8 1.8 0 0 0 19 19V8.7Z"/><path d="M13.5 3.2V8.7H19"/><path d="M8.6 13h6.8M8.6 16.6h6.8"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12h4l2.5-6.5 4 13L16.5 12h4"/></symbol>
+    <symbol id="i-tools" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 4.4a4.8 4.8 0 0 0-6 6L4.6 15a2 2 0 0 0 2.8 2.8l4.6-4.6a4.8 4.8 0 0 0 6-6l-2.8 2.8-2.4-2.4Z"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 13.4h4.2l1.4 2.6h5.6l1.4-2.6h4.2"/><path d="M6 4.6h12l2.4 8.8V18a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2v-4.6Z"/></symbol>
+    <symbol id="i-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.4" cy="8.4" r="3.4"/><path d="M3.4 20a6 6 0 0 1 12 0"/><path d="M16.4 5.4a3.4 3.4 0 0 1 0 6.6M17.4 14.6a6 6 0 0 1 3.2 5.4"/></symbol>
+    <symbol id="i-projects" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 6.6a2 2 0 0 1 2-2h3.2l2 2.6h7.6a2 2 0 0 1 2 2v8.2a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2Z"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v3M12 18.2v3M21.2 12h-3M5.8 12h-3M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1M18.5 18.5l-2.1-2.1M7.6 7.6 5.5 5.5"/></symbol>
+    <symbol id="i-safety" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 19.4 6v6c0 4.5-3.1 7.7-7.4 9-4.3-1.3-7.4-4.5-7.4-9V6Z"/><path d="m9.2 12 2 2 3.6-3.8"/></symbol>
+    <symbol id="i-procurement" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.6" cy="19.4" r="1.4"/><circle cx="17.4" cy="19.4" r="1.4"/><path d="M3 3.6h2.6l2.4 11.2h10.4l1.8-7.6H6.6"/></symbol>
+    <symbol id="i-equipment" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 15.4V7.6a1.4 1.4 0 0 1 1.4-1.4h8.6v9.2Z"/><path d="M12.8 9.6h3.6l3.4 3.4v2.4h-7Z"/><circle cx="7" cy="17.4" r="1.8"/><circle cx="16.6" cy="17.4" r="1.8"/></symbol>
+    <symbol id="i-payroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 6.8v10.4M14.6 9.4a2.8 2.8 0 0 0-2.6-1.4c-1.6 0-2.8.9-2.8 2.2 0 3 5.6 1.6 5.6 4.4 0 1.4-1.3 2.3-3 2.3a3.1 3.1 0 0 1-2.8-1.5"/></symbol>
+    <symbol id="i-schedule" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.6" y="5.2" width="16.8" height="15.2" rx="2"/><path d="M3.6 10h16.8M8.4 3.4v3.4M15.6 3.4v3.4"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.8" cy="10.8" r="6.6"/><path d="m15.8 15.8 4.2 4.2"/></symbol>
+    <symbol id="i-chev-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 9.5 5.5 5.5 5.5-5.5"/></symbol>
+    <symbol id="i-chev-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6.5 14.5 5.5-5.5 5.5 5.5"/></symbol>
+    <symbol id="i-chev-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></symbol>
+    <symbol id="i-chev-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5 9 12l5.5 5.5"/></symbol>
+    <symbol id="i-sidebar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2"/><path d="M10 4.6v14.8"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.4 6.6h15.2M7.2 12h9.6M10 17.4h4"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.6v14.8M8 4.6 5 7.8M8 4.6l3 3.2M16 19.4V4.6M16 19.4l-3-3.2M16 19.4l3-3.2"/></symbol>
+    <symbol id="i-scope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.6"/><circle cx="12" cy="12" r="2.6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.6 4.6 4.6L19 7.4"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.8 15.4V7.6a1.4 1.4 0 0 1 1.4-1.4h8.6v9.2Z"/><path d="M12.8 9.6h3.6l3.4 3.4v2.4h-7Z"/><circle cx="7" cy="17.4" r="1.8"/><circle cx="16.6" cy="17.4" r="1.8"/></symbol>
+    <symbol id="i-trailer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="15" height="8.4" rx="1.4"/><path d="M18 13.4h3"/><circle cx="8" cy="17.8" r="1.6"/><circle cx="13.4" cy="17.8" r="1.6"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.2 21 19.4H3Z"/><path d="M12 10v4M12 16.8v.2"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.4v13.2M5.4 12h13.2"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m6.4 6.4 11.2 11.2M17.6 6.4 6.4 17.6"/></symbol>
+    <symbol id="i-yard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 9.6 12 4.4l8.6 5.2v9a1.6 1.6 0 0 1-1.6 1.6H5a1.6 1.6 0 0 1-1.6-1.6Z"/><path d="M9.4 20.2v-6h5.2v6"/></symbol>
+    <symbol id="i-nojob" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6A8.4 8.4 0 0 1 20.4 12"/></symbol>
+  </defs></svg>
+
+  <header style="flex:none;display:flex;align-items:center;gap:14px;height:56px;padding:0 20px;background:#FFFFFF;border-bottom:1px solid #D8DBE0">
+    <img src="assets/urban-wordmark.png" alt="Urban Infraconstruction" style="height:28px;flex:none;object-fit:contain;border-radius:4px">
+
+    <button onClick="{{ toggleSidebar }}" title="Toggle sidebar" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:#6E7681;cursor:pointer"><svg width="17" height="17"><use href="#i-sidebar"></use></svg></button>
+
+    <span style="width:1px;height:24px;flex:none;background:#D8DBE0"></span>
+
+    <div style="position:relative;width:208px;flex:none">
+      <button onClick="{{ toggleScope }}" style="display:flex;align-items:center;gap:8px;width:100%;height:38px;padding:0 8px;border-radius:8px;border:none;cursor:pointer;background:transparent">
+        <span style="display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:6px;background:#3A6E9E;color:#FFFFFF"><svg width="14" height="14"><use href="#i-scope"></use></svg></span>
+        <span style="flex:1;min-width:0;text-align:left;font-size:12.5px;font-weight:650;color:#1A1E24;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ scopeLabel }}</span>
+        <span style="flex:none;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:#1E3A54;background:#E8F0F8;border-radius:3px;padding:1px 5px">{{ scopeCount }}</span>
+        <span style="flex:none;display:grid;place-items:center;color:#6E7681"><svg width="13" height="13"><use href="#i-sort"></use></svg></span>
+      </button>
+      <sc-if value="{{ scopeOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closeMenus }}" style="position:fixed;inset:0;z-index:60"></div>
+        <div style="position:absolute;top:42px;left:0;z-index:61;width:280px;max-height:360px;overflow:auto;border-radius:8px;border:1px solid #C8CCD2;background:#FFFFFF;padding:5px;box-shadow:0 18px 48px rgba(20,24,28,.18)">
+          <sc-for list="{{ scopeOptions }}" as="opt" hint-placeholder-count="5">
+            <button onClick="{{ opt.pick }}" style="display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 9px;border-radius:5px;border:none;cursor:pointer;background:transparent;font-size:12.5px;text-align:left;color:#505860">
+              <span style="width:13px;flex:none;display:grid;place-items:center;color:#3A6E9E;opacity:{{ opt.tickOpacity }}"><svg width="12" height="12"><use href="#i-check"></use></svg></span>
+              <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600">{{ opt.label }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#6E7681">{{ opt.count }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <span style="width:1px;height:24px;flex:none;background:#D8DBE0"></span>
+
+    <div style="position:relative">
+      <button onClick="{{ toggleMenu }}" style="display:flex;align-items:center;gap:9px;height:36px;padding:0 10px;border-radius:6px;border:none;background:transparent;cursor:pointer">
+        <span style="text-align:left">
+          <span style="display:block;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.12em;color:#6E7681">{{ activeGroupLabel }}</span>
+          <span style="display:block;font-size:14px;font-weight:650;color:#0F1216;line-height:1.2">{{ currentLabel }}</span>
+        </span>
+        <span style="display:grid;place-items:center;color:#6E7681"><svg width="14" height="14"><use href="#i-chev-down"></use></svg></span>
+      </button>
+      <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closeMenus }}" style="position:fixed;inset:0;z-index:60"></div>
+        <div style="position:fixed;top:64px;left:20px;z-index:61;width:calc(100vw - 40px);max-width:740px;border-radius:12px;border:1px solid #C8CCD2;background:#FFFFFF;box-shadow:0 24px 60px rgba(20,24,28,.2);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:9px;height:46px;padding:0 16px;border-bottom:1px solid #E0E3E8">
+            <span style="display:grid;place-items:center;color:#6E7681"><svg width="15" height="15"><use href="#i-search"></use></svg></span>
+            <input value="{{ menuQuery }}" onInput="{{ onMenuSearch }}" placeholder="Search all features…" style="flex:1;border:none;outline:none;background:transparent;font-size:13px;color:#1A1E24;font-family:inherit">
+          </div>
+          <div style="display:flex;min-height:300px">
+            <div style="width:244px;flex:none;border-right:1px solid #E0E3E8;padding:10px;background:#FBFCFD">
+              <sc-for list="{{ menuGroups }}" as="group" hint-placeholder-count="4">
+                <button onClick="{{ group.select }}" style="display:flex;align-items:center;gap:11px;width:100%;height:48px;padding:0 12px;margin-bottom:3px;border-radius:9px;border:none;cursor:pointer;text-align:left;background:{{ group.bg }}">
+                  <span style="display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:8px;background:{{ group.iconBg }};color:{{ group.fg }}"><svg width="16" height="16"><use href="{{ group.iconRef }}"></use></svg></span>
+                  <span style="flex:1;min-width:0;font-size:13.5px;font-weight:650;color:{{ group.fg }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ group.label }}</span>
+                  <span style="display:grid;place-items:center;flex:none;color:#6E7681;opacity:{{ group.caretOpacity }}"><svg width="13" height="13"><use href="#i-chev-right"></use></svg></span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="flex:1;min-width:0;padding:18px 20px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 20px">
+                <sc-for list="{{ menuItems }}" as="item" hint-placeholder-count="6">
+                  <button onClick="{{ item.go }}" style="display:flex;gap:11px;align-items:flex-start;text-align:left;border:none;background:transparent;cursor:pointer;padding:4px;border-radius:7px">
+                    <span style="display:grid;place-items:center;width:26px;height:26px;flex:none;border-radius:7px;background:#EEF3F9;color:#3A6E9E"><svg width="15" height="15"><use href="{{ item.iconRef }}"></use></svg></span>
+                    <span style="min-width:0">
+                      <span style="display:block;font-size:13.5px;font-weight:650;color:#0F1216">{{ item.label }}</span>
+                      <span style="display:block;font-size:11.5px;color:#6E7681;margin-top:3px;line-height:1.4;text-wrap:pretty">{{ item.desc }}</span>
+                    </span>
+                  </button>
+                </sc-for>
+              </div>
+              <sc-if value="{{ menuEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:26px 4px;font-size:12.5px;color:#6E7681">No feature matches that search.</div>
+              </sc-if>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <div style="display:flex;align-items:center;gap:8px;width:220px;height:32px;padding:0 13px;border-radius:16px;background:#F0F1F4;color:#6E7681;font-size:12px"><svg width="14" height="14"><use href="#i-search"></use></svg> Search…</div>
+    <div style="display:grid;place-items:center;width:28px;height:28px;flex:none;border-radius:50%;background:#E8F0F8;color:#1E3A54;font-size:10.5px;font-weight:700">DM</div>
+  </header>
+
+  <div style="flex:1;min-height:0;display:flex">
+    <sc-if value="{{ sidebarOpen }}" hint-placeholder-val="{{ true }}">
+      <aside style="width:220px;flex:none;display:flex">
+        <div style="flex: 1; min-height: 0; overflow: auto; padding: 10px 8px; background-color: #FFFFFF">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.16em;color:#6E7681;padding:4px 8px 7px">{{ activeGroupLabel }}</div>
+            <sc-for list="{{ sidebarItems }}" as="item" hint-placeholder-count="3">
+              <button onClick="{{ item.go }}" style="position:relative;display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 10px;margin-bottom:2px;border-radius:5px;border:none;cursor:pointer;font-size:12.5px;text-align:left;background:{{ item.bg }};color:{{ item.fg }};font-weight:{{ item.weight }}">
+                <span style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:16px;border-radius:0 3px 3px 0;background:#3A6E9E;opacity:{{ item.markOpacity }}"></span>
+                <span style="display:grid;place-items:center;flex:none;color:{{ item.fg }}"><svg width="15" height="15"><use href="{{ item.iconRef }}"></use></svg></span>
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ item.label }}</span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#3A6E9E">{{ item.badge }}</span>
+              </button>
+            </sc-for>
+          </div>
+      </aside>
+    </sc-if>
+
+    <main style="flex:1;min-width:0;min-height:0;display:flex;animation:pageIn .22s ease-out">
+
+      <sc-if value="{{ isJobsites }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;min-width:0;min-height:0;overflow:auto;padding:16px 20px 40px">
+
+          <section style="display:flex;flex-direction:column;gap:9px;border-radius:8px;border:1px solid #D8DBE0;background:#FFFFFF;padding:12px;margin-bottom:12px">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+              <div style="position:relative;flex:1;min-width:240px">
+                <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);display:grid;place-items:center;color:#6E7681"><svg width="14" height="14"><use href="#i-search"></use></svg></span>
+                <input value="{{ q }}" onInput="{{ onSearch }}" placeholder="Search everything — job, foreman, truck, trailer, serial or tool…" style="width:100%;height:34px;padding:0 10px 0 32px;border-radius:8px;border:1px solid #D8DBE0;background:#F7F8FA;color:#1A1E24;font-size:12.5px;font-family:inherit;outline:none;box-sizing:border-box">
+              </div>
+              <button onClick="{{ openSheet }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:8px;border:1px solid #D8DBE0;background:#FFFFFF;color:#505860;cursor:pointer;font-size:12px;font-weight:600"><svg width="14" height="14"><use href="#i-filter"></use></svg> Filter <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#3A6E9E">{{ sheetCount }}</span></button>
+              <button onClick="{{ toggleCollapseAll }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:8px;border:1px solid #D8DBE0;background:#FFFFFF;color:#505860;cursor:pointer;font-size:12px;font-weight:600"><svg width="14" height="14"><use href="{{ collapseIconRef }}"></use></svg> {{ collapseLabel }}</button>
+            </div>
+
+            <sc-if value="{{ hasPills }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <sc-for list="{{ pills }}" as="pill" hint-placeholder-count="2">
+                  <button onClick="{{ pill.clear }}" style="display:flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:12px;border:1px solid #C8CCD2;background:#F0F1F4;color:#505860;font-size:11.5px;cursor:pointer">{{ pill.label }} <span style="color:#6E7681">×</span></button>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12.5px;color:#6E7681">
+              <span style="font-family:'JetBrains Mono',monospace">{{ countsLabel }}</span>
+              <sc-if value="{{ hasRigGaps }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ toggleNoTruck }}" style="font-family:'JetBrains Mono',monospace;border-radius:12px;padding:2px 8px;border:none;cursor:pointer;font-weight:600;color:#B37A18;background:{{ noTruckBg }}">{{ rigGapLabel }}</button>
+              </sc-if>
+              <sc-if value="{{ anyFilter }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ clearFilters }}" style="height:22px;padding:0 6px;border:none;background:transparent;color:#3A6E9E;font-size:12px;font-weight:600;cursor:pointer">Clear filters</button>
+              </sc-if>
+            </div>
+          </section>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ cards }}" as="card" hint-placeholder-count="3">
+              <section style="border-radius:8px;border:1px solid #D8DBE0;background:#FFFFFF;overflow:visible">
+                <header style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;background:{{ card.tint }};border-radius:8px 8px 0 0">
+                  <span style="display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:10px;background:#E8F0F8;color:#3A6E9E"><svg width="19" height="19"><use href="{{ card.iconRef }}"></use></svg></span>
+                  <span style="display:flex;flex:1;min-width:160px;flex-wrap:wrap;align-items:center;gap:8px">
+                    <span style="font-size:15px;font-weight:650;color:#0F1216;letter-spacing:-.015em">{{ card.name }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#6E7681;border:1px solid #C8CCD2;background:#F0F1F4;border-radius:3px;padding:2px 6px">{{ card.code }}</span>
+                    <span style="font-size:12.5px;color:#6E7681">{{ card.crewLabel }}</span>
+                    <sc-if value="{{ card.hasGap }}" hint-placeholder-val="{{ false }}">
+                      <span style="display:flex;align-items:center;gap:6px;border-radius:12px;background:rgba(179,122,24,.1);padding:3px 10px;font-size:11.5px;font-weight:600;color:#B37A18"><svg width="13" height="13"><use href="#i-warn"></use></svg> {{ card.gapLabel }}</span>
+                    </sc-if>
+                  </span>
+                  <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+                    <span style="text-align:right;white-space:nowrap">
+                      <span style="display:block;border-radius:5px;border:1px solid #D8DBE0;background:#F0F1F4;padding:1px 8px;font-size:11.5px;color:#6E7681"><span style="font-family:'JetBrains Mono',monospace;font-weight:700;color:#1A1E24">{{ card.toolCount }}</span> tools</span>
+                      <span style="display:block;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#6E7681;margin-top:2px">{{ card.valueLabel }}</span>
+                    </span>
+                    <sc-if value="{{ card.isJob }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ card.addCrew }}" style="display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:8px;border:1px dashed #A9BFD6;background:#F4F8FC;color:#3A6E9E;cursor:pointer;font-size:12px;font-weight:600"><svg width="13" height="13"><use href="#i-plus"></use></svg> Add crew</button>
+                    </sc-if>
+                    <button onClick="{{ card.toggle }}" style="display:grid;place-items:center;width:30px;height:30px;border-radius:8px;border:1px solid #D8DBE0;background:#FFFFFF;color:#505860;cursor:pointer"><svg width="15" height="15"><use href="{{ card.chevronRef }}"></use></svg></button>
+                  </span>
+                </header>
+
+                <sc-if value="{{ card.open }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;flex-direction:column;gap:9px;border-top:1px solid #D8DBE0;background:#F8F9FA;padding:12px">
+                    <sc-for list="{{ card.crews }}" as="crew" hint-placeholder-count="2">
+                      <div style="border-radius:8px;border:1px solid #D8DBE0;background:#FFFFFF;overflow:hidden">
+                        <div onClick="{{ crew.toggle }}" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:9px 12px;cursor:pointer">
+                          <span style="width:3px;height:22px;flex:none;border-radius:2px;background:{{ crew.rigColor }}"></span>
+                          <span style="display:grid;place-items:center;width:14px;flex:none;color:#6E7681"><svg width="13" height="13"><use href="{{ crew.caretRef }}"></use></svg></span>
+                          <span style="flex:1 1 150px;min-width:0">
+                            <span style="display:block;font-size:13.5px;font-weight:600;color:#1A1E24;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ crew.foreman }}</span>
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;color:#6E7681">{{ crew.role }}</span>
+                          </span>
+                          <span style="display:flex;align-items:center;gap:6px;flex:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:{{ crew.truckColor }};border:1px solid {{ crew.truckBorder }};border-radius:6px;padding:3px 9px"><svg width="14" height="14"><use href="#i-truck"></use></svg> {{ crew.truckLabel }}</span>
+                          <span style="display:flex;align-items:center;gap:6px;flex:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:{{ crew.trailerColor }};border:1px solid {{ crew.trailerBorder }};border-radius:6px;padding:3px 9px"><svg width="14" height="14"><use href="#i-trailer"></use></svg> {{ crew.trailerLabel }}</span>
+                          <span style="flex:1"></span>
+                          <span style="font-size:12px;flex:none;white-space:nowrap;color:{{ crew.updatedColor }}">{{ crew.updated }}</span>
+                          <span style="flex:none;white-space:nowrap"><span style="font-family:'JetBrains Mono',monospace;font-size:13.5px;font-weight:700;color:#0F1216">{{ crew.toolCount }}</span><span style="font-size:11.5px;color:#6E7681"> tools</span></span>
+                          <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#6E7681;flex:none;white-space:nowrap">{{ crew.valueLabel }}</span>
+                        </div>
+
+                        <sc-if value="{{ crew.expanded }}" hint-placeholder-val="{{ true }}">
+                          <div>
+                            <div style="display:flex;align-items:center;gap:12px;padding:7px 12px;background:#F8F9FA;border-top:1px solid #E0E3E8;border-bottom:1px solid #E0E3E8;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:#6E7681">
+                              <span style="width:84px;flex:none">TAG</span>
+                              <span style="flex:1">TOOL</span>
+                              <span style="width:96px;flex:none">CATEGORY</span>
+                              <span style="width:88px;flex:none">STATUS</span>
+                              <span style="width:92px;flex:none;text-align:right">CONDITION</span>
+                            </div>
+                            <sc-for list="{{ crew.tools }}" as="tool" hint-placeholder-count="4">
+                              <div style="display:flex;align-items:center;gap:12px;padding:7px 12px;border-bottom:1px solid #E0E3E8;background:{{ tool.rowBg }}">
+                                <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#3A6E9E;width:84px;flex:none">{{ tool.tag }}</span>
+                                <span style="flex:1;min-width:0;font-size:13px;color:#1A1E24;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tool.name }}</span>
+                                <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#6E7681;width:96px;flex:none">{{ tool.cat }}</span>
+                                <span style="font-size:11.5px;color:#6E7681;width:88px;flex:none">{{ tool.statusLabel }}</span>
+                                <span style="font-size:12px;font-weight:600;width:92px;flex:none;text-align:right;color:{{ tool.condColor }}">{{ tool.condition }}</span>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+
+                    <sc-if value="{{ card.showEmptyCrew }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ card.addCrew }}" style="border-radius:8px;border:1px dashed #C8CCD2;background:#FFFFFF;padding:16px;text-align:left;font-size:12.5px;font-weight:600;color:#3A6E9E;cursor:pointer">No crew on this job yet — add a foreman with a truck or trailer.</button>
+                    </sc-if>
+
+                    <sc-if value="{{ card.hasLoose }}" hint-placeholder-val="{{ false }}">
+                      <div style="border-radius:8px;border:1px solid #D8DBE0;background:#F8F9FA;overflow:hidden">
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid #D8DBE0;background:#F0F1F4;font-size:12px;font-weight:650;color:#505860">
+                          <span>{{ card.looseLabel }}</span>
+                          <span style="font-family:'JetBrains Mono',monospace;font-weight:400;color:#6E7681">{{ card.looseCount }}</span>
+                          <button onClick="{{ card.assignLoose }}" style="margin-left:auto;height:24px;padding:0 9px;border-radius:4px;border:1px solid #C8CCD2;background:#FFFFFF;color:#1A1E24;font-size:11.5px;font-weight:600;cursor:pointer">Assign to foreman…</button>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:12px;padding:7px 12px;background:#F8F9FA;border-bottom:1px solid #E0E3E8;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:#6E7681">
+                          <span style="width:84px;flex:none">TAG</span>
+                          <span style="flex:1">TOOL</span>
+                          <span style="width:176px;flex:none">WHERE</span>
+                          <span style="width:92px;flex:none;text-align:right">CONDITION</span>
+                        </div>
+                        <sc-for list="{{ card.loose }}" as="tool" hint-placeholder-count="2">
+                          <div style="display:flex;align-items:center;gap:12px;padding:7px 12px;border-bottom:1px solid #E0E3E8;background:{{ tool.rowBg }}">
+                            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#3A6E9E;width:84px;flex:none">{{ tool.tag }}</span>
+                            <span style="flex:1;min-width:0;font-size:13px;color:#1A1E24;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tool.name }}</span>
+                            <span style="font-size:12px;color:#6E7681;width:176px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tool.where }}</span>
+                            <span style="font-size:12px;font-weight:600;width:92px;flex:none;text-align:right;color:{{ tool.condColor }}">{{ tool.condition }}</span>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </section>
+            </sc-for>
+
+            <sc-if value="{{ noCards }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:60px 0;text-align:center;color:#6E7681;font-size:13.5px">Nothing matches those filters — clear one, or search for a different unit.</div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;min-width:0;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:18px">
+          <sc-if value="{{ showModules }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:none">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:#6E7681;margin-bottom:8px">MODULES</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+                <sc-for list="{{ modules }}" as="mod" hint-placeholder-count="6">
+                  <button onClick="{{ mod.go }}" style="text-align:left;cursor:pointer;border:1px solid #D8DBE0;border-radius:8px;background:#FFFFFF;padding:0;overflow:hidden">
+                    <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:{{ mod.bg }}">
+                      <span style="font-size:14px;color:{{ mod.fg }}">{{ mod.icon }}</span>
+                      <span style="font-size:13px;font-weight:650;color:{{ mod.fg }}">{{ mod.label }}</span>
+                    </div>
+                    <div style="padding:8px 12px;font-size:11.5px;color:#6E7681">{{ mod.hint }}</div>
+                  </button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;flex:none">
+            <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="5">
+              <div style="padding:12px 14px;border-radius:8px;border:1px solid #D8DBE0;background:#FFFFFF">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;line-height:1.1;color:{{ m.color }}">{{ m.value }}</div>
+                <div style="font-size:11.5px;font-weight:600;color:#505860;margin-top:3px">{{ m.label }}</div>
+                <div style="font-size:10px;color:#6E7681;margin-top:1px">{{ m.hint }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <section style="flex:none;border-radius:8px;border:1px solid #D8DBE0;background:#FFFFFF;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:24px;padding:14px 20px;border-bottom:1px solid #D8DBE0">
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:#3A6E9E;letter-spacing:.03em">{{ monitor.code }}</span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.12em;padding:4px 10px;border-radius:3px;color:#2F7D52;border:1px solid rgba(47,125,82,.35);background:rgba(47,125,82,.1)">{{ monitor.status }}</span>
+                </div>
+                <div style="font-size:18px;font-weight:700;color:#0F1216;margin-top:4px;letter-spacing:-.02em">{{ monitor.name }}</div>
+                <div style="font-size:12.5px;color:#6E7681;margin-top:2px">{{ monitor.city }}</div>
+              </div>
+              <div style="flex:none;display:flex;gap:10px">
+                <button onClick="{{ monitorPrev }}" style="height:30px;padding:0 12px;border-radius:5px;border:1px solid #D8DBE0;background:#F0F1F4;color:#505860;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer">‹ PREV</button>
+                <button onClick="{{ monitorNext }}" style="height:30px;padding:0 12px;border-radius:5px;border:1px solid #D8DBE0;background:#F0F1F4;color:#505860;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;cursor:pointer">NEXT ›</button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:16px;height:34px;padding:0 20px;background:#F8F9FA;border-bottom:1px solid #D8DBE0;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.15em;color:#6E7681">
+              <span style="width:104px;flex:none">TOOL ID</span>
+              <span style="flex:1">TOOL NAME</span>
+              <span style="width:190px;flex:none">ASSIGNED FOREMAN</span>
+              <span style="width:110px;flex:none;text-align:right">CONDITION</span>
+            </div>
+            <div style="max-height:320px;overflow:auto">
+              <sc-for list="{{ monitorTools }}" as="tool" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:16px;height:34px;padding:0 20px;border-bottom:1px solid #E0E3E8;background:{{ tool.rowBg }}">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:#3A6E9E;width:104px;flex:none">{{ tool.tag }}</span>
+                  <span style="flex:1;min-width:0;font-size:14px;color:#1A1E24;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tool.name }}</span>
+                  <span style="width:190px;flex:none;font-size:13.5px;font-weight:500;color:#505860;white-space:nowrap">{{ tool.foreman }}</span>
+                  <span style="width:110px;flex:none;font-size:12.5px;font-weight:600;text-align:right;color:{{ tool.condColor }}">{{ tool.condition }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isPlaceholder }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:40px">
+          <div style="font-size:17px;font-weight:650;color:#0F1216">{{ currentLabel }}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#6E7681">{{ currentHref }}</div>
+          <div style="font-size:12.5px;color:#6E7681;max-width:380px;text-align:center;margin-top:4px">This route exists upstream but has no design in this project yet.</div>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div onClick="{{ closeSheet }}" style="position:fixed;inset:0;z-index:70;background:rgba(20,24,28,.35)"></div>
+      <aside style="position:fixed;top:0;right:0;bottom:0;z-index:71;width:340px;display:flex;flex-direction:column;background:#FFFFFF;border-left:1px solid #D8DBE0;box-shadow:-18px 0 48px rgba(20,24,28,.2)">
+        <div style="display:flex;align-items:center;height:56px;flex:none;padding:0 16px;border-bottom:1px solid #D8DBE0">
+          <span style="font-size:13.5px;font-weight:650;color:#0F1216">Filter jobsites</span>
+          <div style="flex:1"></div>
+          <button onClick="{{ closeSheet }}" style="display:grid;place-items:center;width:26px;height:26px;border-radius:4px;border:none;background:transparent;color:#6E7681;cursor:pointer;font-size:14px">×</button>
+        </div>
+        <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:14px;padding:16px">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:#6E7681">FOREMAN</span>
+            <select value="{{ filters.foreman }}" onChange="{{ setForeman }}" style="height:32px;padding:0 9px;border-radius:5px;border:1px solid #D8DBE0;background:#F0F1F4;color:#1A1E24;font-size:12.5px;font-family:inherit;outline:none">
+              <option value="">All foremen</option>
+              <sc-for list="{{ foremanOptions }}" as="f" hint-placeholder-count="4">
+                <option value="{{ f.id }}">{{ f.name }}</option>
+              </sc-for>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:#6E7681">TOOL STATUS</span>
+            <select value="{{ filters.status }}" onChange="{{ setStatus }}" style="height:32px;padding:0 9px;border-radius:5px;border:1px solid #D8DBE0;background:#F0F1F4;color:#1A1E24;font-size:12.5px;font-family:inherit;outline:none">
+              <option value="">Any status</option>
+              <option value="assigned">Assigned</option>
+              <option value="available">Available</option>
+              <option value="in_maintenance">In maintenance</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:#6E7681">TOOL CATEGORY</span>
+            <select value="{{ filters.category }}" onChange="{{ setCategory }}" style="height:32px;padding:0 9px;border-radius:5px;border:1px solid #D8DBE0;background:#F0F1F4;color:#1A1E24;font-size:12.5px;font-family:inherit;outline:none">
+              <option value="">Any category</option>
+              <sc-for list="{{ categoryOptions }}" as="c" hint-placeholder-count="4">
+                <option value="{{ c }}">{{ c }}</option>
+              </sc-for>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;color:#6E7681">RIG GAP</span>
+            <select value="{{ filters.gap }}" onChange="{{ setGap }}" style="height:32px;padding:0 9px;border-radius:5px;border:1px solid #D8DBE0;background:#F0F1F4;color:#1A1E24;font-size:12.5px;font-family:inherit;outline:none">
+              <option value="">Any rig</option>
+              <option value="no_crew">Job with no crew</option>
+              <option value="no_truck">Crew without a truck</option>
+              <option value="no_trailer">Crew without a trailer</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex:none;padding:16px;border-top:1px solid #D8DBE0">
+          <button onClick="{{ clearFilters }}" style="flex:1;height:34px;border-radius:5px;border:1px solid #D8DBE0;background:transparent;color:#505860;font-size:12.5px;font-weight:600;cursor:pointer">Clear all</button>
+          <button onClick="{{ closeSheet }}" style="flex:1;height:34px;border-radius:5px;border:none;background:#3A6E9E;color:#FFFFFF;font-size:12.5px;font-weight:700;cursor:pointer">Apply</button>
+        </div>
+      </aside>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:90;padding:10px 16px;border-radius:6px;background:#FFFFFF;border:1px solid #C8CCD2;color:#1A1E24;font-size:12.5px;box-shadow:0 14px 34px rgba(20,24,28,.2)">{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showModules&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Dashboard&quot;}}">
+class Component extends DCLogic {
+  state = {
+    page: "jobsites", sidebarOpen: true, menuOpen: false, scopeOpen: false, sheetOpen: false,
+    scope: { groupId: "", projectId: "" }, q: "", collapseAll: false,
+    filters: { foreman: "", status: "", category: "", gap: "" },
+    openCards: {}, openCrews: {}, toast: null, monitorIdx: 0,
+    menuGroup: "Equipment", menuQuery: "",
+  };
+
+  JOB_GROUPS = [
+    { id: "g1", name: "North Texas Water", projectIds: ["p1", "p3"] },
+    { id: "g2", name: "Levee & Flood Control", projectIds: ["p2"] },
+    { id: "g3", name: "2026 Capital Program", projectIds: ["p1", "p2", "p4"] },
+  ];
+
+  PROJECTS = [
+    { id: "p1", code: "JOB 22018", name: "Legacy West Utilities", city: "Plano, TX", status: "Active",
+      crews: [
+        { id: "c1", foreman: "Alejandro Capuchino", role: "foreman", truck: "TR-118", trailer: "TE-006", updated: "2h ago", tools: [
+          { tag: "ST-00137", name: "DeWalt DCD996 Hammer Drill", cat: "Power tool", condition: "Good", status: "assigned", value: 320 },
+          { tag: "ST-00241", name: "Milwaukee M18 Sawzall", cat: "Power tool", condition: "Good", status: "assigned", value: 280 },
+          { tag: "ST-00355", name: "Bosch Bulldog Rotary Hammer", cat: "Power tool", condition: "Good", status: "assigned", value: 430 },
+          { tag: "ST-00412", name: "Wacker WP1550 Plate Compactor", cat: "Compaction", condition: "Fair", status: "assigned", value: 2100 },
+          { tag: "ST-00498", name: "Stihl TS420 Cutquik", cat: "Cutting", condition: "Good", status: "assigned", value: 1100 },
+          { tag: "ST-00521", name: "Honda EB2200i Generator", cat: "Generator", condition: "Good", status: "assigned", value: 1300 },
+        ] },
+        { id: "c2", foreman: "Jobani Abarca", role: "foreman", truck: "TR-104", trailer: null, updated: "20m ago", tools: [
+          { tag: "ST-00301", name: "Makita 7-1/4in Circular Saw", cat: "Power tool", condition: "Good", status: "assigned", value: 210 },
+          { tag: "ST-00477", name: "DeWalt 20V Angle Grinder", cat: "Power tool", condition: "Fair", status: "assigned", value: 190 },
+          { tag: "ST-00544", name: "Klein Electrician Tool Set", cat: "Hand tool", condition: "Good", status: "assigned", value: 290 },
+          { tag: "ST-00619", name: "Werner 24ft Extension Ladder", cat: "Access", condition: "Good", status: "assigned", value: 380 },
+        ] },
+      ],
+      loose: [
+        { tag: "ST-00902", name: "Milwaukee M18 Site Light", cat: "Site", condition: "Good", status: "available", value: 220, where: "On site — south gate" },
+        { tag: "ST-00913", name: "Ridgid Pipe Wrench Set", cat: "Hand tool", condition: "Good", status: "available", value: 340, where: "On site — trailer pad" },
+      ] },
+    { id: "p2", code: "JOB 22104", name: "Trinity River Levee Ph 2", city: "Dallas, TX", status: "Active",
+      crews: [
+        { id: "c3", foreman: "Miguel Torres", role: "foreman", truck: "TR-102", trailer: "TE-002", updated: "40m ago", tools: [
+          { tag: "ST-00102", name: "DeWalt DCD996 Hammer Drill", cat: "Power tool", condition: "Good", status: "assigned", value: 320 },
+          { tag: "ST-00209", name: "Husqvarna K770 Demo Saw", cat: "Cutting", condition: "Fair", status: "assigned", value: 1250 },
+          { tag: "ST-00314", name: "Wacker WP1550 Plate Compactor", cat: "Compaction", condition: "Good", status: "assigned", value: 2100 },
+          { tag: "ST-00648", name: "Stihl TS420 Cutquik", cat: "Cutting", condition: "Needs service", status: "in_maintenance", value: 1100 },
+          { tag: "ST-00751", name: "Milwaukee M18 Sawzall", cat: "Power tool", condition: "Good", status: "assigned", value: 280 },
+        ] },
+        { id: "c4", foreman: "Ruben Delgado", role: "foreman", truck: "TR-127", trailer: "TE-011", updated: "3h ago", tools: [
+          { tag: "ST-00118", name: "Milwaukee M18 Impact Driver", cat: "Power tool", condition: "Good", status: "assigned", value: 240 },
+          { tag: "ST-00225", name: "DeWalt 20V Angle Grinder", cat: "Power tool", condition: "Good", status: "assigned", value: 190 },
+          { tag: "ST-00337", name: "Makita 7-1/4in Circular Saw", cat: "Power tool", condition: "Fair", status: "assigned", value: 210 },
+        ] },
+        { id: "c5", foreman: "Beto Aldana", role: "foreman", truck: null, trailer: "TE-004", updated: "1h ago", tools: [
+          { tag: "ST-00163", name: "Werner 24ft Extension Ladder", cat: "Access", condition: "Good", status: "assigned", value: 380 },
+          { tag: "ST-00278", name: "Bosch GRL2000-40HVK Laser", cat: "Survey", condition: "Good", status: "assigned", value: 1400 },
+          { tag: "ST-00506", name: "Milwaukee M18 Site Light", cat: "Site", condition: "Fair", status: "assigned", value: 220 },
+        ] },
+      ],
+      loose: [{ tag: "ST-00944", name: "Multiquip 2in Trash Pump", cat: "Pump", condition: "Good", status: "available", value: 900, where: "On site — levee toe" }] },
+    { id: "p3", code: "JOB 21877", name: "DFW Water Main Ph 2", city: "Irving, TX", status: "Active",
+      crews: [
+        { id: "c6", foreman: "Sergio Nunez", role: "foreman", truck: "TR-131", trailer: "TE-009", updated: "5h ago", tools: [
+          { tag: "ST-00144", name: "Bosch Bulldog Rotary Hammer", cat: "Power tool", condition: "Good", status: "assigned", value: 430 },
+          { tag: "ST-00257", name: "DeWalt DCD996 Hammer Drill", cat: "Power tool", condition: "Fair", status: "assigned", value: 320 },
+          { tag: "ST-00368", name: "Stihl TS420 Cutquik", cat: "Cutting", condition: "Good", status: "assigned", value: 1100 },
+          { tag: "ST-00581", name: "Greenlee Cable Puller", cat: "Pipe", condition: "Good", status: "assigned", value: 780 },
+        ] },
+        { id: "c7", foreman: "Hector Villalobos", role: "foreman", truck: "TR-115", trailer: null, updated: "1d ago", tools: [
+          { tag: "ST-00196", name: "Milwaukee M18 Sawzall", cat: "Power tool", condition: "Good", status: "assigned", value: 280 },
+          { tag: "ST-00308", name: "Wacker WP1550 Plate Compactor", cat: "Compaction", condition: "Good", status: "assigned", value: 2100 },
+        ] },
+        { id: "c8", foreman: "Danny Okafor", role: "foreman", truck: null, trailer: null, updated: "stale · 4d", stale: true, tools: [
+          { tag: "ST-00127", name: "DeWalt 20V Angle Grinder", cat: "Power tool", condition: "Needs service", status: "in_maintenance", value: 190 },
+          { tag: "ST-00238", name: "Ridgid Pipe Wrench Set", cat: "Hand tool", condition: "Good", status: "assigned", value: 340 },
+        ] },
+      ],
+      loose: [] },
+    { id: "p4", code: "JOB 22205", name: "Cedar Hill WWTP Expansion", city: "Cedar Hill, TX", status: "Upcoming",
+      crews: [
+        { id: "c9", foreman: "Fernando Morales", role: "foreman", truck: "TR-109", trailer: "TE-014", updated: "25m ago", tools: [
+          { tag: "ST-00153", name: "DeWalt DCD996 Hammer Drill", cat: "Power tool", condition: "Good", status: "assigned", value: 320 },
+          { tag: "ST-00266", name: "Milwaukee M18 Sawzall", cat: "Power tool", condition: "Good", status: "assigned", value: 280 },
+          { tag: "ST-00379", name: "Stihl TS420 Cutquik", cat: "Cutting", condition: "Good", status: "assigned", value: 1100 },
+        ] },
+        { id: "c10", foreman: "Luis Garza", role: "foreman", truck: null, trailer: "TE-021", updated: "2h ago", tools: [
+          { tag: "ST-00201", name: "Bosch Bulldog Rotary Hammer", cat: "Power tool", condition: "Fair", status: "assigned", value: 430 },
+          { tag: "ST-00316", name: "Multiquip 2in Trash Pump", cat: "Pump", condition: "Good", status: "assigned", value: 900 },
+        ] },
+      ],
+      loose: [] },
+  ];
+
+  YARD_TOOLS = [
+    { tag: "ST-00412", name: "Wacker WP1550 Plate Compactor", cat: "Compaction", condition: "Good", status: "available", value: 2100, where: "Dallas Yard" },
+    { tag: "ST-00355", name: "Bosch GRL2000-40HVK Laser", cat: "Survey", condition: "Good", status: "available", value: 1400, where: "Dallas Yard" },
+    { tag: "ST-00298", name: "Multiquip 2in Trash Pump", cat: "Pump", condition: "Fair", status: "available", value: 900, where: "Dallas Yard" },
+    { tag: "ST-00476", name: "Stihl TS420 Cutquik", cat: "Cutting", condition: "Good", status: "available", value: 1100, where: "Regional Warehouse — Houston" },
+    { tag: "ST-00521", name: "Miller Bobcat 260 Welder", cat: "Welding", condition: "Good", status: "available", value: 4200, where: "Dallas Yard" },
+    { tag: "ST-00233", name: "Ridgid 300 Pipe Threader", cat: "Pipe", condition: "Needs service", status: "in_maintenance", value: 3100, where: "Irving Yard" },
+  ];
+
+  NOJOB_CREWS = [
+    { id: "c11", foreman: "Dave Whitaker", role: "mechanic", truck: "TR-140", trailer: null, updated: "6h ago", tools: [
+      { tag: "ST-00688", name: "Miller Bobcat 260 Welder", cat: "Welding", condition: "Good", status: "assigned", value: 4200 },
+      { tag: "ST-00691", name: "Klein Electrician Tool Set", cat: "Hand tool", condition: "Good", status: "assigned", value: 290 },
+    ] },
+  ];
+
+  NAV = [
+    { group: "Home", icon: "i-dashboard", items: [
+      { key: "dashboard", href: "/home", label: "Dashboard", icon: "i-dashboard", desc: "Portfolio metrics and the live monitor" },
+      { key: "desk", href: "/desk", label: "My Desk", icon: "i-desk", desc: "Your day, your jobs, your open items" },
+      { key: "inbox", href: "/inbox", label: "Inbox", badge: 4, icon: "i-inbox", desc: "Requests and approvals waiting on you" },
+    ] },
+    { group: "Equipment", icon: "i-equipment", items: [
+      { key: "jobsites", href: "/jobsites", label: "Tools by Jobsite", icon: "i-jobsites", desc: "Every tool, grouped by job and crew" },
+      { key: "custody", href: "/custody", label: "Custody", icon: "i-custody", desc: "Who is holding what, right now" },
+      { key: "tools", href: "/tools", label: "Tool Register", icon: "i-tools", desc: "The master asset list and serials" },
+      { key: "map", href: "/map", label: "Fleet & Tools Map", icon: "i-map", desc: "Where equipment sits on the ground" },
+      { key: "requests", href: "/requests", label: "Request Forms", icon: "i-inbox", desc: "Ask the yard for a tool or machine" },
+      { key: "usage", href: "/usage", label: "Equipment Usage", icon: "i-activity", desc: "Hours, utilisation and idle time" },
+    ] },
+    { group: "Timesheets", icon: "i-desk", items: [
+      { key: "timesheets", href: "/timesheets", label: "Timesheet Management", icon: "i-desk", desc: "Crew hours entered from the field" },
+      { key: "mechanic-time", href: "/mechanic-timesheet", label: "Mechanic Timesheet", icon: "i-tools", desc: "Shop time against work orders" },
+      { key: "clockout", href: "/clockout", label: "Employee ClockOut", icon: "i-desk", desc: "Close out the day, flag exceptions" },
+      { key: "diaries", href: "/diaries", label: "Daily Diaries", icon: "i-reports", desc: "Site conditions, notes and photos" },
+    ] },
+    { group: "Safety", icon: "i-safety", items: [
+      { key: "jha", href: "/jha", label: "Job Hazard Analysis", icon: "i-safety", desc: "JHAs raised and reviewed per task" },
+      { key: "incidents", href: "/incidents", label: "Incidents", icon: "i-warn", desc: "Near-misses and recordables" },
+      { key: "meetings", href: "/safety-meetings", label: "Safety Meetings", icon: "i-people", desc: "Toolbox talks with a paper trail" },
+      { key: "inspections", href: "/inspections", label: "Inspections", icon: "i-custody", desc: "Scheduled checks and their findings" },
+    ] },
+    { group: "Procurement", icon: "i-procurement", items: [
+      { key: "procurements", href: "/procurements", label: "Procurements", icon: "i-procurement", desc: "Purchase orders from raise to receipt" },
+      { key: "material", href: "/material-requests", label: "Material Requests", icon: "i-inbox", desc: "What the field is asking for" },
+      { key: "vendors", href: "/vendors", label: "Vendors", icon: "i-projects", desc: "Suppliers, rates and contacts" },
+    ] },
+    { group: "People", icon: "i-people", items: [
+      { key: "people", href: "/people", label: "Directory", icon: "i-people", desc: "Foremen, crews, mechanics and rigs" },
+      { key: "groups", href: "/groups", label: "Group Management", icon: "i-people", desc: "Teams, roles and who sees what" },
+      { key: "payroll", href: "/payroll", label: "Payroll", icon: "i-payroll", desc: "Approved hours ready for pay runs" },
+    ] },
+    { group: "Projects", icon: "i-projects", items: [
+      { key: "projects", href: "/projects", label: "Projects / Jobs", icon: "i-projects", desc: "Job records and scope groups" },
+      { key: "setup", href: "/project-setup", label: "Project Setup", icon: "i-settings", desc: "Phases, cost codes and geofencing" },
+      { key: "schedule", href: "/schedule", label: "Weekly Schedule", icon: "i-schedule", desc: "Who and what is where, next week" },
+      { key: "plans", href: "/plans", label: "Plan Management", icon: "i-reports", desc: "Drawings and revisions in one place" },
+    ] },
+    { group: "Reports", icon: "i-reports", items: [
+      { key: "reports", href: "/reports", label: "Reports & Logs", icon: "i-reports", desc: "Exports, audit trails and history" },
+      { key: "activity", href: "/activity", label: "Activity", icon: "i-activity", desc: "Recent moves, hand-offs and changes" },
+      { key: "settings", href: "/settings", label: "Settings", icon: "i-settings", desc: "Roles, permissions and configuration" },
+    ] },
+  ];
+
+  MODULES = [
+    { label: "Time Cards & Diaries", icon: "◷", key: null, c: 0 },
+    { label: "Safety", icon: "◈", key: null, c: 1 },
+    { label: "Procurement", icon: "◢", key: null, c: 2 },
+    { label: "Equipment", icon: "▤", key: "jobsites", c: 3 },
+    { label: "Payroll", icon: "$", key: null, c: 4 },
+    { label: "Schedule", icon: "◫", key: "projects", c: 5 },
+  ];
+
+  MOD_COLORS = [
+    { fg: "oklch(48% 0.11 230)", bg: "oklch(48% 0.11 230 / .09)" },
+    { fg: "oklch(50% 0.14 15)", bg: "oklch(50% 0.14 15 / .09)" },
+    { fg: "oklch(46% 0.10 165)", bg: "oklch(46% 0.10 165 / .09)" },
+    { fg: "oklch(45% 0.09 110)", bg: "oklch(45% 0.09 110 / .09)" },
+    { fg: "oklch(52% 0.13 75)", bg: "oklch(52% 0.13 75 / .09)" },
+    { fg: "oklch(46% 0.06 235)", bg: "oklch(46% 0.06 235 / .09)" },
+  ];
+
+  money = (n) => (n >= 1000 ? "$" + (n / 1000).toFixed(1) + "k" : "$" + n);
+  humanize = (s) => s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  shortName = (full) => { const p = full.split(" "); return p[0][0] + ". " + p.slice(1).join(" "); };
+  condColor = (c) => (c === "Good" ? "#2F7D52" : c === "Fair" ? "#B37A18" : "#B8492A");
+
+  fire = (msg) => {
+    this.setState({ toast: msg });
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => this.setState({ toast: null }), 2600);
+  };
+
+  componentWillUnmount() { clearTimeout(this._toastTimer); }
+
+  scopedProjects() {
+    const s = this.state.scope;
+    if (s.projectId) return this.PROJECTS.filter((p) => p.id === s.projectId);
+    if (s.groupId) {
+      const g = this.JOB_GROUPS.find((x) => x.id === s.groupId);
+      return this.PROJECTS.filter((p) => g && g.projectIds.indexOf(p.id) >= 0);
+    }
+    return this.PROJECTS;
+  }
+
+  buildCards() {
+    const { q, filters, collapseAll, openCards, openCrews } = this.state;
+    const scoped = !!(this.state.scope.groupId || this.state.scope.projectId);
+    const hit = (text) => !q.trim() || text.toLowerCase().indexOf(q.trim().toLowerCase()) >= 0;
+    const toolOk = (x) => (!filters.status || x.status === filters.status) && (!filters.category || x.cat === filters.category);
+    const rowBg = (i) => (i % 2 ? "#F7F8FA" : "#FFFFFF");
+
+    const mapTools = (tools, extra) => tools.map((x, i) => Object.assign({}, x, {
+      rowBg: rowBg(i), condColor: this.condColor(x.condition), statusLabel: this.humanize(x.status), where: x.where || "—",
+    }, extra || {}));
+
+    const mapCrew = (c, jobHit) => {
+      const tools = c.tools.filter((x) => (jobHit || hit(x.tag + " " + x.name + " " + c.foreman + " " + (c.truck || "") + " " + (c.trailer || ""))) && toolOk(x));
+      const expanded = collapseAll ? !!openCrews[c.id] : openCrews[c.id] !== false;
+      return {
+        id: c.id, foreman: c.foreman, role: c.role.toUpperCase(), updated: c.updated,
+        updatedColor: c.stale ? "#B8492A" : "#6E7681",
+        rigColor: c.truck && c.trailer ? "#2F7D52" : "#B37A18",
+        truckLabel: c.truck || "no truck", trailerLabel: c.trailer || "no trailer",
+        truckColor: c.truck ? "#505860" : "#B37A18", trailerColor: c.trailer ? "#505860" : "#B37A18",
+        truckBorder: c.truck ? "#C8CCD2" : "rgba(179,122,24,.32)", trailerBorder: c.trailer ? "#C8CCD2" : "rgba(179,122,24,.32)",
+        toolCount: tools.length, valueLabel: this.money(tools.reduce((n, x) => n + x.value, 0)),
+        expanded, caret: expanded ? "⌄" : "›", tools: mapTools(tools),
+        toggle: () => this.setState((s) => ({ openCrews: Object.assign({}, s.openCrews, { [c.id]: !expanded }) })),
+      };
+    };
+
+    const out = this.scopedProjects().map((p) => {
+      const jobHit = hit(p.name + " " + p.code + " " + p.city);
+      const crews = p.crews.filter((c) => !filters.foreman || c.id === filters.foreman).map((c) => mapCrew(c, jobHit));
+      const loose = filters.foreman ? [] : p.loose.filter((x) => (jobHit || hit(x.tag + " " + x.name)) && toolOk(x));
+      const noTruck = crews.filter((c) => c.truckLabel === "no truck").length;
+      const toolCount = crews.reduce((n, c) => n + c.toolCount, 0) + loose.length;
+      const open = collapseAll ? !!openCards[p.id] : openCards[p.id] !== false;
+      return {
+        id: p.id, name: p.name, code: p.code, city: p.city, isJob: true, iconRef: "#i-jobsites", tint: "rgba(58,110,158,.05)",
+        crewLabel: crews.length ? crews.length + (crews.length === 1 ? " crew" : " crews") : "no crew yet",
+        hasGap: crews.length === 0 || noTruck > 0,
+        gapLabel: crews.length === 0 ? "no crew" : noTruck + (noTruck === 1 ? " crew without a truck" : " crews without a truck"),
+        toolCount, valueLabel: this.money(crews.reduce((n, c) => n + c.tools.reduce((m, x) => m + x.value, 0), 0) + loose.reduce((n, x) => n + x.value, 0)),
+        open, chevron: open ? "⌃" : "⌄", crews, showEmptyCrew: crews.length === 0,
+        hasLoose: loose.length > 0, looseLabel: "On site, nobody holding", looseCount: loose.length, loose: mapTools(loose),
+        toggle: () => this.setState((s) => ({ openCards: Object.assign({}, s.openCards, { [p.id]: !open }) })),
+        addCrew: () => this.fire("Add crew — pick a foreman and their truck/trailer for " + p.code),
+        assignLoose: () => this.fire("Assign loose tools on " + p.code + " to a foreman"),
+      };
+    });
+
+    if (!scoped && !filters.foreman) {
+      const yard = this.YARD_TOOLS.filter((x) => hit(x.tag + " " + x.name + " " + x.where + " yard") && toolOk(x));
+      const open = collapseAll ? !!openCards.__yard : openCards.__yard !== false;
+      out.push({
+        id: "__yard", name: "Equipment Yard", code: "URB-YARD", isJob: false, iconRef: "#i-yard", tint: "rgba(80,88,96,.05)",
+        crewLabel: "between jobs", hasGap: false, gapLabel: "", toolCount: yard.length,
+        valueLabel: this.money(yard.reduce((n, x) => n + x.value, 0)),
+        open, chevron: open ? "⌃" : "⌄", crews: [], showEmptyCrew: false,
+        hasLoose: yard.length > 0, looseLabel: "Waiting in the yard", looseCount: yard.length, loose: mapTools(yard),
+        toggle: () => this.setState((s) => ({ openCards: Object.assign({}, s.openCards, { __yard: !open }) })),
+        addCrew: () => {}, assignLoose: () => this.fire("Assign yard tools to a foreman"),
+      });
+    }
+
+    if (!scoped) {
+      const crews = this.NOJOB_CREWS.filter((c) => !filters.foreman || c.id === filters.foreman).map((c) => mapCrew(c, false));
+      const open = collapseAll ? !!openCards.__nojob : openCards.__nojob !== false;
+      out.push({
+        id: "__nojob", name: "Not assigned to any project", code: null, isJob: false, iconRef: "#i-nojob", tint: "rgba(58,110,158,.09)",
+        crewLabel: "between jobs", hasGap: false, gapLabel: "",
+        toolCount: crews.reduce((n, c) => n + c.toolCount, 0),
+        valueLabel: this.money(crews.reduce((n, c) => n + c.tools.reduce((m, x) => m + x.value, 0), 0)),
+        open, chevron: open ? "⌃" : "⌄", crews, showEmptyCrew: false,
+        hasLoose: false, looseLabel: "", looseCount: 0, loose: [],
+        toggle: () => this.setState((s) => ({ openCards: Object.assign({}, s.openCards, { __nojob: !open }) })),
+        addCrew: () => {}, assignLoose: () => {},
+      });
+    }
+
+    return out.filter((c) => {
+      if (c.id === "__nojob") return true;
+      if (filters.gap === "no_crew" && c.crews.length) return false;
+      if (filters.gap === "no_truck" && !c.crews.some((x) => x.truckLabel === "no truck")) return false;
+      if (filters.gap === "no_trailer" && !c.crews.some((x) => x.trailerLabel === "no trailer")) return false;
+      return true;
+    });
+  }
+
+  renderVals() {
+    const st = this.state;
+    const group = this.NAV.find((g) => g.items.some((i) => i.key === st.page)) || this.NAV[0];
+    const current = this.NAV.reduce((a, g) => a.concat(g.items), []).find((i) => i.key === st.page) || {};
+    const scoped = this.scopedProjects();
+    const cards = this.buildCards();
+
+    const toolsOf = (p) => p.crews.reduce((a, c) => a.concat(c.tools.map((x) => Object.assign({}, x, { foreman: this.shortName(c.foreman) }))), []);
+    const allTools = scoped.reduce((a, p) => a.concat(toolsOf(p)), []);
+    const allCrews = scoped.reduce((a, p) => a.concat(p.crews), []);
+
+    const shownTools = cards.reduce((n, c) => n + c.toolCount, 0);
+    const shownCrews = cards.reduce((n, c) => n + c.crews.length, 0);
+    const noTruck = cards.reduce((n, c) => n + c.crews.filter((x) => x.truckLabel === "no truck").length, 0);
+
+    const f = st.filters;
+    const foremen = this.PROJECTS.reduce((a, p) => a.concat(p.crews), []).concat(this.NOJOB_CREWS);
+    const pills = [];
+    if (f.foreman) pills.push({ label: (foremen.find((x) => x.id === f.foreman) || {}).foreman || "Foreman", clear: () => this.setFilter("foreman", "") });
+    if (f.status) pills.push({ label: this.humanize(f.status), clear: () => this.setFilter("status", "") });
+    if (f.category) pills.push({ label: f.category, clear: () => this.setFilter("category", "") });
+    if (f.gap) pills.push({ label: { no_crew: "No crew", no_truck: "No truck", no_trailer: "No trailer" }[f.gap], clear: () => this.setFilter("gap", "") });
+
+    const monitorList = scoped.length ? scoped : this.PROJECTS;
+    const mp = monitorList[st.monitorIdx % monitorList.length];
+    const monitorTools = toolsOf(mp).map((x, i) => Object.assign({}, x, { rowBg: i % 2 ? "#F7F8FA" : "#FFFFFF", condColor: this.condColor(x.condition) }));
+
+    const scopeOptions = [{
+      id: "", label: "All your projects", count: this.PROJECTS.length,
+      tickOpacity: !st.scope.groupId && !st.scope.projectId ? 1 : 0,
+      pick: () => this.setState({ scope: { groupId: "", projectId: "" }, scopeOpen: false }),
+    }].concat(this.JOB_GROUPS.map((g) => ({
+      id: g.id, label: g.name, count: g.projectIds.length,
+      tickOpacity: st.scope.groupId === g.id && !st.scope.projectId ? 1 : 0,
+      pick: () => this.setState({ scope: { groupId: g.id, projectId: "" }, scopeOpen: false }),
+    }))).concat(this.PROJECTS.map((p) => ({
+      id: p.id, label: p.code + " · " + p.name, count: 1,
+      tickOpacity: st.scope.projectId === p.id ? 1 : 0,
+      pick: () => this.setState({ scope: { groupId: "", projectId: p.id }, scopeOpen: false }),
+    })));
+
+    const proj = this.PROJECTS.find((p) => p.id === st.scope.projectId);
+    const grp = this.JOB_GROUPS.find((g) => g.id === st.scope.groupId);
+
+    const mq = st.menuQuery.trim().toLowerCase();
+    const menuItems = mq
+      ? this.NAV.reduce((a, g) => a.concat(g.items), []).filter((i) => (i.label + " " + i.desc).toLowerCase().indexOf(mq) >= 0)
+      : (this.NAV.find((g) => g.group === st.menuGroup) || this.NAV[0]).items;
+
+    return {
+      page: st.page, sidebarOpen: st.sidebarOpen, menuOpen: st.menuOpen, scopeOpen: st.scopeOpen,
+      sheetOpen: st.sheetOpen, toast: st.toast, q: st.q, filters: f,
+      activeGroupLabel: group.group.toUpperCase(), currentLabel: current.label || "", currentHref: current.href || "",
+      isJobsites: st.page === "jobsites", isDashboard: st.page === "dashboard",
+      isPlaceholder: st.page !== "jobsites" && st.page !== "dashboard",
+      scopeLabel: proj ? proj.code + " · " + proj.name : grp ? grp.name : "All your projects",
+      scopeCount: proj ? 1 : grp ? grp.projectIds.length : this.PROJECTS.length,
+      scopeOptions,
+      menuQuery: st.menuQuery,
+      menuGroups: this.NAV.map((g) => {
+        const on = g.group === st.menuGroup && !st.menuQuery.trim();
+        return {
+          label: g.group, iconRef: "#" + g.icon, caretOpacity: on ? 1 : 0,
+          iconBg: on ? "#E3ECF6" : "#F0F1F4",
+          bg: on ? "#F1F5FA" : "transparent", fg: on ? "#1E3A54" : "#505860",
+          select: () => this.setState({ menuGroup: g.group, menuQuery: "" }),
+        };
+      }),
+      menuItems: menuItems.map((i) => ({
+        label: i.label, desc: i.desc, iconRef: "#" + i.icon, go: () => this.go(i.key),
+      })),
+      collapseIconRef: st.collapseAll ? "#i-chev-down" : "#i-chev-up",
+      menuEmpty: menuItems.length === 0,
+      onMenuSearch: (e) => this.setState({ menuQuery: e.target.value }),
+      sidebarItems: group.items.map((i) => ({
+        label: i.label, badge: i.badge || "", iconRef: "#" + i.icon,
+        bg: st.page === i.key ? "#E8F0F8" : "transparent",
+        fg: st.page === i.key ? "#1E3A54" : "#505860",
+        weight: st.page === i.key ? 650 : 500,
+        markOpacity: st.page === i.key ? 1 : 0,
+        go: () => this.go(i.key),
+      })),
+      cards, noCards: cards.length === 0,
+      countsLabel: shownTools + " tools · " + shownCrews + " crews · " + cards.length + " cards",
+      hasRigGaps: noTruck > 0, rigGapLabel: noTruck + " without a truck",
+      noTruckBg: f.gap === "no_truck" ? "rgba(179,122,24,.1)" : "transparent",
+      collapseLabel: st.collapseAll ? "⌄ Expand all" : "⌃ Collapse all",
+      pills, hasPills: pills.length > 0,
+      anyFilter: !!(st.q.trim() || f.foreman || f.status || f.category || f.gap),
+      sheetCount: [f.foreman, f.status, f.category, f.gap].filter(Boolean).length || "",
+      foremanOptions: foremen.map((x) => ({ id: x.id, name: x.foreman })),
+      categoryOptions: Array.from(new Set(this.PROJECTS.reduce((a, p) => a.concat(toolsOf(p), p.loose), []).concat(this.YARD_TOOLS).map((x) => x.cat))).sort(),
+      showModules: this.props.showModules !== false,
+      modules: this.MODULES.map((m) => ({
+        label: m.label, icon: m.icon, bg: this.MOD_COLORS[m.c].bg, fg: this.MOD_COLORS[m.c].fg,
+        hint: m.key ? "Open →" : "Coming soon",
+        go: () => (m.key ? this.go(m.key) : this.fire(m.label + " isn’t wired in this prototype yet")),
+      })),
+      metrics: [
+        { value: String(scoped.length), label: "Projects", hint: "in scope", color: "#0F1216" },
+        { value: String(allTools.length), label: "Tools out", hint: "held by crews", color: "#0F1216" },
+        { value: String(allCrews.length), label: "Crews", hint: "with a foreman", color: "#0F1216" },
+        { value: String(allCrews.filter((c) => !c.truck || !c.trailer).length), label: "Rig gaps", hint: "missing vehicle", color: "#B37A18" },
+        { value: String(allTools.filter((x) => x.condition === "Needs service").length), label: "Needs service", hint: "flagged in field", color: "#B8492A" },
+      ],
+      monitor: { code: mp.code, name: mp.name, city: mp.city, status: mp.status.toUpperCase() },
+      monitorTools,
+      monitorPrev: () => this.setState((s) => ({ monitorIdx: (s.monitorIdx - 1 + monitorList.length) % monitorList.length })),
+      monitorNext: () => this.setState((s) => ({ monitorIdx: (s.monitorIdx + 1) % monitorList.length })),
+      toggleSidebar: () => this.setState((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      toggleMenu: () => this.setState((s) => ({ menuOpen: !s.menuOpen, scopeOpen: false, menuGroup: group.group, menuQuery: "" })),
+      toggleScope: () => this.setState((s) => ({ scopeOpen: !s.scopeOpen, menuOpen: false })),
+      closeMenus: () => this.setState({ menuOpen: false, scopeOpen: false }),
+      openSheet: () => this.setState({ sheetOpen: true }),
+      closeSheet: () => this.setState({ sheetOpen: false }),
+      onSearch: (e) => this.setState({ q: e.target.value }),
+      toggleCollapseAll: () => this.setState((s) => ({ collapseAll: !s.collapseAll, openCards: {}, openCrews: {} })),
+      toggleNoTruck: () => this.setFilter("gap", f.gap === "no_truck" ? "" : "no_truck"),
+      clearFilters: () => this.setState({ q: "", filters: { foreman: "", status: "", category: "", gap: "" } }),
+      setForeman: (e) => this.setFilter("foreman", e.target.value),
+      setStatus: (e) => this.setFilter("status", e.target.value),
+      setCategory: (e) => this.setFilter("category", e.target.value),
+      setGap: (e) => this.setFilter("gap", e.target.value),
+    };
+  }
+
+  go = (key) => this.setState({ page: key, menuOpen: false, sidebarOpen: true });
+  setFilter = (k, v) => this.setState((s) => ({ filters: Object.assign({}, s.filters, { [k]: v }) }));
+}
+</script>
+</body>
+</html>

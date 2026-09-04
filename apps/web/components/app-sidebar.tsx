@@ -23,11 +23,11 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { groupKey, matchItem, type NavGroup, type NavItem } from "@/components/sti/nav-config";
-import { pinnedItems, useNavPins } from "@/components/sti/nav-pins";
+import { pinnedItems, type NavPins } from "@/components/sti/nav-pins";
 
 /*
-  The secondary pane of the two-pane shell: the job scope selector at its head,
-  then Pinned, then the rows of the ONE group the rail has selected. The rail
+  The secondary pane of the two-pane shell: the active group's label, then
+  Pinned, then the rows of the ONE group the rail has selected. The rail
   answers "which part of the product am I in"; this answers "which screen".
 
   It listed every group between 2026-08-23 and this change, because switching
@@ -40,10 +40,14 @@ import { pinnedItems, useNavPins } from "@/components/sti/nav-pins";
   and the design's model holds.
 
   Groups arrive already permission-filtered from the shell — the same array the
-  rail draws from, so a glyph and its sidebar can never disagree about what a
-  group contains. That single filtered array is also what Pinned is resolved
-  against, which is what stops a pin outliving the permission that earned it;
-  see `nav-pins.ts`.
+  rail and the feature launcher draw from, so a glyph, a sidebar and a launcher
+  card can never disagree about what a group contains. That single filtered
+  array is also what Pinned is resolved against, which is what stops a pin
+  outliving the permission that earned it; see `nav-pins.ts`.
+
+  The scope selector moved OUT of this pane on 2026-09-04: the design puts it in
+  the top bar, next to the breadcrumb. `navPins` is owned by the shell now too,
+  so the Pinned section here and the launcher's Pinned row share one state.
 */
 
 export type SidebarTenant = {
@@ -58,11 +62,13 @@ export function AppSidebar({
   activeGroupKey,
   inboxCount,
   tenant,
+  navPins,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   groups: NavGroup[];
   activeGroupKey: string | undefined;
   inboxCount: number;
+  navPins: NavPins;
   /* Candidate placement A (2026-08-30) — a permanent org-identity block in
      the footer, compared live against candidate B, the same block merged
      into UserMenu. Whichever the client prefers stays; the other gets
@@ -70,7 +76,7 @@ export function AppSidebar({
   tenant?: SidebarTenant;
 }) {
   const pathname = usePathname();
-  const { pins, order, toggle, move } = useNavPins();
+  const { pins, order, toggle, move } = navPins;
 
   /* Pages outside the navigation — /profile, /account/password — resolve to no
      group. Falling back to the first one keeps the pane populated instead of
@@ -106,10 +112,10 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      {/* h-14 and a border, matching the top bar exactly: the job selector and
-          the page title sit on the same baseline and the two borders read as
-          one rule across the shell instead of a step. */}
-      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border p-2">
+      {/* On a phone the sheet IS the menu, so the scope selector lives here
+          (md:hidden) — the top bar carries it on desktop. Same component; this
+          is just the mobile seat, mirroring where it sat before 2026-09-04. */}
+      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border p-2 md:hidden">
         <ProjectSwitcher />
       </SidebarHeader>
 

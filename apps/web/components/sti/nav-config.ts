@@ -17,6 +17,10 @@ export type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   perm?: Permission;
+  /* One-line description, shown in the "Search all features" launcher card.
+     Written here, not at the call site, so the launcher and any future copy
+     of it read the same words. */
+  desc?: string;
   /* Shown in the field layout as a large primary action rather than a nav row. */
   hint?: string;
   /* Wall surfaces: the page owns the whole content region — the shell drops its
@@ -73,12 +77,12 @@ const SETTINGS_GROUP: NavGroup = {
   icon: Settings,
   placement: "foot",
   items: [
-    { id: "settings-general", href: "/settings", label: "General", icon: SlidersHorizontal, perm: "config.manage" },
-    { id: "settings-modules", href: "/settings/modules", label: "Modules", icon: LayoutGrid, perm: "config.manage" },
-    { id: "settings-ai", href: "/settings/ai", label: "AI & API", icon: Cpu, perm: "config.manage" },
+    { id: "settings-general", href: "/settings", label: "General", icon: SlidersHorizontal, perm: "config.manage", desc: "Branding, approvals and mail" },
+    { id: "settings-modules", href: "/settings/modules", label: "Modules", icon: LayoutGrid, perm: "config.manage", desc: "Which parts this organisation uses" },
+    { id: "settings-ai", href: "/settings/ai", label: "AI & API", icon: Cpu, perm: "config.manage", desc: "The chat parser's model and key" },
     /* No `perm`: a per-user preference written through `preferences.set`, which
        writes the caller's own row. */
-    { id: "settings-appearance", href: "/settings/appearance", label: "Appearance", icon: Palette },
+    { id: "settings-appearance", href: "/settings/appearance", label: "Appearance", icon: Palette, desc: "Your own theme, type and density" },
     /* ~~User Accounts~~ — removed 2026-08-28 with `/admin/users`.
 
        STI-303 split it from `/people` on the reasoning that "has an account"
@@ -91,14 +95,14 @@ const SETTINGS_GROUP: NavGroup = {
        its people sign in at all — and `/people` shows each person's account
        state in its own column. Inviting, resetting, deactivating and resending
        all live on the person's row menu. Don't add this back. */
-    { id: "roles-permissions", href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage" },
+    { id: "roles-permissions", href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage", desc: "What each account may do" },
     /* Distinct from "Roles & Permissions" above: that gates what an ACCOUNT
        may do, this defines the tiers a PERSON can hold on a project team —
        pm/superintendent/foreman today, whatever an organization adds
        tomorrow. Gated on project.team.manage, not config.manage, because
        adding a tier here needs neither platform config access nor a login
        role edit. */
-    { id: "team-roles", href: "/settings/team-roles", label: "Team Roles", icon: HardHat, perm: "project.team.manage" },
+    { id: "team-roles", href: "/settings/team-roles", label: "Team Roles", icon: HardHat, perm: "project.team.manage", desc: "The tiers a person can hold on a job" },
   ],
 };
 
@@ -107,8 +111,8 @@ export const FIELD_NAV: NavGroup[] = [
     label: "Field",
     icon: Wrench,
     items: [
-      { id: "my-tools", href: "/my-tools", label: "My Tools", icon: Wrench, hint: "What you are holding" },
-      { id: "handoff", href: "/chat", label: "Hand Off", icon: MessageSquare, hint: "Type it in one sentence" },
+      { id: "my-tools", href: "/my-tools", label: "My Tools", icon: Wrench, hint: "What you are holding", desc: "The tools in your own hands" },
+      { id: "handoff", href: "/chat", label: "Hand Off", icon: MessageSquare, hint: "Type it in one sentence", desc: "Tell the desk what you are handing over" },
       /* ~~"Overdue and requests"~~ — nothing goes overdue; the borrow model and
          `expected_end_date` were removed on 2026-08-09 (migration 0012).
 
@@ -116,7 +120,7 @@ export const FIELD_NAV: NavGroup[] = [
          job on this layout is the alerts list, and a phone's bell icon is a
          worse place to bury it than a nav row. Say so if you want it gone from
          here too — it is a deliberate divergence, not an oversight. */
-      { id: "alerts", href: "/inbox", label: "Alerts", icon: Inbox, hint: "Requests and notifications" },
+      { id: "alerts", href: "/inbox", label: "Alerts", icon: Inbox, hint: "Requests and notifications", desc: "Requests, replies and reminders" },
     ],
   },
   SETTINGS_GROUP,
@@ -151,7 +155,7 @@ export const DESK_NAV: NavGroup[] = [
          replaced the widget dashboard and the Desk command surface on
          2026-08-23; both were removed on 2026-09-03 once the monitor had been
          lived with. */
-      { id: "dashboard", href: "/home", label: "Dashboard", icon: LayoutDashboard, fullBleed: true },
+      { id: "dashboard", href: "/home", label: "Dashboard", icon: LayoutDashboard, fullBleed: true, desc: "The jobsite board, cycling one job at a time" },
     ],
   },
   {
@@ -160,11 +164,11 @@ export const DESK_NAV: NavGroup[] = [
     items: [
       /* The control hub: one card per job, with crews (foreman + truck/trailer)
          and the tools working it. */
-      { id: "tools-by-jobsite", href: "/jobsites", label: "Tools by Jobsite", icon: Building2, perm: "asset.read" },
-      { id: "custody", href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read" },
+      { id: "tools-by-jobsite", href: "/jobsites", label: "Tools by Jobsite", icon: Building2, perm: "asset.read", desc: "Every tool, grouped by job and crew" },
+      { id: "custody", href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read", desc: "Who is holding what, right now" },
       /* The map is the fleet — trucks and trailers — with the small tools
          aboard them, which is why it is not called just a vehicle map. */
-      { id: "fleet-map", href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read" },
+      { id: "fleet-map", href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read", desc: "Where the fleet is sitting right now" },
     ],
   },
   /*
@@ -195,33 +199,33 @@ export const DESK_NAV: NavGroup[] = [
     label: "Registry",
     icon: Boxes,
     items: [
-      { id: "tool-register", href: "/tools", label: "Small Tools", icon: Wrench, perm: "asset.read" },
+      { id: "tool-register", href: "/tools", label: "Small Tools", icon: Wrench, perm: "asset.read", desc: "The master asset list and serials" },
       /* The row this group's own comment has been reserving since
          2026-08-27: trucks and trailers today, heavy plant the moment a row
          exists for it. `vehicle.read` gates it, same as the fleet map. */
-      { id: "equipment-register", href: "/equipment", label: "Equipment", icon: Truck, perm: "vehicle.read" },
+      { id: "equipment-register", href: "/equipment", label: "Equipment", icon: Truck, perm: "vehicle.read", desc: "Trucks, trailers and heavy plant" },
     ],
   },
   {
     label: "Organization",
     icon: Users,
     items: [
-      { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read" },
+      { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read", desc: "Your crew and the roles they hold" },
       /* A job and a project are the same thing — the job ID is the cost code. */
-      { id: "projects", href: "/projects", label: "Projects", icon: HardHat, perm: "project.read" },
+      { id: "projects", href: "/projects", label: "Projects", icon: HardHat, perm: "project.read", desc: "Every job and job group on record" },
       /* The reporting structure, read from the same project_team_member rows
          the Tools by Jobsite team strip writes — not a second store. Gated on
          `project.team.read` like the roster it draws; the procedure narrows a
          non-admin to their own chain, so the LINK does not need a second gate. */
-      { id: "org-chart", href: "/org-chart", label: "Org Chart", icon: Network, perm: "project.team.read" },
+      { id: "org-chart", href: "/org-chart", label: "Org Chart", icon: Network, perm: "project.team.read", desc: "Who answers to whom, on each job" },
     ],
   },
   {
     label: "Insight",
     icon: BarChart3,
     items: [
-      { id: "reports", href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read" },
-      { id: "activity", href: "/activity", label: "Activity", icon: Activity, perm: "asset.read" },
+      { id: "reports", href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read", desc: "Every register and report in one place" },
+      { id: "activity", href: "/activity", label: "Activity", icon: Activity, perm: "asset.read", desc: "The live tool-movement feed" },
     ],
   },
   SETTINGS_GROUP,

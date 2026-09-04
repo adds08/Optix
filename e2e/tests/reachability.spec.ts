@@ -198,7 +198,13 @@ test.describe("the visibility ladder narrows what a browser shows", () => {
     await desk.goto("/tools");
     await foreman.goto("/my-tools");
 
-    const deskText = await desk.getByText(/(\d+) tools?/).textContent();
+    /* The register count renders only after `asset.list` resolves — waiting
+       for the TASK's own signal rather than racing it. Gone is the failure
+       mode where a slow first paint made the whole register read "0 tools".
+       `.first()` on both calls: a tool named "…2 tool combo kit" also
+       matches the regex, and textContent re-queries. */
+    await expect(desk.getByText(/(\d+) tools?/).first()).toBeVisible({ timeout: 15_000 });
+    const deskText = await desk.getByText(/(\d+) tools?/).first().textContent();
     const deskTotal = Number(/(\d+)/.exec(deskText ?? "")?.[1] ?? "0");
 
     await expect(foreman.getByText(/You are holding \d+ tool/)).toBeVisible({ timeout: 10_000 });

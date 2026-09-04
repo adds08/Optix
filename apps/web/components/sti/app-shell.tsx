@@ -16,14 +16,16 @@ import { NotificationCenter } from "@/components/notification-center";
 import { UserMenu } from "@/components/user-menu";
 import { CommandPalette, useCommandPalette } from "@/components/command-palette";
 import { Search } from "lucide-react";
+import { ProjectSwitcher } from "@/components/project-switcher";
 import { WorkingBar } from "@/components/working-bar";
 import { AppSplash } from "./app-splash";
+import { FeatureMenu } from "./feature-menu";
 import { DUR, EASE } from "@/lib/motion";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
 import { allItems, applyFeatureStates, groupKey, isFieldRole, isSettingsItemId, matchItem, navFor, type NavGroup } from "./nav-config";
-import { LAND_ON_PIN, defaultPinnedHref, readPinOrder } from "./nav-pins";
+import { LAND_ON_PIN, defaultPinnedHref, readPinOrder, useNavPins } from "./nav-pins";
 
 /*
   The app shell on the shadcn sidebar-07 skeleton.
@@ -67,6 +69,9 @@ export function AppShell({
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  /* One instance so the sidebar's Pinned section and the feature launcher's
+     Pinned row read the same storage — two hooks would desync after a toggle. */
+  const navPins = useNavPins();
   /* Whether the light/dark preference has been read out of storage yet. It is
      a separate flag from `dark` itself because `false` is a legitimate value
      for that and "not asked yet" has to be distinguishable from "light". */
@@ -351,30 +356,42 @@ export function AppShell({
         activeGroupKey={activeGroupKey}
         inboxCount={inboxCount}
         tenant={me.data?.tenant ?? null}
+        navPins={navPins}
       />
       <SidebarInset>
-        {/* Top bar — page context, search, notifications, account. h-14 is
+        {/* Top bar (design/STInventory App.dc.html): mark, toggle, scope
+            selector, the group + page breadcrumb that opens the feature
+            launcher, then search, notifications, theme and account. h-14 is
             shared with the rail's header so the two bottom borders meet as a
             single line across the shell. */}
         <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
           <SidebarTrigger className="-ml-1.5" />
-          <span className={cn("truncate text-sm font-medium", pathname === "/home" && "hidden")}>
-            {current?.label ?? "Optix"}
-          </span>
+          <span className="hidden h-6 w-px shrink-0 bg-border sm:block" aria-hidden />
+          {/* The system-wide job selector, moved up from the sidebar head to
+              the top bar per the design. Everything else about it is the exact
+              same component and popover — two panes, job groups, scoping.
+              Mobile keeps the sheet's own copy below (md:hidden), where the
+              sidebar used to carry it — the sheet is the phone's menu. */}
+          <div className="hidden min-w-0 sm:block">
+            <ProjectSwitcher />
+          </div>
+          <span className="hidden h-6 w-px shrink-0 bg-border sm:block" aria-hidden />
+          {/* Breadcrumb + feature launcher. `current` is the longest nav match,
+              so /tools/[id] still reads "Small Tools" here. */}
+          <FeatureMenu groups={railGroups} currentItem={current} navPins={navPins} />
+
           <div className="ml-auto flex items-center gap-1.5">
             {!field ? (
-              /* The trigger is a button, not an input: the palette owns the
-                 field, so a second one here would take focus from it. */
+              /* The palette trigger, styled as the design's pill. It remains a
+                 button, not an input: the palette owns the field, so a second
+                 one here would take focus from it. */
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={() => setPaletteOpen(true)}
-                className="h-8 w-64 max-w-[40vw] justify-start gap-2 px-2.5 text-sm font-normal text-muted-foreground"
+                className="h-8 w-40 justify-start gap-2 rounded-full bg-muted px-3 text-sm font-normal text-muted-foreground hover:bg-accent lg:w-56"
               >
                 <Search className="size-4 shrink-0" aria-hidden />
-                <span className="truncate">Search tools, people, jobs…</span>
-                <kbd className="ml-auto hidden shrink-0 rounded-sm border bg-muted px-1.5 font-mono text-[11px] text-muted-foreground sm:inline">
-                  ⌘K
-                </kbd>
+                <span className="hidden truncate sm:inline">Search…</span>
               </Button>
             ) : null}
             <NotificationCenter />
