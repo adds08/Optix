@@ -77,17 +77,29 @@ async function offeredRoutes(page: Page, start: string): Promise<string[]> {
 
   await settledNav(start);
 
-  /* The rail links one row per group — its FIRST visible row — so this is the
-     set of groups the permission filter left standing, not the set of screens. */
-  const groups = await hrefsIn('nav[aria-label="Sections"] a[href]');
-
   const offered = new Set<string>();
-  for (const href of [start, ...groups]) {
-    await settledNav(href);
-    /* Scoped to `[data-sidebar]`, never the page body: the dashboard links to
-       /reports/idle, and counting that would make a forbidden route look
-       offered. */
-    for (const h of await hrefsIn("[data-sidebar] a[href]")) offered.add(h);
+  for (const h of await hrefsIn("[data-sidebar] a[href]")) offered.add(h);
+
+  /*
+    The rail that used to answer "which MODULE is this role in" is gone
+    (design/STInventory App.dc.html has no rail; the modules live in the
+    feature launcher behind the top-bar breadcrumb). The union of "every
+    module's screens" is now read from the launcher: open it, click each
+    module row (a button — it re-targets the right pane, it does not
+    navigate), and collect the card links currently in the pane. The sidebar
+    links collected above are the same cards re-rendered at the shell edge,
+    so reading both is the union across modules, not a second source.
+
+    The launcher only lists modules the permission filter left standing —
+    same filtered array the module rows are drawn from — so a module with no
+    visible screens never has its cards read.
+  */
+  await page.locator('[data-slot="feature-menu-trigger"]').click();
+  const launcher = page.locator('[data-slot="feature-menu"]');
+  const moduleRows = await launcher.locator('[data-slot="feature-menu-module"]').all();
+  for (const m of moduleRows) {
+    await m.click();
+    for (const h of await hrefsIn('[data-slot="feature-menu"] [data-slot="feature-menu-card"]')) offered.add(h);
   }
   return [...offered];
 }

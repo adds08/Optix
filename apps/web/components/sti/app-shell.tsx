@@ -2,21 +2,23 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "motion/react";
-import { Moon, RotateCw, Sun, TriangleAlert } from "lucide-react";
+import { Bot, Moon, RotateCw, Sun, TriangleAlert } from "lucide-react";
 import { trpc, retryUnlessUnauthorized } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { AppRail } from "@/components/app-rail";
 import { AiPanel } from "@/components/ai-panel";
 import { NotificationCenter } from "@/components/notification-center";
 import { UserMenu } from "@/components/user-menu";
 import { CommandPalette, useCommandPalette } from "@/components/command-palette";
 import { Search } from "lucide-react";
+import { OptixTile } from "@/components/optix-mark";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorkingBar } from "@/components/working-bar";
 import { AppSplash } from "./app-splash";
 import { FeatureMenu } from "./feature-menu";
@@ -341,66 +343,90 @@ export function AppShell({
       programmatically, and one `scrollIntoView()` in the assistant was enough
       to drag the rail and the content column off-screen while the fixed
       sidebar stayed behind. See the note in `ai-panel.tsx`.
+
+      `flex-col` puts the top bar ABOVE the two-pane row, per the design:
+      the bar spans the full width — mark, scope, breadcrumb — and the sidebar
+      begins below it rather than under a narrower bar over the content only.
     */
-    <SidebarProvider defaultOpen={defaultSidebarOpen} className="relative h-dvh overflow-clip">
+    <SidebarProvider defaultOpen={defaultSidebarOpen} className="relative h-dvh flex-col overflow-clip">
       <AppSplash show={!me.data || !appearanceSettled} />
       <WorkingBar />
-      <AppRail
-        groups={railGroups}
-        activeKey={activeGroupKey}
-        aiOpen={aiOpen}
-        onToggleAi={() => setAiOpen((v) => !v)}
-      />
-      <AppSidebar
-        groups={railGroups}
-        activeGroupKey={activeGroupKey}
-        inboxCount={inboxCount}
-        tenant={me.data?.tenant ?? null}
-        navPins={navPins}
-      />
-      <SidebarInset>
-        {/* Top bar (design/STInventory App.dc.html): mark, toggle, scope
-            selector, the group + page breadcrumb that opens the feature
-            launcher, then search, notifications, theme and account. h-14 is
-            shared with the rail's header so the two bottom borders meet as a
-            single line across the shell. */}
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
-          <SidebarTrigger className="-ml-1.5" />
-          <span className="hidden h-6 w-px shrink-0 bg-border sm:block" aria-hidden />
-          {/* The system-wide job selector, moved up from the sidebar head to
-              the top bar per the design. Everything else about it is the exact
-              same component and popover — two panes, job groups, scoping.
-              Mobile keeps the sheet's own copy below (md:hidden), where the
-              sidebar used to carry it — the sheet is the phone's menu. */}
-          <div className="hidden min-w-0 sm:block">
-            <ProjectSwitcher />
-          </div>
-          <span className="hidden h-6 w-px shrink-0 bg-border sm:block" aria-hidden />
-          {/* Breadcrumb + feature launcher. `current` is the longest nav match,
-              so /tools/[id] still reads "Small Tools" here. */}
-          <FeatureMenu groups={railGroups} currentItem={current} navPins={navPins} />
 
-          <div className="ml-auto flex items-center gap-1.5">
-            {!field ? (
-              /* The palette trigger, styled as the design's pill. It remains a
-                 button, not an input: the palette owns the field, so a second
-                 one here would take focus from it. */
-              <Button
-                variant="ghost"
-                onClick={() => setPaletteOpen(true)}
-                className="h-8 w-40 justify-start gap-2 rounded-full bg-muted px-3 text-sm font-normal text-muted-foreground hover:bg-accent lg:w-56"
-              >
-                <Search className="size-4 shrink-0" aria-hidden />
-                <span className="hidden truncate sm:inline">Search…</span>
-              </Button>
-            ) : null}
-            <NotificationCenter />
-            <ThemeToggle />
-            {me.data ? (
-              <UserMenu name={userName} role={me.data.role} tenant={me.data.tenant} onSignOut={onLogout} />
-            ) : null}
-          </div>
-        </header>
+      {/* Top bar (design/STInventory App.dc.html): mark, toggle, scope
+          selector, the group + page breadcrumb that opens the feature
+          launcher, then search, notifications, theme and account. */}
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card px-4 lg:px-6">
+        {/* Brand mark — the design carries the logo at the head of the bar,
+            not on a separate rail. `optix-mark.tsx` is the one definition,
+            shared with the sign-in page and the boot splash. */}
+        <Link href="/home" aria-label="Optix home" className="-ml-1.5 shrink-0">
+          <OptixTile className="size-8" />
+        </Link>
+        <SidebarTrigger className="-ml-1.5" />
+        <span className="hidden h-6 w-px shrink-0 bg-border md:block" aria-hidden />
+        {/* The system-wide job selector, moved up from the sidebar head per the
+            design. Same component and popover — two panes, job groups,
+            scoping. Phones reach it through the sheet, which is why this is
+            md:block: the sheet has its own copy below. */}
+        <div className="hidden min-w-0 md:block">
+          <ProjectSwitcher />
+        </div>
+        <span className="hidden h-6 w-px shrink-0 bg-border md:block" aria-hidden />
+        {/* Breadcrumb + feature launcher. `current` is the longest nav match,
+            so /tools/[id] still reads "Small Tools" here. */}
+        <FeatureMenu groups={railGroups} currentItem={current} navPins={navPins} />
+
+        <div className="ml-auto flex items-center gap-1.5">
+          {/* The assistant lived in the rail's foot; the rail is gone
+              (design has no rail), so it lives here. */}
+          {!field ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setAiOpen((v) => !v)}
+                  aria-pressed={aiOpen}
+                  aria-label="Assistant"
+                >
+                  <Bot className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Assistant</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {!field ? (
+            /* The palette trigger, styled as the design's pill. It remains a
+               button, not an input: the palette owns the field, so a second
+               one here would take focus from it. */
+            <Button
+              variant="ghost"
+              onClick={() => setPaletteOpen(true)}
+              className="h-8 w-40 justify-start gap-2 rounded-full bg-muted px-3 text-sm font-normal text-muted-foreground hover:bg-accent lg:w-56"
+            >
+              <Search className="size-4 shrink-0" aria-hidden />
+              <span className="hidden truncate sm:inline">Search…</span>
+            </Button>
+          ) : null}
+          <NotificationCenter />
+          <ThemeToggle />
+          {me.data ? (
+            <UserMenu name={userName} role={me.data.role} tenant={me.data.tenant} onSignOut={onLogout} />
+          ) : null}
+        </div>
+      </header>
+
+      {/* The two-pane row: sidebar + content. The bar above is the only full-
+          width element, matching the design. */}
+      <div className="flex min-h-0 flex-1">
+        <AppSidebar
+          groups={railGroups}
+          activeGroupKey={activeGroupKey}
+          inboxCount={inboxCount}
+          tenant={me.data?.tenant ?? null}
+          navPins={navPins}
+        />
+        <SidebarInset className="min-h-0 min-w-0 flex-1">
 
         {/* The one scroll region. min-h-0 lets it actually shrink to the space
             the header leaves — without it a flex child refuses to go below its
@@ -429,7 +455,9 @@ export function AppShell({
             </motion.div>
           )}
         </div>
-      </SidebarInset>
+        </SidebarInset>
+      </div>
+
       <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
       {!field ? <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} /> : null}
     </SidebarProvider>

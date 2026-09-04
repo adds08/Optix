@@ -73,7 +73,7 @@ test.describe("pinned navigation rows", () => {
   });
 
   test("a pinned row leaves its own group rather than appearing twice", async ({ page }) => {
-    /* Custody lives in Operations, so standing ON Operations is the case where
+    /* Custody lives in Equipment, so standing ON Equipment is the case where
        a copy would be visible — the pinned row and the group row would both be
        in the pane at once. */
     await seedPins(page, ["custody"]);
@@ -82,9 +82,10 @@ test.describe("pinned navigation rows", () => {
     await expect(page.locator(PINNED)).toBeVisible();
     await expect(page.locator('[data-sidebar="sidebar"] a[href="/custody"]')).toHaveCount(1);
 
-    /* And the group it left is still reachable from the rail — pinning every
-       row of a module must not make the module's glyph disappear. */
-    await expect(page.locator('nav a[href="/jobsites"]')).toBeVisible();
+    /* The module it left is still reachable from the launcher — pinning a row
+       of a module must not make the module's door disappear. */
+    await page.locator('[data-slot="feature-menu-trigger"]').click();
+    await expect(page.locator('[data-slot="feature-menu-module"]', { hasText: "Equipment" })).toBeVisible();
   });
 
   test("unpinning removes the section again", async ({ page }) => {

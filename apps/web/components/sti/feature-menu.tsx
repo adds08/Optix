@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Pin, Search } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -89,6 +90,7 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-haspopup="menu"
+          data-slot="feature-menu-trigger"
           className={cn(
             "flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left transition-colors",
             open ? "bg-accent" : "hover:bg-accent",
@@ -112,6 +114,7 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
       <PopoverContent
         align="start"
         sideOffset={8}
+        data-slot="feature-menu"
         className="w-[min(760px,calc(100vw-2rem))] overflow-hidden rounded-xl p-0"
       >
         {/* search row */}
@@ -136,6 +139,7 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
                   {pinned.map((n) => (
                     <MenuRow
                       key={`pin-${n.id}`}
+                      leading={<n.icon className="size-4 shrink-0" aria-hidden />}
                       icon={<Pin className="size-3.5" aria-hidden />}
                       label={n.label}
                       active={n.id === currentItem?.id}
@@ -143,7 +147,6 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
                         router.push(n.href);
                         setOpen(false);
                       }}
-                      leading={<n.icon className="size-4 shrink-0" aria-hidden />}
                     />
                   ))}
                 </div>
@@ -161,6 +164,7 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
                     label={g.label}
                     active={key === shownKey}
                     onClick={() => setPicked(key)}
+                    slot="feature-menu-module"
                     trailing={
                       <ChevronRight
                         className={cn(
@@ -182,65 +186,86 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
               empty ? (
                 <p className="px-2 py-2 text-sm text-muted-foreground">No feature matches that search.</p>
               ) : (
-                <FeatureGrid groups={matches.map((m) => m.group)} items={matches.map((m) => m.item)} onGo={go} />
+                <FeatureGrid groups={matches.map((m) => m.group)} items={matches.map((m) => m.item)} onNavigate={() => setOpen(false)} />
               )
             ) : shownGroup ? (
-              <FeatureGrid groups={[shownGroup]} items={shownGroup.items} onGo={go} />
+              <FeatureGrid groups={[shownGroup]} items={shownGroup.items} onNavigate={() => setOpen(false)} />
             ) : null}
           </div>
         </div>
       </PopoverContent>
     </Popover>
   );
-
-  function go(href: string) {
-    router.push(href);
-    setOpen(false);
-  }
 }
 
 /* The card grid. `groups` and `items` are index-aligned so a search result can
-   carry its own group heading; rows with no match share the shown group. */
+   carry its own group heading; rows with no match share the shown group.
+   Real links, not `router.push` buttons: a launcher row IS a navigation, so it
+   reads as one — and the reachability walk reads hrefs from the DOM. */
 function FeatureGrid({
   groups,
   items,
-  onGo,
+  onNavigate,
 }: {
   groups: NavGroup[];
   items: NavItem[];
-  onGo: (href: string) => void;
+  /* Closes the popover — the Link itself does the navigation. */
+  onNavigate: () => void;
 }) {
   return (
     <div className="grid grid-cols-1 gap-x-5 gap-y-1 sm:grid-cols-2">
-      {items.map((n, i) => (
-        <button
-          key={`${groups[i] ? groupKey(groups[i]!) : "misc"}:${n.id}`}
-          type="button"
-          onClick={() => onGo(n.href)}
-          disabled={n.featureState === "upcoming"}
-          className={cn(
-            "flex min-w-0 items-start gap-2.5 rounded-lg p-2 text-left transition-colors hover:bg-accent",
-            n.featureState === "upcoming" && "cursor-default opacity-60 hover:bg-transparent",
-          )}
-        >
-          <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-accent/60 text-accent-foreground">
-            <n.icon className="size-4" aria-hidden />
-          </span>
-          <span className="min-w-0">
-            <span className="flex items-center gap-1.5">
-              <span className="truncate text-sm font-semibold text-foreground">{n.label}</span>
-              {n.featureState ? (
+      {items.map((n, i) =>
+        n.featureState === "upcoming" ? (
+          /* Upcoming loses its link, same contract as the sidebar row. */
+          <button
+            key={`${groups[i] ? groupKey(groups[i]!) : "misc"}:${n.id}`}
+            type="button"
+            disabled
+            data-slot="feature-menu-card"
+            className="flex min-w-0 cursor-default items-start gap-2.5 rounded-lg p-2 text-left opacity-60"
+          >
+            <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-accent/60 text-accent-foreground">
+              <n.icon className="size-4" aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5">
+                <span className="truncate text-sm font-semibold text-foreground">{n.label}</span>
                 <span className="shrink-0 rounded-sm bg-accent px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-accent-foreground/70">
-                  {n.featureState === "upcoming" ? "Soon" : "Beta"}
+                  Soon
                 </span>
+              </span>
+              {n.desc ? (
+                <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{n.desc}</span>
               ) : null}
             </span>
-            {n.desc ? (
-              <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{n.desc}</span>
-            ) : null}
-          </span>
-        </button>
-      ))}
+          </button>
+        ) : (
+          <Link
+            key={`${groups[i] ? groupKey(groups[i]!) : "misc"}:${n.id}`}
+            href={n.href}
+            onClick={onNavigate}
+            data-slot="feature-menu-card"
+            className="flex min-w-0 items-start gap-2.5 rounded-lg p-2 text-left transition-colors hover:bg-accent"
+          >
+            <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-accent/60 text-accent-foreground">
+              <n.icon className="size-4" aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5">
+                <span className="truncate text-sm font-semibold text-foreground">{n.label}</span>
+                {n.featureState === "beta" ? (
+                  <span className="shrink-0 rounded-sm bg-accent px-1 py-0.5 text-[9px] font-medium uppercase tracking-wide text-accent-foreground/70">
+                    Beta
+                  </span>
+                ) : null}
+              </span>
+              {n.desc ? (
+                <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{n.desc}</span>
+              ) : null}
+            </span>
+          </Link>
+        ),
+      )}
     </div>
   );
 }
@@ -253,6 +278,7 @@ function MenuRow({
   label,
   active,
   trailing,
+  slot,
   onClick,
 }: {
   icon: React.ReactNode;
@@ -260,6 +286,7 @@ function MenuRow({
   label: string;
   active: boolean;
   trailing?: React.ReactNode;
+  slot?: string;
   onClick: () => void;
 }) {
   return (
@@ -267,6 +294,7 @@ function MenuRow({
       type="button"
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      data-slot={slot}
       className={cn(
         "flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 text-left transition-colors",
         active ? "bg-accent text-accent-foreground" : "text-foreground/75 hover:bg-accent/60 hover:text-accent-foreground",

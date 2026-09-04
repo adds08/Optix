@@ -42,8 +42,13 @@ test("Settings stays reachable despite a stray row saying it's hidden", async ({
 test("a beta-flagged module (Activity) still opens and carries its badge", async ({ page }) => {
   await page.goto("/home");
   await expect(page.getByRole("button", { name: "Account menu" })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("link", { name: "Insight" }).click();
-  const row = page.locator('a[href="/activity"]').first();
+
+  /* The rail is gone (design has no rail); modules live in the feature
+     launcher behind the top-bar breadcrumb. Open it, pick the Reports module,
+     and the Activity card is right there in the pane. */
+  await page.locator('[data-slot="feature-menu-trigger"]').click();
+  await page.locator('[data-slot="feature-menu-module"]', { hasText: "Reports" }).click();
+  const row = page.locator('[data-slot="feature-menu-card"]', { hasText: "Activity" }).first();
   await expect(row).toBeVisible();
   await expect(row).toContainText(/beta/i);
   await row.click();

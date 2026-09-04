@@ -256,20 +256,18 @@
   --brand-mark: var(--brand-yellow);
 }
 
-/* Two-pane shell (Blocky): the 48px primary rail (app-rail.tsx) owns the left
-   edge, so the fixed secondary shadcn sidebar must sit beside it instead of
-   covering it.
+/* The shadcn sidebar is a FIXED column at `inset-y-0` (ui/sidebar.tsx); with
+   the design's full-width top bar the column must begin below it, or its white
+   background paints over the bar's logo and scope selector.
 
    Target `sidebar-container`, NOT `sidebar`. `data-slot="sidebar"` is the outer
    `md:block` wrapper that holds the layout gap — it is statically positioned, so
-   `left` on it is inert and the fixed column stayed at `left: 0`, painting over
-   the whole rail. The rail was rendering the entire time; nothing could be seen
-   of it, which is why the two-pane shell looked like it had never been built.
-   Only the desktop column carries this slot — the phone sheet is a separate
-   element and keeps its own behaviour. Unlayered, so it beats the utility's
-   `left-0`. */
+   left/top on it are inert and the fixed column stayed at `left: 0`, painting
+   over the edge. Only the desktop column carries this slot — the phone sheet is
+   a separate element and keeps its own behaviour. Unlayered, so it beats the
+   utility's `top-0`/`left-0`. */
 [data-slot="sidebar-wrapper"] [data-slot="sidebar-container"] {
-  left: 3rem;
+  top: 3.5rem; /* h-14 — the top bar that now spans the full width. */
 }
 
 @layer base {

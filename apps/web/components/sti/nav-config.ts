@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, Users, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, Users, Wrench } from "lucide-react";
 
 export type NavItem = {
   /*
@@ -39,15 +39,10 @@ export type NavItem = {
 export type NavGroup = {
   label: string;
   items: NavItem[];
-  /* The rail's glyph for this group. Declared here rather than borrowed from
+  /* The launcher's glyph for this group. Declared here rather than borrowed from
      `items[0]`, which is what it used to do: reordering a group's rows then
      silently changed the icon somebody had learned to aim at. */
   icon: React.ComponentType<{ className?: string }>;
-  /* `foot` pins the group to the bottom of the rail, under the assistant.
-     Settings lives there because it is not a part of the product you work in —
-     it is the thing you leave the product to adjust, and a gear in the flow of
-     Overview/Operations/Equipment reads as another module. */
-  placement?: "main" | "foot";
 };
 
 /*
@@ -75,7 +70,6 @@ export type NavGroup = {
 const SETTINGS_GROUP: NavGroup = {
   label: "Settings",
   icon: Settings,
-  placement: "foot",
   items: [
     { id: "settings-general", href: "/settings", label: "General", icon: SlidersHorizontal, perm: "config.manage", desc: "Branding, approvals and mail" },
     { id: "settings-modules", href: "/settings/modules", label: "Modules", icon: LayoutGrid, perm: "config.manage", desc: "Which parts this organisation uses" },
@@ -127,29 +121,15 @@ export const FIELD_NAV: NavGroup[] = [
 ];
 
 /*
-  The desk groups are MODULES, not a flat list of screens.
-
-  This shell is the frame the rest of the product gets added to — scheduling,
-  documents, procurement, safety — so a group has to answer "which part of the
-  business is this", and adding one has to be a new entry here rather than a
-  new branch in the rail. Two rules keep that true:
-
-    - a FUNCTION lives with the other functions, a RECORD lives with the other
-      records. "Equipment" used to name the group holding Custody and the map,
-      which are things you DO; the register, which is the thing you KEEP, sat
-      three groups away under "Entity". Operations now holds the doing and
-      Registry holds the records, so a new module lands in an obvious place
-      instead of extending whichever group is nearest.
-    - configuration is not a module. Users, roles, theming and the API keys are
-      all Settings, reached from the rail's foot — see SETTINGS_GROUP.
-
-  Inbox is deliberately absent: it is a queue, not a record, and it is reached
-  from the bell in the top bar, which already carries the same count.
+  The desk groups are MODULES, one surface of the business each
+  (design/STInventory App.dc.html). "Equipment" is the whole equipment side —
+  where it is and who holds it, plus the two registers — not two modules, so
+  the sidebar never shows a job hub with its register missing.
 */
 export const DESK_NAV: NavGroup[] = [
   {
-    label: "Overview",
-    icon: LayoutGrid,
+    label: "Home",
+    icon: LayoutDashboard,
     items: [
       /* The project monitor — a wall surface, cycling one job at a time. It
          replaced the widget dashboard and the Desk command surface on
@@ -159,8 +139,8 @@ export const DESK_NAV: NavGroup[] = [
     ],
   },
   {
-    label: "Operations",
-    icon: Workflow,
+    label: "Equipment",
+    icon: Boxes,
     items: [
       /* The control hub: one card per job, with crews (foreman + truck/trailer)
          and the tools working it. */
@@ -169,45 +149,19 @@ export const DESK_NAV: NavGroup[] = [
       /* The map is the fleet — trucks and trailers — with the small tools
          aboard them, which is why it is not called just a vehicle map. */
       { id: "fleet-map", href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read", desc: "Where the fleet is sitting right now" },
-    ],
-  },
-  /*
-    REGISTRY is the entity shelf: one row per kind of thing the business keeps a
-    record of.
-
-    It was called "Equipment" until 2026-08-27, and that name read as correct
-    while being wrong, which is why it survived a rebuild. The first row is the
-    SMALL TOOLS register: the data is drills, saws, generators, grinders,
-    blowers, survey gear and compaction plant, and there is no excavator,
-    loader, backhoe, dozer, skid steer, forklift or crane anywhere in `asset`.
-    The menu used to advertise a resource the product did not have and hide the
-    one it did.
-
-    Equipment is a real and separate entity — trucks and trailers ARE equipment,
-    small tools are not — and it got its own row on 2026-08-30: `/equipment`,
-    backed by the `vehicle` table, which already carried `equipmentClass`
-    (vehicle | heavy), a `code`/`description` pair matching the small-tools
-    "Code" convention, and GPS status. Trucks and trailers are what the
-    register actually holds today; a `heavy` row needs no new screen, just
-    data.
-
-    `id` is deliberately still `tool-register` on the first row. Labels are
-    free to change and ids are not: renaming a row must not empty anybody's
-    pins.
-  */
-  {
-    label: "Registry",
-    icon: Boxes,
-    items: [
+      /*
+        The small-tools register. `id` is deliberately still `tool-register`:
+        labels are free to change and ids are not — renaming a row must not
+        empty anybody's pins.
+      */
       { id: "tool-register", href: "/tools", label: "Small Tools", icon: Wrench, perm: "asset.read", desc: "The master asset list and serials" },
-      /* The row this group's own comment has been reserving since
-         2026-08-27: trucks and trailers today, heavy plant the moment a row
-         exists for it. `vehicle.read` gates it, same as the fleet map. */
+      /* Trucks and trailers today, heavy plant the moment a row exists for it.
+         `vehicle.read` gates it, same as the fleet map. */
       { id: "equipment-register", href: "/equipment", label: "Equipment", icon: Truck, perm: "vehicle.read", desc: "Trucks, trailers and heavy plant" },
     ],
   },
   {
-    label: "Organization",
+    label: "People",
     icon: Users,
     items: [
       { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read", desc: "Your crew and the roles they hold" },
@@ -221,7 +175,7 @@ export const DESK_NAV: NavGroup[] = [
     ],
   },
   {
-    label: "Insight",
+    label: "Reports",
     icon: BarChart3,
     items: [
       { id: "reports", href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read", desc: "Every register and report in one place" },
@@ -297,17 +251,6 @@ export function matchItem(items: NavItem[], pathname: string): NavItem | undefin
   return items
     .filter((n) => pathname === n.href || pathname.startsWith(n.href + "/"))
     .sort((a, b) => b.href.length - a.href.length)[0];
-}
-
-/* The rail draws these in flow; `foot` groups are pinned to the bottom under
-   the assistant. Split here so both the rail and any future shell read the
-   same rule off the config instead of hard-coding which label sinks. */
-export function mainGroups(groups: NavGroup[]): NavGroup[] {
-  return groups.filter((g) => g.placement !== "foot");
-}
-
-export function footGroups(groups: NavGroup[]): NavGroup[] {
-  return groups.filter((g) => g.placement === "foot");
 }
 
 /*
