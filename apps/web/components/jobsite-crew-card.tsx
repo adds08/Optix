@@ -53,6 +53,7 @@ export function CrewCard({
   striped = false,
   highlight,
   compact = false,
+  flush = false,
 }: {
   crew: Crew;
   projectId: string;
@@ -83,6 +84,12 @@ export function CrewCard({
      DropdownMenu item, stays byte-identical; only the layout branches, so the
      two views can never offer different actions for the same crew. */
   compact?: boolean;
+  /* Connected rows for the jobsite LIST body: no per-crew rounded box and no
+     side borders, so foremen sit one under the other in the card's single
+     container like the register's rows — the alternating `striped` fill falls
+     on the row line itself, not on a nested card. The parent draws the rules
+     between rows (divide-y); this component deliberately draws none. */
+  flush?: boolean;
 }) {
   const { rig } = crew;
 
@@ -203,6 +210,7 @@ export function CrewCard({
                 externalId={crew.foremanExternalId}
                 name={crew.foremanName}
                 role={crew.foremanRole}
+                personId={crew.foremanId}
                 detail={[
                   `${crew.tools.length} tool${crew.tools.length === 1 ? "" : "s"}`,
                   moneyShort(value),
@@ -258,7 +266,7 @@ export function CrewCard({
   }
 
   return (
-    <div className={cn("overflow-visible rounded-md border", striped ? "bg-muted/15" : "bg-card")}>
+    <div className={flush ? undefined : cn("overflow-visible rounded-md border", striped ? "bg-muted/15" : "bg-card")}>
       <div
         role="button"
         tabIndex={0}
@@ -270,7 +278,12 @@ export function CrewCard({
           }
         }}
         aria-expanded={expanded}
-        className="crew-row flex cursor-pointer flex-wrap items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-muted/40"
+        className={cn(
+          "crew-row flex cursor-pointer flex-wrap items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-muted/40",
+          /* In the connected-list (flush) layout the zebra lives on the row
+             line itself, since there is no box behind it to tint. */
+          flush && striped && "bg-muted/20",
+        )}
       >
         <span
           aria-hidden
@@ -293,6 +306,7 @@ export function CrewCard({
             externalId={crew.foremanExternalId}
             name={crew.foremanName}
             role={crew.foremanRole}
+            personId={crew.foremanId}
             detail={[
               `${crew.tools.length} tool${crew.tools.length === 1 ? "" : "s"}`,
               rig.truck ? `truck ${rig.truck.unit}` : "no truck",

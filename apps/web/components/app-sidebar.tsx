@@ -114,7 +114,7 @@ export function AppSidebar({
         <ProjectSwitcher />
       </SidebarHeader>
 
-      <SidebarContent className="overscroll-contain pb-2">
+      <SidebarContent className="overscroll-contain pb-2 group-data-[collapsible=icon]:pt-2">
         {/*
           Pinned lands one frame after hydration — `useNavPins` cannot read
           storage during render without desynchronising from the server HTML —

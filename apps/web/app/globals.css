@@ -50,6 +50,14 @@
   --color-hat-trade: var(--hat-trade);
   --color-hat-office: var(--hat-office);
 
+  /* Identity hues — see the --person-* note in :root. */
+  --color-person-0: var(--person-0);
+  --color-person-1: var(--person-1);
+  --color-person-2: var(--person-2);
+  --color-person-3: var(--person-3);
+  --color-person-4: var(--person-4);
+  --color-person-5: var(--person-5);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -160,6 +168,19 @@
   --hat-trade: oklch(0.52 0.095 235);
   --hat-office: oklch(0.60 0.014 250);
 
+  /* Identity hues for people, assigned deterministically per person so a
+     foreman is the same colour on every job and two foremen in one crew
+     list never look alike. Deliberately NOT the status set: ok/warn/crit
+     are reserved for state, so these live in the blue-violet-magenta range
+     plus a teal and a chartreuse, each far enough from ok-green (168) and
+     warn-amber (62) that a tinted icon can never read as a status. */
+  --person-0: oklch(0.52 0.090 200);
+  --person-1: oklch(0.46 0.110 265);
+  --person-2: oklch(0.46 0.115 300);
+  --person-3: oklch(0.50 0.105 335);
+  --person-4: oklch(0.50 0.085 185);
+  --person-5: oklch(0.55 0.110 130);
+
   --chart-1: oklch(0.524 0.095 248);
   --chart-2: oklch(0.505 0.092 168);
   --chart-3: oklch(0.545 0.115 62);
@@ -240,6 +261,13 @@
   --hat-foreman: oklch(0.80 0.125 80);
   --hat-trade: oklch(0.72 0.090 240);
   --hat-office: oklch(0.62 0.014 250);
+
+  --person-0: oklch(0.76 0.080 200);
+  --person-1: oklch(0.70 0.110 265);
+  --person-2: oklch(0.70 0.115 300);
+  --person-3: oklch(0.74 0.100 335);
+  --person-4: oklch(0.74 0.080 185);
+  --person-5: oklch(0.78 0.110 130);
 
   --chart-1: oklch(0.742 0.092 251);
   --chart-2: oklch(0.735 0.105 168);

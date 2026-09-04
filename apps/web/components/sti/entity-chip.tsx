@@ -65,6 +65,25 @@ const ROLE: Record<string, { icon: LucideIcon; hat: string; label: string }> = {
 
 const FALLBACK = { icon: HardHat, hat: "text-hat-office", label: "" };
 
+/*
+  Deterministic per-person colour, for the crew rows on the jobsite board.
+
+  Role hats answer "what kind of person is this" — which is why every foreman
+  looks the same, and on a board where the desk reads a column of foremen that
+  sameness hides who is who. The design colours the foreman's mark per person,
+  so the same foreman carries the same hue on every job and two foremen in one
+  container never collide. `text-person-N` is picked by hashing the person's id
+  — stable, no storage, no two-instance drift — and the hues deliberately avoid
+  the status set (see the `--person-*` note in globals.css).
+*/
+const PERSON_TONES = ["text-person-0", "text-person-1", "text-person-2", "text-person-3", "text-person-4", "text-person-5"];
+
+export function personTone(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return PERSON_TONES[h % PERSON_TONES.length]!;
+}
+
 export function PersonChip({
   id,
   externalId,
@@ -72,6 +91,7 @@ export function PersonChip({
   role,
   detail,
   className,
+  personId,
 }: {
   /* Employee id. Without one the chip still renders — it just does not link,
      because a dead link is worse than a plain label. */
@@ -84,10 +104,15 @@ export function PersonChip({
      per row and a request per row would be a request storm. */
   detail?: string;
   className?: string;
+  /* When set, the person's glyph takes their OWN deterministic hue instead of
+     the role hat — for lists where the person, not the role, is the unit the
+     eye is scanning (the jobsite crew rows). */
+  personId?: string | null;
 }) {
   const r = (role && ROLE[role]) || FALLBACK;
   const Icon = r.icon;
   const roleLabel = r.label || (role ? role.replace(/_/g, " ") : "");
+  const tone = personId ? personTone(personId) : r.hat;
 
   const body = (
     /*
@@ -101,13 +126,18 @@ export function PersonChip({
       should be something you choose rather than something you hit.
     */
     <span className={cn("flex min-w-0 items-center gap-2", className)}>
-      <Icon className={cn("size-4 shrink-0", r.hat)} aria-hidden />
+      <Icon className={cn("size-4 shrink-0", tone)} aria-hidden />
       <span className="min-w-0">
-        <span className="block truncate text-[13.5px] font-semibold leading-tight">{name}</span>
-        <span className="label-xs block truncate">
-          {externalId ? `${externalId} · ` : ""}
-          {roleLabel || "—"}
+        <span className="block truncate text-[13.5px] font-semibold leading-tight">
+          {externalId ? (
+            <>
+              <span className="tnum">{externalId}</span>
+              <span className="mx-1 text-muted-foreground">·</span>
+            </>
+          ) : null}
+          {name}
         </span>
+        <span className="label-xs block truncate">{roleLabel || "—"}</span>
       </span>
     </span>
   );
