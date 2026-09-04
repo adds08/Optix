@@ -54,8 +54,9 @@ test("a card's sheet shows its tools, and the search filter reaches them", async
   await page.getByRole("group", { name: "Layout" }).getByRole("button", { name: "Cards" }).click();
   await expect(cardFaces(page).first()).toBeVisible();
 
-  // Narrow with the same search box the list obeys.
-  await page.getByPlaceholder(/search/i).fill("grinder");
+  // Narrow with the same search box the list obeys. "Milwaukee" matches the
+  // make of several tools, so a surviving card must hold one and preview it.
+  await page.getByPlaceholder(/search/i).fill("Milwaukee");
   await expect(cardFaces(page).first()).toBeVisible();
 
   // The match preview is the whole point: a surviving card shows WHERE the

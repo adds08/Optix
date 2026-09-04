@@ -350,11 +350,7 @@ export default function OrgChartPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Org chart"
-        hideTitle
-        description="Who answers to whom, on each job — the reporting structure over every roster row."
-      />
+      <PageHeader title="Org chart" hideTitle />
       {q.isLoading && <TableSkeleton />}
       {q.error && <ErrorNote message={q.error.message} />}
 

@@ -63,11 +63,7 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Reports"
-        hideTitle
-        description="The register of every report — each card carries its headline figure so the common questions answer themselves."
-      />
+      <PageHeader title="Reports" hideTitle />
       {/* The group chips classify the surface — a filter, not a view switch,
           so ToggleGroup (single value), not Tabs. spacing>0 keeps them as
           separated rounded chips rather than the joined segmented look. */}

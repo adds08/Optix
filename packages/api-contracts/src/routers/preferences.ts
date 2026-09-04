@@ -31,6 +31,10 @@ export const THEME_NAMES = [
 ] as const;
 export const FONT_FAMILIES = ["system", "serif", "mono"] as const;
 
+/* Must stay in step with `RADII` in the web app's lib/themes/themes.ts — the
+   CSS only knows the three presets this enum allows. */
+export const CORNER_RADII = ["blocky", "soft", "round"] as const;
+
 const prefsInput = z.object({
   themeName: z.enum(THEME_NAMES),
   fontFamily: z.enum(FONT_FAMILIES),
@@ -40,6 +44,7 @@ const prefsInput = z.object({
      pattern, so a stale client cannot write `scale(9999)` into a style. */
   iconScale: z.string().regex(/^(0\.\d|1|1\.\d|2)$/),
   density: z.enum(["comfortable", "compact"]),
+  radius: z.enum(CORNER_RADII),
   dashboard: z.object({
     widgets: z.record(z.string(), z.boolean()),
     /* The dashboard-tab preference named one of the two old widget-dashboard
@@ -64,6 +69,7 @@ export const preferencesRouter = router({
         fontScale: "1.0",
         iconScale: "1.0",
         density: "comfortable" as const,
+        radius: "soft" as const,
         dashboard: { widgets: {} },
       };
     }
@@ -73,6 +79,7 @@ export const preferencesRouter = router({
       fontScale: row.fontScale,
       iconScale: row.iconScale,
       density: row.density,
+      radius: row.radius,
       dashboard: row.dashboard,
     };
   }),

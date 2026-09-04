@@ -92,10 +92,7 @@ export default function AuditTrailPage() {
         All reports
       </Link>
 
-      <PageHeader
-        title="Audit trail"
-        description="Every movement in ledger order — the append-only history behind the register, searchable and paged."
-      />
+      <PageHeader title="Audit trail" />
 
       <MovementsWidget />
 

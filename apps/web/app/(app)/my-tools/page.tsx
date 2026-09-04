@@ -26,11 +26,6 @@ export default function MyToolsPage() {
       <PageHeader
         title="My tools"
         hideTitle
-        description={
-          rows.length
-            ? `You are holding ${rows.length} tool${rows.length === 1 ? "" : "s"}.`
-            : "Nothing in your custody right now."
-        }
         actions={
           <Link href="/chat">
             <Button size="sm">

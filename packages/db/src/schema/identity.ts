@@ -196,6 +196,10 @@ export const userPreferences = pgTable(
        multiplies the glyphs alone. */
     iconScale: text("icon_scale").notNull().default("1.0"),
     density: text("density").notNull().default("comfortable"),
+    /* Corner preset, validated in the preferences router against lib/themes'
+       RADII catalog. "soft" is the house default (8px containers); "blocky"
+       restores the old tight corners and "round" is the generous end. */
+    radius: text("radius").notNull().default("soft"),
     dashboard: jsonb("dashboard").$type<{ widgets: Record<string, boolean>; defaultTab?: "fleet" | "command" }>().notNull().default({ widgets: {} }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

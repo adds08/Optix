@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Building2, ChevronDown, ChevronRight, LayoutGrid, Package, PackageOpen, Plus, Rows3, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, LayoutGrid, Package, PackageOpen, Plus, Rows3, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
 import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
+import { TableToolbar } from "@/components/sti/table-toolbar";
 import { FilterPills, FilterField } from "@/components/sti/facets";
 import { isHighValue } from "@/components/sti/flags";
 import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
@@ -19,7 +20,6 @@ import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
 import { Highlight } from "@/components/highlight";
 import { Button } from "@/components/ui/button";
 import { ActionMenuTrigger } from "@/components/sti/action-menu";
-import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SearchSelect } from "@/components/ui/search-select";
 import { humanize } from "@/components/sti/status";
@@ -590,22 +590,17 @@ export default function JobsitesPage() {
               one bar that used to be carded and the ones that were bare are
               now the same treatment. */}
           <section className="flex flex-col gap-2 rounded-md border bg-card p-2">
-            {/* Search stays on the bar because it is the one control used on
-                every visit. The other six live in the sheet — as loose
-                dropdowns they wrapped to one per line the moment the window
-                narrowed, turning the filter bar into a column taller than the
-                first card. */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-56 flex-1">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search everything — job, foreman, truck, trailer, serial or tool…"
-                  className="pl-8"
-                  aria-label="Search the jobsite list"
-                />
-              </div>
+            {/* The top row is the shared register toolbar: search on the left,
+                every button to its right — Filter, sort, List/Cards,
+                Projects/In Yard, master expand. The counts that used to share
+                this row now sit on their own summary line below, the same way
+                the register toolbars keep numbers out of the button row. */}
+            <TableToolbar
+              searchValue={q}
+              onSearchChange={setQ}
+              placeholder="Search everything — job, foreman, truck, trailer, serial or tool…"
+              ariaLabel="Search the jobsite list"
+            >
               <FilterSheet
                 title="Filter jobsites"
                 activeCount={sheetFilterCount}
@@ -661,11 +656,11 @@ export default function JobsitesPage() {
                     options={categoryOptions.map((c) => ({ value: c, label: c }))}
                   />
                 </FilterField>
-                <FilterField label="Rig gap">
+                <FilterField label="Truck & trailer">
                   <SearchSelect
                     value={gapFilter}
                     onChange={(v) => setGapFilter(v as typeof gapFilter)}
-                    placeholder="Any rig"
+                    placeholder="Any"
                     widthClass="w-full"
                     options={[
                       { value: "no_crew", label: "Job with no crew" },
@@ -684,6 +679,145 @@ export default function JobsitesPage() {
                   <TriangleAlert className="size-3.5" /> High-value tools only
                 </Button>
               </FilterSheet>
+
+              {/* View MODE — a simple icon switch, kept apart from the tools
+                  below. Two text tabs read like another data filter; and the
+                  words swapped the row's width when toggling, which is the
+                  "UI jumping" between the two layouts. Icons have a fixed
+                  width, so the mode changes without the row shifting. */}
+              <div className="flex items-center overflow-hidden rounded-md border" role="group" aria-label="Layout">
+                <button
+                  type="button"
+                  onClick={() => pickRenderView("list")}
+                  aria-pressed={renderView === "list"}
+                  aria-label="List view"
+                  title="Full cards, crews and tools inline"
+                  className={cn(
+                    "grid size-[34px] place-items-center transition-colors",
+                    renderView === "list"
+                      ? "bg-muted text-foreground"
+                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  <Rows3 className="size-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => pickRenderView("cards")}
+                  aria-pressed={renderView === "cards"}
+                  aria-label="Cards view"
+                  title="Compact cards, tools in a side sheet"
+                  className={cn(
+                    "grid size-[34px] place-items-center transition-colors",
+                    renderView === "cards"
+                      ? "bg-muted text-foreground"
+                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  <LayoutGrid className="size-4" aria-hidden />
+                </button>
+              </div>
+
+              {/* Projects / In Yard split. "Jobs" named a thing this tab is
+                  only partly about (a job is a site; this is also where
+                  unassigned-foreman crews sit), and "Pool" was jargon. The
+                  two labels say what each tab actually is. */}
+              <div className="flex overflow-hidden rounded-md border" role="group" aria-label="View">
+                {([["jobs", "Projects"], ["pool", "In Yard"]] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setPoolView(key)}
+                    aria-pressed={poolView === key}
+                    className={cn(
+                      /* Wide enough to read as two tabs. At `px-2.5` the pair
+                         was narrower than the sort control beside it and read
+                         as one small chip rather than a choice. */
+                      "min-w-[4.5rem] h-[34px] px-4 text-xs transition-colors",
+                      poolView === key
+                        ? "bg-muted font-medium text-foreground"
+                        : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Job-level sort. The one control the design's board adds that
+                  the page did not have. */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-1.5" aria-label="Sort jobs">
+                    <ArrowDownWideNarrow className="size-3.5" />
+                    {cardSort === "tools" ? "Most tools" : cardSort === "value" ? "Most value" : cardSort === "gaps" ? "Most gaps" : "Name"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setCardSort("tools")}>Most tools</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCardSort("value")}>Most value</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCardSort("gaps")}>Most gaps</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCardSort("name")}>Name</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Expand / collapse is a property of the FULL cards — the
+                  layout where crews open inline. The compact grid opens
+                  sheets instead, so it has no master expand to offer. */}
+              {renderView === "list" ? (
+                <Button
+                  variant="outline"
+                  onClick={stepMaster}
+                  title="Steps through: jobs open, crews open, crews shut, everything shut"
+                >
+                  {master.next === "Expand all" || master.next === "Expand crews" ? (
+                    <Eye className="size-3.5" />
+                  ) : (
+                    <ChevronDown className={cn("size-3.5", master.next === "Collapse all" && "rotate-180")} />
+                  )}
+                  {master.next}
+                </Button>
+              ) : null}
+            </TableToolbar>
+
+            {/* The summary line — what the filters produced, in numbers. It is
+                information, so it does not sit in the button row above. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              <span className="tnum font-mono">
+                {shownTools} tool{shownTools === 1 ? "" : "s"} · {shownCrews} crew{shownCrews === 1 ? "" : "s"} · {cards.length} card{cards.length === 1 ? "" : "s"}
+              </span>
+              {/* The count is also the way in: seeing that eleven crews cannot
+                  haul anything and then having to open the sheet to find them
+                  is a dead end where a link belongs. */}
+              {crewsWithoutTruck ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn("tnum h-6 rounded-full px-2 text-warn", gapFilter === "no_truck" && "bg-warn-bg")}
+                  onClick={() => setGapFilter(gapFilter === "no_truck" ? "" : "no_truck")}
+                  aria-pressed={gapFilter === "no_truck"}
+                >
+                  {crewsWithoutTruck} without a truck
+                </Button>
+              ) : null}
+              {anyFilter ? (
+                <Button variant="ghost" size="sm" className="h-6 rounded-full px-2 text-primary" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              ) : null}
+              {/* What the In Yard tab actually holds, said in numbers.
+
+                  Only in the In Yard tab: on Projects it would be describing cards that
+                  are not on screen. The two figures are the two cards below it,
+                  so the label is a summary of the view rather than a statistic
+                  from somewhere else. */}
+              {poolView === "pool" ? (
+                <span className="text-xs text-muted-foreground">
+                  <span className="tnum font-medium text-foreground">{poolCounts.yard}</span> in the yard
+                  {" · "}
+                  <span className="tnum font-medium text-foreground">{poolCounts.noJob}</span> held with no job
+                </span>
+              ) : null}
             </div>
 
             {/* What is currently narrowing the list, each removable on its own —
@@ -732,148 +866,6 @@ export default function JobsitesPage() {
                   : []),
               ]}
             />
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              {/* The whole card-row summary in one line — the numbers that used
-                  to sit in metric cards above, where they only pushed the cards
-                  themselves below the fold. */}
-              <span className="tnum font-mono">
-                {shownTools} tool{shownTools === 1 ? "" : "s"} · {shownCrews} crew{shownCrews === 1 ? "" : "s"} · {cards.length} card{cards.length === 1 ? "" : "s"}
-              </span>
-              {/* The count is also the way in: seeing that eleven crews cannot
-                  haul anything and then having to open the sheet to find them
-                  is a dead end where a link belongs. */}
-              {crewsWithoutTruck ? (
-                /* The button that clears it ("Clear filters") is a `Button`
-                   ghost — this chip is the same control family and is now one
-                   too, not a raw `<button>` styled to look like its sibling. */
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={cn("tnum h-6 rounded-full px-2 text-warn", gapFilter === "no_truck" && "bg-warn-bg")}
-                  onClick={() => setGapFilter(gapFilter === "no_truck" ? "" : "no_truck")}
-                  aria-pressed={gapFilter === "no_truck"}
-                >
-                  {crewsWithoutTruck} without a truck
-                </Button>
-              ) : null}
-              {anyFilter ? (
-                <Button variant="ghost" size="sm" className="h-6 rounded-full px-2 text-primary" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-              {/* What the Pool actually holds, said in numbers.
-
-                  Only in the In Yard tab: on Projects it would be describing cards that
-                  are not on screen. The two figures are the two cards below it,
-                  so the label is a summary of the view rather than a statistic
-                  from somewhere else. */}
-              {poolView === "pool" ? (
-                <span className="text-xs text-muted-foreground">
-                  <span className="tnum font-medium text-foreground">{poolCounts.yard}</span> in the yard
-                  {" · "}
-                  <span className="tnum font-medium text-foreground">{poolCounts.noJob}</span> held with no job
-                </span>
-              ) : null}
-              {/* View MODE — a simple icon switch, kept apart from the tools
-                  below. Two text tabs read like another data filter; and the
-                  words swapped the row's width when toggling, which is the
-                  "UI jumping" between the two layouts. Icons have a fixed
-                  width, so the mode changes without the row shifting. */}
-              <div className="flex items-center overflow-hidden rounded-md border" role="group" aria-label="Layout">
-                <button
-                  type="button"
-                  onClick={() => pickRenderView("list")}
-                  aria-pressed={renderView === "list"}
-                  aria-label="List view"
-                  title="Full cards, crews and tools inline"
-                  className={cn(
-                    "grid size-7 place-items-center transition-colors",
-                    renderView === "list"
-                      ? "bg-muted text-foreground"
-                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  <Rows3 className="size-4" aria-hidden />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => pickRenderView("cards")}
-                  aria-pressed={renderView === "cards"}
-                  aria-label="Cards view"
-                  title="Compact cards, tools in a side sheet"
-                  className={cn(
-                    "grid size-7 place-items-center transition-colors",
-                    renderView === "cards"
-                      ? "bg-muted text-foreground"
-                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  <LayoutGrid className="size-4" aria-hidden />
-                </button>
-              </div>
-
-              <div className="ml-auto flex items-center gap-2">
-                {/* Projects / In Yard split. "Jobs" named a thing this tab is
-                    only partly about (a job is a site; this is also where
-                    unassigned-foreman crews sit), and "Pool" was jargon. The
-                    two labels say what each tab actually is. */}
-                <div className="flex overflow-hidden rounded-md border" role="group" aria-label="View">
-                  {([["jobs", "Projects"], ["pool", "In Yard"]] as const).map(([key, label]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setPoolView(key)}
-                      aria-pressed={poolView === key}
-                      className={cn(
-                        /* Wide enough to read as two tabs. At `px-2.5` the pair
-                           was narrower than the sort control beside it and read
-                           as one small chip rather than a choice. */
-                        "min-w-[4.5rem] px-4 py-1.5 text-xs transition-colors",
-                        poolView === key
-                          ? "bg-muted font-medium text-foreground"
-                          : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {/* Blocky concept delta: job-level sort. The one control the
-                    design's board adds that the page did not have. */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1.5" aria-label="Sort jobs">
-                      <ArrowDownWideNarrow className="size-3.5" />
-                      {cardSort === "tools" ? "Most tools" : cardSort === "value" ? "Most value" : cardSort === "gaps" ? "Most gaps" : "Name"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => setCardSort("tools")}>Most tools</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setCardSort("value")}>Most value</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setCardSort("gaps")}>Most gaps</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setCardSort("name")}>Name</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {/* Expand / collapse is a property of the FULL cards — the
-                    layout where crews open inline. The compact grid opens
-                    sheets instead, so it has no master expand to offer. */}
-                {renderView === "list" ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={stepMaster}
-                  title="Steps through: jobs open, crews open, crews shut, everything shut"
-                >
-                  {master.next === "Expand all" || master.next === "Expand crews" ? (
-                    <Eye className="size-3.5" />
-                  ) : (
-                    <ChevronDown className={cn("size-3.5", master.next === "Collapse all" && "rotate-180")} />
-                  )}
-                  {master.next}
-                </Button>
-                ) : null}
-              </div>
-            </div>
           </section>
 
           {!cards.length ? (
@@ -1009,15 +1001,6 @@ export default function JobsitesPage() {
                         <TriangleAlert className="size-3.5" aria-hidden /> {card.gaps.join(" · ")}
                       </span>
                     ) : null}
-                    {card.isJob ? (
-                      <JobsiteTeamStrip
-                        projectId={card.id}
-                        members={teamLeaders}
-                        candidates={teamCandidates}
-                        canAssignPm={canAssignPm}
-                        canAssignSuper={canAssignSuper}
-                      />
-                    ) : null}
                   </span>
                   <span className="ml-auto flex items-center gap-2">
                     <span className="text-right whitespace-nowrap">
@@ -1056,34 +1039,54 @@ export default function JobsitesPage() {
                      row under the crew list. */
                   <div className="border-t border-border bg-muted/10">
                     <div className="flex flex-col gap-2 p-2">
-                      {card.crews.length ? (
-                        card.crews.map((crew) => (
-                          <CrewCard
-                            key={crew.id}
-                            crew={crew}
-                            /* STI-401: jobs open, CREWS CLOSED by default, which
-                               is `master.crews` at step 0. Urban runs ~28 crews,
-                               so expanding every crew's tool table turned the
-                               department's morning question ("who needs a
-                               vehicle") into a scroll. A crew the desk opens stays
-                               open via `openCrews` until the master steps, which
-                               clears the map so it can address every crew at once
-                               — the second level the old boolean could not reach. */
-                            expanded={openCrews[crew.id] ?? master.crews}
-                            onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(o[crew.id] ?? master.crews) }))}
-                            onPick={setPicker}
-                            onAddTools={
-                              canAssignTools
-                                ? () => setAssign({ mode: "pickTools", foremanId: crew.foremanId, foremanName: crew.foremanName })
-                                : undefined
-                            }
-                            canManage={canDrive}
-                            canAct={canActTools}
-                            highlight={q}
-                            projectId={card.id}
-                          />
-                        ))
-                      ) : card.isJob && canAssignCrew ? (
+                      {/*
+                        When the desk types a search, only crews actually holding
+                        a match stay — a foreman whose toolbox holds no matching
+                        tool is noise, not information, and their header was
+                        showing anyway because `buildCrews` pushes a crew even
+                        when its `visible` tool list came out empty. Those crews
+                        are also forced OPEN: the whole reason to filter is to
+                        see WHERE the match is, and a crew that stays collapsed
+                        hides the very row the search found.
+                      */}
+                      {function () {
+                        const searching = q.trim().length > 0;
+                        const crews = searching ? card.crews.filter((c) => c.tools.length > 0) : card.crews;
+                        if (!card.crews.length) return null;
+                        return crews.length ? (
+                          crews.map((crew) => (
+                            <CrewCard
+                              key={crew.id}
+                              crew={crew}
+                              /* STI-401: jobs open, CREWS CLOSED by default, which
+                                 is `master.crews` at step 0. Urban runs ~28 crews,
+                                 so expanding every crew's tool table turned the
+                                 department's morning question ("who needs a
+                                 vehicle") into a scroll. A crew the desk opens stays
+                                 open via `openCrews` until the master steps, which
+                                 clears the map so it can address every crew at once
+                                 — the second level the old boolean could not reach. */
+                              expanded={searching ? true : openCrews[crew.id] ?? master.crews}
+                              onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(o[crew.id] ?? master.crews) }))}
+                              onPick={setPicker}
+                              onAddTools={
+                                canAssignTools
+                                  ? () => setAssign({ mode: "pickTools", foremanId: crew.foremanId, foremanName: crew.foremanName })
+                                  : undefined
+                              }
+                              canManage={canDrive}
+                              canAct={canActTools}
+                              highlight={q}
+                              projectId={card.id}
+                            />
+                          ))
+                        ) : (
+                          <p className="px-4 py-3 text-sm text-muted-foreground">
+                            No crew on this job holds a tool matching that search.
+                          </p>
+                        );
+                      }()}
+                      {!card.crews.length && card.isJob && canAssignCrew ? (
                         <div className="p-3">
                           <button
                             type="button"
@@ -1093,7 +1096,7 @@ export default function JobsitesPage() {
                             <Plus className="size-4" aria-hidden /> No crew on this job yet — add a foreman with a truck or trailer.
                           </button>
                         </div>
-                      ) : card.id === NOJOB ? (
+                      ) : card.id === NOJOB && !card.crews.length ? (
                         <p className="px-4 py-3 text-sm text-muted-foreground">
                           Every foreman is on a project right now — this group holds whoever is between jobs.
                         </p>
@@ -1126,6 +1129,29 @@ export default function JobsitesPage() {
                         </div>
                       ) : null}
                     </div>
+                ) : null}
+
+                {/* Project leads, at the bottom of the card on purpose: who
+                    runs the job is the summary, not the headline. The code/name
+                    row above says WHAT this is; this rule says WHO. Kept visible
+                    when the card is collapsed so a desk reading the board sees
+                    who is accountable on every site without opening it. The
+                    strip itself returns null for a viewer who can neither see
+                    nor add a leader, so the row only exists when there is
+                    something worth the space. */}
+                {card.isJob && (teamLeaders.length > 0 || canAssignPm || canAssignSuper) ? (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border bg-muted/20 px-2.5 py-1.5">
+                    {teamLeaders.length > 0 ? (
+                      <span className="label-xs text-muted-foreground">Leads</span>
+                    ) : null}
+                    <JobsiteTeamStrip
+                      projectId={card.id}
+                      members={teamLeaders}
+                      candidates={teamCandidates}
+                      canAssignPm={canAssignPm}
+                      canAssignSuper={canAssignSuper}
+                    />
+                  </div>
                 ) : null}
               </section>
             );

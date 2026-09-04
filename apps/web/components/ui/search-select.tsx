@@ -67,11 +67,11 @@ export function SearchSelect({
       trigger={
         <Button
           variant="outline"
-          size="sm"
+          size="default"
           role="combobox"
           aria-expanded={open}
           className={cn(
-            "h-8 justify-between gap-2 px-2.5 font-normal",
+            "justify-between gap-2 px-2.5 font-normal",
             value && "border-primary/40 bg-accent text-accent-foreground",
             widthClass,
             className,

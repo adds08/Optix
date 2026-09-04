@@ -70,8 +70,9 @@ export function SavedFilters({
 
   return (
     <div className="relative">
+      {/* default (34px) — matches the search field and toolbar controls beside it. */}
       <Button
-        size="sm"
+        size="default"
         variant="outline"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}

@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Download,
-  Eye,
-  Search,
-} from "lucide-react";
+import { Download, Eye } from "lucide-react";
 import {
   getCoreRowModel,
   getFacetedRowModel,
@@ -35,7 +31,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -45,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/sti/page";
+import { TableToolbar } from "@/components/sti/table-toolbar";
 import { DataTablePagination } from "./pagination";
 import { FilterSheet } from "./filter-sheet";
 import { ColumnMenu, isColumnFiltered } from "./column-menu";
@@ -595,17 +591,11 @@ export function DataTable<T>({
     <div className="flex flex-col gap-3">
       {/* toolbar */}
       {showToolbar ? (
+      /* DataTable owns the card here (the toolbar row itself is a bare
+         TableToolbar — see its comment). The filters / columns / export and any
+         page `toolbarExtra` all land inside one strip, right-aligned. */
       <div className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-2">
-        <div className="relative min-w-[200px] max-w-sm flex-1">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={searchText}
-            onChange={(e) => changeSearch(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="pl-8"
-            aria-label="Search"
-          />
-        </div>
+      <TableToolbar searchValue={searchText} onSearchChange={changeSearch} placeholder={searchPlaceholder} className="w-full">
         {filterControls ? (
           <FilterSheet
             title={filterSheetTitle}
@@ -619,8 +609,8 @@ export function DataTable<T>({
         {toolbarExtra}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" aria-label="Choose columns">
-              <Eye className="size-4" />
+            <Button variant="outline" aria-label="Choose columns">
+              <Eye className="size-3.5" />
               Columns
             </Button>
           </DropdownMenuTrigger>
@@ -643,11 +633,12 @@ export function DataTable<T>({
           </DropdownMenuContent>
         </DropdownMenu>
         {filename ? (
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={!rowsOut.length}>
-            <Download className="size-4" />
+          <Button variant="outline" onClick={exportCsv} disabled={!rowsOut.length}>
+            <Download className="size-3.5" />
             Export CSV
           </Button>
         ) : null}
+      </TableToolbar>
       </div>
       ) : null}
 
@@ -687,7 +678,10 @@ export function DataTable<T>({
           body's, the way a real spreadsheet component does it — real work,
           tracked separately rather than guessed at without a browser to
           check it in. */}
-      <div className="overflow-clip rounded-md border">
+      <div className="overflow-clip rounded-md border bg-card">
+        {/* The toolbar is carded above; `bg-card` here makes the table itself
+            the same white card, so a register reads as one surface instead of
+            controls floating over a bare table. */}
         <div className="sticky top-0 z-30">
           <DataTablePagination table={table} />
         </div>
@@ -728,7 +722,7 @@ export function DataTable<T>({
                           shows once opened. */}
                       <span
                         className={cn(
-                          "flex min-w-0 flex-1 items-center gap-1.5 py-2.5 pl-3 text-xs font-medium uppercase tracking-wide",
+                          "flex min-w-0 flex-1 items-center gap-1.5 py-2 pl-3 text-xs font-medium uppercase tracking-wide",
                           /* The menu button supplies the trailing gap when it is
                              there; without it the cell needs its own. */
                           hasValue ? "pr-1" : "pr-3",
@@ -815,16 +809,17 @@ export function DataTable<T>({
                     return (
                       <TableCell
                         key={c.id}
-                        /* Clipped, so a column whose content outgrows its
-                           declared width truncates inside its own box instead
-                           of painting over the cell beside it — which is how an
-                           undersized actions column ended up sitting on top of
-                           the status pill. Radix menus portal out, so the row
-                           dropdowns are unaffected. */
-                        className={cn("overflow-hidden", meta.numeric && "text-right tnum", frz.className, stickyR.className)}
+                        /* Single-line + ellipsis, not wrap and not a silent
+                           clip. A text column that wrapped its "FM-001 -
+                           Alejandro Capuchino" over two lines made every row
+                           tall, and `overflow-hidden` without ellipsis cut the
+                           same name mid-word ("Whitfi"). `truncate` keeps the
+                           row one line and shows a "…" at the column edge, so
+                           a wide name is readable up to the boundary and never
+                           painted over its neighbour. */
+                        className={cn("truncate", meta.numeric && "text-right tnum", frz.className, stickyR.className)}
                         style={{
                           width: widthFor(c.column.id, meta.width),
-                          whiteSpace: meta.numeric ? "nowrap" : "normal",
                           ...frz.style,
                           ...stickyR.style,
                         }}

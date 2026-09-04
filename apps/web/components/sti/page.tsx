@@ -60,6 +60,12 @@ export function PageHeader({
       </header>
     );
   }
+  /* `hideTitle` drops the icon box and the big h1. If a page also has no
+     description, no actions and no eyebrow, there is nothing left to render —
+     but the header still drew its `border-b pb-5` band (a gap around a line
+     floating above the content). Render nothing instead, so a title-less page
+     does not inherit an invisible frame. */
+  if (hideTitle && !description && !actions && !eyebrow) return null;
   return (
     <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-5">
       <div className="flex min-w-0 items-start gap-3">

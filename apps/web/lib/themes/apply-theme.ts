@@ -1,6 +1,6 @@
 "use client";
 
-import { ALL_FONT_KEYS, FONT_FAMILIES, THEMES, type ThemePrefs } from "./themes";
+import { ALL_FONT_KEYS, FONT_FAMILIES, RADII, THEMES, type ThemePrefs } from "./themes";
 
 /*
   Apply the active preferences to the document.
@@ -36,7 +36,17 @@ const ALL_THEME_KEYS = [
 export function applyTheme(prefs: ThemePrefs, dark: boolean) {
   const root = document.documentElement;
   const theme = THEMES[prefs.themeName] ?? THEMES.blocky;
-  const vars = dark ? theme.dark : theme.light;
+  /* A copy, never the catalog's own record — --radius is injected below and
+     must not become a permanent member of a theme's override set. */
+  const vars = { ...(dark ? theme.dark : theme.light) };
+
+  /* The corner preset rides inside `vars` so the boot cache persists and
+     replays it — a cached `vars` without it would flash the CSS default
+     before hydration. Added BEFORE the set loop (it is a real property, not
+     a note) and after the clear above, so a radius from a pre-2026-09-04
+     appearance can never stick. */
+  const radius = RADII[prefs.radius] ?? RADII.soft;
+  vars["--radius"] = radius.value;
 
   for (const key of ALL_THEME_KEYS) root.style.removeProperty(key);
   for (const [key, value] of Object.entries(vars)) root.style.setProperty(key, value);

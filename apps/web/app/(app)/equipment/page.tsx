@@ -157,18 +157,7 @@ export default function EquipmentPage() {
   return (
     <div className="flex flex-col gap-4">
       {editing ? <VehicleForm open onClose={() => setEditing(null)} edit={editing} /> : null}
-      <PageHeader
-        icon={Truck}
-        title="Equipment"
-        hideTitle
-        description="Trucks and trailers today, heavy plant when it joins the register — the fleet, not the small tools riding on it."
-        actions={
-          <>
-            <ImportButton entity="vehicle" />
-            <CreateAction perm="vehicle.manage" label="New equipment" Form={VehicleForm} />
-          </>
-        }
-      />
+      <PageHeader icon={Truck} title="Equipment" hideTitle />
       {vehicles.isLoading ? (
         <TableSkeleton />
       ) : vehicles.isError ? (
@@ -190,6 +179,12 @@ export default function EquipmentPage() {
           enableSelection
           selection={selectedIds}
           onSelectionChange={setSelectedIds}
+          toolbarExtra={
+            <>
+              <ImportButton entity="vehicle" />
+              <CreateAction perm="vehicle.manage" label="New equipment" Form={VehicleForm} />
+            </>
+          }
         />
       )}
     </div>

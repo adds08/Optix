@@ -138,13 +138,6 @@ export default function ProjectsPage() {
         icon={HardHat}
         title="Projects"
         hideTitle
-        description="The jobs tools and people are assigned to, and what gets charged against them."
-        actions={
-          <>
-            <ImportButton entity="project" />
-            <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />
-          </>
-        }
       />
       {projects.isLoading ? (
         <TableSkeleton />
@@ -185,6 +178,12 @@ export default function ProjectsPage() {
             enableSelection
             selection={selectedIds}
             onSelectionChange={setSelectedIds}
+            toolbarExtra={
+              <>
+                <ImportButton entity="project" />
+                <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />
+              </>
+            }
           />
         </>
       )}

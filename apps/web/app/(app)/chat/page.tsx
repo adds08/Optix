@@ -118,7 +118,6 @@ export default function ChatPage() {
       <PageHeader
         title="Hand off"
         hideTitle
-        description="Say it like you would in a group chat — the request becomes a confirmable custody action for the desk."
       />
       {channels.isLoading ? (
         <TableSkeleton rows={4} cols={2} />

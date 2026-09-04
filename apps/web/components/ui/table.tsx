@@ -79,7 +79,11 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        /* h-8, not h-10: a 40px strip around an 11px uppercase label was the
+           register's tallest line, taller than its own rows and the toolbar
+           buttons beside it. 32px sits level with the dense single-line rows
+           and just under the 34px toolbar controls. */
+        "h-8 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       {...props}
@@ -92,7 +96,10 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        /* py-1.5, not p-2: 16px of vertical breathing made register rows read
+           tall next to a 34px toolbar; 12px keeps a row to one crisp line
+           (~36px) with the hairline rules between rows. */
+        "px-2 py-1.5 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className
       )}
       {...props}

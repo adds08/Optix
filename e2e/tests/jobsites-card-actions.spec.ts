@@ -39,7 +39,7 @@ test("the card face shows who runs the job and how rigged it is", async ({ page 
   await expect(loneStar).toBeVisible();
   await expect(loneStar.getByText("PM-001 · Dana Whitmore")).toBeVisible();
   await expect(loneStar.getByText("SUP-001 · Marcus Whitfield")).toBeVisible();
-  await expect(loneStar.getByText(/\d+\/\d+ rigged/)).toBeVisible();
+  await expect(loneStar.getByText(/\d+\/\d+ with truck & trailer/)).toBeVisible();
 });
 
 test("the sheet offers the same crew and roster actions the list does", async ({ page }) => {

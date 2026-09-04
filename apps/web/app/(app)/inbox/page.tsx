@@ -52,11 +52,7 @@ export default function InboxPage() {
   if (!isDesk) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader
-          title="Alerts"
-          hideTitle
-          description="Notifications about your tools and the requests you have sent."
-        />
+        <PageHeader title="Alerts" hideTitle />
         {alerts.isLoading ? (
           <TableSkeleton cols={2} />
         ) : !unread.length ? (

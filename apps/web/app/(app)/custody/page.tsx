@@ -98,11 +98,13 @@ export default function CustodyPage() {
 
   const HELD_COLUMNS: ColumnDef<HeldRow>[] = useMemo(
     () => [
-      col<HeldRow>({ header: "Tag", accessorFn: (a) => a.tag ?? "", width: "6rem", cell: (a) => <Link href={`/tools/${a.assetId}`}><Tag>{a.tag}</Tag></Link> }),
+      col<HeldRow>({ header: "Code", accessorFn: (a) => a.tag ?? "", width: "6rem", cell: (a) => <Link href={`/tools/${a.assetId}`}><Tag>{a.tag}</Tag></Link> }),
       col<HeldRow>({ header: "Model", accessorFn: (a) => a.modelName ?? "", cell: (a) => <span className="font-medium">{a.modelName}</span> }),
-      col<HeldRow>({ header: "Held by", accessorFn: (a) => a.custodianName ?? "", cell: (a) => a.custodianName ?? "—" }),
+      /* Person code before the name, same convention as every other identity
+         on the board — the code is the stable key the desk knows. */
+      col<HeldRow>({ header: "Held by", accessorFn: (a) => idName(a.custodianExternalId, a.custodianName), cell: (a) => (a.custodianName ? idName(a.custodianExternalId, a.custodianName) : "—") }),
       col<HeldRow>({ header: "Project", accessorFn: (a) => a.projectName ?? "", cell: (a) => (a.projectName ? idName(a.projectExternalId, a.projectName) : "—") }),
-      col<HeldRow>({ header: "Rig", accessorFn: (a) => a.locationName ?? "", cell: (a) => a.locationName ?? "—" }),
+      col<HeldRow>({ header: "Rides in", accessorFn: (a) => a.locationName ?? "", cell: (a) => a.locationName ?? "—" }),
       col<HeldRow>({
         header: "Since",
         accessorFn: (a) => a.startDate ?? "",
@@ -121,7 +123,7 @@ export default function CustodyPage() {
 
   const MOVING_COLUMNS: ColumnDef<TransferRow>[] = useMemo(
     () => [
-      col<TransferRow>({ header: "Tag", accessorFn: (t) => t.tag ?? "", width: "6rem", cell: (t) => <Link href={`/tools/${t.assetId}`}><Tag>{t.tag}</Tag></Link> }),
+      col<TransferRow>({ header: "Code", accessorFn: (t) => t.tag ?? "", width: "6rem", cell: (t) => <Link href={`/tools/${t.assetId}`}><Tag>{t.tag}</Tag></Link> }),
       col<TransferRow>({ header: "Model", accessorFn: (t) => t.modelName ?? "", cell: (t) => <span className="font-medium">{t.modelName}</span> }),
       col<TransferRow>({ header: "Reason", accessorFn: (t) => String(t.reason ?? "").replace(/_/g, " "), cell: (t) => <span className="capitalize">{String(t.reason).replace(/_/g, " ")}</span> }),
       col<TransferRow>({ header: "Status", accessorFn: (t) => t.status, width: "9rem", cell: (t) => <StatusPill status={t.status} /> }),
@@ -141,7 +143,7 @@ export default function CustodyPage() {
       cell: (r) => <span className="capitalize">{r.type}</span>,
     }),
     col<QueueRow>({
-      header: "Tag",
+      header: "Code",
       accessorFn: (r) => r.assetTag ?? "",
       width: "6rem",
       cell: (r) => {
@@ -235,12 +237,7 @@ export default function CustodyPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        icon={ArrowLeftRight}
-        title="Custody"
-        hideTitle
-        description="Who holds what, what is moving between custodians, and the approval queue the desk signs off."
-      />
+      <PageHeader icon={ArrowLeftRight} title="Custody" hideTitle />
       {/* Counts ride on the tabs, so there is no card row here repeating them
           back. In-motion gets one line of text because it is not a tab of its
           own. Radix owns the tablist roles and roving focus (arrow keys move

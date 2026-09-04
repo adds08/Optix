@@ -559,12 +559,29 @@ export const ICON_SCALES = ["1.0", "1.15", "1.3", "1.5"] as const;
 
 export type Density = "comfortable" | "compact";
 
+/* Corner presets (docs/19, Appearance → Corners).
+
+   Each is a value for the single `--radius` token; `--radius-sm/lg/xl` derive
+   from it in globals.css, so one knob moves every surface together. The
+   blocky value (0.25rem) reproduces the old 3/4/6/6 set exactly; soft is the
+   default — the design file's 8px containers. */
+export type RadiusName = "blocky" | "soft" | "round";
+
+export const RADII: Record<RadiusName, { label: string; value: string; description: string }> = {
+  blocky: { label: "Blocky", value: "0.25rem", description: "The tight 4px house corners" },
+  soft: { label: "Soft", value: "0.5rem", description: "The design file's 8px surfaces" },
+  round: { label: "Round", value: "0.75rem", description: "Generous 12px corners" },
+};
+
 export type ThemePrefs = {
   themeName: ThemeName;
   fontFamily: FontFamilyName;
   fontScale: string;
   iconScale: string;
   density: Density;
+  /* Which corner preset `--radius` resolves to. Default soft — the whole
+     system reads closer to the design file until a user picks otherwise. */
+  radius: RadiusName;
   dashboard: {
     widgets: Record<string, boolean>;
     /* The tab that opens first (docs/20, B1). The star on the dashboard sets
@@ -579,5 +596,6 @@ export const DEFAULT_PREFS: ThemePrefs = {
   fontScale: "1.0",
   iconScale: "1.0",
   density: "comfortable",
+  radius: "soft",
   dashboard: { widgets: {} },
 };

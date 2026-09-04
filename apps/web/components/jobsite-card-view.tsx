@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Plus, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Briefcase, ClipboardCheck, Plus, Search, TriangleAlert, type LucideIcon } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
 import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
@@ -126,6 +126,12 @@ export function JobsiteCardView({
      whole reason to open a sheet is to see the tools, unlike the dense list
      where `master.crews` starts every crew shut so the page loads scannable. */
   const [closedCrews, setClosedCrews] = useState<Set<string>>(new Set());
+  /* Sheet-local search. The page's global search decides which cards are in
+     the grid at all, but once you open a sheet there was no way to narrow the
+     tools inside it — a job running fifty tools forced reading all fifty. This
+     filters the sheet's own crew tools + loose tools by the same substring the
+     global search uses, and a foreman name match keeps their whole crew. */
+  const [sheetQuery, setSheetQuery] = useState("");
 
   /* Candidates for a new PM/super: active employees, same filter the list
      view applies inline for the same reason — a deactivated account cannot
@@ -150,6 +156,39 @@ export function JobsiteCardView({
     }
     return m;
   }, [team]);
+
+  /* The sheet's own search, applied to the one open card. A tool matches on
+     the same text a person reads (tag, serial, model); a crew matches if the
+     foreman's name/id does, in which case all of their tools stay, or if any
+     of their tools match, in which case only those do.
+
+     The GLOBAL search (what put this card in the grid) can also leave crews
+     whose tool list came out empty — `buildCrews` pushes a crew even when the
+     search emptied it. A crew holding no match is noise once you opened the
+     sheet, so it is dropped here too, the same way the list view drops it. */
+  const highlightNeedle = highlight.trim().toLowerCase();
+  const sheetNeedle = sheetQuery.trim().toLowerCase();
+  const sheetCrews = useMemo(() => {
+    if (!open) return [];
+    let base = open.crews;
+    if (highlightNeedle) base = base.filter((c) => c.tools.length > 0);
+    if (!sheetNeedle) return base;
+    const matchTool = (t: ToolRow) =>
+      `${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t) ?? ""}`.toLowerCase().includes(sheetNeedle);
+    return base
+      .map((c) => {
+        const foremanHit = `${c.foremanName} ${c.foremanExternalId ?? ""}`.toLowerCase().includes(sheetNeedle);
+        return foremanHit ? c : { ...c, tools: c.tools.filter(matchTool) };
+      })
+      .filter((c) => c.tools.length || `${c.foremanName} ${c.foremanExternalId ?? ""}`.toLowerCase().includes(sheetNeedle));
+  }, [open, sheetNeedle, highlightNeedle]);
+  const sheetLoose = useMemo(() => {
+    if (!open) return [];
+    if (!sheetNeedle) return open.loose;
+    return open.loose.filter((t) =>
+      `${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t) ?? ""}`.toLowerCase().includes(sheetNeedle),
+    );
+  }, [open, sheetNeedle]);
 
   /*
     Which of THIS card's tools actually matched the search, so the face can
@@ -219,39 +258,6 @@ export function JobsiteCardView({
                 </span>
               </span>
             </span>
-            {card.isJob && (leadersByProject.get(card.id)?.length || card.crews.length) ? (
-              /* Who runs it and how rigged it is. Same chip the real
-                 JobsiteTeamStrip draws in the sheet below — role-tinted pill,
-                 code before name, always both — just without ITS remove
-                 button: the whole card is a <button> opening the sheet, and
-                 nesting that control inside another interactive element is
-                 invalid HTML that breaks click handling either way. */
-              <span className="flex w-full flex-wrap items-center gap-1.5">
-                {leadersByProject.get(card.id)?.length ? (
-                  leadersByProject.get(card.id)!.map((m) => (
-                    <span
-                      key={m.id}
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]",
-                        m.role === "pm"
-                          ? "border-primary/25 bg-primary/5 text-foreground"
-                          : "border-warn/25 bg-warn-bg text-foreground",
-                      )}
-                    >
-                      {m.role === "pm" ? "PM" : "SUP"}
-                      <span className="font-medium">{m.externalId ? `${m.externalId} · ${m.name}` : m.name}</span>
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-[11px] text-muted-foreground">No PM or superintendent assigned</span>
-                )}
-                {card.crews.length ? (
-                  <span className={cn("tnum ml-auto text-[11px] text-muted-foreground", card.fullyRigged < card.crews.length && "text-warn")}>
-                    {card.fullyRigged}/{card.crews.length} rigged
-                  </span>
-                ) : null}
-              </span>
-            ) : null}
             {previews.has(card.id) ? (
               /* "Where the match is" — up to three of this card's tools that
                  matched, so the search you just typed is visible on the face
@@ -289,6 +295,42 @@ export function JobsiteCardView({
                 </span>
               ) : null}
             </span>
+            {card.isJob && (leadersByProject.get(card.id)?.length || card.crews.length) ? (
+              /* Who runs it, at the bottom on purpose — the same place the
+                 list card keeps its Leads row. The card is a <button>, so this
+                 has no remove control (nesting interactive elements is invalid
+                 HTML); it is the same role-tinted chip with the same icon, just
+                 read-only here. */
+              <span className="flex w-full flex-wrap items-center gap-1.5 border-t pt-1.5">
+                {leadersByProject.get(card.id)?.length ? (
+                  leadersByProject.get(card.id)!.map((m) => {
+                    const Icon = m.role === "pm" ? Briefcase : ClipboardCheck;
+                    return (
+                      <span
+                        key={m.id}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]",
+                          m.role === "pm"
+                            ? "border-primary/25 bg-primary/5 text-foreground"
+                            : "border-warn/25 bg-warn-bg text-foreground",
+                        )}
+                      >
+                        <Icon className="size-3 shrink-0 text-hat-white" aria-hidden />
+                        {m.role === "pm" ? "PM" : "SUP"}
+                        <span className="font-medium">{m.externalId ? `${m.externalId} · ${m.name}` : m.name}</span>
+                      </span>
+                    );
+                  })
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">No PM or superintendent assigned</span>
+                )}
+                {card.crews.length ? (
+                  <span className={cn("tnum ml-auto text-[11px] text-muted-foreground", card.fullyRigged < card.crews.length && "text-warn")}>
+                    {card.fullyRigged}/{card.crews.length} with truck & trailer
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -357,10 +399,22 @@ export function JobsiteCardView({
                   overflow — never scrollIntoView; one of those inside the
                   assistant panel once dragged the whole shell sideways. */}
               <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
+                {/* Sheet-local search. The page's global bar narrows the GRID;
+                    this one narrows inside the job you already opened. */}
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                  <input
+                    value={sheetQuery}
+                    onChange={(e) => setSheetQuery(e.target.value)}
+                    placeholder="Search this job…"
+                    aria-label="Search tools in this job"
+                    className="h-8 w-full rounded-md border border-input bg-muted/40 pl-8 pr-2.5 text-xs text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  />
+                </div>
                 {/* CrewCard in `compact` mode: byte-identical actions to the
                     list (same onPick calls, same menu items), only the
                     layout differs — see the prop's own comment. */}
-                {open.crews.map((crew) => (
+                {sheetCrews.map((crew) => (
                   <CrewCard
                     key={crew.id}
                     crew={crew}
@@ -395,7 +449,7 @@ export function JobsiteCardView({
                     No crew on this job yet — add a foreman and a rig
                   </button>
                 ) : null}
-                {open.loose.length ? (
+                {sheetLoose.length ? (
                   <section className="flex flex-col gap-1.5">
                     <header className="flex items-baseline gap-2">
                       {/* Same labels the list view uses for the same pile. */}
@@ -403,17 +457,17 @@ export function JobsiteCardView({
                         {open.isJob ? "On site, nobody holding" : "Waiting in the yard"}
                       </span>
                       <span className="tnum ml-auto text-xs text-muted-foreground">
-                        {open.loose.length} tool{open.loose.length === 1 ? "" : "s"}
+                        {sheetLoose.length} tool{sheetLoose.length === 1 ? "" : "s"}
                       </span>
                     </header>
                     <div className="rounded-md border">
-                      <ToolTable rows={open.loose} showWhere highlight={highlight} actions={canAct} compact />
+                      <ToolTable rows={sheetLoose} showWhere highlight={highlight} actions={canAct} compact />
                     </div>
                   </section>
                 ) : null}
-                {!open.crews.length && !open.loose.length ? (
+                {!sheetCrews.length && !sheetLoose.length ? (
                   <p className="py-6 text-center text-sm text-muted-foreground">
-                    Nothing here under the current filters.
+                    {sheetNeedle ? "Nothing here matches that search." : "Nothing here under the current filters."}
                   </p>
                 ) : null}
               </div>

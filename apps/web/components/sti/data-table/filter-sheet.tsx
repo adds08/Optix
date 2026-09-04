@@ -45,8 +45,8 @@ export function FilterSheet({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" aria-label="Open filters">
-          <SlidersHorizontal className="size-4" />
+        <Button variant="outline" size="default" aria-label="Open filters">
+          <SlidersHorizontal className="size-3.5" />
           Filters
           {activeCount > 0 ? (
             <span className="tnum ml-1 rounded-sm bg-primary px-1.5 py-0.5 text-[11px] font-medium text-primary-foreground">

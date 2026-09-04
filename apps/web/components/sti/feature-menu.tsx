@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ChevronRight, Pin, Search } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -44,7 +43,6 @@ export type FeatureMenuProps = {
 };
 
 export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   /* Which group's cards the right pane shows. Follows the active group while
      the menu is open and nothing else has been chosen; a click takes over. */
@@ -115,7 +113,7 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
         align="start"
         sideOffset={8}
         data-slot="feature-menu"
-        className="w-[min(760px,calc(100vw-2rem))] overflow-hidden rounded-xl p-0"
+        className="w-[min(920px,calc(100vw-2rem))] overflow-hidden rounded-xl p-0"
       >
         {/* search row */}
         <div className="flex h-11 items-center gap-2.5 border-b px-4">
@@ -129,30 +127,10 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
           />
         </div>
 
-        <div className="flex max-h-[420px] min-h-[300px]">
-          {/* left pane — the groups, pinned first */}
-          <div className="w-60 shrink-0 border-r bg-muted/40 p-2">
-            {pinned.length ? (
-              <div className="mb-1">
-                <p className="label-xs px-2 pb-1.5 text-muted-foreground">Pinned</p>
-                <div className="flex flex-col gap-0.5">
-                  {pinned.map((n) => (
-                    <MenuRow
-                      key={`pin-${n.id}`}
-                      leading={<n.icon className="size-4 shrink-0" aria-hidden />}
-                      icon={<Pin className="size-3.5" aria-hidden />}
-                      label={n.label}
-                      active={n.id === currentItem?.id}
-                      onClick={() => {
-                        router.push(n.href);
-                        setOpen(false);
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
+        <div className="flex max-h-[440px] min-h-[320px]">
+          {/* left pane — the modules (groups). Pinned moves to its own column
+              on the right, so this pane is only about choosing a part. */}
+          <div className="w-56 shrink-0 border-r bg-muted/40 p-2">
             <p className="label-xs px-2 pb-1.5 pt-1 text-muted-foreground">Modules</p>
             <div className="flex flex-col gap-0.5">
               {groups.map((g) => {
@@ -180,7 +158,8 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
             </div>
           </div>
 
-          {/* right pane — feature cards */}
+          {/* center pane — feature cards for the shown module, or search
+              results. This is what the reachability walk reads. */}
           <div className="min-w-0 flex-1 overflow-y-auto p-4">
             {q.trim() ? (
               empty ? (
@@ -191,6 +170,35 @@ export function FeatureMenu({ groups, currentItem, navPins }: FeatureMenuProps) 
             ) : shownGroup ? (
               <FeatureGrid groups={[shownGroup]} items={shownGroup.items} onNavigate={() => setOpen(false)} />
             ) : null}
+          </div>
+
+          {/* right pane — Pinned, its own column. A pin is drawn here even when
+              the same screen also appears in the center grid: a shortcut is a
+              shortcut, and hiding it because the screen is also listed would
+              make the column flicker as the module changes. */}
+          <div className="w-52 shrink-0 overflow-y-auto border-l bg-muted/40 p-2">
+            <p className="label-xs px-2 pb-1.5 pt-1 text-muted-foreground">Pinned</p>
+            {pinned.length ? (
+              <div className="flex flex-col gap-0.5">
+                {pinned.map((n) => (
+                  <Link
+                    key={`pin-${n.id}`}
+                    href={n.href}
+                    onClick={() => setOpen(false)}
+                    data-slot="feature-menu-card"
+                    className="flex h-10 w-full min-w-0 items-center gap-2 rounded-md px-2.5 text-left transition-colors hover:bg-accent/60"
+                  >
+                    <n.icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{n.label}</span>
+                    <Pin className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="px-2 py-3 text-xs text-muted-foreground">
+                Pin a screen from the sidebar to keep it here.
+              </p>
+            )}
           </div>
         </div>
       </PopoverContent>
@@ -270,11 +278,9 @@ function FeatureGrid({
   );
 }
 
-/* One line in the left pane. `icon` is the leading box glyph; `leading` (when
-   set) replaces it with a different glyph while remaining a plain row. */
+/* One line in the left pane — the module picker rows. */
 function MenuRow({
   icon,
-  leading,
   label,
   active,
   trailing,
@@ -282,7 +288,6 @@ function MenuRow({
   onClick,
 }: {
   icon: React.ReactNode;
-  leading?: React.ReactNode;
   label: string;
   active: boolean;
   trailing?: React.ReactNode;
@@ -300,7 +305,7 @@ function MenuRow({
         active ? "bg-accent text-accent-foreground" : "text-foreground/75 hover:bg-accent/60 hover:text-accent-foreground",
       )}
     >
-      {leading ?? icon}
+      {icon}
       <span className="min-w-0 flex-1 truncate text-sm font-medium">{label}</span>
       {trailing}
     </button>

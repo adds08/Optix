@@ -270,13 +270,6 @@ export default function PeoplePage() {
         icon={Users}
         title="People"
         hideTitle
-        description="Everyone who can hold a tool or sign in — foremen, mechanics, and the account they may or may not have."
-        actions={
-          <>
-            <ImportButton entity="employee" />
-            <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
-          </>
-        }
       />
 
       {/* The HR clearance queue and its "Blocks offboarding" hazard band stood
@@ -309,6 +302,12 @@ export default function PeoplePage() {
             enableSelection
             selection={selectedIds}
             onSelectionChange={setSelectedIds}
+            toolbarExtra={
+              <>
+                <ImportButton entity="employee" />
+                <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
+              </>
+            }
           />
         )}
       </div>

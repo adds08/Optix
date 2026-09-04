@@ -219,9 +219,12 @@ test.describe("the visibility ladder narrows what a browser shows", () => {
     const deskText = await desk.getByText(/(\d+) tools?/).first().textContent();
     const deskTotal = Number(/(\d+)/.exec(deskText ?? "")?.[1] ?? "0");
 
-    await expect(foreman.getByText(/You are holding \d+ tool/)).toBeVisible({ timeout: 10_000 });
-    const heldText = await foreman.getByText(/You are holding \d+ tool/).textContent();
-    const held = Number(/(\d+)/.exec(heldText ?? "")?.[1] ?? "0");
+    /* My Tools renders one card per held tool (the page's own count lived in
+       a header sentence that used to double as the total; the grid is the
+       stable source now). Waiting on the first card means `asset.list` for the
+       foreman resolved, the same signal the register side waits on. */
+    await expect(foreman.locator("ul > li").first()).toBeVisible({ timeout: 10_000 });
+    const held = await foreman.locator("ul > li").count();
 
     /* Both non-zero, or the comparison holds vacuously for a ladder wired to
        return nothing — the failure this whole suite is most likely to miss. */

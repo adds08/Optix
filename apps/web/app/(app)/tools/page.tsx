@@ -520,11 +520,7 @@ export default function ToolsPage() {
           row below, which is the same row the bulk-action bar swaps into.
           Moving them up reintroduces the 58px jump
           e2e/tests/no-layout-shift.spec.ts asserts never comes back. */}
-      <PageHeader
-        title="Small tools"
-        hideTitle
-        description="Every small tool the yard owns — what is out on a job, what is idle, and what is missing."
-      />
+      <PageHeader title="Small tools" hideTitle />
       <div className="flex flex-col gap-3">
         {/* One toolbar: job scope, search, the filter sheet (the former facet
             rail), and the saved-view menu. Carded on `bg-card` so it reads as
@@ -561,8 +557,8 @@ export default function ToolsPage() {
               beneath it. The bar used to be its own block that appeared on the
               first tick, which pushed the table down 58px — measured. Reusing
               the row costs no vertical space at all, and puts the actions where
-              the eye already is. Both clusters are `size="sm"` buttons, so the
-              row is the same height either way. */}
+              the eye already is. Both clusters are `size="default"` buttons, so
+              the row is the same height either way. */}
           <span className="text-sm text-muted-foreground">
             {selecting ? (
               <span className="font-medium text-foreground">
@@ -579,23 +575,23 @@ export default function ToolsPage() {
             {selecting ? (
               <>
                 {has("transfer.create") ? (
-                  <Button size="sm" onClick={() => { setBulkError(null); setBulkOpen(true); }}>
+                  <Button onClick={() => { setBulkError(null); setBulkOpen(true); }}>
                     Move…
                   </Button>
                 ) : null}
                 {has("assignment.create") ? (
-                  <Button size="sm" variant="outline" onClick={bulkReturn} disabled={returnBulk.isPending}>
+                  <Button variant="outline" onClick={bulkReturn} disabled={returnBulk.isPending}>
                     {returnBulk.isPending ? "Returning…" : "Return to yard"}
                   </Button>
                 ) : null}
                 {/* STI-104. `asset.manage`, not a custody permission — re-filing
                     changes the books, not who holds the tool. */}
                 {has("asset.manage") ? (
-                  <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)}>
+                  <Button variant="outline" onClick={() => setBulkEditOpen(true)}>
                     Re-file…
                   </Button>
                 ) : null}
-                <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                <Button variant="ghost" onClick={() => setSelectedIds(new Set())}>
                   Clear
                 </Button>
               </>
@@ -603,13 +599,12 @@ export default function ToolsPage() {
               <>
                 <ImportButton entity="asset" />
                 <Button
-                  size="sm"
                   variant="outline"
                   onClick={exportAll}
                   disabled={!all.length}
                   title="Exports the register in the same columns the importer reads, so the file round-trips"
                 >
-                  <Download className="size-4" aria-hidden />
+                  <Download className="size-3.5" aria-hidden />
                   Export
                 </Button>
                 <CreateAction perm="asset.manage" label="New tool" Form={AssetForm} />

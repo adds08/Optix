@@ -155,7 +155,7 @@ export function ToolTable({
                         href={`/tools/${t.id}`}
                         className="shrink-0 font-mono text-xs text-foreground/75 underline-offset-4 hover:text-primary hover:underline"
                       >
-                        <Highlight text={t.tag ?? t.serialNumber ?? "Untagged"} q={highlight} />
+                        <Highlight text={t.tag ?? t.serialNumber ?? "No code"} q={highlight} />
                       </Link>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-64">
@@ -197,7 +197,7 @@ export function ToolTable({
                 {humanize(t.status)}
               </span>
               {actions ? (
-                <ToolMenu assetId={t.id} assetTag={t.tag ?? t.serialNumber ?? "Untagged"} heldBySomeone={!!t.custodianId} />
+                <ToolMenu assetId={t.id} assetTag={t.tag ?? t.serialNumber ?? "No code"} heldBySomeone={!!t.custodianId} />
               ) : null}
             </div>
           ))}
@@ -235,7 +235,7 @@ export function ToolTable({
               double rule, kept. */}
           <tr className="text-foreground [&>th]:border-b-2 [&>th]:border-border">
             {selectable ? <th className="w-8 px-3 py-2" aria-hidden /> : null}
-            <SortHead className="w-28" k="tag" sort={sort} onSort={onSort}>Tag</SortHead>
+            <SortHead className="w-28" k="tag" sort={sort} onSort={onSort}>Code</SortHead>
             <SortHead k="name" sort={sort} onSort={onSort}>Tool</SortHead>
             <SortHead className="w-32" k="category" sort={sort} onSort={onSort}>Category</SortHead>
             {showWhere ? (
@@ -285,16 +285,16 @@ export function ToolTable({
               ) : null}
               <td className="px-3 py-2.5">
                 {/* The tag is the tool's identity in the yard, so it is the
-                    handle: hover for what it is, click to open it. An untagged
-                    tool still links — it has an id even when nobody has put a
-                    label on it — but it is not dressed up as a code. */}
+                    handle: hover for what it is, click to open it. A tool with
+                    no code still links — it has an id even when nobody has put
+                    a label on it — but it is not dressed up as a code. */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
                       href={`/tools/${t.id}`}
                       className="font-mono text-sm text-foreground/75 underline-offset-4 hover:text-primary hover:underline"
                     >
-                      <Highlight text={t.tag ?? t.serialNumber ?? "Untagged"} q={highlight} />
+                      <Highlight text={t.tag ?? t.serialNumber ?? "No code"} q={highlight} />
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-64">
@@ -342,7 +342,7 @@ export function ToolTable({
               </td>
               {actions ? (
                 <td className="px-2 py-2.5 text-right">
-                  <ToolMenu assetId={t.id} assetTag={t.tag ?? t.serialNumber ?? "Untagged"} heldBySomeone={!!t.custodianId} />
+                  <ToolMenu assetId={t.id} assetTag={t.tag ?? t.serialNumber ?? "No code"} heldBySomeone={!!t.custodianId} />
                 </td>
               ) : null}
             </tr>

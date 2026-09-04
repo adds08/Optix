@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { Briefcase, ClipboardCheck, Plus, X, type LucideIcon } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { EntityPicker } from "@/components/ui/entity-picker";
@@ -34,6 +34,14 @@ type Member = {
      removing one is a custody move, not a roster entry. */
   role: "pm" | "superintendent";
   employeeStatus: string;
+};
+
+/* Leading glyph per role, matching the person-chip convention in
+   entity-chip.tsx — PM reads as a briefcase, a superintendent as a clipboard.
+   Both are white-hat supervision, so they share the white hat token. */
+const ROLE_ICON: Record<Member["role"], LucideIcon> = {
+  pm: Briefcase,
+  superintendent: ClipboardCheck,
 };
 
 export function JobsiteTeamStrip({
@@ -76,33 +84,37 @@ export function JobsiteTeamStrip({
           : c.employeeRole === "superintendent"),
     );
 
-  const chip = (m: Member) => (
-    <span
-      key={m.id}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
-        m.role === "pm"
-          ? "border-primary/25 bg-primary/5 text-foreground"
-          : "border-warn/25 bg-warn-bg text-foreground",
-      )}
-    >
-      {m.role === "pm" ? "PM" : "SUP"}
-      <span className="font-medium">{m.externalId ? `${m.externalId} · ${m.name}` : m.name}</span>
-      {canAssign(m.role) ? (
-        <button
-          type="button"
-          aria-label={`Remove ${m.name} from the ${m.role} role`}
-          disabled={remove.isPending}
-          onClick={() => {
-            remove.mutate({ projectId, employeeId: m.employeeId, role: m.role });
-          }}
-          className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
-        >
-          <X className="size-3" aria-hidden />
-        </button>
-      ) : null}
-    </span>
-  );
+  const chip = (m: Member) => {
+    const Icon = ROLE_ICON[m.role];
+    return (
+      <span
+        key={m.id}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
+          m.role === "pm"
+            ? "border-primary/25 bg-primary/5 text-foreground"
+            : "border-warn/25 bg-warn-bg text-foreground",
+        )}
+      >
+        <Icon className="size-3 shrink-0 text-hat-white" aria-hidden />
+        {m.role === "pm" ? "PM" : "SUP"}
+        <span className="font-medium">{m.externalId ? `${m.externalId} · ${m.name}` : m.name}</span>
+        {canAssign(m.role) ? (
+          <button
+            type="button"
+            aria-label={`Remove ${m.name} from the ${m.role} role`}
+            disabled={remove.isPending}
+            onClick={() => {
+              remove.mutate({ projectId, employeeId: m.employeeId, role: m.role });
+            }}
+            className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+          >
+            <X className="size-3" aria-hidden />
+          </button>
+        ) : null}
+      </span>
+    );
+  };
 
   const addButton = (role: "pm" | "superintendent") => {
     if (!canAssign(role)) return null;

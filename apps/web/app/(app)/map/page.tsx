@@ -18,11 +18,7 @@ const VehicleMap = dynamic(() => import("@/components/vehicle-map").then((m) => 
 export default function MapPage() {
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Fleet map"
-        hideTitle
-        description="Where the trucks and trailers are right now — and the tools riding in them."
-      />
+      <PageHeader title="Fleet map" hideTitle />
       <VehicleMap />
     </div>
   );
