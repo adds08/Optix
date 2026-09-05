@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 /*
@@ -69,6 +70,19 @@ export default function TeamRolesPage() {
     onSuccess: () => utils.projectTeam.roles.list.invalidate(),
   });
 
+  /* The ladder edge. Its own mutation rather than a field on `update` because
+     it is the only one that can be REFUSED for a reason worth showing — a
+     cycle — and folding it into `update` would mean a checkbox and a dropdown
+     sharing one error slot. */
+  const [ladderError, setLadderError] = useState<string | null>(null);
+  const setReportsTo = trpc.projectTeam.roles.setReportsTo.useMutation({
+    onSuccess: () => {
+      setLadderError(null);
+      utils.projectTeam.roles.list.invalidate();
+    },
+    onError: (e) => setLadderError(e.message),
+  });
+
   if (!me.isLoading && !mayManage) {
     return (
       <EmptyState
@@ -83,7 +97,7 @@ export default function TeamRolesPage() {
       <PageHeader
         title="Team Roles"
         hideTitle
-        description="The tiers a person can hold on a job — pm, superintendent, foreman, and whatever your organization adds."
+        description="The tiers a person can hold on a job, and which tier each one answers to."
         icon={Wrench}
         actions={
           <Button size="sm" onClick={() => setOpen(true)}>
@@ -95,6 +109,7 @@ export default function TeamRolesPage() {
 
       {roles.isLoading && <TableSkeleton />}
       {roles.error && <ErrorNote message={roles.error.message} />}
+      {ladderError && <ErrorNote message={ladderError} />}
 
       {/* The shared `Table` primitive below, not a raw table element. It
           carries `.sti-grid` (the ruled cells every other table in the app has)
@@ -107,6 +122,7 @@ export default function TeamRolesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Role</TableHead>
+                <TableHead>Reports to</TableHead>
                 <TableHead>Holds tools &amp; a truck</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead />
@@ -116,6 +132,25 @@ export default function TeamRolesPage() {
               {roles.data.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.label}</TableCell>
+                  {/* The company's ladder, not this person's boss. Editable for
+                      built-in tiers too: where a Project Manager sits differs
+                      between companies, and freezing that for the seeded three
+                      would make the ladder useless for most of it. Picking the
+                      current option again clears the edge, which is how
+                      SearchSelect already behaves everywhere else. */}
+                  <TableCell>
+                    <SearchSelect
+                      value={r.reportsToTeamRoleId ?? ""}
+                      onChange={(v) =>
+                        setReportsTo.mutate({ id: r.id, reportsToTeamRoleId: v === "" ? null : v })
+                      }
+                      placeholder="Nobody — top of the chain"
+                      widthClass="w-52"
+                      options={(roles.data ?? [])
+                        .filter((o) => o.id !== r.id)
+                        .map((o) => ({ value: o.id, label: o.label }))}
+                    />
+                  </TableCell>
                   <TableCell>
                     {/* Built-in rows keep their seeded flag — the assignment
                         hierarchy and TOOLS_FOLLOW were written against these

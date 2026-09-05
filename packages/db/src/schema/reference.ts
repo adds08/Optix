@@ -144,6 +144,35 @@ export const teamRole = pgTable(
     name: text("name").notNull(),
     label: text("label").notNull(),
     canHoldCustody: boolean("can_hold_custody").notNull().default(false),
+    /*
+      Which tier this tier answers to, as the COMPANY declares it — the ladder
+      itself, with no people in it.
+
+      Deliberately not a rank number. A rank asserts one total order and cannot
+      express a register where two tiers share a boss, which is the normal case
+      here: Urban's PM and general superintendent both answer to the area
+      in-charge. An edge can say that; `rank: 3` twice cannot.
+
+      NOT a revival of the thing `project_team_member.reportsToEmployeeId`'s
+      comment refuses. What that comment forbids is a company-wide ladder
+      asserted IN CODE, on the grounds that construction firms genuinely differ
+      in shape. This is per-tenant data the tenant edits on the Team Roles
+      screen, the same category of thing every other column on this table is,
+      and the next customer's ladder is their own rows.
+
+      Nothing about ACCESS may read this. `assertCanAssign` keeps naming
+      `project.assign.pm` and friends; a permission decision made out of this
+      column is exactly the drift the roster comment was written to prevent.
+      Its two jobs are to tell the onboarding wizard which tiers to ask a person
+      about, and to tell the progress screen whose work sits below whose.
+
+      It SEEDS, it does not bind: a `project_team_member.reportsToEmployeeId`
+      that disagrees with this ladder is legal and wins, because a real job
+      beats a template. Null means top of the chain, or not decided yet — both
+      normal, and a register whose rows all hold null is a tenant that has not
+      described itself, not a broken one.
+    */
+    reportsToTeamRoleId: uuid("reports_to_team_role_id").references((): any => teamRole.id, { onDelete: "set null" }),
     /* pm, superintendent, foreman ship with the product and cannot be deleted
        — `projectTeam.remove` and the existing permission matrix
        (`project.assign.pm` etc.) name them directly. A tenant's own additions

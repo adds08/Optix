@@ -211,6 +211,65 @@ export const userPreferences = pgTable(
 );
 
 /*
+  Whether a person has been walked through setting up their work, and how far
+  they got.
+
+  One row per user, created lazily on first sign-in rather than alongside the
+  account: an account created months ago by an administrator has no onboarding
+  state until somebody actually uses it, and backfilling rows for accounts that
+  may never log in would make "has not started" and "does not exist" the same
+  thing.
+
+  Deliberately NOT a progress percentage or a checklist of what was done. What
+  the wizard produces is real rows — roster entries, project coordinates, invites
+  — and those are the record of what happened. Storing a second, parallel account
+  of it is how a screen ends up claiming 80% while the roster underneath disagrees.
+  The progress screen derives from the real tables; this row holds only the two
+  facts that genuinely are not derivable.
+
+  `currentStep` is the resume point, not an achievement. Somebody who abandons the
+  wizard at the map step comes back to the map step.
+
+  `completedAt` covers both finishing and deliberately dismissing. The distinction
+  the product needs is "should we put this person through the wizard again", and
+  for that the two are the same answer. What was actually filled in is visible in
+  the rows the wizard wrote.
+*/
+export const userOnboarding = pgTable(
+  "tbl_ops_user_onboarding",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    /* The step the person is on, as the wizard's own step key. Plain text like
+       every other vocabulary column in this schema (see .claude/rules/database.md)
+       — Zod at the router edge refuses an unlisted value, not the database. */
+    currentStep: text("current_step").notNull().default("projects"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    /*
+      Finished or dismissed. Null means the wizard is still theirs to complete,
+      and is what the first-run redirect reads.
+
+      The redirect fires ONCE — see the app shell. A person who dismisses is not
+      asked again, because a gate that reappears every session stands between a
+      foreman and the tool they came to check out, and they will learn to click
+      through it without reading.
+    */
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("user_onboarding_tenant_idx").on(t.tenantId),
+    /* One row per person. The lazy create is a read-then-insert, so two tabs
+       opening at once would otherwise both insert — this is what makes the
+       second one fail instead of producing a duplicate the resume logic would
+       have to choose between. */
+    userUq: uniqueIndex("user_onboarding_user_uq").on(t.userId),
+  }),
+);
+
+/*
   Invite and password-reset links.
 
   A token table rather than a second `must_change_password`-style flag,

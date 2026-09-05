@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildOrgForest, findCycle, visibleEmployeeIds, SYNTHETIC_PREFIX } from "./org-chart.js";
+import {
+  buildOrgForest,
+  findCycle,
+  findTierCycle,
+  adjacentTiers,
+  visibleEmployeeIds,
+  SYNTHETIC_PREFIX,
+} from "./org-chart.js";
 import type { OrgMemberInput } from "./org-chart.js";
 
 /* Shorthand: a roster row. `p` is the project, `e` the person, `to` the boss. */
@@ -131,5 +138,104 @@ describe("findCycle", () => {
 
   it("allows clearing the boss", () => {
     expect(findCycle(members, "c", null)).toBeNull();
+  });
+});
+
+/*
+  The tier chain. Urban's own declared chain, which the team-role register's
+  header comment already describes in prose, used as the fixture here so a
+  regression reads as "Urban's ladder broke" rather than "role3 broke".
+*/
+const DIRECTOR = "r-director";
+const AREA = "r-area";
+const PM = "r-pm";
+const GS = "r-gs";
+const SUPER = "r-super";
+const FOREMAN = "r-foreman";
+
+const urbanChain = () => [
+  { id: DIRECTOR, reportsToTeamRoleId: null },
+  { id: AREA, reportsToTeamRoleId: DIRECTOR },
+  { id: PM, reportsToTeamRoleId: AREA },
+  { id: GS, reportsToTeamRoleId: AREA },
+  { id: SUPER, reportsToTeamRoleId: PM },
+  { id: FOREMAN, reportsToTeamRoleId: SUPER },
+];
+
+describe("findTierCycle", () => {
+  it("allows an edge that does not loop", () => {
+    expect(findTierCycle(urbanChain(), GS, PM)).toBeNull();
+  });
+
+  it("allows clearing the edge", () => {
+    expect(findTierCycle(urbanChain(), FOREMAN, null)).toBeNull();
+  });
+
+  it("refuses a role reporting to itself", () => {
+    expect(findTierCycle(urbanChain(), PM, PM)).toEqual([PM, PM]);
+  });
+
+  it("refuses the two-step loop a tenant actually makes", () => {
+    /* "superintendent reports to PM" is already true; pointing PM at
+       superintendent on a later day is the edit this guard exists for. */
+    const loop = findTierCycle(urbanChain(), PM, SUPER);
+    expect(loop).not.toBeNull();
+    expect(loop).toContain(SUPER);
+  });
+
+  it("refuses a loop several tiers long", () => {
+    /* Director is the root; pointing it at the foreman closes the whole ladder. */
+    const loop = findTierCycle(urbanChain(), DIRECTOR, FOREMAN);
+    expect(loop).not.toBeNull();
+    expect(loop![0]).toBe(FOREMAN);
+  });
+
+  it("terminates on a register that is already circular", () => {
+    /* Rows predating the guard, or written straight to the database. The walk
+       must stop rather than spin, even when the answer is "no new cycle". */
+    const broken = [
+      { id: "a", reportsToTeamRoleId: "b" },
+      { id: "b", reportsToTeamRoleId: "a" },
+      { id: "c", reportsToTeamRoleId: null },
+    ];
+    expect(findTierCycle(broken, "c", "a")).toBeNull();
+  });
+
+  it("ignores an edge pointing at a role that is gone", () => {
+    const orphaned = [{ id: PM, reportsToTeamRoleId: "r-deleted" }];
+    expect(findTierCycle(orphaned, FOREMAN, PM)).toBeNull();
+  });
+});
+
+describe("adjacentTiers", () => {
+  it("gives the tier above and the tiers below", () => {
+    expect(adjacentTiers(urbanChain(), PM)).toEqual({ above: AREA, below: [SUPER] });
+  });
+
+  it("gives several below when two tiers share a boss", () => {
+    /* PM and general superintendent both answer to the area in-charge. The
+       wizard must ask an area in-charge about both, not pick one. */
+    const { above, below } = adjacentTiers(urbanChain(), AREA);
+    expect(above).toBe(DIRECTOR);
+    expect(below.sort()).toEqual([GS, PM].sort());
+  });
+
+  it("reports no boss at the top of the chain", () => {
+    expect(adjacentTiers(urbanChain(), DIRECTOR).above).toBeNull();
+  });
+
+  it("reports nobody below at the bottom", () => {
+    expect(adjacentTiers(urbanChain(), FOREMAN).below).toEqual([]);
+  });
+
+  it("is empty for a tier nothing points at and which points nowhere", () => {
+    /* A tier just added on the register, before anyone has placed it in the
+       ladder. Normal, and must not throw. */
+    const withLoose = [...urbanChain(), { id: "r-new", reportsToTeamRoleId: null }];
+    expect(adjacentTiers(withLoose, "r-new")).toEqual({ above: null, below: [] });
+  });
+
+  it("is empty for a role id that is not in the register", () => {
+    expect(adjacentTiers(urbanChain(), "r-nope")).toEqual({ above: null, below: [] });
   });
 });

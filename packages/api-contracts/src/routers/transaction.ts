@@ -59,11 +59,11 @@ export const transactionRouter = router({
             and two more aliases of `employee` for a feed that reads 200 rows.
           */
           fromCustodianName: sql<string | null>`(
-            select name from employee
+            select name from ${schema.employee}
             where id = (${schema.transaction.fromState} ->> 'custodianId')::uuid
           )`,
           toCustodianName: sql<string | null>`(
-            select name from employee
+            select name from ${schema.employee}
             where id = (${schema.transaction.toState} ->> 'custodianId')::uuid
           )`,
         })

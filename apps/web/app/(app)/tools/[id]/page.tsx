@@ -286,6 +286,25 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                           <span className="text-xs text-muted-foreground">via {e.refType}</span>
                         ) : null}
                       </div>
+                      {/* Who moved it to whom — the payload has carried the names
+                          since the feed was built; the timeline just never drew
+                          them, which made a "transfer" event unreadable. */}
+                      {e.fromCustodianName || e.toCustodianName || e.actorName ? (
+                        <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                          {e.fromCustodianName ? (
+                            <span className="font-medium text-foreground">{e.fromCustodianName}</span>
+                          ) : null}
+                          {e.fromCustodianName && e.toCustodianName ? <span aria-hidden>→</span> : null}
+                          {e.toCustodianName ? (
+                            <span className="font-medium text-foreground">{e.toCustodianName}</span>
+                          ) : null}
+                          {e.actorName ? (
+                            <span>
+                              {e.fromCustodianName || e.toCustodianName ? "·" : "by"} {e.actorName}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {e.note ? <p className="text-sm text-pretty">{e.note}</p> : null}
                       <StateDelta from={e.fromState} to={e.toState} />
                     </div>

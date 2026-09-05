@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import bcrypt from "bcryptjs";
@@ -37,6 +37,8 @@ import {
   userRole,
   vehicle,
   warehouse,
+  projectRoleDeferral,
+  userOnboarding,
 } from "./schema/index.js";
 /* The static vocabularies are shared by both datasets — a category, a role and a
    unit of measure mean the same thing whichever register is loaded. */
@@ -273,7 +275,7 @@ async function main() {
      Data since 2026-09-03, not the literal `TEAM_ROLES` array it replaced, for
      the reason on `teamRole`'s schema comment: this vocabulary is NOT the login
      role above it and must not be confused with it. */
-  await db
+  const teamRoleRows = await db
     .insert(teamRole)
     .values(
       teamRoleSpecs.map((r) => ({
@@ -283,7 +285,24 @@ async function main() {
         canHoldCustody: r.canHoldCustody,
         isSystem: r.isSystem,
       })),
-    );
+    )
+    .returning({ id: teamRole.id, name: teamRole.name });
+
+  /* The ladder, in a second pass: `reports_to_team_role_id` points at a row in
+     this same table, so the parents have no ids until the insert above has run.
+     Without this the register seeds as a flat list and the onboarding wizard has
+     no tiers to ask anybody about — the state CLAUDE.md's seed rule is about. */
+  const teamRoleIdByName = new Map(teamRoleRows.map((r) => [r.name, r.id]));
+  for (const spec of teamRoleSpecs) {
+    if (!spec.reportsTo) continue;
+    const childId = teamRoleIdByName.get(spec.name);
+    const parentId = teamRoleIdByName.get(spec.reportsTo);
+    if (!childId || !parentId) continue;
+    await db
+      .update(teamRole)
+      .set({ reportsToTeamRoleId: parentId })
+      .where(eq(teamRole.id, childId));
+  }
 
   // ---- Departments ----
   /* Repair & Maintenance is infrastructure; Equipment and Purchased are the
@@ -464,6 +483,7 @@ async function main() {
   );
   console.log(`[seed] ${teamSpecs.length} project team members`);
 
+
   // ---- Login users ----
   /* The real register gets a real credential; the fixture keeps its shared one.
      `stinventory-demo` used to be hardcoded for all fifteen accounts, one of them
@@ -520,6 +540,94 @@ async function main() {
     await db.insert(userRole).values({ userId: u.id, roleId: roleByName[spec.role]!.id });
   }
   console.log(`[seed] ${userRows.length} users, ${employeeRows.length} employees`);
+
+  /*
+    Onboarding states, so every branch of the first-run flow is reachable on a
+    clean database (CLAUDE.md behaviour rule 9: seed the edge that trips the
+    rule, not just the happy path).
+
+    Without these, four states could only be produced by hand-editing rows in
+    psql, which means nobody would ever really exercise them:
+
+      - a CONFIRMED roster row versus an unconfirmed one, which is the whole
+        difference the progress screen reads
+      - an OPEN deferral, the "my PM names those" state
+      - a RESOLVED deferral, so the closing path has an example
+      - a user who has FINISHED onboarding, so the app-shell gate can be seen
+        not firing as well as firing
+
+    Placed AFTER the login users are inserted, not beside the roster it edits:
+    every one of these needs a `user.id` to attribute the confirmation and the
+    deferral to, and the accounts do not exist until further down. Written here
+    first and moved once the guarded lookups silently no-opped.
+
+    Fixture-only and guarded: the urban dataset has different people, and an
+    unguarded lookup here would kill the whole seed on it — the trap
+    `.claude/rules/database.md` records the personal-allowance truck falling into
+    twice.
+  */
+  const demoTeamRows = await db
+    .select({ id: projectTeamMember.id, role: projectTeamMember.role })
+    .from(projectTeamMember)
+    .where(eq(projectTeamMember.tenantId, tid));
+
+  /* Half the superintendent rows confirmed, the rest left open, so both sides of
+     the distinction exist rather than a uniform column nobody can tell apart. */
+  const supRows = demoTeamRows.filter((r) => r.role === "superintendent");
+  const ownerUser = await db.query.user.findFirst({
+    where: and(eq(user.tenantId, tid), eq(user.email, "owner@stinventory.local")),
+    columns: { id: true },
+  });
+  if (ownerUser && supRows.length > 0) {
+    const half = supRows.slice(0, Math.ceil(supRows.length / 2)).map((r) => r.id);
+    await db
+      .update(projectTeamMember)
+      .set({ confirmedAt: new Date(), confirmedByUserId: ownerUser.id })
+      .where(and(eq(projectTeamMember.tenantId, tid), inArray(projectTeamMember.id, half)));
+    console.log(`[seed] ${half.length} team rows confirmed, ${supRows.length - half.length} left for a boss to verify`);
+  }
+
+  /* One open deferral and one already resolved. The open one is what a PM's
+     progress screen should show as waiting on them. */
+  const deferProjects = Object.values(projectByKey).slice(0, 2);
+  if (deferProjects.length === 2) {
+    await db.insert(projectRoleDeferral).values([
+      {
+        tenantId: tid,
+        projectId: deferProjects[0]!,
+        teamRole: "superintendent",
+        deferredByUserId: ownerUser?.id ?? null,
+        note: "Foreman left this for the PM to name.",
+      },
+      {
+        tenantId: tid,
+        projectId: deferProjects[1]!,
+        teamRole: "pm",
+        deferredByUserId: ownerUser?.id ?? null,
+        resolvedAt: new Date(),
+        note: "Deferred, then filled — the closed case.",
+      },
+    ]);
+    console.log("[seed] 1 open deferral + 1 resolved");
+  }
+
+  /* One account already through onboarding, so the gate can be observed NOT
+     firing. `warehouse@` rather than a field account: the wizard is most
+     interesting unfinished for the foremen and supers, and leaving theirs open
+     is what makes a fresh login land on it. */
+  const doneUser = await db.query.user.findFirst({
+    where: and(eq(user.tenantId, tid), eq(user.email, "warehouse@stinventory.local")),
+    columns: { id: true },
+  });
+  if (doneUser) {
+    await db.insert(userOnboarding).values({
+      tenantId: tid,
+      userId: doneUser.id,
+      currentStep: "invite",
+      completedAt: new Date(),
+    });
+    console.log("[seed] 1 account already onboarded");
+  }
 
   /*
     The invite token itself. `hashAuthToken` in packages/auth is not imported

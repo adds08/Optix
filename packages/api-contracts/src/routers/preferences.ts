@@ -29,7 +29,19 @@ export const THEME_NAMES = [
   "site-slate",
   "hi-vis",
 ] as const;
-export const FONT_FAMILIES = ["system", "serif", "mono"] as const;
+/* Must stay in step with `FONT_FAMILIES` in the web app's lib/themes/themes.ts —
+   adding a family here without adding it there makes the settings picker and the
+   apply layer disagree about what a stored value means. */
+export const FONT_FAMILIES = [
+  "system",
+  "serif",
+  "mono",
+  "arial",
+  "verdana",
+  "georgia",
+  "times",
+  "courier",
+] as const;
 
 /* Must stay in step with `RADII` in the web app's lib/themes/themes.ts — the
    CSS only knows the three presets this enum allows. */

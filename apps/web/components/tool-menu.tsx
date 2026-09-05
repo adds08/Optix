@@ -20,6 +20,8 @@ import { usePermissions } from "@/components/use-permissions";
 import { AssignForm } from "@/components/assign-form";
 import { TransferForm } from "@/components/transfer-form";
 import { ReportForm } from "@/components/report-form";
+import { NoteForm } from "@/components/note-form";
+import { ConditionForm } from "@/components/condition-form";
 import { Button } from "@/components/ui/button";
 import { ActionMenuTrigger } from "@/components/sti/action-menu";
 import { useRowTableOptions } from "@/components/sti/data-table/row-context";
@@ -60,7 +62,7 @@ export function ToolMenu({
   onDelete?: () => void;
   deleting?: boolean;
 }) {
-  const [open, setOpen] = useState<"assign" | "transfer" | "report" | "status" | null>(null);
+  const [open, setOpen] = useState<"assign" | "transfer" | "report" | "status" | "note" | "condition" | null>(null);
   /* Armed confirmation — "Return to the yard" and "Delete" both need a second
      deliberate click. */
   const [confirming, setConfirming] = useState<"return" | "delete" | null>(null);
@@ -161,9 +163,17 @@ export function ToolMenu({
             </DropdownMenuItem>
           ) : null}
 
-          <DropdownMenuItem onSelect={() => setOpen("report")}>
+          {/* An observation that changes nothing, vs a report that moves the
+              tool. "Add a note" used to open the report dialog, which is why
+              the two felt the same. */}
+          <DropdownMenuItem onSelect={() => setOpen("note")}>
             <StickyNote />
             Add a note
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onSelect={() => setOpen("report")}>
+            <Wrench />
+            Report an issue…
           </DropdownMenuItem>
 
           {canManage ? (
@@ -174,6 +184,16 @@ export function ToolMenu({
             <DropdownMenuItem onSelect={() => setOpen("status")}>
               <TagIcon />
               Change status
+            </DropdownMenuItem>
+          ) : null}
+
+          {canManage ? (
+            /* Condition is how worn the tool is, not where it is in the
+               workflow — status above moves the workflow, this records wear.
+               It used to be reachable only through Edit details. */
+            <DropdownMenuItem onSelect={() => setOpen("condition")}>
+              <BadgeCheck />
+              Change condition
             </DropdownMenuItem>
           ) : null}
 
@@ -234,6 +254,12 @@ export function ToolMenu({
       ) : null}
       {open === "report" ? (
         <ReportForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+      ) : null}
+      {open === "note" ? (
+        <NoteForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+      ) : null}
+      {open === "condition" ? (
+        <ConditionForm open onClose={close} assetId={assetId} assetTag={assetTag} />
       ) : null}
 
       {/* Change status — a held tool is never "available" (that means unheld in

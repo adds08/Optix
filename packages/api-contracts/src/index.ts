@@ -25,6 +25,8 @@ import { userRouter } from "./routers/user.js";
 import { roleRouter } from "./routers/role.js";
 import { departureRouter } from "./routers/custody-reassign.js";
 import { featureRouter } from "./routers/feature.js";
+import { onboardingRouter } from "./routers/onboarding.js";
+export { ONBOARDING_STEPS, type OnboardingStep } from "./routers/onboarding.js";
 export { llmConfigFor } from "./routers/settings.js";
 export { mailConfigFor } from "./mail-config.js";
 
@@ -57,6 +59,7 @@ export const appRouter = router({
   preferences: preferencesRouter,
   projectGroup: projectGroupRouter,
   feature: featureRouter,
+  onboarding: onboardingRouter,
 });
 
 export type AppRouter = typeof appRouter;

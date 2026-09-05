@@ -152,6 +152,17 @@ Roles carry permissions *and* behavioural flags: `needs_login`, `can_hold_custod
 > the two vocabularies deliberately diverge for the same person (one seeded
 > account's login role is `engineer`, its team role is `pm`). See
 > `packages/db/src/schema/reference.ts`'s `teamRole` comment.
+>
+> **The tiers now form a ladder.** `team_role.reports_to_team_role_id`
+> (2026-09-05) records which tier answers to which — the company's own chain,
+> seeded for Urban as director, area in-charge, PM and general superintendent,
+> superintendent, foreman. Per-tenant DATA, edited on the same screen, and
+> deliberately not a rank: two tiers can share a boss, which an integer cannot
+> express. Nothing about access reads it. `assertCanAssign` still names
+> `project.assign.*`, and a `project_team_member.reportsToEmployeeId` that
+> disagrees with the ladder wins, because a real job beats a template. Its
+> purpose is to seed the onboarding wizard and order the progress screen; see
+> `docs/workings/ONBOARDING_AND_ROLE_HIERARCHY.md`.
 
 ## Conversational layer
 

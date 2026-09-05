@@ -79,7 +79,13 @@ project_key = {}          # (name, extId) -> key
 project_rows = []
 for p in projects_csv:
     ext = p["external_id"] or None
-    key = f"p-{slug(p['name'])}" + (f"-{ext}" if ext else "")
+    # The Yard keeps a stable key (no extId suffix): its name resolves to this
+    # same key whether referenced by name or by job number 10001, so the single
+    # Equipment Yard never drifts into a second project on a regenerate.
+    if p["name"] == YARD:
+        key = f"p-{slug(p['name'])}"
+    else:
+        key = f"p-{slug(p['name'])}" + (f"-{ext}" if ext else "")
     project_rows.append({
         "key": key, "extId": ext, "name": p["name"],
         "status": p["status"] or "in_progress",

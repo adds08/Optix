@@ -26,43 +26,50 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
-| 2026-09-02 | [The roster line gets real chips, and a little more room](2026-09-02-the-roster-line-gets-real-chips-and-a-little-room.md) |
-| 2026-09-02 | [The card view can assign a crew too, not just look at one](2026-09-02-the-card-view-can-assign-a-crew-too-now.md) |
-| 2026-09-02 | [A tag search actually narrows the board now](2026-09-02-a-tag-search-actually-narrows-the-board-now.md) |
+| 2026-09-05 | [First-run setup, and the tier nobody claimed](2026-09-05-first-run-setup-and-the-deferred-tier.md) |
+| 2026-09-05 | [The tiers form a ladder](2026-09-05-the-tiers-form-a-ladder.md) |
+| 2026-09-03 | [A copied token is not a token, and eight primitives nobody imported](2026-09-03-tokens-not-copies.md) |
+| 2026-09-03 | [Team roles become data, and the chart gets its first real hierarchy](2026-09-03-team-role-register.md) |
+| 2026-09-03 | [The jobsites toolbar stops being the only one in a box](2026-09-03-one-toolbar-style.md) |
+| 2026-09-03 | [Job groups were never dead — the page was, and it is gone](2026-09-03-job-groups-live-in-the-switcher.md) |
+| 2026-09-03 | [The org chart's pan and zoom stop fighting the page, and the desk stops repeating its own page titles](2026-09-03-header-dedup-and-map-skills.md) |
+| 2026-09-03 | [Tabs and toggles become components, every page gets a header, and the Desk is gone](2026-09-03-design-consistency-implementation.md) |
 | 2026-09-02 | [The sheet stops scrolling sideways, and search shows its work](2026-09-02-the-sheet-stops-scrolling-sideways-and-search-shows-its-work.md) |
+| 2026-09-02 | [The roster line gets real chips, and a little more room](2026-09-02-the-roster-line-gets-real-chips-and-a-little-room.md) |
 | 2026-09-02 | [The orientation docs catch up to a week of real changes](2026-09-02-the-orientation-docs-catch-up-to-a-week-of-real-changes.md) |
+| 2026-09-02 | [The card view can assign a crew too, not just look at one](2026-09-02-the-card-view-can-assign-a-crew-too-now.md) |
+| 2026-09-02 | [The reporting line becomes a recorded fact, and the chart is a third window onto one roster](2026-09-02-org-chart.md) |
 | 2026-09-02 | [Jobsites gains a card view whose tools open in a right sheet](2026-09-02-jobsites-gains-a-card-view-with-a-tool-sheet.md) |
-| 2026-09-01 | [The register gets a VIN, and an equipment type somebody can actually set](2026-09-01-the-register-gets-a-vin-and-an-equipment-type.md) |
+| 2026-09-02 | [A tag search actually narrows the board now](2026-09-02-a-tag-search-actually-narrows-the-board-now.md) |
 | 2026-09-01 | [Urban's real register loads beside the test fixture, not instead of it](2026-09-01-urbans-real-register-loads-beside-the-test-fixture.md) |
 | 2026-09-01 | [Three off the known-issues list](2026-09-01-three-off-the-known-issues-list.md) |
+| 2026-09-01 | [The screen that grants permissions could not be saved](2026-09-01-the-screen-that-grants-permissions-could-not-be-saved.md) |
+| 2026-09-01 | [The register gets a VIN, and an equipment type somebody can actually set](2026-09-01-the-register-gets-a-vin-and-an-equipment-type.md) |
+| 2026-09-01 | [The mark is the real artwork, and the sign-in page is a photograph](2026-09-01-the-mark-is-the-real-artwork-and-the-sign-in-page-is-a-photograph.md) |
+| 2026-09-01 | [The jobsite board learns two levels, and superintendents can hold tools](2026-09-01-the-jobsite-board-learns-two-levels-and-a-second-custodian.md) |
+| 2026-09-01 | [One droplet becomes a dev and a prod, each with its own database droplet](2026-09-01-one-droplet-becomes-a-dev-and-a-prod.md) |
 | 2026-09-01 | [Every dropdown is the same dropdown](2026-09-01-every-dropdown-is-the-same-dropdown.md) |
 | 2026-09-01 | [Commit messages stop naming the tool that typed them](2026-09-01-commit-messages-stop-naming-the-tool-that-typed-them.md) |
-| 2026-09-01 | [The jobsite board learns two levels, and superintendents can hold tools](2026-09-01-the-jobsite-board-learns-two-levels-and-a-second-custodian.md) |
-| 2026-09-01 | [The screen that grants permissions could not be saved](2026-09-01-the-screen-that-grants-permissions-could-not-be-saved.md) |
-
-## 2026-08
-
-| Date | Entry |
-|---|---|
+| 2026-09-01 | [Browser testing becomes a skill, in both harnesses](2026-09-01-browser-testing-becomes-a-skill.md) |
 | 2026-08-31 | [The ticket numbers were lying, so they are gone, and Jira goes with them](2026-08-31-the-ticket-numbers-were-lying-so-they-are-gone.md) |
 | 2026-08-31 | [A notification belongs to somebody, and the bell stops counting a deleted feature](2026-08-31-a-notification-belongs-to-somebody.md) |
-| 2026-08-30 | [The browser suite leaves CI, and takes its own prediction with it](2026-08-30-the-browser-suite-leaves-ci-and-takes-its-ticket-with-it.md) |
-| 2026-08-30 | [The owner account gets Urban's name, and a fourth admin role doesn't happen](2026-08-30-the-owner-account-gets-urbans-name.md) |
-| 2026-08-30 | [Equipment gets a register, and the Registry group fills its reserved slot](2026-08-30-equipment-gets-a-register.md) |
-| 2026-08-30 | [A foreman shows up before holding a tool, and a picker says which one](2026-08-30-a-foreman-shows-up-before-holding-a-tool.md) |
-| 2026-08-30 | [A blob becomes a line, and a pin stays in its lane](2026-08-30-a-blob-becomes-a-line-and-a-pin-stays-in-its-lane.md) |
 | 2026-08-30 | [Two candidates, one generated avatar, and no third REST endpoint](2026-08-30-two-candidates-one-avatar-and-no-third-rest-endpoint.md) |
+| 2026-08-30 | [The owner account gets Urban's name, and a fourth admin role doesn't happen](2026-08-30-the-owner-account-gets-urbans-name.md) |
+| 2026-08-30 | [The browser suite leaves CI, and takes its own prediction with it](2026-08-30-the-browser-suite-leaves-ci-and-takes-its-ticket-with-it.md) |
+| 2026-08-30 | [One sort control, a pager that actually sticks, and a header that can't yet](2026-08-30-one-sort-control-a-pager-that-sticks-and-a-header-that-cant-yet.md) |
+| 2026-08-30 | [Equipment gets a register, and the Registry group fills its reserved slot](2026-08-30-equipment-gets-a-register.md) |
+| 2026-08-30 | [A second door for import, and a checkbox on every register](2026-08-30-a-second-door-for-import-and-a-checkbox-everywhere.md) |
 | 2026-08-30 | [A header that says something, and a Name column that was never really there](2026-08-30-a-header-that-says-something-and-a-name-column-that-was-never-there.md) |
 | 2026-08-30 | [A fourth state nobody had to build twice](2026-08-30-a-fourth-state-nobody-had-to-build-twice.md) |
-| 2026-08-30 | [A second door for import, and a checkbox on every register](2026-08-30-a-second-door-for-import-and-a-checkbox-everywhere.md) |
-| 2026-08-30 | [One sort control, a pager that actually sticks, and a header that can't yet](2026-08-30-one-sort-control-a-pager-that-sticks-and-a-header-that-cant-yet.md) |
+| 2026-08-30 | [A foreman shows up before holding a tool, and a picker says which one](2026-08-30-a-foreman-shows-up-before-holding-a-tool.md) |
 | 2026-08-30 | [A code leads every register now, and "job" stops meaning "project"](2026-08-30-a-code-leads-every-register-now.md) |
-| 2026-08-29 | [A job costs nothing and must start somewhere](2026-08-29-a-job-costs-nothing-and-must-start-somewhere.md) |
+| 2026-08-30 | [A blob becomes a line, and a pin stays in its lane](2026-08-30-a-blob-becomes-a-line-and-a-pin-stays-in-its-lane.md) |
 | 2026-08-29 | [The docs describe the system again, and v1.0.0 gets a name](2026-08-29-the-docs-describe-the-system-again.md) |
 | 2026-08-29 | [One front door for agents, and five that were competing for the job](2026-08-29-one-front-door-for-agents.md) |
 | 2026-08-29 | [Icon size is its own knob, and the mobile question gets a measured answer](2026-08-29-icon-size-is-its-own-knob.md) |
 | 2026-08-29 | [Freezing on both axes, and a row menu that answers two questions](2026-08-29-freezing-on-both-axes.md) |
 | 2026-08-29 | [Seven archived documents deleted, and the six findings that were buried in one](2026-08-29-delete-the-archive-keep-the-findings.md) |
+| 2026-08-29 | [A job costs nothing and must start somewhere](2026-08-29-a-job-costs-nothing-and-must-start-somewhere.md) |
 | 2026-08-28 | [A tool says who is accountable for it, and the dead-code check stops lying](2026-08-28-tools-name-their-chain-and-a-false-green.md) |
 | 2026-08-28 | [The register stops cutting data off](2026-08-28-the-register-stops-cutting-data-off.md) |
 | 2026-08-28 | [The deploy did not fail — two tests I wrote did](2026-08-28-the-deploy-did-not-fail.md) |
@@ -99,11 +106,5 @@ alone cannot explain.
 | 2026-08-01 | [Vehicle GPS tracking: online/offline status, the fleet map, and the "No tracker" nuance](2026-08-01-vehicle-gps-tracking-map.md) |
 | 2026-08-01 | [Docs 11, 12, 13, 14, 17 implemented: departments, model split, Excel round-trip, dashboard, optional tags](2026-08-01-phases-11-17-implemented.md) |
 | 2026-08-01 | [Import headers match by meaning; specs written and audited](2026-08-01-import-headers-and-specs.md) |
-
-## 2026-07
-
-| Date | Entry |
-|---|---|
 | 2026-07-31 | [Engine sidecar removed, scratch files stopped shipping, healthcheck fixed](2026-07-31-server-cleanup-and-healthcheck.md) |
 | 2026-07-31 | [Foreman hand-offs become borrows the desk verifies](2026-07-31-foreman-handoffs-become-borrows.md) |
-

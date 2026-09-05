@@ -520,7 +520,7 @@
     {
       "entity": "vehicle",
       "id": "TE-007",
-      "reason": "TE lists this trailer as YARD with job #24002; the yard carries no job number, so the job link is dropped and the trailer stays at the Equipment Yard",
+      "reason": "TE lists this trailer as YARD with job #24002; the yard is its own job (#10001), so the 24002 job link is dropped and the trailer stays at the Equipment Yard",
       "severity": "info",
       "raw": {}
     },

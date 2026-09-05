@@ -183,6 +183,34 @@ export function AppShell({
     }
   }, [me.data?.mustChangePassword, pathname, router]);
 
+  /*
+    First-run setup, the same shape as the password bounce above and for the same
+    reason: a session outlives the login call, so this has to be read per page
+    load rather than off the login response.
+
+    Enabled only once `me` has resolved, so the two redirects cannot race — a
+    person who owes a password change goes there first, and reaches the wizard on
+    the load after they have set it.
+
+    `shouldPrompt` is computed on the SERVER (`onboarding.state`), not here. The
+    exemptions it folds in — an account with no employee record cannot hold the
+    roster rows the wizard is built on — are data questions, and deriving them in
+    a `useEffect` would mean a second copy to keep in step.
+
+    Fires ONCE. `complete` stamps the row whether the person finished or
+    dismissed, because a gate that reappears every session stands between a
+    foreman and the tool they came to check out, and they learn to click through
+    it without reading.
+  */
+  const onboarding = trpc.onboarding.state.useQuery(undefined, {
+    enabled: !!me.data && !me.data.mustChangePassword,
+  });
+  useEffect(() => {
+    if (onboarding.data?.shouldPrompt && !pathname.startsWith("/onboarding")) {
+      router.replace("/onboarding");
+    }
+  }, [onboarding.data?.shouldPrompt, pathname, router]);
+
   const role = me.data?.role ?? null;
   const perms = me.data?.permissions ?? [];
   const field = isFieldRole(role);

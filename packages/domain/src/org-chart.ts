@@ -276,3 +276,80 @@ export function findCycle(
   }
   return null;
 }
+
+/*
+  The TIER chain — which team role reports to which, as the company declares it.
+
+  A separate function from `findCycle` above, which walks the person edge
+  (`project_team_member.reportsToEmployeeId`). The two look alike and are not the
+  same thing, and the difference is the whole reason the register exists: the
+  person edge records who a named individual answers to ON ONE JOB, while this
+  records what the company says a TIER does, everywhere, with no people in it at
+  all. A superintendent who reports to a different PM on each of three jobs is
+  three person edges and one tier edge.
+
+  Kept generic over a bare id/parent pair rather than typed to `teamRole` so the
+  domain package stays free of schema imports, exactly as the rest of this file is.
+*/
+export type TierEdge = { id: string; reportsToTeamRoleId: string | null };
+
+/*
+  Would pointing `roleId` at `wouldReportTo` close a loop?
+
+  Returns the offending path (proposed boss first, back round to `roleId`) or
+  null when the edge is safe. Same shape and same contract as `findCycle`, so the
+  router can report either kind of cycle the same way.
+
+  A tenant WILL do this: the register is a flat list of tiers with no inherent
+  order, and "superintendent reports to PM" plus "PM reports to superintendent"
+  is two reasonable-looking edits made on different days. Without this the org
+  chart's tier walk would not terminate.
+*/
+export function findTierCycle(
+  roles: TierEdge[],
+  roleId: string,
+  wouldReportTo: string | null,
+): string[] | null {
+  if (!wouldReportTo) return null;
+  if (wouldReportTo === roleId) return [roleId, roleId];
+
+  const parentOf = new Map<string, string>();
+  for (const r of roles) {
+    if (r.reportsToTeamRoleId) parentOf.set(r.id, r.reportsToTeamRoleId);
+  }
+
+  /* Single parent per tier, so this is a walk rather than the DFS `findCycle`
+     needs — a role reports to at most one role by construction of the column. */
+  const path: string[] = [wouldReportTo];
+  const seen = new Set<string>([wouldReportTo]);
+  let at: string | undefined = wouldReportTo;
+  while (at) {
+    if (at === roleId) return path;
+    const next: string | undefined = parentOf.get(at);
+    if (!next || seen.has(next)) break;
+    seen.add(next);
+    path.push(next);
+    at = next;
+  }
+  return null;
+}
+
+/*
+  The tiers directly above and below one role, which is what the onboarding
+  wizard asks a person about: name your boss, name your crew. Not the whole
+  chain — a foreman is not asked to name the director four tiers up.
+
+  `below` can hold several: two tiers may both report to the same one, and a
+  register where superintendent and general superintendent both report to PM is
+  the normal case rather than a mistake.
+*/
+export function adjacentTiers(
+  roles: TierEdge[],
+  roleId: string,
+): { above: string | null; below: string[] } {
+  const self = roles.find((r) => r.id === roleId);
+  return {
+    above: self?.reportsToTeamRoleId ?? null,
+    below: roles.filter((r) => r.reportsToTeamRoleId === roleId).map((r) => r.id),
+  };
+}

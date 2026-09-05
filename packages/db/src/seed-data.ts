@@ -179,11 +179,38 @@ export const uomSpecs: { symbol: string; name: string; category: string }[] = [
   the operational role the system branches on; see `company_role` in the schema.
   Seeded so the join on `employee.company_role_id` has something to resolve.
 */
-export type TeamRoleSeed = { name: string; label: string; canHoldCustody: boolean; isSystem: boolean };
+/*
+  The job-function tiers, and the ladder they form.
+
+  `reportsTo` names another spec's `name`, resolved to an id in a second pass by
+  the seed — the rows do not exist yet when this array is written, and a self
+  reference cannot be satisfied in a single insert.
+
+  Urban's own chain, which `teamRole`'s schema comment describes in prose and
+  which is now rows: director -> area in-charge -> PM and general superintendent
+  -> superintendent -> foreman. Two tiers share the area in-charge on purpose;
+  that is the shape a rank column could not express and the reason the ladder is
+  an edge per row.
+
+  `director` and `area_in_charge` are NOT `isSystem`. They are Urban's tiers, not
+  the product's: the seed is one tenant's description of itself, and the next
+  customer deletes them. Only the three that carry a dedicated
+  `project.assign.*` permission ship built in.
+*/
+export type TeamRoleSeed = {
+  name: string;
+  label: string;
+  canHoldCustody: boolean;
+  isSystem: boolean;
+  reportsTo: string | null;
+};
 export const teamRoleSpecs: TeamRoleSeed[] = [
-  { name: "pm", label: "Project Manager", canHoldCustody: false, isSystem: true },
-  { name: "superintendent", label: "Superintendent", canHoldCustody: true, isSystem: true },
-  { name: "foreman", label: "Foreman", canHoldCustody: true, isSystem: true },
+  { name: "director", label: "Director", canHoldCustody: false, isSystem: false, reportsTo: null },
+  { name: "area_in_charge", label: "Area In-charge", canHoldCustody: false, isSystem: false, reportsTo: "director" },
+  { name: "pm", label: "Project Manager", canHoldCustody: false, isSystem: true, reportsTo: "area_in_charge" },
+  { name: "general_superintendent", label: "General Superintendent", canHoldCustody: true, isSystem: false, reportsTo: "area_in_charge" },
+  { name: "superintendent", label: "Superintendent", canHoldCustody: true, isSystem: true, reportsTo: "pm" },
+  { name: "foreman", label: "Foreman", canHoldCustody: true, isSystem: true, reportsTo: "superintendent" },
 ];
 
 export const companyRoleSpecs: { name: string; code: string }[] = [
@@ -199,9 +226,8 @@ export const companyRoleSpecs: { name: string; code: string }[] = [
 ];
 
 export const projectSpecs: ProjectSeed[] = [
-  { key: "p-equipment-yard", extId: null, name: "Equipment Yard", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-equipment-yard", extId: "10001", name: "Equipment Yard", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-lone-star-22018", extId: "22018", name: "Lone Star", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-equipment-yard-24002", extId: "24002", name: "Equipment Yard", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-colony-phase-12-23004", extId: "23004", name: "Colony Phase 12", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-nex-22017", extId: "22017", name: "NEX", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-plano-arterial-renewal-2-24003", extId: "24003", name: "Plano Arterial Renewal-2", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
@@ -257,8 +283,8 @@ export const employeeSpecs: EmployeeSeed[] = [
     a personal vehicle is NOT — it is not Urban's and leaves with the person.
     A leaver holding only tools would never have proved that.
   */
-  { key: "e-sup001", extId: "SUP-001", name: "Marcus Whitfield", role: "superintendent", primary: "p-equipment-yard-24002", status: "active", email: null, phone: null, reportsTo: null },
-  { key: "e-fm002", extId: "FM-002", name: "Jobani Abarca", role: "foreman", primary: "p-equipment-yard-24002", status: "terminated", email: null, phone: null, reportsTo: "e-sup001" },
+  { key: "e-sup001", extId: "SUP-001", name: "Marcus Whitfield", role: "superintendent", primary: "p-equipment-yard", status: "active", email: null, phone: null, reportsTo: null },
+  { key: "e-fm002", extId: "FM-002", name: "Jobani Abarca", role: "foreman", primary: "p-equipment-yard", status: "terminated", email: null, phone: null, reportsTo: "e-sup001" },
   { key: "e-fm003", extId: "FM-003", name: "ELEASAR MURILLO", role: "foreman", primary: "p-lone-star-22018", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-fm004", extId: "FM-004", name: "JOSE LUIS RODRIGUEZ", role: "foreman", primary: "p-colony-phase-12-23004", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-fm005", extId: "FM-005", name: "ANDRES FLORES", role: "foreman", primary: "p-nex-22017", status: "active", email: null, phone: null, reportsTo: null },
@@ -342,7 +368,7 @@ export const employeeSpecs: EmployeeSeed[] = [
 
 export const postingSpecs: PostingSeed[] = [
   { emp: "e-fm001", proj: "p-lone-star-22018", from: "2025-01-06", to: null, note: "Assigned with trailer TE-006" },
-  { emp: "e-fm002", proj: "p-equipment-yard-24002", from: "2025-01-06", to: null, note: "Assigned with trailer TE-007" },
+  { emp: "e-fm002", proj: "p-equipment-yard", from: "2025-01-06", to: null, note: "Assigned with trailer TE-007" },
   { emp: "e-fm003", proj: "p-lone-star-22018", from: "2025-01-06", to: null, note: "Assigned with trailer TE-009" },
   { emp: "e-fm004", proj: "p-colony-phase-12-23004", from: "2025-01-06", to: null, note: "Assigned with trailer TE-010" },
   { emp: "e-fm005", proj: "p-nex-22017", from: "2025-01-06", to: null, note: "Assigned with trailer TE-011" },
@@ -372,7 +398,7 @@ export const postingSpecs: PostingSeed[] = [
 
 export const teamSpecs: TeamSeed[] = [
   { emp: "e-fm001", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-006", reportsTo: "e-sup001" },
-  { emp: "e-fm002", proj: "p-equipment-yard-24002", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-007" },
+  { emp: "e-fm002", proj: "p-equipment-yard", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-007" },
   { emp: "e-fm003", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-009", reportsTo: "e-sup001" },
   { emp: "e-fm004", proj: "p-colony-phase-12-23004", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-010" },
   { emp: "e-fm005", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-011" },
@@ -421,7 +447,7 @@ export const locSpecs: LocSeed[] = [
 
 export const vehLocSpecs: VehLocSeed[] = [
   { key: "l-TE-006", type: "vehicle", name: "TE-006", project: "p-lone-star-22018", custodian: "e-fm001" },
-  { key: "l-TE-007", type: "vehicle", name: "TE-007", project: "p-equipment-yard-24002", custodian: "e-fm002" },
+  { key: "l-TE-007", type: "vehicle", name: "TE-007", project: "p-equipment-yard", custodian: "e-fm002" },
   { key: "l-TE-009", type: "vehicle", name: "TE-009", project: "p-lone-star-22018", custodian: "e-fm003" },
   { key: "l-TE-010", type: "vehicle", name: "TE-010", project: "p-colony-phase-12-23004", custodian: "e-fm004" },
   { key: "l-TE-011", type: "vehicle", name: "TE-011", project: "p-nex-22017", custodian: "e-fm005" },
@@ -481,7 +507,7 @@ export const vehLocSpecs: VehLocSeed[] = [
 */
 export const vehSpecs: VehSeed[] = [
   { key: "v-TE-006", loc: "l-TE-006", vtype: "trailer", unit: "TE-006", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm001", lat: "32.7766", lng: "-96.7970" },
-  { key: "v-TE-007", loc: "l-TE-007", vtype: "trailer", unit: "TE-007", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-equipment-yard-24002", foreman: "e-fm002", lat: "32.7766", lng: "-96.7970" },
+  { key: "v-TE-007", loc: "l-TE-007", vtype: "trailer", unit: "TE-007", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-equipment-yard", foreman: "e-fm002", lat: "32.7766", lng: "-96.7970" },
   { key: "v-TE-009", loc: "l-TE-009", vtype: "trailer", unit: "TE-009", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm003", lat: "32.7766", lng: "-96.7971" },
   { key: "v-TE-010", loc: "l-TE-010", vtype: "trailer", unit: "TE-010", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-colony-phase-12-23004", foreman: "e-fm004", lat: null, lng: null },
   { key: "v-TE-011", loc: "l-TE-011", vtype: "trailer", unit: "TE-011", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-nex-22017", foreman: "e-fm005", lat: "32.8500", lng: "-96.8500" },

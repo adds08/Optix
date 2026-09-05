@@ -1,4 +1,4 @@
-import { date, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { decimal, index, integer, date, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant } from "./identity";
 
 export const project = pgTable(
@@ -16,6 +16,23 @@ export const project = pgTable(
     startDate: date("start_date").notNull(),
     endDate: date("end_date"),
     siteAddress: text("site_address"), // where the job physically is
+    /*
+      A point and a radius, not a polygon. `docs/workings/TIMESHEET_PORT.md` puts
+      Leaflet polygon geofencing in a later operational-modules phase and names it
+      explicitly as a de-scope lever — building a polygon model here would be
+      guessing at a shape that product has not settled. This answers "where is
+      the job and roughly how big is it", which is what the onboarding map step
+      needs, and a polygon column can be added beside these later without
+      migrating them.
+
+      Same precision as `vehicle.gpsLat`/`gpsLng` (`location.ts`) — one convention
+      for a coordinate pair in this schema, not two.
+    */
+    latitude: decimal("latitude", { precision: 10, scale: 6 }),
+    longitude: decimal("longitude", { precision: 11, scale: 6 }),
+    /* Metres. Null alongside a set lat/lng means "pinned, no radius drawn yet" —
+       a legal, normal state, not a validation failure. */
+    geofenceRadiusM: integer("geofence_radius_m"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

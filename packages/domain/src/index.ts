@@ -21,7 +21,10 @@ export {
   buildOrgForest,
   visibleEmployeeIds,
   findCycle,
+  findTierCycle,
+  adjacentTiers,
   SYNTHETIC_PREFIX,
+  type TierEdge,
   type OrgMemberInput,
   type OrgNode,
 } from "./org-chart.js";

@@ -495,6 +495,8 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       "projectTeam.remove": "assertCanAssign(permissions, input.role) — same gate as assign",
       "projectTeam.setReportsTo":
         "assertCanAssign(permissions, roleRow) — the permission is per team role, and WHICH role is not in the input: it is read off the roster row being edited, so it cannot be known until the call arrives",
+      "projectTeam.confirm":
+        "assertCanAssign(permissions, roleRow) — verifying a placement costs exactly what making it costs, and the tier is read off the row being confirmed rather than passed in",
       "task.approve": "canApplyAction(task.actionType, permissions) — charged against the APPROVER, by action",
       "task.decline": "canApplyAction(task.actionType, permissions) — declining costs what approving costs",
       "action.submit": "canApplyAction(input.type, permissions) — and falls back to a request when refused",
@@ -510,6 +512,12 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
         "posting to chat. Field intake must be open to every account — the message is an observation, and what it PROPOSES is gated when it is applied",
       "notification.markRead":
         "clearing your own alert. Bare of a permission by design, but scoped to recipientEmployeeId — see the note in notification.ts",
+      "onboarding.setStep":
+        "moving a resume marker on the caller's OWN onboarding row. Writes nothing but where they are up to, and reads the row by session userId — there is no id in the input to point elsewhere",
+      "onboarding.complete":
+        "the caller finishing or dismissing THEIR OWN first-run setup. Same shape as user.changePassword: gating it would mean the accounts sent to the wizard are exactly the ones that cannot leave it",
+      "onboarding.defer":
+        "recording that a tier on a job is somebody else's to fill. Writes nothing to the roster — it is the admission of a limit, and gating it behind the permission the caller is admitting they LACK would be incoherent. Every id in the input is checked against the caller's tenant",
     };
 
     it("has no mutating procedure without a permission", () => {

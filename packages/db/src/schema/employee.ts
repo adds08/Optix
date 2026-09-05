@@ -193,6 +193,26 @@ export const projectTeamMember = pgTable(
        vocabulary here (see .claude/rules/database.md) — Zod at the router edge
        is what refuses an unlisted value. */
     source: text("source").notNull().default("equipment_department"),
+    /*
+      Verified by the person who owns this decision, or null if not yet.
+
+      The case this exists for: a superintendent puts a foreman on a job, and the
+      PM above them onboards afterwards. The PM should see what the superintendent
+      already did rather than an empty crew step, and say "yes, that's right" once.
+      Null means nobody senior has looked at it, which is a normal state and not
+      an error — most rows written by an administrator are confirmed on creation
+      because the person writing them IS the decision-maker.
+
+      NOT a gate on anything. The row is live from the moment it is written: a
+      foreman's roster row physically moves their tools and truck (see
+      `project-assign.ts`), and that happens on write, not on confirmation.
+      Making custody wait for a confirmation would change the custody model, and
+      any diff that does so needs to say it out loud rather than arriving as a
+      side effect of this column. What confirmation changes is what the progress
+      screen counts as outstanding, and nothing else.
+    */
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    confirmedByUserId: uuid("confirmed_by_user_id").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -205,6 +225,65 @@ export const projectTeamMember = pgTable(
     oneActiveUq: uniqueIndex("ptm_one_active_uq")
       .on(t.tenantId, t.projectId, t.employeeId, t.role)
       .where(sql`${t.endedOn} is null`),
+  }),
+);
+
+/*
+  A tier somebody deliberately left for their boss to fill.
+
+  The state this exists to distinguish: a job with no superintendent recorded
+  because nobody got round to it, versus one with no superintendent recorded
+  because the foreman said "my PM names those". Absence cannot tell those apart,
+  and without the distinction the first reads as an outstanding task on the
+  foreman forever, and the second never reaches the PM at all.
+
+  The same reasoning as `role.needsLogin` on the people register: "we have not
+  invited them" and "they will never have an account" look identical in the data
+  until something records the intent.
+
+  Rows are CLOSED, never deleted, by `resolvedAt` — the audit answer to "who was
+  supposed to do this and did it happen" needs the history, and a deleted row
+  says nothing. Closing is the job of `projectTeam.assign`: the moment a roster
+  row appears for this (project, team role), the deferral has been answered and
+  is stamped. That is the single writer, and a deferral closed anywhere else
+  would drift from the roster the way every parallel record in this codebase
+  eventually has.
+
+  NOT scoped to the person who deferred. The question a PM's screen asks is
+  "what is waiting for me on this job", and two foremen on one job both deferring
+  the superintendent tier is one outstanding decision, not two. The unique index
+  says so.
+*/
+export const projectRoleDeferral = pgTable(
+  "tbl_ops_project_role_deferral",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").notNull().references(() => project.id, { onDelete: "cascade" }),
+    /* The team-role NAME, matching `project_team_member.role` — the same
+       vocabulary and the same reason it is text here (see that column). Not a
+       foreign key to `team_role.id`: a tier deleted from the register should
+       leave the history of what was deferred readable, exactly as a closed
+       roster row naming a since-renamed tier does. */
+    teamRole: text("team_role").notNull(),
+    deferredByUserId: uuid("deferred_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    /* Who it was pushed to, when the person knew. Null means "whoever owns this
+       tier" — the ladder answers that, and it may not have been decided yet. */
+    deferredToEmployeeId: uuid("deferred_to_employee_id").references(() => employee.id, { onDelete: "set null" }),
+    note: text("note"),
+    /* Stamped when a roster row for this (project, team role) appears. */
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("prd_tenant_idx").on(t.tenantId),
+    projectIdx: index("prd_project_idx").on(t.projectId),
+    /* One open deferral per job and tier, the same partial-index shape
+       `ptm_one_active_uq` uses for the same reason: a rule the database keeps
+       cannot be forgotten by a second writer. */
+    oneOpenUq: uniqueIndex("prd_one_open_uq")
+      .on(t.tenantId, t.projectId, t.teamRole)
+      .where(sql`${t.resolvedAt} is null`),
   }),
 );
 

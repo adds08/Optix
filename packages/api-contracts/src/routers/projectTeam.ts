@@ -6,7 +6,7 @@ import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { moveEmployeeToProject } from "../project-assign.js";
 import { visibleProjectScope, viewTierOf } from "../scope.js";
-import { buildOrgForest, findCycle, visibleEmployeeIds } from "@stinventory/domain";
+import { buildOrgForest, findCycle, findTierCycle, visibleEmployeeIds } from "@stinventory/domain";
 import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory/types";
 
 /*
@@ -72,7 +72,10 @@ import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory
   same person on purpose. A lookup would be the two-lists-that-drift pattern
   `role`'s own header comment exists to end.
 */
-const BUILT_IN_PERM: Partial<Record<string, Permission>> = {
+/* Exported so `onboarding.crewStatus` can tell a caller which empty tiers they
+   may fill without firing a mutation to find out — see the comment there.
+   `assertCanAssign` below stays the one place that actually GATES a write. */
+export const BUILT_IN_PERM: Partial<Record<string, Permission>> = {
   pm: "project.assign.pm",
   superintendent: "project.assign.superintendent",
   foreman: "project.assign.foreman",
@@ -436,6 +439,33 @@ export const projectTeamRouter = router({
         });
       }
 
+      /*
+        A tier somebody deferred to their boss has now been filled, so the
+        deferral is answered — stamped, never deleted, because "who was supposed
+        to do this and did it happen" needs the history.
+
+        Placed HERE rather than inside either branch above: the two paths (a
+        tools-moving assignment through `moveEmployeeToProject`, and the plain
+        roster write) both arrive at this point, and a close in one of them would
+        leave the other's deferrals open forever. This is the single writer that
+        closes them — see the schema comment on `projectRoleDeferral`.
+
+        Not scoped to who deferred it. The deferral is per (job, tier), because
+        two foremen deferring the same superintendent slot is one outstanding
+        decision.
+      */
+      await ctx.db
+        .update(schema.projectRoleDeferral)
+        .set({ resolvedAt: new Date() })
+        .where(
+          and(
+            eq(schema.projectRoleDeferral.tenantId, tid),
+            eq(schema.projectRoleDeferral.projectId, input.projectId),
+            eq(schema.projectRoleDeferral.teamRole, input.role),
+            isNull(schema.projectRoleDeferral.resolvedAt),
+          ),
+        );
+
       await logEvent(ctx, {
         category: "project",
         action: `project.team.assign.${input.role}`,
@@ -584,6 +614,74 @@ export const projectTeamRouter = router({
     }),
 
   /*
+    Verify a roster row somebody below you recorded.
+
+    The case: a superintendent puts a foreman on a job, and the PM above them
+    onboards afterwards. The PM sees what the superintendent already did rather
+    than an empty crew step, and says "yes, that is right" once.
+
+    Gated by the SAME permission that would have let the caller write the row in
+    the first place — `assertCanAssign` on the row's own tier. Confirming a
+    superintendent's placement is an act of the same weight as making it, and a
+    confirmation anybody could give would mean nothing.
+
+    Confirms nothing about custody and changes no tools. The row has been live
+    since it was written; see the column comment. What this changes is what the
+    progress screen counts as outstanding.
+
+    Idempotent: re-confirming an already-confirmed row is a no-op rather than an
+    error, because two people clicking the same button is not a conflict.
+  */
+  confirm: protectedProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+
+      const [row] = await ctx.db
+        .select({
+          id: schema.projectTeamMember.id,
+          role: schema.projectTeamMember.role,
+          projectId: schema.projectTeamMember.projectId,
+          employeeId: schema.projectTeamMember.employeeId,
+          confirmedAt: schema.projectTeamMember.confirmedAt,
+          endedOn: schema.projectTeamMember.endedOn,
+        })
+        .from(schema.projectTeamMember)
+        .where(and(eq(schema.projectTeamMember.id, input.id), eq(schema.projectTeamMember.tenantId, tid)));
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "No such team member" });
+
+      /* A closed row is history. Confirming it would assert something about a
+         posting that has already ended. */
+      if (row.endedOn) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "That posting has already ended." });
+      }
+      if (row.confirmedAt) return { ok: true, alreadyConfirmed: true };
+
+      const roleRow = await ctx.db.query.teamRole.findFirst({
+        where: and(eq(schema.teamRole.name, row.role), eq(schema.teamRole.tenantId, tid)),
+      });
+      /* A tier deleted from the register since the row was written. Fall back to
+         the generic assign permission rather than letting the confirmation
+         through ungated — the same choice `assertCanAssign` makes for a tenant's
+         own tiers. */
+      assertCanAssign(
+        ctx.session.permissions,
+        roleRow ?? ({ name: row.role, label: row.role, canHoldCustody: false } as TeamRoleRow),
+      );
+
+      await ctx.db
+        .update(schema.projectTeamMember)
+        .set({ confirmedAt: new Date(), confirmedByUserId: ctx.session.userId })
+        .where(and(eq(schema.projectTeamMember.id, row.id), eq(schema.projectTeamMember.tenantId, tid)));
+
+      await logEvent(ctx, {
+        category: "project", action: "project.team.confirm", entityType: "project_team_member",
+        entityId: row.id, details: { role: row.role, employeeId: row.employeeId },
+      });
+      return { ok: true, alreadyConfirmed: false };
+    }),
+
+  /*
     The team-role register itself — Director, Area In-charge, General
     Superintendent join here, not in code. `pm`/`superintendent`/`foreman` ship
     seeded and `isSystem`; a tenant's own additions do not carry a dedicated
@@ -607,6 +705,7 @@ export const projectTeamRouter = router({
           label: schema.teamRole.label,
           canHoldCustody: schema.teamRole.canHoldCustody,
           isSystem: schema.teamRole.isSystem,
+          reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
         })
         .from(schema.teamRole)
         .where(eq(schema.teamRole.tenantId, ctx.session.tenantId))
@@ -665,6 +764,77 @@ export const projectTeamRouter = router({
           .where(and(eq(schema.teamRole.id, input.id), eq(schema.teamRole.tenantId, tid)));
         await logEvent(ctx, {
           category: "project", action: "project.team.roles.update", entityType: "team_role", entityId: input.id, details: patch,
+        });
+        return { ok: true };
+      }),
+
+    /*
+      Point one tier at the tier it answers to — the company's own ladder.
+
+      Gated on `project.team.manage`, the same permission as adding a tier,
+      because describing the shape of the organisation is the same act as
+      naming its parts. Putting a PERSON somewhere in that shape stays
+      `project.team.assign`, unchanged.
+
+      Deliberately no reordering, no rank, no "move up". The register is a set
+      of edges and the ladder is whatever those edges describe, including the
+      shapes a rank cannot express — two tiers sharing a boss, or a tenant that
+      has only described half of its chain.
+
+      System tiers are editable here, unlike their name and their `isSystem`
+      mark. Where `pm` sits in a given company's ladder is exactly the kind of
+      thing that differs between tenants, so refusing to let anyone say it
+      would make the feature useless for the seeded three.
+    */
+    setReportsTo: requirePermission("project.team.manage")
+      .input(
+        z.object({
+          id: z.string().uuid(),
+          /* Null clears the edge — "top of the chain, or we have not decided". */
+          reportsToTeamRoleId: z.string().uuid().nullable(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = ctx.session.tenantId;
+
+        const roles = await ctx.db
+          .select({
+            id: schema.teamRole.id,
+            label: schema.teamRole.label,
+            reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
+          })
+          .from(schema.teamRole)
+          .where(eq(schema.teamRole.tenantId, tid));
+
+        const self = roles.find((r) => r.id === input.id);
+        if (!self) throw new TRPCError({ code: "NOT_FOUND", message: "No such team role" });
+
+        /* Both ids are checked against the tenant's OWN register rather than by
+           id alone. The foreign key would happily accept another tenant's role
+           id — it has no tenant predicate — and that would be a cross-tenant
+           write dressed up as a valid reference. */
+        if (input.reportsToTeamRoleId && !roles.some((r) => r.id === input.reportsToTeamRoleId)) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "No such team role" });
+        }
+
+        const loop = findTierCycle(roles, input.id, input.reportsToTeamRoleId);
+        if (loop) {
+          const labelOf = (id: string) => roles.find((r) => r.id === id)?.label ?? "a role";
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `That would make the reporting line circular: ${labelOf(input.reportsToTeamRoleId!)} already reports up to ${self.label}.`,
+          });
+        }
+
+        await ctx.db
+          .update(schema.teamRole)
+          .set({ reportsToTeamRoleId: input.reportsToTeamRoleId })
+          .where(and(eq(schema.teamRole.id, input.id), eq(schema.teamRole.tenantId, tid)));
+
+        await logEvent(ctx, {
+          category: "project", action: "project.team.roles.setReportsTo", entityType: "team_role",
+          entityId: input.id, entityLabel: self.label,
+          details: { reportsToTeamRoleId: input.reportsToTeamRoleId },
         });
         return { ok: true };
       }),
