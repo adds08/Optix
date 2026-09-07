@@ -103,7 +103,21 @@ export const reportRouter = router({
   /* A copy of byForeman with the role filter changed, deliberately not a
      parameterised version of it. Parameterising would make a report whose
      meaning changes with a flag; two near-identical queries are cheaper to read
-     and cheaper to be wrong about. */
+     and cheaper to be wrong about.
+
+     BOTH STILL READ THE DEPRECATED `employee.role`, and an attempt to move them
+     onto `role.name` via `roleId` was made and REVERTED on 2026-09-08 because
+     it returned zero rows. On Urban's real register 53 people carry
+     `employee.role = 'foreman'` while their `role_id` points at `crew` — the
+     legacy column holds "what kind of worker this is" and `roleId` holds "what
+     login tier they have", and for a foreman who does not sign in those are
+     genuinely different answers. So the deprecated column is currently the ONLY
+     source for this report's question, whatever its own comment says about not
+     adding readers. Resolving that disagreement comes before moving these.
+
+     Separately and still true: a tenant-added tier that holds custody appears
+     in neither report. One "Assets by Custodian" driven by `canHoldCustody` is
+     the right answer and is a product decision, not a patch. */
   byMechanic: requirePermission("report.read").query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));

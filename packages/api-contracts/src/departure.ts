@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
 import type { Database, Transaction } from "@stinventory/db";
 import * as schema from "@stinventory/db/schema";
 import { formatAssetModel, type VehicleOwnership } from "@stinventory/types";
+import { tiersAbove } from "@stinventory/domain";
 import { projectForCustodian, moveCustody, vehicleContextFromLedger } from "./custody.js";
 /* The one writer that knows what handing a container over means — custodian
    column, vehicle mirror, and the contents that ride inside it. A departure is
@@ -164,41 +165,85 @@ export async function resolveSuccessor(
      team row. A foreman's tools follow the foreman, so where they WORKED is
      where the replacement must come from — not wherever `reportsTo` happened
      to point. */
-  let projectIds: string[] = [];
-  if (leaver.primaryProjectId) {
-    projectIds = [leaver.primaryProjectId];
-  } else {
-    const rows = await db
-      .select({ projectId: schema.projectTeamMember.projectId })
-      .from(schema.projectTeamMember)
-      .where(
-        and(
-          eq(schema.projectTeamMember.tenantId, tenantId),
-          eq(schema.projectTeamMember.employeeId, leaver.id),
-          eq(schema.projectTeamMember.role, "foreman"),
-          isNull(schema.projectTeamMember.endedOn),
-        ),
-      );
-    projectIds = rows.map((r) => r.projectId);
-  }
+  /* EVERY current team row, not just the foreman ones. Filtering to `foreman`
+     here meant a departing general superintendent — or anybody on a tier a
+     tenant added — produced no projects, therefore no ladder, therefore a null
+     successor with nothing said about why. Their tools then had to be moved by
+     hand with no suggestion offered. */
+  const myRows = await db
+    .select({
+      projectId: schema.projectTeamMember.projectId,
+      role: schema.projectTeamMember.role,
+    })
+    .from(schema.projectTeamMember)
+    .where(
+      and(
+        eq(schema.projectTeamMember.tenantId, tenantId),
+        eq(schema.projectTeamMember.employeeId, leaver.id),
+        isNull(schema.projectTeamMember.endedOn),
+      ),
+    );
+
+  const projectIds: string[] = leaver.primaryProjectId
+    ? [leaver.primaryProjectId]
+    : [...new Set(myRows.map((r) => r.projectId))];
   if (projectIds.length === 0) return null;
 
-  /* The ladder: superintendents on the leaver's project first, then the PMs
-     (which covers engineers — Urban's engineers are seeded with employee role
-     `pm` and a `pm` team row). Deterministic: first by the fixed role order,
-     then by employee id, so the same departure always previews the same
-     person. Never the leaver themselves. */
-  const [supers, pms] = await Promise.all([
-    activeTeamMembersOfRole(db, tenantId, projectIds, "superintendent", leaver.id),
-    activeTeamMembersOfRole(db, tenantId, projectIds, "pm", leaver.id),
-  ]);
+  /*
+    THE LADDER, read from the tier register rather than written down here.
 
-  for (const id of [...supers, ...pms]) {
-    const emp = await db.query.employee.findFirst({
-      where: and(eq(schema.employee.id, id), eq(schema.employee.tenantId, tenantId)),
-      columns: { id: true, name: true, role: true },
-    });
-    if (emp) return { id: emp.id, name: emp.name, role: emp.role, source: "team" };
+    It used to be the literal pair `["superintendent", "pm"]`, which is the
+    right answer for a departing foreman and no answer at all for anybody else:
+    a leaver on a tenant-added tier fell straight through to `null`.
+    `tiersAbove` returns the ancestor chain nearest-first, which IS the ladder —
+    the person closest above the leaver is the one whose crew just lost
+    somebody.
+
+    For a foreman this yields superintendent, then pm, then whatever sits above
+    them — so the first two answers are exactly what they were, and the change
+    only adds candidates where there previously were none.
+
+    Deterministic: tier order first, then employee id inside a tier, so the
+    same departure always previews the same person. Never the leaver.
+  */
+  const tierRows = await db
+    .select({
+      id: schema.teamRole.id,
+      name: schema.teamRole.name,
+      reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
+    })
+    .from(schema.teamRole)
+    .where(eq(schema.teamRole.tenantId, tenantId));
+  const tierByName = new Map(tierRows.map((t) => [t.name, t]));
+  const tierNameById = new Map(tierRows.map((t) => [t.id, t.name]));
+  const edges = tierRows.map((t) => ({ id: t.id, reportsToTeamRoleId: t.reportsToTeamRoleId }));
+
+  const ladder: string[] = [];
+  for (const row of myRows) {
+    const tier = tierByName.get(row.role);
+    if (!tier) continue;
+    for (const aboveId of tiersAbove(edges, tier.id)) {
+      const name = tierNameById.get(aboveId);
+      /* Deduped across the leaver's tiers while KEEPING first-seen order:
+         somebody who is a foreman on one job and a superintendent on another
+         should still be replaced from the nearest tier up. */
+      if (name && !ladder.includes(name)) ladder.push(name);
+    }
+  }
+  /* The leaver holds no tier the register recognises — a roster row naming a
+     since-deleted tier, or no roster row at all. The old fixed pair is still
+     the best guess available and is strictly better than returning nobody. */
+  if (ladder.length === 0) ladder.push("superintendent", "pm");
+
+  for (const roleName of ladder) {
+    const ids = await activeTeamMembersOfRole(db, tenantId, projectIds, roleName, leaver.id);
+    for (const id of ids) {
+      const emp = await db.query.employee.findFirst({
+        where: and(eq(schema.employee.id, id), eq(schema.employee.tenantId, tenantId)),
+        columns: { id: true, name: true, role: true },
+      });
+      if (emp) return { id: emp.id, name: emp.name, role: emp.role, source: "team" };
+    }
   }
   return null;
 }
@@ -208,7 +253,7 @@ async function activeTeamMembersOfRole(
   db: Database | Transaction,
   tenantId: string,
   projectIds: string[],
-  role: "superintendent" | "pm",
+  role: string,
   excludeId: string,
 ): Promise<string[]> {
   const rows = await db
