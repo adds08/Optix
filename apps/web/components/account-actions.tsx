@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,9 +67,23 @@ export function InviteDialog({ person, open, onClose }: { person: Person; open: 
         employeeId: person.id,
       });
       utils.employee.list.invalidate();
+      /*
+        The ONE action in this app whose effect the sender cannot verify: the
+        mail goes to somebody else's inbox, and the only visible trace here is
+        one cell flipping to "Invited" on a twenty-five row table. Naming the
+        address back is the point — a typo in it is otherwise indistinguishable
+        from a delivery that simply has not happened yet.
+      */
+      toast.success("Invitation sent", { description: email.trim() });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "That invitation could not be sent.");
+      const message = e instanceof Error ? e.message : "That invitation could not be sent.";
+      /* Kept inline AS WELL as toasted, deliberately: the dialog stays open on
+         failure so the address is still there to correct, and the reason has to
+         be readable next to the field that caused it. The toast is for somebody
+         who has already looked away. */
+      toast.error("Invitation not sent", { description: message });
+      setError(message);
     } finally {
       setSending(false);
     }
@@ -108,6 +123,79 @@ export function InviteDialog({ person, open, onClose }: { person: Person; open: 
           <Button onClick={submit} disabled={sending || !email.trim()}>
             {sending ? "Sending…" : "Send invitation"}
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/*
+  The credential `user.resetPassword` mints, shown once.
+
+  This exists because the procedure RETURNS a temporary password and the
+  people register used to throw it away — see the long comment on the
+  `resetPassword` mutation in `app/(app)/people/page.tsx` for what that
+  combination did to a real account. Nothing is emailed by that procedure and
+  nothing ever was; the administrator who pressed the button is the only route
+  this credential has to the person who now needs it.
+
+  SHOWN ONCE, and the copy says so plainly rather than implying it can be
+  found again later. It genuinely cannot: only the bcrypt hash is stored, so
+  closing this dialog without passing it on means resetting again.
+
+  No toast on success for this action, deliberately — a toast auto-dismisses,
+  and a credential that vanishes after four seconds is the same defect in a
+  smaller font.
+*/
+export function TemporaryPasswordDialog({
+  name,
+  password,
+  onClose,
+}: {
+  name: string;
+  password: string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+    } catch {
+      /* Clipboard access is refused in some contexts (an insecure origin, a
+         browser policy). The password is selectable on screen regardless, so
+         this is a convenience failing, not the feature failing. */
+      setCopied(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => (!o ? onClose() : undefined)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Temporary password for {name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-400">
+            This is shown once and is not emailed to them. Copy it now and pass it on — if you
+            close this without doing so, you will have to reset again.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded-md border bg-muted/40 px-3 py-2 font-mono text-sm select-all">
+              {password}
+            </code>
+            <Button variant="outline" onClick={copy}>
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {name} will be asked to choose a new password when they next sign in. Every existing
+            session of theirs has been signed out.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose}>Done</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

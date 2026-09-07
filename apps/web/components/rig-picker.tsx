@@ -113,6 +113,10 @@ export function RigPicker({
   const setCustodian = trpc.location.setCustodian.useMutation();
   const updateVehicle = trpc.vehicle.update.useMutation();
   const assignForeman = trpc.projectTeam.assign.useMutation();
+  /* The tier register, so a person can be posted under the tier they actually
+     hold rather than under one of two names this file used to know about. */
+  const teamRoles = trpc.projectTeam.roles.list.useQuery();
+  const teamRoleNames = new Set((teamRoles.data ?? []).map((r) => r.name));
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -186,11 +190,26 @@ export function RigPicker({
                   assignForeman.mutateAsync({
                     projectId: request.projectId,
                     employeeId: f.id,
-                    /* The person's own role, not a hard-coded "foreman".
-                       A superintendent holds custody since 2026-09-01, so
-                       posting one as a foreman would file them under the wrong
-                       team role and move somebody else's roster row. */
-                    role: f.role === "superintendent" ? "superintendent" : "foreman",
+                    /*
+                      The person's own tier, resolved against the REGISTER.
+
+                      This was `f.role === "superintendent" ? "superintendent"
+                      : "foreman"` under a comment claiming it was "the
+                      person's own role, not a hard-coded foreman" — but a
+                      two-value whitelist is exactly a hard-coded pair, and it
+                      filed a `general_superintendent` or a `mechanic` under
+                      `foreman`: the wrong roster row, on somebody else's tier,
+                      which is the failure that comment names.
+
+                      `f.role` is the LEGACY employee column and its values do
+                      not all exist as tiers (`mechanic` is not one), so it
+                      cannot be passed blind — `requireTeamRole` would refuse
+                      it. Checking it against `projectTeam.roles.list` keeps
+                      the honest answer where there is one and falls back to
+                      `foreman` only when the person's role genuinely is not a
+                      tier, which is the same answer as before for those.
+                    */
+                    role: teamRoleNames.has(f.role) ? f.role : "foreman",
                     moveTools: withTools,
                   }),
                 ),

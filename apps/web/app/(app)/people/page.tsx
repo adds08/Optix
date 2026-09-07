@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { FolderInput, KeyRound, Mail, UserCheck, UserX, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
@@ -12,7 +13,7 @@ import { ImportButton } from "@/components/import-dialog";
 import { SyncFromButton } from "@/components/sync-from-button";
 import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
 import { PostingForm } from "@/components/posting-form";
-import { InviteDialog } from "@/components/account-actions";
+import { InviteDialog, TemporaryPasswordDialog } from "@/components/account-actions";
 import { RowActions } from "@/components/sti/row-actions";
 import { DataTable } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
@@ -57,7 +58,6 @@ export default function PeoplePage() {
   const [moving, setMoving] = useState<{ id: string; name: string; projectId?: string | null } | null>(null);
   const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
   const [inviting, setInviting] = useState<{ id: string; name: string; email?: string | null; roleId?: string | null } | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   /* No bulk action reads this yet — turned on for consistency with the other
      registers, which all now offer a checkbox whether or not anything acts
      on the selection. */
@@ -65,11 +65,30 @@ export default function PeoplePage() {
   const utils = trpc.useUtils();
 
   const remove = trpc.employee.delete.useMutation({
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       setFailed(null);
       utils.employee.list.invalidate();
+      /*
+        NO UNDO, and that is not an omission. `employee.delete` is a hard
+        `db.delete` — there is no soft-delete column to restore from, so an
+        "Undo" could only re-INSERT, minting a NEW uuid and a different row that
+        merely looks the same. Offering it would be a lie about what happened.
+        Real undo needs soft-delete first; see the changelog.
+
+        The blast radius is already narrow by construction: the procedure
+        refuses outright if the person holds tools or appears anywhere in
+        custody history, telling the caller to terminate them instead.
+      */
+      const name = rows.find((r) => r.id === vars.id)?.name;
+      toast.success("Person deleted", { description: name });
     },
-    onError: (e, vars) => setFailed({ id: vars.id, message: e.message }),
+    onError: (e, vars) => {
+      /* Inline AS WELL as toasted: `failed` is keyed by row id and renders
+         against the row that refused, which is what makes "they are still
+         holding tools" actionable. The toast is for somebody who has scrolled. */
+      setFailed({ id: vars.id, message: e.message });
+      toast.error("Could not delete", { description: e.message });
+    },
   });
 
   /*
@@ -77,17 +96,57 @@ export default function PeoplePage() {
     used to own — it was deleted on 2026-08-28 because it was a second register
     of the same people. Nothing about them changed; only where they are reached.
   */
+  /* These three all had the same defect in different degrees: `setActive` said
+     nothing at all on success, and the other two wrote to a notice banner at
+     the TOP of the page — which is not where you are looking when you clicked a
+     row action twenty rows down. All three now toast, and `setNotice` is gone
+     with the banner it fed. */
   const setActive = trpc.user.setActive.useMutation({
-    onSuccess: () => utils.employee.list.invalidate(),
-    onError: (e) => setNotice(e.message),
+    onSuccess: (_d, vars) => {
+      utils.employee.list.invalidate();
+      toast.success(vars.isActive ? "Account reactivated" : "Account deactivated");
+    },
+    onError: (e) => toast.error("Could not change that account", { description: e.message }),
   });
   const resendInvite = trpc.user.resendInvite.useMutation({
-    onSuccess: () => setNotice("Invitation sent again."),
-    onError: (e) => setNotice(e.message),
+    onSuccess: () => toast.success("Invitation sent again"),
+    onError: (e) => toast.error("Invitation not sent", { description: e.message }),
   });
+  /*
+    NOTHING IS EMAILED HERE, and the UI said otherwise for as long as it has
+    existed.
+
+    `user.resetPassword` (routers/user.ts) generates a password, hashes it,
+    sets `mustChangePassword`, DELETES every session for that user, and returns
+    `{ temporaryPassword }`. There is no token, no link and no mail — by
+    design, per the note at the top of that file: it is a temporary credential
+    an administrator conveys out of band.
+
+    The menu item said "Send a password reset" and the success message said "A
+    reset link has been sent", and the call site threw the returned credential
+    away. So the real behaviour was: the account's password silently became a
+    random string NOBODY had ever seen, every session was revoked, and the
+    administrator was told an email had gone out. That locks the person out
+    permanently with no recovery path — confirmed the hard way on 2026-09-07,
+    when it was fired twice against a real account during testing and had to be
+    repaired with a hand-written bcrypt hash.
+
+    The credential now goes on screen, once, where the person who caused it can
+    actually pass it on.
+  */
+  const [resetIssued, setResetIssued] = useState<{ name: string; password: string } | null>(null);
   const resetPassword = trpc.user.resetPassword.useMutation({
-    onSuccess: () => setNotice("A reset link has been sent."),
-    onError: (e) => setNotice(e.message),
+    onSuccess: (data) => {
+      utils.employee.list.invalidate();
+      /* The dialog is armed by the per-call handler at the menu item, which
+         has the person's name. This only covers the case where the server
+         minted nothing because a password was supplied — not reachable from
+         this screen today, handled so it cannot become a silent no-op. */
+      if (!data?.temporaryPassword) {
+        toast.success("Password reset", { description: "The password you supplied is now active." });
+      }
+    },
+    onError: (e) => toast.error("Password not reset", { description: e.message }),
   });
 
   const employees = trpc.employee.list.useQuery();
@@ -249,10 +308,27 @@ export default function PeoplePage() {
                 : []),
               ...(e.userId && e.emailVerifiedAt
                 ? [{
-                    label: "Send a password reset",
+                    /* "Reset password", NOT "Send a password reset".
+                       `user.resetPassword` emails nothing — it generates a
+                       temporary credential, returns it to the caller, and
+                       revokes every session. See the mutation below. */
+                    label: "Reset password",
                     icon: KeyRound,
                     perm: "user.manage" as const,
-                    onSelect: () => resetPassword.mutate({ userId: e.userId! }),
+                    onSelect: () =>
+                      resetPassword.mutate(
+                        { userId: e.userId! },
+                        {
+                          /* Per-call, so the row is in closure. `name` is not
+                             part of the procedure's input and passing it there
+                             would just be stripped by Zod. */
+                          onSuccess: (data) => {
+                            if (data?.temporaryPassword) {
+                              setResetIssued({ name: e.name, password: data.temporaryPassword });
+                            }
+                          },
+                        },
+                      ),
                   }]
                 : []),
               ...(e.userId
@@ -291,11 +367,12 @@ export default function PeoplePage() {
     <div className="flex flex-col gap-4">
       {editing ? <EmployeeForm open onClose={() => setEditing(null)} edit={editing} /> : null}
       {inviting ? <InviteDialog person={inviting} open onClose={() => setInviting(null)} /> : null}
-      {notice ? (
-        <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm" role="status">
-          {notice}{" "}
-          <button className="underline" onClick={() => setNotice(null)}>Dismiss</button>
-        </p>
+      {resetIssued ? (
+        <TemporaryPasswordDialog
+          name={resetIssued.name}
+          password={resetIssued.password}
+          onClose={() => setResetIssued(null)}
+        />
       ) : null}
       {moving ? (
         <PostingForm
