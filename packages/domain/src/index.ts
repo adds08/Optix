@@ -38,8 +38,11 @@ export {
   findCycle,
   findTierCycle,
   adjacentTiers,
+  tiersAtOrBelow,
+  tiersAbove,
   SYNTHETIC_PREFIX,
   type TierEdge,
+  type ClaimableTier,
   type OrgMemberInput,
   type OrgNode,
 } from "./org-chart.js";

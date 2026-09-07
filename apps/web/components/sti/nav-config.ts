@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, UserCheck, Users, Wrench, PlugZap } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, UserCheck, Users, UsersRound, Wrench, PlugZap } from "lucide-react";
 
 export type NavItem = {
   /*
@@ -182,6 +182,19 @@ export const DESK_NAV: NavGroup[] = [
          `project.team.read` like the roster it draws; the procedure narrows a
          non-admin to their own chain, so the LINK does not need a second gate. */
       { id: "org-chart", href: "/org-chart", label: "Org Chart", icon: Network, perm: "project.team.read", desc: "Who answers to whom, on each job" },
+      /* Claim your own crew, top-down. The org chart above READS the same rows
+         this WRITES, which is why they sit together — but they answer different
+         questions: that one is "who answers to whom" across the company, this
+         is "who is mine to name" on the jobs I run.
+
+         Gated on `project.team.read` like its two neighbours and for the same
+         documented reason: `projectTeam.myCrew` narrows to the caller's own
+         team rows and returns [] for somebody with no position in the ladder,
+         so a person with no crew sees an empty screen rather than needing a
+         second permission kept in step with role-perms.ts. The per-tier
+         `canAssign` flag decides which tiers offer a picker, and
+         `assertCanAssign` on the write is what actually gates it. */
+      { id: "my-crew", href: "/my-crew", label: "My Crew", icon: UsersRound, perm: "project.team.read", desc: "Name the people who answer to you, job by job" },
       /* Who below the caller has done first-run setup and who hasn't — see
          `onboarding.progress`. Gated on the same permission as the org chart,
          on purpose (docs/workings/ONBOARDING_AND_ROLE_HIERARCHY.md §7.1): the

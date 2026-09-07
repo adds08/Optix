@@ -391,3 +391,101 @@ export function adjacentTiers(
     below: roles.filter((r) => r.reportsToTeamRoleId === roleId).map((r) => r.id),
   };
 }
+
+/** One tier a person may claim into, with how far below the claimer it sits. */
+export type ClaimableTier = {
+  teamRoleId: string;
+  /** 0 is the claimer's OWN tier; 1 a direct report; 2+ a skip. */
+  hops: number;
+  /** The tiers stepped over to reach this one, nearest the claimer first.
+      Empty for hops 0 and 1 — those skip nothing. This is what the skip
+      warning names, so it must not include either endpoint. */
+  viaTeamRoleIds: string[];
+};
+
+/*
+  Every tier at or below one role — the whole subtree, not one level.
+
+  This is what a "my crew" claim answers, and it is deliberately NOT
+  `adjacentTiers`. That function serves the onboarding wizard, where a foreman
+  is asked to name their boss and their own crew and nothing further. Claiming
+  is the other direction and the whole way down: a director with no PM and no
+  superintendent on a job still has to be able to name the foreman, because the
+  alternative is inventing two intermediate people who do not exist so that a
+  chain can be walked one link at a time.
+
+  HOPS 0 IS INCLUDED, and that is the peer tier — the claimer's own. Settled
+  with the client 2026-09-07: "show all the roles under them and with them, just
+  not above them". A superintendent standing in for another superintendent is a
+  real arrangement on a short-handed job.
+
+  Tiers ABOVE are never returned. Nothing enforced that before this function
+  existed — `assertCanAssign` gates on the target tier's permission alone and
+  never reads this chain — so a picker offering every tier let somebody name
+  their own boss's boss into a crew. This is the structure that stops offering
+  it; it is not, and must not be mistaken for, an authorisation check.
+
+  Breadth-first so `hops` is the true shortest distance, and cycle-safe via
+  `seen`: the tier register is a flat list a tenant edits by hand, and
+  `findTierCycle` exists because they do close loops in it. A loop here would
+  otherwise not terminate.
+*/
+export function tiersAtOrBelow(roles: TierEdge[], roleId: string): ClaimableTier[] {
+  if (!roles.some((r) => r.id === roleId)) return [];
+
+  /* Built once rather than filtering `roles` per level — a register with forty
+     tiers and a deep chain is otherwise quadratic for no reason. */
+  const childrenOf = new Map<string, string[]>();
+  for (const r of roles) {
+    if (!r.reportsToTeamRoleId) continue;
+    const list = childrenOf.get(r.reportsToTeamRoleId) ?? [];
+    list.push(r.id);
+    childrenOf.set(r.reportsToTeamRoleId, list);
+  }
+
+  const out: ClaimableTier[] = [{ teamRoleId: roleId, hops: 0, viaTeamRoleIds: [] }];
+  const seen = new Set<string>([roleId]);
+  let frontier: { id: string; via: string[] }[] = [{ id: roleId, via: [] }];
+
+  while (frontier.length > 0) {
+    const next: { id: string; via: string[] }[] = [];
+    for (const node of frontier) {
+      for (const childId of childrenOf.get(node.id) ?? []) {
+        if (seen.has(childId)) continue;
+        seen.add(childId);
+        /* `node.via` plus the node itself — except at the root, whose own id is
+           the claimer's tier and is an endpoint, not something stepped over. */
+        const via = node.id === roleId ? [] : [...node.via, node.id];
+        out.push({ teamRoleId: childId, hops: via.length + 1, viaTeamRoleIds: via });
+        next.push({ id: childId, via });
+      }
+    }
+    frontier = next;
+  }
+  return out;
+}
+
+/*
+  The ancestor chain above one tier, nearest first.
+
+  Used to decide who is NOT a claim candidate: somebody already holding a tier
+  above the claimer is not theirs to claim, however short-handed the job. Single
+  parent per tier by construction of the column, so this is a walk rather than a
+  search — the same shape as `findTierCycle`'s, and cycle-safe for the same
+  reason.
+*/
+export function tiersAbove(roles: TierEdge[], roleId: string): string[] {
+  const parentOf = new Map<string, string>();
+  for (const r of roles) {
+    if (r.reportsToTeamRoleId) parentOf.set(r.id, r.reportsToTeamRoleId);
+  }
+  const out: string[] = [];
+  const seen = new Set<string>([roleId]);
+  let at = parentOf.get(roleId);
+  while (at && !seen.has(at)) {
+    out.push(at);
+    seen.add(at);
+    at = parentOf.get(at);
+  }
+  return out;
+}

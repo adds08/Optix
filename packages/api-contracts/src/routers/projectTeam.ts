@@ -6,7 +6,14 @@ import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { moveEmployeeToProject } from "../project-assign.js";
 import { visibleProjectScope, viewTierOf } from "../scope.js";
-import { buildOrgForest, findCycle, findTierCycle, visibleEmployeeIds } from "@stinventory/domain";
+import {
+  buildOrgForest,
+  findCycle,
+  findTierCycle,
+  tiersAtOrBelow,
+  tiersAbove,
+  visibleEmployeeIds,
+} from "@stinventory/domain";
 import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory/types";
 
 /*
@@ -880,5 +887,220 @@ export const projectTeamRouter = router({
         });
         return { ok: true };
       }),
+  }),
+
+  /*
+    "My Crew" — everyone at or below the caller, per job, so a superior can
+    claim their crew top-down.
+
+    WHY THIS EXISTS ALONGSIDE `onboarding.crewStatus`, which looks similar and
+    is not the same job. That one serves step four of the onboarding wizard: it
+    returns the tiers IMMEDIATELY above and below the caller, because a foreman
+    being onboarded is asked to name their boss and their own crew and nothing
+    further. This one is the whole subtree downward and never upward, because
+    the client's case is a director on a short-handed job with no PM and no
+    superintendent on it who still has to be able to name the foreman. Walking
+    that one link at a time would mean inventing two intermediate people so the
+    chain has something to hang off.
+
+    READ-ONLY, and it writes nothing. Claiming goes through `assign` below
+    under the caller's own permission — the same chokepoint the jobsite hub and
+    the wizard use. This procedure invents no elevated path, and `canAssign`
+    per tier below is a HINT for the UI, not a gate: `assertCanAssign` is still
+    the only thing that decides.
+
+    `hops` and `viaTeamRoleIds` come back per tier so the client can warn on a
+    skip. The warning is advisory by design — settled with the client
+    2026-09-07: "they will get a warning but they can do it, like a director
+    can directly act as PM". Nothing here refuses a distant tier, and nothing
+    should; `assertCanAssign` has never read the reporting chain and making it
+    do so would be a different product decision than this screen.
+  */
+  myCrew: protectedProcedure.query(async ({ ctx }) => {
+    const tid = ctx.session.tenantId;
+    /* No employee record means no position in the ladder, so no crew. A
+       desk-only login (the tenant owner, say) legitimately hits this. */
+    if (!ctx.session.employeeId) return [];
+
+    const myRows = await ctx.db
+      .select({
+        projectId: schema.projectTeamMember.projectId,
+        projectName: schema.project.name,
+        projectCode: schema.project.code,
+        role: schema.projectTeamMember.role,
+      })
+      .from(schema.projectTeamMember)
+      .innerJoin(schema.project, eq(schema.project.id, schema.projectTeamMember.projectId))
+      .where(
+        and(
+          eq(schema.projectTeamMember.tenantId, tid),
+          eq(schema.projectTeamMember.employeeId, ctx.session.employeeId),
+          isNull(schema.projectTeamMember.endedOn),
+        ),
+      )
+      /* Same reason `crewStatus` orders: claiming refetches this, and heap
+         order would reshuffle the jobs under the person mid-task. */
+      .orderBy(schema.project.name);
+    if (myRows.length === 0) return [];
+
+    const allRoles = await ctx.db
+      .select({
+        id: schema.teamRole.id,
+        name: schema.teamRole.name,
+        label: schema.teamRole.label,
+        canHoldCustody: schema.teamRole.canHoldCustody,
+        reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
+      })
+      .from(schema.teamRole)
+      .where(eq(schema.teamRole.tenantId, tid));
+    const roleById = new Map(allRoles.map((r) => [r.id, r]));
+    const roleByName = new Map(allRoles.map((r) => [r.name, r]));
+    const edges = allRoles.map((r) => ({ id: r.id, reportsToTeamRoleId: r.reportsToTeamRoleId }));
+
+    const projectIds = [...new Set(myRows.map((r) => r.projectId))];
+
+    const allTeamRows = await ctx.db
+      .select({
+        id: schema.projectTeamMember.id,
+        projectId: schema.projectTeamMember.projectId,
+        role: schema.projectTeamMember.role,
+        employeeId: schema.projectTeamMember.employeeId,
+        employeeName: schema.employee.name,
+        reportsToEmployeeId: schema.projectTeamMember.reportsToEmployeeId,
+        confirmedAt: schema.projectTeamMember.confirmedAt,
+      })
+      .from(schema.projectTeamMember)
+      .leftJoin(schema.employee, eq(schema.employee.id, schema.projectTeamMember.employeeId))
+      .where(
+        and(
+          eq(schema.projectTeamMember.tenantId, tid),
+          inArray(schema.projectTeamMember.projectId, projectIds),
+          isNull(schema.projectTeamMember.endedOn),
+        ),
+      );
+
+    /*
+      Who is NOT claimable: anybody holding a tier ABOVE me, anywhere.
+
+      Tenant-wide rather than per-project on purpose. A superintendent on
+      another job is still a superintendent, and offering them into my foreman
+      slot because they happen not to be on THIS job is how a picker suggests
+      naming your own boss's boss into a crew.
+    */
+    const heldTiersByEmployee = new Map<string, Set<string>>();
+    const tenantTeamRows = await ctx.db
+      .select({
+        employeeId: schema.projectTeamMember.employeeId,
+        role: schema.projectTeamMember.role,
+      })
+      .from(schema.projectTeamMember)
+      .where(
+        and(
+          eq(schema.projectTeamMember.tenantId, tid),
+          isNull(schema.projectTeamMember.endedOn),
+        ),
+      );
+    for (const r of tenantTeamRows) {
+      const set = heldTiersByEmployee.get(r.employeeId) ?? new Set<string>();
+      set.add(r.role);
+      heldTiersByEmployee.set(r.employeeId, set);
+    }
+
+    /* Leavers a sync has flagged are excluded as well as terminated ones: a
+       person BambooHR says has gone is not somebody to be putting on a crew,
+       even while `employmentStatus` still reads active because clearing that
+       is an admin's decision (see employee.hrFlaggedInactiveAt). */
+    const roster = await ctx.db
+      .select({
+        id: schema.employee.id,
+        name: schema.employee.name,
+        code: schema.employee.code,
+        employmentStatus: schema.employee.employmentStatus,
+        hrFlaggedInactiveAt: schema.employee.hrFlaggedInactiveAt,
+      })
+      .from(schema.employee)
+      .where(eq(schema.employee.tenantId, tid));
+
+    const permissions = ctx.session.permissions;
+    const canAssignTier = (roleName: string): boolean =>
+      permissions.has(BUILT_IN_PERM[roleName] ?? "project.team.assign");
+
+    return myRows.map((mine) => {
+      const myTier = roleByName.get(mine.role);
+      const claimable = myTier ? tiersAtOrBelow(edges, myTier.id) : [];
+      const aboveIds = myTier ? tiersAbove(edges, myTier.id) : [];
+      const aboveNames = new Set(
+        aboveIds.map((id) => roleById.get(id)?.name).filter((n): n is string => !!n),
+      );
+
+      const candidates = roster
+        .filter((e) => e.employmentStatus === "active" && !e.hrFlaggedInactiveAt)
+        .filter((e) => {
+          const held = heldTiersByEmployee.get(e.id);
+          if (!held) return true; // nobody's crew yet — claimable into anything
+          for (const tierName of held) if (aboveNames.has(tierName)) return false;
+          return true;
+        })
+        .map((e) => ({ id: e.id, name: e.name, code: e.code }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      const tiers = claimable
+        .map((t) => {
+          const role = roleById.get(t.teamRoleId)!;
+          const filled = allTeamRows.filter(
+            (r) => r.projectId === mine.projectId && r.role === role.name,
+          );
+          return {
+            teamRoleId: role.id,
+            teamRoleName: role.name,
+            label: role.label,
+            canHoldCustody: role.canHoldCustody,
+            hops: t.hops,
+            /* Labels, not ids — the warning is a sentence a person reads, and
+               resolving ids in the client would mean shipping the register
+               twice. */
+            skipsTiers: t.viaTeamRoleIds
+              .map((id) => roleById.get(id)?.label)
+              .filter((l): l is string => !!l),
+            canAssign: canAssignTier(role.name),
+            filled: filled.map((f) => ({
+              id: f.id,
+              employeeId: f.employeeId,
+              employeeName: f.employeeName ?? "Unknown",
+              confirmed: !!f.confirmedAt,
+              reportsToMe: f.reportsToEmployeeId === ctx.session.employeeId,
+            })),
+          };
+        })
+        /* Nearest first, then alphabetical — the crew you actually run is what
+           you came to this screen for, and a stable order matters because
+           claiming refetches. */
+        .sort((a, b) => a.hops - b.hops || a.label.localeCompare(b.label));
+
+      return {
+        projectId: mine.projectId,
+        projectName: mine.projectName,
+        projectCode: mine.projectCode,
+        myTeamRole: mine.role,
+        /*
+          The claimer's own employee id, and the screen cannot work without it.
+
+          A claim means "this person answers to ME", so the client has to send
+          it back as `reportsToEmployeeId` on the assign. Passing `null` there
+          instead — which is what the first cut of the page did — writes a row
+          meaning "no boss recorded", which is a legal state and the exact
+          OPPOSITE of what claiming asserts. It looked right in the diff and was
+          caught only by claiming somebody in a browser and reading the row back.
+        */
+        myEmployeeId: ctx.session.employeeId,
+        myTeamRoleLabel: myTier?.label ?? mine.role,
+        /* A tier the register has not placed in the ladder yet returns only
+           itself, which is honest rather than empty — but the screen needs to
+           be able to say why there is nothing below. */
+        myTierPlaced: !!myTier,
+        candidates,
+        tiers,
+      };
+    });
   }),
 });

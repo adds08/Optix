@@ -4,6 +4,8 @@ import {
   findCycle,
   findTierCycle,
   adjacentTiers,
+  tiersAtOrBelow,
+  tiersAbove,
   visibleEmployeeIds,
   descendantsOf,
   SYNTHETIC_PREFIX,
@@ -238,6 +240,108 @@ describe("adjacentTiers", () => {
 
   it("is empty for a role id that is not in the register", () => {
     expect(adjacentTiers(urbanChain(), "r-nope")).toEqual({ above: null, below: [] });
+  });
+});
+
+describe("tiersAtOrBelow", () => {
+  /* The client's own chain, and the scenario they described on 2026-09-07:
+     "lets say there are no PM and supers, and a director or area incharge holds
+     foreman directly, since this role is below him, can they do it?" */
+
+  const at = (roleId: string) => {
+    const map = new Map(tiersAtOrBelow(urbanChain(), roleId).map((t) => [t.teamRoleId, t]));
+    return map;
+  };
+
+  it("includes the claimer's OWN tier at hops 0", () => {
+    /* The peer case, asked for explicitly: "all the roles under them and with
+       them". A superintendent standing in for another superintendent. */
+    expect(at(SUPER).get(SUPER)).toEqual({ teamRoleId: SUPER, hops: 0, viaTeamRoleIds: [] });
+  });
+
+  it("never returns a tier above the claimer", () => {
+    const ids = [...at(SUPER).keys()];
+    expect(ids).not.toContain(PM);
+    expect(ids).not.toContain(AREA);
+    expect(ids).not.toContain(DIRECTOR);
+  });
+
+  it("reaches the whole way down, not one level", () => {
+    /* adjacentTiers stops at AREA. This must not — that is the entire
+       difference between the two functions. */
+    const ids = [...at(DIRECTOR).keys()].sort();
+    expect(ids).toEqual([DIRECTOR, AREA, PM, GS, SUPER, FOREMAN].sort());
+  });
+
+  it("lets a director reach foreman, naming every tier stepped over", () => {
+    expect(at(DIRECTOR).get(FOREMAN)).toEqual({
+      teamRoleId: FOREMAN,
+      hops: 4,
+      viaTeamRoleIds: [AREA, PM, SUPER],
+    });
+  });
+
+  it("counts a direct report as one hop and skips nothing", () => {
+    /* hops 1 must carry an EMPTY via — a warning that named a skipped tier
+       here would fire on the normal case. */
+    expect(at(SUPER).get(FOREMAN)).toEqual({
+      teamRoleId: FOREMAN,
+      hops: 1,
+      viaTeamRoleIds: [],
+    });
+  });
+
+  it("handles a tier with two children, each at the same distance", () => {
+    const m = at(AREA);
+    expect(m.get(PM)?.hops).toBe(1);
+    expect(m.get(GS)?.hops).toBe(1);
+    expect(m.get(SUPER)).toEqual({ teamRoleId: SUPER, hops: 2, viaTeamRoleIds: [PM] });
+  });
+
+  it("gives the bottom of the chain only itself", () => {
+    expect(tiersAtOrBelow(urbanChain(), FOREMAN)).toEqual([
+      { teamRoleId: FOREMAN, hops: 0, viaTeamRoleIds: [] },
+    ]);
+  });
+
+  it("gives a loose new tier only itself", () => {
+    const withLoose = [...urbanChain(), { id: "r-new", reportsToTeamRoleId: null }];
+    expect(tiersAtOrBelow(withLoose, "r-new")).toEqual([
+      { teamRoleId: "r-new", hops: 0, viaTeamRoleIds: [] },
+    ]);
+  });
+
+  it("is empty for a role id that is not in the register", () => {
+    expect(tiersAtOrBelow(urbanChain(), "r-nope")).toEqual([]);
+  });
+
+  it("terminates on a register a tenant has looped", () => {
+    /* findTierCycle exists because tenants DO close loops by hand. A walk that
+       spun here would hang the screen rather than fail it. */
+    const looped = [
+      { id: "a", reportsToTeamRoleId: "b" },
+      { id: "b", reportsToTeamRoleId: "a" },
+    ];
+    const ids = tiersAtOrBelow(looped, "a").map((t) => t.teamRoleId);
+    expect(ids.sort()).toEqual(["a", "b"]);
+  });
+});
+
+describe("tiersAbove", () => {
+  it("gives the ancestor chain nearest first", () => {
+    expect(tiersAbove(urbanChain(), FOREMAN)).toEqual([SUPER, PM, AREA, DIRECTOR]);
+  });
+
+  it("is empty at the top", () => {
+    expect(tiersAbove(urbanChain(), DIRECTOR)).toEqual([]);
+  });
+
+  it("terminates on a looped register", () => {
+    const looped = [
+      { id: "a", reportsToTeamRoleId: "b" },
+      { id: "b", reportsToTeamRoleId: "a" },
+    ];
+    expect(tiersAbove(looped, "a")).toEqual(["b"]);
   });
 });
 
