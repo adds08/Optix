@@ -2,7 +2,7 @@ import { and, eq, isNull, inArray, desc } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
-import { adjacentTiers, descendantsOf } from "@stinventory/domain";
+import { adjacentTiers, descendantsOf, tiersAtOrBelow } from "@stinventory/domain";
 import type { Permission } from "@stinventory/types";
 import { protectedProcedure, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
@@ -663,20 +663,50 @@ export const onboardingRouter = router({
 
     return myRows.map((mine) => {
       const myTier = roleByName.get(mine.role);
-      const { above, below } = myTier
-        ? adjacentTiers(allRoles, myTier.id)
-        : { above: null, below: [] as string[] };
+      /*
+        ABOVE stays adjacent; BELOW is now the whole subtree (changed
+        2026-09-08).
 
-      const tierIds = [...(above ? [above] : []), ...below];
-      const tiers = tierIds.map((tierId) => {
-        const role = roleById.get(tierId)!;
+        You report to exactly one tier, so "who is above me" has one answer and
+        `adjacentTiers` is right for it. Below was adjacent too, and that made
+        the step unusable for the case the client hit: a PM on a job with no
+        superintendent could not name the foreman, because foreman is two tiers
+        down and simply was not in the list. There is no way to walk it one link
+        at a time either — that would mean inventing an intermediate person who
+        does not exist so the chain has something to hang off.
+
+        `hops` and `skipsTiers` come with each tier so the client can warn when
+        a claim steps over somebody, the same advisory-not-blocking treatment
+        `/my-crew` uses. `hops < 1` is dropped: that is the caller's own tier,
+        which `tiersAtOrBelow` includes for the claiming screen and which is
+        not "your crew" here.
+      */
+      const above = myTier ? adjacentTiers(allRoles, myTier.id).above : null;
+      const belowTiers = myTier
+        ? tiersAtOrBelow(allRoles, myTier.id).filter((t) => t.hops >= 1)
+        : [];
+
+      const entries: { tierId: string; hops: number; via: string[] }[] = [
+        ...(above ? [{ tierId: above, hops: 0, via: [] as string[] }] : []),
+        ...belowTiers.map((t) => ({ tierId: t.teamRoleId, hops: t.hops, via: t.viaTeamRoleIds })),
+      ];
+
+      const tiers = entries.map((entry) => {
+        const role = roleById.get(entry.tierId)!;
         const filled = allTeamRows.filter((r) => r.projectId === mine.projectId && r.role === role.name);
         const deferred = openDeferrals.some((d) => d.projectId === mine.projectId && d.teamRole === role.name);
+        const isAbove = entry.tierId === above;
         return {
           teamRoleId: role.id,
           teamRoleName: role.name,
           label: role.label,
-          relation: tierId === above ? ("above" as const) : ("below" as const),
+          relation: isAbove ? ("above" as const) : ("below" as const),
+          /* 0 for the tier above (the distance is not meaningful upward), then
+             1 for a direct report and 2+ for a claim that steps over a tier. */
+          hops: isAbove ? 0 : entry.hops,
+          skipsTiers: isAbove
+            ? []
+            : entry.via.map((id) => roleById.get(id)?.label).filter((l): l is string => !!l),
           canAssign: canAssignTier(role.name),
           deferred: deferred && filled.length === 0,
           filled: filled.map((f) => ({
@@ -796,6 +826,69 @@ export const onboardingRouter = router({
         details: { teamRole: input.teamRole },
       });
       return { ok: true, alreadyFilled: false, alreadyDeferred: false };
+    }),
+
+  /*
+    Withdraw a deferral — "actually, I'll name them myself".
+
+    DELETES the row rather than closing it, which is a reversal of the rule on
+    `projectRoleDeferral`'s schema comment ("Rows are CLOSED, never deleted...
+    the audit answer to who was supposed to do this and did it happen needs the
+    history"). The client chose deletion on 2026-09-08 when asked directly, and
+    the reasoning is defensible: a deferral that was withdrawn before anybody
+    acted on it is not a fact about the job, it is a person changing their mind
+    inside one sitting. `resolvedAt` is reserved for the meaningful close — the
+    tier actually being filled — and using it for a withdrawal as well would
+    make "resolved" two different things and the audit answer worse, not
+    better. The schema comment has been corrected to say so.
+
+    Only an OPEN deferral can be withdrawn. One already resolved was answered
+    by somebody filling the tier, and removing that record would delete
+    genuine history.
+
+    Same permission stance as `defer`: none beyond being signed in. Saying
+    "this is mine after all" writes nothing to the roster, and the person who
+    recorded the limit is the one lifting it.
+  */
+  undefer: protectedProcedure
+    .input(z.object({ projectId: z.string().uuid(), teamRole: z.string().min(1).max(40) }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+
+      /* Tenant-scoped even though the delete below carries its own predicate —
+         CLAUDE.md non-negotiable 3, and it is what makes the NOT_FOUND honest
+         rather than "no rows matched for reasons unknown". */
+      const project = await ctx.db.query.project.findFirst({
+        where: and(eq(schema.project.id, input.projectId), eq(schema.project.tenantId, tid)),
+        columns: { id: true, name: true },
+      });
+      if (!project) throw new TRPCError({ code: "NOT_FOUND", message: "No such job" });
+
+      const deleted = await ctx.db
+        .delete(schema.projectRoleDeferral)
+        .where(
+          and(
+            eq(schema.projectRoleDeferral.tenantId, tid),
+            eq(schema.projectRoleDeferral.projectId, input.projectId),
+            eq(schema.projectRoleDeferral.teamRole, input.teamRole),
+            isNull(schema.projectRoleDeferral.resolvedAt),
+          ),
+        )
+        .returning({ id: schema.projectRoleDeferral.id });
+
+      /* Nothing open to withdraw is a no-op, not an error — two people can
+         both press this, the same way `defer` treats a second deferral. */
+      if (deleted.length === 0) return { ok: true, nothingToWithdraw: true };
+
+      await logEvent(ctx, {
+        category: "project",
+        action: "onboarding.undefer",
+        entityType: "project",
+        entityId: input.projectId,
+        entityLabel: project.name,
+        details: { teamRole: input.teamRole },
+      });
+      return { ok: true, nothingToWithdraw: false };
     }),
 
   /*

@@ -311,13 +311,27 @@ export const projectTeamMember = pgTable(
   invited them" and "they will never have an account" look identical in the data
   until something records the intent.
 
-  Rows are CLOSED, never deleted, by `resolvedAt` — the audit answer to "who was
-  supposed to do this and did it happen" needs the history, and a deleted row
-  says nothing. Closing is the job of `projectTeam.assign`: the moment a roster
-  row appears for this (project, team role), the deferral has been answered and
-  is stamped. That is the single writer, and a deferral closed anywhere else
-  would drift from the roster the way every parallel record in this codebase
-  eventually has.
+  Rows are CLOSED by `resolvedAt` when ANSWERED, and that stays the rule for
+  the case that matters: the audit answer to "who was supposed to do this and
+  did it happen" needs the history, and a deleted row says nothing. Closing is
+  the job of `projectTeam.assign` — the moment a roster row appears for this
+  (project, team role), the deferral has been answered and is stamped. That is
+  the single writer, and a deferral closed anywhere else would drift from the
+  roster the way every parallel record in this codebase eventually has.
+
+  ONE EXCEPTION, added 2026-09-08: `onboarding.undefer` DELETES an open row.
+  This paragraph used to say "never deleted" without qualification, and that
+  left the state one-way — a person who deferred a tier could not then say "I
+  will name them myself", because filling it was the only exit and the screen
+  offering the deferral capped its own tier at one person. The client chose
+  deletion over a second closed state when asked.
+
+  The distinction being kept: `resolvedAt` means ANSWERED, and a withdrawal is
+  not an answer. A deferral lifted before anybody acted on it is somebody
+  changing their mind inside one sitting, not a fact about the job; recording it
+  as "resolved" would make that word mean two things and degrade the audit
+  answer rather than enrich it. A RESOLVED row is still never deleted — the
+  procedure only ever touches rows where `resolvedAt is null`.
 
   NOT scoped to the person who deferred. The question a PM's screen asks is
   "what is waiting for me on this job", and two foremen on one job both deferring
