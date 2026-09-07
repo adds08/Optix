@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, ChevronUp, Pin, PinOff } from "lucide-react";
-import { OptixWordmark } from "@/components/optix-mark";
+import { OptixGlyph, OptixWordmark } from "@/components/optix-mark";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { SetupNotice } from "@/components/onboarding/setup-notice";
 import { DUR, EASE } from "@/lib/motion";
@@ -214,8 +214,23 @@ export function AppSidebar({
           it look like one more place to go. */}
       <SidebarFooter className="gap-2.5 border-t border-sidebar-border p-2">
         <SetupNotice />
-        <div className="px-1 pb-0.5">
+        {/*
+          THE MARK SWAPS WITH THE PANE, it is not merely hidden.
+
+          The wordmark is 57px wide and the collapsed rail is 48px, so in icon
+          mode it ran 21px past the edge — measured, not guessed. `optix-mark.tsx`
+          already answers this: a square slot takes `OptixGlyph`, a pane whose
+          width the app controls takes `OptixWordmark`. Both are rendered and CSS
+          picks, rather than a JS branch on `useSidebar()`, because `group` is on
+          the Sidebar element itself and this is a descendant of it — so the
+          state is already in scope for free and there is no second source of
+          truth about which pane is open.
+        */}
+        <div className="px-1 pb-0.5 group-data-[collapsible=icon]:hidden">
           <OptixWordmark className="h-4 text-brand-mark" />
+        </div>
+        <div className="hidden justify-center pb-0.5 group-data-[collapsible=icon]:flex">
+          <OptixGlyph className="size-5 text-brand-mark" />
         </div>
       </SidebarFooter>
 

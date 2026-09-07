@@ -9,7 +9,7 @@ import { trpc, retryUnlessUnauthorized } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AiPanel } from "@/components/ai-panel";
 import { NotificationCenter } from "@/components/notification-center";
@@ -502,15 +502,7 @@ export function AppShell({
                snapping in. Short on purpose — this sits in front of every
                navigation in the product, and it is the one transition capable
                of making the whole thing feel slow. */
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: DUR.route, ease: EASE.out }}
-              className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8"
-            >
-              {children}
-            </motion.div>
+            <ContentBox pathname={pathname}>{children}</ContentBox>
           )}
         </div>
         </SidebarInset>
@@ -519,6 +511,51 @@ export function AppShell({
       <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
       {!field ? <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} /> : null}
     </SidebarProvider>
+  );
+}
+
+/*
+  The centred content box, and the reason it is its own component.
+
+  `max-w-[1400px]` plus `mx-auto` interacts badly with collapsing the pane, and
+  the numbers are worth keeping because the effect is counter-intuitive. At a
+  1512px viewport: EXPANDED leaves 1240px for this box, under the cap, so
+  `mx-auto` contributes nothing and the left gutter is just `lg:px-8` — 32px.
+  COLLAPSED leaves 1464px, now OVER the cap, so centring splits the surplus and
+  the gutter DOUBLES to 64px. Collapsing the pane to gain room handed a third of
+  it straight back, and beside a 48px icon rail that band of nothing reads as a
+  broken empty column rather than as breathing room.
+
+  So the horizontal padding tightens when the pane is collapsed: the total
+  gutter stays in the 32-48px range either way instead of stepping up exactly
+  when somebody asked for more space. Centring is kept — on a genuinely wide
+  monitor a 1400px measure beats a full-bleed one.
+
+  A component rather than a class on the div above because `useSidebar()` reads
+  the context that `AppShell` itself provides, and a component cannot consume
+  its own provider. `peer-*` was the other option and cannot reach here: this is
+  a DESCENDANT of `SidebarInset`, not a sibling of the pane, and Tailwind's
+  peer variants compile to a sibling combinator.
+*/
+function ContentBox({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+  const { state } = useSidebar();
+  return (
+    <motion.div
+      /* Keyed on the pathname so each route fades up rather than snapping in.
+         Short on purpose — this sits in front of every navigation in the
+         product, and it is the one transition capable of making the whole thing
+         feel slow. */
+      key={pathname}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: DUR.route, ease: EASE.out }}
+      className={cn(
+        "mx-auto w-full max-w-[1400px] py-6 lg:py-8",
+        state === "collapsed" ? "px-4" : "px-4 lg:px-8",
+      )}
+    >
+      {children}
+    </motion.div>
   );
 }
 
