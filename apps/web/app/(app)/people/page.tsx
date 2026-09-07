@@ -292,7 +292,23 @@ export default function PeoplePage() {
         ) : employees.isError ? (
           <ErrorNote message="People could not be loaded." />
         ) : !rows.length ? (
-          <EmptyState icon={Users} title="No people on file" />
+          /* An empty register is exactly when Sync/Import/New Person are the
+             actions somebody needs most — they were previously reachable
+             ONLY from inside DataTable's toolbar, which this branch never
+             renders. A zero-row tenant had no path to stop being one except
+             a direct database write. */
+          <EmptyState
+            icon={Users}
+            title="No people on file"
+            description="Add people one at a time, import a spreadsheet, or sync from BambooHR."
+            action={
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <SyncFromButton />
+                <ImportButton entity="employee" />
+                <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
+              </div>
+            }
+          />
         ) : (
           <DataTable<EmployeeRow>
             mode="client"
