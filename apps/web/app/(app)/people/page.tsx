@@ -9,6 +9,7 @@ import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/s
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
 import { CreateAction } from "@/components/sti/create-action";
 import { ImportButton } from "@/components/import-dialog";
+import { SyncFromButton } from "@/components/sync-from-button";
 import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
 import { PostingForm } from "@/components/posting-form";
 import { InviteDialog } from "@/components/account-actions";
@@ -304,6 +305,7 @@ export default function PeoplePage() {
             onSelectionChange={setSelectedIds}
             toolbarExtra={
               <>
+                <SyncFromButton />
                 <ImportButton entity="employee" />
                 <CreateAction perm="employee.manage" label="New person" Form={EmployeeForm} />
               </>

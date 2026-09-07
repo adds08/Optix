@@ -116,7 +116,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
               emptyLabel="No tool matches."
               options={(assets.data ?? []).map((a) => ({
                 value: a.id,
-                label: a.tag ?? "Untagged",
+                label: a.code ?? "Untagged",
                 hint: formatAssetModel(a) || "No description",
               }))}
             />

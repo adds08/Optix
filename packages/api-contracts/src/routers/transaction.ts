@@ -37,7 +37,7 @@ export const transactionRouter = router({
         .select({
           id: schema.transaction.id,
           assetId: schema.transaction.assetId,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,
           description: schema.asset.description,

@@ -98,7 +98,7 @@ export default function CustodyPage() {
 
   const HELD_COLUMNS: ColumnDef<HeldRow>[] = useMemo(
     () => [
-      col<HeldRow>({ header: "Code", accessorFn: (a) => a.tag ?? "", width: "6rem", cell: (a) => <Link href={`/tools/${a.assetId}`}><Tag>{a.tag}</Tag></Link> }),
+      col<HeldRow>({ header: "Code", accessorFn: (a) => a.code ?? "", width: "6rem", cell: (a) => <Link href={`/tools/${a.assetId}`}><Tag>{a.code}</Tag></Link> }),
       col<HeldRow>({ header: "Model", accessorFn: (a) => a.modelName ?? "", cell: (a) => <span className="font-medium">{a.modelName}</span> }),
       /* Person code before the name, same convention as every other identity
          on the board — the code is the stable key the desk knows. */
@@ -123,7 +123,7 @@ export default function CustodyPage() {
 
   const MOVING_COLUMNS: ColumnDef<TransferRow>[] = useMemo(
     () => [
-      col<TransferRow>({ header: "Code", accessorFn: (t) => t.tag ?? "", width: "6rem", cell: (t) => <Link href={`/tools/${t.assetId}`}><Tag>{t.tag}</Tag></Link> }),
+      col<TransferRow>({ header: "Code", accessorFn: (t) => t.code ?? "", width: "6rem", cell: (t) => <Link href={`/tools/${t.assetId}`}><Tag>{t.code}</Tag></Link> }),
       col<TransferRow>({ header: "Model", accessorFn: (t) => t.modelName ?? "", cell: (t) => <span className="font-medium">{t.modelName}</span> }),
       col<TransferRow>({ header: "Reason", accessorFn: (t) => String(t.reason ?? "").replace(/_/g, " "), cell: (t) => <span className="capitalize">{String(t.reason).replace(/_/g, " ")}</span> }),
       col<TransferRow>({ header: "Status", accessorFn: (t) => t.status, width: "9rem", cell: (t) => <StatusPill status={t.status} /> }),
@@ -144,14 +144,14 @@ export default function CustodyPage() {
     }),
     col<QueueRow>({
       header: "Code",
-      accessorFn: (r) => r.assetTag ?? "",
+      accessorFn: (r) => r.assetCode ?? "",
       width: "6rem",
       cell: (r) => {
         const assetId = assetIdFor(r);
         return assetId ? (
-          <Link href={`/tools/${assetId}`}><Tag>{r.assetTag}</Tag></Link>
+          <Link href={`/tools/${assetId}`}><Tag>{r.assetCode}</Tag></Link>
         ) : (
-          <Tag>{r.assetTag}</Tag>
+          <Tag>{r.assetCode}</Tag>
         );
       },
     }),

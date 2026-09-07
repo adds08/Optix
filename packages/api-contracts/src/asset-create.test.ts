@@ -153,25 +153,25 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
   */
   it("refuses a tag already in the register", async () => {
     const ctx = makeCtx(db);
-    await assetRouter.createCaller(ctx).create({ description: "first grinder", tag: "DUP-001" });
+    await assetRouter.createCaller(ctx).create({ description: "first grinder", code: "DUP-001" });
 
     await expect(
-      assetRouter.createCaller(ctx).create({ description: "second grinder", tag: "DUP-001" }),
+      assetRouter.createCaller(ctx).create({ description: "second grinder", code: "DUP-001" }),
     ).rejects.toThrow(/already in the register/i);
 
     const rows = await db
       .select({ id: schema.asset.id })
       .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.tag, "DUP-001")));
+      .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.code, "DUP-001")));
     expect(rows).toHaveLength(1);
   });
 
   /*
     Untagged rows are a NORMAL state, not a collision.
 
-    `asset.tag` is nullable on purpose — the "Needs a Tag" report exists to be
+    `asset.code` is nullable on purpose — the "Needs a Tag" report exists to be
     the label gun's worklist — so the guard must key on a tag being given, not
-    on the column. A naive `WHERE tag = input.tag` with both null would refuse
+    on the column. A naive `WHERE tag = input.code` with both null would refuse
     the second untagged tool in the register.
   */
   it("still allows any number of untagged tools", async () => {
@@ -182,7 +182,7 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
     const rows = await db
       .select({ id: schema.asset.id })
       .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tenantId), isNull(schema.asset.tag)));
+      .where(and(eq(schema.asset.tenantId, tenantId), isNull(schema.asset.code)));
     expect(rows.length).toBeGreaterThanOrEqual(2);
   });
 

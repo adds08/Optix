@@ -2548,4 +2548,5 @@ export const txSpecs: TxSeed[] = [
    not a foreman holding tools. */
 export const userSpecs: UserSeed[] = [
   { email: "optix_it@optixtec.com", first: "Optix", last: "IT", role: "owner", employeeKey: null },
+  { email: "tech@optixtec.com", first: "Optix", last: "Tech", role: "tech_admin", employeeKey: null },
 ];

@@ -13,12 +13,14 @@ import {
   category,
   channel,
   department,
+  division,
   companyRole,
   teamRole,
   uomCategory,
   unitOfMeasure,
   employeeContact,
   employee,
+  employeeExternalRef,
   employeeProjectAssignment,
   location,
   message,
@@ -256,6 +258,8 @@ async function main() {
         needsLogin: r.needsLogin,
         canHoldCustody: r.canHoldCustody,
         usesFieldLayout: r.usesFieldLayout,
+        onboardingKind: r.onboardingKind,
+        isCrossTenant: r.isCrossTenant ?? false,
         isSystem: r.isSystem,
       })),
     )
@@ -314,6 +318,23 @@ async function main() {
     .returning();
   const deptByCode = Object.fromEntries(deptRows.map((d) => [d.code, d.id]));
 
+  // ---- Divisions ----
+  /* The arm of the business a person belongs to, FLAT alongside department
+     rather than above it — see the comment on `employee.divisionId`. Seeded
+     with more than one row on purpose: a single-row reference table cannot
+     show whether a picker actually filters, and "Operations" is the only name
+     BambooHR's sample happened to contain. */
+  const divisionRows = await db
+    .insert(division)
+    .values(
+      [
+        { name: "Operations", code: "OPS" },
+        { name: "Heavy Civil", code: "HC" },
+        { name: "Utilities", code: "UTIL" },
+      ].map((d) => ({ tenantId: tid, name: d.name, code: d.code, isActive: true })),
+    )
+    .returning();
+
   // ---- Company roles (job titles) ----
   /* Distinct from `employee.role`: this is what HR calls the job, and nothing
      branches on it. Seeded so `employee.company_role_id` resolves to a name. */
@@ -356,7 +377,11 @@ async function main() {
     .values(
       projectSpecs.map((p) => ({
         tenantId: tid,
-        externalId: p.extId,
+        /* The job number. Column renamed from `external_id` on 2026-09-07 —
+           Drizzle drops an unknown key SILENTLY, and this line kept the old
+           name for one seed run, which wiped every project code without an
+           error. */
+        code: p.extId,
         name: p.name,
         description: p.description ?? null,
         status: p.status,
@@ -372,9 +397,26 @@ async function main() {
   const employeeRows = await db
     .insert(employee)
     .values(
-      employeeSpecs.map((e) => ({
+      employeeSpecs.map((e, i) => ({
         tenantId: tid,
-        externalId: e.extId,
+        /* The badge number. Column renamed from `external_id` on 2026-09-06 —
+           this was always Urban's own code, never a foreign system's key. */
+        code: e.extId,
+        /* Round-robin across the three divisions, with every fourth person left
+           null. Null is a legal, normal state — most of the register predates
+           divisions entirely — and a seed where every row is populated cannot
+           show whether a screen handles the empty one. */
+        divisionId: i % 4 === 3 ? null : divisionRows[i % 3]!.id,
+        /*
+          Department, the flat partner of division rather than a child of it.
+
+          `% 5` where division uses `% 4`, so the two nulls fall on DIFFERENT
+          people and all four combinations exist in a clean database — both
+          set, one set, the other set, neither. Reusing `% 4` would have made
+          the columns move together and a screen that read the wrong one, or
+          conflated the pair, would have looked correct on every row.
+        */
+        departmentId: i % 5 === 4 ? null : deptRows[i % 3]!.id,
         name: e.name,
         role: e.role,
         primaryProjectId: e.primary ? projectByKey[e.primary]! : null,
@@ -417,6 +459,82 @@ async function main() {
   if (contactValues.length) await db.insert(employeeContact).values(contactValues);
   const empByKey: Record<string, string> = {};
   employeeSpecs.forEach((e, i) => (empByKey[e.key] = employeeRows[i]!.id));
+
+  /*
+    External refs — how a far system identifies these people.
+
+    Seeded to reach every state the table can be in, because none of them is
+    reachable from the importer yet and an untested state is one nobody has
+    seen (CLAUDE.md rule 9):
+
+      - TWO systems on one person, which is the case a single
+        (external_system, external_id) column pair could never have held, and
+        the reason this is a child table at all.
+      - ONE system, the ordinary case.
+      - A row whose `restrictedFields` is non-empty and whose `raw` therefore
+        has nulls that mean "not permitted", NOT "cleared". Anything that reads
+        this table has to tell those apart, and it cannot be shown to unless a
+        row exists where they differ.
+      - And, by omission, the majority with NO ref at all — a person typed in
+        by hand who no far system has ever heard of.
+
+    Deliberately NOT given to everybody. A fixture where every row is populated
+    proves the populated path and hides the empty one.
+  */
+  const refTargets = employeeRows.slice(0, 3);
+  if (refTargets.length === 3) {
+    const [withTwo, withOne, withRestricted] = refTargets as [
+      (typeof employeeRows)[number],
+      (typeof employeeRows)[number],
+      (typeof employeeRows)[number],
+    ];
+    await db.insert(employeeExternalRef).values([
+      {
+        tenantId: tid,
+        employeeId: withTwo.id,
+        system: "bamboohr",
+        externalId: "4471",
+        lastSyncedAt: new Date("2026-09-05T09:00:00Z"),
+        raw: { id: "4471", firstName: withTwo.name.split(" ")[0], status: "Active" },
+      },
+      /* The same person in a second system, with a DIFFERENT key. This is the
+         row that makes the unique indexes meaningful. */
+      {
+        tenantId: tid,
+        employeeId: withTwo.id,
+        system: "mark85",
+        externalId: "EMP-00087",
+        lastSyncedAt: new Date("2026-09-05T09:00:00Z"),
+        raw: { employeeCode: "EMP-00087" },
+      },
+      {
+        tenantId: tid,
+        employeeId: withOne.id,
+        system: "bamboohr",
+        externalId: "4472",
+        lastSyncedAt: new Date("2026-09-05T09:00:00Z"),
+        raw: { id: "4472", firstName: withOne.name.split(" ")[0], status: "Active" },
+      },
+      /* A narrow API key: the fields it could not read came back null and were
+         named in `_restrictedFields`. A sync that treats these nulls as values
+         would blank real data on its next run. */
+      {
+        tenantId: tid,
+        employeeId: withRestricted.id,
+        system: "bamboohr",
+        externalId: "4473",
+        lastSyncedAt: new Date("2026-09-05T09:00:00Z"),
+        restrictedFields: ["mobilePhone", "workEmail"],
+        raw: {
+          id: "4473",
+          firstName: withRestricted.name.split(" ")[0],
+          mobilePhone: null,
+          workEmail: null,
+          _restrictedFields: ["mobilePhone", "workEmail"],
+        },
+      },
+    ]);
+  }
 
   /*
     The person's role, from the role register.
@@ -611,22 +729,52 @@ async function main() {
     console.log("[seed] 1 open deferral + 1 resolved");
   }
 
-  /* One account already through onboarding, so the gate can be observed NOT
-     firing. `warehouse@` rather than a field account: the wizard is most
-     interesting unfinished for the foremen and supers, and leaving theirs open
-     is what makes a fresh login land on it. */
-  const doneUser = await db.query.user.findFirst({
-    where: and(eq(user.tenantId, tid), eq(user.email, "warehouse@stinventory.local")),
-    columns: { id: true },
-  });
-  if (doneUser) {
-    await db.insert(userOnboarding).values({
-      tenantId: tid,
-      userId: doneUser.id,
-      currentStep: "invite",
-      completedAt: new Date(),
-    });
-    console.log("[seed] 1 account already onboarded");
+  /*
+    One account already through onboarding, so the gate can be observed NOT
+    firing.
+
+    `pm@` and not `warehouse@`, which is what this was until 2026-09-06 and
+    which quietly stopped proving anything. The gate now requires a live roster
+    row as well as an employee record — the yard desk, the equipment admin and
+    the mechanic all have an employee and no crew rows, because they serve every
+    job rather than working on any, and none of them is ever prompted. A
+    "finished" row on `warehouse@` therefore demonstrated nothing: the account
+    would have been skipped anyway, and the fixture and the gate agreed by
+    accident.
+
+    `pm@` (Dana) is on a job, so she WOULD be prompted, and the completed row is
+    the only reason she is not. That is the state this fixture exists to reach.
+
+    `foreman@` is onboarded for a different reason: **the browser suite.**
+    `e2e/roles.ts` declares that a foreman lands on `/my-tools`, and
+    `auth.setup.ts` waits for exactly that before saving the session — so an
+    un-onboarded foreman sends every spec's setup to `/welcome` and the whole
+    suite fails at the door. That is not a hypothetical; it is what this feature
+    did, and it went unnoticed because the browser suite was not run while the
+    wizard was being built. The fixture has to represent a foreman who is
+    already through setup, or the suite tests the wizard instead of the app.
+
+    `super@` is deliberately left UNFINISHED so a fresh login still lands on the
+    wizard — it has two jobs and a tier above and below it, which makes it the
+    most interesting account to open the crew step as. Leaving at least one
+    account unfinished is the point of the fixture; leaving all of them
+    unfinished is what broke the suite.
+  */
+  const onboardedEmails = ["pm@stinventory.local", "foreman@stinventory.local"];
+  const doneUsers = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(and(eq(user.tenantId, tid), inArray(user.email, onboardedEmails)));
+  if (doneUsers.length > 0) {
+    await db.insert(userOnboarding).values(
+      doneUsers.map((u) => ({
+        tenantId: tid,
+        userId: u.id,
+        currentStep: "invite" as const,
+        completedAt: new Date(),
+      })),
+    );
+    console.log(`[seed] ${doneUsers.length} accounts already onboarded`);
   }
 
   /*
@@ -827,7 +975,7 @@ async function main() {
     .values(
       assetSpecs.map((a) => ({
         tenantId: tid,
-        tag: a.tag,
+        code: a.tag,
         modelId: null,
         make: a.make,
         modelNumber: a.modelNumber,
@@ -856,7 +1004,7 @@ async function main() {
      tag is not a key, and letting two of them collide on one "null" entry would
      hand the assignment and ledger writers below the wrong asset. Nothing
      references them, so skipping is correct rather than merely safe. */
-  const assetByTag = Object.fromEntries(assetRows.filter((a) => a.tag).map((a) => [a.tag!, a]));
+  const assetByTag = Object.fromEntries(assetRows.filter((a) => a.code).map((a) => [a.code!, a]));
   // Tag -> spec, so the ledger events below can snapshot the same state the
   // projection was written from. One source of truth for both sides.
   const assetSpecByTag = Object.fromEntries(assetSpecs.filter((a) => a.tag).map((a) => [a.tag!, a]));
@@ -1170,15 +1318,25 @@ async function main() {
 [seed] DONE.
 
 ${USE_URBAN
-  ? `Login — ONE account, the system owner:
+  ? `Login — the two administrators, both on the SAME password:
 
-  ${userRows[0]?.email ?? "(no account seeded)"}
+${userRows.map((u) => `  ${u.email}`).join("\n")}
+
   password: ${generatedPassword
       ? `${generatedPassword}      <-- GENERATED, shown once. Save it now.`
       : "(taken from SEED_OWNER_PASSWORD)"}
 
-No demo accounts were created. Add colleagues through /admin/users, each with
-their own password.`
+  owner       the ORGANISATIONAL administrator — the customer's own, and
+              confined to this tenant like every other account.
+  tech_admin  Optix's own operator. Same grants inside the tenant; what
+              differs is role.is_cross_tenant, which reaches every tenant
+              and which NOTHING READS YET. Say that plainly rather than
+              implying the isolation is already crossed.
+
+No demo people were created — these are Urban's real 83. Everybody else joins
+through an invite from a person's row on /people, which sets their role as it
+sends. Locally that mail lands in Mailpit at http://localhost:8025 with a
+clickable link; it is delivered nowhere.`
   : `Login — password  stinventory-demo  for every account (STI-304).
 One per role, because a permission system only ever tested as 'owner'
 is not a tested permission system. See docs/SETUP.md.

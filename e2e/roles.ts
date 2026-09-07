@@ -16,8 +16,18 @@
 export type Role = {
   key: string;
   email: string;
-  /* Where the app should put them after login. Field roles are redirected off
-     /home by the shell; getting this wrong is itself a regression. */
+  /*
+    Where the app should put them after login. Field roles are redirected off
+    /home by the shell; getting this wrong is itself a regression.
+
+    **This also depends on the seeded onboarding row**, added 2026-09-06 after
+    the first-run wizard sent every account here to `/welcome` and broke the
+    whole suite at `auth.setup.ts`. `foreman@` is seeded as already onboarded so
+    these routes mean "where the app puts a settled user"; `super@` is
+    deliberately left unfinished and is therefore NOT in this list, because its
+    honest `landsOn` is the wizard. If a role starts landing on `/welcome`,
+    check the seed before changing the route — the gate is probably right.
+  */
   landsOn: string;
   /*
     Routes the sidebar must offer, and must not.

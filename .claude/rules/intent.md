@@ -82,7 +82,7 @@ that will execute it. Optimise the output for the small model, not for yourself.
 
 ## Entity resolution
 
-`entity-resolve.ts` tries tag patterns (`UIC-\d{3,4}`, `TR[AU]-\d{3}`) against `asset.tag` then
+`entity-resolve.ts` tries code patterns (`UIC-\d{3,4}`, `TR[AU]-\d{3}`) against `asset.code` then
 `vehicle.unit`, then token-by-token `ilike` across employee → project → location → asset.
 Custodians are filtered to `CUSTODIAN_ROLES` and active employment. That list gained
 `superintendent` on 2026-09-01 — a job is routinely rigged before its foreman is hired, and

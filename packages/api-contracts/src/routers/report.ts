@@ -42,7 +42,7 @@ export const reportRouter = router({
     return ctx.db
       .select({
         id: schema.asset.id,
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         make: schema.asset.make,
         modelNumber: schema.asset.modelNumber,
         description: schema.asset.description,
@@ -124,7 +124,7 @@ export const reportRouter = router({
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         make: schema.asset.make,
         modelNumber: schema.asset.modelNumber,
         description: schema.asset.description,
@@ -141,7 +141,7 @@ export const reportRouter = router({
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         make: schema.asset.make,
         modelNumber: schema.asset.modelNumber,
         description: schema.asset.description,
@@ -161,7 +161,7 @@ export const reportRouter = router({
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         make: schema.asset.make,
         modelNumber: schema.asset.modelNumber,
         description: schema.asset.description,
@@ -175,7 +175,7 @@ export const reportRouter = router({
       .where(
         and(
           eq(schema.asset.tenantId, ctx.session.tenantId),
-          isNull(schema.asset.tag),
+          isNull(schema.asset.code),
           scoped,
         ),
       );
@@ -245,7 +245,7 @@ export const reportRouter = router({
       eventType: string;
       occurredAt: Date;
       note: string | null;
-      tag: string | null;
+      code: string | null;
       model: string;
       actorName: string | null;
     }>> => {
@@ -264,7 +264,7 @@ export const reportRouter = router({
         const q = `%${input.search}%`;
         conditions.push(
           or(
-            ilike(schema.asset.tag, q),
+            ilike(schema.asset.code, q),
             ilike(schema.asset.make, q),
             ilike(schema.asset.modelNumber, q),
             ilike(schema.asset.description, q),
@@ -283,7 +283,7 @@ export const reportRouter = router({
         occurredAt: sql`${schema.transaction.occurredAt}`,
         eventType: sql`${schema.transaction.eventType}`,
         note: sql`${schema.transaction.note}`,
-        tag: sql`${schema.asset.tag}`,
+        tag: sql`${schema.asset.code}`,
       };
       const order = sortSql(input, sortable) ?? desc(schema.transaction.occurredAt);
 
@@ -293,7 +293,7 @@ export const reportRouter = router({
           eventType: schema.transaction.eventType,
           occurredAt: schema.transaction.occurredAt,
           note: schema.transaction.note,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,
           description: schema.asset.description,
@@ -313,7 +313,7 @@ export const reportRouter = router({
           eventType: r.eventType,
           occurredAt: r.occurredAt,
           note: r.note,
-          tag: r.tag,
+          code: r.code,
           model: [r.make, r.modelNumber, r.description].filter(Boolean).join(" "),
           actorName: r.actorName,
         })),

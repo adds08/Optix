@@ -1,7 +1,8 @@
-import { boolean, date, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { role, tenant, user } from "./identity";
-import { companyRole } from "./reference";
+import { companyRole, division } from "./reference";
+import { department } from "./department";
 import { project } from "./project";
 
 // A person who can hold custody (foreman, superintendent, etc.). Separate from the
@@ -16,10 +17,22 @@ export const employee = pgTable(
       by, printed on the badge and used on the yard's own sheets. It is NOT
       `id`: that is a uuid this system mints and nobody reads aloud.
 
-      Confirmed 2026-08-27 to be one field, not two. It doubles as the
-      BambooHR / Mark 85 sync seam, and the temptation is to add a second
-      "user_id" column beside it for the HR number — don't. Two columns holding
-      the same business identifier is two columns to drift.
+      Confirmed 2026-08-27 to be one field, not two. The temptation is to add a
+      second "user_id" column beside it for the HR number — don't. Two columns
+      holding the same business identifier is two columns to drift.
+
+      NAMED `code`, not `externalId`, since 2026-09-06, and the distinction is
+      the whole reason `employeeExternalRef` below exists. A CODE is assigned by
+      the company: it happens at company level, so the same value identifies
+      this person across every system Urban runs. An EXTERNAL ID is a foreign
+      system's primary key, minted by them for their own purposes and meaningless
+      outside it. This column has only ever held the first kind — badge numbers
+      — while its old comment described it as "the BambooHR / Mark 85 sync
+      seam", which is the second. Those are different facts and a sync that
+      overwrote one with the other would destroy the badge numbers.
+
+      Where a far system's key happens to equal this value, record it as an
+      external ref anyway rather than assuming they stay equal.
 
       NAMING TRAP, worth the line: this value is sometimes spoken as a person's
       "contact", meaning "the reference we contact them by". It has nothing to
@@ -27,7 +40,7 @@ export const employee = pgTable(
       column out of an HR export into a phone field, or the reverse, is the
       mistake this comment exists to stop.
     */
-    externalId: text("external_id"),
+    code: text("code"),
     name: text("name").notNull(),
     /*
       LEGACY. `roleId` below is the source of truth as of 2026-08-28.
@@ -62,6 +75,42 @@ export const employee = pgTable(
       register predates this and a title is not needed to hold a tool.
     */
     companyRoleId: uuid("company_role_id").references(() => companyRole.id, { onDelete: "set null" }),
+    /*
+      Which arm of the business a person sits in — Operations, Heavy Civil.
+
+      FLAT, and deliberately not nested under `department`. BambooHR ships
+      `divisionName` and `departmentName` as two independent fields on one
+      record and models no relationship between them; so do we. A sample
+      suggesting "Operations" contains "Heavy Civil" is one company's shape read
+      off one payload, and baking it into the schema forces every importer to
+      resolve department-within-division for data no API supplies that way.
+
+      Which combinations are legitimate is a RULE, not a hierarchy. Confirmed
+      with the client 2026-09-06: rules limiting which division or department
+      may be offered come later, on top of these two columns.
+    */
+    divisionId: uuid("division_id").references(() => division.id, { onDelete: "set null" }),
+    /*
+      The other half of the pair above, and the reason the comment on
+      `divisionId` says "these two columns" — until now it named a column that
+      did not exist. `BAMBOOHR_PEOPLE_SYNC.md` §4 has mapped `departmentName`
+      here since 2026-09-06 while migration `0050` added `division_id` alone,
+      so that row of the mapping table pointed at nothing and the gap was
+      rediscovered twice before being closed.
+
+      `tbl_entity_department` is NOT new and was not created for this.
+      `asset.owning_department_id` has referenced it for cost targets since
+      long before any HR sync existed, which is why this is a column on
+      `employee` rather than a table plus a column: the vocabulary already
+      exists, and a second departments table would be the duplication this
+      codebase pays for most.
+
+      `set null` rather than `restrict`, matching `divisionId`: retiring a
+      department is an org change and must not be blocked by, or cascade into,
+      the people who were in it. Nullable because most of the register predates
+      it and a department is not needed to hold a tool.
+    */
+    departmentId: uuid("department_id").references(() => department.id, { onDelete: "set null" }),
     primaryProjectId: uuid("primary_project_id").references(() => project.id, { onDelete: "set null" }),
     employmentStatus: text("employment_status").notNull().default("active"), // active | terminated | on_leave
     terminatedAt: timestamp("terminated_at", { withTimezone: true }),
@@ -301,7 +350,7 @@ export const projectRoleDeferral = pgTable(
   Collapsing it into `isPrimary` here is its own change, once something writes
   these rows.
 
-  Naming trap, repeated from `employee.externalId` because it has already caused
+  Naming trap, repeated from `employee.code` because it has already caused
   confusion: a person's HR-issued employee id is sometimes spoken as their
   "contact". It is not a contact number and does not belong in this table.
 */
@@ -328,5 +377,82 @@ export const employeeContact = pgTable(
     onePrimaryUq: uniqueIndex("employee_contact_one_primary_uq")
       .on(t.tenantId, t.employeeId)
       .where(sql`${t.isPrimary}`),
+  }),
+);
+
+/*
+  One row per (person, far system) — how somebody else's database identifies
+  this person.
+
+  NOT the same thing as `employee.code`, and keeping them apart is the whole
+  point. A code is Urban's own, assigned at company level, and the same value
+  identifies the person in every system Urban runs. An external id is a foreign
+  primary key: BambooHR minted `4471` for its own purposes and it means nothing
+  outside BambooHR. The old `employee.external_id` column held the first kind
+  under a name promising the second, and a sync that believed the name would
+  have overwritten every badge number in the register.
+
+  A CHILD TABLE rather than two more columns on `employee`, because a
+  (external_system, external_id) pair holds exactly ONE far system per person
+  and this codebase's own comments already name three — BambooHR, Mark 85,
+  FoundationSoft. The pair gets widened or duplicated the first time a second
+  system syncs, and widening an identity column is the kind of migration that
+  goes wrong quietly.
+
+  It also lets the unique index say the true thing: the same digits arriving
+  from two different systems are two different facts and must not collide.
+
+  `project.externalId` still carries the identical double duty — its own comment
+  says "the project code shown to users" AND "the FoundationSoft / Mark 85 map".
+  That is deliberately NOT fixed here; recorded so the next reader knows it is
+  known rather than missed.
+*/
+export const employeeExternalRef = pgTable(
+  "tbl_entity_employee_external_ref",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employee.id, { onDelete: "cascade" }),
+    /* bamboohr | mark85 | foundationsoft — plain text like every other
+       vocabulary here (.claude/rules/database.md); Zod at the router edge is
+       what refuses an unlisted value. */
+    system: text("system").notNull(),
+    /* Their primary key, VERBATIM. Never normalised, never parsed — the far
+       system is free to change what its ids look like and we only have to send
+       them back unaltered. */
+    externalId: text("external_id").notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    /*
+      Fields the API refused to tell us, by their name in the far system.
+
+      BambooHR returns `null` for a field the caller may not read and names it
+      in `_restrictedFields` — so null means "not permitted", not "cleared". An
+      importer treating the two the same blanks real data on the second sync.
+      Stored so a thin record is explainable later instead of looking like bad
+      data somebody typed.
+    */
+    restrictedFields: jsonb("restricted_fields"),
+    /*
+      The last payload, as received.
+
+      Earns its place twice over: when a sync produces a wrong value the only
+      useful question is "what did they actually send", which is unanswerable
+      after the fact without this; and it is what makes the NEXT sync a diff
+      rather than a blind overwrite.
+    */
+    raw: jsonb("raw"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("eer_tenant_idx").on(t.tenantId),
+    employeeIdx: index("eer_employee_idx").on(t.employeeId),
+    /* One id per system per tenant: two of our people cannot both be BambooHR
+       employee 4471. This is what makes a re-run idempotent rather than
+       duplicating the whole directory. */
+    systemIdUq: uniqueIndex("eer_system_id_uq").on(t.tenantId, t.system, t.externalId),
+    /* And one ref per system per person, from the other direction: a re-sync
+       updates the row it already wrote instead of adding a second. */
+    employeeSystemUq: uniqueIndex("eer_employee_system_uq").on(t.tenantId, t.employeeId, t.system),
   }),
 );

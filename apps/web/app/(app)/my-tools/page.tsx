@@ -60,7 +60,7 @@ export default function MyToolsPage() {
                 className="flex flex-col gap-2 rounded-md border bg-card p-4 transition-colors hover:border-primary/40"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <Tag>{t.tag}</Tag>
+                  <Tag>{t.code}</Tag>
                   <StatusPill status={t.status} />
                 </div>
                 <span className="font-medium">{formatAssetModel(t) || "Untagged tool"}</span>

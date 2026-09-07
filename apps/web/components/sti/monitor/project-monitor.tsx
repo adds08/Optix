@@ -89,7 +89,7 @@ const TRAVEL_END = 0.88;
 
 type MonitorTool = {
   id: string;
-  tag: string | null;
+  code: string | null;
   name: string;
   serial: string | null;
   custodian: string;
@@ -152,7 +152,7 @@ export function ProjectMonitor() {
         status: p.status,
         tools: rows.map((a) => ({
           id: a.id,
-          tag: a.tag,
+          code: a.code,
           name: formatAssetModel(a),
           serial: a.serialNumber,
           custodian: a.custodianName ?? "—",
@@ -424,7 +424,7 @@ export function ProjectMonitor() {
                     className={cn("border-b border-border/40", i % 2 ? "bg-muted/20" : "")}
                   >
                     <Td>
-                      <Tag>{t.tag}</Tag>
+                      <Tag>{t.code}</Tag>
                     </Td>
                     <Td className="truncate text-foreground">{t.name}</Td>
                     <Td className="truncate font-mono text-muted-foreground">

@@ -18,8 +18,23 @@ export {
   isIdleAsset,
 } from "./rules.js";
 export {
+  adaptBambooEmployee,
+  adaptBambooPage,
+  normaliseBambooStatus,
+  BAMBOO_OPTIONAL_FIELDS,
+  type BambooEmployeeRecord,
+  type AdaptedBambooPerson,
+  type BambooAdaptFailure,
+  type BambooAdaptResult,
+  type BambooWritableFields,
+  type BambooIdentityFields,
+  type BambooObservations,
+  type BambooContact,
+} from "./bamboohr.js";
+export {
   buildOrgForest,
   visibleEmployeeIds,
+  descendantsOf,
   findCycle,
   findTierCycle,
   adjacentTiers,

@@ -518,6 +518,12 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
         "the caller finishing or dismissing THEIR OWN first-run setup. Same shape as user.changePassword: gating it would mean the accounts sent to the wizard are exactly the ones that cannot leave it",
       "onboarding.defer":
         "recording that a tier on a job is somebody else's to fill. Writes nothing to the roster — it is the admission of a limit, and gating it behind the permission the caller is admitting they LACK would be incoherent. Every id in the input is checked against the caller's tenant",
+      "onboarding.resume":
+        "reopening the caller's OWN first-run setup after they skipped it. Reads and writes the row keyed by ctx.session.userId with no id in the input, and only ever clears two timestamps on it — the same shape as setStep and complete beside it",
+      "onboarding.fillDetails":
+        "filling gaps on a job the CALLER is actually on, double-checked in-body against their own live project_team_member row rather than a static permission — the same shape project.update's project.manage would be too wide for, since the primary onboarding user does not hold it",
+      "onboarding.setLocation":
+        "pinning a job the CALLER is actually on, same in-body roster-row check as fillDetails and the same reason. A radius with no pin is refused in-body too, which is why this needed the input-dependent shape rather than a bare requirePermission",
     };
 
     it("has no mutating procedure without a permission", () => {

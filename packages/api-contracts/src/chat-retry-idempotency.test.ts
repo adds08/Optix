@@ -95,12 +95,12 @@ describe.skipIf(!url)("chat retry does not duplicate ledger events (STI-120)", (
     const rows = await db
       .insert(schema.asset)
       .values([
-        { tenantId, tag: `STI120-A-${suffix}`, currentStatus: "available", createdBy: userId },
-        { tenantId, tag: `STI120-B-${suffix}`, currentStatus: "available", createdBy: userId },
+        { tenantId, code: `STI120-A-${suffix}`, currentStatus: "available", createdBy: userId },
+        { tenantId, code: `STI120-B-${suffix}`, currentStatus: "available", createdBy: userId },
         /* Priced over the threshold, so `custodyOutcome` returns "approve" and
            the hand-off is withheld for a second signature — the branch UI-66
            lives in, which writes a `transfer` row and NO ledger row. */
-        { tenantId, tag: `UI66-${suffix}`, currentStatus: "available", acquisitionCost: "9500.00", createdBy: userId },
+        { tenantId, code: `UI66-${suffix}`, currentStatus: "available", acquisitionCost: "9500.00", createdBy: userId },
       ])
       .returning({ id: schema.asset.id });
     assetOne = rows[0]!.id;

@@ -75,7 +75,7 @@ const NOT_HELD = ["available"];
 
 export type DepartureTool = {
   assetId: string;
-  tag: string | null;
+  code: string | null;
   modelName: string | null;
   status: string | null;
   currentProjectId: string | null;
@@ -234,7 +234,7 @@ async function toolsHeldBy(db: Database | Transaction, tenantId: string, leaverI
   const q = db
     .select({
       assetId: schema.asset.id,
-      tag: schema.asset.tag,
+      code: schema.asset.code,
       make: schema.asset.make,
       modelNumber: schema.asset.modelNumber,
       description: schema.asset.description,
@@ -436,7 +436,7 @@ export async function previewDeparture(
     successorRequired: !successor,
     tools: held.map((a) => ({
       assetId: a.assetId,
-      tag: a.tag,
+      code: a.code,
       modelName: formatAssetModel(a),
       status: a.currentStatus,
       currentProjectId: a.currentProjectId,
@@ -654,7 +654,7 @@ export async function reassignOnDeparture(
       successor,
       tools: held.map((a) => ({
         assetId: a.assetId,
-        tag: a.tag,
+        code: a.code,
         modelName: formatAssetModel(a),
         status: a.currentStatus,
         currentProjectId: a.currentProjectId,

@@ -137,7 +137,7 @@ export const projectTeamRouter = router({
         startedOn: schema.projectTeamMember.startedOn,
         note: schema.projectTeamMember.note,
         employeeName: schema.employee.name,
-        employeeExternalId: schema.employee.externalId,
+        employeeExternalId: schema.employee.code,
         employeeRole: schema.employee.role,
         employeeStatus: schema.employee.employmentStatus,
         assignedByName: schema.user.firstName,
@@ -205,7 +205,7 @@ export const projectTeamRouter = router({
         id: schema.projectTeamMember.id,
         projectId: schema.projectTeamMember.projectId,
         projectName: schema.project.name,
-        projectExternalId: schema.project.externalId,
+        projectExternalId: schema.project.code,
         projectStatus: schema.project.status,
         employeeId: schema.projectTeamMember.employeeId,
         role: schema.projectTeamMember.role,
@@ -213,7 +213,7 @@ export const projectTeamRouter = router({
         startedOn: schema.projectTeamMember.startedOn,
         note: schema.projectTeamMember.note,
         name: schema.employee.name,
-        externalId: schema.employee.externalId,
+        externalId: schema.employee.code,
         employeeRole: schema.employee.role,
         employeeStatus: schema.employee.employmentStatus,
       })
@@ -280,7 +280,7 @@ export const projectTeamRouter = router({
           .select({
             id: schema.employee.id,
             name: schema.employee.name,
-            externalId: schema.employee.externalId,
+            externalId: schema.employee.code,
             employeeRole: schema.employee.role,
             employeeStatus: schema.employee.employmentStatus,
           })

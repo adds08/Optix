@@ -128,7 +128,7 @@ export async function applyContainerCustody(opts: {
 
   const contentsColumns = {
     id: schema.asset.id,
-    tag: schema.asset.tag,
+    code: schema.asset.code,
     currentStatus: schema.asset.currentStatus,
     currentCustodianId: schema.asset.currentCustodianId,
     currentProjectId: schema.asset.currentProjectId,

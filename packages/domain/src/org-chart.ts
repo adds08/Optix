@@ -235,6 +235,44 @@ export function visibleEmployeeIds(
   return visible;
 }
 
+/*
+  Everybody BELOW the viewer — crew only, not the boss above them too.
+
+  `visibleEmployeeIds` answers "what may this viewer see" and deliberately
+  includes the chain upward as well, because the org chart draws both
+  directions from wherever the viewer stands. The onboarding progress screen
+  asks a narrower question — "who is waiting on ME" — and a boss's own boss is
+  not that, so this walks `childrenOf` alone rather than filtering the wider
+  set, which would need a second pass to tell "above" and "below" apart after
+  the fact.
+
+  Does NOT include the viewer themselves, unlike `visibleEmployeeIds` — a
+  progress screen has no reason to report on the viewer's own onboarding.
+*/
+export function descendantsOf(members: OrgMemberInput[], viewerEmployeeId: string): Set<string> {
+  const childrenOf = new Map<string, Set<string>>();
+  for (const m of members) {
+    if (!m.reportsToEmployeeId) continue;
+    const cs = childrenOf.get(m.reportsToEmployeeId) ?? new Set<string>();
+    cs.add(m.employeeId);
+    childrenOf.set(m.reportsToEmployeeId, cs);
+  }
+
+  const result = new Set<string>();
+  const queue = [viewerEmployeeId];
+  const seen = new Set<string>([viewerEmployeeId]);
+  while (queue.length) {
+    const cur = queue.shift()!;
+    for (const next of childrenOf.get(cur) ?? []) {
+      if (seen.has(next)) continue;
+      seen.add(next);
+      result.add(next);
+      queue.push(next);
+    }
+  }
+  return result;
+}
+
 /**
  * Would making `employeeId` report to `wouldReportTo` close a loop?
  *

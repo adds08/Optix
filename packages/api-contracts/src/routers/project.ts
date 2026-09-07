@@ -30,7 +30,7 @@ export const projectRouter = router({
       .select({
         id: schema.project.id,
         name: schema.project.name,
-        externalId: schema.project.externalId,
+        externalId: schema.project.code,
         description: schema.project.description,
         status: schema.project.status,
         siteAddress: schema.project.siteAddress,
@@ -115,7 +115,7 @@ export const projectRouter = router({
       */
       if (changes.status === "completed" && existing.status !== "completed") {
         const held = await ctx.db
-          .select({ tag: schema.asset.tag, assetId: schema.assignment.assetId })
+          .select({ code: schema.asset.code, assetId: schema.assignment.assetId })
           .from(schema.assignment)
           .innerJoin(schema.asset, eq(schema.asset.id, schema.assignment.assetId))
           .where(
@@ -129,7 +129,7 @@ export const projectRouter = router({
         if (held.length) {
           /* Name a few, so the desk knows where to start rather than being
              told a number and left to find them. */
-          const sample = held.slice(0, 3).map((h) => h.tag ?? "untagged").join(", ");
+          const sample = held.slice(0, 3).map((h) => h.code ?? "untagged").join(", ");
           const more = held.length > 3 ? `, and ${held.length - 3} more` : "";
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -248,7 +248,7 @@ export const employeeRouter = router({
     return ctx.db
       .select({
         id: schema.employee.id,
-        externalId: schema.employee.externalId,
+        externalId: schema.employee.code,
         name: schema.employee.name,
         role: schema.employee.role,
         email: schema.employee.email,
@@ -257,7 +257,7 @@ export const employeeRouter = router({
         terminatedAt: schema.employee.terminatedAt,
         primaryProjectId: schema.employee.primaryProjectId,
         primaryProjectName: schema.project.name,
-        primaryProjectExternalId: schema.project.externalId,
+        primaryProjectExternalId: schema.project.code,
         reportsToEmployeeId: schema.employee.reportsToEmployeeId,
         reportsToName: reportsTo.name,
         /* The role register, and the three facts about the PERSON that come
@@ -308,6 +308,12 @@ export const employeeRouter = router({
         email: z.string().email().optional(),
         phone: z.string().optional(),
         primaryProjectId: z.string().uuid().optional(),
+        /* The badge number — `employee.code`. Named `externalId` on the wire
+           because every caller still says so; the column was renamed on
+           2026-09-06 and a foreign system's key now lives in
+           `employee_external_ref`. Mapped EXPLICITLY below rather than spread:
+           a spread of a mismatched key is silently dropped by Drizzle, so the
+           badge number would stop persisting and nothing would fail. */
         externalId: z.string().optional(),
         employmentStatus: z.string().optional(),
         reportsToEmployeeId: z.string().uuid().optional(),
@@ -315,9 +321,10 @@ export const employeeRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       if (input.roleId) await assertRoleInTenant(ctx.db, ctx.session.tenantId, input.roleId);
+      const { externalId, ...rest } = input;
       const [row] = await ctx.db
         .insert(schema.employee)
-        .values({ tenantId: ctx.session.tenantId, ...input })
+        .values({ tenantId: ctx.session.tenantId, ...rest, code: externalId })
         .returning();
 
       /* Opening the posting here rather than leaving it to the first move means
@@ -343,7 +350,7 @@ export const employeeRouter = router({
       const [row] = await ctx.db
         .select({
           id: schema.employee.id,
-          externalId: schema.employee.externalId,
+          externalId: schema.employee.code,
           name: schema.employee.name,
           role: schema.employee.role,
           email: schema.employee.email,
@@ -354,10 +361,18 @@ export const employeeRouter = router({
           primaryProjectName: schema.project.name,
           reportsToEmployeeId: schema.employee.reportsToEmployeeId,
           reportsToName: reportsTo.name,
+          /* Whether the person page's custody tabs are even worth showing.
+             `role.canHoldCustody` already replaced a hard-coded set of
+             custodian role NAMES once (see the column's own comment) — a PM
+             or an office admin has no custody tab to hide behind an empty
+             state, and a role list here would be the same "wrong by
+             construction" pattern re-introduced through a different door. */
+          roleCanHoldCustody: schema.role.canHoldCustody,
         })
         .from(schema.employee)
         .leftJoin(schema.project, eq(schema.employee.primaryProjectId, schema.project.id))
         .leftJoin(reportsTo, eq(schema.employee.reportsToEmployeeId, reportsTo.id))
+        .leftJoin(schema.role, eq(schema.employee.roleId, schema.role.id))
         .where(
           and(
             eq(schema.employee.id, input.id),
@@ -383,7 +398,7 @@ export const employeeRouter = router({
           id: schema.employeeProjectAssignment.id,
           projectId: schema.employeeProjectAssignment.projectId,
           projectName: schema.project.name,
-          projectExternalId: schema.project.externalId,
+          projectExternalId: schema.project.code,
           startedOn: schema.employeeProjectAssignment.startedOn,
           endedOn: schema.employeeProjectAssignment.endedOn,
           note: schema.employeeProjectAssignment.note,
@@ -491,6 +506,8 @@ export const employeeRouter = router({
         roleId: z.string().uuid().nullable().optional(),
         email: z.string().email().nullable().optional(),
         phone: z.string().max(40).nullable().optional(),
+        /* `employee.code` on the wire — see the note on `create`. Remapped
+           below before the patch is built, for the same reason. */
         externalId: z.string().max(60).nullable().optional(),
         employmentStatus: z.string().max(30).optional(),
         reportsToEmployeeId: z.string().uuid().nullable().optional(),
@@ -513,9 +530,11 @@ export const employeeRouter = router({
       }
       if (changes.roleId) await assertRoleInTenant(ctx.db, tid, changes.roleId);
 
+      const { externalId, ...restChanges } = changes;
       const patch: Record<string, unknown> = Object.fromEntries(
-        Object.entries(changes).filter(([, v]) => v !== undefined),
+        Object.entries(restChanges).filter(([, v]) => v !== undefined),
       );
+      if (externalId !== undefined) patch.code = externalId;
       if (!Object.keys(patch).length) return existing;
 
       /* Terminating from this form still has to stamp the date the clearance
@@ -660,7 +679,7 @@ export const employeeRouter = router({
     return ctx.db
       .select({
         id: schema.employee.id,
-        externalId: schema.employee.externalId,
+        externalId: schema.employee.code,
         name: schema.employee.name,
         role: schema.employee.role,
         email: schema.employee.email,

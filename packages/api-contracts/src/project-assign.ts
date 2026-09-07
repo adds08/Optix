@@ -324,7 +324,7 @@ export async function moveEmployeeToProject(
     const held = await tx
       .select({
         id: schema.asset.id,
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         currentStatus: schema.asset.currentStatus,
         currentCustodianId: schema.asset.currentCustodianId,
         currentProjectId: schema.asset.currentProjectId,
@@ -380,7 +380,7 @@ export async function moveEmployeeToProject(
       ? await tx
           .select({
             id: schema.asset.id,
-            tag: schema.asset.tag,
+            code: schema.asset.code,
             currentStatus: schema.asset.currentStatus,
             currentCustodianId: schema.asset.currentCustodianId,
             currentProjectId: schema.asset.currentProjectId,

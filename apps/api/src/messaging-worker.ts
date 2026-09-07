@@ -109,7 +109,7 @@ async function processOne(
   let foremanRole = "";
   let primaryProject = "";
   let currentLocation = "";
-  const currentAssignments: { tag: string; model: string; project: string; location: string }[] = [];
+  const currentAssignments: { code: string; model: string; project: string; location: string }[] = [];
 
   if (msg.authorEmployeeId) {
     const emp = await db.query.employee.findFirst({
@@ -128,7 +128,7 @@ async function processOne(
 
     const assigns = await db
       .select({
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         make: schema.asset.make,
         modelNumber: schema.asset.modelNumber,
         description: schema.asset.description,
@@ -148,7 +148,7 @@ async function processOne(
       );
     for (const a of assigns) {
       currentAssignments.push({
-        tag: a.tag ?? "",
+        code: a.code ?? "",
         model: formatAssetModel(a),
         project: a.projectName ?? "",
         location: a.locationName ?? "",
@@ -272,7 +272,7 @@ async function processOne(
      for the desk's form, not a dead button. A tag plus something descriptive
      passes; the tag alone no longer does (docs/12 + docs/17). */
   const d = engineResp.draft;
-  if (engineResp.intent === "intake" && !(d?.tag && (d?.make || d?.description))) {
+  if (engineResp.intent === "intake" && !(d?.code && (d?.make || d?.description))) {
     await markPendingManual();
     return;
   }
@@ -372,7 +372,7 @@ async function processOne(
        string "null" in the register. */
     const d = engineResp.draft;
     proposedAction.draft = {
-      ...(d.tag ? { tag: d.tag } : {}),
+      ...(d.code ? { code: d.code } : {}),
       ...(d.make ? { make: d.make } : {}),
       ...(d.modelNumber ? { modelNumber: d.modelNumber } : {}),
       ...(d.description ? { description: d.description } : {}),

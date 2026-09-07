@@ -30,7 +30,7 @@ const TEST_CONTEXT: ParseContext = {
   foremanName: "Test",
   foremanRole: "foreman",
   currentAssignments: [
-    { tag: "UIC-1012", model: "Rotary Hammer", project: "Bridge Job", location: "Gang Box A" },
+    { code: "UIC-1012", model: "Rotary Hammer", project: "Bridge Job", location: "Gang Box A" },
   ],
   primaryProject: "Bridge Job",
   currentLocation: "Gang Box A",

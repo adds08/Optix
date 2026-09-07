@@ -201,15 +201,22 @@ export function AppShell({
     dismissed, because a gate that reappears every session stands between a
     foreman and the tool they came to check out, and they learn to click through
     it without reading.
+
+    It needs no "am I already there" guard, unlike the password bounce above:
+    `/welcome` sits OUTSIDE the `(app)` route group and therefore outside this
+    shell, so this effect does not run once somebody has arrived. That is also
+    the point of the route living there — the wizard is the first thing a person
+    sees and must not be framed by a sidebar whose vocabulary they have not
+    learned yet, nor offer them three escape hatches out of it.
   */
   const onboarding = trpc.onboarding.state.useQuery(undefined, {
     enabled: !!me.data && !me.data.mustChangePassword,
   });
   useEffect(() => {
-    if (onboarding.data?.shouldPrompt && !pathname.startsWith("/onboarding")) {
-      router.replace("/onboarding");
+    if (onboarding.data?.shouldPrompt) {
+      router.replace("/welcome");
     }
-  }, [onboarding.data?.shouldPrompt, pathname, router]);
+  }, [onboarding.data?.shouldPrompt, router]);
 
   const role = me.data?.role ?? null;
   const perms = me.data?.permissions ?? [];
@@ -277,6 +284,26 @@ export function AppShell({
       why this line exists rather than the obvious version.
     */
     if (!me.data) return;
+    /*
+      And wait for the ONBOARDING gate to have its say, for the same class of
+      reason: both redirects fire on the same sign-in, this one only waits for
+      `me` and so it lands first, and because the marker is consumed on that
+      first pass a person who had never set up was sent to their pinned screen
+      and the wizard never opened at all. Observed on every sign-in for a
+      superintendent, whose first pin is `/my-tools`.
+
+      Returning early rather than consuming the marker is what makes this a
+      yield rather than a cancellation: `onboarding.state` resolves a moment
+      later, and either it sends them to `/welcome` (where the marker waits,
+      unspent, for whenever they next reach `/home`) or it does not and this
+      effect runs properly on the next render.
+    */
+    /* `isPending` alone is not enough: a DISABLED query is not pending, and
+       this query is disabled until `me` lands, which is the exact window the
+       pin redirect used to slip through. Waiting for actual DATA closes it.
+       The wizard gate above fires the moment that data says so. */
+    if (!onboarding.data) return;
+    if (onboarding.data.shouldPrompt) return;
     let marked = false;
     try {
       marked = sessionStorage.getItem(LAND_ON_PIN) === "1";
@@ -291,8 +318,9 @@ export function AppShell({
     if (href && href !== "/home") router.replace(href);
     /* Deliberately not depending on `railGroups`: it is rebuilt every render,
        and the marker — consumed once permissions have landed — is the real
-       guard. */
-  }, [pathname, router, me.data]);
+       guard. The onboarding pair IS depended on, because this effect yields
+       while that query is in flight and has to run again once it answers. */
+  }, [pathname, router, me.data, onboarding.data]);
 
   /* Wall surfaces (the project monitor) own the whole region: no max-width, no
      padding, and no scroll — the readme is explicit that a scrolling embed

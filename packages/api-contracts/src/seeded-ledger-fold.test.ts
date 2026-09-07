@@ -55,7 +55,7 @@ describe.skipIf(!url)("seeded ledger folds to the seeded projection (STI-108)", 
     const projected = await db
       .select({
         assetId: schema.asset.id,
-        label: schema.asset.tag,
+        label: schema.asset.code,
         status: schema.asset.currentStatus,
         custodianId: schema.asset.currentCustodianId,
         projectId: schema.asset.currentProjectId,

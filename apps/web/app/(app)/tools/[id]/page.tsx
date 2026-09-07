@@ -69,7 +69,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
 
   const saveTag = () => {
     setTagError("");
-    addTagMut.mutate({ id, tag: tagDraft.trim() });
+    addTagMut.mutate({ id, code: tagDraft.trim() });
   };
 
   return (
@@ -119,10 +119,10 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
                     eight — struck into a plate, not printed in a table
                     cell. Untagged tools get the "add tag" panel below
                     instead; nothing to stamp yet. */}
-                {a.tag ? <Plate>{a.tag}</Plate> : null}
+                {a.code ? <Plate>{a.code}</Plate> : null}
                 <AssetActions
                   assetId={id}
-                  assetTag={a.tag ?? "Untagged tool"}
+                  assetCode={a.code ?? "Untagged tool"}
                   heldBySomeone={!!a.custodianId}
                 />
                 <StatusPill status={a.status} className="text-xs" />
@@ -131,7 +131,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
           />
 
           {/* Adding a tag to a tool that arrived without one. */}
-          {!a.tag && (
+          {!a.code && (
             <div className="rounded-md border border-dashed p-4">
               {addTag ? (
                 <div className="flex items-center gap-2">
@@ -175,7 +175,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
               </span>
             </div>
             <dl className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Tag" value={<Tag>{a.tag}</Tag>} />
+              <Field label="Tag" value={<Tag>{a.code}</Tag>} />
               <Field
                 label="Held by"
                 value={a.custodianName ?? <span className="text-muted-foreground">In warehouse</span>}

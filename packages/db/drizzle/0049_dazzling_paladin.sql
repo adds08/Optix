@@ -1,0 +1,1 @@
+DROP TABLE "tbl_ops_project_claim" CASCADE;

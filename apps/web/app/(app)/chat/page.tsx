@@ -249,7 +249,7 @@ function useGroups(msgs: Msg[]) {
 
 type CardTool = {
   id: string;
-  tag: string | null;
+  code: string | null;
   modelName: string | null;
   status: string;
   holderName: string | null;
@@ -308,7 +308,7 @@ function ToolLines({ tools, toName }: { tools: CardTool[]; toName: string | null
       {tools.map((t) => (
         <li key={t.id} className="flex flex-wrap items-center gap-2 text-sm">
           <Link href={`/tools/${t.id}`}>
-            <Tag>{t.tag}</Tag>
+            <Tag>{t.code}</Tag>
           </Link>
           {t.modelName ? <span className="text-muted-foreground">{t.modelName}</span> : null}
           <StatusPill status={t.status} />
@@ -328,7 +328,7 @@ function ToolLines({ tools, toName }: { tools: CardTool[]; toName: string | null
 }
 
 type Draft = {
-  tag?: string;
+  code?: string;
   make?: string;
   modelNumber?: string;
   description?: string;
@@ -347,7 +347,7 @@ type Draft = {
 */
 function DraftFields({ draft }: { draft: Draft }) {
   const fields: [string, string | undefined][] = [
-    ["Tag", draft.tag],
+    ["Code", draft.code],
     ["Make", draft.make],
     ["Model no.", draft.modelNumber],
     ["Description", draft.description],

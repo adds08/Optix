@@ -186,3 +186,36 @@ export const teamRole = pgTable(
     tenantNameUq: uniqueIndex("team_role_tenant_name_uq").on(t.tenantId, t.name),
   }),
 );
+
+/*
+  An arm of the business — Operations, Heavy Civil, Utilities.
+
+  Sits BESIDE `department`, not above it. `department` (tbl_entity_department)
+  answers "who pays for this tool when it is not a job" — it is a financial
+  target that mirrors `project`, which is why a mechanic working out of the shop
+  still has something to charge to. A division is not that: it is which arm of
+  the company a PERSON belongs to, and nothing is charged to it.
+
+  Flat by decision, not by omission. See the comment on `employee.divisionId`
+  for why department is not nested under it.
+
+  Shaped exactly like `department` and `companyRole` — name is the identity,
+  `code` is a convenience for exports — because it is the same category of
+  thing: reference data an administrator maintains, that no code branches on.
+*/
+export const division = pgTable(
+  "tbl_entity_division",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    code: text("code"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("division_tenant_idx").on(t.tenantId),
+    tenantNameUq: uniqueIndex("division_tenant_name_uq").on(t.tenantId, t.name),
+  }),
+);

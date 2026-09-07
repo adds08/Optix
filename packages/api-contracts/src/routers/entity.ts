@@ -23,7 +23,7 @@ export const entityRouter = router({
         const rows = await ctx.db
           .select({
             id: schema.asset.id,
-            label: schema.asset.tag,
+            label: schema.asset.code,
             make: schema.asset.make,
             modelNumber: schema.asset.modelNumber,
             description: schema.asset.description,
@@ -33,7 +33,7 @@ export const entityRouter = router({
             and(
               eq(schema.asset.tenantId, tid),
               or(
-                ilike(schema.asset.tag, q),
+                ilike(schema.asset.code, q),
                 ilike(schema.asset.make, q),
                 ilike(schema.asset.modelNumber, q),
                 ilike(schema.asset.description, q),
@@ -56,14 +56,14 @@ export const entityRouter = router({
           .select({
             id: schema.employee.id,
             label: schema.employee.name,
-            subtitle: schema.employee.externalId,
+            subtitle: schema.employee.code,
           })
           .from(schema.employee)
           .where(
             and(
               eq(schema.employee.tenantId, tid),
               eq(schema.employee.employmentStatus, "active"),
-              or(ilike(schema.employee.name, q), ilike(schema.employee.externalId, q)),
+              or(ilike(schema.employee.name, q), ilike(schema.employee.code, q)),
             ),
           )
           .limit(limit);
@@ -75,13 +75,13 @@ export const entityRouter = router({
           .select({
             id: schema.project.id,
             label: schema.project.name,
-            subtitle: schema.project.externalId,
+            subtitle: schema.project.code,
           })
           .from(schema.project)
           .where(
             and(
               eq(schema.project.tenantId, tid),
-              or(ilike(schema.project.name, q), ilike(schema.project.externalId, q)),
+              or(ilike(schema.project.name, q), ilike(schema.project.code, q)),
             ),
           )
           .limit(limit);
@@ -150,7 +150,7 @@ export const entityRouter = router({
         ctx.db
           .select({
             id: schema.asset.id,
-            label: schema.asset.tag,
+            label: schema.asset.code,
             make: schema.asset.make,
             modelNumber: schema.asset.modelNumber,
             description: schema.asset.description,
@@ -163,7 +163,7 @@ export const entityRouter = router({
             and(
               eq(schema.asset.tenantId, tid),
               or(
-                ilike(schema.asset.tag, q),
+                ilike(schema.asset.code, q),
                 ilike(schema.asset.make, q),
                 ilike(schema.asset.modelNumber, q),
                 ilike(schema.asset.description, q),
@@ -178,14 +178,14 @@ export const entityRouter = router({
             id: schema.employee.id,
             label: schema.employee.name,
             subtitle: schema.employee.role,
-            externalId: schema.employee.externalId,
+            externalId: schema.employee.code,
           })
           .from(schema.employee)
           .where(
             and(
               eq(schema.employee.tenantId, tid),
               eq(schema.employee.employmentStatus, "active"),
-              or(ilike(schema.employee.name, q), ilike(schema.employee.externalId, q)),
+              or(ilike(schema.employee.name, q), ilike(schema.employee.code, q)),
             ),
           )
           .limit(input.limit),
@@ -194,13 +194,13 @@ export const entityRouter = router({
           .select({
             id: schema.project.id,
             label: schema.project.name,
-            subtitle: schema.project.externalId,
+            subtitle: schema.project.code,
           })
           .from(schema.project)
           .where(
             and(
               eq(schema.project.tenantId, tid),
-              or(ilike(schema.project.name, q), ilike(schema.project.externalId, q)),
+              or(ilike(schema.project.name, q), ilike(schema.project.code, q)),
             ),
           )
           .limit(input.limit),

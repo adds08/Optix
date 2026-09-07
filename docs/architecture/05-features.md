@@ -117,7 +117,8 @@ People row carries the account state directly, in five states ordered so each is
 only reachable once the one above it is ruled out: the role never signs in; no
 account; invited but never verified; verified but never used; live.
 
-A person carries an HR-issued `external_id`, a system role (which grants
+A person carries an HR-issued `code` (the badge number; called `external_id`
+before migration `0050`), a system role (which grants
 permissions) and a company role (their job title). Small-tools custody backtracks
 to the project's PM and superintendent through the project team.
 

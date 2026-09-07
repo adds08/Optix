@@ -67,19 +67,6 @@ const NO_UI_BY_DESIGN: Record<string, string> = {
     holds a tool) and this is the only way to move one. Deleting it would leave
     that account's role unchangeable through the API.
   */
-  /*
-    Both belong to the onboarding crew step, which is not built yet — see
-    `docs/workings/ONBOARDING_AND_ROLE_HIERARCHY.md`. `TODO:` on purpose, per
-    bucket 2: these are ticketed work, not procedures that never wanted a screen,
-    and the prefix is what a reviewer greps for when the step lands.
-
-    Neither is an ungated attack surface in the meantime. `projectTeam.confirm`
-    carries `assertCanAssign` on the tier being confirmed, and `onboarding.defer`
-    writes nothing to the roster and checks every id against the caller's tenant.
-  */
-  "projectTeam.confirm": "TODO: the onboarding crew step confirms a subordinate's roster rows. Wizard steps three to five are unbuilt.",
-  "onboarding.defer": "TODO: the onboarding crew step's defer toggle. Wizard steps three to five are unbuilt.",
-
   "user.setRole": "Superseded by the person's role (employee.roleId) plus the user_role sync in employee.update. Still the only path for an account with no employee row, which user.create explicitly allows.",
 
   /*

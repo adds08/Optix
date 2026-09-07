@@ -16,3 +16,4 @@ export * from "./messaging";
 export * from "./task";
 export * from "./projectGroup";
 export * from "./feature";
+export * from "./sync";

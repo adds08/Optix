@@ -48,6 +48,13 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
   /* System Administrator. `owner` is that role — see the note on ROLES in
      packages/types. Everything, including config.manage. */
   owner: [...PERMISSIONS],
+  /* Technical Administrator — Optix's own operator. Same grants as `owner`
+     WITHIN a tenant; what makes it different is `role.isCrossTenant`, which
+     reaches every tenant and which nothing reads yet. See the note on ROLES in
+     packages/types. A spread, so a permission added later is held by this role
+     on a freshly seeded database — and, per .claude/rules/database.md, needs a
+     migration to reach one that already exists. */
+  tech_admin: [...PERMISSIONS],
   /* Equipment Administrator: owns the small tools programme end to end. The
      matrix grants the same set as System Admin, and the two are kept as
      separate roles because SYSTEM_PLAN §2 forbids collapsing "Admin" into one

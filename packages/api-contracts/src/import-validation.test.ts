@@ -153,24 +153,24 @@ describe("validateRows — the whole file at once (STI-405)", () => {
   const spec: ImportSpec = {
     label: "Tools",
     permission: "asset.manage",
-    unique: ["tag"],
+    unique: ["code"],
     columns: [
-      { key: "tag", header: "Tag", type: "text", required: true },
+      { key: "code", header: "Tag", type: "text", required: true },
       { key: "cost", header: "Cost", type: "decimal" },
     ],
   } as ImportSpec;
 
-  const run = (rows: Record<string, string>[], existing: Record<string, Set<string>> = { tag: new Set() }) =>
+  const run = (rows: Record<string, string>[], existing: Record<string, Set<string>> = { code: new Set() }) =>
     validateRows(spec, rows, refs(), existing);
 
   it("resolves the good rows and leaves them error-free", () => {
     const [row] = run([{ Tag: "UIC-2001", Cost: "489.00" }]);
     expect(row!.errors).toEqual([]);
-    expect(row!.resolved).toEqual({ tag: "UIC-2001", cost: "489.00" });
+    expect(row!.resolved).toEqual({ code: "UIC-2001", cost: "489.00" });
   });
 
   it("catches a duplicate against the DATABASE", () => {
-    const [row] = run([{ Tag: "UIC-2001", Cost: "" }], { tag: new Set(["uic-2001"]) });
+    const [row] = run([{ Tag: "UIC-2001", Cost: "" }], { code: new Set(["uic-2001"]) });
     expect(row!.errors.map((e) => e.message).join()).toContain("already exists");
   });
 
@@ -199,10 +199,10 @@ describe("validateRows — the whole file at once (STI-405)", () => {
        every row, so a naive dedup rejects every row after the first. Most
        imported rows legitimately have no tag. */
     const rows = validateRows(
-      { ...spec, columns: [{ key: "tag", header: "Tag", type: "text" }] } as ImportSpec,
+      { ...spec, columns: [{ key: "code", header: "Tag", type: "text" }] } as ImportSpec,
       [{ Tag: "" }, { Tag: "" }],
       refs(),
-      { tag: new Set() },
+      { code: new Set() },
     );
     expect(rows[0]!.errors).toEqual([]);
     expect(rows[1]!.errors).toEqual([]);
@@ -216,14 +216,14 @@ describe("validateRows — the whole file at once (STI-405)", () => {
       {
         ...spec,
         columns: [
-          { key: "tag", header: "Tag", type: "text", required: true },
+          { key: "code", header: "Tag", type: "text", required: true },
           { key: "cost", header: "Cost", type: "decimal" },
           { key: "qty", header: "Qty", type: "integer" },
         ],
       } as ImportSpec,
       [{ Tag: "", Cost: "nope", Qty: "0" }],
       refs(),
-      { tag: new Set() },
+      { code: new Set() },
     );
     expect(row!.errors.length).toBe(3);
   });

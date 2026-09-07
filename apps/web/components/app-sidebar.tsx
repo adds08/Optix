@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, ChevronUp, Pin, PinOff } from "lucide-react";
 import { OptixWordmark } from "@/components/optix-mark";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import { SetupNotice } from "@/components/onboarding/setup-notice";
 import { DUR, EASE } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import {
@@ -204,9 +205,16 @@ export function AppSidebar({
       {/* The product signature — Optix, in the brand mark colour (navy on
           light, yellow on dark), set off by its footer border. The tenant's
           own identity lives in the account menu, not here: the customer does
-          not need their own name under the nav. */}
-      <SidebarFooter className="border-t border-sidebar-border p-2">
-        <div className="px-1 pb-1 pt-2">
+          not need their own name under the nav.
+
+          The setup notice sits ABOVE the signature and renders nothing unless
+          the person skipped their first-run setup — see `SetupNotice`. Placed
+          in the footer rather than the nav list on purpose: it is not a screen,
+          it is an outstanding task, and putting it among the routes would make
+          it look like one more place to go. */}
+      <SidebarFooter className="gap-2.5 border-t border-sidebar-border p-2">
+        <SetupNotice />
+        <div className="px-1 pb-0.5">
           <OptixWordmark className="h-4 text-brand-mark" />
         </div>
       </SidebarFooter>

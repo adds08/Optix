@@ -72,7 +72,7 @@ export type JobsiteCard = {
    against the same text a person reads (tag, serial, the formatted model),
    not against fields the card face never shows. */
 function toolMatches(t: ToolRow, needle: string): boolean {
-  const hay = `${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t) ?? ""}`.toLowerCase();
+  const hay = `${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t) ?? ""}`.toLowerCase();
   return hay.includes(needle);
 }
 
@@ -174,7 +174,7 @@ export function JobsiteCardView({
     if (highlightNeedle) base = base.filter((c) => c.tools.length > 0);
     if (!sheetNeedle) return base;
     const matchTool = (t: ToolRow) =>
-      `${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t) ?? ""}`.toLowerCase().includes(sheetNeedle);
+      `${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t) ?? ""}`.toLowerCase().includes(sheetNeedle);
     return base
       .map((c) => {
         const foremanHit = `${c.foremanName} ${c.foremanExternalId ?? ""}`.toLowerCase().includes(sheetNeedle);
@@ -186,7 +186,7 @@ export function JobsiteCardView({
     if (!open) return [];
     if (!sheetNeedle) return open.loose;
     return open.loose.filter((t) =>
-      `${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t) ?? ""}`.toLowerCase().includes(sheetNeedle),
+      `${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t) ?? ""}`.toLowerCase().includes(sheetNeedle),
     );
   }, [open, sheetNeedle]);
 
@@ -270,7 +270,7 @@ export function JobsiteCardView({
                   .map((t) => (
                     <span key={t.id} className="truncate text-[11px] text-muted-foreground">
                       <span className="font-mono text-foreground/70">
-                        <Highlight text={t.tag ?? t.serialNumber ?? "Untagged"} q={highlight} />
+                        <Highlight text={t.code ?? t.serialNumber ?? "Untagged"} q={highlight} />
                       </span>{" "}
                       <Highlight text={formatAssetModel(t) || "No description"} q={highlight} />
                     </span>

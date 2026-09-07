@@ -70,12 +70,18 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     entity: "asset",
     label: "Tools",
     permission: "asset.manage",
-    unique: ["tag", "serialNumber"],
+    unique: ["code", "serialNumber"],
     description:
       "The tool register. One row per serialized tool; use quantity for bulk lines that are not tracked individually.",
     columns: [
-      { key: "tag", header: "tag", type: "text", example: "UIC-2001",
-        hint: "Your asset tag, if the tool has one. Leave blank if it is not labelled yet." },
+      /* The tool's CODE — renamed from `tag` on 2026-09-07 so it matches every
+         other entity (`employee.code`, `project.code`). The CSV header stays
+         `tag`: that is a contract with spreadsheets people already have, and
+         the column behind it is what needed to be honest. `serial_number`
+         below is the MANUFACTURER's and is a separate field, not a fallback
+         for this one. */
+      { key: "code", header: "tag", type: "text", example: "UIC-2001",
+        hint: "Your own asset code, if the tool has one. Leave blank if it is not labelled yet." },
       /* In the order the trailer sheets use them: description first, then make
          and model number. The sheets have no tag column and the brand can be
          buried in the description, so description is the one required field. */
@@ -118,8 +124,14 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     columns: [
       { key: "name", header: "name", type: "text", required: true, example: "Dwayne Miller" },
       { key: "role", header: "role", type: "enum", values: EMPLOYEE_ROLES, example: "foreman" },
+      /* The header stays `employee_id` and the key stays `externalId` on
+         purpose: both are a contract with spreadsheets people already have.
+         The COLUMN behind them was renamed to `employee.code` on 2026-09-06
+         — see `insertOne`, which remaps it. This is the company's own badge
+         number, NOT a foreign system's key; a BambooHR employee id is a
+         different fact and belongs in `employee_external_ref`. */
       { key: "externalId", header: "employee_id", type: "text", example: "4471",
-        hint: "Your payroll / BambooHR id. Unique if given." },
+        hint: "Your own payroll / badge number. Unique if given." },
       { key: "email", header: "email", type: "text", example: "dwayne.miller@example.com" },
       { key: "phone", header: "phone", type: "text", example: "214-555-0142" },
       {

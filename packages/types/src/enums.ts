@@ -104,7 +104,10 @@ export const CUSTODIAN_ROLES = ["foreman", "superintendent", "mechanic"] as cons
   screen are the only writers today. Add a value when a new writer appears;
   never repurpose one.
 */
-export const TEAM_SOURCES = ["equipment_department", "payroll_import", "manual_entry", "api_sync"] as const;
+/* "onboarding" added 2026-09-05: the crew step calls `projectTeam.assign` under
+   the caller's own permission exactly as the jobsite hub does — this marks
+   which rows came from that path, the way this whole column exists to. */
+export const TEAM_SOURCES = ["equipment_department", "payroll_import", "manual_entry", "api_sync", "onboarding"] as const;
 export type TeamSource = (typeof TEAM_SOURCES)[number];
 export const DEFAULT_TEAM_SOURCE: TeamSource = "equipment_department";
 export const EMPLOYMENT_STATUSES = ["active", "terminated", "on_leave"] as const;

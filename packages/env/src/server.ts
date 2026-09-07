@@ -13,9 +13,28 @@ const serverSchema = z.object({
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
-  TWILIO_ACCOUNT_SID: z.string().optional(),
-  TWILIO_AUTH_TOKEN: z.string().optional(),
-  TWILIO_FROM: z.string().optional(),
+  /*
+    No TWILIO_* here. Removed 2026-09-07: three optional keys read by nothing,
+    with no `twilio` dependency in any package.json and empty values in every
+    env file — declared config for an SMS path that was never built. Notifications
+    are EMAIL only, by decision. If SMS is ever wanted, add the keys back
+    together with the code that sends one.
+  */
+  /*
+    BambooHR, read-only. Present in `.env.local` and `.env.example` since
+    2026-09-06 and MISSING FROM THIS SCHEMA until 2026-09-07 — which meant the
+    values were on disk and `serverEnv()` handed back an object without them,
+    because `serverSchema` is a plain `z.object` and Zod strips what it does not
+    declare. Anybody reading them through the typed accessor would have got
+    `undefined` from a correctly-populated file.
+
+    Optional, and empty DISABLES the sync rather than failing boot: a tenant
+    that has not bought BambooHR is the normal case, not a misconfiguration.
+    `BAMBOOHR_API_KEY` is the Basic-auth USERNAME, with the literal `x` as the
+    password — BambooHR's own scheme, so there is no password setting to add.
+  */
+  BAMBOOHR_COMPANY_DOMAIN: z.string().optional(),
+  BAMBOOHR_API_KEY: z.string().optional(),
 
   LLM_API_KEY: z.string().default(""),
   LLM_BASE_URL: z.string().url().default("https://api.openai.com/v1"),

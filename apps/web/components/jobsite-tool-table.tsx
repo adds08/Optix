@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 
 export type ToolRow = {
   id: string;
-  tag: string | null;
+  code: string | null;
   serialNumber: string | null;
   make: string | null;
   modelNumber: string | null;
@@ -143,7 +143,7 @@ export function ToolTable({
                   type="checkbox"
                   checked={selectedIds?.has(t.id) ?? false}
                   onChange={() => onToggle(t.id)}
-                  aria-label={`Select ${t.tag ?? t.serialNumber ?? "this tool"}`}
+                  aria-label={`Select ${t.code ?? t.serialNumber ?? "this tool"}`}
                   className="mt-0.5 size-4 shrink-0 accent-primary"
                 />
               ) : null}
@@ -155,7 +155,7 @@ export function ToolTable({
                         href={`/tools/${t.id}`}
                         className="shrink-0 font-mono text-xs text-foreground/75 underline-offset-4 hover:text-primary hover:underline"
                       >
-                        <Highlight text={t.tag ?? t.serialNumber ?? "No code"} q={highlight} />
+                        <Highlight text={t.code ?? t.serialNumber ?? "No code"} q={highlight} />
                       </Link>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-64">
@@ -197,7 +197,7 @@ export function ToolTable({
                 {humanize(t.status)}
               </span>
               {actions ? (
-                <ToolMenu assetId={t.id} assetTag={t.tag ?? t.serialNumber ?? "No code"} heldBySomeone={!!t.custodianId} />
+                <ToolMenu assetId={t.id} assetCode={t.code ?? t.serialNumber ?? "No code"} heldBySomeone={!!t.custodianId} />
               ) : null}
             </div>
           ))}
@@ -278,7 +278,7 @@ export function ToolTable({
                     type="checkbox"
                     checked={selectedIds?.has(t.id) ?? false}
                     onChange={() => onToggle(t.id)}
-                    aria-label={`Select ${t.tag ?? t.serialNumber ?? "this tool"}`}
+                    aria-label={`Select ${t.code ?? t.serialNumber ?? "this tool"}`}
                     className="size-4 accent-primary"
                   />
                 </td>
@@ -294,7 +294,7 @@ export function ToolTable({
                       href={`/tools/${t.id}`}
                       className="font-mono text-sm text-foreground/75 underline-offset-4 hover:text-primary hover:underline"
                     >
-                      <Highlight text={t.tag ?? t.serialNumber ?? "No code"} q={highlight} />
+                      <Highlight text={t.code ?? t.serialNumber ?? "No code"} q={highlight} />
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-64">
@@ -342,7 +342,7 @@ export function ToolTable({
               </td>
               {actions ? (
                 <td className="px-2 py-2.5 text-right">
-                  <ToolMenu assetId={t.id} assetTag={t.tag ?? t.serialNumber ?? "No code"} heldBySomeone={!!t.custodianId} />
+                  <ToolMenu assetId={t.id} assetCode={t.code ?? t.serialNumber ?? "No code"} heldBySomeone={!!t.custodianId} />
                 </td>
               ) : null}
             </tr>
@@ -400,7 +400,7 @@ function compare(a: ToolRow, b: ToolRow, key: SortKey): number {
   }
   const pick = (t: ToolRow) =>
     key === "tag"
-      ? (t.tag ?? t.serialNumber ?? "")
+      ? (t.code ?? t.serialNumber ?? "")
       : key === "name"
         ? formatAssetModel(t)
         : key === "category"

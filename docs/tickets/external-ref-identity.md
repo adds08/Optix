@@ -7,6 +7,23 @@
 
 ---
 
+> **PARTLY SUPERSEDED, 2026-09-06.** The employee half of this ticket is built,
+> by a different design than the one below. `employee.external_id` was renamed
+> to `code` (it always held the company's own badge number, never a foreign key)
+> and foreign keys moved to a child table, `tbl_entity_employee_external_ref`,
+> rather than to three columns on the entity — because a single
+> `(system, external_id)` pair holds exactly one far system per person and this
+> codebase already names three. Migration `0050`; see
+> `docs/workings/BAMBOOHR_PEOPLE_SYNC.md` and the changelog entry
+> `2026-09-06-a-badge-number-was-never-a-foreign-key.md`.
+>
+> The **`project.externalId`** half is untouched and the "Watch for" note below
+> still applies to it exactly as written — it remains one column meaning both
+> the user-facing cost code and the FoundationSoft map.
+>
+> `source` (`foundation | import | manual`) was NOT built. If it is still wanted
+> it is its own change.
+
 ## Why this exists
 
 `SYSTEM_PLAN.md` §6.4's redundancy strategy: three entry paths must converge on one

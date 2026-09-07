@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, Users, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, UserCheck, Users, Wrench, PlugZap } from "lucide-react";
 
 export type NavItem = {
   /*
@@ -74,6 +74,10 @@ const SETTINGS_GROUP: NavGroup = {
     { id: "settings-general", href: "/settings", label: "General", icon: SlidersHorizontal, perm: "config.manage", desc: "Branding, approvals and mail" },
     { id: "settings-modules", href: "/settings/modules", label: "Modules", icon: LayoutGrid, perm: "config.manage", desc: "Which parts this organisation uses" },
     { id: "settings-ai", href: "/settings/ai", label: "AI & API", icon: Cpu, perm: "config.manage", desc: "The chat parser's model and key" },
+    /* `employee.manage`, not `config.manage`: this page can create and edit
+       PEOPLE via the sync, so it is gated on the permission that matches the
+       effect rather than on "can administer settings". */
+    { id: "settings-integrations", href: "/settings/integrations", label: "Integrations", icon: PlugZap, perm: "employee.manage", desc: "BambooHR and other systems Optix reads" },
     /* No `perm`: a per-user preference written through `preferences.set`, which
        writes the caller's own row. */
     { id: "settings-appearance", href: "/settings/appearance", label: "Appearance", icon: Palette, desc: "Your own theme, type and density" },
@@ -115,6 +119,12 @@ export const FIELD_NAV: NavGroup[] = [
          worse place to bury it than a nav row. Say so if you want it gone from
          here too — it is a deliberate divergence, not an oversight. */
       { id: "alerts", href: "/inbox", label: "Alerts", icon: Inbox, hint: "Requests and notifications", desc: "Requests, replies and reminders" },
+      /* A superintendent has a real crew below them (their foremen) and this
+         is the only surface that shows who below has set up their own jobs
+         and crew — see `onboarding.progress`. A plain foreman with no crew of
+         their own gets an empty screen rather than a hidden link, matching
+         the same permission's behaviour on the desk. */
+      { id: "onboarding-progress", href: "/onboarding/progress", label: "My Crew's Setup", icon: UserCheck, perm: "project.team.read", desc: "Who below you has logged in and set up their jobs" },
     ],
   },
   SETTINGS_GROUP,
@@ -172,6 +182,13 @@ export const DESK_NAV: NavGroup[] = [
          `project.team.read` like the roster it draws; the procedure narrows a
          non-admin to their own chain, so the LINK does not need a second gate. */
       { id: "org-chart", href: "/org-chart", label: "Org Chart", icon: Network, perm: "project.team.read", desc: "Who answers to whom, on each job" },
+      /* Who below the caller has done first-run setup and who hasn't — see
+         `onboarding.progress`. Gated on the same permission as the org chart,
+         on purpose (docs/workings/ONBOARDING_AND_ROLE_HIERARCHY.md §7.1): the
+         procedure narrows a non-admin to their own crew, so a foreman with
+         nobody below them simply sees an empty screen rather than needing a
+         second permission kept in step with role-perms.ts. */
+      { id: "onboarding-progress", href: "/onboarding/progress", label: "Onboarding", icon: UserCheck, perm: "project.team.read", desc: "Who below you has set up their jobs and crew" },
     ],
   },
   {

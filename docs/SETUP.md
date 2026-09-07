@@ -11,18 +11,57 @@ Node 22+, pnpm 9+, Docker. Postgres comes from Docker — you do not need one in
 ```bash
 cp .env.example .env.local     # required — the Makefile hard-errors without it
 make ENV=local up              # builds + starts postgres, api, web
-make ENV=local seed            # demo fixture — one account per permission tier
+make seed-demo                 # demo fixture — one account per permission tier
 ```
 
-To load Urban's real register instead (real projects, employees, vehicles and tools —
-see `docs/data/README.md`), set `SEED_DATASET=urban` before seeding. It seeds one login,
-not the table below.
+**Two datasets, and which one you want depends on what you are doing.**
+
+```bash
+make seed-demo    # the FIXTURE: synthetic people, one account per role
+make seed-urban   # Urban's REAL register: 83 people, 753 tools, 20 jobs, 2 admins
+```
+
+Both wipe first. Use `seed-demo` **before running the test suite** —
+`rbac-matrix.test.ts` drives the visibility ladder through the fixture's
+synthetic accounts and fails against real data, by design (see
+`.claude/rules/database.md`). Use `seed-urban` to look at the product with real
+data in it.
+
+`SEED_RESET=1 make seed` used to seed nothing at all: `docker compose exec` does
+not inherit the caller's environment, so the variable never arrived and the seed
+skipped an already-populated database while printing enough to look busy. The
+make targets now forward it explicitly.
 
 | Service | Where |
 |---|---|
 | Web | <http://localhost:3100> |
 | API | <http://localhost:4100> — health at `/health` |
 | Postgres | `postgres://postgres:stinventory@localhost:5433/stinventory` |
+| Mailbox | <http://localhost:8025> — every email this stack sends, delivered nowhere |
+
+### The local mailbox
+
+`make ENV=local up` runs Mailpit, a real SMTP server that accepts everything and
+delivers none of it. `.env.local` points `SMTP_HOST` at it, so an invite sent
+from `/people` arrives at <http://localhost:8025> with a **clickable link** that
+completes signup and drops the new account into whatever onboarding its role
+declares (`role.onboarding_kind`).
+
+That is the whole invite -> email -> signup -> onboarding loop, testable without
+sending mail to anybody. Never point a deployed environment at it.
+
+### Urban's real register (`make seed-urban`)
+
+Two administrator accounts, both on `SEED_OWNER_PASSWORD` (or a random one
+printed once):
+
+| Account | Role | What it is |
+|---|---|---|
+| `optix_it@optixtec.com` | `owner` | The ORGANISATIONAL administrator — the customer's own, confined to this tenant |
+| `tech@optixtec.com` | `tech_admin` | Optix's own operator. Same grants inside the tenant; `role.is_cross_tenant` is set but **nothing reads it yet** |
+
+No other logins. Everybody else joins through an invite, which sets their role
+as it sends.
 
 ### Sign-in accounts (demo fixture — `SEED_DATASET` unset)
 

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string; current?: string | null };
+type Props = { open: boolean; onClose: () => void; assetId: string; assetCode: string; current?: string | null };
 
 const CONDITIONS = [
   { value: "new", label: "New" },
@@ -25,7 +25,7 @@ const CONDITIONS = [
   appends a note-only ledger event ("Condition → fair") so the change shows up
   in the tool's Custody chain like every other event.
 */
-export function ConditionForm({ open, onClose, assetId, assetTag, current }: Props) {
+export function ConditionForm({ open, onClose, assetId, assetCode, current }: Props) {
   const utils = trpc.useUtils();
   const [condition, setCondition] = useState<string>(current ?? "good");
   const [error, setError] = useState("");
@@ -56,7 +56,7 @@ export function ConditionForm({ open, onClose, assetId, assetTag, current }: Pro
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-xs">
         <DialogHeader>
-          <DialogTitle>Condition of {assetTag}</DialogTitle>
+          <DialogTitle>Condition of {assetCode}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">

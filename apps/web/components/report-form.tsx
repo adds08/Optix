@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { EntityField } from "@/components/ui/entity-picker";
 
-type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
+type Props = { open: boolean; onClose: () => void; assetId: string; assetCode: string };
 
 /*
   "Report an issue" — a tool is broken (needs repair) or missing.
@@ -17,7 +17,7 @@ type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: st
   This form never just annotates — for a plain observation that changes nothing,
   use "Add a note".
 */
-export function ReportForm({ open, onClose, assetId, assetTag }: Props) {
+export function ReportForm({ open, onClose, assetId, assetCode }: Props) {
   const utils = trpc.useUtils();
   const [issueType, setIssueType] = useState<"in_maintenance" | "lost">("in_maintenance");
   const [note, setNote] = useState("");
@@ -70,7 +70,7 @@ export function ReportForm({ open, onClose, assetId, assetTag }: Props) {
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Reporting: <span className="font-medium text-foreground">{assetTag}</span>
+              Reporting: <span className="font-medium text-foreground">{assetCode}</span>
             </p>
             <div className="space-y-2">
               <label className="text-sm font-medium">Issue type</label>

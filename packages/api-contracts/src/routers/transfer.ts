@@ -41,7 +41,7 @@ export const transferRouter = router({
       .select({
         id: schema.transfer.id,
         assetId: schema.transfer.assetId,
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         make: schema.asset.make,
         modelNumber: schema.asset.modelNumber,
         description: schema.asset.description,
@@ -247,7 +247,7 @@ export const transferRouter = router({
             approverRole: settings?.custodyApproverRole ?? null,
             refType: "transfer",
             refId: row.id,
-            assetTag: asset.tag,
+            assetCode: asset.code,
             assetLabel: formatAssetModel(asset) || "a tool",
             actorEmployeeId: ctx.session.employeeId ?? null,
             toName: toEmp?.name ?? null,
@@ -398,7 +398,7 @@ export const transferRouter = router({
         fromCustodianId: tr.fromCustodianId,
         refType: "transfer",
         refId: tr.id,
-        assetTag: asset?.tag ?? "a tool",
+        assetCode: asset?.code ?? "a tool",
         approved: true,
       });
 
@@ -407,7 +407,7 @@ export const transferRouter = router({
         action: "approve",
         entityType: "transfer",
         entityId: tr.id,
-        entityLabel: asset?.tag ?? null,
+        entityLabel: asset?.code ?? null,
       });
       return { ok: true };
     }),
@@ -499,7 +499,7 @@ export const transferRouter = router({
         fromCustodianId: tr.fromCustodianId,
         refType: "transfer",
         refId: tr.id,
-        assetTag: asset?.tag ?? "a tool",
+        assetCode: asset?.code ?? "a tool",
         approved: false,
         reason: input.reason ?? null,
       });
@@ -509,7 +509,7 @@ export const transferRouter = router({
         action: "decline",
         entityType: "transfer",
         entityId: tr.id,
-        entityLabel: asset?.tag ?? null,
+        entityLabel: asset?.code ?? null,
         details: { reason: input.reason ?? null },
       });
       return { ok: true };

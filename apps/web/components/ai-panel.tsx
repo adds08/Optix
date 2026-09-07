@@ -238,7 +238,7 @@ type PanelMsg = {
   intentType: string | null;
   proposedAction: unknown;
   createdAt: Date | string;
-  card: { tools: { id: string; tag: string | null; modelName: string | null }[]; toName: string | null } | null;
+  card: { tools: { id: string; code: string | null; modelName: string | null }[]; toName: string | null } | null;
 };
 
 /* The same lifecycle vocabulary as /chat, in one line each — a message has to
@@ -291,7 +291,7 @@ function PanelMessage({
             {m.card.tools.map((t) => (
               <li key={t.id} className="flex flex-wrap items-baseline gap-2 text-[12.5px]">
                 <Link href={`/tools/${t.id}`} className="tag-num text-primary hover:underline">
-                  {t.tag ?? "no tag"}
+                  {t.code ?? "no tag"}
                 </Link>
                 <span className="min-w-0 truncate text-muted-foreground">{t.modelName}</span>
               </li>

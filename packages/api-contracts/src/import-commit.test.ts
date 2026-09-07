@@ -168,7 +168,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
       expect(preview.summary.bad).toBe(0);
 
       /* Somebody else creates the same cost code between preview and commit. */
-      await db.insert(schema.project).values({ tenantId, name: "Interloper", externalId: `RACE-${suffix}`, startDate: "2025-01-06" });
+      await db.insert(schema.project).values({ tenantId, name: "Interloper", code: `RACE-${suffix}`, startDate: "2025-01-06" });
 
       await expect(caller().commit({ entity: "project", rows })).rejects.toThrow(/still invalid/);
     });
@@ -258,7 +258,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
         db.transaction(async (tx) => {
           const [a] = await tx
             .insert(schema.asset)
-            .values({ tenantId, tag: `ORPHAN-${suffix}`, currentStatus: "available", createdBy: userId })
+            .values({ tenantId, code: `ORPHAN-${suffix}`, currentStatus: "available", createdBy: userId })
             .returning({ id: schema.asset.id });
           await tx.insert(schema.transaction).values({
             tenantId, assetId: a!.id, eventType: "tag", actorId: userId,
@@ -286,6 +286,9 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
       const before = await countOf(schema.asset);
       const res = await caller().commit({
         entity: "asset",
+        /* Keyed by the CSV HEADER, which is still `tag` — the header is a
+           contract with spreadsheets people already have, while the column
+           behind it is now `code`. See the note on the asset spec. */
         rows: [{ tag: `E-ASSET-${suffix}`, description: "Imported hammer drill", quantity: "1" }],
       });
       expect(res.imported).toBe(1);
@@ -298,7 +301,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
         .select({ id: schema.transaction.id, eventType: schema.transaction.eventType })
         .from(schema.transaction)
         .innerJoin(schema.asset, eq(schema.asset.id, schema.transaction.assetId))
-        .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.tag, `E-ASSET-${suffix}`)));
+        .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.code, `E-ASSET-${suffix}`)));
       expect(ev, "an imported tool has no ledger event").toBeTruthy();
       expect(ev!.eventType).toBe("tag");
     });

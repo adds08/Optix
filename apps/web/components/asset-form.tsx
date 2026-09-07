@@ -22,7 +22,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 */
 export type AssetEditable = {
   id: string;
-  tag: string;
+  code: string;
   make?: string | null;
   modelNumber?: string | null;
   description?: string | null;
@@ -47,7 +47,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
   const departments = trpc.department.list.useQuery();
   const locations = trpc.location.list.useQuery();
 
-  const [tag, setTag] = useState(edit?.tag ?? "");
+  const [code, setCode] = useState(edit?.code ?? "");
   const [make, setMake] = useState(edit?.make ?? "");
   const [modelNumber, setModelNumber] = useState(edit?.modelNumber ?? "");
   const [description, setDescription] = useState(edit?.description ?? "");
@@ -88,7 +88,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
            empty, and `undefined` would leave the old value in place. */
         await utils.client.asset.update.mutate({
           id: edit.id,
-          tag,
+          code,
           make: make || null,
           modelNumber: modelNumber || null,
           description: description || null,
@@ -106,7 +106,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
         utils.asset.get.invalidate({ id: edit.id });
       } else {
         await utils.client.asset.create.mutate({
-          tag: tag || undefined,
+          code: code || undefined,
           make: make || undefined,
           modelNumber: modelNumber || undefined,
           description: description || undefined,
@@ -136,12 +136,12 @@ export function AssetForm({ open, onClose, edit }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{edit ? `Edit ${edit.tag}` : "New Asset"}</DialogTitle>
+          <DialogTitle>{edit ? `Edit ${edit.code}` : "New Asset"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Tag</label>
-            <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="e.g. UIC-2001" />
+            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. UIC-2001" />
             <p className="text-xs text-muted-foreground">
               The label physically on the tool. Leave blank until it has one — an untagged tool is a normal state.
             </p>

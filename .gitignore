@@ -58,3 +58,8 @@ field/
 
 # Local explainers / scratch work — never committed
 scratch/
+
+# Shared working file between agents (see AGENT_HANDOFF.md's own header).
+# A conversation, not a record: anything durable belongs in docs/ or
+# .claude/rules/ instead.
+AGENT_HANDOFF.md

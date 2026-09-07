@@ -139,7 +139,7 @@ export const dashboardRouter = router({
           eventType: schema.transaction.eventType,
           occurredAt: schema.transaction.occurredAt,
           note: schema.transaction.note,
-          assetTag: schema.asset.tag,
+          assetCode: schema.asset.code,
           assetMake: schema.asset.make,
           assetModelNumber: schema.asset.modelNumber,
           assetDescription: schema.asset.description,
@@ -162,7 +162,7 @@ export const dashboardRouter = router({
     const termIds = term.map((t) => t.id);
     return ctx.db
       .select({
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         make: schema.asset.make,
         modelNumber: schema.asset.modelNumber,
         description: schema.asset.description,
@@ -213,7 +213,7 @@ export const dashboardRouter = router({
         .select({
           id: schema.transfer.id,
           assetId: schema.transfer.assetId,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,
           description: schema.asset.description,
@@ -238,7 +238,7 @@ export const dashboardRouter = router({
         .select({
           id: schema.assignment.id,
           assetId: schema.assignment.assetId,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,
           description: schema.asset.description,
@@ -283,7 +283,7 @@ export const dashboardRouter = router({
                refuses, but the projection should not depend on that. */
             direction: outbound ? ("outgoing" as const) : ("incoming" as const),
             assetId: t.assetId,
-            tag: t.tag,
+            code: t.code,
             modelName: formatAssetModel(t),
             otherPartyName: (otherId && nameById.get(otherId)) ?? null,
             createdAt: t.createdAt,
@@ -294,7 +294,7 @@ export const dashboardRouter = router({
           kind: "assignment" as const,
           direction: "incoming" as const,
           assetId: a.assetId,
-          tag: a.tag,
+          code: a.code,
           modelName: formatAssetModel(a),
           otherPartyName: null,
           createdAt: a.createdAt,
@@ -341,7 +341,7 @@ export const dashboardRouter = router({
       .select({
         id: schema.assignment.id,
         type: sql<string>`'assignment'`,
-        assetTag: schema.asset.tag,
+        assetCode: schema.asset.code,
         assetMake: schema.asset.make,
         assetModelNumber: schema.asset.modelNumber,
         assetDescription: schema.asset.description,
@@ -363,7 +363,7 @@ export const dashboardRouter = router({
       .select({
         id: schema.transfer.id,
         type: sql<string>`'transfer'`,
-        assetTag: schema.asset.tag,
+        assetCode: schema.asset.code,
         assetMake: schema.asset.make,
         assetModelNumber: schema.asset.modelNumber,
         assetDescription: schema.asset.description,

@@ -26,8 +26,20 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
-| 2026-09-05 | [First-run setup, and the tier nobody claimed](2026-09-05-first-run-setup-and-the-deferred-tier.md) |
+| 2026-09-08 | [Tabs you can actually see, and one strip instead of three sections](2026-09-08-tabs-you-can-actually-see.md) |
+| 2026-09-07 | [A foreman and his trailer, on one page](2026-09-07-a-foreman-and-his-trailer-on-one-page.md) |
+| 2026-09-07 | [One word for one idea: code](2026-09-07-one-word-for-one-idea-code.md) |
+| 2026-09-07 | [Real people, two admins, and a mailbox you can click](2026-09-07-real-people-two-admins-and-a-mailbox-you-can-click.md) |
+| 2026-09-06 | [A badge number was never a foreign key](2026-09-06-a-badge-number-was-never-a-foreign-key.md) |
+| 2026-09-06 | [Claims were a detour](2026-09-06-claims-were-a-detour.md) |
+| 2026-09-06 | [The pin that was never yours to drop](2026-09-06-the-pin-that-was-never-yours-to-drop.md) |
+| 2026-09-06 | [The wizard stops looking unfinished](2026-09-06-the-wizard-stops-looking-unfinished.md) |
+| 2026-09-05 | [The wizard stops wearing the shell](2026-09-05-the-wizard-stops-wearing-the-shell.md) |
 | 2026-09-05 | [The tiers form a ladder](2026-09-05-the-tiers-form-a-ladder.md) |
+| 2026-09-05 | [The tick that did nothing, and a wizard with a face](2026-09-05-the-tick-that-did-nothing.md) |
+| 2026-09-05 | [Skipping setup stops being a dead end](2026-09-05-skipping-setup-stops-being-a-dead-end.md) |
+| 2026-09-05 | [The onboarding wizard completes, and the progress screen lands](2026-09-05-onboarding-wizard-completes-and-the-progress-screen-lands.md) |
+| 2026-09-05 | [First-run setup, and the tier nobody claimed](2026-09-05-first-run-setup-and-the-deferred-tier.md) |
 | 2026-09-03 | [A copied token is not a token, and eight primitives nobody imported](2026-09-03-tokens-not-copies.md) |
 | 2026-09-03 | [Team roles become data, and the chart gets its first real hierarchy](2026-09-03-team-role-register.md) |
 | 2026-09-03 | [The jobsites toolbar stops being the only one in a box](2026-09-03-one-toolbar-style.md) |

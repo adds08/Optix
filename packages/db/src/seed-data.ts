@@ -114,24 +114,34 @@ export type RoleSeed = {
   needsLogin: boolean;
   canHoldCustody: boolean;
   usesFieldLayout: boolean;
+  /* equipment | people | none — which wizard first login runs. See the column
+     comment on `role.onboardingKind`. */
+  onboardingKind: string;
+  /* Reaches every tenant. Only `tech_admin`. Nothing reads it yet — see the
+     column comment. */
+  isCrossTenant?: boolean;
   isSystem: boolean;
 };
 
 export const roleSpecs: RoleSeed[] = [
-  { name: "owner", description: "Full authority over the organisation, its configuration and its people.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "equipment_admin", description: "Runs the equipment department: the register, custody, and who holds what.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "office_admin", description: "Business records and accounts. Not custody, and not platform configuration.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "warehouse", description: "The yard desk. Issues and receives tools, and runs departures operationally.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "procurement", description: "Buys equipment and materials. Reads the register, does not move custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "engineer", description: "Runs work on a job. Same reach as a project manager where tools are concerned.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "superintendent", description: "Runs several crews, and holds tools directly when a job has no foreman yet.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
-  { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
-  { name: "mechanic", description: "Works out of the shop and keeps tools there. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
-  { name: "hr", description: "People records. No access to the register or to custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "finance", description: "Cost and value reporting across the register.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "read_only", description: "Sees the register and reports, changes nothing.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "crew", description: "Works on site and can be handed tools. Does not sign in.", needsLogin: false, canHoldCustody: true, usesFieldLayout: false, isSystem: false },
+  { name: "owner", description: "Full authority over the organisation, its configuration and its people.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  /* Optix's own operator. Same grants as `owner` inside a tenant; what differs
+     is `isCrossTenant`. No wizard — a technical administrator is not describing
+     their own crew. */
+  { name: "tech_admin", description: "Optix technical administrator. Supports every tenant; not the customer's own administrator.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isCrossTenant: true, isSystem: true },
+  { name: "equipment_admin", description: "Runs the equipment department: the register, custody, and who holds what.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "office_admin", description: "Business records and accounts. Not custody, and not platform configuration.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  { name: "warehouse", description: "The yard desk. Issues and receives tools, and runs departures operationally.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "procurement", description: "Buys equipment and materials. Reads the register, does not move custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "engineer", description: "Runs work on a job. Same reach as a project manager where tools are concerned.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "superintendent", description: "Runs several crews, and holds tools directly when a job has no foreman yet.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
+  { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
+  { name: "mechanic", description: "Works out of the shop and keeps tools there. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
+  { name: "hr", description: "People records. No access to the register or to custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "people", isSystem: true },
+  { name: "finance", description: "Cost and value reporting across the register.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  { name: "read_only", description: "Sees the register and reports, changes nothing.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  { name: "crew", description: "Works on site and can be handed tools. Does not sign in.", needsLogin: false, canHoldCustody: true, usesFieldLayout: false, onboardingKind: "equipment", isSystem: false },
 ];
 
 /* The old nine-value `employee.role` enum, mapped onto the role register. Only

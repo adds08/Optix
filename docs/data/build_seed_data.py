@@ -43,6 +43,12 @@ YARD = "Equipment Yard"
 # a member of a crew.
 RESERVED = []
 OWNER_EMAIL = "optix_it@optixtec.com"
+# Optix's own technical administrator, distinct from the customer's `owner`.
+# Same grants inside the tenant; what differs is role.is_cross_tenant, which
+# reaches every tenant and which nothing reads yet. Client's instruction,
+# 2026-09-07: "one tech and one admin that is organizational admin, and other
+# tech admin is always accessible to all tenant".
+TECH_ADMIN_EMAIL = "tech@optixtec.com"
 
 
 def norm(s):
@@ -405,6 +411,7 @@ A("   employeeKey is null on purpose: the IT owner administers the system, they 
 A("   not a foreman holding tools. */")
 A("export const userSpecs: UserSeed[] = [")
 A(f'  {{ email: {ts(OWNER_EMAIL)}, first: "Optix", last: "IT", role: "owner", employeeKey: null }},')
+A(f'  {{ email: {ts(TECH_ADMIN_EMAIL)}, first: "Optix", last: "Tech", role: "tech_admin", employeeKey: null }},')
 A("];")
 
 open(TARGET, "w").write(head + "\n".join(L) + "\n")

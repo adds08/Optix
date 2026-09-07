@@ -34,7 +34,7 @@ import { assertVehicleContext, closeActiveCustody, moveCustody, projectForCustod
    it — but the tool has to be describable, so at least one of make or
    description is required (see docs/built/12-model-field-split.md). */
 export type AssetDraft = {
-  tag?: string;
+  code?: string;
   make?: string;
   modelNumber?: string;
   description?: string;
@@ -592,7 +592,7 @@ async function applyIntake(
   refMessageId?: string,
 ): Promise<ApplyResult> {
   const draft = action.draft ?? {};
-  const tag = draft.tag?.trim();
+  const tag = draft.code?.trim();
   const make = draft.make?.trim();
   const modelNumber = draft.modelNumber?.trim();
   const description = draft.description?.trim();
@@ -609,7 +609,7 @@ async function applyIntake(
 
   if (tag) {
     const clash = await db.query.asset.findFirst({
-      where: and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.tag, tag)),
+      where: and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.code, tag)),
     });
     /* CONFLICT, matching the same clash in asset.update — the two surfaces
        must disagree with the user in the same voice. */
@@ -739,8 +739,8 @@ export async function requestChatAction(db: any, opts: ApplyOptions): Promise<Re
 
   const draft = action.draft ?? {};
   const subject = aboutExisting
-    ? named.map((a) => a.tag).join(", ")
-    : [draft.tag, formatAssetModel(draft)].filter(Boolean).join(" ") || "unspecified tool";
+    ? named.map((a) => a.code).join(", ")
+    : [draft.code, formatAssetModel(draft)].filter(Boolean).join(" ") || "unspecified tool";
 
   const department = ACTION_DEPARTMENTS[action.type] ?? "Equipment Admin";
   const heading = REQUEST_TITLES[action.type] ?? "Action requested";

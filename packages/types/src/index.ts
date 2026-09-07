@@ -47,6 +47,27 @@ export const asId = <T extends string>(s: string) => s as T;
 // ---------------------------------------------------------------------------
 export const ROLES = [
   "owner",
+  /*
+    THE TECHNICAL ADMINISTRATOR — Optix's own operator, not the customer's.
+
+    The note above argues that a second all-permissions role is two names for
+    one authority, and that argument still holds for anything tenant-scoped.
+    This role is not that. It differs on a DIFFERENT AXIS: `role.isCrossTenant`,
+    reaching every tenant rather than one. `owner` is the customer's own
+    administrator and is deliberately confined to their own data; this is the
+    person who supports all of them.
+
+    Added 2026-09-07 on the client's instruction — "one tech and one admin that
+    is organizational admin, and other tech admin is always accessible to all
+    tenant". Multi-tenancy proper is explicitly later; what exists now is the
+    role, the flag, and one seeded account, so that when the cross-tenant query
+    path is built it has somewhere to land.
+
+    NOTHING reads `isCrossTenant` yet. Today this behaves exactly like `owner`
+    within its own tenant. Say so plainly rather than implying the isolation is
+    already crossed — the WHERE clause is still the only isolation there is.
+  */
+  "tech_admin",
   "equipment_admin",
   /* Operations, accounts and general business administration. Business
      records — NOT custody, NOT platform configuration. Deliberately without

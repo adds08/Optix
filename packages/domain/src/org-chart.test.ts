@@ -5,6 +5,7 @@ import {
   findTierCycle,
   adjacentTiers,
   visibleEmployeeIds,
+  descendantsOf,
   SYNTHETIC_PREFIX,
 } from "./org-chart.js";
 import type { OrgMemberInput } from "./org-chart.js";
@@ -237,5 +238,57 @@ describe("adjacentTiers", () => {
 
   it("is empty for a role id that is not in the register", () => {
     expect(adjacentTiers(urbanChain(), "r-nope")).toEqual({ above: null, below: [] });
+  });
+});
+
+describe("descendantsOf", () => {
+  it("returns crew below, not the boss above", () => {
+    const rows = [
+      row("m1", "p1", "director", "director"),
+      row("m2", "p1", "super", "superintendent", "director"),
+      row("m3", "p1", "foreman", "foreman", "super"),
+    ];
+    const below = descendantsOf(rows, "super");
+    expect(below).toEqual(new Set(["foreman"]));
+  });
+
+  it("does not include the viewer themselves", () => {
+    const rows = [row("m1", "p1", "a", "pm"), row("m2", "p1", "b", "super", "a")];
+    expect(descendantsOf(rows, "a").has("a")).toBe(false);
+  });
+
+  it("goes several levels deep", () => {
+    const rows = [
+      row("m1", "p1", "director", "director"),
+      row("m2", "p1", "area", "area", "director"),
+      row("m3", "p1", "pm", "pm", "area"),
+      row("m4", "p1", "super", "superintendent", "pm"),
+      row("m5", "p1", "foreman", "foreman", "super"),
+    ];
+    const below = descendantsOf(rows, "director");
+    expect(below).toEqual(new Set(["area", "pm", "super", "foreman"]));
+  });
+
+  it("is empty for somebody with no crew", () => {
+    const rows = [row("m1", "p1", "lone", "foreman")];
+    expect(descendantsOf(rows, "lone")).toEqual(new Set());
+  });
+
+  it("terminates on a cyclical register rather than looping forever", () => {
+    const rows = [
+      row("m1", "p1", "a", "x", "b"),
+      row("m2", "p1", "b", "x", "a"),
+    ];
+    expect(descendantsOf(rows, "a")).toEqual(new Set(["b"]));
+  });
+
+  it("merges crew across several jobs the same person runs", () => {
+    const rows = [
+      row("m1", "p1", "pm", "pm"),
+      row("m2", "p1", "super1", "superintendent", "pm"),
+      row("m3", "p2", "pm", "pm"),
+      row("m4", "p2", "super2", "superintendent", "pm"),
+    ];
+    expect(descendantsOf(rows, "pm")).toEqual(new Set(["super1", "super2"]));
   });
 });

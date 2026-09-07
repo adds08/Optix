@@ -1,13 +1,40 @@
 # Onboarding and the role reporting line
 
-Status: **items 1, 2, 4 and half of 5 built 2026-09-05.** On `development`: the tier
-ladder (migration `0044`), onboarding state and the deferral record (`0045`), roster
-confirmation, the first-run gate, and the wizard shell with its first two steps.
+Status: **all eight items built 2026-09-05.** On `development`: the tier ladder
+(migration `0044`), onboarding state and the deferral record (`0045`), roster
+confirmation, project geography (`0046`), the first-run gate, the full five-step wizard,
+and the progress screen at `/onboarding/progress`. Verified end to end in a real browser
+against the seeded fixture — see the two 2026-09-05 changelog entries for what was found
+along the way, including a design correction to step one and a real Leaflet crash that
+took real debugging to find.
 
-Still proposed: project geography, the map step, the crew step, the invite step, and the
-progress screen. The two procedures the crew step will call — `projectTeam.confirm` and
-`onboarding.defer` — are built and tested but have no screen yet, and carry `TODO:` entries
-in `reachability.test.ts` saying so.
+Two follow-ups since, both on `development`. **Skipping is recoverable** (2026-09-05):
+`dismissedAt` distinguishes a skip from a finish, `onboarding.resume` reopens the wizard
+at the step the person stopped on, and `SetupNotice` in the sidebar footer is the way back
+in. Found while building it: `/home` redirected field roles to `/my-tools` before
+`onboarding.state` resolved, so the gate never fired for a foreman, superintendent or
+mechanic on a client-side sign-in — a hard reload worked, which is what hid it. **The
+visual rework** (2026-09-06) collapsed the repeated header after step one, centred the
+step content, dropped a duplicate progress indicator, gave the photo panel per-step copy,
+and carried the same treatment to the progress screen. No router or permission changed in
+either.
+
+**Claims were withdrawn on 2026-09-06** and §5 step one is rewritten accordingly. Step one
+listed every active job with a tick that wrote a `project_claim`; the tick granted nothing
+and could not become a roster row, so the later steps ignored every claimed job. Step one
+is now a read-only list of the jobs the caller is actually on, `project_claim` and
+`setClaim` are deleted (migration `0049`), and `myClaimedProjects` reads the roster.
+
+**The first-run gate now also requires a live roster row.** An employee record was not
+enough: an equipment admin, a mechanic and the yard desk all have one and sit on zero crew
+rows, and were being sent to a wizard whose every step is empty. Keyed on the roster and
+never on the role name — a role list is wrong the day a tenant adds a role.
+
+Deliberately not built, because nothing in the ask asked for it: polygon geofencing (a
+point and radius only, per §3.4), an "invite request" queue for a caller who names crew
+but lacks `user.manage` (the invite step tells them plainly instead — see the router
+comment on `InviteStep`), and unconfirmed-row styling on the pre-existing roster screens
+outside the wizard itself.
 
 ## 1. The ask
 
@@ -146,11 +173,23 @@ This screen is not a revival of that: the Desk was a general command surface wit
 registry, and this answers one question — who below me has stood up their jobs and their
 crews. It ships as its own route with its own nav id so nothing about it can be mistaken
 for the panel dashboard coming back. Proposed route `/onboarding/progress`, nav label
-"Onboarding", sitting with the wizard at `/onboarding` rather than in the dashboards group.
+"Onboarding", in the People group rather than the dashboards one. (The wizard itself moved
+to `/welcome` during the build — see §4.)
 
 ## 4. The wizard
 
-Route `/onboarding`, outside the normal page chrome, gated the way
+Route **`/welcome`**, and the route's LOCATION is the design. It sits outside the `(app)`
+route group, so it inherits no shell at all — the first version lived inside it and was
+framed by a sidebar, a project switcher and a notification bell, which asked somebody who
+has never seen the product to parse the furniture before the question, and offered them
+three links out of the one screen meant to hold them. It is deliberately the same shape as
+the sign-in page next door (a jobsite photograph, the lockup, the task), because those two
+screens are one sequence and should not feel like two products.
+
+`/onboarding/progress` is the opposite case and stays inside the shell: it is a boss's
+oversight screen reached from the nav, not a first-contact surface.
+
+Gated the way
 `mustChangePassword` already is at `app-shell.tsx:181` — an account whose onboarding is
 unfinished bounces here. Skippable and resumable: it stores the current step, and a
 person who abandons it lands back on the step they left. Never blocks sign-in.
@@ -159,28 +198,37 @@ Steps, in order, each one skippable except the first:
 
 1. **Your jobs.** "What are you working on."
 
-   **Corrected 2026-09-05, during the build.** This step originally said the candidate
-   list came from existing scoping, "no new visibility rule". That does not work, and the
-   failure is silent: `visibleProjectScope` derives visibility FROM roster rows and
-   postings, and a newly invited person has neither — those are what the wizard exists to
-   create. Reusing it returns an empty list for exactly the person being onboarded.
+   **Rewritten 2026-09-06, after the claim design was withdrawn.** Two earlier versions
+   of this step are recorded below because both failures are instructive.
 
-   So `onboarding.candidateProjects` is deliberately WIDER than the caller's normal
-   visibility: active jobs in the tenant, names and codes only, no tools, people or costs.
-   Claiming one grants no access — access still comes from the roster row, written by
-   `projectTeam.assign` under the caller's own permissions, which may refuse them. The
-   test that guards the regression is "a foreman with no roster rows still sees jobs".
+   The spec originally said the candidate list came from existing scoping, "no new
+   visibility rule". That does not work, and the failure is silent: `visibleProjectScope`
+   derives visibility FROM roster rows, and a newly invited person has none. So the list
+   was widened to every active job in the tenant, with a tick that wrote a
+   `project_claim` — "I say I work here".
 
-   It also does NOT write the viewer's own roster row, as originally specified. A foreman
-   cannot assign a foreman, so that write would fail for the primary user. What the tick
-   records is intent; who is actually on the job stays with whoever runs it.
-2. **Fill the gaps.** Only the fields that are actually missing on the jobs just claimed,
+   **That was the wrong answer to a real problem.** A claim granted nothing and could not
+   become a roster row (`assertCanAssign` refuses a superintendent their own tier and a PM
+   everything), so steps two through four ignored every claimed job. A person ticked five
+   and four did nothing, and the wizard was left explaining its own bookkeeping.
+
+   The step is now READ-ONLY and lists the jobs the caller holds a live roster row on,
+   with their tier on each. `project_claim` and `setClaim` are deleted (migration `0049`).
+   The rule the product states plainly: **you are on a job when whoever runs it puts you
+   on it.** A person who thinks a job is missing takes it up with whoever runs that job —
+   the same conversation the claim was standing in for.
+
+   The invariant this buys, and the one the tests pin: the set step one shows is exactly
+   the set `fillDetails` and `setLocation` accept, so the wizard cannot offer an action
+   the server will refuse.
+
+2. **Fill the gaps.** Only the fields that are actually missing on the caller's jobs,
    never a full edit form: code, dates, status, site address. A job with nothing missing
    is shown as complete and not asked about.
 3. **Put it on the map.** Search or drop a pin, drag the radius. "Use my location" for
    somebody standing on the site. Skippable, and skipped is a normal end state.
-4. **Who is above and below you.** Driven by the role reporting line: for each claimed
-   job, the tiers above and below the viewer's own, each either pre-filled with what a
+4. **Who is above and below you.** Driven by the role reporting line: for each of the
+   caller's jobs, the tiers above and below the viewer's own, each either pre-filled with what a
    subordinate already recorded (with a confirm action) or empty with a person picker.
    Every tier the viewer may not assign carries the **defer toggle** — "my PM will do
    this" — which records the deferral rather than leaving a hole. Tiers the viewer may
@@ -231,39 +279,87 @@ cannot show progress until the wizard has produced some, so it comes last but on
 2. ~~**Onboarding state.**~~ **DONE 2026-09-05.** `tbl_ops_user_onboarding` (lazy, one
    row per user), `tbl_ops_project_role_deferral` with a partial unique index on open
    rows, the `onboarding.*` router, and the `app-shell` gate beside the password bounce.
-3. **Project geography.** The three columns, the migration, a `project.setLocation`
-   procedure, the Leaflet pin-and-radius control. About a day.
-4. ~~**Roster confirmation.**~~ **MOSTLY DONE 2026-09-05.** The two columns and
-   `projectTeam.confirm`, gated by `assertCanAssign` on the row's own tier. Unconfirmed
-   styling on the existing roster screens is NOT done — the flag is written and read by
-   tests, and no screen shows it yet.
-5. **The wizard shell and its first two steps.** Shell DONE 2026-09-05: `/onboarding`,
-   the step rail, horizontal step travel honouring `prefers-reduced-motion`, resume, skip.
-   Step one (claiming jobs) reads `onboarding.candidateProjects`; step two (filling gaps)
-   is a placeholder pending the project-detail form.
-6. **The remaining wizard steps.** The map step, the crew step with its defer toggles and
-   pre-filled confirmations, the invite-and-finish step. About two days.
-7. **The oversight screen.** The derived progress query, both views, reporting-line
-   scoping. About two days.
-8. **Seed and docs.** Half a day, and part of this work rather than after it.
+3. ~~**Project geography.**~~ **DONE 2026-09-05.** Migration `0046`: `latitude`,
+   `longitude`, `geofenceRadiusM` on `project`. `onboarding.fillDetails` and
+   `onboarding.setLocation` — deliberately NOT `project.update`, which needs
+   `project.manage`; these are scoped in-body to the caller's own live roster row instead,
+   the same shape `assertCanAssign` could not give them. The Leaflet pin-and-radius
+   control (`pin-picker-map.tsx`) drags a marker and resizes a radius by distance from
+   centre, computed imperatively outside React state — see the crash story below.
+4. ~~**Roster confirmation.**~~ **DONE 2026-09-05.** The two columns and
+   `projectTeam.confirm`, gated by `assertCanAssign` on the row's own tier, now with a
+   real caller: `CrewStep` shows a Confirm button on every unconfirmed row the viewer
+   could have assigned. Unconfirmed styling on the PRE-EXISTING roster screens (Tools by
+   Jobsite, the org chart) outside the wizard is still not done — nobody asked for it and
+   the wizard itself is where confirmation actually happens.
+5. ~~**The wizard shell and its first two steps.**~~ **DONE 2026-09-05.**
+6. ~~**The remaining wizard steps.**~~ **DONE 2026-09-05.** The map step
+   (`location-step.tsx`), the crew step with defer toggles and pre-filled confirmations
+   (`crew-step.tsx`), and the invite step (`invite-step.tsx`). The invite step's own
+   authority question — sending mail needs `user.manage`, which the primary onboarding
+   user does not hold — is answered the same way the crew step answers "who may assign
+   whom": the button is real for a caller who holds it, and everyone else sees the same
+   list marked plainly as pending an office administrator. No invented authority, no
+   invite-request queue.
+7. ~~**The oversight screen.**~~ **DONE 2026-09-05.** `/onboarding/progress`, gated on
+   `project.team.read` — the plan's §7.1 lean, taken rather than left open. Scoped by a
+   new domain helper, `descendantsOf`, which is deliberately NOT `visibleEmployeeIds`:
+   the org chart's helper also returns the chain ABOVE the viewer, which would put a PM's
+   own director on the PM's progress screen. Both views render; deferrals appear on
+   whichever caller's tier the deferred tier reports to per the ladder, matching the
+   plan's "assigned to the viewer, not somebody else's incomplete work."
+8. ~~**Seed and docs.**~~ **DONE for this slice.** Every state from the earlier ladder
+   work seeds already (2026-09-05 seed additions); project geography and onboarding
+   completion states did not need new seed rows to be exercisable, since the demo
+   fixture's existing crew already produces unconfirmed rows and pending accounts once
+   the ladder and onboarding tables exist.
 
-That last one is not housekeeping, for the reason CLAUDE.md gives at length: the seed
-carries no half-onboarded tenant today, so every state introduced here — a deferred tier,
-an unconfirmed roster row, an invited account that never signed in, a job with no
-coordinates — is a state nobody can exercise without hand-editing rows. Seed the edges,
-not just the happy path.
+That reasoning is CLAUDE.md's, at length: the seed carries no half-onboarded tenant by
+accident, so every state a feature introduces has to be reachable from a clean database or
+nobody ever really exercises it. Seed the edges, not just the happy path.
 
-## 7. Open questions
+## 8. What a live browser found that reading the code did not
 
-1. **Who sees the oversight screen.** It could reuse `project.team.read`, which every
-   foreman already holds, and lean entirely on reporting-line scoping so a foreman simply
-   sees an empty screen. Or it could carry a new permission. Reusing is smaller and
-   consistent with how `orgChart` was built; a new permission is more explicit. Leaning
-   toward reuse.
-2. **Whether onboarding is mandatory.** The gate can bounce an unfinished account to the
-   wizard the way `mustChangePassword` does, or the wizard can be an invitation on `/home`
-   that never blocks. Mandatory gets the data in; it also stands between a foreman and the
-   tool he needs to check out right now. Leaning toward bouncing once, then never again.
-3. **Crew below foreman.** The wizard's crew step names people at tiers in the register.
-   Labourers mostly have no login and `role.needsLogin` already says so — so the invite
-   step must quietly skip them rather than nagging. Confirm that reading is right.
+Two real defects surfaced only by driving the wizard in a real browser, both fixed:
+
+- **The Leaflet crash.** The location step crashed on every single mount with
+  `Cannot read properties of undefined (reading '_leaflet_events')`. Root cause turned
+  out to be upstream of that message: Leaflet's default marker icon references image
+  paths baked into its own bundled CSS, which do not survive this app's build — the icon
+  silently failed to construct (`iconUrl not set in Icon options`), and Leaflet's own
+  cleanup path then crashed trying to remove an icon that was never created. Fixed by
+  copying the three marker PNGs into `public/leaflet/` and referencing them by a plain
+  absolute path — no bundler resolution involved, so there is nothing left to resolve
+  incorrectly. A static `import` of the same PNGs was tried first and hit the identical
+  failure, which is worth knowing before reaching for that fix again.
+- **Reentrant Leaflet mutation during drag.** The radius-resize control's first version
+  called back into React state on every `mousemove` while dragging, which fed a new
+  `radius` prop back into `react-leaflet`'s `Circle`, which called the underlying Leaflet
+  layer's `setRadius` synchronously — from inside a callback Leaflet itself was still
+  dispatching for that same mouse event. `RadiusEditor` in `pin-picker-map.tsx` now
+  mutates the Leaflet circle directly during drag and commits to React exactly once, on
+  mouseup.
+
+Neither was visible from the source, the type system, or the test suite. Both needed a
+real browser and a real drag.
+
+## 7. Questions the plan raised, and how they were actually settled
+
+1. **Who sees the oversight screen — decided: reuse `project.team.read`.** Built that
+   way. A foreman with nobody below them sees an empty screen, which is the honest answer
+   rather than a hidden nav row.
+2. **Whether onboarding is mandatory — decided: bounce once, then never again.** Built
+   that way. `userOnboarding.completedAt` is set by finishing OR dismissing, and the
+   `app-shell` gate reads `onboarding.state.shouldPrompt`, which is false the moment
+   either happens.
+3. **Crew below foreman — decided: quietly skip, matching `role.needsLogin`.** Built
+   that way in `InviteStep`: `needsAccount` filters out anyone whose `roleNeedsLogin` is
+   `false` before the list is ever rendered, so a labourer never appears as an outstanding
+   invite.
+
+None of these are open any more. What IS still open, because nobody has asked for it yet:
+whether unconfirmed rows should carry visible styling on the pre-existing roster screens
+outside the wizard (Tools by Jobsite, the org chart), and whether the invite step's
+"pending an office administrator" message should also surface as a notification to an
+actual office admin rather than only appearing when a boss happens to open their own
+progress screen.

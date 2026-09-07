@@ -59,7 +59,7 @@ describe.skipIf(!url)("feature visibility is presentation, not authorisation (AD
     userId = u!.id;
     await db.insert(schema.asset).values({
       tenantId,
-      tag: "ADR13-A",
+      code: "ADR13-A",
       description: "ADR-13 canary asset",
       currentStatus: "available",
     });
@@ -74,12 +74,12 @@ describe.skipIf(!url)("feature visibility is presentation, not authorisation (AD
 
   it("hiding the tool-register nav key does not change what asset.list returns", async () => {
     const before = await assetRouter.createCaller(ctx()).list();
-    expect(before.some((a) => a.tag === "ADR13-A")).toBe(true);
+    expect(before.some((a) => a.code === "ADR13-A")).toBe(true);
 
     await featureRouter.createCaller(ctx()).set({ key: "tool-register", state: "hidden" });
 
     const after = await assetRouter.createCaller(ctx()).list();
-    expect(after.some((a) => a.tag === "ADR13-A")).toBe(true);
+    expect(after.some((a) => a.code === "ADR13-A")).toBe(true);
     expect(after.length).toBe(before.length);
   });
 

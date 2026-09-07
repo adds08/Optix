@@ -114,7 +114,7 @@ export function JobsiteActivity({
             {rows.map((r) => {
               const meta = EVENT_META[r.eventType] ?? { icon: Activity, label: "Updated" };
               const Icon = meta.icon;
-              const title = r.tag ?? (formatAssetModel(r) || "A tool");
+              const title = r.code ?? (formatAssetModel(r) || "A tool");
               return (
                 <li key={r.id} className="flex gap-2.5 px-3 py-2">
                   <span

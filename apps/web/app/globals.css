@@ -86,6 +86,20 @@
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  /*
+    Space Grotesk, declared in `app/layout.tsx`. The FIRST-CONTACT display
+    face: the welcome wizard's headings and the onboarding progress screen,
+    nothing else yet.
+
+    Deliberately a new token rather than repointing `--font-heading` above,
+    which is aliased to sans and used by nothing. Repointing it would restyle
+    every heading in the product as a side effect of an onboarding change,
+    which is a product-wide decision and not this one. If a broader refresh
+    ever adopts the display face, `--font-heading` is where it goes.
+
+    Chosen to echo `optix-mark.tsx` — see the note beside the font import.
+  */
+  --font-display: var(--font-display);
 }
 
 /*
@@ -423,6 +437,22 @@
     animation: sti-draw-in 0.6s ease-out forwards;
   }
 
+  /* The wizard's photo-panel copy, cross-fading as the step changes. Keyed on
+     the caption in `auth-slideshow.tsx`, so React remounts the block and the
+     animation runs again on every step. Durations match `DUR.base` /
+     `EASE.out` in `lib/motion.ts` — the same curve the step content uses, so
+     the two halves of the screen move together rather than in sequence. */
+  @keyframes sti-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .sti-fade-in {
+    animation: sti-fade-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sti-fade-in { animation: none; }
+  }
+
   /* ~~The auth panel's line art~~ — `.sti-ink` draw-on, `.sti-route` marching
      dashes, `.sti-token` riding an offset-path, `.sti-arrive` station flares
      and the `.sti-sweep` scanner. Removed 2026-09-01 with `auth-panel.tsx`:
@@ -707,4 +737,26 @@ tr.sti-freeze-row > .sti-freeze {
    this is not the leading-prefix freeze above and carries no count. */
 .sti-freeze-edge-right {
   box-shadow: -1px 0 0 0 var(--border);
+}
+
+/* Raster map tiles, toned to the palette.
+
+   OpenStreetMap serves a bright daylight map, which is correct on paper and
+   wrong on a dark product — on the onboarding screen it was one glaring white
+   rectangle in the middle of a navy page, the only surface not in the palette.
+   Inverting and re-rotating the hue is the usual way to darken raster tiles
+   without hosting a second tile set: `invert` flips the paper to near-black,
+   `hue-rotate(180deg)` puts the greens and blues back the right way round, and
+   the small brightness/contrast trim stops the roads glowing.
+
+   Scoped to the TILE LAYER, never the map container. Filtering the container
+   would drag the markers, the radius and the zoom controls through the same
+   inversion, which is how a blue pin turns orange. `react-leaflet`'s
+   `className` on <TileLayer> lands on the tile pane, which is exactly the
+   right element.
+
+   Not applied to the fleet map, which has the same brightness problem and is
+   its own decision — see the comment at the TileLayer in pin-picker-map.tsx. */
+.sti-map-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
 }

@@ -26,7 +26,7 @@ type AuditRow = {
   eventType: string;
   occurredAt: Date;
   note: string | null;
-  tag: string | null;
+  code: string | null;
   model: string;
   actorName: string | null;
 };
@@ -62,10 +62,10 @@ export default function AuditTrailPage() {
     }),
     col<AuditRow>({
       header: "Tool",
-      accessorFn: (r) => r.tag ?? r.model,
+      accessorFn: (r) => r.code ?? r.model,
       cell: (r) => (
         <span className="flex items-center gap-2">
-          <Tag>{r.tag}</Tag>
+          <Tag>{r.code}</Tag>
           <span className="truncate text-muted-foreground">{r.model || "—"}</span>
         </span>
       ),

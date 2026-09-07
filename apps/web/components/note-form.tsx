@@ -5,7 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
+type Props = { open: boolean; onClose: () => void; assetId: string; assetCode: string };
 
 /*
   A real annotation, distinct from "Report an issue".
@@ -19,7 +19,7 @@ type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: st
   to `in_maintenance` or `lost`; that is why the two felt identical. This form
   is the note; ReportForm stays the report.
 */
-export function NoteForm({ open, onClose, assetId, assetTag }: Props) {
+export function NoteForm({ open, onClose, assetId, assetCode }: Props) {
   const utils = trpc.useUtils();
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -48,7 +48,7 @@ export function NoteForm({ open, onClose, assetId, assetTag }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add a note to {assetTag}</DialogTitle>
+          <DialogTitle>Add a note to {assetCode}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">

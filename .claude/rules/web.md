@@ -18,7 +18,7 @@ the `(app)` route group:
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/org-chart` ·
 `/admin/roles` · `/my-tools` · `/profile` · `/account/password` ·
 `/settings` + `/settings/ai` + `/settings/appearance` + `/settings/modules` +
-`/settings/team-roles` · `/design/*`
+`/settings/team-roles` · `/onboarding/progress` · `/design/*`
 
 **`/job-groups` was DELETED on 2026-09-03**, and job groups are alive and well — those are
 two different statements and the second is the important one.
@@ -77,12 +77,42 @@ rest mount after hydration, and `prefers-reduced-motion` holds the panel on that
 The indicators are `<span>`s on purpose: four tab stops in front of the email field is a real
 cost for a choice nobody signing in wants to make.
 
+**The panel takes an optional `slide`, and `/welcome` drives it** (2026-09-06). Passing one
+stops the 7-second rotation and hands the caller both the photograph and the copy; the
+wizard changes them per step, so the half of the screen that is not a form still responds
+when the person moves. Sign-in passes nothing and behaves exactly as it always has — this
+is additive, and the default arm is the sign-in arm. The dot indicators are hidden while
+driven: they would be counting photographs while the form counts steps, and two
+progress-looking things disagreeing is worse than one of them missing.
+
 Login is at `/`, not `/login`. Three more routes sit OUTSIDE `(app)`, unauthenticated by
 construction, added with the invite/reset work: `/forgot-password`, `/invite/[token]` and
 `/reset/[token]` (the last two share `AuthTokenForm`,
 `apps/web/components/auth-token-form.tsx`). They call `apps/api`'s auth endpoints directly
 via `lib/auth.ts`, the same way the login form does — not tRPC, because there is no session
 yet for a `protectedProcedure` to check.
+
+**`/welcome` also sits outside `(app)`, and unlike those three it IS authenticated** — it
+is the first-run setup wizard, and `app-shell.tsx` bounces an account whose onboarding is
+unfinished to it. It lives outside the group for a design reason rather than an auth one:
+it was built inside it first, and inheriting the shell meant a person who had never seen
+the product was handed a sidebar, a project switcher and a notification bell to parse
+before the first question — plus three links out of the one screen meant to hold them. It
+is deliberately shaped like the sign-in page next door (jobsite photograph, lockup, task)
+because the two are one sequence.
+
+Do not put the wizard back under `(app)`, and do not give the shell a "hide chrome" flag
+to fake it — `fullBleed` already exists for wall surfaces and is a different thing. Its
+oversight sibling `/onboarding/progress` is a normal in-app screen and correctly stays
+inside the group.
+
+**Centre a scroll region's content with `my-auto` on the child, never `justify-center` on
+the container.** On a scroll container, `justify-center` centres the overflow too: a block
+taller than the box has its top pushed above the scrollport, unreachable, because you
+cannot scroll to negative offset. That took the heading and the search field off the
+wizard's first step — visible instantly in a screenshot, invisible in the source, and
+`overflow` was correct in both versions. `my-auto` centres when there is room and collapses
+to nothing when there is not.
 
 ## Data flow
 

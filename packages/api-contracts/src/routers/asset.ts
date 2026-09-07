@@ -75,7 +75,7 @@ export const assetRouter = router({
         const q = `%${input.search}%`;
         conditions.push(
           or(
-            ilike(schema.asset.tag, q),
+            ilike(schema.asset.code, q),
             ilike(schema.asset.make, q),
             ilike(schema.asset.modelNumber, q),
             ilike(schema.asset.description, q),
@@ -96,7 +96,7 @@ export const assetRouter = router({
         .select({
           id: schema.asset.id,
           assetNumber: schema.asset.assetNumber,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,
           description: schema.asset.description,
@@ -114,10 +114,10 @@ export const assetRouter = router({
           condition: schema.asset.condition,
           custodianId: schema.asset.currentCustodianId,
           custodianName: schema.employee.name,
-          custodianExternalId: schema.employee.externalId,
+          custodianExternalId: schema.employee.code,
           currentProjectId: schema.asset.currentProjectId,
           currentProjectName: currentProject.name,
-          currentProjectExternalId: currentProject.externalId,
+          currentProjectExternalId: currentProject.code,
           locationId: schema.asset.currentLocationId,
           locationName: schema.location.name,
           /* A vehicle is a `location` of type vehicle — but the register groups
@@ -188,7 +188,7 @@ export const assetRouter = router({
         .select({
           id: schema.asset.id,
           assetNumber: schema.asset.assetNumber,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,
           description: schema.asset.description,
@@ -205,10 +205,10 @@ export const assetRouter = router({
           condition: schema.asset.condition,
           custodianId: schema.asset.currentCustodianId,
           custodianName: schema.employee.name,
-          custodianExternalId: schema.employee.externalId,
+          custodianExternalId: schema.employee.code,
           currentProjectId: schema.asset.currentProjectId,
           currentProjectName: currentProject.name,
-          currentProjectExternalId: currentProject.externalId,
+          currentProjectExternalId: currentProject.code,
           locationId: schema.asset.currentLocationId,
           locationName: schema.location.name,
           currentTruckId: activeAssignment.truckId,
@@ -280,7 +280,7 @@ export const assetRouter = router({
               employeeId: schema.projectTeamMember.employeeId,
               role: schema.projectTeamMember.role,
               name: schema.employee.name,
-              externalId: schema.employee.externalId,
+              externalId: schema.employee.code,
             })
             .from(schema.projectTeamMember)
             .innerJoin(schema.employee, eq(schema.projectTeamMember.employeeId, schema.employee.id))
@@ -299,7 +299,7 @@ export const assetRouter = router({
   create: requirePermission("asset.manage")
     .input(
       z.object({
-        tag: z.string().max(60).optional(),
+        code: z.string().max(60).optional(),
         make: z.string().max(80).optional(),
         modelNumber: z.string().max(80).optional(),
         description: z.string().max(200).optional(),
@@ -343,7 +343,7 @@ export const assetRouter = router({
           this path checked nothing, so the one way to get two tools answering
           to the same tag was the single-asset form the desk uses most.
 
-          Worth being clear about what this is NOT protecting. `asset.tag` is a
+          Worth being clear about what this is NOT protecting. `asset.code` is a
           LABEL, not an identifier — `asset.id` is identity — so a duplicate is
           a data-quality problem for the people reading the register, never a
           referential one. That is also why this is a check and not a unique
@@ -355,14 +355,14 @@ export const assetRouter = router({
           creates of the same tag can both pass; the same is true of `update`,
           and the failure is a duplicate label rather than lost custody.
         */
-        if (input.tag) {
+        if (input.code) {
           const [clash] = await tx
             .select({ id: schema.asset.id })
             .from(schema.asset)
-            .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.tag, input.tag)))
+            .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.code, input.code)))
             .limit(1);
           if (clash) {
-            throw new TRPCError({ code: "CONFLICT", message: `${input.tag} is already in the register` });
+            throw new TRPCError({ code: "CONFLICT", message: `${input.code} is already in the register` });
           }
         }
 
@@ -402,7 +402,7 @@ export const assetRouter = router({
           action: "create",
           entityType: "asset",
           entityId: row.id,
-          entityLabel: row.tag ?? label,
+          entityLabel: row.code ?? label,
         });
       }
       return row;
@@ -425,7 +425,7 @@ export const assetRouter = router({
     .input(
       z.object({
         id: z.string().uuid(),
-        tag: z.string().max(60).optional(),
+        code: z.string().max(60).optional(),
         make: z.string().max(80).nullable().optional(),
         modelNumber: z.string().max(80).nullable().optional(),
         description: z.string().max(200).nullable().optional(),
@@ -453,11 +453,11 @@ export const assetRouter = router({
 
       /* A tag is how everyone refers to the tool out loud; two rows answering
          to the same one makes every conversation ambiguous. */
-      if (changes.tag && changes.tag !== existing.tag) {
+      if (changes.code && changes.code !== existing.code) {
         const clash = await ctx.db.query.asset.findFirst({
-          where: and(eq(schema.asset.tenantId, tid), eq(schema.asset.tag, changes.tag)),
+          where: and(eq(schema.asset.tenantId, tid), eq(schema.asset.code, changes.code)),
         });
-        if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.tag} is already in the register` });
+        if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.code} is already in the register` });
       }
 
       /* `costTarget` is optional on update, so the refine runs against the
@@ -498,7 +498,7 @@ export const assetRouter = router({
         action: "update",
         entityType: "asset",
         entityId: id,
-        entityLabel: row?.tag ?? existing.tag ?? formatAssetModel(existing),
+        entityLabel: row?.code ?? existing.code ?? formatAssetModel(existing),
         details: { changed: Object.keys(patch) },
       });
       return row;
@@ -718,7 +718,7 @@ export const assetRouter = router({
         .select({
           assetId: schema.asset.id,
           assetNumber: schema.asset.assetNumber,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           status: schema.asset.currentStatus,
           custodianId: schema.asset.currentCustodianId,
           projectId: schema.asset.currentProjectId,
@@ -726,7 +726,7 @@ export const assetRouter = router({
         })
         .from(schema.asset)
         .where(eq(schema.asset.tenantId, tid))
-    ).map((a) => ({ ...a, label: a.tag ? `#${a.assetNumber} ${a.tag}` : `#${a.assetNumber}` }));
+    ).map((a) => ({ ...a, label: a.code ? `#${a.assetNumber} ${a.code}` : `#${a.assetNumber}` }));
     const events = await tenantLedger(ctx.db, tid);
     const divergences = reconcileProjections(projected, events);
     return { assetsChecked: projected.length, totalEvents: events.length, divergences };

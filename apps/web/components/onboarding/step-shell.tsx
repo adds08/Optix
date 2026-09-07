@@ -1,5 +1,6 @@
 "use client";
 
+import { createContext, useContext, useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { DUR, EASE } from "@/lib/motion";
 
@@ -22,7 +23,32 @@ import { DUR, EASE } from "@/lib/motion";
   `mode="wait"` so the outgoing step is gone before the incoming one lands.
   Overlapping them makes two headings visible at once, which on a form reads as
   a glitch rather than a transition.
+
+  THE LEAFLET TRAP, found live in a browser rather than guessed at. The
+  location step's map crashed on EVERY entry with "Cannot read properties of
+  undefined (reading '_leaflet_events')" — reproducible, not intermittent —
+  and only while mounting into this wrapper's enter animation, never on a
+  plain page load. Leaflet measures its container's layout when it
+  initializes, and this wrapper's `x` is a live CSS transform for the whole
+  `DUR.route` of that animation: `MapContainer` was reading its size off an
+  ancestor whose geometry was still changing every frame, which is not a state
+  Leaflet's internal event wiring tolerates.
+
+  `StepReady` is the fix, exported so any future step with the same problem
+  (a canvas, a chart, anything that measures its own DOM on mount) can use it
+  without rediscovering this. It answers one question — "has this step's
+  entrance animation finished" — via `onAnimationComplete`, and a step that
+  needs a stable container waits for it before mounting the fussy child.
+  `useStepReady` defaults to `true` once `prefers-reduced-motion` holds this at
+  a plain fade, since a fade never moves the container in the first place.
 */
+const StepReadyContext = createContext(false);
+
+/* True once THIS step's own enter transition has finished settling. */
+export function useStepReady() {
+  return useContext(StepReadyContext);
+}
+
 export function StepShell({
   stepKey,
   direction,
@@ -35,6 +61,14 @@ export function StepShell({
 }) {
   const reduced = useReducedMotion();
   const travel = reduced ? 0 : 24;
+  const [ready, setReady] = useState(reduced ?? false);
+
+  /* A fresh flag per step, not carried over from the previous one — otherwise
+     the FIRST step after a reduced-motion mount would inherit `true` from a
+     step that never actually finished animating in. */
+  useEffect(() => {
+    setReady(!!reduced);
+  }, [stepKey, reduced]);
 
   return (
     <AnimatePresence mode="wait" initial={false} custom={direction}>
@@ -49,8 +83,9 @@ export function StepShell({
             ? { duration: DUR.fast }
             : { duration: DUR.route, ease: EASE.out }
         }
+        onAnimationComplete={() => setReady(true)}
       >
-        {children}
+        <StepReadyContext.Provider value={ready}>{children}</StepReadyContext.Provider>
       </motion.div>
     </AnimatePresence>
   );

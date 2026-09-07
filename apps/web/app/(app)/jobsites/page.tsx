@@ -307,7 +307,7 @@ export default function JobsitesPage() {
         const rigText = `${person?.name ?? ""} ${rig.truck?.unit ?? ""} ${rig.truck?.makeModel ?? ""} ${rig.trailer?.unit ?? ""}`;
         const visible = crewTools.filter(
           (t) =>
-            (jobHit || hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} ${rigText}`)) &&
+            (jobHit || hit(`${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} ${rigText}`)) &&
             toolOk(t),
         );
         crews.push({
@@ -364,7 +364,7 @@ export default function JobsitesPage() {
         (t) =>
           !t.custodianId &&
           !foremanFilter &&
-          (jobHit || hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`)) &&
+          (jobHit || hit(`${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`)) &&
           toolOk(t),
       );
       const toolCount = crews.reduce((n, c) => n + c.tools.length, 0) + loose.length;
@@ -410,7 +410,7 @@ export default function JobsitesPage() {
         const rig = rigOf(f.id, vehicles.data ?? []);
         const visible = crewTools.filter(
           (t) =>
-            hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`) &&
+            hit(`${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`) &&
             toolOk(t),
         );
         noJobCrews.push({
@@ -431,7 +431,7 @@ export default function JobsitesPage() {
       const yardTools = forProject(null).filter(
         (t) =>
           !t.custodianId &&
-          hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} yard`) &&
+          hit(`${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} yard`) &&
           toolOk(t),
       );
       out.push({

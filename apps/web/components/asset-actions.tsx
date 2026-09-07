@@ -22,11 +22,11 @@ import { NoteForm } from "@/components/note-form";
 */
 export function AssetActions({
   assetId,
-  assetTag,
+  assetCode,
   heldBySomeone,
 }: {
   assetId: string;
-  assetTag: string;
+  assetCode: string;
   heldBySomeone: boolean;
 }) {
   const [open, setOpen] = useState<"assign" | "transfer" | "report" | "note" | null>(null);
@@ -104,13 +104,13 @@ export function AssetActions({
         <AssignForm open onClose={close} preselectedAssetId={assetId} />
       ) : null}
       {open === "transfer" ? (
-        <TransferForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+        <TransferForm open onClose={close} assetId={assetId} assetCode={assetCode} />
       ) : null}
       {open === "note" ? (
-        <NoteForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+        <NoteForm open onClose={close} assetId={assetId} assetCode={assetCode} />
       ) : null}
       {open === "report" ? (
-        <ReportForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+        <ReportForm open onClose={close} assetId={assetId} assetCode={assetCode} />
       ) : null}
     </div>
   );

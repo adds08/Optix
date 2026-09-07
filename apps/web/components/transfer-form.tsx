@@ -9,9 +9,9 @@ import { RidePicker } from "./ride-picker";
 import { useViewTier } from "./use-permissions";
 import { humanize } from "./sti/status";
 
-type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
+type Props = { open: boolean; onClose: () => void; assetId: string; assetCode: string };
 
-export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
+export function TransferForm({ open, onClose, assetId, assetCode }: Props) {
   const tier = useViewTier();
   const utils = trpc.useUtils();
   const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: tier === "assets.view.crew" });
@@ -125,7 +125,7 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
           <DialogTitle>Transfer Tool</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Transferring: <span className="font-medium text-foreground">{assetTag}</span></p>
+          <p className="text-sm text-muted-foreground">Transferring: <span className="font-medium text-foreground">{assetCode}</span></p>
           <div className="space-y-2">
             <label className="text-sm font-medium">To custodian</label>
             <EntityField

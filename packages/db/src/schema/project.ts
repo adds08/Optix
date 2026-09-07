@@ -6,9 +6,27 @@ export const project = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    /* The project code shown to users — see `.claude/rules/database.md`. Also the
-       FoundationSoft / Mark 85 map (seam for future sync). */
-    externalId: text("external_id"),
+    /*
+      THE JOB'S CODE — "22018", "23004". What Urban calls this job and what
+      everybody reads off a screen or says on the phone.
+
+      Named `code` since 2026-09-07, matching every other entity. The rule is
+      the client's: a `code` is the COMPANY's own identifier, an `external_id`
+      is a foreign system's primary key. This column has only ever held job
+      numbers Urban assigns.
+
+      It was called `external_id`, and its own comment claimed both jobs at once
+      — "the project code shown to users" AND "the FoundationSoft / Mark 85 map".
+      Those are two different facts in one column, and a sync that believed the
+      second would have overwritten every job number in the register. Exactly
+      the conflation `employee.external_id` was renamed out of in migration
+      0050; this is the other half of that change.
+
+      A foreign system's key does NOT go here. It goes in an external-ref row,
+      the way `employee_external_ref` holds BambooHR's, because one column holds
+      exactly one foreign system and this codebase already names three.
+    */
+    code: text("code"),
     name: text("name").notNull(),
     description: text("description"),
     // not_awarded | awarded | in_progress | completed | cancelled | on_hold — see PROJECT_STATUSES

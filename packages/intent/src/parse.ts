@@ -20,7 +20,7 @@ export type LlmConfig = {
 };
 
 export type AssetDraft = {
-  tag: string | null;
+  code: string | null;
   make: string | null;
   modelNumber: string | null;
   description: string | null;
@@ -78,7 +78,10 @@ export function normalizeDraft(raw: unknown): AssetDraft | null {
   if (!raw || typeof raw !== "object") return null;
   const d = raw as Record<string, unknown>;
   const out: AssetDraft = {
-    tag: draftField(d.tag),
+    /* The model may still say `tag` — the field was renamed to `code`
+       on 2026-09-07 and an LLM prompt is not a schema we control
+       retroactively. Accept both, prefer the new name. */
+    code: draftField(d.code ?? d.tag),
     make: draftField(d.make),
     modelNumber: draftField(d.modelNumber),
     description: draftField(d.description),

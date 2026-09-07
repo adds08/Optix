@@ -174,10 +174,18 @@ whatever arrives next, so when two of them disagree about who is on a job the
 reconciliation has to know which one wrote the row. That is unanswerable
 retrospectively, which is why the column landed before a second writer existed.
 
-**`tbl_entity_employee.external_id` is the HR-issued employee ID, and it is a
-naming trap.** Urban sometimes calls that identifier "contact". It has nothing to
-do with `tbl_entity_employee_contact`, which holds phone numbers and email
+**`tbl_entity_employee.code` is the HR-issued employee ID, and it is a naming
+trap.** Urban sometimes calls that identifier "contact". It has nothing to do
+with `tbl_entity_employee_contact`, which holds phone numbers and email
 addresses. The schema comment says so at the column; do not let the two meet.
+
+The column was called `external_id` until 2026-09-06 (migration `0050`), which
+was a second trap: it is the company's OWN code, assigned at company level and
+the same across every system Urban runs — not a foreign system's key. Foreign
+keys live in `tbl_entity_employee_external_ref`, one row per (person, system).
+The tRPC contract still calls the field `externalId` on the wire; the column is
+what was made truthful. `tbl_entity_project.external_id` still carries both
+meanings and was deliberately left alone.
 
 `tbl_entity_employee.role_id` is the source of truth for a person's system role;
 `company_role_id` is their job title. The two are separate columns because they

@@ -49,14 +49,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 */
 export function ToolMenu({
   assetId,
-  assetTag,
+  assetCode,
   heldBySomeone,
   onEdit,
   onDelete,
   deleting,
 }: {
   assetId: string;
-  assetTag: string;
+  assetCode: string;
   heldBySomeone: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -101,7 +101,7 @@ export function ToolMenu({
         }}
       >
         <ActionMenuTrigger
-          label={assetTag}
+          label={assetCode}
           busy={
             submit.isPending || deleting ? <Loader2 className="size-3.5 animate-spin" /> : undefined
           }
@@ -114,7 +114,7 @@ export function ToolMenu({
         />
 
         <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
-          <DropdownMenuLabel>{assetTag}</DropdownMenuLabel>
+          <DropdownMenuLabel>{assetCode}</DropdownMenuLabel>
 
           {/* Two groups and no more — the same split as `RowActions`, and the
               reasoning is written out there. Everything above the Table heading
@@ -139,7 +139,7 @@ export function ToolMenu({
                     onSelect={() => submit.mutate({ type: "return", assetIds: [assetId] })}
                   >
                     <CornerUpLeft />
-                    Really return {assetTag} to the yard?
+                    Really return {assetCode} to the yard?
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
@@ -210,7 +210,7 @@ export function ToolMenu({
             confirming === "delete" ? (
               <DropdownMenuItem variant="danger" onSelect={onDelete}>
                 <Trash2 />
-                Really delete {assetTag}?
+                Really delete {assetCode}?
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
@@ -250,16 +250,16 @@ export function ToolMenu({
         <AssignForm open onClose={close} preselectedAssetId={assetId} />
       ) : null}
       {open === "transfer" ? (
-        <TransferForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+        <TransferForm open onClose={close} assetId={assetId} assetCode={assetCode} />
       ) : null}
       {open === "report" ? (
-        <ReportForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+        <ReportForm open onClose={close} assetId={assetId} assetCode={assetCode} />
       ) : null}
       {open === "note" ? (
-        <NoteForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+        <NoteForm open onClose={close} assetId={assetId} assetCode={assetCode} />
       ) : null}
       {open === "condition" ? (
-        <ConditionForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+        <ConditionForm open onClose={close} assetId={assetId} assetCode={assetCode} />
       ) : null}
 
       {/* Change status — a held tool is never "available" (that means unheld in
@@ -269,7 +269,7 @@ export function ToolMenu({
         <Dialog open onOpenChange={(o) => !o && setOpen(null)}>
           <DialogContent className="sm:max-w-xs">
             <DialogHeader>
-              <DialogTitle>Change status of {assetTag}</DialogTitle>
+              <DialogTitle>Change status of {assetCode}</DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-1 gap-1.5">
               {/* `as const` so the array is the four literals rather than

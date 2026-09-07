@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/components/use-permissions";
 import { isFieldRole } from "@/components/sti/nav-config";
+import { trpc } from "@/lib/trpc";
 import { ProjectMonitor } from "@/components/sti/monitor/project-monitor";
 
 /*
@@ -25,10 +26,30 @@ import { ProjectMonitor } from "@/components/sti/monitor/project-monitor";
 export default function HomePage() {
   const router = useRouter();
   const { role } = usePermissions();
+  /*
+    First-run setup wins over this redirect, and the ORDER is the whole reason
+    this query is here.
+
+    Both fire on the same sign-in. This one only needs `role`, which lands with
+    `identity.me`; the wizard gate in `app-shell.tsx` waits for
+    `onboarding.state`, which lands later. So a field role who had never set up
+    was bounced to `/my-tools` first, and because that is a client-side
+    navigation the shell never remounts and its gate's dependencies never change
+    again — the wizard simply never opened. Reproducible on every single
+    sign-in as a superintendent, and invisible on a hard reload, which is what
+    made it look like it worked.
+
+    Waiting for DATA rather than checking `isPending`: this query is disabled
+    until `me` resolves, and a disabled query is not pending, so `isPending`
+    would wave the redirect straight through the window it is meant to close.
+  */
+  const onboarding = trpc.onboarding.state.useQuery();
 
   useEffect(() => {
+    if (!onboarding.data) return;
+    if (onboarding.data.shouldPrompt) return;
     if (isFieldRole(role)) router.replace("/my-tools");
-  }, [role, router]);
+  }, [role, router, onboarding.data]);
 
   return <ProjectMonitor />;
 }

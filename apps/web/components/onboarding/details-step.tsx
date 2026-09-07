@@ -35,20 +35,13 @@ export function DetailsStep() {
 
   return (
     <section className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-sm font-medium">Anything missing on those jobs?</h2>
-        <p className="text-xs text-muted-foreground">
-          Only what isn't recorded yet. A job with nothing missing won't ask.
-        </p>
-      </div>
-
       {error && <ErrorNote message={error} />}
       {claimed.isLoading && <TableSkeleton />}
       {claimed.error && <ErrorNote message={claimed.error.message} />}
 
       {claimed.data && claimed.data.length === 0 && (
         <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-          You haven't claimed a job yet — go back a step to pick one.
+          You're not on any jobs yet, so there's nothing to set here.
         </p>
       )}
 

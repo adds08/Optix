@@ -162,7 +162,7 @@ export default function ToolsPage() {
   const selectedLabels = useMemo(() => {
     const out: Record<string, string> = {};
     for (const r of all) {
-      if (selectedIds.has(r.id)) out[r.id] = r.tag ?? formatAssetModel(r) ?? "Untagged tool";
+      if (selectedIds.has(r.id)) out[r.id] = r.code ?? formatAssetModel(r) ?? "Untagged tool";
     }
     return out;
   }, [all, selectedIds]);
@@ -172,24 +172,16 @@ export default function ToolsPage() {
   const TABLE_COLUMNS: ColumnDef<Row>[] = useMemo(
     () => [
       col<Row>({
-        /* The manufacturer's serial when there is one; a hand-typed stand-in,
-           flagged, when there isn't. Leads the table — the same "code before
-           name" convention as Employee Code and Project Code — because this
-           is the identifier a person actually reads off the tool. */
+        /* THE tool's code — Urban's own, the value a person reads off the
+           tool and says out loud. Matches Employee Code and Project Code, and
+           renders `—` when a tool has not been labelled yet, which is a normal
+           state rather than missing data. */
         header: "Code",
-        accessorFn: (r) => r.serialNumber ?? "",
-        width: "9rem",
+        accessorFn: (r) => r.code ?? "",
+        width: "6.5rem",
         cell: (r) => (
           <Link href={`/tools/${r.id}`} className="hover:underline">
-            <span className="inline-flex items-center gap-1 font-mono text-xs">
-              {r.serialNumber ?? <span className="text-muted-foreground">—</span>}
-              {r.isManualCode ? (
-                <Pencil
-                  className="size-3 shrink-0 text-muted-foreground"
-                  aria-label="Manually entered, not a scanned serial"
-                />
-              ) : null}
-            </span>
+            {r.code ? <Tag>{r.code}</Tag> : <span className="text-muted-foreground">—</span>}
           </Link>
         ),
       }),
@@ -208,12 +200,31 @@ export default function ToolsPage() {
         ),
       }),
       col<Row>({
-        header: "Tag",
-        accessorFn: (r) => r.tag ?? "",
-        width: "6.5rem",
+        /*
+          The MANUFACTURER's serial when there is one; a hand-typed stand-in,
+          flagged, when there isn't.
+
+          Labelled "Serial", not "Code", since 2026-09-07. It was called Code
+          and sat in the leading column, while the tool's actual code sat two
+          columns right under the header "Tag" — so the register showed a
+          Bosch part number where every other screen shows the company's own
+          identifier. The rule is one line: a CODE is Urban's, a serial is the
+          manufacturer's. Only 346 of 753 tools have one at all.
+        */
+        header: "Serial",
+        accessorFn: (r) => r.serialNumber ?? "",
+        width: "9rem",
         cell: (r) => (
           <Link href={`/tools/${r.id}`} className="hover:underline">
-            <Tag>{r.tag}</Tag>
+            <span className="inline-flex items-center gap-1 font-mono text-xs">
+              {r.serialNumber ?? <span className="text-muted-foreground">—</span>}
+              {r.isManualCode ? (
+                <Pencil
+                  className="size-3 shrink-0 text-muted-foreground"
+                  aria-label="Manually entered, not a scanned serial"
+                />
+              ) : null}
+            </span>
           </Link>
         ),
       }),
@@ -331,7 +342,7 @@ export default function ToolsPage() {
         cell: (r) => (
           <ToolMenu
             assetId={r.id}
-            assetTag={r.tag ?? "Untagged tool"}
+            assetCode={r.code ?? "Untagged tool"}
             heldBySomeone={!!r.custodianId}
             onEdit={() => setEditing(editableFrom(r))}
           />
@@ -384,7 +395,7 @@ export default function ToolsPage() {
      ReportTable's pretty export. */
   const exportAll = () => {
     const rows = all.map((r) => ({
-      tag: r.tag,
+      tag: r.code,
       make: r.make,
       modelNumber: r.modelNumber,
       description: r.description,
@@ -423,7 +434,7 @@ export default function ToolsPage() {
   /* One shape for the edit dialog, used by the card menu and the table. */
   const editableFrom = (r: (typeof all)[number]): AssetEditable => ({
     id: r.id,
-    tag: r.tag ?? "",
+    code: r.code ?? "",
     make: r.make,
     modelNumber: r.modelNumber,
     description: r.description,

@@ -59,7 +59,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
-up: ## Build + start postgres, api, web (detached); seeds on first boot
+up: ## Build + start postgres, api, web, mailpit (detached); seeds on first boot
 	$(COMPOSE) up -d --build
 	@$(COMPOSE) exec -T api sh -c "cd /workspace/packages/db && pnpm seed" >/dev/null 2>&1 || true
 	@echo ""
@@ -86,8 +86,37 @@ logs: ## Tail logs from all services
 ps: ## Show running containers
 	$(COMPOSE) ps
 
-seed: ## Populate sample data (idempotent; SEED_RESET=1 to wipe first)
-	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm seed"
+# SEED_RESET / SEED_DATASET / SEED_OWNER_PASSWORD are forwarded EXPLICITLY.
+# `docker compose exec` does not inherit the caller's environment, so
+# `SEED_RESET=1 make seed` silently seeded nothing before this — the seed saw no
+# variable, found a tenant already there, and skipped.
+SEED_ENV = -e SEED_RESET="$(SEED_RESET)" -e SEED_DATASET="$(SEED_DATASET)" -e SEED_OWNER_PASSWORD="$(SEED_OWNER_PASSWORD)"
+
+seed: ## Populate sample data (SEED_RESET=1 to wipe first; SEED_DATASET=urban for the real register)
+	$(COMPOSE) exec $(SEED_ENV) api sh -c "cd /workspace/packages/db && pnpm seed"
+
+seed-urban: ## Wipe and load Urban's REAL register (83 people, 753 tools). Local only.
+	@echo "This WIPES the local database and loads Urban's real data."
+	@echo "Note: the sign-in page's demo-account list names accounts this dataset"
+	@echo "      does NOT have. Keep NEXT_PUBLIC_SHOW_DEMO_LOGINS=0 in .env.local."
+	$(COMPOSE) exec -e SEED_RESET=1 -e SEED_DATASET=urban \
+		-e SEED_OWNER_PASSWORD="$(or $(SEED_OWNER_PASSWORD),stinventory-demo)" \
+		api sh -c "cd /workspace/packages/db && pnpm seed"
+
+reset-bare: ## Empty the register (no employees/tools/jobs), KEEP the logins
+	@echo "This DELETES every employee, tool, job, vehicle, custody and ledger row."
+	@echo "It KEEPS the tenant, permissions, roles, settings and both logins:"
+	@echo "  optix_it@optixtec.com / tech@optixtec.com"
+	@echo "Nothing is re-seeded. Run 'make seed-urban' or 'make seed-demo' after"
+	@echo "if you want a dataset back."
+	@echo ""
+	$(COMPOSE) exec -T postgres psql -U postgres -d $(or $(POSTGRES_DB),stinventory) \
+		-v ON_ERROR_STOP=1 -f /dev/stdin < packages/db/sql/empty-register.sql
+
+seed-demo: ## Wipe and load the demo FIXTURE — what rbac-matrix.test.ts needs. Run before the test suite.
+	@echo "Tip: set NEXT_PUBLIC_SHOW_DEMO_LOGINS=1 in .env.local to get the"
+	@echo "     one-click account list back; those accounts exist in THIS dataset."
+	$(COMPOSE) exec -e SEED_RESET=1 api sh -c "cd /workspace/packages/db && pnpm seed"
 
 generate: ## Generate a migration from schema changes (commit the result)
 	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm generate"

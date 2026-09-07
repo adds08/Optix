@@ -2,10 +2,11 @@ import { and, eq, isNull, inArray, desc } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
-import { adjacentTiers } from "@stinventory/domain";
+import { adjacentTiers, descendantsOf } from "@stinventory/domain";
 import type { Permission } from "@stinventory/types";
 import { protectedProcedure, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
+import { viewTierOf } from "../scope.js";
 import { BUILT_IN_PERM } from "./projectTeam.js";
 
 /*
@@ -24,10 +25,17 @@ import { BUILT_IN_PERM } from "./projectTeam.js";
   exception to that. What a foreman gets instead is the confirmation step: their
   superintendent already recorded them, and they see it.
 
-  So this router owns only three things:
+  So this router owns:
     - the per-user state row (where am I up to, am I done)
     - the deferral record (I am deliberately leaving this tier to my boss)
-    - the read that assembles a person's wizard from tables owned elsewhere
+    - reads that assemble a person's wizard, and a boss's view of their crew's
+      wizards, from tables owned elsewhere
+
+  `progress` (bottom of this file) is the last of those: it computes, never
+  stores. There is no `onboarding_progress` table — this codebase's one idea
+  is that state is calculated from what happened rather than typed into a
+  field, and a stored percentage would be the same mistake this whole feature
+  exists to avoid, just moved one screen over.
 */
 
 /* The wizard's steps, in order. Exported so the client cannot drift from the
@@ -78,7 +86,7 @@ export const onboardingRouter = router({
 
     `shouldPrompt` is computed HERE rather than in the shell, so the redirect
     rule lives beside the data it reads instead of being re-derived in a
-    `useEffect`. Two accounts never get prompted:
+    `useEffect`. Three accounts never get prompted:
 
     - Somebody with no employee record. Roughly seven seeded accounts have a null
       `employeeId` — owner@, finance@, office@ and the rest — and every scoped
@@ -89,18 +97,96 @@ export const onboardingRouter = router({
       than everything for them.
     - Somebody still owing a password change. That redirect already owns the
       first page load, and two competing redirects is a loop.
+    - **Somebody on no jobs.** An employee record is not enough: an equipment
+      admin, a mechanic and the yard desk all have one and sit on zero crew
+      rows, because they serve every job rather than working on any. This
+      wizard's first question is "which of your jobs is this about", so for
+      them every step is empty and the finish button records nothing. They were
+      being prompted, and answering honestly took five clicks to reach a screen
+      that said they had claimed nothing.
+
+      Keyed on the ROSTER, not on the role name. A role list would be wrong the
+      day a tenant adds a role — and `nav-config`'s role-name branch is already
+      the last one in the product for exactly that reason. A mechanic who genuinely
+      is put on a job gets the wizard; an office-bound PM does not.
   */
   state: protectedProcedure.query(async ({ ctx }) => {
     const row = await ensureRow(ctx);
     const hasEmployee = !!ctx.session.employeeId;
+
+    /* One row is enough — this asks "is this person on any job at all", so
+       LIMIT 1 rather than a count of jobs nobody reads. */
+    const [anyJob] = hasEmployee
+      ? await ctx.db
+          .select({ id: schema.projectTeamMember.id })
+          .from(schema.projectTeamMember)
+          .where(
+            and(
+              eq(schema.projectTeamMember.tenantId, ctx.session.tenantId),
+              eq(schema.projectTeamMember.employeeId, ctx.session.employeeId!),
+              isNull(schema.projectTeamMember.endedOn),
+            ),
+          )
+          .limit(1)
+      : [];
+    const onAnyJob = !!anyJob;
+
+    /*
+      WHICH wizard this person's role asks for, straight off the role register.
+
+      `none` means the role is never sent to onboarding at all — a technical
+      administrator or a finance account is not describing their own crew, and
+      the client asked for exactly this: "there might be some roles, especially
+      technical admins, super admins, that might not even require this
+      on-boarding screen".
+
+      Read from the ROLE ROW, never from a list of role names here. A name list
+      is wrong the day a tenant adds a role, which is the same reasoning that
+      keyed the rest of this procedure on the roster.
+
+      Defaults to `equipment` when a user somehow has no role row: the wizard is
+      harmless and skippable, whereas silently skipping setup for somebody who
+      needed it is not.
+    */
+    const [roleRow] = await ctx.db
+      .select({ onboardingKind: schema.role.onboardingKind })
+      .from(schema.userRole)
+      .innerJoin(schema.role, eq(schema.role.id, schema.userRole.roleId))
+      .where(eq(schema.userRole.userId, ctx.session.userId))
+      .limit(1);
+    const onboardingKind = roleRow?.onboardingKind ?? "equipment";
+    const wantsWizard = onboardingKind !== "none";
+
+    /* Finished for real: closed, and not closed by pressing Skip. */
+    const hasFinished = !!row.completedAt && !row.dismissedAt;
     return {
       currentStep: row.currentStep as OnboardingStep,
       completedAt: row.completedAt,
+      dismissedAt: row.dismissedAt,
       startedAt: row.startedAt,
       /* The shell reads only this. Keeping the reasons server-side means a new
          exemption is one edit here, not one here and one in the client. */
-      shouldPrompt: !row.completedAt && hasEmployee,
+      shouldPrompt: !row.completedAt && wantsWizard && hasEmployee && onAnyJob,
+      /*
+        Skipped and not since finished — what the sidebar's "setup unfinished"
+        notice reads. Deliberately NOT the same question as `shouldPrompt`: this
+        one never redirects anybody, it only offers a way back, which is the
+        whole difference between a nudge and a gate.
+
+        Gated on the same conditions as `shouldPrompt`, and for the same
+        reason: an account that would never be sent to the wizard must not be
+        told its setup is unfinished. That includes somebody on no jobs — the
+        sidebar would otherwise nag a mechanic forever about a wizard that has
+        nothing to ask them.
+      */
+      needsSetup: !!row.dismissedAt && !hasFinished && wantsWizard && hasEmployee && onAnyJob,
       hasEmployeeRecord: hasEmployee,
+      /* So the wizard can render the right questions, and so a screen can say
+         "your role does not need this" rather than showing empty steps. */
+      onboardingKind,
+      /* So the wizard itself can say why it is empty if somebody reaches
+         `/welcome` by typing the URL, rather than rendering five blank steps. */
+      onAnyJob,
       steps: ONBOARDING_STEPS,
     };
   }),
@@ -131,11 +217,19 @@ export const onboardingRouter = router({
     .input(z.object({ dismissed: z.boolean().default(false) }).optional())
     .mutation(async ({ ctx, input }) => {
       const row = await ensureRow(ctx);
-      if (row.completedAt) return { ok: true, alreadyDone: true };
+      /* Only a REAL finish is already-done. Somebody who skipped is closed but
+         not finished, and pressing Finish after coming back has to land. */
+      if (row.completedAt && !row.dismissedAt) return { ok: true, alreadyDone: true };
 
       await ctx.db
         .update(schema.userOnboarding)
-        .set({ completedAt: new Date(), updatedAt: new Date() })
+        .set({
+          completedAt: new Date(),
+          /* Explicitly nulled on a real finish, so somebody who skipped and
+             later came back stops being marked as skipped. */
+          dismissedAt: input?.dismissed ? new Date() : null,
+          updatedAt: new Date(),
+        })
         .where(and(eq(schema.userOnboarding.id, row.id), eq(schema.userOnboarding.tenantId, ctx.session.tenantId)));
 
       await logEvent(ctx, {
@@ -150,82 +244,124 @@ export const onboardingRouter = router({
     }),
 
   /*
-    The jobs this person can claim in step one.
+    Reopen the wizard for somebody who skipped it.
 
-    THE TRAP THIS SOLVES, worth the length. The obvious implementation is to
-    reuse `visibleProjectScope`, which is what every other project list uses. It
-    does not work here, and the failure is silent: that helper derives visibility
-    FROM roster rows and postings, and a newly invited foreman has neither —
-    those are what the wizard exists to create. So the honest reuse produces an
-    empty list for exactly the person being onboarded, the wizard dead-ends, and
-    the only accounts that see anything are the all-projects tier who least need
-    it.
+    Clears `completedAt` so the gate sends them back, and `dismissedAt` so the
+    sidebar's notice stops showing the moment they act on it. `currentStep` is
+    deliberately LEFT ALONE — they resume where they stopped, which is the whole
+    point of storing it, and somebody who skipped on step three has already done
+    steps one and two.
 
-    So the candidate list is deliberately WIDER than the person's normal
-    visibility, and that is a decision rather than an oversight:
+    Needs no permission: it reopens the caller's OWN wizard, reads the row by
+    session userId, and there is no id in the input that could point at anybody
+    else. Same shape as `setStep` and `complete` beside it.
+  */
+  resume: protectedProcedure.mutation(async ({ ctx }) => {
+    const row = await ensureRow(ctx);
+    /* A person who genuinely finished has nothing to resume, and reopening it
+       from a stale sidebar would drop them into a wizard they already
+       completed. */
+    if (row.completedAt && !row.dismissedAt) return { ok: true, reopened: false };
 
-      - It is a list of NAMES AND CODES of active jobs, nothing more. No tools,
-        no people, no costs. The equivalent of a job board on a site office wall.
-      - Claiming one does not grant access to it. Access still comes from the
-        roster row, written by `projectTeam.assign` under the caller's own
-        permissions, which may well refuse them.
-      - It is offered only while onboarding is unfinished.
+    await ctx.db
+      .update(schema.userOnboarding)
+      .set({ completedAt: null, dismissedAt: null, updatedAt: new Date() })
+      .where(and(eq(schema.userOnboarding.id, row.id), eq(schema.userOnboarding.tenantId, ctx.session.tenantId)));
 
-    An account that already has the all-projects tier gets the same list by a
-    different route, so the widening changes nothing for them.
+    await logEvent(ctx, {
+      category: "auth",
+      action: "onboarding.resumed",
+      entityType: "user_onboarding",
+      entityId: row.id,
+    });
+    return { ok: true, reopened: true };
+  }),
 
-    Completed and cancelled jobs are excluded: nobody is onboarded onto a job
-    that finished, and offering them is how a wrong claim gets made.
+  /*
+    Step one's list: THE JOBS THIS PERSON IS ON. Nothing else.
+
+    This used to be every active job in the tenant with a tick box, and the
+    tick wrote a `project_claim` — "I say I work here" — which granted nothing
+    and which the later steps then had to work around. It produced the defect
+    that killed the idea: a person ticked five jobs, and steps two through four
+    silently ignored four of them because editing a job needs a roster row.
+    The wizard then explained its own bookkeeping to somebody who had ticked a
+    box thirty seconds earlier and reasonably thought it meant something.
+
+    The rule now is the simple one: **you are on a job when somebody who runs
+    it puts you on it.** That is `project_team_member`, written through
+    `projectTeam.assign` under a real permission, and it is the only fact this
+    step reports. A person who thinks a job is missing takes that up with
+    whoever runs it — which is the same conversation the claim was standing in
+    for, minus a table.
+
+    This is read-only, so there is nothing to get wrong: no tick, no write, no
+    way for a person to put themselves on a job. `assertCanAssign` refusing a
+    superintendent their own tier stops being an awkward edge case, because
+    nothing here tries to assign anybody.
+
+    Ended rows are excluded, so a job somebody has come off does not reappear
+    at their next sign-in.
   */
   candidateProjects: protectedProcedure.query(async ({ ctx }) => {
     const tid = ctx.session.tenantId;
+    if (!ctx.session.employeeId) return [];
 
     const rows = await ctx.db
       .select({
         id: schema.project.id,
         name: schema.project.name,
-        externalId: schema.project.externalId,
+        externalId: schema.project.code,
         status: schema.project.status,
         siteAddress: schema.project.siteAddress,
+        teamRole: schema.projectTeamMember.role,
+        /* The tenant's own wording for the tier. LEFT joined and coalesced by
+           the caller: `projectTeamMember.role` is a name string, and a tenant
+           that renamed or removed a tier must not make a job vanish from
+           somebody's list over a missing label. */
+        teamRoleLabel: schema.teamRole.label,
       })
-      .from(schema.project)
-      .where(
+      .from(schema.projectTeamMember)
+      .innerJoin(schema.project, eq(schema.project.id, schema.projectTeamMember.projectId))
+      .leftJoin(
+        schema.teamRole,
         and(
-          eq(schema.project.tenantId, tid),
-          inArray(schema.project.status, ["awarded", "in_progress", "on_hold", "not_awarded"]),
+          eq(schema.teamRole.tenantId, tid),
+          eq(schema.teamRole.name, schema.projectTeamMember.role),
         ),
       )
-      .orderBy(desc(schema.project.startDate));
+      .where(
+        and(
+          eq(schema.projectTeamMember.tenantId, tid),
+          eq(schema.projectTeamMember.employeeId, ctx.session.employeeId),
+          isNull(schema.projectTeamMember.endedOn),
+          eq(schema.project.tenantId, tid),
+        ),
+      )
+      /* Stable order, same reasoning as every other list in this router: a
+         refetch must not reshuffle rows under somebody reading them. */
+      .orderBy(schema.project.name);
 
-    /* Which of them this person is already on, so the step can show them ticked
-       rather than inviting a duplicate claim `ptm_one_active_uq` would refuse. */
-    const mine = ctx.session.employeeId
-      ? await ctx.db
-          .select({ projectId: schema.projectTeamMember.projectId, role: schema.projectTeamMember.role })
-          .from(schema.projectTeamMember)
-          .where(
-            and(
-              eq(schema.projectTeamMember.tenantId, tid),
-              eq(schema.projectTeamMember.employeeId, ctx.session.employeeId),
-              isNull(schema.projectTeamMember.endedOn),
-            ),
-          )
-      : [];
-
-    const onIt = new Map(mine.map((m) => [m.projectId, m.role]));
-    return rows.map((r) => ({ ...r, alreadyOn: onIt.get(r.id) ?? null }));
+    return rows.map((r) => ({
+      ...r,
+      /* Kept so the client need not special-case a shape change. Everything
+         here is, by construction, a job the person is on. */
+      alreadyOn: true,
+      claimed: true,
+    }));
   }),
 
   /*
-    Steps two and three read this: the jobs the caller is ACTUALLY on, with
-    what's missing already computed, so the client never has to guess which
-    fields count as gaps.
+    Steps two and three read this: the jobs the caller is on, with what's
+    missing already computed, so the client never has to guess which fields
+    count as gaps.
 
-    Deliberately narrower than `candidateProjects`. Step one is wide on purpose
-    — a person with no roster row yet still needs to see jobs to claim. Steps
-    two and three are the opposite: filling in a job's address or dropping a
-    pin is an act ON that job, so it is scoped to jobs the person actually holds
-    a live roster row on, the same set `myTeamRole` reads.
+    Roster rows only, like `candidateProjects`. This once returned the UNION of
+    roster rows and `project_claim` ticks, which is what produced the bug that
+    retired claims altogether: `fillDetails` and `setLocation` both require a
+    roster row, so a claim-only job appeared here, offered its controls, and
+    then answered 403 when used. There is now one definition of "your jobs"
+    across every step of the wizard, and it is the one the mutations enforce.
 
     A job with nothing missing is not omitted — the client needs to render it as
     "already complete" rather than have it silently disappear, which would read
@@ -239,7 +375,7 @@ export const onboardingRouter = router({
       .select({
         id: schema.project.id,
         name: schema.project.name,
-        externalId: schema.project.externalId,
+        externalId: schema.project.code,
         description: schema.project.description,
         siteAddress: schema.project.siteAddress,
         startDate: schema.project.startDate,
@@ -255,28 +391,22 @@ export const onboardingRouter = router({
           eq(schema.projectTeamMember.tenantId, tid),
           eq(schema.projectTeamMember.employeeId, ctx.session.employeeId),
           isNull(schema.projectTeamMember.endedOn),
+          eq(schema.project.tenantId, tid),
         ),
       )
-      /* A person can hold more than one team row on the same job (STI-1xxx: a PM
-         acting as area in-charge on the one job in their patch is two rows, not
-         a contradiction) — dedupe rather than show the same job twice. */
-      .groupBy(
-        schema.project.id,
-        schema.project.name,
-        schema.project.externalId,
-        schema.project.description,
-        schema.project.siteAddress,
-        schema.project.startDate,
-        schema.project.endDate,
-        schema.project.latitude,
-        schema.project.longitude,
-        schema.project.geofenceRadiusM,
-      );
+      /* Stable order for the same reason `crewStatus` needs one: saving a
+         detail or dropping a pin refetches this, and heap order would reshuffle
+         the list the person is working down. */
+      .orderBy(schema.project.name);
 
     return rows.map((r) => ({
       ...r,
       missingSiteAddress: !r.siteAddress,
       missingLocation: r.latitude == null || r.longitude == null,
+      /* Always true now that this reads the roster. Kept so the client keeps
+         one shape and the read-only branch stays reachable if a future step
+         ever surfaces a job somebody is not on. */
+      onRoster: true,
     }));
   }),
 
@@ -472,7 +602,13 @@ export const onboardingRouter = router({
           eq(schema.projectTeamMember.employeeId, ctx.session.employeeId),
           isNull(schema.projectTeamMember.endedOn),
         ),
-      );
+      )
+      /* Heap order otherwise, the same defect UI-73/UI-74 fixed on the people
+         and asset registers. It bites harder here: confirming a crew refetches
+         this, and without a stable order the jobs reorder UNDER the person
+         mid-task — the row they were about to click moves. Observed in a
+         browser doing exactly that. */
+      .orderBy(schema.project.name);
     if (myRows.length === 0) return [];
 
     const allRoles = await ctx.db
@@ -661,4 +797,199 @@ export const onboardingRouter = router({
       });
       return { ok: true, alreadyFilled: false, alreadyDeferred: false };
     }),
+
+  /*
+    The oversight screen: who below the caller has done this, and who hasn't.
+
+    Gated identically to `projectTeam.orgChart` — `project.team.read`, widened
+    to everyone by the same `assets.view.all` tier that already sees the whole
+    org chart — rather than inventing a second idea of "admin" that would need
+    keeping in step with role-perms.ts on its own. This is a plan decision
+    (`docs/workings/ONBOARDING_AND_ROLE_HIERARCHY.md` §7.1), taken rather than
+    left open: reusing a permission every foreman already holds means the
+    screen is reachable by construction and simply renders empty for someone
+    with nobody below them, which is the honest answer for a foreman anyway.
+
+    Scoped by `descendantsOf`, NOT `visibleEmployeeIds` — the org chart's
+    helper also returns the chain ABOVE the viewer, and a PM's progress screen
+    reporting on their own director would be a different, wrong feature.
+
+    Two views over the SAME rows, because the plan asks for both and computing
+    each from a second query would let them disagree about who is even in
+    scope:
+      - byJob: for each project someone below the caller works, whether it has
+        geography, how many of its expected tiers are filled, how many of
+        those are still unconfirmed, and any open deferral.
+      - byPerson: for each person below the caller, whether they have signed in
+        and whether they have finished their own wizard.
+
+    A deferral appears on THIS caller's screen only when it names a tier THIS
+    caller (or nobody) is meant to fill — see the plan's "deferrals show as
+    assigned to the viewer, not somebody else's incomplete work". Concretely:
+    a tier whose team-role reports (per the ladder) to a tier the caller
+    currently holds on that job, OR whose deferral explicitly named the
+    caller's own employeeId.
+  */
+  progress: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session.permissions.has("project.team.read")) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "missing permission: project.team.read" });
+    }
+    const tid = ctx.session.tenantId;
+    const tier = viewTierOf(ctx.session);
+    const seesAll = tier === "assets.view.all";
+
+    if (!seesAll && !ctx.session.employeeId) {
+      return { byJob: [], byPerson: [], scoped: true as const };
+    }
+
+    const allRows = await ctx.db
+      .select({
+        id: schema.projectTeamMember.id,
+        projectId: schema.projectTeamMember.projectId,
+        employeeId: schema.projectTeamMember.employeeId,
+        role: schema.projectTeamMember.role,
+        reportsToEmployeeId: schema.projectTeamMember.reportsToEmployeeId,
+        confirmedAt: schema.projectTeamMember.confirmedAt,
+      })
+      .from(schema.projectTeamMember)
+      .where(and(eq(schema.projectTeamMember.tenantId, tid), isNull(schema.projectTeamMember.endedOn)));
+
+    const below = seesAll ? null : descendantsOf(allRows, ctx.session.employeeId!);
+
+    /* The rows IN SCOPE: everything, for an admin-tier viewer; otherwise the
+       caller's own rows plus every row belonging to someone below them — a
+       superintendent's own row has to be in scope too, or a job they alone
+       run would vanish from their own progress screen. */
+    const scopedRows = seesAll
+      ? allRows
+      : allRows.filter((r) => r.employeeId === ctx.session.employeeId || below!.has(r.employeeId));
+    if (scopedRows.length === 0) {
+      return { byJob: [], byPerson: [], scoped: !seesAll };
+    }
+
+    const projectIds = [...new Set(scopedRows.map((r) => r.projectId))];
+    const employeeIds = [...new Set(scopedRows.map((r) => r.employeeId))];
+
+    const projects = await ctx.db
+      .select({
+        id: schema.project.id,
+        name: schema.project.name,
+        externalId: schema.project.code,
+        latitude: schema.project.latitude,
+        longitude: schema.project.longitude,
+      })
+      .from(schema.project)
+      .where(and(eq(schema.project.tenantId, tid), inArray(schema.project.id, projectIds)));
+    const projectById = new Map(projects.map((p) => [p.id, p]));
+
+    const employees = await ctx.db
+      .select({
+        id: schema.employee.id,
+        name: schema.employee.name,
+        userId: schema.user.id,
+        lastSignInAt: schema.user.lastSignInAt,
+      })
+      .from(schema.employee)
+      .leftJoin(schema.user, eq(schema.user.employeeId, schema.employee.id))
+      .where(and(eq(schema.employee.tenantId, tid), inArray(schema.employee.id, employeeIds)));
+    const employeeById = new Map(employees.map((e) => [e.id, e]));
+
+    const onboardingRows = await ctx.db
+      .select({ userId: schema.userOnboarding.userId, completedAt: schema.userOnboarding.completedAt })
+      .from(schema.userOnboarding)
+      .where(eq(schema.userOnboarding.tenantId, tid));
+    const onboardingByUserId = new Map(onboardingRows.map((r) => [r.userId, r]));
+
+    const teamRoles = await ctx.db
+      .select({
+        id: schema.teamRole.id,
+        name: schema.teamRole.name,
+        label: schema.teamRole.label,
+        reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
+      })
+      .from(schema.teamRole)
+      .where(eq(schema.teamRole.tenantId, tid));
+    const roleByName = new Map(teamRoles.map((r) => [r.name, r]));
+
+    const openDeferrals = await ctx.db
+      .select({
+        id: schema.projectRoleDeferral.id,
+        projectId: schema.projectRoleDeferral.projectId,
+        teamRole: schema.projectRoleDeferral.teamRole,
+        deferredToEmployeeId: schema.projectRoleDeferral.deferredToEmployeeId,
+      })
+      .from(schema.projectRoleDeferral)
+      .where(
+        and(
+          eq(schema.projectRoleDeferral.tenantId, tid),
+          inArray(schema.projectRoleDeferral.projectId, projectIds),
+          isNull(schema.projectRoleDeferral.resolvedAt),
+        ),
+      );
+
+    /* A deferral belongs on THIS caller's screen when the tier it names
+       reports (per the ladder) to a tier the caller holds on that same job, or
+       when it was explicitly aimed at the caller. Not "every open deferral on
+       a job I can see" — that would put a foreman's deferred PM slot on every
+       foreman's screen on that job, when only the actual PM's boss should see it. */
+    const myRolesByProject = new Map<string, Set<string>>();
+    for (const r of scopedRows) {
+      if (r.employeeId !== ctx.session.employeeId) continue;
+      const set = myRolesByProject.get(r.projectId) ?? new Set<string>();
+      set.add(r.role);
+      myRolesByProject.set(r.projectId, set);
+    }
+    const isMineToSee = (d: (typeof openDeferrals)[number]): boolean => {
+      if (seesAll) return true;
+      if (d.deferredToEmployeeId === ctx.session.employeeId) return true;
+      const deferredRole = roleByName.get(d.teamRole);
+      if (!deferredRole?.reportsToTeamRoleId) return false;
+      const parentRole = teamRoles.find((r) => r.id === deferredRole.reportsToTeamRoleId);
+      const mine = myRolesByProject.get(d.projectId);
+      return !!parentRole && !!mine?.has(parentRole.name);
+    };
+    const myDeferrals = openDeferrals.filter(isMineToSee);
+
+    const byJob = projectIds.map((pid) => {
+      const proj = projectById.get(pid);
+      const rowsHere = scopedRows.filter((r) => r.projectId === pid);
+      const confirmed = rowsHere.filter((r) => !!r.confirmedAt).length;
+      const deferralsHere = myDeferrals.filter((d) => d.projectId === pid);
+      return {
+        projectId: pid,
+        projectName: proj?.name ?? "Unknown job",
+        projectExternalId: proj?.externalId ?? null,
+        hasLocation: !!proj?.latitude && !!proj?.longitude,
+        rosterCount: rowsHere.length,
+        confirmedCount: confirmed,
+        unconfirmedCount: rowsHere.length - confirmed,
+        openDeferrals: deferralsHere.map((d) => ({
+          teamRole: d.teamRole,
+          label: roleByName.get(d.teamRole)?.label ?? d.teamRole,
+        })),
+      };
+    });
+    /* Sorted here rather than in SQL: `projectIds` is derived from the scoped
+       roster rows in memory, so there is no query to hang an ORDER BY on. Same
+       reason as the other two reads in this router — a progress screen that
+       reorders itself on refetch is one somebody loses their place in. */
+    byJob.sort((a, b) => a.projectName.localeCompare(b.projectName));
+
+    const byPerson = employeeIds
+      .filter((id) => id !== ctx.session.employeeId || seesAll)
+      .map((id) => {
+        const emp = employeeById.get(id);
+        const onboarding = emp?.userId ? onboardingByUserId.get(emp.userId) : undefined;
+        return {
+          employeeId: id,
+          name: emp?.name ?? "Unknown",
+          hasAccount: !!emp?.userId,
+          everSignedIn: !!emp?.lastSignInAt,
+          onboardingComplete: !!onboarding?.completedAt,
+        };
+      });
+    byPerson.sort((a, b) => a.name.localeCompare(b.name));
+
+    return { byJob, byPerson, scoped: !seesAll };
+  }),
 });
