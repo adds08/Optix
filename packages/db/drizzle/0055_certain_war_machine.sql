@@ -1,0 +1,1 @@
+ALTER TABLE "tbl_entity_employee" ADD COLUMN "hr_flagged_inactive_at" timestamp with time zone;

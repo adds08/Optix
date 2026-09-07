@@ -114,6 +114,27 @@ export const employee = pgTable(
     primaryProjectId: uuid("primary_project_id").references(() => project.id, { onDelete: "set null" }),
     employmentStatus: text("employment_status").notNull().default("active"), // active | terminated | on_leave
     terminatedAt: timestamp("terminated_at", { withTimezone: true }),
+    /*
+      A SOURCE SYSTEM'S opinion that this person has left, distinct from
+      `employmentStatus` above on purpose. The settled policy (2026-09-07) is
+      that a departure reported by a sync is a flag for an admin to act on,
+      never a write Optix performs itself — so this column exists precisely so
+      that opinion has somewhere to land WITHOUT touching `employmentStatus`,
+      which stays the admin's own call.
+
+      Before this column existed the flag had nowhere durable to live at all:
+      `bamboo-sync.ts`'s `flaggedInactive` only ever reached one sync run's
+      `detail` jsonb, capped at 500 people and gone the moment that row scrolled
+      out of history. A leaver's row read identical to an active person's — the
+      first real sync flagged 1578 of 1851 people this way and every one of
+      them showed `employment_status: active` with nothing to tell them apart.
+
+      Null means no source has ever flagged this person. Set the first time a
+      sync reports them inactive; cleared if a LATER sync reports them active
+      again, because this names a current disagreement between the source and
+      Optix, not a permanent scar — a rehire should not stay flagged forever.
+    */
+    hrFlaggedInactiveAt: timestamp("hr_flagged_inactive_at", { withTimezone: true }),
     reportsToEmployeeId: uuid("reports_to_employee_id").references((): any => employee.id, { onDelete: "set null" }),
     /*
       Frequently a PERSONAL address on a domain Urban does not own. Labourers

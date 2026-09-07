@@ -372,6 +372,7 @@ export async function loadExisting(db: Database, tenantId: string) {
       name: schema.employee.name,
       code: schema.employee.code,
       email: schema.employee.email,
+      hrFlaggedInactiveAt: schema.employee.hrFlaggedInactiveAt,
     })
     .from(schema.employee)
     .where(eq(schema.employee.tenantId, tenantId));
@@ -408,7 +409,7 @@ export async function loadExisting(db: Database, tenantId: string) {
   }
   for (const k of ambiguousNames) byName.delete(k);
 
-  return { byExternalId, byName, ambiguousNames };
+  return { byExternalId, byName, ambiguousNames, byId };
 }
 
 /* ------------------------------------------------------------------ */
@@ -466,6 +467,7 @@ export async function applySyncPlan(
   tenantId: string,
   plan: SyncPlan,
   incoming: AdaptedBambooPerson[],
+  existingById: Map<string, { hrFlaggedInactiveAt: Date | null }> = new Map(),
 ): Promise<{ created: number; updated: number; failed: number; firstError: string | null }> {
   const byExternalId = new Map(incoming.map((p) => [p.externalId, p]));
   /* Bamboo id -> our employee id, filled as we go and used by the second pass
@@ -521,7 +523,10 @@ export async function applySyncPlan(
 
         `employmentStatus` is NOT set from Bamboo even here: the column defaults
         to `active`, and a create is by definition somebody Bamboo just told us
-        about. A departure is a flag, never a write. See `flaggedInactive`.
+        about. A departure is a flag, never a write — `hrFlaggedInactiveAt`
+        carries it instead, and it is entirely possible for a person to arrive
+        already flagged: a former employee who never had an Optix row before
+        this sync creates one that starts flagged rather than blank.
       */
       const [row] = await db
         .insert(schema.employee)
@@ -534,6 +539,7 @@ export async function applySyncPlan(
           ...(divisionId ? { divisionId } : {}),
           ...(departmentId ? { departmentId } : {}),
           ...(companyRoleId ? { companyRoleId } : {}),
+          ...(step.flaggedInactive ? { hrFlaggedInactiveAt: new Date() } : {}),
         })
         .returning({ id: schema.employee.id });
       if (!row) continue;
@@ -556,6 +562,14 @@ export async function applySyncPlan(
       if (divisionId) patch.divisionId = divisionId;
       if (departmentId) patch.departmentId = departmentId;
       if (companyRoleId) patch.companyRoleId = companyRoleId;
+      /* Only written on an actual STATE CHANGE, checked against what this
+         person held before this run — never unconditionally, or `updated`
+         would count every synced person as changed the moment this column
+         existed, which is exactly the lying-count bug this file already has a
+         scar for (see the `created: 0` comment above `applySyncPlan`). */
+      const wasFlagged = existingById.get(employeeId)?.hrFlaggedInactiveAt != null;
+      if (step.flaggedInactive && !wasFlagged) patch.hrFlaggedInactiveAt = new Date();
+      else if (!step.flaggedInactive && wasFlagged) patch.hrFlaggedInactiveAt = null;
       if (Object.keys(patch).length > 0) {
         patch.updatedAt = new Date();
         await db
@@ -752,7 +766,7 @@ export async function executeSyncRun(
     let counts = plan.counts;
     let rowErrors: string | null = null;
     if (run.mode === "apply") {
-      const applied = await applySyncPlan(db, run.tenantId, plan, people);
+      const applied = await applySyncPlan(db, run.tenantId, plan, people, existing.byId);
       /* The APPLIED numbers, never the planned ones. They differ whenever a row
          failed, and reporting the plan's figures would tell somebody 1816
          people were added when 519 were. */

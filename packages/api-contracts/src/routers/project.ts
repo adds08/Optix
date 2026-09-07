@@ -255,6 +255,13 @@ export const employeeRouter = router({
         phone: schema.employee.phone,
         employmentStatus: schema.employee.employmentStatus,
         terminatedAt: schema.employee.terminatedAt,
+        /* A SOURCE SYSTEM'S opinion, not Optix's own — see the column comment
+           on `employee.ts`. Non-null means BambooHR (or whichever source last
+           synced this person) currently reports them as gone, while
+           `employmentStatus` above still says whatever an admin last set it
+           to. The two are allowed to disagree; that disagreement is the
+           entire point of this column existing. */
+        hrFlaggedInactiveAt: schema.employee.hrFlaggedInactiveAt,
         primaryProjectId: schema.employee.primaryProjectId,
         primaryProjectName: schema.project.name,
         primaryProjectExternalId: schema.project.code,
@@ -267,6 +274,14 @@ export const employeeRouter = router({
         roleId: schema.employee.roleId,
         roleName: schema.role.name,
         roleNeedsLogin: schema.role.needsLogin,
+        /* The HR facts, not the login role above — a different axis entirely.
+           `jobTitleName` is what BambooHR calls this same fact; here it is
+           `companyRole`, named that way since before the sync existed. All
+           three are nullable on a hand-created person and on any BambooHR
+           record the sync could not resolve. */
+        jobTitle: schema.companyRole.name,
+        divisionName: schema.division.name,
+        departmentName: schema.department.name,
         /*
           The account, joined in rather than listed on a second screen.
 
@@ -285,6 +300,9 @@ export const employeeRouter = router({
       .leftJoin(schema.project, eq(schema.employee.primaryProjectId, schema.project.id))
       .leftJoin(reportsTo, eq(schema.employee.reportsToEmployeeId, reportsTo.id))
       .leftJoin(schema.role, eq(schema.employee.roleId, schema.role.id))
+      .leftJoin(schema.companyRole, eq(schema.employee.companyRoleId, schema.companyRole.id))
+      .leftJoin(schema.division, eq(schema.employee.divisionId, schema.division.id))
+      .leftJoin(schema.department, eq(schema.employee.departmentId, schema.department.id))
       /* One account per person by construction — `user.employeeId` is how an
          account names its person, and nothing creates two. A left join is safe
          here for that reason; if that ever stops being true this multiplies. */

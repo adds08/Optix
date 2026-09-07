@@ -138,6 +138,28 @@ export default function PeoplePage() {
         width: "9rem",
         cell: (e) => (e.roleName ? humanize(e.roleName) : <span className="text-muted-foreground">—</span>),
       }),
+      /* The HR fact, not the login role above. This is `jobTitleName` as
+         BambooHR calls it and `company_role_id` as the schema does — a person
+         can hold a job title with no login at all, which describes most of a
+         freshly synced roster. */
+      col<EmployeeRow>({
+        header: "Job Title",
+        accessorFn: (e) => e.jobTitle ?? "",
+        width: "11rem",
+        cell: (e) => e.jobTitle ?? <span className="text-muted-foreground">—</span>,
+      }),
+      col<EmployeeRow>({
+        header: "Division",
+        accessorFn: (e) => e.divisionName ?? "",
+        width: "9rem",
+        cell: (e) => e.divisionName ?? <span className="text-muted-foreground">—</span>,
+      }),
+      col<EmployeeRow>({
+        header: "Department",
+        accessorFn: (e) => e.departmentName ?? "",
+        width: "9rem",
+        cell: (e) => e.departmentName ?? <span className="text-muted-foreground">—</span>,
+      }),
       /*
         The account, on the same row as the person.
 
@@ -160,6 +182,23 @@ export default function PeoplePage() {
         },
       }),
       col<EmployeeRow>({ header: "Status", accessorFn: (e) => e.employmentStatus, width: "7rem", cell: (e) => <StatusPill status={e.employmentStatus} /> }),
+      /* A SOURCE SYSTEM's opinion, not Optix's own — deliberately a separate
+         column from Status above rather than folded into it. BambooHR can say
+         somebody is gone while Optix's own Status stays whatever an admin last
+         set; that disagreement is exactly what a sync produces on its first
+         run and exactly what has no other visible home (see the column
+         comment on employee.hrFlaggedInactiveAt). */
+      col<EmployeeRow>({
+        header: "HR Flag",
+        accessorFn: (e) => (e.hrFlaggedInactiveAt ? new Date(e.hrFlaggedInactiveAt).getTime() : 0),
+        width: "10rem",
+        cell: (e) =>
+          e.hrFlaggedInactiveAt ? (
+            <span className="text-amber-700 dark:text-amber-500">Reported left {shortDate(e.hrFlaggedInactiveAt)}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      }),
       col<EmployeeRow>({
         id: "actions",
         header: "Actions",

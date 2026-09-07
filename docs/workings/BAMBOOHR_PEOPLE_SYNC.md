@@ -305,7 +305,39 @@ CREATE UNIQUE INDEX eer_employee_system_uq
 `raw` earns its place: when a sync produces a wrong value the question is always
 "what did they actually send", and without the payload that is unanswerable
 after the fact. It is also what makes a second sync a diff rather than a blind
-overwrite.
+overwrite. It earned it literally on 2026-09-07: the leaver backfill below was
+reconstructed entirely out of `raw->>'status'` with no second call to BambooHR.
+
+### Where the leaver flag actually lives (migration `0055`)
+
+§5 settles that a departure is a **flag** an admin acts on, never a write the
+sync performs. That decision stood without a column to hold it, and the gap was
+invisible until the first real apply: `flaggedInactive` existed only inside
+`bamboo-sync.ts` and reached one `tbl_ops_sync_run.detail` jsonb, capped at 500
+people. 1578 of 1851 synced people were flagged and **every one of them read
+`employment_status: active` with nothing on the row to tell them apart.**
+
+```sql
+ALTER TABLE tbl_entity_employee
+  ADD COLUMN hr_flagged_inactive_at timestamptz;
+```
+
+Deliberately NOT `employment_status`, and deliberately not `terminated_at`:
+
+- **`employment_status`** stays the admin's own call. Writing it would BE the
+  deactivation §5 refuses to perform automatically.
+- **`terminated_at`** is only meaningful paired with an admin's status flip —
+  `project.ts` stamps it exactly when somebody sets the status to `terminated`,
+  and the clearance queue reads that pair. Filling it while the status still
+  said `active` would leave a date in a column whose only defined meaning is a
+  pairing that had not happened.
+
+Null means no source has ever flagged this person. Set the first time a sync
+reports them inactive, and cleared if a later sync reports them active again —
+it names a current disagreement between the source and Optix, not a permanent
+scar, so a rehire does not stay flagged. Surfaced on `/people` as its own **HR
+Flag** column rather than folded into Status, because the two are allowed to
+disagree and that disagreement is the whole point.
 
 ## 7. Build order
 
