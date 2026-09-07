@@ -66,7 +66,7 @@ export type BambooIdentityFields = {
 /** Reported and never written. */
 export type BambooObservations = {
   /** Normalised from Bamboo's `status`. `null` when withheld or unrecognised. */
-  employmentStatus: "active" | "terminated" | null;
+  employmentStatus: "active" | "terminated" | "on_leave" | null;
   /** Bamboo's own word, kept verbatim so a surprising value is debuggable. */
   rawStatus?: string;
   /**
@@ -79,6 +79,22 @@ export type BambooObservations = {
   isManager?: boolean;
   /** Full-time / Part-Time / Contractor, verbatim. Reported, not mapped. */
   employmentType?: string;
+  /**
+   * HR's own status wording, verbatim — "Full-Time", "Leave of Absence",
+   * "Terminated". The only field that can tell somebody on leave from
+   * somebody gone; `status` cannot, it is Active/Inactive and nothing else.
+   */
+  rawEmploymentStatusName?: string;
+  /**
+   * The date a leaver left, `YYYY-MM-DD` as Bamboo sends it.
+   *
+   * Targets `employee.terminated_at`, the last employee column with no source
+   * in this adapter. Reported rather than written, like everything else in
+   * this bucket — but it is the date a flagged departure would carry, and it
+   * is the column the clearance queue reads to find an ex-employee still
+   * holding tools.
+   */
+  terminationDate?: string;
 };
 
 export type BambooContact = {
@@ -148,13 +164,35 @@ function restrictedFieldsOf(record: BambooEmployeeRecord): string[] {
   Compared case-insensitively. This is a display string in somebody else's
   system and its capitalisation is not our contract.
 */
-export function normaliseBambooStatus(value: unknown): "active" | "terminated" | null {
+export function normaliseBambooStatus(
+  value: unknown,
+  statusName?: unknown,
+): "active" | "terminated" | "on_leave" | null {
   const s = str(value);
   if (!s) return null;
   const k = s.toLowerCase();
-  if (k === "active") return "active";
+
+  /* INACTIVE WINS, and it is checked before the leave refinement on purpose.
+     A person HR has marked Inactive is off the roster whatever their status
+     name still says, and reading that as `on_leave` would keep them out of the
+     clearance queue — an ex-employee holding tools nobody goes looking for.
+     Recovering a tool from somebody who turns out to be on leave is the
+     cheaper mistake of the two. */
   if (k === "inactive") return "terminated";
-  return null;
+  if (k !== "active") return null;
+
+  /* The ONLY path to `on_leave`, which `EMPLOYMENT_STATUSES` defines and
+     nothing could previously produce. Somebody on a leave of absence is still
+     `status: Active` in BambooHR — the flag cannot tell them from somebody at
+     work, so the distinction has to come from HR's own wording.
+
+     Substring rather than a fixed list because the wording is tenant-defined:
+     "Leave of Absence", "FMLA Leave" and "Maternity Leave" are all one answer,
+     and a list would silently miss whichever one this tenant configured. */
+  const nameKey = str(statusName)?.toLowerCase();
+  if (nameKey?.includes("leave")) return "on_leave";
+
+  return "active";
 }
 
 /**
@@ -230,7 +268,7 @@ export function adaptBambooEmployee(record: BambooEmployeeRecord): BambooAdaptRe
 
   const rawStatus = visible("status");
   const observed: BambooObservations = {
-    employmentStatus: normaliseBambooStatus(rawStatus),
+    employmentStatus: normaliseBambooStatus(rawStatus, visible("employmentStatusName")),
   };
   if (rawStatus) observed.rawStatus = rawStatus;
   /* Read directly rather than through `visible`, because this is a boolean and
@@ -242,6 +280,10 @@ export function adaptBambooEmployee(record: BambooEmployeeRecord): BambooAdaptRe
   }
   const empType = visible("employmentType");
   if (empType) observed.employmentType = empType;
+  const empStatusName = visible("employmentStatusName");
+  if (empStatusName) observed.rawEmploymentStatusName = empStatusName;
+  const termDate = visible("terminationDate");
+  if (termDate) observed.terminationDate = termDate;
 
   const person: AdaptedBambooPerson = {
     externalId,
@@ -324,6 +366,29 @@ export const BAMBOO_OPTIONAL_FIELDS = [
      roster that cannot tell a subcontractor from staff is a roster that will
      be asked to. */
   "employmentType",
+  /*
+    THE DATE A LEAVER LEFT — and the last employee column with no source.
+
+    `employee.terminated_at` exists and the clearance queue reads it, so
+    without this field a departure can only ever be flagged as "inactive" with
+    no date attached. The user settled that a leaver is a FLAG rather than an
+    automatic deactivation, and a flag carrying "left 2026-03-15" is something
+    an admin can act on where a bare boolean is not.
+  */
+  "terminationDate",
+  /*
+    THE RICH EMPLOYMENT STATUS — and the only way to reach `on_leave`.
+
+    `status` is Active/Inactive and nothing else, so `normaliseBambooStatus`
+    fed only that can produce `active` and `terminated` and never the third
+    value `EMPLOYMENT_STATUSES` defines. Somebody on a leave of absence is
+    still `status: Active` in BambooHR, which is why the distinction has to
+    come from HR's own wording rather than from the flag.
+
+    Without this field an Optix enum value has no source at all — dead by
+    construction, not by choice.
+  */
+  "employmentStatusName",
   /* Not mapped to a column, kept so `raw` can answer "what did Bamboo say
      about where this person sits" without a second call. An HR office is not a
      place a tool can be — see the plan document on why this never becomes a

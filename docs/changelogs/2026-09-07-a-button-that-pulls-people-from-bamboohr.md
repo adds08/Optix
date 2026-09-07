@@ -275,3 +275,72 @@ can read every mapped field.
 - People still has no Job title / Division / Department columns, so the synced fields
   remain invisible.
 - The sync has not been re-run since the fix.
+
+---
+
+## Addendum — the field list, and an enum value that had no source
+
+The client confirmed in Postman that a `list-employees` call with no `fields=`
+parameter returns only the eight base fields. Everything else has to be named
+explicitly, which made "which fields do we need" a question with a checkable
+answer rather than a matter of taste: map each column on `tbl_entity_employee`
+to a field in the payload, and see what is left over on both sides.
+
+Two things were left over.
+
+**`employee.terminated_at` had no source.** The column exists and the clearance
+queue reads it to find an ex-employee still holding tools, but nothing in the
+sync filled it. Since a departure is a flag an admin acts on rather than
+something the sync performs, the flag was going to arrive with no date attached.
+`terminationDate` is now requested, and reported as an observation.
+
+**`on_leave` could not be produced by any input.** `EMPLOYMENT_STATUSES` defines
+three values; `status` carries Active and Inactive and nothing else, so
+`normaliseBambooStatus` could return two of the three and never the third. The
+value was dead by construction rather than by choice — not a bug anybody would
+see, because the absent case looks exactly like "nobody is on leave".
+
+`employmentStatusName` is the only field in the payload that can fix it. A
+person on a leave of absence is still `status: Active` in BambooHR, so the flag
+cannot separate them from somebody at work; HR's own status wording can.
+`normaliseBambooStatus` gained a second optional argument, so existing one-arg
+calls are unchanged.
+
+Inactive is checked **before** the leave refinement, deliberately. Somebody HR
+has marked Inactive is off the roster whatever their status name still says, and
+reading that as `on_leave` would keep them out of the clearance queue. Getting
+a tool back from somebody who turns out to be on leave is the cheaper of the two
+mistakes.
+
+## What was found while adding them
+
+`company_role`, `division` and `department` each carry only `id`, `tenant_id`,
+`name`, `code` and `is_active` — **no external-id column on any of the three.**
+BambooHR's `jobTitleId`, `divisionId` and `departmentId` therefore have nowhere
+to land, so they are not requested; name-matching is the only resolution
+available.
+
+That leaves a hazard worth naming, because it is silent: rename a division in
+BambooHR and the next sync will not rename the Optix row. It creates a second
+one and moves every employee onto it, orphaning the first. Closing it needs an
+external-id column on three tables, which was not done here — the plan document
+carries it now so it is a known cost rather than a future surprise.
+
+## Verified
+
+`pnpm typecheck` — 14/14 tasks successful. Adapter tests 39 passing, up from 32:
+the leave path, the Inactive-wins ordering, the fold through
+`adaptBambooEmployee`, and a withheld `terminationDate` omitting the key rather
+than emitting `undefined`.
+
+**Not verified:** the two new field names were not re-checked against the
+published spec, which the client pasted into chat rather than into the repo. The
+failure mode is safe — `visible()` returns undefined for an absent key and every
+read is guarded, so a name Bamboo does not recognise degrades to "field absent"
+and cannot fail a run — but it is unconfirmed until the first live call.
+
+## Deliberately not done
+
+`hireDate` (no column exists to hold it), `reportsToName` (ids only — the roster
+carries five near-duplicate name pairs), and the external-id columns described
+above.

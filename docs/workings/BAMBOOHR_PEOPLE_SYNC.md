@@ -147,8 +147,45 @@ the spec.
 | `locationName` | *not mapped* | An HR office, not a place a tool sits — see §5. |
 | `workEmail` | `employee.email` | Often personal, exactly as `employee.email`'s comment warns. |
 | `mobilePhone`, `workPhone` | `employee_contact` rows | Two numbers; that table exists for precisely this. |
-| `status` | `employment_status` | Active / Inactive. |
+| `status` | `employment_status` | Active / Inactive, and nothing else. Observed only. |
+| `employmentStatusName` | `employment_status` | HR's own wording. **The only source for `on_leave`** — see below. Observed only. |
+| `terminationDate` | `employee.terminated_at` | The date a flagged leaver left. Observed only. |
+| `employmentType` | *not mapped* | Full-Time / Contractor. Preserved in `raw`. |
+| `isManager` | role derivation | Supervision, a separate fact from the title — see §5. |
 | `photoUrl` | *not stored as a column* | Expires — see below. |
+
+### `on_leave` had no source, and that is what added a field
+
+`EMPLOYMENT_STATUSES` (`packages/types/src/enums.ts`) defines three values.
+`status` carries two — Active and Inactive — so a normaliser fed only that flag
+can produce `active` and `terminated` and never the third. The value was dead by
+construction rather than by choice.
+
+`employmentStatusName` is HR's own status wording ("Full-Time", "Leave of
+Absence", "Terminated") and is the only field in the payload that separates
+somebody on leave from somebody gone: a person on a leave of absence is still
+`status: Active` in BambooHR, so the flag cannot tell them from somebody at
+work.
+
+**Inactive is checked first and wins over a leave name.** Somebody HR has marked
+Inactive is off the roster whatever their status name still says, and reading
+that as `on_leave` would keep them out of the clearance queue — an ex-employee
+holding tools that nobody goes looking for. Recovering a tool from somebody who
+turns out to be on leave is the cheaper of the two mistakes.
+
+### The reference tables carry no external id, so a rename forks the row
+
+`company_role`, `division` and `department` each carry only `id`, `tenant_id`,
+`name`, `code` and `is_active` — there is no column for BambooHR's
+`jobTitleId`/`divisionId`/`departmentId` to land in. So those three fields are
+**not requested**: name-matching (find-or-create) is the only resolution
+available, and an id we cannot store would only ever sit in `raw`.
+
+The consequence is a real hazard, not a theoretical one. Rename "Heavy Civil" to
+"Heavy Civil Division" in BambooHR and the next sync does not rename the Optix
+row — it creates a second one and moves every employee onto it, orphaning the
+first. Closing that needs an external-id column on all three tables; until then
+a rename in BambooHR is an operation somebody has to mirror by hand.
 
 ### Three names for one job title
 

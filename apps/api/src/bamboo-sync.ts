@@ -143,9 +143,10 @@ async function bambooGet(
 export async function fetchAllBambooEmployees(
   creds: BambooCredentials,
   get: typeof bambooGet = bambooGet,
-): Promise<BambooEmployeeRecord[]> {
+): Promise<{ records: BambooEmployeeRecord[]; reportedTotal: number | null; complete: boolean }> {
   const out: BambooEmployeeRecord[] = [];
   let cursor: string | undefined;
+  let reportedTotal: number | null = null;
   const seen = new Set<string>();
 
   for (let page = 0; page < MAX_PAGES; page++) {
@@ -157,10 +158,21 @@ export async function fetchAllBambooEmployees(
 
     const body = (await get(creds, "/employees", query)) as {
       data?: unknown;
-      meta?: { page?: { nextCursor?: unknown } };
+      meta?: { total?: unknown; page?: { nextCursor?: unknown } };
     };
     const rows = Array.isArray(body?.data) ? (body.data as BambooEmployeeRecord[]) : [];
     out.push(...rows);
+
+    /* `meta.total` is BambooHR's own count of everything matching the request,
+       not just this page. Captured from the FIRST page and then compared
+       against what we actually collected — the published spec is explicit that
+       a caller must reconcile the two before trusting any figure, because a
+       short read is indistinguishable from a small company. Without this a
+       truncated pagination loop syncs a prefix of the roster and reports
+       success, and every employee past the cut looks like a leaver. */
+    if (reportedTotal === null && typeof body?.meta?.total === "number") {
+      reportedTotal = body.meta.total;
+    }
 
     const next = body?.meta?.page?.nextCursor;
     if (typeof next !== "string" || next.length === 0) break;
@@ -170,7 +182,12 @@ export async function fetchAllBambooEmployees(
     seen.add(next);
     cursor = next;
   }
-  return out;
+
+  /* Complete when BambooHR did not tell us a total (nothing to check against)
+     or when what we collected matches it. An INCOMPLETE read is reported, never
+     silently applied. */
+  const complete = reportedTotal === null || out.length >= reportedTotal;
+  return { records: out, reportedTotal, complete };
 }
 
 /* ------------------------------------------------------------------ */
@@ -715,7 +732,19 @@ export async function executeSyncRun(
   if (!run) return; // somebody else claimed it, or it is no longer queued
 
   try {
-    const records = await fetchAllBambooEmployees(creds);
+    const fetched = await fetchAllBambooEmployees(creds);
+    /*
+      REFUSE TO APPLY A SHORT READ. A preview of a partial roster is merely
+      incomplete; an APPLY of one is destructive in the making — every employee
+      past the cut is absent from the payload, and absence is what a leaver
+      looks like. Better to fail loudly than to write two thirds of a company.
+    */
+    if (run.mode === "apply" && !fetched.complete) {
+      throw new Error(
+        `BambooHR reported ${fetched.reportedTotal} employees but only ${fetched.records.length} were read. Refusing to apply a partial roster — run a preview and try again.`,
+      );
+    }
+    const records = fetched.records;
     const { people, failures } = adaptBambooPage(records);
     const existing = await loadExisting(db, run.tenantId);
     const plan = buildSyncPlan(people, failures, existing);

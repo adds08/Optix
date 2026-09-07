@@ -130,6 +130,60 @@ describe("BambooHR employee adapter", () => {
       expect(normaliseBambooStatus("Inactive")).not.toBe("on_leave");
     });
 
+    it("reaches on_leave, which nothing could previously produce", () => {
+      /* `EMPLOYMENT_STATUSES` has three values and `status` carries two, so
+         until `employmentStatusName` was requested this enum member had no
+         source at all — dead by construction. */
+      expect(normaliseBambooStatus("Active", "Leave of Absence")).toBe("on_leave");
+    });
+
+    it("matches any wording containing leave, because the wording is tenant-defined", () => {
+      expect(normaliseBambooStatus("Active", "FMLA Leave")).toBe("on_leave");
+      expect(normaliseBambooStatus("Active", "Maternity Leave")).toBe("on_leave");
+    });
+
+    it("lets Inactive win over a leave status name", () => {
+      /* The conservative order, chosen deliberately: somebody HR marked
+         Inactive is off the roster whatever the status name says. Reading it as
+         on_leave would keep them out of the clearance queue, which is an
+         ex-employee holding tools that nobody goes looking for. */
+      expect(normaliseBambooStatus("Inactive", "Leave of Absence")).toBe("terminated");
+    });
+
+    it("stays active for a status name that is not leave", () => {
+      expect(normaliseBambooStatus("Active", "Full-Time")).toBe("active");
+      expect(normaliseBambooStatus("Active", "Part-Time")).toBe("active");
+    });
+
+    it("folds the status name through the adapter, not just the bare function", () => {
+      const person = ok({ ...base, employmentStatusName: "Leave of Absence" });
+      expect(person.observed.employmentStatus).toBe("on_leave");
+      expect(person.observed.rawEmploymentStatusName).toBe("Leave of Absence");
+    });
+
+    it("carries a termination date as an observation, never as a write", () => {
+      /* `employee.terminated_at` is the column this targets and the one the
+         clearance queue reads. It stays in `observed` because the user settled
+         that a departure is a flag an admin acts on, not something a sync
+         performs. */
+      const person = ok({ ...base, status: "Inactive", terminationDate: "2026-03-15" });
+      expect(person.observed.terminationDate).toBe("2026-03-15");
+      expect(person.writable).not.toHaveProperty("terminationDate");
+      expect(person.identity).not.toHaveProperty("terminationDate");
+    });
+
+    it("omits a withheld termination date rather than emitting undefined", () => {
+      /* Same rule as every other field: a key present holding `undefined`
+         still overwrites on a spread. */
+      const person = ok({
+        ...base,
+        status: "Inactive",
+        terminationDate: "2026-03-15",
+        _restrictedFields: ["terminationDate"],
+      });
+      expect(person.observed).not.toHaveProperty("terminationDate");
+    });
+
     it("returns null for an unrecognised status rather than guessing", () => {
       expect(normaliseBambooStatus("Furloughed")).toBeNull();
       expect(normaliseBambooStatus(undefined)).toBeNull();
