@@ -30,6 +30,8 @@ it now) are separate axes, and tools follow the person, not the site.
 | The schema, the routers, the flows, what is built | `docs/architecture/` — derived from the code, corrected when the code moves |
 | Where a file is, and what to read before editing it | `docs/CODEMAP.md` |
 | Why something is the way it is | `docs/changelogs/INDEX.md` |
+| How the product is meant to be USED — invites, sync, crews, custody | `docs/USER_GUIDE.md` — written for the client's staff, not for agents |
+| What adapts to a tenant's own hierarchy and what is still hardcoded | `docs/workings/HIERARCHY_FLEXIBILITY.md` — read before adding a tier or promising a customer their org chart fits |
 
 ---
 
