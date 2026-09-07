@@ -3,6 +3,7 @@ import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import type { ResolvedSession } from "@stinventory/auth";
 import { VIEW_SCOPES, type ViewScope } from "@stinventory/types";
+import { tiersAtOrBelow } from "@stinventory/domain";
 
 /*
   The visibility ladder (STI-302) — the one gate every scoped read goes
@@ -88,40 +89,123 @@ export function viewTierOf(session: ResolvedSession): ViewTier {
   on the employee record; it is no longer read for scoping here, in
   `myForemen`, or in the departure successor.
 
-  One level deep, deliberately. `employee.myForemen` (routers/project.ts) walks
-  the same edge and stops at the same place; Urban's structure is
-  PM -> superintendent -> foreman. If a deeper chain ever becomes real, change
-  it here and in `myForemen` together — they are the same question asked twice.
+  NO LONGER ONE LEVEL DEEP (changed 2026-09-08). It used to hardcode
+  `superintendent` above and `foreman` below, on the stated grounds that
+  "Urban's structure is PM -> superintendent -> foreman" and that a deeper
+  chain would be dealt with when it became real. It became real: the tier
+  register ships `director -> area_in_charge -> {pm, general_superintendent} ->
+  superintendent -> foreman`, and against that the old code resolved an area
+  in-charge or a general superintendent holding `assets.view.crew` to
+  `[self]` — they saw their own tools and nothing else, with no error and
+  nothing on screen to say why. A silent empty result is the worst possible
+  failure for a visibility rule.
+
+  THE RULE IS UNCHANGED, only generalised. The user's decision at planning was
+  "all supers on a job see that job's foremen" — that is, your crew is the
+  people in a tier BELOW yours, on the jobs you are on the team of. Both halves
+  of that sentence are now read from the register instead of assumed: which
+  tiers are below you comes from `tiersAtOrBelow`, and which jobs are yours
+  comes from your own roster rows.
+
+  For a superintendent the result is byte-for-byte what it was — the tiers
+  below `superintendent` are exactly `{foreman}` — so this widens nothing for
+  the roles that already worked.
+
+  PER PROJECT, not pooled. A person can hold different tiers on different jobs
+  (superintendent on one, foreman on another), and their crew on the second is
+  correctly empty. Pooling the projects first, as the old code did, would have
+  leaked the first job's foremen into the second job's answer the moment
+  anybody held two different tiers.
+
+  `employee.myForemen` (routers/project.ts) is the same question asked twice
+  and now calls this, so the two cannot drift again.
 */
-async function crewOf(db: Database, tid: string, employeeId: string): Promise<string[]> {
-  /* The projects this person currently oversees. A `superintendent` team row is
-     the fact; `endedOn` being null is what makes it current. */
-  const supers = await db
-    .select({ projectId: schema.projectTeamMember.projectId })
+export async function crewEmployeeIds(
+  db: Database,
+  tid: string,
+  employeeId: string,
+): Promise<string[]> {
+  /* Every current tier this person holds, and where. `endedOn` null is what
+     makes a row current. */
+  const mine = await db
+    .select({
+      projectId: schema.projectTeamMember.projectId,
+      role: schema.projectTeamMember.role,
+    })
     .from(schema.projectTeamMember)
     .where(
       and(
         eq(schema.projectTeamMember.tenantId, tid),
         eq(schema.projectTeamMember.employeeId, employeeId),
-        eq(schema.projectTeamMember.role, "superintendent"),
         isNull(schema.projectTeamMember.endedOn),
       ),
     );
-  if (supers.length === 0) return [employeeId];
+  if (mine.length === 0) return [];
 
-  const projectIds = supers.map((s) => s.projectId);
-  const foremen = await db
-    .select({ id: schema.projectTeamMember.employeeId })
+  const tiers = await db
+    .select({
+      id: schema.teamRole.id,
+      name: schema.teamRole.name,
+      reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
+    })
+    .from(schema.teamRole)
+    .where(eq(schema.teamRole.tenantId, tid));
+  const tierByName = new Map(tiers.map((t) => [t.name, t]));
+  const nameById = new Map(tiers.map((t) => [t.id, t.name]));
+  const edges = tiers.map((t) => ({ id: t.id, reportsToTeamRoleId: t.reportsToTeamRoleId }));
+
+  /* Which tier names count as "below me" ON EACH JOB. `hops >= 1` drops the
+     peer tier that `tiersAtOrBelow` includes for the claiming screen: another
+     superintendent on your job is not in your crew. */
+  const belowByProject = new Map<string, Set<string>>();
+  for (const row of mine) {
+    const tier = tierByName.get(row.role);
+    /* A roster row naming a tier since deleted from the register. Legal — the
+       register is editable and rows are never rewritten — and it simply
+       contributes nobody rather than throwing. */
+    if (!tier) continue;
+    const set = belowByProject.get(row.projectId) ?? new Set<string>();
+    for (const t of tiersAtOrBelow(edges, tier.id)) {
+      if (t.hops < 1) continue;
+      const name = nameById.get(t.teamRoleId);
+      if (name) set.add(name);
+    }
+    belowByProject.set(row.projectId, set);
+  }
+
+  const projectIds = [...belowByProject.keys()];
+  if (projectIds.length === 0) return [];
+
+  /* One query for every current roster row on those jobs, matched in memory —
+     the alternative is an OR chain of (project, role) pairs that grows with
+     the ladder and reads far worse for the same answer. */
+  const rows = await db
+    .select({
+      projectId: schema.projectTeamMember.projectId,
+      role: schema.projectTeamMember.role,
+      employeeId: schema.projectTeamMember.employeeId,
+    })
     .from(schema.projectTeamMember)
     .where(
       and(
         eq(schema.projectTeamMember.tenantId, tid),
-        eq(schema.projectTeamMember.role, "foreman"),
-        isNull(schema.projectTeamMember.endedOn),
         inArray(schema.projectTeamMember.projectId, projectIds),
+        isNull(schema.projectTeamMember.endedOn),
       ),
     );
-  return [employeeId, ...new Set(foremen.map((f) => f.id))];
+
+  const out = new Set<string>();
+  for (const r of rows) {
+    if (r.employeeId === employeeId) continue;
+    if (belowByProject.get(r.projectId)?.has(r.role)) out.add(r.employeeId);
+  }
+  return [...out];
+}
+
+async function crewOf(db: Database, tid: string, employeeId: string): Promise<string[]> {
+  /* The actor is always in their own crew scope — `assets.view.crew` has never
+     meant "everything except mine". */
+  return [employeeId, ...(await crewEmployeeIds(db, tid, employeeId))];
 }
 
 /*

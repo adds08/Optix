@@ -216,28 +216,26 @@ export const DESK_NAV: NavGroup[] = [
 ];
 
 /*
-  Roles that live in the field. Everyone else gets the desk layout.
+  Which layout an account gets — the FIELD three-item menu or the DESK one.
 
-  `mechanic` added by STI-304 — a mechanic holds tools and works out of the
-  shop, so the desk's twelve-item navigation is the wrong shelf to put them on.
-  This is the LAST role-name branch in the product (STI-307 removed the rest),
-  and it is a layout decision rather than an access control: every item in both
-  sets is separately permission-filtered in `app-sidebar.tsx`, so a wrong
-  answer here shows somebody the wrong menu, never data they may not see.
+  This was `FIELD_ROLES = new Set(["foreman","superintendent","mechanic"])`
+  until 2026-09-08: a hardcoded set of role NAMES, described in its own comment
+  as "the LAST role-name branch in the product" and "wrong by construction —
+  a set of role names has to be edited every time a role is added". It was
+  worse than that comment admitted. `tbl_entity_role.uses_field_layout` already
+  existed, was already editable at /admin/roles and was already written by
+  `role.update` — but never reached any client, so the toggle an administrator
+  flipped did NOTHING, and a role a tenant created could never get the field
+  layout at all.
 
-  It is still wrong by construction — a set of role names has to be edited
-  every time a role is added, which is exactly what happened here. Replacing it
-  with a permission-driven registry is STI-501, and this line is the argument
-  for doing it.
+  `identity.me` now returns the flag and these take it directly. The decision
+  moved to the register where it was always meant to live; nothing here reads
+  a role name any more.
 
-  `engineer` and `office_admin` correctly get the desk layout: an engineer runs
-  jobs from a desk and an office administrator never leaves one.
+  Still a LAYOUT decision, not an access control: every item in both sets is
+  separately permission-filtered in `app-sidebar.tsx`, so a wrong answer shows
+  somebody the wrong menu, never data they may not see.
 */
-const FIELD_ROLES = new Set(["foreman", "superintendent", "mechanic"]);
-
-export function isFieldRole(role: string | null | undefined): boolean {
-  return !!role && FIELD_ROLES.has(role);
-}
 
 const SETTINGS_ITEM_IDS = new Set(SETTINGS_GROUP.items.map((n) => n.id));
 
@@ -249,12 +247,12 @@ export function isSettingsItemId(id: string): boolean {
   return SETTINGS_ITEM_IDS.has(id);
 }
 
-export function navFor(role: string | null | undefined): NavGroup[] {
-  return isFieldRole(role) ? FIELD_NAV : DESK_NAV;
+export function navFor(usesFieldLayout: boolean | null | undefined): NavGroup[] {
+  return usesFieldLayout ? FIELD_NAV : DESK_NAV;
 }
 
-export function allItems(role: string | null | undefined): NavItem[] {
-  return navFor(role).flatMap((g) => g.items);
+export function allItems(usesFieldLayout: boolean | null | undefined): NavItem[] {
+  return navFor(usesFieldLayout).flatMap((g) => g.items);
 }
 
 /*

@@ -25,7 +25,7 @@ import { DUR, EASE } from "@/lib/motion";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
-import { allItems, applyFeatureStates, groupKey, isFieldRole, isSettingsItemId, matchItem, navFor, type NavGroup } from "./nav-config";
+import { allItems, applyFeatureStates, groupKey, isSettingsItemId, matchItem, navFor, type NavGroup } from "./nav-config";
 import { LAND_ON_PIN, defaultPinnedHref, readPinOrder, useNavPins } from "./nav-pins";
 
 /*
@@ -220,8 +220,8 @@ export function AppShell({
 
   const role = me.data?.role ?? null;
   const perms = me.data?.permissions ?? [];
-  const field = isFieldRole(role);
-  const current = matchItem(allItems(role), pathname);
+  const field = me.data?.usesFieldLayout ?? false;
+  const current = matchItem(allItems(field), pathname);
 
   /* Tenant presentation state — see ADR-11's generalization in
      docs/06-decisions.md. Every signed-in person needs this, the same as
@@ -235,7 +235,7 @@ export function AppShell({
      empty sidebar is worse than no glyph at all. Feature state is applied
      in the SAME pass, after permissions, so the rail and the sidebar read
      one array and can never disagree about what a group contains. */
-  const groups = navFor(role);
+  const groups = navFor(field);
   const railGroups: NavGroup[] = applyFeatureStates(
     groups
       .map((g) => ({ ...g, items: g.items.filter((n) => !n.perm || perms.includes(n.perm)) }))

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { usePermissions } from "@/components/use-permissions";
-import { isFieldRole } from "@/components/sti/nav-config";
+
 import { trpc } from "@/lib/trpc";
 import { ProjectMonitor } from "@/components/sti/monitor/project-monitor";
 
@@ -25,7 +25,7 @@ import { ProjectMonitor } from "@/components/sti/monitor/project-monitor";
 */
 export default function HomePage() {
   const router = useRouter();
-  const { role } = usePermissions();
+  const { role, usesFieldLayout } = usePermissions();
   /*
     First-run setup wins over this redirect, and the ORDER is the whole reason
     this query is here.
@@ -48,8 +48,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!onboarding.data) return;
     if (onboarding.data.shouldPrompt) return;
-    if (isFieldRole(role)) router.replace("/my-tools");
-  }, [role, router, onboarding.data]);
+    if (usesFieldLayout) router.replace("/my-tools");
+  }, [usesFieldLayout, router, onboarding.data]);
 
   return <ProjectMonitor />;
 }

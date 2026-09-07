@@ -5,7 +5,7 @@ import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { visibleProjectScope } from "../scope.js";
+import { crewEmployeeIds, visibleProjectScope } from "../scope.js";
 import { moveEmployeeToProject } from "../project-assign.js";
 import { PROJECT_STATUSES } from "@stinventory/types";
 
@@ -680,20 +680,15 @@ export const employeeRouter = router({
     const tid = ctx.session.tenantId;
     const employeeId = ctx.session.employeeId;
 
-    const supers = await ctx.db
-      .select({ projectId: schema.projectTeamMember.projectId })
-      .from(schema.projectTeamMember)
-      .where(
-        and(
-          eq(schema.projectTeamMember.tenantId, tid),
-          eq(schema.projectTeamMember.employeeId, employeeId),
-          eq(schema.projectTeamMember.role, "superintendent"),
-          isNull(schema.projectTeamMember.endedOn),
-        ),
-      );
-    if (supers.length === 0) return [];
+    /* THE SAME QUESTION `scope.ts crewOf` ASKS, and now literally the same
+       code — it used to be a second hand-written copy of the superintendent ->
+       foreman walk, with a comment on both sides asking whoever changed one to
+       remember the other. That is not a rule anybody can keep; the ladder went
+       five tiers deep in the register and only one of the two copies was ever
+       going to be updated. `crewEmployeeIds` is now the single answer. */
+    const crewIds = await crewEmployeeIds(ctx.db, tid, employeeId);
+    if (crewIds.length === 0) return [];
 
-    const projectIds = supers.map((s) => s.projectId);
     return ctx.db
       .select({
         id: schema.employee.id,
@@ -706,16 +701,12 @@ export const employeeRouter = router({
         primaryProjectId: schema.employee.primaryProjectId,
       })
       .from(schema.employee)
-      .innerJoin(
-        schema.projectTeamMember,
+      .where(
         and(
-          eq(schema.projectTeamMember.employeeId, schema.employee.id),
-          eq(schema.projectTeamMember.tenantId, tid),
-          eq(schema.projectTeamMember.role, "foreman"),
-          isNull(schema.projectTeamMember.endedOn),
-          inArray(schema.projectTeamMember.projectId, projectIds),
+          eq(schema.employee.tenantId, tid),
+          inArray(schema.employee.id, crewIds),
+          eq(schema.employee.employmentStatus, "active"),
         ),
-      )
-      .where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.employmentStatus, "active")));
+      );
   }),
 });

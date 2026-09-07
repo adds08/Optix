@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Boxes, HardHat, MapPin, Radio, Users } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { usePermissions } from "@/components/use-permissions";
-import { allItems, isFieldRole } from "@/components/sti/nav-config";
+import { allItems } from "@/components/sti/nav-config";
 import {
   CommandDialog,
   CommandEmpty,
@@ -30,7 +30,7 @@ import {
     palette is a second way to reach a screen, never a second way to reach a
     capability — every verb here routes to the page that owns the mutation and
     is hidden unless that page's permission is held. Nothing here mutates.
-  - NAVIGATION COMES FROM THE NAV REGISTRY, not a copy of it. `allItems(role)`
+  - NAVIGATION COMES FROM THE NAV REGISTRY, not a copy of it. `allItems(usesFieldLayout)`
     is the same source the rail and sidebar read, already permission-shaped, so
     a route added there appears here without anybody remembering to.
 */
@@ -82,7 +82,7 @@ export function CommandPalette({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
-  const { role, has } = usePermissions();
+  const { role, has, usesFieldLayout } = usePermissions();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
 
@@ -108,7 +108,7 @@ export function CommandPalette({
     [onOpenChange, router],
   );
 
-  const pages = useMemo(() => allItems(role), [role]);
+  const pages = useMemo(() => allItems(usesFieldLayout), [usesFieldLayout]);
 
   /*
     Verbs, each pointing at the screen that owns the mutation and gated on that
@@ -116,7 +116,7 @@ export function CommandPalette({
     phone has three jobs and a palette is not one of them.
   */
   const actions = useMemo(() => {
-    if (isFieldRole(role)) return [];
+    if (usesFieldLayout) return [];
     return [
       { label: "Hand a tool over…", to: "/custody", perm: "transfer.create" },
       { label: "Assign a tool to somebody…", to: "/custody", perm: "assignment.create" },
@@ -124,7 +124,7 @@ export function CommandPalette({
       { label: "Add a job…", to: "/projects", perm: "project.manage" },
       { label: "Import from a spreadsheet…", to: "/tools", perm: "asset.manage" },
     ].filter((a) => has(a.perm as Parameters<typeof has>[0]));
-  }, [role, has]);
+  }, [usesFieldLayout, has]);
 
   const hits = results.data ?? [];
   const grouped = useMemo(() => {
