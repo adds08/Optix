@@ -133,6 +133,68 @@ async function bambooGet(
 }
 
 /*
+  Is `jobTitle` a list BambooHR manages, or free text somebody types?
+
+  This exists because the answer changes what the title-to-tier mapping has to
+  be, and nothing in this codebase had ever asked:
+
+  - **A managed list** means the set of titles is finite and known. Mapping each
+    one to a team-role tier is a table you fill in once.
+  - **Free text** means new spellings arrive forever — Urban's own spreadsheet
+    carries "Forman", "field Engineer" and "Saftey Manager" — so the mapping
+    needs a permanent unmapped queue rather than a one-off setup.
+
+  Designing for the wrong one is expensive in opposite directions, hence a read
+  rather than a guess. `/meta/lists` returns only the fields that ARE lists, so
+  `managed: false` (no entry for job title) is the free-text answer rather than
+  an error.
+
+  Goes through `get` like every other call here — see this file's header. There
+  is deliberately no second `fetch` in this module, and
+  `bamboo-sync.test.ts` fails if one appears.
+*/
+export type BambooJobTitleOptions = {
+  /** True when BambooHR reports job title as a list field it manages. */
+  managed: boolean;
+  /** Option names, archived ones excluded, sorted. Empty when not managed. */
+  options: string[];
+  /** Archived options, kept separate: still attached to old records. */
+  archived: string[];
+};
+
+export async function fetchBambooJobTitleOptions(
+  creds: BambooCredentials,
+  get: typeof bambooGet = bambooGet,
+): Promise<BambooJobTitleOptions> {
+  const body = await get(creds, "/meta/lists", {});
+  const lists = Array.isArray(body) ? body : [];
+
+  /* Matched on alias first, then on the display name. BambooHR's alias for
+     this field is `jobTitle`; the name is tenant-editable, so it is the
+     fallback rather than the test. */
+  const list = lists.find((l: unknown) => {
+    const row = l as { alias?: unknown; name?: unknown };
+    const alias = typeof row.alias === "string" ? row.alias.toLowerCase() : "";
+    const name = typeof row.name === "string" ? row.name.toLowerCase().replace(/\s+/g, "") : "";
+    return alias === "jobtitle" || name === "jobtitle";
+  }) as { options?: unknown } | undefined;
+
+  if (!list) return { managed: false, options: [], archived: [] };
+
+  const options: string[] = [];
+  const archived: string[] = [];
+  for (const raw of Array.isArray(list.options) ? list.options : []) {
+    const opt = raw as { name?: unknown; archived?: unknown };
+    if (typeof opt.name !== "string" || opt.name.trim() === "") continue;
+    /* BambooHR sends "yes"/"no" strings here, not booleans. */
+    (String(opt.archived).toLowerCase() === "yes" ? archived : options).push(opt.name.trim());
+  }
+  options.sort((a, b) => a.localeCompare(b));
+  archived.sort((a, b) => a.localeCompare(b));
+  return { managed: true, options, archived };
+}
+
+/*
   Follow `meta.page.nextCursor` to the end.
 
   Paginated rather than assuming one page, because `list-employees` is
