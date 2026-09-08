@@ -104,18 +104,25 @@ export function CrewStep() {
                       )}
                     </span>
 
-                    <span className="w-40 shrink-0 truncate text-sm font-medium">
-                      {tier.label}
-                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                    {/* STACKED, and no `truncate`. This was one `w-40 truncate`
+                        box holding both the label and the relation, which cut
+                        "Area In-charge · your in-charge" to "· your in-c…" at
+                        every font scale — reported from a screenshot. The
+                        relation is a second line rather than a wider box
+                        because widening it steals room from the picker below,
+                        which is the control that actually does something. */}
+                    <span className="flex w-44 shrink-0 flex-col leading-tight">
+                      <span className="text-sm font-medium">{tier.label}</span>
+                      <span className="text-xs font-normal text-muted-foreground">
                         {tier.relation === "above"
-                          ? "· your in-charge"
+                          ? "your in-charge"
                           : tier.hops > 1
-                            ? `· ${tier.hops} below you`
-                            : "· your crew"}
+                            ? `${tier.hops} below you`
+                            : "your crew"}
                       </span>
                     </span>
 
-                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
                       <div className="flex min-w-0 flex-wrap items-center gap-2">
                         {tier.filled.length > 0 && (
                           <ul className="flex flex-wrap gap-1.5">
@@ -177,12 +184,61 @@ export function CrewStep() {
                           </span>
                         )}
 
-                        {/* THE PICKER IS ALWAYS HERE when this tier is yours to
-                            name — see the comment above the chips for what it
-                            used to be gated on and why that capped every tier
-                            at one person. */}
-                        {tier.canAssign ? (
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                        {/* Not yours to name, and not yet handed off. Split out
+                            of the old `canAssign` else-branch so the picker
+                            below could become a row of its own. */}
+                        {tier.filled.length === 0 && !tier.canAssign && !tier.deferred && (
+                          <span className="text-xs text-muted-foreground">Not yours to name.</span>
+                        )}
+
+                        {tier.filled.length === 0 && !tier.canAssign && !tier.deferred && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 shrink-0 px-2 text-xs"
+                            disabled={defer.isPending}
+                            onClick={() => defer.mutate({ projectId: job.projectId, teamRole: tier.teamRoleName })}
+                          >
+                            My {tier.relation === "above" ? "in-charge" : "team"} will handle this
+                          </Button>
+                        )}
+
+                        {/* WITHDRAW. Deferring used to be one-way: the only exit
+                            was somebody filling the tier, and the picker was
+                            hidden on a filled tier, so "Area Incharge, did
+                            something cannot undo" was literally true. */}
+                        {tier.deferred && tier.filled.length === 0 && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 shrink-0 px-2 text-xs"
+                            disabled={undefer.isPending}
+                            onClick={() => undefer.mutate({ projectId: job.projectId, teamRole: tier.teamRoleName })}
+                          >
+                            <Undo2 className="mr-1 size-3" aria-hidden />
+                            I&apos;ll name them
+                          </Button>
+                        )}
+                      </div>
+
+                      {/*
+                        THE PICKER GETS ITS OWN ROW, and that is the whole fix
+                        for the reported glitch. It used to sit inside the
+                        wrapping row above with `flex-1`, sharing one line with
+                        the name chips and "Confirm all" — so on a tier with two
+                        people recorded it was squeezed to the width of "Ad…"
+                        and its own submit button was pushed outside the card.
+                        The control that actually assigns somebody was the one
+                        the layout sacrificed.
+
+                        `flex-1` inside a `flex-wrap` parent does not move the
+                        item to its own line; it makes it fight for the current
+                        one. Giving it a sibling row instead means its width no
+                        longer depends on how many people are already named.
+                      */}
+                      {tier.canAssign && (
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
                             <EntityField
                               options={employeeOptions}
                               value={picking[pickKey] ?? ""}
@@ -194,57 +250,29 @@ export function CrewStep() {
                               }
                               searchPlaceholder="Search people…"
                             />
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!picking[pickKey] || assign.isPending}
-                              onClick={() =>
-                                assign.mutate({
-                                  projectId: job.projectId,
-                                  employeeId: picking[pickKey]!,
-                                  role: tier.teamRoleName,
-                                  source: "onboarding",
-                                })
-                              }
-                            >
-                              <UserPlus className="size-4" />
-                            </Button>
                           </div>
-                        ) : (
-                          tier.filled.length === 0 &&
-                          !tier.deferred && (
-                            <div className="flex flex-1 items-center gap-2">
-                              <span className="text-xs text-muted-foreground">Not yours to name.</span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 px-2 text-xs"
-                                disabled={defer.isPending}
-                                onClick={() => defer.mutate({ projectId: job.projectId, teamRole: tier.teamRoleName })}
-                              >
-                                My {tier.relation === "above" ? "in-charge" : "team"} will handle this
-                              </Button>
-                            </div>
-                          )
-                        )}
-
-                        {/* WITHDRAW. Deferring used to be one-way: the only exit
-                            was somebody filling the tier, and the picker was
-                            hidden on a filled tier, so "Area Incharge, did
-                            something cannot undo" was literally true. */}
-                        {tier.deferred && tier.filled.length === 0 && (
+                          {/* Worded, not a bare icon: this is the button that
+                              puts somebody on the job, and an icon alone left
+                              the client asking how to assign a crew at all. */}
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="h-6 px-2 text-xs"
-                            disabled={undefer.isPending}
-                            onClick={() => undefer.mutate({ projectId: job.projectId, teamRole: tier.teamRoleName })}
+                            variant="outline"
+                            className="shrink-0"
+                            disabled={!picking[pickKey] || assign.isPending}
+                            onClick={() =>
+                              assign.mutate({
+                                projectId: job.projectId,
+                                employeeId: picking[pickKey]!,
+                                role: tier.teamRoleName,
+                                source: "onboarding",
+                              })
+                            }
                           >
-                            <Undo2 className="mr-1 size-3" aria-hidden />
-                            I&apos;ll name them
+                            <UserPlus className="mr-1.5 size-4" aria-hidden />
+                            Add to {job.projectName}
                           </Button>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       {/* Advisory, never a block — the same treatment /my-crew
                           gives it. Raised only once somebody is picked, because

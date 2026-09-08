@@ -26,6 +26,8 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-09 | [A tenant's own tier gains real assign authority](2026-09-09-set-by-a-tenant-tier-gains-real-assign-authority.md) |
+| 2026-09-09 | [A read-only promise gets a guard, and two skills retire](2026-09-09-a-read-only-promise-gets-a-guard-and-two-skills-retire.md) |
 | 2026-09-08 | [Tabs you can actually see, and one strip instead of three sections](2026-09-08-tabs-you-can-actually-see.md) |
 | 2026-09-07 | [A foreman and his trailer, on one page](2026-09-07-a-foreman-and-his-trailer-on-one-page.md) |
 | 2026-09-07 | [One word for one idea: code](2026-09-07-one-word-for-one-idea-code.md) |

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Wrench } from "lucide-react";
+import { ChevronDown, Plus, Trash2, Wrench } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { EmptyState, ErrorNote, PageHeader, TableSkeleton } from "@/components/sti/page";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SearchSelect } from "@/components/ui/search-select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 /*
   Team Roles — the tiers a person can hold on a job.
@@ -29,13 +30,106 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
   role is `engineer` and whose team role is `pm`; the two are allowed to
   disagree, on purpose, so this screen must not be folded into that one.
 
-  `pm`, `superintendent` and `foreman` ship built in and cannot be deleted or
-  renamed here — they carry their own dedicated permission
-  (`project.assign.pm` etc.) and the assignment hierarchy names them directly.
-  A role added here has no such permission; putting a person in it is gated by
-  `project.team.assign` instead, granted today to owners, the equipment
-  department and office administrators.
+  `pm`, `superintendent` and `foreman` ship built in and cannot be DELETED
+  here — the assignment hierarchy and `rbac-matrix.test.ts` name them
+  directly. Their own dedicated permission (`project.assign.pm` etc.) keeps
+  working exactly as before and is not shown on this screen; that path is
+  tenant-wide and permission-based, unrelated to the roster below.
+
+  "Set by" (STI-503) is the NEW, second way to gain authority over a tier,
+  additive to the permission path above: a tenant's own tier — Director, Area
+  In-charge — can now be granted authority over another tier by SAYING WHICH
+  TIERS, held on that same project, may place someone into it. Before this,
+  a tenant-added tier had no path except `project.team.assign` (admins and
+  the equipment department), because `Permission` is fixed code a settings
+  screen cannot extend. This is that extension, done as data instead: a join
+  table (`team_role_assigner`), not a permission.
 */
+
+type TeamRoleListItem = {
+  id: string;
+  name: string;
+  label: string;
+  canHoldCustody: boolean;
+  isSystem: boolean;
+  reportsToTeamRoleId: string | null;
+  assignableByEveryone: boolean;
+  assignerTeamRoleIds: string[];
+};
+
+/*
+  "Set by" — a Popover holding a checklist, the same shape
+  `column-menu.tsx`'s filter already uses elsewhere in the app, not a new
+  pattern invented for this one screen.
+
+  Two independent controls stacked in one panel rather than two cells,
+  because they answer one question together ("who may fill this tier") and
+  splitting them would let a reader miss that "Everybody" makes the list
+  below it redundant rather than wrong.
+*/
+function SetByCell({
+  row,
+  allRoles,
+  onToggleTier,
+  onToggleEveryone,
+}: {
+  row: TeamRoleListItem;
+  allRoles: TeamRoleListItem[];
+  onToggleTier: (assignerId: string, checked: boolean) => void;
+  onToggleEveryone: (checked: boolean) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const others = allRoles.filter((o) => o.id !== row.id);
+  const chosenLabels = row.assignerTeamRoleIds
+    .map((id) => others.find((o) => o.id === id)?.label)
+    .filter((l): l is string => !!l);
+
+  const summary = row.assignableByEveryone
+    ? "Everybody"
+    : chosenLabels.length === 0
+      ? "Nobody yet"
+      : chosenLabels.length <= 2
+        ? chosenLabels.join(", ")
+        : `${chosenLabels[0]}, ${chosenLabels[1]} +${chosenLabels.length - 2} more`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 w-52 justify-between font-normal">
+          <span className={chosenLabels.length === 0 && !row.assignableByEveryone ? "text-muted-foreground" : undefined}>
+            {summary}
+          </span>
+          <ChevronDown className="size-3.5 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-2">
+        <label className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent">
+          <Checkbox checked={row.assignableByEveryone} onCheckedChange={(v) => onToggleEveryone(v === true)} />
+          Everybody
+        </label>
+        <div className="my-1 border-t" />
+        {others.length === 0 ? (
+          <p className="px-2 py-1.5 text-xs text-muted-foreground">No other roles exist yet.</p>
+        ) : (
+          others.map((o) => (
+            <label
+              key={o.id}
+              className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent aria-disabled:opacity-40"
+              aria-disabled={row.assignableByEveryone}
+            >
+              <Checkbox
+                checked={row.assignerTeamRoleIds.includes(o.id)}
+                disabled={row.assignableByEveryone}
+                onCheckedChange={(v) => onToggleTier(o.id, v === true)}
+              />
+              {o.label}
+            </label>
+          ))
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function TeamRolesPage() {
   const utils = trpc.useUtils();
@@ -83,6 +177,13 @@ export default function TeamRolesPage() {
     onError: (e) => setLadderError(e.message),
   });
 
+  /* "Set by": one mutation replaces the whole assigner list for a tier, so a
+     single tick calls it with the FULL next list rather than one id at a
+     time — matching the procedure's own replace-not-diff contract. */
+  const setAssigners = trpc.projectTeam.roles.setAssigners.useMutation({
+    onSuccess: () => utils.projectTeam.roles.list.invalidate(),
+  });
+
   if (!me.isLoading && !mayManage) {
     return (
       <EmptyState
@@ -116,15 +217,20 @@ export default function TeamRolesPage() {
           and emits the `data-slot` attributes compact density targets — a raw
           table is silently density-blind, which is not a cosmetic difference.
           This screen was the only table in the app missing both. */}
+      {/* `bg-card` is not optional. The `Table` primitive sets no background
+          of its own, so without it the rows are transparent and the page
+          ground shows through — which reads as "the table lost its white
+          background". `DataTable` and every other table wrapper in the app
+          already carry it; this screen was the one that did not. */}
       {roles.data && (
-        <div className="overflow-hidden rounded-md border">
+        <div className="overflow-hidden rounded-md border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Role</TableHead>
                 <TableHead>Reports to</TableHead>
+                <TableHead>Set by</TableHead>
                 <TableHead>Holds tools &amp; a truck</TableHead>
-                <TableHead>Source</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -152,6 +258,19 @@ export default function TeamRolesPage() {
                     />
                   </TableCell>
                   <TableCell>
+                    <SetByCell
+                      row={r}
+                      allRoles={roles.data ?? []}
+                      onToggleTier={(assignerId, checked) => {
+                        const next = new Set(r.assignerTeamRoleIds);
+                        if (checked) next.add(assignerId);
+                        else next.delete(assignerId);
+                        setAssigners.mutate({ id: r.id, assignerTeamRoleIds: [...next] });
+                      }}
+                      onToggleEveryone={(checked) => update.mutate({ id: r.id, assignableByEveryone: checked })}
+                    />
+                  </TableCell>
+                  <TableCell>
                     {/* Built-in rows keep their seeded flag — the assignment
                         hierarchy and TOOLS_FOLLOW were written against these
                         three exactly as shipped, so this cell is read-only for
@@ -168,21 +287,30 @@ export default function TeamRolesPage() {
                       </label>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {r.isSystem ? "Built in" : "Added by your organization"}
-                  </TableCell>
                   <TableCell className="text-right">
-                    {!r.isSystem && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-destructive"
-                        onClick={() => del.mutate({ id: r.id })}
-                        title="Delete — only possible if nobody currently holds this role"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    )}
+                    {/* Always rendered now, disabled rather than absent for a
+                        built-in tier — an absent control reads as unfinished,
+                        and the reason it is missing is worth saying rather
+                        than leaving the cell blank (this used to be the
+                        Source column's whole job, before "Set by" made
+                        "Built in" vs "Added by your organization" the wrong
+                        question: every row here is editable in every OTHER
+                        column now, built-in or not). Same wording the server
+                        itself refuses the delete with. */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 text-destructive disabled:opacity-40"
+                      disabled={r.isSystem}
+                      onClick={() => del.mutate({ id: r.id })}
+                      title={
+                        r.isSystem
+                          ? `"${r.label}" ships with the product and cannot be deleted.`
+                          : "Delete — only possible if nobody currently holds this role"
+                      }
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

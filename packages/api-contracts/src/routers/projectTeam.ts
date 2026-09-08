@@ -8,6 +8,7 @@ import { moveEmployeeToProject } from "../project-assign.js";
 import { visibleProjectScope, viewTierOf } from "../scope.js";
 import {
   buildOrgForest,
+  canAssignIntoTier,
   findCycle,
   findTierCycle,
   tiersAtOrBelow,
@@ -88,15 +89,24 @@ export const BUILT_IN_PERM: Partial<Record<string, Permission>> = {
   foreman: "project.assign.foreman",
 };
 
-type TeamRoleRow = { name: string; label: string; canHoldCustody: boolean; isSystem: boolean };
+type TeamRoleRow = {
+  id: string;
+  name: string;
+  label: string;
+  canHoldCustody: boolean;
+  isSystem: boolean;
+  assignableByEveryone: boolean;
+};
 
 async function requireTeamRole(db: any, tid: string, name: string): Promise<TeamRoleRow> {
   const [row] = await db
     .select({
+      id: schema.teamRole.id,
       name: schema.teamRole.name,
       label: schema.teamRole.label,
       canHoldCustody: schema.teamRole.canHoldCustody,
       isSystem: schema.teamRole.isSystem,
+      assignableByEveryone: schema.teamRole.assignableByEveryone,
     })
     .from(schema.teamRole)
     .where(and(eq(schema.teamRole.tenantId, tid), eq(schema.teamRole.name, name)));
@@ -106,9 +116,91 @@ async function requireTeamRole(db: any, tid: string, name: string): Promise<Team
   return row;
 }
 
-function assertCanAssign(permissions: ReadonlySet<Permission>, role: TeamRoleRow): void {
+/*
+  Team-role tier NAMES the caller holds on ONE project, via an active
+  `project_team_member` row — never a login role, never a tier held on some
+  OTHER job. Empty for an account with no employee record (an office/admin
+  account), which is fine: such an account reaches every write through path 1
+  below, never path 3.
+*/
+async function callerTierNamesOnProject(
+  db: any,
+  tid: string,
+  projectId: string,
+  employeeId: string | null,
+): Promise<ReadonlySet<string>> {
+  if (!employeeId) return new Set();
+  const rows: { role: string }[] = await db
+    .select({ role: schema.projectTeamMember.role })
+    .from(schema.projectTeamMember)
+    .where(
+      and(
+        eq(schema.projectTeamMember.tenantId, tid),
+        eq(schema.projectTeamMember.projectId, projectId),
+        eq(schema.projectTeamMember.employeeId, employeeId),
+        isNull(schema.projectTeamMember.endedOn),
+      ),
+    );
+  return new Set(rows.map((r) => r.role));
+}
+
+/*
+  The target tier's registered "Set by" list, as tier NAMES rather than ids —
+  `canAssignIntoTier` compares against `callerTierNamesOnProject`'s names, and
+  a tier can be renamed (its `label`) without this join ever needing to change,
+  because both sides key on the stable `name`/id, not the label.
+*/
+async function assignerTierNamesFor(db: any, teamRoleId: string): Promise<ReadonlySet<string>> {
+  const rows: { name: string }[] = await db
+    .select({ name: schema.teamRole.name })
+    .from(schema.teamRoleAssigner)
+    .innerJoin(schema.teamRole, eq(schema.teamRole.id, schema.teamRoleAssigner.assignerTeamRoleId))
+    .where(eq(schema.teamRoleAssigner.teamRoleId, teamRoleId));
+  return new Set(rows.map((r) => r.name));
+}
+
+/*
+  Now async and PROJECT-AWARE — was a pure permission check before STI-503.
+  Same refusal messages for the built-in three, because the commonest way to
+  be refused (no employee record, or on no jobs, holding neither the
+  dedicated permission nor a registered "Set by" tier) is unchanged by this;
+  what is NEW is that a tenant's own tier, previously admin-only in practice,
+  can now say yes via `canAssignIntoTier`'s path 3.
+
+  `db` and `session` are threaded separately rather than a whole `ctx`, so this
+  stays callable from a plain object in a test without constructing a tRPC
+  context.
+*/
+async function assertCanAssign(
+  db: any,
+  session: { permissions: ReadonlySet<Permission>; employeeId: string | null },
+  tid: string,
+  projectId: string,
+  role: TeamRoleRow,
+): Promise<void> {
   const perm = BUILT_IN_PERM[role.name] ?? "project.team.assign";
-  if (!permissions.has(perm)) {
+  const hasAdminPermission = session.permissions.has(perm);
+
+  /* Short-circuit before either query: the admin path is the common case for
+     the built-in three (an office/admin account holding no employee record at
+     all), and it would be wasteful — and pointless, since `canAssignIntoTier`
+     already returns true on this flag alone — to look up a project roster and
+     a Set-by list nobody is about to read. */
+  /* `role.id` is empty only for the synthetic fallback `confirm` builds when
+     the tier named on an old roster row has since been deleted — cascade
+     delete would have removed any `team_role_assigner` rows for it anyway, so
+     skipping the query and using an empty set is the same answer, not a
+     shortcut. */
+  const allowed =
+    hasAdminPermission ||
+    canAssignIntoTier({
+      hasAdminPermission: false,
+      targetIsOpenToEveryone: role.assignableByEveryone,
+      callerTierNamesOnThisProject: await callerTierNamesOnProject(db, tid, projectId, session.employeeId),
+      targetAssignerTierNames: role.id ? await assignerTierNamesFor(db, role.id) : new Set<string>(),
+    });
+
+  if (!allowed) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message:
@@ -118,7 +210,7 @@ function assertCanAssign(permissions: ReadonlySet<Permission>, role: TeamRoleRow
             ? "PMs and admins assign superintendents to projects."
             : role.name === "foreman"
               ? "You need to be a PM, superintendent, admin or the equipment department to assign a foreman."
-              : `You do not have permission to assign the "${role.label}" role.`,
+              : `You do not have permission to assign the "${role.label}" role. Ask an admin, or ask whoever holds a tier this one is set to be filled by.`,
     });
   }
 }
@@ -338,7 +430,7 @@ export const projectTeamRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       const roleRow = await requireTeamRole(ctx.db, tid, input.role);
-      assertCanAssign(ctx.session.permissions, roleRow);
+      await assertCanAssign(ctx.db, ctx.session, tid, input.projectId, roleRow);
 
       /*
         Refuse an edge that would close a loop, at ANY depth.
@@ -498,7 +590,7 @@ export const projectTeamRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       const roleRow = await requireTeamRole(ctx.db, tid, input.role);
-      assertCanAssign(ctx.session.permissions, roleRow);
+      await assertCanAssign(ctx.db, ctx.session, tid, input.projectId, roleRow);
 
       const [row] = await ctx.db
         .select({
@@ -569,6 +661,7 @@ export const projectTeamRouter = router({
       const [row] = await ctx.db
         .select({
           id: schema.projectTeamMember.id,
+          projectId: schema.projectTeamMember.projectId,
           employeeId: schema.projectTeamMember.employeeId,
           role: schema.projectTeamMember.role,
         })
@@ -583,7 +676,7 @@ export const projectTeamRouter = router({
       if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "That roster row is not active." });
 
       const roleRow = await requireTeamRole(ctx.db, tid, row.role);
-      assertCanAssign(ctx.session.permissions, roleRow);
+      await assertCanAssign(ctx.db, ctx.session, tid, row.projectId, roleRow);
 
       if (input.reportsToEmployeeId === row.employeeId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Somebody cannot report to themselves." });
@@ -669,11 +762,18 @@ export const projectTeamRouter = router({
       });
       /* A tier deleted from the register since the row was written. Fall back to
          the generic assign permission rather than letting the confirmation
-         through ungated — the same choice `assertCanAssign` makes for a tenant's
-         own tiers. */
-      assertCanAssign(
-        ctx.session.permissions,
-        roleRow ?? ({ name: row.role, label: row.role, canHoldCustody: false } as TeamRoleRow),
+         through ungated — the same choice `assertCanAssign` makes for a
+         tenant's own tiers. `id: ""` rather than a cast past a missing field:
+         `assertCanAssign` reads it as "no real tier to look up a Set-by list
+         for" and skips that query outright — cascade delete would have
+         removed any such rows anyway, so an empty result and a skipped query
+         mean the same thing here. */
+      await assertCanAssign(
+        ctx.db,
+        ctx.session,
+        tid,
+        row.projectId,
+        roleRow ?? { id: "", name: row.role, label: row.role, canHoldCustody: false, isSystem: false, assignableByEveryone: false },
       );
 
       await ctx.db
@@ -705,7 +805,8 @@ export const projectTeamRouter = router({
       if (!ctx.session.permissions.has("project.team.read")) {
         throw new TRPCError({ code: "FORBIDDEN", message: "missing permission: project.team.read" });
       }
-      return ctx.db
+      const tid = ctx.session.tenantId;
+      const rows = await ctx.db
         .select({
           id: schema.teamRole.id,
           name: schema.teamRole.name,
@@ -713,10 +814,38 @@ export const projectTeamRouter = router({
           canHoldCustody: schema.teamRole.canHoldCustody,
           isSystem: schema.teamRole.isSystem,
           reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
+          assignableByEveryone: schema.teamRole.assignableByEveryone,
         })
         .from(schema.teamRole)
-        .where(eq(schema.teamRole.tenantId, ctx.session.tenantId))
+        .where(eq(schema.teamRole.tenantId, tid))
         .orderBy(schema.teamRole.isSystem, schema.teamRole.label);
+
+      /* "Set by", attached per row. A second query rather than a join because
+         a tier can have several assigners — a join would multiply each row by
+         its assigner count and this list is small enough (a tenant's whole
+         team-role register) that fetching it flat and grouping in memory reads
+         more plainly than un-duplicating join output. */
+      const tierIds = rows.map((r) => r.id);
+      const assignerRows: { teamRoleId: string; assignerTeamRoleId: string }[] = tierIds.length
+        ? await ctx.db
+            .select({
+              teamRoleId: schema.teamRoleAssigner.teamRoleId,
+              assignerTeamRoleId: schema.teamRoleAssigner.assignerTeamRoleId,
+            })
+            .from(schema.teamRoleAssigner)
+            .where(inArray(schema.teamRoleAssigner.teamRoleId, tierIds))
+        : [];
+      const assignerIdsByTarget = new Map<string, string[]>();
+      for (const r of assignerRows) {
+        const list = assignerIdsByTarget.get(r.teamRoleId) ?? [];
+        list.push(r.assignerTeamRoleId);
+        assignerIdsByTarget.set(r.teamRoleId, list);
+      }
+
+      return rows.map((r) => ({
+        ...r,
+        assignerTeamRoleIds: assignerIdsByTarget.get(r.id) ?? [],
+      }));
     }),
 
     create: requirePermission("project.team.manage")
@@ -758,12 +887,23 @@ export const projectTeamRouter = router({
       }),
 
     update: requirePermission("project.team.manage")
-      .input(z.object({ id: z.string().uuid(), label: z.string().min(1).max(60).optional(), canHoldCustody: z.boolean().optional() }))
+      .input(
+        z.object({
+          id: z.string().uuid(),
+          label: z.string().min(1).max(60).optional(),
+          canHoldCustody: z.boolean().optional(),
+          /* The "Everybody" wildcard — see the schema comment on this column
+             for why it is separate from, and additive to, `setAssigners`
+             below rather than a value stored IN that list. */
+          assignableByEveryone: z.boolean().optional(),
+        }),
+      )
       .mutation(async ({ ctx, input }) => {
         const tid = ctx.session.tenantId;
         const patch: Record<string, unknown> = {};
         if (input.label !== undefined) patch.label = input.label;
         if (input.canHoldCustody !== undefined) patch.canHoldCustody = input.canHoldCustody;
+        if (input.assignableByEveryone !== undefined) patch.assignableByEveryone = input.assignableByEveryone;
         if (Object.keys(patch).length === 0) return { ok: true };
         await ctx.db
           .update(schema.teamRole)
@@ -842,6 +982,80 @@ export const projectTeamRouter = router({
           category: "project", action: "project.team.roles.setReportsTo", entityType: "team_role",
           entityId: input.id, entityLabel: self.label,
           details: { reportsToTeamRoleId: input.reportsToTeamRoleId },
+        });
+        return { ok: true };
+      }),
+
+    /*
+      "Set by" (STI-503): which tiers may place someone into this one.
+
+      Replaces the WHOLE list on every call rather than offering add/remove —
+      the client edits this as one control (a multi-select against the
+      tenant's own tiers), so there is never a partial-update case to get
+      wrong, and "set the list to exactly these" is one statement instead of a
+      diff against what was there before.
+
+      Gated the same as `setReportsTo` and for the same reason: deciding WHO
+      may populate a tier is describing the organisation's shape, the same act
+      as adding the tier or pointing it at its boss. Putting a PERSON into a
+      tier stays gated by `assertCanAssign` at assignment time, unchanged.
+
+      This is ADDITIVE to the built-in three's existing permission path
+      (`project.assign.pm` etc.) — see `assertCanAssign` and the schema
+      comment on `team_role_assigner`. Emptying this list for `foreman` does
+      NOT revoke a superintendent's existing ability to assign one; it only
+      means no OTHER tier gains that ability through this mechanism.
+    */
+    setAssigners: requirePermission("project.team.manage")
+      .input(
+        z.object({
+          id: z.string().uuid(),
+          /* Tier ids, not names — names are entered as free text on `create`
+             and cross-tenant collisions are possible in principle; ids are
+             what every other edge on this table already uses
+             (`reportsToTeamRoleId`). */
+          assignerTeamRoleIds: z.array(z.string().uuid()).max(50),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tid = ctx.session.tenantId;
+        const [self] = await ctx.db
+          .select({ id: schema.teamRole.id, label: schema.teamRole.label })
+          .from(schema.teamRole)
+          .where(and(eq(schema.teamRole.id, input.id), eq(schema.teamRole.tenantId, tid)));
+        if (!self) throw new TRPCError({ code: "NOT_FOUND", message: "No such team role" });
+
+        /* A tier cannot be its own assigner and cannot name an id from
+           another tenant or one that does not exist — verified against THIS
+           tenant's own register rather than trusted from the input, the same
+           reason `setReportsTo` re-reads `roleByName` instead of taking a
+           label on faith. */
+        const ids = [...new Set(input.assignerTeamRoleIds)].filter((id) => id !== input.id);
+        const valid = ids.length
+          ? await ctx.db
+              .select({ id: schema.teamRole.id })
+              .from(schema.teamRole)
+              .where(and(eq(schema.teamRole.tenantId, tid), inArray(schema.teamRole.id, ids)))
+          : [];
+        const validIds = new Set(valid.map((v) => v.id));
+        const unknown = ids.filter((id) => !validIds.has(id));
+        if (unknown.length) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "One or more of those roles do not exist in this tenant." });
+        }
+
+        await ctx.db.transaction(async (tx: any) => {
+          await tx.delete(schema.teamRoleAssigner).where(eq(schema.teamRoleAssigner.teamRoleId, input.id));
+          if (ids.length) {
+            await tx
+              .insert(schema.teamRoleAssigner)
+              .values(ids.map((assignerTeamRoleId) => ({ teamRoleId: input.id, assignerTeamRoleId })));
+          }
+        });
+
+        await logEvent(ctx, {
+          category: "project", action: "project.team.roles.setAssigners", entityType: "team_role",
+          entityId: input.id, entityLabel: self.label,
+          details: { assignerTeamRoleIds: ids },
         });
         return { ok: true };
       }),
@@ -950,12 +1164,40 @@ export const projectTeamRouter = router({
         label: schema.teamRole.label,
         canHoldCustody: schema.teamRole.canHoldCustody,
         reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
+        assignableByEveryone: schema.teamRole.assignableByEveryone,
       })
       .from(schema.teamRole)
       .where(eq(schema.teamRole.tenantId, tid));
     const roleById = new Map(allRoles.map((r) => [r.id, r]));
     const roleByName = new Map(allRoles.map((r) => [r.name, r]));
     const edges = allRoles.map((r) => ({ id: r.id, reportsToTeamRoleId: r.reportsToTeamRoleId }));
+
+    /*
+      "Set by", tenant-wide, resolved to a map once rather than once per tier
+      per project — this screen can render several jobs at once. Scoped to the
+      tenant by filtering on `allRoles`' own ids (already `tenantId`-scoped
+      above): `team_role_assigner` carries no `tenant_id` of its own, the same
+      shape as `role_permission` (see `.claude/rules/database.md`), so the
+      parent's WHERE clause is the isolation.
+    */
+    const allTierIds = allRoles.map((r) => r.id);
+    const assignerRows: { teamRoleId: string; assignerTeamRoleId: string }[] = allTierIds.length
+      ? await ctx.db
+          .select({
+            teamRoleId: schema.teamRoleAssigner.teamRoleId,
+            assignerTeamRoleId: schema.teamRoleAssigner.assignerTeamRoleId,
+          })
+          .from(schema.teamRoleAssigner)
+          .where(inArray(schema.teamRoleAssigner.teamRoleId, allTierIds))
+      : [];
+    const assignerNamesByTargetId = new Map<string, Set<string>>();
+    for (const r of assignerRows) {
+      const assignerName = roleById.get(r.assignerTeamRoleId)?.name;
+      if (!assignerName) continue;
+      const set = assignerNamesByTargetId.get(r.teamRoleId) ?? new Set<string>();
+      set.add(assignerName);
+      assignerNamesByTargetId.set(r.teamRoleId, set);
+    }
 
     const projectIds = [...new Set(myRows.map((r) => r.projectId))];
 
@@ -1022,10 +1264,30 @@ export const projectTeamRouter = router({
       .where(eq(schema.employee.tenantId, tid));
 
     const permissions = ctx.session.permissions;
-    const canAssignTier = (roleName: string): boolean =>
-      permissions.has(BUILT_IN_PERM[roleName] ?? "project.team.assign");
 
     return myRows.map((mine) => {
+      /*
+        A HINT for the client, not the gate — same relationship every
+        `canAssign` flag in this file has to `assertCanAssign`, which is what
+        actually enforces it on write. Defined PER ROW rather than once above
+        the `.map`, because it reads `mine.role` — the caller's own tier ON
+        THIS project — and closing over the wrong iteration's value here is
+        exactly the bug that shape invites. Path 3 is therefore scoped exactly
+        the way `assertCanAssign` scopes it: a superintendent on ANOTHER job
+        does not make this true here.
+
+        Kept in lockstep with `assertCanAssign` by hand (see the comment on
+        `BUILT_IN_PERM` above); a change to one without the other is exactly
+        the drift that comment warns about.
+      */
+      const canAssignTier = (targetRole: { name: string; id: string; assignableByEveryone: boolean }): boolean =>
+        canAssignIntoTier({
+          hasAdminPermission: permissions.has(BUILT_IN_PERM[targetRole.name] ?? "project.team.assign"),
+          targetIsOpenToEveryone: targetRole.assignableByEveryone,
+          callerTierNamesOnThisProject: new Set([mine.role]),
+          targetAssignerTierNames: assignerNamesByTargetId.get(targetRole.id) ?? new Set(),
+        });
+
       const myTier = roleByName.get(mine.role);
       const claimable = myTier ? tiersAtOrBelow(edges, myTier.id) : [];
       const aboveIds = myTier ? tiersAbove(edges, myTier.id) : [];
@@ -1062,7 +1324,7 @@ export const projectTeamRouter = router({
             skipsTiers: t.viaTeamRoleIds
               .map((id) => roleById.get(id)?.label)
               .filter((l): l is string => !!l),
-            canAssign: canAssignTier(role.name),
+            canAssign: canAssignTier(role),
             filled: filled.map((f) => ({
               id: f.id,
               employeeId: f.employeeId,

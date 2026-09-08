@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { FolderInput, KeyRound, Mail, UserCheck, UserX, Users } from "lucide-react";
+import { FolderInput, HardHat, KeyRound, Mail, UserCheck, UserX, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { ImportButton } from "@/components/import-dialog";
 import { SyncFromButton } from "@/components/sync-from-button";
 import { EmployeeForm, type EmployeeEditable } from "@/components/employee-form";
 import { PostingForm } from "@/components/posting-form";
+import { PutOnJobForm } from "@/components/put-on-job-form";
 import { InviteDialog, TemporaryPasswordDialog } from "@/components/account-actions";
 import { RowActions } from "@/components/sti/row-actions";
 import { DataTable } from "@/components/sti/data-table/data-table";
@@ -56,6 +57,10 @@ function accountState(e: AccountFields): { label: string; muted: boolean } {
 export default function PeoplePage() {
   const [editing, setEditing] = useState<EmployeeEditable | null>(null);
   const [moving, setMoving] = useState<{ id: string; name: string; projectId?: string | null } | null>(null);
+  /* Seating somebody in a NAMED TIER — the only path in the product that can
+     put a person on a job in a tier the code does not hardcode. See
+     `put-on-job-form.tsx` for why the other four could not. */
+  const [seating, setSeating] = useState<{ id: string; name: string } | null>(null);
   const [failed, setFailed] = useState<{ id: string; message: string } | null>(null);
   const [inviting, setInviting] = useState<{ id: string; name: string; email?: string | null; roleId?: string | null } | null>(null);
   /* No bulk action reads this yet — turned on for consistency with the other
@@ -273,6 +278,18 @@ export default function PeoplePage() {
             label={e.name}
             actions={[
               {
+                /* SEATING, distinct from moving. This one names the tier, so it
+                   can put somebody on a job as a Director or Area In-charge —
+                   which "Move project" below cannot, because
+                   `employee.assignToProject` infers the tier from three
+                   hardcoded names and silently writes no roster row for
+                   anything else. */
+                label: "Put on a job…",
+                icon: HardHat,
+                perm: "project.team.assign" as const,
+                onSelect: () => setSeating({ id: e.id, name: e.name }),
+              },
+              {
                 /* Moving somebody to a job is its own action, not an edit — it
                    takes their tools with them. */
                 label: "Move project",
@@ -372,6 +389,14 @@ export default function PeoplePage() {
           name={resetIssued.name}
           password={resetIssued.password}
           onClose={() => setResetIssued(null)}
+        />
+      ) : null}
+      {seating ? (
+        <PutOnJobForm
+          open
+          onClose={() => setSeating(null)}
+          employeeId={seating.id}
+          employeeName={seating.name}
         />
       ) : null}
       {moving ? (

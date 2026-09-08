@@ -89,16 +89,36 @@ and tools gets a crew card only via tool custody, never as a roster row.
 custody-adjacent. The fix is to render any tier by `label` and split leaders
 from crews on `canHoldCustody` rather than on names.
 
-**Tenant tiers can never get a granular assign permission.** `BUILT_IN_PERM`
-maps only `pm`/`superintendent`/`foreman` to `project.assign.*`; everything
-else falls back to `project.team.assign`, which only `owner`, `tech_admin`,
-`equipment_admin` and `office_admin` hold. So on `/my-crew` a PM sees a
-tenant-added tier with `canAssign: false` and cannot fill it.
+**Fixed 2026-09-09 — "Set by" (STI-503).** `BUILT_IN_PERM` still maps only
+`pm`/`superintendent`/`foreman` to `project.assign.*`, and that path is
+unchanged. What is new is `team_role_assigner`
+(`packages/db/src/schema/reference.ts`): a per-tier list of which OTHER tiers,
+held ON THE SAME PROJECT, may place someone into it, plus an
+`assignableByEveryone` wildcard. Edited on `/settings/team-roles`'s "Set by"
+column. `packages/domain/src/team-role-authority.ts`'s `canAssignIntoTier` is
+the single combination both `projectTeam.assertCanAssign` (the real gate) and
+the `canAssign` hints on `/my-crew` and the onboarding crew step call, so the
+two cannot drift the way this document's previous version warned they might.
 
-`Permission` is a fixed code union, so **no settings screen can fix this.** It
-needs a design change — probably deriving assign authority from
-`reportsToTeamRoleId` ("whoever is above a tier can fill it"). **The client's
-decision on 2026-09-08 was to leave this to admins for now.**
+This did **not** derive authority from `reportsToTeamRoleId`, despite the
+suggestion below having stood here since 2026-09-08 — a separate table was
+chosen instead, because the reports-to column's own schema comment says
+plainly that "nothing about ACCESS may read this", precisely to stop this
+exact drift. Kept for the record: ~~`Permission` is a fixed code union, so no
+settings screen can fix this. It needs a design change — probably deriving
+assign authority from `reportsToTeamRoleId` ("whoever is above a tier can fill
+it"). The client's decision on 2026-09-08 was to leave this to admins for
+now.~~ The client asked for the fix on 2026-09-09, in a session that also
+designed the "Set by" shape above.
+
+**One thing this narrows, deliberately, and only for a tenant's own tiers:**
+today, `pm`/`superintendent`/`foreman`'s authority comes from a LOGIN role's
+permission, tenant-wide — a `project_manager` account can assign a
+superintendent onto ANY project, whether or not that account is rostered on
+it. "Set by" authority is TIER-on-that-job instead. The two paths run
+side by side (see `canAssignIntoTier`'s path 1 vs path 3) precisely so the
+built-in three keep their existing tenant-wide behaviour untouched; only a
+tenant-added tier, which had no path at all before this, is affected.
 
 ### Severity 2
 
@@ -155,5 +175,7 @@ typed into.
 3. **Retire `CUSTODIAN_ROLES`** in favour of reading the flag.
 4. **A tier flag for one-job-at-a-time postings** — schema change, client
    decision.
-5. **Assign authority from the ladder** — design change, client decision,
-   currently parked.
+5. ~~Assign authority from the ladder — design change, client decision,
+   currently parked.~~ **Done 2026-09-09**, as "Set by" (STI-503) — see the
+   section above. Not derived from the ladder in the end; a separate table
+   instead, for the reason given there.

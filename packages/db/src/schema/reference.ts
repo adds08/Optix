@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { tenant } from "./identity";
 
 /*
@@ -179,11 +179,72 @@ export const teamRole = pgTable(
        (director, area in-charge, ...) carry no dedicated permission and are
        gated by `project.team.assign` instead — see `assertCanAssign`. */
     isSystem: boolean("is_system").notNull().default(false),
+    /*
+      "Everybody may fill this tier" — the wildcard `team_role_assigner` below
+      cannot express, because it names specific tiers and there is no row that
+      means "any of them". Kept as a flag on THIS side (the tier being filled),
+      not on the assigner side: the question is "who may put someone into me",
+      asked once per target, not "which tiers am I allowed to fill", asked once
+      per assigner and then intersected.
+
+      Additive to `team_role_assigner`, not exclusive: a tier can be open to
+      everybody AND still carry rows in the join table — the rows are simply
+      redundant once this is true. Nothing deletes them when it flips on, so
+      switching it off restores exactly the list that was there before.
+    */
+    assignableByEveryone: boolean("assignable_by_everyone").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     tenantIdx: index("team_role_tenant_idx").on(t.tenantId),
     tenantNameUq: uniqueIndex("team_role_tenant_name_uq").on(t.tenantId, t.name),
+  }),
+);
+
+/*
+  "Set by" — which tiers may put a person into this tier. STI-503.
+
+  Read ONLY by `assertCanAssign` (`routers/projectTeam.ts`), and read as an
+  ADDITIONAL path, never a replacement: `BUILT_IN_PERM` and `project.team.assign`
+  keep working exactly as before, so an existing PM or superintendent account
+  loses no capability the day this ships. This table's whole job is to give a
+  tenant's OWN tiers — Director, Area In-charge, General Superintendent — a way
+  to gain the assign authority `pm`/`superintendent`/`foreman` have always had
+  through a dedicated permission and they never could. Before this, a Director
+  could see a tier they were the obvious person to fill and had no way to.
+
+  A row means "`assignerTeamRoleId`, HELD ON THE SAME PROJECT, may place someone
+  into `teamRoleId`" — tier-on-that-job, not the login role. This is a real
+  narrowing from how the three built-in tiers' PERMISSION-based path works today
+  (a `project_manager` login role holds `project.assign.superintendent`
+  tenant-wide, on every project, whether or not that account is rostered on any
+  of them) — deliberate, and only bites a tenant-added tier, because the
+  built-in three keep their existing tenant-wide path untouched alongside this
+  one. See the client conversation this ships from (2026-09-09): crew is set
+  top-down, by whoever already holds authority on THAT job, and setting a
+  crew IS putting them on the project — there is no separate "claim" step.
+
+  No `tenantId` of its own — both foreign keys already point into `team_role`,
+  which is tenant-scoped, so a third copy of the same fact would be a way for
+  the copy to disagree with its parents rather than real isolation (see
+  `.claude/rules/database.md` on `role_permission`, the same shape).
+
+  Deliberately a join table and not an array column on `team_role` — this
+  codebase already chose "edge per row" over a rank/array for the reports-to
+  ladder for exactly this reason (see the comment above), and the same logic
+  that made that ladder queryable and clean makes an array of ids on this
+  table the wrong call too.
+*/
+export const teamRoleAssigner = pgTable(
+  "tbl_entity_team_role_assigner",
+  {
+    /** The tier being filled. */
+    teamRoleId: uuid("team_role_id").notNull().references(() => teamRole.id, { onDelete: "cascade" }),
+    /** A tier that may fill it, held by the caller on the SAME project. */
+    assignerTeamRoleId: uuid("assigner_team_role_id").notNull().references(() => teamRole.id, { onDelete: "cascade" }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.teamRoleId, t.assignerTeamRoleId] }),
   }),
 );
 

@@ -32,6 +32,10 @@ export {
   type BambooContact,
 } from "./bamboohr.js";
 export {
+  canAssignIntoTier,
+  type TeamRoleAuthorityInput,
+} from "./team-role-authority.js";
+export {
   buildOrgForest,
   visibleEmployeeIds,
   descendantsOf,

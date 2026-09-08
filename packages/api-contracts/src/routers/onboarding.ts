@@ -2,7 +2,7 @@ import { and, eq, isNull, inArray, desc } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
-import { adjacentTiers, descendantsOf, tiersAtOrBelow } from "@stinventory/domain";
+import { adjacentTiers, canAssignIntoTier, descendantsOf, tiersAtOrBelow } from "@stinventory/domain";
 import type { Permission } from "@stinventory/types";
 import { protectedProcedure, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
@@ -617,11 +617,37 @@ export const onboardingRouter = router({
         name: schema.teamRole.name,
         label: schema.teamRole.label,
         reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
+        assignableByEveryone: schema.teamRole.assignableByEveryone,
       })
       .from(schema.teamRole)
       .where(eq(schema.teamRole.tenantId, tid));
     const roleById = new Map(allRoles.map((r) => [r.id, r]));
     const roleByName = new Map(allRoles.map((r) => [r.name, r]));
+
+    /*
+      "Set by", tenant-wide — see the identical comment in
+      `routers/projectTeam.ts`'s `myCrew`, which this must stay in lockstep
+      with by hand (the header comment on `BUILT_IN_PERM` names exactly this
+      pair as the drift risk).
+    */
+    const allTierIds = allRoles.map((r) => r.id);
+    const assignerRows: { teamRoleId: string; assignerTeamRoleId: string }[] = allTierIds.length
+      ? await ctx.db
+          .select({
+            teamRoleId: schema.teamRoleAssigner.teamRoleId,
+            assignerTeamRoleId: schema.teamRoleAssigner.assignerTeamRoleId,
+          })
+          .from(schema.teamRoleAssigner)
+          .where(inArray(schema.teamRoleAssigner.teamRoleId, allTierIds))
+      : [];
+    const assignerNamesByTargetId = new Map<string, Set<string>>();
+    for (const r of assignerRows) {
+      const assignerName = roleById.get(r.assignerTeamRoleId)?.name;
+      if (!assignerName) continue;
+      const set = assignerNamesByTargetId.get(r.teamRoleId) ?? new Set<string>();
+      set.add(assignerName);
+      assignerNamesByTargetId.set(r.teamRoleId, set);
+    }
 
     const projectIds = [...new Set(myRows.map((r) => r.projectId))];
 
@@ -656,12 +682,19 @@ export const onboardingRouter = router({
       );
 
     const permissions = ctx.session.permissions;
-    const canAssignTier = (roleName: string): boolean => {
-      const perm: Permission = BUILT_IN_PERM[roleName] ?? "project.team.assign";
-      return permissions.has(perm);
-    };
 
     return myRows.map((mine) => {
+      /* Per row, not above the `.map` — see the identical comment in
+         `projectTeam.ts`'s `myCrew` for why: it reads `mine.role`, the
+         caller's own tier ON THIS project. */
+      const canAssignTier = (targetRole: { name: string; id: string; assignableByEveryone: boolean }): boolean =>
+        canAssignIntoTier({
+          hasAdminPermission: permissions.has((BUILT_IN_PERM[targetRole.name] ?? "project.team.assign") as Permission),
+          targetIsOpenToEveryone: targetRole.assignableByEveryone,
+          callerTierNamesOnThisProject: new Set([mine.role]),
+          targetAssignerTierNames: assignerNamesByTargetId.get(targetRole.id) ?? new Set(),
+        });
+
       const myTier = roleByName.get(mine.role);
       /*
         ABOVE stays adjacent; BELOW is now the whole subtree (changed
@@ -707,7 +740,7 @@ export const onboardingRouter = router({
           skipsTiers: isAbove
             ? []
             : entry.via.map((id) => roleById.get(id)?.label).filter((l): l is string => !!l),
-          canAssign: canAssignTier(role.name),
+          canAssign: canAssignTier(role),
           deferred: deferred && filled.length === 0,
           filled: filled.map((f) => ({
             id: f.id,
