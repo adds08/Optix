@@ -116,15 +116,20 @@ export const PERMISSIONS = [
   "vehicle.manage",
   "project.read",
   "project.manage",
-  /* Who may be placed on a project's team, by target role. The hierarchy is
-     enforced server-side in project.team.assign: pm needs the pm permission,
-     superintendent the pm-or-superintendent tier, foreman any of them (plus
-     the equipment department). Keep the matrix here so the seed and the
-     router agree. */
+  /* Who may be placed on a project's team.
+
+     `project.assign.pm`, `.superintendent` and `.foreman` were removed on
+     2026-09-10. They named three specific tiers in a system where tiers are
+     tenant DATA — Urban's own `area_in_charge` and `general_superintendent`
+     had no permission of their own and fell through to
+     `project.team.assign`, so the hierarchy they encoded was already only
+     half the register's shape. What they expressed — that a PM may place a
+     superintendent but not another PM — is exactly what
+     `team_role_assigner` records per tier, for every tier, without a deploy.
+
+     `project.team.assign` is now the single tenant-wide grant, and the
+     per-tier question is answered by `canAssignIntoTier`. */
   "project.team.read",
-  "project.assign.pm",
-  "project.assign.superintendent",
-  "project.assign.foreman",
   /* Assigns a TENANT-ADDED team role — one with no dedicated permission of its
      own because it did not exist when this list was written (director, area
      in-charge, ...). `pm`/`superintendent`/`foreman` keep their own permissions
@@ -247,10 +252,7 @@ export const PERMISSION_GROUPS = [
       ["project.read", "See the list of jobs"],
       ["project.manage", "Add and edit jobs. Also widens what the job selector offers"],
       ["project.team.read", "See who is on a job"],
-      ["project.assign.pm", "Put a project manager on a job"],
-      ["project.assign.superintendent", "Put a superintendent on a job"],
-      ["project.assign.foreman", "Put a foreman on a job — this MOVES their tools"],
-      ["project.team.assign", "Put a person in a team role that has no permission of its own yet"],
+      ["project.team.assign", "Put anyone in any team tier, on any job. Without it, who you may place is decided per tier on the Job Tiers screen"],
       ["project.team.manage", "Add or edit the team-role register (Director, Area In-charge, ...)"],
       ["employee.read", "See the people register — everyone, not just their crew"],
       ["employee.manage", "Add and edit people"],

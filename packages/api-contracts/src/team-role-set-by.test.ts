@@ -15,7 +15,7 @@ import type { Context } from "./trpc.js";
   code, WITHOUT taking anything away from the three built-in tiers' existing
   permission-based path. Both halves are asserted, because a mechanism that
   only proves the addition and never re-checks the thing it promised not to
-  touch is exactly the drift `BUILT_IN_PERM`'s own comment warns about.
+  touch is exactly the drift `canAssignIntoTier` exists to prevent.
 
   Real Postgres via DATABASE_URL, throwaway tenant — following
   `project-team-move.test.ts`'s shape (a direct `projectTeamRouter.createCaller`
@@ -231,13 +231,20 @@ describe.skipIf(!url)("team-role Set-by (STI-503)", () => {
     expect(await rosterRow(projectA, target, "safety_officer")).toBeFalsy();
   });
 
-  it("REGRESSION: an existing dedicated permission still works with an EMPTY Set-by list — nothing was taken away", async () => {
-    /* "pm" has zero rows in team_role_assigner in this fixture. Before
-       STI-503 this permission was the ONLY path; it must still be A path. */
+  it("the tenant-wide grant fills a tier with an EMPTY Set-by list, and nothing else does", async () => {
+    /* "pm" has zero rows in team_role_assigner in this fixture, so
+       `project.team.assign` is the only way in.
+
+       This asserted `project.assign.pm` as a second path until 2026-09-10,
+       when the three dedicated per-tier permissions were removed — they named
+       tiers in a register a tenant edits, so a tenant's own tier could never
+       have one. An unrelated permission standing in for the deleted one keeps
+       the real claim under test: a tier nobody is registered to fill is
+       reachable ONLY by the tenant-wide grant. */
     const admin = await makeEmployee("Admin Account Person");
     const target = await makeEmployee("New PM");
 
-    await expect(callerFor({ employeeId: admin, permissions: ["project.assign.pm"] }).assign({ projectId: projectA, employeeId: target, role: "pm" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(callerFor({ employeeId: admin, permissions: ["project.team.manage"] }).assign({ projectId: projectA, employeeId: target, role: "pm" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await callerFor({ employeeId: admin, permissions: ["project.team.assign"] }).assign({ projectId: projectA, employeeId: target, role: "pm" });
     expect(await rosterRow(projectA, target, "pm")).toBeTruthy();
   });

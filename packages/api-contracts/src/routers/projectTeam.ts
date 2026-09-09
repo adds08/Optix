@@ -66,12 +66,12 @@ import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory
   `tbl_entity_team_role` (packages/db/src/schema/reference.ts) is the register
   an administrator edits instead.
 
-  `pm`, `superintendent` and `foreman` keep their OWN permissions
-  (`project.assign.pm` etc.) unchanged — nothing about assigning those three
-  moved, and `rbac-matrix.test.ts` still exercises exactly the grants it always
-  did. A row a tenant adds has no such permission by construction (the
-  `Permission` union is fixed code, edited by nobody in a settings screen) and
-  falls to `project.team.assign` instead — see the comment on that string in
+  Every tier is gated identically as of 2026-09-10: `project.team.assign`
+  tenant-wide, or the tier's own `team_role_assigner` rows. The three dedicated
+  `project.assign.*` permissions were deleted — they named tiers the product
+  happened to ship with, in a register a tenant edits, so a tenant's own tier
+  could never have one and the ladder they claimed to enforce was already
+  incomplete. See the comment on `project.team.assign` in
   packages/types.
 
   NOT the login/permission role (`tbl_entity_role`, `/admin/roles`) and not a
@@ -81,14 +81,17 @@ import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory
   same person on purpose. A lookup would be the two-lists-that-drift pattern
   `role`'s own header comment exists to end.
 */
-/* Exported so `onboarding.crewStatus` can tell a caller which empty tiers they
-   may fill without firing a mutation to find out — see the comment there.
-   `assertCanAssign` below stays the one place that actually GATES a write. */
-export const BUILT_IN_PERM: Partial<Record<string, Permission>> = {
-  pm: "project.assign.pm",
-  superintendent: "project.assign.superintendent",
-  foreman: "project.assign.foreman",
-};
+/* `BUILT_IN_PERM` lived here until 2026-09-10: a map from three tier NAMES to
+   three dedicated permissions. It went because tiers are tenant data and those
+   three names were only ever the tiers the product happened to ship with —
+   Urban's `area_in_charge` and `general_superintendent` never had one and fell
+   through to `project.team.assign` regardless, so the ladder it claimed to
+   enforce was already incomplete in production.
+
+   `project.team.assign` is now the only tenant-wide grant. Everything
+   finer-grained — a PM may place a superintendent but not another PM — is
+   `team_role_assigner` data, which says it for EVERY tier and needs no deploy
+   to add one. `assertCanAssign` below stays the one place that GATES a write. */
 
 type TeamRoleRow = {
   id: string;
@@ -178,8 +181,7 @@ export async function assertCanAssign(
   role: TeamRoleRow,
 ): Promise<void> {
   await assertProjectAccess(db, { ...session, tenantId: tid } as any, projectId);
-  const perm = BUILT_IN_PERM[role.name] ?? "project.team.assign";
-  const hasAdminPermission = session.permissions.has("project.team.assign") || session.permissions.has(perm);
+  const hasAdminPermission = session.permissions.has("project.team.assign");
 
   /* Short-circuit before either query: the admin path is the common case for
      the built-in three (an office/admin account holding no employee record at
@@ -754,16 +756,15 @@ export const projectTeamRouter = router({
 
   /*
     The team-role register itself — every tier, seeded or tenant-added, joins
-    here, not in code. `pm`/`superintendent`/`foreman` ship seeded (the three
-    starting rows) but are rows like any other from here on; they carry a
-    dedicated `project.assign.*` permission (see BUILT_IN_PERM above) only
-    because that permission still names them, not because this table marks
-    them specially. A tenant's own additions are gated by `project.team.assign`
-    at assignment time instead.
+    here, not in code. The tiers a tenant starts with are rows like any other,
+    with no privileges the tenant's own additions lack: since the dedicated
+    `project.assign.*` permissions were removed on 2026-09-10, every tier is
+    gated the same way — `project.team.assign` tenant-wide, or the tier's own
+    `team_role_assigner` rows.
 
     Gated on `project.team.manage`, distinct from `project.team.assign`: adding
     a TIER to the vocabulary is a different act from putting one PERSON in an
-    existing tier, the same split `config.manage` and `project.assign.*` already
+    existing tier — the same split `config.manage` and `project.team.assign`
     keep for roles generally.
   */
   roles: router({
@@ -966,11 +967,15 @@ export const projectTeamRouter = router({
       as adding the tier or pointing it at its boss. Putting a PERSON into a
       tier stays gated by `assertCanAssign` at assignment time, unchanged.
 
-      This is ADDITIVE to the built-in three's existing permission path
-      (`project.assign.pm` etc.) — see `assertCanAssign` and the schema
-      comment on `team_role_assigner`. Emptying this list for `foreman` does
-      NOT revoke a superintendent's existing ability to assign one; it only
-      means no OTHER tier gains that ability through this mechanism.
+      This is ADDITIVE to `project.team.assign` — see `assertCanAssign` and
+      the schema comment on `team_role_assigner`. Emptying this list for a
+      tier does not revoke the tenant-wide grant from anyone holding it; it
+      only means no tier gains that ability through this mechanism.
+
+      Since the dedicated `project.assign.*` permissions were removed, this
+      IS how a superintendent comes to assign a foreman. Emptying the foreman
+      tier's list now genuinely removes that, where before it left the
+      permission standing behind it.
     */
     setAssigners: requirePermission("project.team.manage")
       .input(
@@ -1238,13 +1243,14 @@ export const projectTeamRouter = router({
         the way `assertCanAssign` scopes it: a superintendent on ANOTHER job
         does not make this true here.
 
-        Kept in lockstep with `assertCanAssign` by hand (see the comment on
-        `BUILT_IN_PERM` above); a change to one without the other is exactly
-        the drift that comment warns about.
+        Kept in lockstep with `assertCanAssign` by hand — both call
+        `canAssignIntoTier` with the same three inputs, and a change to one
+        without the other is exactly the drift that pure function exists to
+        prevent.
       */
       const canAssignTier = (targetRole: { name: string; id: string; assignableByEveryone: boolean }): boolean =>
         canAssignIntoTier({
-          hasAdminPermission: permissions.has(BUILT_IN_PERM[targetRole.name] ?? "project.team.assign"),
+          hasAdminPermission: permissions.has("project.team.assign"),
           targetIsOpenToEveryone: targetRole.assignableByEveryone,
           callerTierNamesOnThisProject: new Set(myRows.filter(r => r.projectId === mine.projectId).map(r => r.role)),
           targetAssignerTierNames: assignerNamesByTargetId.get(targetRole.id) ?? new Set(),

@@ -30,16 +30,19 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
   role is `engineer` and whose team role is `pm`; the two are allowed to
   disagree, on purpose, so this screen must not be folded into that one.
 
-  `pm`, `superintendent` and `foreman` are the three tiers a new tenant starts
-  with — ordinary rows from here on, editable and deletable exactly like one
-  a tenant adds itself. Their own dedicated permission (`project.assign.pm`
-  etc.) keeps working exactly as before and is not shown on this screen; that
-  path is tenant-wide and permission-based, unrelated to the roster below.
+  The tiers a new tenant starts with are ordinary rows from here on, editable
+  and deletable exactly like one a tenant adds itself. They no longer carry
+  dedicated permissions of their own: `project.assign.pm` and its two siblings
+  were removed on 2026-09-10, because a fixed permission cannot name a tier a
+  tenant invents.
 
-  "Set by" (STI-503) is the NEW, second way to gain authority over a tier,
-  additive to the permission path above: a tenant's own tier — Director, Area
-  In-charge — can now be granted authority over another tier by SAYING WHICH
-  TIERS, held on that same project, may place someone into it. Before this,
+  "Set by" (STI-503) is therefore the only per-tier authority there is, beside
+  the tenant-wide `project.team.assign` grant. A tier — Director, Area
+  In-charge, or one that shipped — is granted authority over another by SAYING
+  WHICH TIERS, held on that same project, may place someone into it. Emptying
+  a tier's list genuinely removes that authority now; while the dedicated
+  permissions existed, one of them could still be standing behind it. Before
+  this,
   a tenant-added tier had no path except `project.team.assign` (admins and
   the equipment department), because `Permission` is fixed code a settings
   screen cannot extend. This is that extension, done as data instead: a join

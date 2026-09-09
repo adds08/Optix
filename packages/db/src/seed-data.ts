@@ -209,6 +209,21 @@ export type TeamRoleSeed = {
   label: string;
   canHoldCustody: boolean;
   reportsTo: string | null;
+  /*
+    Which tiers may FILL this one, held on the same job — `team_role_assigner`.
+
+    Distinct from `reportsTo`, and frequently not the same tier: `reportsTo`
+    says who this tier answers to, this says who may put somebody into it. A
+    foreman answers to a superintendent AND is filled by one, but on a job with
+    no superintendent the PM has to be able to fill it too, so the two lists
+    diverge.
+
+    Load-bearing since 2026-09-10. The dedicated `project.assign.*` permissions
+    that used to grant this tenant-wide were removed, so a tier seeded with an
+    empty list can be filled by nobody except an account holding
+    `project.team.assign`.
+  */
+  setBy: string[];
 };
 /*
   Urban's real chain, as the client drew it on 2026-09-09.
@@ -227,14 +242,22 @@ export type TeamRoleSeed = {
   not a fixed vocabulary. The next customer's chain will not be this one.
 */
 export const teamRoleSpecs: TeamRoleSeed[] = [
-  { name: "director", label: "Director", canHoldCustody: false, reportsTo: null },
-  { name: "area_in_charge", label: "Area In-charge", canHoldCustody: false, reportsTo: "director" },
-  { name: "general_superintendent", label: "General Superintendent", canHoldCustody: true, reportsTo: "area_in_charge" },
-  { name: "pm", label: "Project Manager", canHoldCustody: false, reportsTo: "area_in_charge" },
-  { name: "superintendent", label: "Superintendent", canHoldCustody: true, reportsTo: "area_in_charge" },
-  { name: "project_engineer", label: "Project Engineer", canHoldCustody: true, reportsTo: "superintendent" },
-  { name: "field_engineer", label: "Field Engineer", canHoldCustody: true, reportsTo: "superintendent" },
-  { name: "foreman", label: "Foreman", canHoldCustody: true, reportsTo: "superintendent" },
+  /* Nobody fills the top two from inside a job — that is `project.team.assign`,
+     the desk's tenant-wide grant. */
+  { name: "director", label: "Director", canHoldCustody: false, reportsTo: null, setBy: [] },
+  { name: "area_in_charge", label: "Area In-charge", canHoldCustody: false, reportsTo: "director", setBy: [] },
+  /* The area in-charge staffs the three tiers below them — the client's own
+     words: "no area-incharge assigns pm and superintendents". */
+  { name: "general_superintendent", label: "General Superintendent", canHoldCustody: true, reportsTo: "area_in_charge", setBy: ["area_in_charge"] },
+  { name: "pm", label: "Project Manager", canHoldCustody: false, reportsTo: "area_in_charge", setBy: ["area_in_charge"] },
+  { name: "superintendent", label: "Superintendent", canHoldCustody: true, reportsTo: "area_in_charge", setBy: ["area_in_charge", "general_superintendent"] },
+  /* The bottom row is filled by whoever runs the job. The PM is included
+     alongside the superintendent because a job flatter than the ladder — no
+     superintendent on it at all — is normal and legal, and without this the
+     PM could staff nothing on such a job. */
+  { name: "project_engineer", label: "Project Engineer", canHoldCustody: true, reportsTo: "superintendent", setBy: ["superintendent", "pm", "general_superintendent"] },
+  { name: "field_engineer", label: "Field Engineer", canHoldCustody: true, reportsTo: "superintendent", setBy: ["superintendent", "pm", "general_superintendent"] },
+  { name: "foreman", label: "Foreman", canHoldCustody: true, reportsTo: "superintendent", setBy: ["superintendent", "pm", "general_superintendent"] },
 ];
 
 export const companyRoleSpecs: { name: string; code: string }[] = [

@@ -19,10 +19,12 @@ export const PM_PERMS = [
   "asset.read", "project.read", "project.manage", "employee.read", "report.read",
   "assignment.read", "transfer.read", "location.read", "vehicle.read",
   "notification.read",
-  /* PMs assign superintendents and foremen to their projects. */
+  /* A PM places superintendents and foremen on their own jobs, and may NOT
+     place another PM. That distinction used to be two dedicated permissions;
+     it is now the `team_role_assigner` rows for those tiers, which say the
+     same thing for every tenant-added tier too. A PM holds no tenant-wide
+     assign grant — their authority comes from the tier they hold on the job. */
   "project.team.read",
-  "project.assign.superintendent",
-  "project.assign.foreman",
   /* Their projects' tools, resolved through project_team_member and the job
      groups handed to the account. Not everything — a PM on two jobs sees two
      jobs' tools. */
@@ -82,14 +84,10 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "project.read",
     "project.manage",
     "project.team.read",
-    /* Placing a PM on a job reads as an administrative act (§5 decision 3,
-       default taken). Placing supers and foremen does not — that is the job
-       of whoever runs the work. */
-    "project.assign.pm",
-    /* Tenant-added team roles (director, area in-charge, ...) have no
-       dedicated permission of their own — see the comment on this string in
-       packages/types. Granted alongside project.assign.pm for the same
-       reason: placing somebody in a leadership tier reads as administrative. */
+    /* Placing anybody in any tier, on any job — the tenant-wide grant. It
+       absorbed `project.assign.pm` on 2026-09-10: placing somebody in a
+       leadership tier reads as administrative whichever tier it is, and the
+       three named ones were never the whole register. */
     "project.team.assign",
     "project.team.manage",
     "employee.read",
@@ -130,9 +128,7 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
        put on a project (docs: project.team.assign hierarchy) — and it keeps
        project.manage so the yard desk sees every job, the way admins do. */
     "project.team.read",
-    "project.assign.pm",
-    "project.assign.superintendent",
-    "project.assign.foreman",
+    "project.team.assign",
     "assets.view.all",
   ],
   superintendent: [
@@ -140,9 +136,9 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "assignment.read", "assignment.create", "assignment.approve",
     "transfer.read", "transfer.create", "transfer.approve",
     "report.read", "notification.read",
-    /* Superintendents put foremen on their projects. */
+    /* Superintendents put foremen on their projects — now via the foreman
+       tier's `team_role_assigner` row rather than a dedicated permission. */
     "project.team.read",
-    "project.assign.foreman",
     /* Sees what the foremen reporting to them are holding — resolved through
        employee.reportsToEmployeeId, not through project membership. A
        superintendent whose crew works three jobs sees all three. */

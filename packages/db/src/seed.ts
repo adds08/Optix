@@ -16,6 +16,7 @@ import {
   division,
   companyRole,
   teamRole,
+  teamRoleAssigner,
   uomCategory,
   unitOfMeasure,
   employeeContact,
@@ -315,6 +316,24 @@ async function main() {
       .set({ reportsToTeamRoleId: parentId })
       .where(eq(teamRole.id, childId));
   }
+
+  /* "Set by" — which tiers may FILL each tier, held on the same job. Same
+     second-pass reason as the ladder above: both ends are rows in this table.
+
+     Not optional. Since the dedicated `project.assign.*` permissions were
+     removed (2026-09-10), these rows ARE the per-tier authority: a tenant
+     seeded without them has a register in which only `project.team.assign`
+     can staff anything, which is precisely the "data the seed cannot produce
+     is behaviour nobody tests" trap CLAUDE.md's seed rule names. */
+  const assignerRows = teamRoleSpecs.flatMap((spec) => {
+    const teamRoleId = teamRoleIdByName.get(spec.name);
+    if (!teamRoleId) return [];
+    return spec.setBy.flatMap((assigner) => {
+      const assignerTeamRoleId = teamRoleIdByName.get(assigner);
+      return assignerTeamRoleId ? [{ teamRoleId, assignerTeamRoleId }] : [];
+    });
+  });
+  if (assignerRows.length) await db.insert(teamRoleAssigner).values(assignerRows);
 
   // ---- Departments ----
   /* Repair & Maintenance is infrastructure; Equipment and Purchased are the

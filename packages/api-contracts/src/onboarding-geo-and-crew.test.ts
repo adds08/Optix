@@ -54,28 +54,22 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
 
   const asForeman = () => onboardingRouter.createCaller(ctx(foremanUserId, foremanEmp, ["project.team.read"]));
   const asSuper = () =>
-    onboardingRouter.createCaller(ctx(superUserId, superEmp, ["project.team.read", "project.assign.foreman"]));
+    onboardingRouter.createCaller(ctx(superUserId, superEmp, ["project.team.read"]));
   const asPm = () =>
     onboardingRouter.createCaller(
-      ctx(pmUserId, pmEmp, ["project.team.read", "project.assign.foreman", "project.assign.superintendent"]),
+      ctx(pmUserId, pmEmp, ["project.team.read"]),
     );
   const teamAsPm = () =>
     projectTeamRouter.createCaller(
-      ctx(pmUserId, pmEmp, ["project.team.read", "project.assign.foreman", "project.assign.superintendent"]),
+      ctx(pmUserId, pmEmp, ["project.team.read"]),
     );
   /* Setup only — placing the PM themselves needs a wider grant than a PM
-     actually holds day to day (project.assign.pm is admin/equipment-department
-     territory). An admin-shaped caller does the fixture's own seeding so the
+     actually holds day to day (filling a PM slot is admin/equipment-department
+     territory, and no tier is registered to set it). An admin-shaped caller does the fixture's own seeding so the
      PM's own permission set stays the real, narrow one everywhere else. */
   const teamAsAdmin = () =>
     projectTeamRouter.createCaller(
-      ctx(pmUserId, pmEmp, [
-        "project.team.assign",
-        "project.team.read",
-        "project.assign.pm",
-        "project.assign.superintendent",
-        "project.assign.foreman",
-      ]),
+      ctx(pmUserId, pmEmp, ["project.team.assign", "project.team.read"]),
     );
 
   async function mkUser(email: string) {
@@ -124,13 +118,35 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
         reportsToTeamRoleId: pmRole!.id,
       })
       .returning({ id: schema.teamRole.id });
-    await db.insert(schema.teamRole).values({
-      tenantId,
-      name: "foreman",
-      label: "Foreman",
-      canHoldCustody: true,
-      reportsToTeamRoleId: superRole!.id,
-    });
+    const [foremanRole] = await db
+      .insert(schema.teamRole)
+      .values({
+        tenantId,
+        name: "foreman",
+        label: "Foreman",
+        canHoldCustody: true,
+        reportsToTeamRoleId: superRole!.id,
+      })
+      .returning({ id: schema.teamRole.id });
+
+    /* "Set by": who may FILL each tier, held on the same project. This is what
+       carries the authority the dedicated `project.assign.*` permissions used
+       to grant tenant-wide, removed 2026-09-10 — a superintendent fills a
+       foreman slot, a PM fills a superintendent slot, and nobody fills a PM
+       slot without `project.team.assign`. Note this is NOT the same shape as
+       `reportsToTeamRoleId` above, which says who a tier ANSWERS to. */
+    await db.insert(schema.teamRoleAssigner).values([
+      { teamRoleId: foremanRole!.id, assignerTeamRoleId: superRole!.id },
+      /* A PM fills a foreman slot too. Not redundant with the superintendent
+         row: authority is the tier held ON THAT JOB, so on a job flatter than
+         the ladder — no superintendent, foreman reporting straight to the PM,
+         which the schema comment on reportsToEmployeeId calls legal — the
+         superintendent row grants nobody anything. The removed
+         `project.assign.foreman` permission covered this case tenant-wide and
+         silently; the register now has to say it. */
+      { teamRoleId: foremanRole!.id, assignerTeamRoleId: pmRole!.id },
+      { teamRoleId: superRole!.id, assignerTeamRoleId: pmRole!.id },
+    ]);
 
     foremanUserId = await mkUser(`geo-foreman-${suffix}@stinventory.local`);
     superUserId = await mkUser(`geo-super-${suffix}@stinventory.local`);
@@ -276,7 +292,8 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
       const rows = await asSuper().crewStatus();
       const job = rows.find((r) => r.projectId === jobA)!;
       const above = job.tiers.find((t) => t.relation === "above")!; // pm
-      /* This caller holds only project.assign.foreman, not project.assign.pm. */
+      /* This caller's tier may fill a foreman slot, but nothing may fill a PM
+         slot except the tenant-wide grant, which this caller does not hold. */
       expect(above.canAssign).toBe(false);
     });
 
@@ -452,24 +469,21 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
     });
     const pAsPm = () =>
       onboardingRouter.createCaller(
-        pctx(pPmUserId, pPm, ["project.team.read", "project.assign.foreman", "project.assign.superintendent"]),
+        pctx(pPmUserId, pPm, ["project.team.read"]),
       );
     const pAsSuper = () =>
-      onboardingRouter.createCaller(pctx(pSuperUserId, pSuper, ["project.team.read", "project.assign.foreman"]));
+      onboardingRouter.createCaller(pctx(pSuperUserId, pSuper, ["project.team.read"]));
     const pAsForeman = () => onboardingRouter.createCaller(pctx(pForemanUserId, pForeman, ["project.team.read"]));
     const pTeamAsAdmin = () =>
       projectTeamRouter.createCaller(
         pctx(pPmUserId, pPm, [
           "project.team.assign",
           "project.team.read",
-          "project.assign.pm",
-          "project.assign.superintendent",
-          "project.assign.foreman",
         ]),
       );
     const pTeamAsPm = () =>
       projectTeamRouter.createCaller(
-        pctx(pPmUserId, pPm, ["project.team.read", "project.assign.foreman", "project.assign.superintendent"]),
+        pctx(pPmUserId, pPm, ["project.team.read"]),
       );
 
     beforeAll(async () => {
@@ -493,13 +507,24 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
           reportsToTeamRoleId: pmRole!.id,
         })
         .returning({ id: schema.teamRole.id });
-      await db.insert(schema.teamRole).values({
-        tenantId: ptid,
-        name: "foreman",
-        label: "Foreman",
-        canHoldCustody: true,
-        reportsToTeamRoleId: superRole!.id,
-      });
+      const [pForemanRole] = await db
+        .insert(schema.teamRole)
+        .values({
+          tenantId: ptid,
+          name: "foreman",
+          label: "Foreman",
+          canHoldCustody: true,
+          reportsToTeamRoleId: superRole!.id,
+        })
+        .returning({ id: schema.teamRole.id });
+
+      /* Same "Set by" wiring as the geo fixture above — see the comment there
+         for why these rows and not a permission. */
+      await db.insert(schema.teamRoleAssigner).values([
+        { teamRoleId: pForemanRole!.id, assignerTeamRoleId: superRole!.id },
+        { teamRoleId: pForemanRole!.id, assignerTeamRoleId: pmRole!.id },
+        { teamRoleId: superRole!.id, assignerTeamRoleId: pmRole!.id },
+      ]);
 
       const mkPUser = async (email: string) => {
         const [u] = await db

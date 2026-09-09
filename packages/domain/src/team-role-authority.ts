@@ -10,11 +10,10 @@
   keeping the ORDER stable is what makes a future fourth path a one-line
   addition rather than a re-read of the whole thing:
 
-    1. An admin-shaped permission (`project.team.assign`, or the built-in
-       three's dedicated `project.assign.pm` etc.) — tenant-wide, exactly as
-       before this shipped. See the note on `TeamRoleAuthorityInput.hasAdminPermission`
-       for why this ALSO covers the built-in three rather than a fourth
-       "legacy" path.
+    1. An admin-shaped permission — `project.team.assign`, tenant-wide. Until
+       2026-09-10 this also covered three dedicated `project.assign.*`
+       permissions naming specific tiers; those were deleted, because tiers are
+       tenant data and a fixed permission could never name a tenant's own.
     2. The tier is marked open to everyone (`assignableByEveryone`).
     3. The caller holds one of the tier's registered "Set by" tiers, ON THE
        SAME PROJECT. Tenant-wide holding of some OTHER tier does not count —
@@ -32,13 +31,13 @@
 
 export type TeamRoleAuthorityInput = {
   /**
-   * True when the caller already holds a permission that has always let them
-   * place anyone into any tier — `project.team.assign` (the desk/admin grant),
-   * or, for the three tiers that ship with the product, their own dedicated
-   * `project.assign.pm` / `.superintendent` / `.foreman`. Folded into one flag
-   * here because both mean the same thing to this function: "an existing,
-   * unconditional path already says yes" — `routers/projectTeam.ts` is what
-   * knows which permission name applies to which target tier.
+   * True when the caller holds `project.team.assign` — the desk/admin grant
+   * that places anyone into any tier on any job, rostered there or not.
+   *
+   * A flag rather than the permission itself because this function must stay
+   * pure and free of the `Permission` union; `routers/projectTeam.ts` resolves
+   * it. It was also the seam that let three per-tier permissions be folded in
+   * before they were removed.
    */
   hasAdminPermission: boolean;
   /** The target tier's own `assignableByEveryone` flag. */

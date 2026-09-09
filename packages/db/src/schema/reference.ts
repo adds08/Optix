@@ -160,9 +160,13 @@ export const teamRole = pgTable(
       screen, the same category of thing every other column on this table is,
       and the next customer's ladder is their own rows.
 
-      Nothing about ACCESS may read this. `assertCanAssign` keeps naming
-      `project.assign.pm` and friends; a permission decision made out of this
-      column is exactly the drift the roster comment was written to prevent.
+      Nothing about ACCESS may read this. `assertCanAssign` reads
+      `team_role_assigner` (the "Set by" table below) and `project.team.assign`
+      — never this column. The two are easy to confuse now that the dedicated
+      `project.assign.*` permissions are gone: this records who a tier ANSWERS
+      to, "Set by" records who may FILL it, and they are frequently not the
+      same tier. A permission decision made out of this column is exactly the
+      drift the roster comment was written to prevent.
       Its two jobs are to tell the onboarding wizard which tiers to ask a person
       about, and to tell the progress screen whose work sits below whose.
 
@@ -198,23 +202,23 @@ export const teamRole = pgTable(
 /*
   "Set by" — which tiers may put a person into this tier. STI-503.
 
-  Read ONLY by `assertCanAssign` (`routers/projectTeam.ts`), and read as an
-  ADDITIONAL path, never a replacement: `BUILT_IN_PERM` and `project.team.assign`
-  keep working exactly as before, so an existing PM or superintendent account
-  loses no capability the day this ships. This table's whole job is to give a
-  tenant's OWN tiers — Director, Area In-charge, General Superintendent — a way
-  to gain the assign authority `pm`/`superintendent`/`foreman` have always had
-  through a dedicated permission and they never could. Before this, a Director
-  could see a tier they were the obvious person to fill and had no way to.
+  Read ONLY by `assertCanAssign` (`routers/projectTeam.ts`), alongside the
+  tenant-wide `project.team.assign` grant.
+
+  It shipped (STI-503) as an ADDITIONAL path beside three dedicated
+  `project.assign.*` permissions, to give a tenant's OWN tiers — Director, Area
+  In-charge, General Superintendent — the assign authority those three had and
+  they never could. Those permissions were deleted on 2026-09-10, so this table
+  is now the ONLY per-tier mechanism: it is what makes a superintendent able to
+  place a foreman, not a supplement to something else that already did.
 
   A row means "`assignerTeamRoleId`, HELD ON THE SAME PROJECT, may place someone
-  into `teamRoleId`" — tier-on-that-job, not the login role. This is a real
-  narrowing from how the three built-in tiers' PERMISSION-based path works today
-  (a `project_manager` login role holds `project.assign.superintendent`
-  tenant-wide, on every project, whether or not that account is rostered on any
-  of them) — deliberate, and only bites a tenant-added tier, because the
-  built-in three keep their existing tenant-wide path untouched alongside this
-  one. See the client conversation this ships from (2026-09-09): crew is set
+  into `teamRoleId`" — tier-on-that-job, not the login role. That is a real
+  narrowing from the permissions it replaced: a `project_manager` login role
+  used to hold `project.assign.superintendent` tenant-wide, on every project,
+  rostered there or not. It now applies to every tier equally, which is the
+  point — authority over a job belongs to the people ON that job, and
+  `project.team.assign` is the deliberate tenant-wide exception for the desk. See the client conversation this ships from (2026-09-09): crew is set
   top-down, by whoever already holds authority on THAT job, and setting a
   crew IS putting them on the project — there is no separate "claim" step.
 

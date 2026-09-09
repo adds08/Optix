@@ -473,11 +473,12 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
 
       Two kinds of entry live below and they are NOT the same thing:
 
-      (a) IN-BODY CHECKS. The permission depends on the INPUT, so no static
-          `requirePermission` can express it — assigning a PM to a job costs
-          `project.assign.pm` while assigning a foreman costs
-          `project.assign.foreman`, and which one applies is not known until
-          the call arrives. CLAUDE.md sanctions exactly this ("or a documented
+      (a) IN-BODY CHECKS. The answer depends on the INPUT, so no static
+          `requirePermission` can express it — whether a caller may fill a tier
+          depends on which tier, which project, and what that tier's "Set by"
+          rows say, none of it known until the call arrives. (This example used
+          to be three per-tier permissions; they were deleted on 2026-09-10,
+          but `assertCanAssign` is still an in-body check for the same reason.) CLAUDE.md sanctions exactly this ("or a documented
           in-body check"). Each names the function that does the checking, so a
           reviewer can go and read it.
 

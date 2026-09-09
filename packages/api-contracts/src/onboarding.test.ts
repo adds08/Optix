@@ -70,7 +70,7 @@ describe.skipIf(!url)("first-run onboarding", () => {
   const teamAsForeman = () => projectTeamRouter.createCaller(ctx(plainUserId, foremanEmp, ["project.team.read"]));
   const teamAsBoss = () =>
     projectTeamRouter.createCaller(
-      ctx(bossUserId, superEmp, ["project.team.assign", "project.team.read", "project.assign.foreman", "project.assign.superintendent"]),
+      ctx(bossUserId, superEmp, ["project.team.assign", "project.team.read"]),
     );
 
   async function mkUser(email: string) {

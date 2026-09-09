@@ -11,7 +11,7 @@ describe.skipIf(!process.env.DATABASE_URL)("one-time onboarding and project bran
   let db: ReturnType<typeof createDb>, tid: string, adminId: string, leadId: string, leadUser: string, leadRole: string, hrUser: string, projectId: string, otherProject: string, childId: string, otherLead: string;
   const caller = (userId: string, employeeId: string | null, permissions: readonly Permission[]) => appRouter.createCaller({ db, session: { userId, tenantId: tid, employeeId, permissions: new Set(permissions), roleName: null, actorLabel: "Test" }, sessionSecret: "test-only", mailFallback: null, webOrigin: "http://localhost:3100", request: { method: null, path: null, ip: null, userAgent: null, source: "system" } } satisfies Context);
   const admin = () => caller(adminId, null, PERMISSIONS);
-  const lead = () => caller(leadUser, leadId, ["project.team.read", "project.assign.foreman", "assets.view.crew", "employee.read"]);
+  const lead = () => caller(leadUser, leadId, ["project.team.read", "assets.view.crew", "employee.read"]);
   beforeAll(async () => {
     db = createDb(process.env.DATABASE_URL!);
     [tid] = (await db.insert(schema.tenant).values({ name: "Onboarding branches", slug: `branches-${crypto.randomUUID()}` }).returning()).map(t => t.id) as [string];
@@ -24,7 +24,11 @@ describe.skipIf(!process.env.DATABASE_URL)("one-time onboarding and project bran
     const [hr] = await db.insert(schema.user).values({ tenantId: tid, email: `hr-${tid}@test.local`, firstName: "HR", lastName: "Test", passwordHash: "unused" }).returning(); hrUser = hr!.id;
     await db.insert(schema.userRole).values({ userId: hrUser, roleId: hrRole!.id });
     const projects = await db.insert(schema.project).values(["NEX", "Other job"].map(name => ({ tenantId: tid, name, status: "in_progress", startDate: "2026-01-01" }))).returning(); [projectId, otherProject] = projects.map(p => p.id) as [string,string];
-    await db.insert(schema.teamRole).values([{ tenantId: tid, name: "superintendent", label: "Superintendent" }, { tenantId: tid, name: "foreman", label: "Foreman" }, { tenantId: tid, name: "director", label: "Director" }]);
+    const tiers = await db.insert(schema.teamRole).values([{ tenantId: tid, name: "superintendent", label: "Superintendent" }, { tenantId: tid, name: "foreman", label: "Foreman" }, { tenantId: tid, name: "director", label: "Director" }]).returning({ id: schema.teamRole.id, name: schema.teamRole.name });
+    /* A superintendent fills a foreman slot. Carried by "Set by" since the
+       dedicated `project.assign.foreman` permission was removed (2026-09-10). */
+    const tierId = (n: string) => tiers.find(t => t.name === n)!.id;
+    await db.insert(schema.teamRoleAssigner).values([{ teamRoleId: tierId("foreman"), assignerTeamRoleId: tierId("superintendent") }]);
   });
   it("HR has relevant required setup with no employee or project", async () => {
     const state = await caller(hrUser, null, ["employee.read"]).onboarding.state();

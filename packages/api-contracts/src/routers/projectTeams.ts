@@ -6,7 +6,7 @@ import { branchEmployeeIds, removalBranch, canAssignIntoTier } from "@stinventor
 import { protectedProcedure, router } from "../trpc.js";
 import { activeProjectRows, assertBranchTarget, assertProjectAccess } from "../project-access.js";
 import { visibleProjectScope } from "../scope.js";
-import { projectTeamRouter, requireTeamRole, assertCanAssign, BUILT_IN_PERM } from "./projectTeam.js";
+import { projectTeamRouter, requireTeamRole, assertCanAssign } from "./projectTeam.js";
 import { logEvent } from "../audit.js";
 
 export const projectTeamsRouter = router({
@@ -27,7 +27,7 @@ export const projectTeamsRouter = router({
       const callerTiers = new Set(rows.filter(r => r.employeeId === ctx.session.employeeId).map(r => r.role));
       const participates = rows.some(r => r.employeeId === ctx.session.employeeId || r.reportsToEmployeeId === ctx.session.employeeId);
       for (const tier of tiers) {
-        const hasGrant = ctx.session.permissions.has("project.team.assign") || ctx.session.permissions.has(BUILT_IN_PERM[tier.name] ?? "project.team.assign");
+        const hasGrant = ctx.session.permissions.has("project.team.assign");
         if ((ctx.session.permissions.has("project.team.assign") || participates) && canAssignIntoTier({ hasAdminPermission: hasGrant, targetIsOpenToEveryone: tier.assignableByEveryone, callerTierNamesOnThisProject: callerTiers, targetAssignerTierNames: new Set(assigners.filter(a => a.teamRoleId === tier.id).map(a => tiers.find(t => t.id === a.assignerTeamRoleId)?.name ?? "")) })) assignable.push(tier.name);
       }
       const branch = ctx.session.employeeId ? branchEmployeeIds(rows, project.id, ctx.session.employeeId) : new Set<string>();

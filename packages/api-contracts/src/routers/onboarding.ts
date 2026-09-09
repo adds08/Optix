@@ -8,7 +8,7 @@ import type { Permission } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { viewTierOf } from "../scope.js";
-import { projectTeamRouter, BUILT_IN_PERM } from "./projectTeam.js";
+import { projectTeamRouter } from "./projectTeam.js";
 
 /*
   First-run setup — walking a newly invited person through claiming their work.
@@ -136,7 +136,7 @@ export const onboardingRouter = router({
         // Temporary INTERNAL authority after explicit role, lifecycle and project checks.
         // No permission is persisted; the existing assignment writer still owns custody.
         const permissions = new Set(ctx.session.permissions);
-        for (const p of ["project.team.assign", "project.assign.pm", "project.assign.superintendent", "project.assign.foreman"] as const) permissions.add(p);
+        permissions.add("project.team.assign");
         await projectTeamRouter.createCaller({ ...ctx, db: tx as any, session: { ...ctx.session, permissions } }).assign({ projectId: input.projectId, employeeId: ctx.session.employeeId, role: input.tier, source: "manual_entry" });
         await logEvent({ ...ctx, db: tx as any }, { category: "project", action: "onboarding.claimProject", entityType: "project", entityId: input.projectId, details: { employeeId: ctx.session.employeeId, tier: input.tier } });
         return { ok: true };
@@ -543,8 +543,9 @@ export const onboardingRouter = router({
     client can decide what to render without firing a mutation to find out.
     This can drift from the real gate if `assertCanAssign`'s logic ever changes
     without this being updated; there is no single source both call, because
-    `assertCanAssign` throws and has no boolean-returning twin. Grep for
-    `BUILT_IN_PERM` alongside this comment if you touch either.
+    `assertCanAssign` throws and has no boolean-returning twin. Both do call
+    `canAssignIntoTier` with the same inputs, so grep for that if you touch
+    either.
 
     A tier with NO reporting edge at all (the ladder has not been drawn that
     far, or this is the top of it) is simply not offered — there is nothing to
@@ -593,8 +594,8 @@ export const onboardingRouter = router({
     /*
       "Set by", tenant-wide — see the identical comment in
       `routers/projectTeam.ts`'s `myCrew`, which this must stay in lockstep
-      with by hand (the header comment on `BUILT_IN_PERM` names exactly this
-      pair as the drift risk).
+      with by hand — both feed `canAssignIntoTier`, and that is the only thing
+      keeping the hint and the gate honest with each other.
     */
     const allTierIds = allRoles.map((r) => r.id);
     const assignerRows: { teamRoleId: string; assignerTeamRoleId: string }[] = allTierIds.length
@@ -655,7 +656,7 @@ export const onboardingRouter = router({
          caller's own tier ON THIS project. */
       const canAssignTier = (targetRole: { name: string; id: string; assignableByEveryone: boolean }): boolean =>
         canAssignIntoTier({
-          hasAdminPermission: permissions.has((BUILT_IN_PERM[targetRole.name] ?? "project.team.assign") as Permission),
+          hasAdminPermission: permissions.has("project.team.assign" as Permission),
           targetIsOpenToEveryone: targetRole.assignableByEveryone,
           callerTierNamesOnThisProject: new Set(myRows.filter(r => r.projectId === mine.projectId).map(r => r.role)),
           targetAssignerTierNames: assignerNamesByTargetId.get(targetRole.id) ?? new Set(),

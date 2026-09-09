@@ -87,10 +87,13 @@ export default function JobsitesPage() {
   /* The per-tool ⋯ menu (return / hand over / status) needs any of the custody
      or manage permissions to be worth showing. */
   const canActTools = has("assignment.create") || has("transfer.create") || has("asset.manage");
-  /* Team strip: PM/super assignment is roster-only and each carries its own
-     permission (projectTeam.ts PERM_FOR_ROLE). */
-  const canAssignPm = has("project.assign.pm");
-  const canAssignSuper = has("project.assign.superintendent");
+  /* Team strip. Both used to read a per-tier permission; those were removed on
+     2026-09-10, so this is the tenant-wide grant for both. It is a HINT for
+     what to render — `assertCanAssign` is the gate, and it also admits a caller
+     whose own tier on this job is registered to fill the target tier, which
+     this cannot see without a per-project lookup the strip does not do. */
+  const canAssignPm = has("project.team.assign");
+  const canAssignSuper = has("project.team.assign");
 
   const { projectIds: scope } = useJobScope();
 
