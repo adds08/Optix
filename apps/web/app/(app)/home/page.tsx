@@ -42,8 +42,20 @@ export default function HomePage() {
     Waiting for DATA rather than checking `isPending`: this query is disabled
     until `me` resolves, and a disabled query is not pending, so `isPending`
     would wave the redirect straight through the window it is meant to close.
+
+    The comment above was true of the intent and not of the code: `enabled`
+    was never actually set, so this fetched unconditionally on every render of
+    `/home` — including the moment right after sign-in, before the shell's own
+    `mustChangePassword` gate has had its say. `onboarding.state` is ONE cache
+    entry; an unguarded fetch here hands the shell's own gated instance data
+    it never asked for, exactly the class of bug `setup-notice.tsx`'s
+    unguarded copy of this same query caused (see its comment). Gated here the
+    same way, and for the same reason — kept in lockstep by hand.
   */
-  const onboarding = trpc.onboarding.state.useQuery();
+  const me = trpc.identity.me.useQuery();
+  const onboarding = trpc.onboarding.state.useQuery(undefined, {
+    enabled: !!me.data && !me.data.mustChangePassword,
+  });
 
   useEffect(() => {
     if (!onboarding.data) return;

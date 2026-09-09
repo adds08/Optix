@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -39,6 +39,20 @@ export default function ChangePasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  /* Guards the delayed redirect below against firing after this page has
+     already been left. `identity.me.invalidate()` wakes the shell's own
+     redirect effects (the password gate first, then — once that clears —
+     the onboarding gate), and either can navigate away well inside the
+     1200ms grace period this page gives the person to read the confirmation.
+     An unconditional `router.replace` firing after that sent an unfinished
+     account straight through `/` (which forwards a live session on to
+     `/home`) and directly into a still-pending onboarding wizard's redirect
+     back to `/welcome` — one real navigation turning into three. */
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (redirectTimer.current) clearTimeout(redirectTimer.current);
+  }, []);
+
   const change = trpc.user.changePassword.useMutation({
     onSuccess: async () => {
       setDone(true);
@@ -47,7 +61,11 @@ export default function ChangePasswordPage() {
          set — so the cache has to be refreshed or the user bounces straight
          back here after changing it. */
       await utils.identity.me.invalidate();
-      setTimeout(() => router.replace("/"), 1200);
+      /* `/home`, not `/`: this account is signed in, and routing through the
+         login page only to have it forward a live session onward is a step
+         with no purpose — it exists to let the shell (already re-checking
+         `identity.me`) decide where a signed-in person actually belongs. */
+      redirectTimer.current = setTimeout(() => router.replace("/home"), 1200);
     },
     /* `userMessage` is the STI-204 contract: non-null exactly when the text
        was written for the person reading it. Never render `message`. */

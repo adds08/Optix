@@ -34,7 +34,23 @@ export function SetupNotice() {
   const router = useRouter();
   const utils = trpc.useUtils();
   const { state, isMobile } = useSidebar();
-  const onboarding = trpc.onboarding.state.useQuery();
+  /*
+    Gated exactly like `app-shell.tsx`'s own `onboarding.state` read, and for
+    the identical reason: `onboarding.state` is one cache entry shared by every
+    caller, `enabled: false` only stops THIS hook from fetching it, and a
+    sibling that fetches it unconditionally still hands this component (and
+    the shell's own gated instance) whatever it found. This component renders
+    in the sidebar on every `(app)` page, `/account/password` included — an
+    unguarded fetch here populated the shared cache with `shouldPrompt: true`
+    while `mustChangePassword` was still true, and the shell's redirect fired
+    off that borrowed data despite its own `enabled` flag never having allowed
+    it to ask. Keep this in lockstep with the shell's gate by hand; a change to
+    one without the other reopens the race.
+  */
+  const me = trpc.identity.me.useQuery();
+  const onboarding = trpc.onboarding.state.useQuery(undefined, {
+    enabled: !!me.data && !me.data.mustChangePassword,
+  });
 
   const resume = trpc.onboarding.resume.useMutation({
     onSuccess: async () => {

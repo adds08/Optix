@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-09 | [The onboarding gate stops fighting the password gate](2026-09-09-the-onboarding-gate-stops-fighting-the-password-gate.md) |
 | 2026-09-09 | [Team Roles stops freezing the seeded three](2026-09-09-team-roles-stops-freezing-the-seeded-three.md) |
 | 2026-09-09 | [A tenant's own tier gains real assign authority](2026-09-09-set-by-a-tenant-tier-gains-real-assign-authority.md) |
 | 2026-09-09 | [A read-only promise gets a guard, and two skills retire](2026-09-09-a-read-only-promise-gets-a-guard-and-two-skills-retire.md) |
