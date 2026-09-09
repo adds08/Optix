@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-10 | [Delete the three per-tier assign permissions](2026-09-10-delete-the-three-per-tier-assign-permissions.md) |
 | 2026-09-09 | [Retire the HR title mapping, and cut the People menu to four items](2026-09-09-retire-hr-title-mapping-and-trim-the-people-menu.md) |
 | 2026-09-09 | [Urban's real tier structure, and the wipe that could not run](2026-09-09-urban-tier-diamond-and-seed-wipe-fix.md) |
 | 2026-09-09 | [The onboarding gate stops fighting the password gate](2026-09-09-the-onboarding-gate-stops-fighting-the-password-gate.md) |
