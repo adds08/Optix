@@ -287,7 +287,6 @@ async function main() {
         name: r.name,
         label: r.label,
         canHoldCustody: r.canHoldCustody,
-        isSystem: r.isSystem,
       })),
     )
     .returning({ id: teamRole.id, name: teamRole.name });

@@ -131,9 +131,9 @@ describe.skipIf(!url)("moving a crew between jobs", () => {
        this register since 2026-09-03 — a throwaway tenant with none of the
        three built-in rows cannot assign a foreman at all. */
     await db.insert(schema.teamRole).values([
-      { tenantId, name: "pm", label: "Project Manager", canHoldCustody: false, isSystem: true },
-      { tenantId, name: "superintendent", label: "Superintendent", canHoldCustody: true, isSystem: true },
-      { tenantId, name: "foreman", label: "Foreman", canHoldCustody: true, isSystem: true },
+      { tenantId, name: "pm", label: "Project Manager", canHoldCustody: false },
+      { tenantId, name: "superintendent", label: "Superintendent", canHoldCustody: true },
+      { tenantId, name: "foreman", label: "Foreman", canHoldCustody: true },
     ]);
 
     const projects = await db

@@ -94,7 +94,6 @@ type TeamRoleRow = {
   name: string;
   label: string;
   canHoldCustody: boolean;
-  isSystem: boolean;
   assignableByEveryone: boolean;
 };
 
@@ -105,7 +104,6 @@ async function requireTeamRole(db: any, tid: string, name: string): Promise<Team
       name: schema.teamRole.name,
       label: schema.teamRole.label,
       canHoldCustody: schema.teamRole.canHoldCustody,
-      isSystem: schema.teamRole.isSystem,
       assignableByEveryone: schema.teamRole.assignableByEveryone,
     })
     .from(schema.teamRole)
@@ -773,7 +771,7 @@ export const projectTeamRouter = router({
         ctx.session,
         tid,
         row.projectId,
-        roleRow ?? { id: "", name: row.role, label: row.role, canHoldCustody: false, isSystem: false, assignableByEveryone: false },
+        roleRow ?? { id: "", name: row.role, label: row.role, canHoldCustody: false, assignableByEveryone: false },
       );
 
       await ctx.db
@@ -789,11 +787,13 @@ export const projectTeamRouter = router({
     }),
 
   /*
-    The team-role register itself — Director, Area In-charge, General
-    Superintendent join here, not in code. `pm`/`superintendent`/`foreman` ship
-    seeded and `isSystem`; a tenant's own additions do not carry a dedicated
-    `project.assign.*` permission (see BUILT_IN_PERM above) and are gated by
-    `project.team.assign` at assignment time instead.
+    The team-role register itself — every tier, seeded or tenant-added, joins
+    here, not in code. `pm`/`superintendent`/`foreman` ship seeded (the three
+    starting rows) but are rows like any other from here on; they carry a
+    dedicated `project.assign.*` permission (see BUILT_IN_PERM above) only
+    because that permission still names them, not because this table marks
+    them specially. A tenant's own additions are gated by `project.team.assign`
+    at assignment time instead.
 
     Gated on `project.team.manage`, distinct from `project.team.assign`: adding
     a TIER to the vocabulary is a different act from putting one PERSON in an
@@ -812,13 +812,12 @@ export const projectTeamRouter = router({
           name: schema.teamRole.name,
           label: schema.teamRole.label,
           canHoldCustody: schema.teamRole.canHoldCustody,
-          isSystem: schema.teamRole.isSystem,
           reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
           assignableByEveryone: schema.teamRole.assignableByEveryone,
         })
         .from(schema.teamRole)
         .where(eq(schema.teamRole.tenantId, tid))
-        .orderBy(schema.teamRole.isSystem, schema.teamRole.label);
+        .orderBy(schema.teamRole.label);
 
       /* "Set by", attached per row. A second query rather than a join because
          a tier can have several assigners — a join would multiply each row by
@@ -876,7 +875,6 @@ export const projectTeamRouter = router({
             name: input.name,
             label: input.label,
             canHoldCustody: input.canHoldCustody,
-            isSystem: false,
           })
           .returning({ id: schema.teamRole.id, name: schema.teamRole.name, label: schema.teamRole.label });
         await logEvent(ctx, {
@@ -928,10 +926,12 @@ export const projectTeamRouter = router({
       shapes a rank cannot express — two tiers sharing a boss, or a tenant that
       has only described half of its chain.
 
-      System tiers are editable here, unlike their name and their `isSystem`
-      mark. Where `pm` sits in a given company's ladder is exactly the kind of
-      thing that differs between tenants, so refusing to let anyone say it
-      would make the feature useless for the seeded three.
+      The seeded three are editable here, same as any tenant-added tier —
+      only their `name` is fixed, because it is what a live
+      `project_team_member.role` row already points at. Where `pm` sits in a
+      given company's ladder is exactly the kind of thing that differs
+      between tenants, so refusing to let anyone say it would make the
+      feature useless for the seeded three.
     */
     setReportsTo: requirePermission("project.team.manage")
       .input(
@@ -1060,24 +1060,20 @@ export const projectTeamRouter = router({
         return { ok: true };
       }),
 
-    /* `pm`/`superintendent`/`foreman` cannot be deleted — the assignment
-       hierarchy, the seed and `rbac-matrix.test.ts` all name them directly, the
-       same reason `role.delete` refuses `isSystem` rows. A tenant's own tier
-       CAN be deleted if nothing currently uses it; if something does, deleting
-       it would leave live `project_team_member` rows naming a role the Zod edge
-       no longer recognises, so it is refused rather than orphaning history. */
+    /* Any tier CAN be deleted, `pm`/`superintendent`/`foreman` included — they
+       are ordinary rows, same as one a tenant adds itself. The only refusal
+       left is a real one: deleting a tier something currently uses would leave
+       live `project_team_member` rows naming a role the Zod edge no longer
+       recognises, so that is refused rather than orphaning history. */
     delete: requirePermission("project.team.manage")
       .input(z.object({ id: z.string().uuid() }))
       .mutation(async ({ ctx, input }) => {
         const tid = ctx.session.tenantId;
         const [row] = await ctx.db
-          .select({ id: schema.teamRole.id, name: schema.teamRole.name, label: schema.teamRole.label, isSystem: schema.teamRole.isSystem })
+          .select({ id: schema.teamRole.id, name: schema.teamRole.name, label: schema.teamRole.label })
           .from(schema.teamRole)
           .where(and(eq(schema.teamRole.id, input.id), eq(schema.teamRole.tenantId, tid)));
         if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "No such team role" });
-        if (row.isSystem) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: `"${row.label}" ships with the product and cannot be deleted.` });
-        }
         const [inUse] = await ctx.db
           .select({ id: schema.projectTeamMember.id })
           .from(schema.projectTeamMember)

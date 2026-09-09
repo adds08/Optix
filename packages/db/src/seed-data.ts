@@ -196,31 +196,24 @@ export const uomSpecs: { symbol: string; name: string; category: string }[] = [
   the seed — the rows do not exist yet when this array is written, and a self
   reference cannot be satisfied in a single insert.
 
-  Urban's own chain, which `teamRole`'s schema comment describes in prose and
-  which is now rows: director -> area in-charge -> PM and general superintendent
-  -> superintendent -> foreman. Two tiers share the area in-charge on purpose;
-  that is the shape a rank column could not express and the reason the ladder is
-  an edge per row.
-
-  `director` and `area_in_charge` are NOT `isSystem`. They are Urban's tiers, not
-  the product's: the seed is one tenant's description of itself, and the next
-  customer deletes them. Only the three that carry a dedicated
-  `project.assign.*` permission ship built in.
+  A new tenant starts with exactly the three tiers `project_team_member.role`
+  used to hardcode — pm, superintendent, foreman — as ordinary rows, no
+  different in kind from one a tenant adds itself on `/settings/team-roles`.
+  Director, Area In-charge and General Superintendent were Urban's own
+  addition, made through that screen, not a second starting tier this seed
+  ships — the next customer gets three rows and builds their own ladder from
+  there, the same way Urban did.
 */
 export type TeamRoleSeed = {
   name: string;
   label: string;
   canHoldCustody: boolean;
-  isSystem: boolean;
   reportsTo: string | null;
 };
 export const teamRoleSpecs: TeamRoleSeed[] = [
-  { name: "director", label: "Director", canHoldCustody: false, isSystem: false, reportsTo: null },
-  { name: "area_in_charge", label: "Area In-charge", canHoldCustody: false, isSystem: false, reportsTo: "director" },
-  { name: "pm", label: "Project Manager", canHoldCustody: false, isSystem: true, reportsTo: "area_in_charge" },
-  { name: "general_superintendent", label: "General Superintendent", canHoldCustody: true, isSystem: false, reportsTo: "area_in_charge" },
-  { name: "superintendent", label: "Superintendent", canHoldCustody: true, isSystem: true, reportsTo: "pm" },
-  { name: "foreman", label: "Foreman", canHoldCustody: true, isSystem: true, reportsTo: "superintendent" },
+  { name: "pm", label: "Project Manager", canHoldCustody: false, reportsTo: null },
+  { name: "superintendent", label: "Superintendent", canHoldCustody: true, reportsTo: "pm" },
+  { name: "foreman", label: "Foreman", canHoldCustody: true, reportsTo: "superintendent" },
 ];
 
 export const companyRoleSpecs: { name: string; code: string }[] = [

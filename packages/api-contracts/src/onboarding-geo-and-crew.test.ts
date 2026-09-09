@@ -111,7 +111,7 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
        above and below the superintendent to compute. */
     const [pmRole] = await db
       .insert(schema.teamRole)
-      .values({ tenantId, name: "pm", label: "Project Manager", canHoldCustody: false, isSystem: true })
+      .values({ tenantId, name: "pm", label: "Project Manager", canHoldCustody: false })
       .returning({ id: schema.teamRole.id });
     const [superRole] = await db
       .insert(schema.teamRole)
@@ -120,7 +120,6 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
         name: "superintendent",
         label: "Superintendent",
         canHoldCustody: true,
-        isSystem: true,
         reportsToTeamRoleId: pmRole!.id,
       })
       .returning({ id: schema.teamRole.id });
@@ -129,7 +128,6 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
       name: "foreman",
       label: "Foreman",
       canHoldCustody: true,
-      isSystem: true,
       reportsToTeamRoleId: superRole!.id,
     });
 
@@ -480,7 +478,7 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
 
       const [pmRole] = await db
         .insert(schema.teamRole)
-        .values({ tenantId: ptid, name: "pm", label: "Project Manager", canHoldCustody: false, isSystem: true })
+        .values({ tenantId: ptid, name: "pm", label: "Project Manager", canHoldCustody: false })
         .returning({ id: schema.teamRole.id });
       const [superRole] = await db
         .insert(schema.teamRole)
@@ -489,7 +487,6 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
           name: "superintendent",
           label: "Superintendent",
           canHoldCustody: true,
-          isSystem: true,
           reportsToTeamRoleId: pmRole!.id,
         })
         .returning({ id: schema.teamRole.id });
@@ -498,7 +495,6 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
         name: "foreman",
         label: "Foreman",
         canHoldCustody: true,
-        isSystem: true,
         reportsToTeamRoleId: superRole!.id,
       });
 

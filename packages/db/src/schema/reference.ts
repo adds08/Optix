@@ -173,12 +173,6 @@ export const teamRole = pgTable(
       described itself, not a broken one.
     */
     reportsToTeamRoleId: uuid("reports_to_team_role_id").references((): any => teamRole.id, { onDelete: "set null" }),
-    /* pm, superintendent, foreman ship with the product and cannot be deleted
-       — `projectTeam.remove` and the existing permission matrix
-       (`project.assign.pm` etc.) name them directly. A tenant's own additions
-       (director, area in-charge, ...) carry no dedicated permission and are
-       gated by `project.team.assign` instead — see `assertCanAssign`. */
-    isSystem: boolean("is_system").notNull().default(false),
     /*
       "Everybody may fill this tier" — the wildcard `team_role_assigner` below
       cannot express, because it names specific tiers and there is no row that

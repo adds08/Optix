@@ -103,19 +103,19 @@ describe.skipIf(!url)("team-role Set-by (STI-503)", () => {
 
     const [pm] = await db
       .insert(schema.teamRole)
-      .values({ tenantId, name: "pm", label: "Project Manager", canHoldCustody: false, isSystem: true })
+      .values({ tenantId, name: "pm", label: "Project Manager", canHoldCustody: false })
       .returning({ id: schema.teamRole.id });
     pmTierId = pm!.id;
 
     const [director] = await db
       .insert(schema.teamRole)
-      .values({ tenantId, name: "director", label: "Director", canHoldCustody: false, isSystem: false })
+      .values({ tenantId, name: "director", label: "Director", canHoldCustody: false })
       .returning({ id: schema.teamRole.id });
     directorTierId = director!.id;
 
     const [areaInCharge] = await db
       .insert(schema.teamRole)
-      .values({ tenantId, name: "area_in_charge", label: "Area In-charge", canHoldCustody: false, isSystem: false })
+      .values({ tenantId, name: "area_in_charge", label: "Area In-charge", canHoldCustody: false })
       .returning({ id: schema.teamRole.id });
     areaInChargeTierId = areaInCharge!.id;
 
@@ -126,7 +126,6 @@ describe.skipIf(!url)("team-role Set-by (STI-503)", () => {
         name: "safety_officer",
         label: "Safety Officer",
         canHoldCustody: false,
-        isSystem: false,
         assignableByEveryone: true,
       })
       .returning({ id: schema.teamRole.id });

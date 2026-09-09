@@ -52,7 +52,7 @@ describe.skipIf(!url)("the team-role ladder", () => {
   async function makeTier(t: string, name: string, label: string) {
     const [row] = await db
       .insert(schema.teamRole)
-      .values({ tenantId: t, name, label, canHoldCustody: false, isSystem: false })
+      .values({ tenantId: t, name, label, canHoldCustody: false })
       .returning({ id: schema.teamRole.id });
     return row!.id;
   }

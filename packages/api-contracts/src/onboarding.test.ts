@@ -104,8 +104,8 @@ describe.skipIf(!url)("first-run onboarding", () => {
     tenantId = t!.id;
 
     await db.insert(schema.teamRole).values([
-      { tenantId, name: "foreman", label: "Foreman", canHoldCustody: true, isSystem: true },
-      { tenantId, name: "superintendent", label: "Superintendent", canHoldCustody: true, isSystem: true },
+      { tenantId, name: "foreman", label: "Foreman", canHoldCustody: true },
+      { tenantId, name: "superintendent", label: "Superintendent", canHoldCustody: true },
     ]);
 
     plainUserId = await mkUser(`onb-foreman-${suffix}@stinventory.local`);

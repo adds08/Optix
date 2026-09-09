@@ -30,11 +30,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
   role is `engineer` and whose team role is `pm`; the two are allowed to
   disagree, on purpose, so this screen must not be folded into that one.
 
-  `pm`, `superintendent` and `foreman` ship built in and cannot be DELETED
-  here — the assignment hierarchy and `rbac-matrix.test.ts` name them
-  directly. Their own dedicated permission (`project.assign.pm` etc.) keeps
-  working exactly as before and is not shown on this screen; that path is
-  tenant-wide and permission-based, unrelated to the roster below.
+  `pm`, `superintendent` and `foreman` are the three tiers a new tenant starts
+  with — ordinary rows from here on, editable and deletable exactly like one
+  a tenant adds itself. Their own dedicated permission (`project.assign.pm`
+  etc.) keeps working exactly as before and is not shown on this screen; that
+  path is tenant-wide and permission-based, unrelated to the roster below.
 
   "Set by" (STI-503) is the NEW, second way to gain authority over a tier,
   additive to the permission path above: a tenant's own tier — Director, Area
@@ -51,7 +51,6 @@ type TeamRoleListItem = {
   name: string;
   label: string;
   canHoldCustody: boolean;
-  isSystem: boolean;
   reportsToTeamRoleId: string | null;
   assignableByEveryone: boolean;
   assignerTeamRoleIds: string[];
@@ -271,43 +270,21 @@ export default function TeamRolesPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    {/* Built-in rows keep their seeded flag — the assignment
-                        hierarchy and TOOLS_FOLLOW were written against these
-                        three exactly as shipped, so this cell is read-only for
-                        them and editable only for what an organization added. */}
-                    {r.isSystem ? (
-                      r.canHoldCustody ? "Yes" : "No"
-                    ) : (
-                      <label className="flex items-center gap-2">
-                        <Checkbox
-                          checked={r.canHoldCustody}
-                          onCheckedChange={(v) => update.mutate({ id: r.id, canHoldCustody: v === true })}
-                        />
-                        {r.canHoldCustody ? "Yes" : "No"}
-                      </label>
-                    )}
+                    <label className="flex items-center gap-2">
+                      <Checkbox
+                        checked={r.canHoldCustody}
+                        onCheckedChange={(v) => update.mutate({ id: r.id, canHoldCustody: v === true })}
+                      />
+                      {r.canHoldCustody ? "Yes" : "No"}
+                    </label>
                   </TableCell>
                   <TableCell className="text-right">
-                    {/* Always rendered now, disabled rather than absent for a
-                        built-in tier — an absent control reads as unfinished,
-                        and the reason it is missing is worth saying rather
-                        than leaving the cell blank (this used to be the
-                        Source column's whole job, before "Set by" made
-                        "Built in" vs "Added by your organization" the wrong
-                        question: every row here is editable in every OTHER
-                        column now, built-in or not). Same wording the server
-                        itself refuses the delete with. */}
                     <Button
                       variant="ghost"
                       size="icon"
                       className="size-8 text-destructive disabled:opacity-40"
-                      disabled={r.isSystem}
                       onClick={() => del.mutate({ id: r.id })}
-                      title={
-                        r.isSystem
-                          ? `"${r.label}" ships with the product and cannot be deleted.`
-                          : "Delete — only possible if nobody currently holds this role"
-                      }
+                      title="Delete — only possible if nobody currently holds this role"
                     >
                       <Trash2 className="size-4" />
                     </Button>
