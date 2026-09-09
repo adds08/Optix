@@ -28,6 +28,7 @@ export const project = pgTable(
     */
     code: text("code"),
     name: text("name").notNull(),
+    kind: text("kind").notNull().default("project"),
     description: text("description"),
     // not_awarded | awarded | in_progress | completed | cancelled | on_hold — see PROJECT_STATUSES
     status: text("status").notNull().default("not_awarded"),

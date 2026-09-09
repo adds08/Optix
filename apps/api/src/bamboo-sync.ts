@@ -595,6 +595,7 @@ export async function applySyncPlan(
         .values({
           tenantId,
           name: person.identity.name ?? `BambooHR ${person.externalId}`,
+          creationSource: "bamboohr",
           role: "crew",
           ...(person.identity.code ? { code: person.identity.code } : {}),
           ...(person.writable.email ? { email: person.writable.email } : {}),
@@ -620,6 +621,7 @@ export async function applySyncPlan(
         reported to a human and never written to an existing person.
       */
       const patch: Record<string, unknown> = {};
+      if (person.identity.code) patch.code = person.identity.code;
       if (person.writable.email) patch.email = person.writable.email;
       if (divisionId) patch.divisionId = divisionId;
       if (departmentId) patch.departmentId = departmentId;

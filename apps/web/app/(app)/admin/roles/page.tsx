@@ -47,6 +47,7 @@ export default function AdminRolesPage() {
   const mayManage = (me.data?.permissions ?? []).includes("config.manage");
 
   const roles = trpc.role.list.useQuery(undefined, { enabled: mayManage });
+  const tiers = trpc.projectTeam.roles.list.useQuery(undefined, { enabled: mayManage });
   const catalogue = trpc.role.catalogue.useQuery(undefined, { enabled: mayManage });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -80,20 +81,22 @@ export default function AdminRolesPage() {
      saved separately — they are a different kind of statement and a different
      mutation, so one Save button for both would claim an atomicity that is not
      there. */
-  const [flags, setFlags] = useState({ needsLogin: true, canHoldCustody: false, usesFieldLayout: false });
+  const [flags, setFlags] = useState({ needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment" as "equipment" | "people" | "office" | "none", claimTierNames: [] as string[] });
   useEffect(() => {
     if (selected) {
       setFlags({
+        onboardingKind: selected.onboardingKind as "equipment" | "people" | "office" | "none",
+        claimTierNames: selected.claimTierNames,
         needsLogin: selected.needsLogin,
         canHoldCustody: selected.canHoldCustody,
         usesFieldLayout: selected.usesFieldLayout,
       });
     }
-  }, [selectedId, selected?.needsLogin, selected?.canHoldCustody, selected?.usesFieldLayout]);
+  }, [selectedId, selected?.needsLogin, selected?.canHoldCustody, selected?.usesFieldLayout, selected?.onboardingKind, selected?.claimTierNames.join(",")]);
 
   const flagsDirty =
     !!selected &&
-    (flags.needsLogin !== selected.needsLogin ||
+    (flags.onboardingKind !== selected.onboardingKind || flags.claimTierNames.join(",") !== selected.claimTierNames.join(",") || flags.needsLogin !== selected.needsLogin ||
       flags.canHoldCustody !== selected.canHoldCustody ||
       flags.usesFieldLayout !== selected.usesFieldLayout);
 
@@ -304,6 +307,14 @@ export default function AdminRolesPage() {
                   </Button>
                 </div>
               </div>
+
+              <section className="space-y-3 rounded-lg border p-4">
+                <h3 className="font-medium">First-time setup</h3>
+                <label className="block space-y-1 text-sm">Setup for this role<select className="block w-full rounded-md border bg-background p-2" value={flags.onboardingKind} onChange={e => setFlags(f => ({ ...f, onboardingKind: e.target.value as typeof f.onboardingKind }))}><option value="equipment">Projects and equipment</option><option value="people">People / HR</option><option value="office">Office introduction</option><option value="none">No required setup</option></select></label>
+                <p className="text-sm text-muted-foreground">Allow this role to claim projects in these tiers during initial onboarding only. Leave all unticked to require manager assignment. These choices do not grant ongoing team-management permissions.</p>
+                <div className="flex flex-wrap gap-3">{(tiers.data ?? []).map(t => <label className="flex items-center gap-2 text-sm" key={t.name}><input type="checkbox" checked={flags.claimTierNames.includes(t.name)} onChange={e => setFlags(f => ({ ...f, claimTierNames: e.target.checked ? [...f.claimTierNames, t.name] : f.claimTierNames.filter(n => n !== t.name) }))} />{t.label}</label>)}</div>
+                <Button variant="outline" disabled={!flagsDirty || saveFlags.isPending} onClick={() => saveFlags.mutate({ roleId: selected.id, ...flags })}>Save setup settings</Button>
+              </section>
 
               {error ? <ErrorNote message={error} /> : null}
 

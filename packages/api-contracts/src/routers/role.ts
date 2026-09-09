@@ -97,6 +97,8 @@ export const roleRouter = router({
         needsLogin: schema.role.needsLogin,
         canHoldCustody: schema.role.canHoldCustody,
         usesFieldLayout: schema.role.usesFieldLayout,
+        onboardingKind: schema.role.onboardingKind,
+        claimTierNames: schema.role.claimTierNames,
       })
       .from(schema.role)
       .where(or(eq(schema.role.tenantId, tid), isNull(schema.role.tenantId)))
@@ -178,6 +180,8 @@ export const roleRouter = router({
       needsLogin: r.needsLogin,
       canHoldCustody: r.canHoldCustody,
       usesFieldLayout: r.usesFieldLayout,
+      onboardingKind: r.onboardingKind,
+      claimTierNames: r.claimTierNames,
       peopleCount: peopleByRole.get(r.id) ?? 0,
     }));
   }),
@@ -227,14 +231,22 @@ export const roleRouter = router({
         needsLogin: z.boolean(),
         canHoldCustody: z.boolean(),
         usesFieldLayout: z.boolean(),
+        onboardingKind: z.enum(["equipment", "people", "office", "none"]).optional(),
+        claimTierNames: z.array(z.string().min(1)).max(50).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       const role = await requireTenantRole(ctx.db, tid, input.roleId);
+      if (input.claimTierNames?.length) {
+        const tiers = await ctx.db.select({ name: schema.teamRole.name }).from(schema.teamRole).where(eq(schema.teamRole.tenantId, tid));
+        if (input.claimTierNames.some(name => !tiers.some(t => t.name === name))) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose tiers from this company's Team Roles." });
+      }
       await ctx.db
         .update(schema.role)
         .set({
+          onboardingKind: input.onboardingKind,
+          claimTierNames: input.claimTierNames ? [...new Set(input.claimTierNames)] : undefined,
           needsLogin: input.needsLogin,
           canHoldCustody: input.canHoldCustody,
           usesFieldLayout: input.usesFieldLayout,

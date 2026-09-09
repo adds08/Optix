@@ -154,7 +154,7 @@ export function PutOnJobForm({
                 Move everything they are holding to this job
                 <span className="mt-0.5 block text-xs text-muted-foreground">
                   This tier holds tools and a truck, so they travel with the person by default.
-                  Untick only to correct history where the tools were already moved separately.
+                  When unticked, directly held tools are released on their previous job.
                 </span>
               </span>
             </label>

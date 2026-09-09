@@ -429,17 +429,15 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
   });
 
   it("deactivating an account does NOT move custody", async () => {
-    const { user } = await admin().create({
-      email: emailFor("holder"), firstName: "Tool", lastName: "Holder",
-      password: "tool-holder-pw", employeeId,
-    });
+    const user = await db.query.user.findFirst({ where: and(eq(schema.user.tenantId, tenantId), eq(schema.user.employeeId, employeeId)) });
+    expect(user).toBeTruthy();
 
     /* The screen is allowed to SAY they hold tools — that is this count — but
        nothing may act on it. */
-    const before = (await admin().list()).find((u) => u.id === user.id)!;
+    const before = (await admin().list()).find((u) => u.id === user!.id)!;
     expect(before.heldToolCount).toBe(1);
 
-    await admin().setActive({ userId: user.id, isActive: false });
+    await admin().setActive({ userId: user!.id, isActive: false });
 
     const [asset] = await db
       .select({ custodianId: schema.asset.currentCustodianId })
@@ -464,7 +462,7 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
 
     /* Still reported as holding, now that the account is dark — the count is a
        fact about the employee, not about the login. */
-    const after = (await admin().list()).find((u) => u.id === user.id)!;
+    const after = (await admin().list()).find((u) => u.id === user!.id)!;
     expect(after.heldToolCount).toBe(1);
     expect(after.isActive).toBe(false);
   });

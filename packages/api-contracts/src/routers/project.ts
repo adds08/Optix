@@ -30,6 +30,7 @@ export const projectRouter = router({
       .select({
         id: schema.project.id,
         name: schema.project.name,
+        kind: schema.project.kind,
         externalId: schema.project.code,
         description: schema.project.description,
         status: schema.project.status,
@@ -50,6 +51,7 @@ export const projectRouter = router({
     .input(
       z.object({
         name: z.string().min(1).max(200),
+        kind: z.enum(["project", "yard"]).optional(),
         externalId: z.string().optional(),
         description: z.string().max(2000).optional(),
         /* Same enum as `update` — a job could otherwise be BORN with a status
@@ -64,7 +66,7 @@ export const projectRouter = router({
     .mutation(async ({ ctx, input }) => {
       const [row] = await ctx.db
         .insert(schema.project)
-        .values({ tenantId: ctx.session.tenantId, ...input })
+        .values({ tenantId: ctx.session.tenantId, ...input, code: input.externalId })
         .returning();
       if (row) await logEvent(ctx, { category: "project", action: "create", entityType: "project", entityId: row.id, entityLabel: row.name });
       return row;
@@ -75,6 +77,7 @@ export const projectRouter = router({
       z.object({
         id: z.string().uuid(),
         name: z.string().min(1).max(200).optional(),
+        kind: z.enum(["project", "yard"]).optional(),
         externalId: z.string().max(60).nullable().optional(),
         description: z.string().max(2000).nullable().optional(),
         /* STI-105: was `z.string().max(30)`, so "compleet" — or any other
@@ -141,7 +144,8 @@ export const projectRouter = router({
         }
       }
 
-      const patch = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
+      const { externalId, ...fields } = changes;
+      const patch = Object.fromEntries(Object.entries({ ...fields, ...(externalId !== undefined ? { code: externalId } : {}) }).filter(([, v]) => v !== undefined));
       if (!Object.keys(patch).length) return existing;
 
       const [row] = await ctx.db
@@ -243,6 +247,33 @@ async function assertRoleInTenant(db: Context["db"], tid: string, roleId: string
 }
 
 export const employeeRouter = router({
+  hrDetails: protectedProcedure.input(z.object({ employeeId: z.string().uuid() })).query(async ({ ctx, input }) => {
+    if (!ctx.session.permissions.has("employee.read") && !ctx.session.permissions.has("employee.manage") && ctx.session.employeeId !== input.employeeId) throw new TRPCError({ code: "FORBIDDEN" });
+    const tid = ctx.session.tenantId;
+    const [person] = await ctx.db.select({ id: schema.employee.id, code: schema.employee.code, jobTitle: schema.companyRole.name, department: schema.department.name, division: schema.division.name, creationSource: schema.employee.creationSource, createdByUserId: schema.employee.createdByUserId }).from(schema.employee).leftJoin(schema.companyRole, eq(schema.companyRole.id, schema.employee.companyRoleId)).leftJoin(schema.department, eq(schema.department.id, schema.employee.departmentId)).leftJoin(schema.division, eq(schema.division.id, schema.employee.divisionId)).where(and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)));
+    if (!person) throw new TRPCError({ code: "NOT_FOUND" });
+    const [source] = await ctx.db.select({ externalId: schema.employeeExternalRef.externalId, lastSyncedAt: schema.employeeExternalRef.lastSyncedAt }).from(schema.employeeExternalRef).where(and(eq(schema.employeeExternalRef.employeeId, input.employeeId), eq(schema.employeeExternalRef.tenantId, tid), eq(schema.employeeExternalRef.system, "bamboohr")));
+    return { ...person, bamboo: source ?? null };
+  }),
+  setHrDetails: requirePermission("employee.manage")
+    .input(z.object({ employeeId: z.string().uuid(), jobTitle: z.string().trim().max(200), division: z.string().trim().max(200), department: z.string().trim().max(200), code: z.string().trim().max(60) }))
+    .mutation(async ({ ctx, input }) => ctx.db.transaction(async tx => {
+      const tid = ctx.session.tenantId;
+      const [person] = await tx.select().from(schema.employee).where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.id, input.employeeId))).for("update");
+      if (!person) throw new TRPCError({ code: "NOT_FOUND" });
+      const source = await tx.query.employeeExternalRef.findFirst({ where: and(eq(schema.employeeExternalRef.tenantId, tid), eq(schema.employeeExternalRef.employeeId, input.employeeId), eq(schema.employeeExternalRef.system, "bamboohr")) });
+      if (source) throw new TRPCError({ code: "FORBIDDEN", message: "These details are maintained in BambooHR. Ask HR to correct them there." });
+      const resolve = async (table: typeof schema.companyRole | typeof schema.department | typeof schema.division, name: string) => {
+        if (!name) return null;
+        await tx.insert(table).values({ tenantId: tid, name }).onConflictDoNothing();
+        const [row] = await tx.select({ id: table.id }).from(table).where(and(eq(table.tenantId, tid), eq(table.name, name)));
+        return row!.id;
+      };
+      await tx.update(schema.employee).set({ companyRoleId: await resolve(schema.companyRole, input.jobTitle), departmentId: await resolve(schema.department, input.department), divisionId: await resolve(schema.division, input.division), code: input.code || null, updatedAt: new Date() }).where(and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)));
+      await logEvent({ ...ctx, db: tx as any }, { category: "auth", action: "employee.hrDetails.update", entityType: "employee", entityId: input.employeeId, details: { fields: ["jobTitle", "division", "department", "code"] } });
+      return { ok: true };
+    })),
+
   list: protectedProcedure.query(async ({ ctx }) => {
     const reportsTo = alias(schema.employee, "reports_to");
     return ctx.db
@@ -342,7 +373,8 @@ export const employeeRouter = router({
       const { externalId, ...rest } = input;
       const [row] = await ctx.db
         .insert(schema.employee)
-        .values({ tenantId: ctx.session.tenantId, ...rest, code: externalId })
+        .values({ tenantId: ctx.session.tenantId,
+          creationSource: "manual", createdByUserId: ctx.session.userId, ...rest, code: externalId })
         .returning();
 
       /* Opening the posting here rather than leaving it to the first move means
@@ -371,6 +403,7 @@ export const employeeRouter = router({
           externalId: schema.employee.code,
           name: schema.employee.name,
           role: schema.employee.role,
+          roleId: schema.employee.roleId,
           email: schema.employee.email,
           phone: schema.employee.phone,
           employmentStatus: schema.employee.employmentStatus,
@@ -471,6 +504,8 @@ export const employeeRouter = router({
       }),
     )
         .mutation(async ({ ctx, input }) => {
+      if (!ctx.session.permissions.has("project.team.assign")) throw new TRPCError({ code: "FORBIDDEN", message: "Use Project Teams to assign people within your reporting branch. Moving a posting directly requires project.team.assign." });
+
       /*
         Everything is one transaction in the shared engine (project-assign.ts):
         close the posting, open the next, catch up primaryProjectId, move the
@@ -539,6 +574,8 @@ export const employeeRouter = router({
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
 
+      const bamboo = await ctx.db.query.employeeExternalRef.findFirst({ where: and(eq(schema.employeeExternalRef.employeeId, id), eq(schema.employeeExternalRef.tenantId, tid), eq(schema.employeeExternalRef.system, "bamboohr")) });
+      if (bamboo && changes.externalId !== undefined && changes.externalId !== existing.code) throw new TRPCError({ code: "FORBIDDEN", message: "The employee number is maintained in BambooHR." });
       /* `primaryProjectId` is deliberately absent. Moving somebody to a job is
          `assignToProject` — it closes their posting, opens the next and takes
          their tools with them. Editing the column here would change the answer

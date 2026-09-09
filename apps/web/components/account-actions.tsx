@@ -56,7 +56,7 @@ export function InviteDialog({ person, open, onClose }: { person: Person; open: 
     setSending(true);
     setError(null);
     try {
-      await utils.client.user.invite.mutate({
+      const result = await utils.client.user.invite.mutate({
         email: email.trim(),
         firstName,
         lastName,
@@ -74,6 +74,11 @@ export function InviteDialog({ person, open, onClose }: { person: Person; open: 
         address back is the point — a typo in it is otherwise indistinguishable
         from a delivery that simply has not happened yet.
       */
+      if (!result.emailSent) {
+        toast.error("Account created, but email was not sent", { description: result.emailError ?? "Use Resend invitation to retry." });
+        onClose();
+        return;
+      }
       toast.success("Invitation sent", { description: email.trim() });
       onClose();
     } catch (e) {

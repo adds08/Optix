@@ -151,7 +151,7 @@ export function JobsiteCardView({
     for (const row of team) {
       m.set(
         row.projectId,
-        row.members.filter((x) => x.role === "pm" || x.role === "superintendent"),
+        row.members,
       );
     }
     return m;
@@ -295,42 +295,7 @@ export function JobsiteCardView({
                 </span>
               ) : null}
             </span>
-            {card.isJob && (leadersByProject.get(card.id)?.length || card.crews.length) ? (
-              /* Who runs it, at the bottom on purpose — the same place the
-                 list card keeps its Leads row. The card is a <button>, so this
-                 has no remove control (nesting interactive elements is invalid
-                 HTML); it is the same role-tinted chip with the same icon, just
-                 read-only here. */
-              <span className="flex w-full flex-wrap items-center gap-1.5 border-t pt-1.5">
-                {leadersByProject.get(card.id)?.length ? (
-                  leadersByProject.get(card.id)!.map((m) => {
-                    const Icon = m.role === "pm" ? Briefcase : ClipboardCheck;
-                    return (
-                      <span
-                        key={m.id}
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px]",
-                          m.role === "pm"
-                            ? "border-primary/25 bg-primary/5 text-foreground"
-                            : "border-warn/25 bg-warn-bg text-foreground",
-                        )}
-                      >
-                        <Icon className="size-3 shrink-0 text-hat-white" aria-hidden />
-                        {m.role === "pm" ? "PM" : "SUP"}
-                        <span className="font-medium">{m.externalId ? `${m.externalId} · ${m.name}` : m.name}</span>
-                      </span>
-                    );
-                  })
-                ) : (
-                  <span className="text-[11px] text-muted-foreground">No PM or superintendent assigned</span>
-                )}
-                {card.crews.length ? (
-                  <span className={cn("tnum ml-auto text-[11px] text-muted-foreground", card.fullyRigged < card.crews.length && "text-warn")}>
-                    {card.fullyRigged}/{card.crews.length} with truck & trailer
-                  </span>
-                ) : null}
-              </span>
-            ) : null}
+            {card.isJob && <span className="w-full border-t pt-2 text-xs text-muted-foreground">{leadersByProject.get(card.id)?.length ?? 0} team members · Open tools for details</span>}
           </button>
         ))}
       </div>
@@ -346,10 +311,10 @@ export function JobsiteCardView({
           {open ? (
             <>
               <SheetHeader className="gap-2 border-b">
-                {/* The "Add crew" button sits BESIDE SheetTitle, never inside
+                {/* The "View team" button sits BESIDE SheetTitle, never inside
                     it — Radix wires the title element to the panel's
                     accessible name, and a button's text would ride along
-                    into it ("NEX 22017 Add crew"). `pr-8` keeps it clear of
+                    into it ("NEX 22017 View team"). `pr-8` keeps it clear of
                     SheetContent's own close ✕, which is `absolute top-4
                     right-4` — outside this row's flow entirely, so an
                     `ml-auto` button here drifts straight under it without
@@ -369,9 +334,9 @@ export function JobsiteCardView({
                       variant="outline"
                       size="sm"
                       className="ml-auto gap-1 border-dashed border-muted-foreground/40 text-primary hover:border-primary/50"
-                      onClick={() => onPick({ kind: "crew", projectId: open.id })}
+                      onClick={() => { window.location.href = `/project-teams?projectId=${open.id}`; }}
                     >
-                      <Plus className="size-3.5" /> Add crew
+                      <Plus className="size-3.5" /> View team
                     </Button>
                   ) : null}
                 </span>
@@ -443,7 +408,7 @@ export function JobsiteCardView({
                 {open.isJob && !open.crews.length && canAssignCrew ? (
                   <button
                     type="button"
-                    onClick={() => onPick({ kind: "crew", projectId: open.id })}
+                    onClick={() => { window.location.href = `/project-teams?projectId=${open.id}`; }}
                     className="rounded-md border border-dashed border-muted-foreground/40 bg-card p-4 text-left text-sm font-medium text-primary hover:border-primary/50"
                   >
                     No crew on this job yet — add a foreman and a rig

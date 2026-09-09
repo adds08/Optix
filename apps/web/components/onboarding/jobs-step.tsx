@@ -4,30 +4,19 @@ import { useMemo, useState } from "react";
 import { Building2, HardHat, MapPin, Search } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { DUR, EASE } from "@/lib/motion";
+import { Button } from "@/components/ui/button";
+import { EntityField } from "@/components/ui/entity-picker";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { ErrorNote, TableSkeleton } from "@/components/sti/page";
 
-/*
-  Step one: the jobs you are on.
-
-  READ-ONLY, and that is the whole design. This step used to list every active
-  job in the tenant with a tick box, writing a `project_claim` — "I say I work
-  here" — which granted nothing at all. The result was a step that looked like
-  it did something and mostly did not: a person ticked five jobs, and steps two
-  through four ignored four of them, because editing a job needs a roster row
-  and a tick is not one. The wizard then explained its own bookkeeping to
-  somebody who had ticked a box thirty seconds earlier.
-
-  The rule now: **you are on a job when whoever runs it puts you on it.** So
-  this step reports that, and every later step operates on exactly this set.
-  There is nothing here to get wrong, and nothing the server can refuse.
-
-  The search box survives because a superintendent can be on a dozen jobs and
-  scanning for one by code is still the fastest way to find it. It filters; it
-  does not select.
-*/
+/* Initial claims are explicit role grants and close permanently when setup finishes. */
 export function JobsStep() {
+  const utils = trpc.useUtils();
+  const options = trpc.onboarding.claimOptions.useQuery();
+  const [projectId, setProjectId] = useState("");
+  const [tier, setTier] = useState("");
+  const claim = trpc.onboarding.claimProject.useMutation({ onSuccess: async () => { setProjectId(""); await Promise.all([utils.onboarding.invalidate(), utils.project.list.invalidate(), utils.projectTeams.invalidate()]); } });
   const jobs = trpc.onboarding.candidateProjects.useQuery();
   const [query, setQuery] = useState("");
   const reduced = useReducedMotion();
@@ -45,6 +34,8 @@ export function JobsStep() {
 
   return (
     <div className="flex flex-col gap-4">
+      {!!options.data?.tiers.length && <section className="space-y-3 rounded-lg border bg-muted/20 p-4"><h3 className="font-medium">Add a missing project</h3><p className="text-sm text-muted-foreground">Only during initial setup. Your manager sees these assignments and can correct them. You cannot add projects yourself after finishing.</p><EntityField value={projectId} onChange={setProjectId} options={options.data.projects.map(p => ({ value: p.id, label: p.name, hint: p.code ?? undefined }))} placeholder="Choose project" searchPlaceholder="Search projects" emptyLabel="No eligible projects" /><EntityField value={tier} onChange={setTier} options={options.data.tiers.map(t => ({ value: t.name, label: t.label }))} placeholder="Your responsibility" searchPlaceholder="Search tiers" emptyLabel="No permitted tiers" /><Button disabled={!projectId || !tier || claim.isPending} onClick={() => claim.mutate({ projectId, tier })}>{claim.isPending ? "Adding…" : "Add to my projects"}</Button>{claim.error && <ErrorNote message={claim.error.message} />}</section>}
+
       {jobs.isLoading && <TableSkeleton />}
       {jobs.error && <ErrorNote message={jobs.error.message} />}
 
@@ -72,8 +63,7 @@ export function JobsStep() {
       */}
       {jobs.data && jobs.data.length === 0 && (
         <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-          You're not on any jobs yet. Whoever runs your jobs adds you to them — once they
-          have, this is where they'll show up.
+          No projects have been assigned yet. Use the initial setup options above if available, or ask your manager to add you.
         </p>
       )}
 

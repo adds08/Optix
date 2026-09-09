@@ -159,6 +159,8 @@ export const role = pgTable(
       it simply is not walked through a wizard about them.
     */
     onboardingKind: text("onboarding_kind").notNull().default("equipment"),
+    // Explicit administrator grants. Empty means no self-claiming.
+    claimTierNames: jsonb("claim_tier_names").$type<string[]>().notNull().default([]),
     /*
       Reaches EVERY tenant, not just its own.
 
@@ -303,6 +305,7 @@ export const userOnboarding = pgTable(
        every other vocabulary column in this schema (see .claude/rules/database.md)
        — Zod at the router edge refuses an unlisted value, not the database. */
     currentStep: text("current_step").notNull().default("projects"),
+    claimingClosedAt: timestamp("claiming_closed_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     /*
       Finished or dismissed. Null means the wizard is still theirs to complete,

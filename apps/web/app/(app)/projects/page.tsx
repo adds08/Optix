@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { HardHat } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -76,7 +77,7 @@ export default function ProjectsPage() {
       col<Row>({
         header: "Project",
         accessorFn: (p) => p.name,
-        cell: (p) => <span className="font-medium">{p.name}</span>,
+        cell: (p) => <div><span className="font-medium">{p.name}</span><span className="ml-2 text-xs text-muted-foreground">{p.kind === "yard" ? "Yard" : "Project"}</span>{p.kind !== "yard" && <Link className="mt-1 block text-xs text-primary hover:underline" href={`/project-teams?projectId=${p.id}`}>View project team →</Link>}</div>,
       }),
       col<Row>({
         header: "Site",

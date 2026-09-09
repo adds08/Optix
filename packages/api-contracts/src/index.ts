@@ -1,3 +1,5 @@
+import { employeeMappingRouter } from "./routers/employeeMapping.js";
+import { projectTeamsRouter } from "./routers/projectTeams.js";
 import { router } from "./trpc.js";
 import { identityRouter } from "./routers/identity.js";
 import { dashboardRouter } from "./routers/dashboard.js";
@@ -41,8 +43,10 @@ export const appRouter = router({
   category: categoryRouter,
   project: projectRouter,
   projectTeam: projectTeamRouter,
+  projectTeams: projectTeamsRouter,
   department: departmentRouter,
   employee: employeeRouter,
+  employeeMapping: employeeMappingRouter,
   location: locationRouter,
   vehicle: vehicleRouter,
   assignment: assignmentRouter,

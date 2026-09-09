@@ -70,6 +70,7 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
   const teamAsAdmin = () =>
     projectTeamRouter.createCaller(
       ctx(pmUserId, pmEmp, [
+        "project.team.assign",
         "project.team.read",
         "project.assign.pm",
         "project.assign.superintendent",
@@ -309,7 +310,6 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
     });
 
     it("shows a tier as deferred, not empty, once deferred", async () => {
-      await asForeman().defer({ projectId: jobB, teamRole: "superintendent" });
       /* jobB has nobody on it yet, so put the PM and the foreman on it — the
          PM is who the deferral belongs to (superintendent reports to pm in
          this fixture's ladder), and crewStatus needs something on the job to
@@ -320,6 +320,8 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
          shape the schema comment on reportsToEmployeeId describes as legal
          (a job can be flatter than the tier ladder's usual chain). */
       await teamAsPm().assign({ projectId: jobB, employeeId: foremanEmp, role: "foreman", reportsToEmployeeId: pmEmp });
+
+      await asForeman().defer({ projectId: jobB, teamRole: "superintendent" });
 
       const rows = await asForeman().crewStatus();
       const jobBRow = rows.find((r) => r.projectId === jobB)!;
@@ -458,6 +460,7 @@ describe.skipIf(!url)("onboarding: geography and crew status", () => {
     const pTeamAsAdmin = () =>
       projectTeamRouter.createCaller(
         pctx(pPmUserId, pPm, [
+          "project.team.assign",
           "project.team.read",
           "project.assign.pm",
           "project.assign.superintendent",

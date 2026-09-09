@@ -13,7 +13,7 @@ import { FilterPills, FilterField } from "@/components/sti/facets";
 import { isHighValue } from "@/components/sti/flags";
 import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
 import { JobsiteCardView } from "@/components/jobsite-card-view";
-import { JobsiteTeamStrip } from "@/components/jobsite-team-strip";
+import Link from "next/link";
 import { RigPicker, type PickerRequest } from "@/components/rig-picker";
 import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assign-dialog";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
@@ -53,24 +53,6 @@ import { cn } from "@/lib/utils";
 
 const YARD = "__yard";
 
-/*
-  The equipment department's own holding project, which is not a job.
-
-  Urban carries a project literally called "Equipment Yard" — two of them, in
-  fact, one with the cost code 24002 and one with none — and they were drawn in
-  the Projects tab as ordinary sites. They hold no tools, so they were two empty
-  cards padding the project list with somewhere nobody is working.
-
-  MATCHED BY NAME, which is the weak part and is called out rather than hidden:
-  nothing on `project` marks it as the department's own, so a rename or a third
-  "Equipment Yard 2" walks straight past this. The durable fix is a column on
-  the project — a kind, or a link to `department` — and until that exists this
-  is one function so there is exactly one place to change.
-*/
-const YARD_PROJECT_NAME = "equipment yard";
-function isYardProject(name: string | null | undefined): boolean {
-  return (name ?? "").trim().toLowerCase() === YARD_PROJECT_NAME;
-}
 const NOJOB = "__nojob";
 
 /* The two cards that are NOT jobs carry a tint, because there the colour says
@@ -85,6 +67,7 @@ export default function JobsitesPage() {
   const employees = trpc.employee.list.useQuery();
   const assets = trpc.asset.list.useQuery();
   const projects = trpc.project.list.useQuery();
+  const yardProjectIds = new Set((projects.data ?? []).filter(p => p.kind === "yard").map(p => p.id));
   const vehicles = trpc.vehicle.list.useQuery();
   /* The project roster (pm/superintendent/foreman per job), for the team strip
      on each card. Loaded once, keyed by project — see projectTeam.all. */
@@ -95,9 +78,9 @@ export default function JobsitesPage() {
   /* What this viewer may actually drive. The picker actions are each backed
      by a server permission — a foreman browsing the yard must not see buttons
      that can only fail, nor the tenant-wide vehicle list behind them. */
-  const canAssignCrew = has("project.assign.foreman");
+  const canAssignCrew = false; // Team assignments live in Project Teams.
   const canManageRig = has("vehicle.manage") || has("location.manage");
-  const canDrive = canAssignCrew || canManageRig;
+  const canDrive = canManageRig;
   /* Handing a loose tool to a foreman is assignment.create — held by more
      people than the rig controls, so it gates the loose-tool selection. */
   const canAssignTools = has("assignment.create");
@@ -143,7 +126,7 @@ export default function JobsitesPage() {
     are independent features that simply chose the same name, so telling them
     apart is the whole fix.
   */
-  const [poolView, setPoolView] = useState<"jobs" | "pool">("jobs");
+  const [poolView, setPoolView] = useState<"jobs" | "pool" | "unassigned">("jobs");
   /*
      How the cards are DRAWN — the detailed list (default) or the compact grid
      whose tools open in a right sheet. Distinct from `poolView` above, which
@@ -377,7 +360,7 @@ export default function JobsitesPage() {
         id: p.id,
         name: p.name,
         code: p.externalId,
-        isJob: true,
+        isJob: p.kind !== "yard",
         crews,
         loose,
         toolCount,
@@ -430,7 +413,7 @@ export default function JobsitesPage() {
          in the yard — Dave's shop tools are held, just not booked to a job. */
       const yardTools = forProject(null).filter(
         (t) =>
-          !t.custodianId &&
+          !t.custodianId && t.locationType === "warehouse" &&
           hit(`${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} yard`) &&
           toolOk(t),
       );
@@ -451,16 +434,17 @@ export default function JobsitesPage() {
       /* The not-assigned group comes last, even when it is empty — it is the
          permanent home for project-less foremen, not a section that comes and
          goes with the current roster. */
-      const noJobToolCount = noJobCrews.reduce((n, c) => n + c.tools.length, 0);
+      const unplacedTools = forProject(null).filter(t => !t.custodianId && t.locationType !== "warehouse" && toolOk(t) && hit(`${t.code ?? ""} ${formatAssetModel(t)}`));
+      const noJobToolCount = unplacedTools.length + noJobCrews.reduce((n, c) => n + c.tools.length, 0);
       out.push({
         id: NOJOB,
         name: "Not assigned to any project",
         code: null,
         isJob: false,
         crews: noJobCrews,
-        loose: [],
+        loose: unplacedTools,
         toolCount: noJobToolCount,
-        value: noJobCrews.reduce((n, c) => n + c.tools.reduce((m, t) => m + (Number(t.acquisitionCost) || 0), 0), 0),
+        value: unplacedTools.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0) + noJobCrews.reduce((n, c) => n + c.tools.reduce((m, t) => m + (Number(t.acquisitionCost) || 0), 0), 0),
         gaps: [],
         tint: CARD_TINT[NOJOB] ?? "",
         fullyRigged: noJobCrews.filter((c) => c.rig.truck && c.rig.trailer).length,
@@ -472,16 +456,17 @@ export default function JobsitesPage() {
          the real project(s) Urban names that way. Both belong in the In Yard
          tab, and are excluded from Projects below. */
 
-      const isYard = c.id === YARD || isYardProject(c.name);
+      const isYard = c.id === YARD || yardProjectIds.has(c.id);
       /* The Equipment Yard is not a job. It shows ONLY in the In Yard tab, so a
          desk scanning the projects list never has to page past a place nobody
          is working to read the sites that are. */
-      if (poolView === "jobs" && isYard) return false;
+      if (poolView === "jobs" && (isYard || c.id === NOJOB)) return false;
 
       /* Pool view shows the unassigned groups only — the yard, the yard
          projects, and the project-less people. Projects drop out entirely, but
          NOJOB keeps its pinned-bottom rule below. */
-      if (poolView === "pool" && !isYard && c.id !== NOJOB) return false;
+      if (poolView === "pool" && !isYard) return false;
+      if (poolView === "unassigned" && c.id !== NOJOB) return false;
       /* The not-assigned group is pinned at the bottom permanently — it must
          survive filters that prune everything else. */
       if (c.id === NOJOB) return true;
@@ -525,8 +510,8 @@ export default function JobsitesPage() {
          them. */
       if (a.id === NOJOB) return 1;
       if (b.id === NOJOB) return -1;
-      const aYard = a.id === YARD || isYardProject(a.name);
-      const bYard = b.id === YARD || isYardProject(b.name);
+      const aYard = a.id === YARD || yardProjectIds.has(a.id);
+      const bYard = b.id === YARD || yardProjectIds.has(b.id);
       if (aYard !== bYard) return aYard ? 1 : -1;
       if (cardSort === "name") return a.name.localeCompare(b.name);
       if (cardSort === "gaps") return b.gaps.length - a.gaps.length || b.toolCount - a.toolCount;
@@ -572,6 +557,7 @@ export default function JobsitesPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <p className="rounded-md border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">Projects show tools booked to a job. Yard shows tools recorded at warehouse locations or a yard. Unassigned shows tools and custodians without a project; their physical location may be elsewhere. Manage reporting branches in <Link className="font-medium text-primary underline" href="/project-teams">Project Teams</Link>.</p>
       <RigPicker request={picker} onClose={() => setPicker(null)} onDone={invalidate} foremen={foremen} vehicles={vehicles.data ?? []} projects={projects.data ?? []} />
       <CrewAssignDialog
         request={assign}
@@ -723,7 +709,7 @@ export default function JobsitesPage() {
                   unassigned-foreman crews sit), and "Pool" was jargon. The
                   two labels say what each tab actually is. */}
               <div className="flex overflow-hidden rounded-md border" role="group" aria-label="View">
-                {([["jobs", "Projects"], ["pool", "In Yard"]] as const).map(([key, label]) => (
+                {([["jobs", "Projects"], ["pool", "Yard"], ["unassigned", "Unassigned"]] as const).map(([key, label]) => (
                   <button
                     key={key}
                     type="button"
@@ -814,8 +800,7 @@ export default function JobsitesPage() {
               {poolView === "pool" ? (
                 <span className="text-xs text-muted-foreground">
                   <span className="tnum font-medium text-foreground">{poolCounts.yard}</span> in the yard
-                  {" · "}
-                  <span className="tnum font-medium text-foreground">{poolCounts.noJob}</span> held with no job
+
                 </span>
               ) : null}
             </div>
@@ -1009,9 +994,9 @@ export default function JobsitesPage() {
                       </span>
                       <span className="tnum mt-1 block font-mono text-[13px] text-muted-foreground">{moneyShort(card.value)}</span>
                     </span>
-                    {card.isJob && canAssignCrew ? (
-                      <Button variant="outline" size="sm" className="border-dashed border-muted-foreground/40 text-primary hover:border-primary/50" onClick={() => setPicker({ kind: "crew", projectId: card.id })}>
-                        <Plus className="size-3.5" /> Add crew
+                    {card.isJob && has("project.team.read") ? (
+                      <Button variant="outline" size="sm" className="border-dashed border-muted-foreground/40 text-primary hover:border-primary/50" onClick={() => { window.location.href = `/project-teams?projectId=${card.id}`; }}>
+                        View team
                       </Button>
                     ) : null}
                     <DropdownMenu>
@@ -1139,20 +1124,7 @@ export default function JobsitesPage() {
                     strip itself returns null for a viewer who can neither see
                     nor add a leader, so the row only exists when there is
                     something worth the space. */}
-                {card.isJob && (teamLeaders.length > 0 || canAssignPm || canAssignSuper) ? (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border bg-muted/20 px-2.5 py-1.5">
-                    {teamLeaders.length > 0 ? (
-                      <span className="label-xs text-muted-foreground">Leads</span>
-                    ) : null}
-                    <JobsiteTeamStrip
-                      projectId={card.id}
-                      members={teamLeaders}
-                      candidates={teamCandidates}
-                      canAssignPm={canAssignPm}
-                      canAssignSuper={canAssignSuper}
-                    />
-                  </div>
-                ) : null}
+                {card.isJob && has("project.team.read") && <div className="flex items-center justify-between gap-3 border-t bg-muted/20 px-4 py-3 text-sm"><span>{roster.length} team members · Leadership and reporting branches</span><Link className="shrink-0 font-medium text-primary hover:underline" href={`/project-teams?projectId=${card.id}`}>View team →</Link></div>}
               </section>
             );
           })

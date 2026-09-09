@@ -46,6 +46,7 @@ describe.skipIf(!url)("moving a crew between jobs", () => {
       tenantId,
       employeeId: null,
       permissions: new Set<Permission>([
+        "project.team.assign",
         "project.assign.foreman",
         "project.assign.superintendent",
         "project.assign.pm",

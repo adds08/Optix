@@ -1,5 +1,7 @@
 "use client";
 
+import { EmployeeHrDetails } from "@/components/employee-hr-details";
+import { EmployeeAccountPanel } from "@/components/employee-account-panel";
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Boxes, HardHat, Truck } from "lucide-react";
@@ -170,16 +172,18 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
             }
             actions={
               <div className="flex flex-wrap items-center gap-3">
-                <Can perm="employee.manage">
+                <Can perm="employee.manage"><Can perm="project.team.assign">
                   <Button size="sm" onClick={() => setMoving(true)}>
                     <HardHat className="size-4" aria-hidden />
                     Move to a project
                   </Button>
-                </Can>
+                </Can></Can>
                 <StatusPill status={p.employmentStatus} className="text-xs" />
               </div>
             }
           />
+          <EmployeeHrDetails employeeId={p.id} />
+          <EmployeeAccountPanel person={{ id: p.id, name: p.name, email: p.email, roleId: p.roleId }} />
           {moving ? (
             <PostingForm
               open={moving}

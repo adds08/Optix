@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
@@ -11,7 +11,8 @@ import { StepShell } from "@/components/onboarding/step-shell";
 import { JobsStep } from "@/components/onboarding/jobs-step";
 import { DetailsStep } from "@/components/onboarding/details-step";
 import { LocationStep } from "@/components/onboarding/location-step";
-import { CrewStep } from "@/components/onboarding/crew-step";
+import { ProjectTeamsPanel } from "@/components/project-teams-panel";
+import { clearSession } from "@/lib/auth";
 import { InviteStep } from "@/components/onboarding/invite-step";
 import { DoneStep } from "@/components/onboarding/done-step";
 import { AuthSlideshow } from "@/components/auth-slideshow";
@@ -49,6 +50,7 @@ import { cn } from "@/lib/utils";
 */
 
 const STEP_LABELS: Record<string, string> = {
+  review: "Review and finish",
   projects: "Your jobs",
   details: "Job details",
   location: "On the map",
@@ -59,6 +61,7 @@ const STEP_LABELS: Record<string, string> = {
 /* What each step is actually asking, in one line. Sits under the step title so
    the person is never guessing why they are being asked. */
 const STEP_BLURB: Record<string, string> = {
+  review: "Confirm your details. Your manager can maintain team assignments after setup.",
   projects: "What your company has you on. If something's missing, whoever runs that job adds you to it.",
   details: "Only what isn't recorded yet. A job with nothing missing won't ask.",
   location: "Drop a pin so the yard knows where this job is. Optional — skip it if you'd rather not.",
@@ -144,8 +147,18 @@ export default function WelcomePage() {
   const state = trpc.onboarding.state.useQuery();
   const me = trpc.identity.me.useQuery();
 
-  const steps = state.data?.steps ?? ["projects", "details", "location", "crew", "invite"];
+  useEffect(() => {
+    if (me.error?.data?.code === "UNAUTHORIZED" || me.data === null) router.replace("/");
+    else if (me.data?.mustChangePassword) router.replace("/account/password");
+  }, [me.data, me.error, router]);
+
+  const steps = state.data?.steps ?? ["review"];
   const [index, setIndex] = useState(0);
+  const [resumed, setResumed] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
+  useEffect(() => {
+    if (!resumed && state.data) { setIndex(Math.max(0, state.data.steps.indexOf(state.data.currentStep))); setResumed(true); }
+  }, [resumed, state.data]);
   const [direction, setDirection] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
@@ -250,10 +263,10 @@ export default function WelcomePage() {
               variant="ghost"
               size="sm"
               className="text-muted-foreground"
-              onClick={() => complete.mutate({ dismissed: true })}
+              onClick={() => { clearSession(); router.replace("/"); }}
               disabled={complete.isPending}
             >
-              Skip setup
+              Save and sign out
             </Button>
           </motion.div>
 
@@ -341,8 +354,9 @@ export default function WelcomePage() {
                 {stepKey === "projects" && <JobsStep />}
                 {stepKey === "details" && <DetailsStep />}
                 {stepKey === "location" && <LocationStep />}
-                {stepKey === "crew" && <CrewStep />}
+                {stepKey === "crew" && <ProjectTeamsPanel onboarding />}
                 {stepKey === "invite" && <InviteStep />}
+                {stepKey === "review" && <div className="space-y-4"><h3 className="font-medium">Welcome, {firstName}</h3><p className="text-sm text-muted-foreground">{state.data?.onboardingKind === "people" ? "Your workspace is for people and employee records. Project and tool setup is not required." : state.data?.onboardingKind === "equipment" ? "Your saved projects and reporting branch are shared with your manager. Missing assignments can be completed by your manager after you finish." : "Your administrator has configured the screens and actions available to you."}</p><p className="text-sm">Imported HR details are maintained in BambooHR. Ask HR to correct your job title or department; ask your manager about project responsibilities.</p><label className="flex items-start gap-3 rounded-md border p-3 text-sm"><input className="mt-1" type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} />I have reviewed my setup and understand that my manager maintains my project access after onboarding.</label></div>}
               </StepShell>
             </div>
           </motion.div>
@@ -360,7 +374,7 @@ export default function WelcomePage() {
           </span>
 
           {isLast ? (
-            <Button size="sm" onClick={() => complete.mutate({ dismissed: false })} disabled={complete.isPending}>
+            <Button size="sm" onClick={() => complete.mutate({ dismissed: false, acknowledged })} disabled={complete.isPending || !acknowledged}>
               {complete.isPending ? (
                 <Loader2 className="mr-1.5 size-4 animate-spin" />
               ) : (

@@ -221,8 +221,8 @@ export function CrewCard({
                     {rig.trailer ? "Change hitched trailer" : rig.truck ? "Hitch a trailer" : "Assign a trailer"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => onPick({ kind: "move", foremanId: crew.foremanId, projectId })}>
-                    Move this crew to another job
+                  <DropdownMenuItem onSelect={() => { window.location.href = `/project-teams?projectId=${projectId}`; }}>
+                    Manage project team
                   </DropdownMenuItem>
                   {onAddTools ? <DropdownMenuItem onSelect={onAddTools}>Add tools to this crew</DropdownMenuItem> : null}
                 </DropdownMenuContent>
@@ -357,8 +357,8 @@ export function CrewCard({
                 {rig.trailer ? "Change hitched trailer" : rig.truck ? "Hitch a trailer" : "Assign a trailer"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => onPick({ kind: "move", foremanId: crew.foremanId, projectId })}>
-                Move this crew to another job
+              <DropdownMenuItem onSelect={() => { window.location.href = `/project-teams?projectId=${projectId}`; }}>
+                Manage project team
               </DropdownMenuItem>
               {onAddTools ? (
                 <DropdownMenuItem onSelect={onAddTools}>Add tools to this crew</DropdownMenuItem>

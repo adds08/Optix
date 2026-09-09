@@ -1,13 +1,14 @@
+import { restrictedProjects, assertProjectAccess } from "../project-access.js";
 import { and, eq, isNull, inArray, desc } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
 import { adjacentTiers, canAssignIntoTier, descendantsOf, tiersAtOrBelow } from "@stinventory/domain";
 import type { Permission } from "@stinventory/types";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { viewTierOf } from "../scope.js";
-import { BUILT_IN_PERM } from "./projectTeam.js";
+import { projectTeamRouter, BUILT_IN_PERM } from "./projectTeam.js";
 
 /*
   First-run setup — walking a newly invited person through claiming their work.
@@ -41,7 +42,7 @@ import { BUILT_IN_PERM } from "./projectTeam.js";
 /* The wizard's steps, in order. Exported so the client cannot drift from the
    server's idea of what comes next — the resume point is stored as one of
    these and validated on write. */
-export const ONBOARDING_STEPS = ["projects", "details", "location", "crew", "invite"] as const;
+export const ONBOARDING_STEPS = ["projects", "details", "location", "crew", "invite", "review"] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 /*
@@ -80,116 +81,78 @@ async function ensureRow(ctx: any) {
   }
 }
 
+async function onboardingRole(ctx: any) {
+  const roles = await ctx.db.select({ onboardingKind: schema.role.onboardingKind, needsLogin: schema.role.needsLogin, claimTierNames: schema.role.claimTierNames }).from(schema.userRole).innerJoin(schema.role, eq(schema.role.id, schema.userRole.roleId)).where(eq(schema.userRole.userId, ctx.session.userId));
+  if (roles.length > 1) throw new TRPCError({ code: "CONFLICT", message: "Ask an administrator to select one access role for your account." });
+  return roles[0] as { onboardingKind: string; needsLogin: boolean; claimTierNames: string[] } | undefined;
+}
+
 export const onboardingRouter = router({
-  /*
-    Where this person is up to, and whether they should be sent to the wizard.
-
-    `shouldPrompt` is computed HERE rather than in the shell, so the redirect
-    rule lives beside the data it reads instead of being re-derived in a
-    `useEffect`. Three accounts never get prompted:
-
-    - Somebody with no employee record. Roughly seven seeded accounts have a null
-      `employeeId` — owner@, finance@, office@ and the rest — and every scoped
-      query in this codebase already carries a second branch for them (see
-      scope.ts). The wizard is built entirely on roster rows, which those
-      accounts cannot hold, so prompting them opens a wizard they cannot
-      complete. Same reasoning as `projectTeam.orgChart` returning nothing rather
-      than everything for them.
-    - Somebody still owing a password change. That redirect already owns the
-      first page load, and two competing redirects is a loop.
-    - **Somebody on no jobs.** An employee record is not enough: an equipment
-      admin, a mechanic and the yard desk all have one and sit on zero crew
-      rows, because they serve every job rather than working on any. This
-      wizard's first question is "which of your jobs is this about", so for
-      them every step is empty and the finish button records nothing. They were
-      being prompted, and answering honestly took five clicks to reach a screen
-      that said they had claimed nothing.
-
-      Keyed on the ROSTER, not on the role name. A role list would be wrong the
-      day a tenant adds a role — and `nav-config`'s role-name branch is already
-      the last one in the product for exactly that reason. A mechanic who genuinely
-      is put on a job gets the wizard; an office-bound PM does not.
-  */
   state: protectedProcedure.query(async ({ ctx }) => {
     const row = await ensureRow(ctx);
+    const role = await onboardingRole(ctx);
+    const projects = ctx.session.employeeId ? await ctx.db.select({ id: schema.projectTeamMember.id }).from(schema.projectTeamMember).where(and(eq(schema.projectTeamMember.tenantId, ctx.session.tenantId), eq(schema.projectTeamMember.employeeId, ctx.session.employeeId), isNull(schema.projectTeamMember.endedOn))) : [];
+    const onAnyJob = projects.length > 0;
     const hasEmployee = !!ctx.session.employeeId;
-
-    /* One row is enough — this asks "is this person on any job at all", so
-       LIMIT 1 rather than a count of jobs nobody reads. */
-    const [anyJob] = hasEmployee
-      ? await ctx.db
-          .select({ id: schema.projectTeamMember.id })
-          .from(schema.projectTeamMember)
-          .where(
-            and(
-              eq(schema.projectTeamMember.tenantId, ctx.session.tenantId),
-              eq(schema.projectTeamMember.employeeId, ctx.session.employeeId!),
-              isNull(schema.projectTeamMember.endedOn),
-            ),
-          )
-          .limit(1)
-      : [];
-    const onAnyJob = !!anyJob;
-
-    /*
-      WHICH wizard this person's role asks for, straight off the role register.
-
-      `none` means the role is never sent to onboarding at all — a technical
-      administrator or a finance account is not describing their own crew, and
-      the client asked for exactly this: "there might be some roles, especially
-      technical admins, super admins, that might not even require this
-      on-boarding screen".
-
-      Read from the ROLE ROW, never from a list of role names here. A name list
-      is wrong the day a tenant adds a role, which is the same reasoning that
-      keyed the rest of this procedure on the roster.
-
-      Defaults to `equipment` when a user somehow has no role row: the wizard is
-      harmless and skippable, whereas silently skipping setup for somebody who
-      needed it is not.
-    */
-    const [roleRow] = await ctx.db
-      .select({ onboardingKind: schema.role.onboardingKind })
-      .from(schema.userRole)
-      .innerJoin(schema.role, eq(schema.role.id, schema.userRole.roleId))
-      .where(eq(schema.userRole.userId, ctx.session.userId))
-      .limit(1);
-    const onboardingKind = roleRow?.onboardingKind ?? "equipment";
-    const wantsWizard = onboardingKind !== "none";
-
-    /* Finished for real: closed, and not closed by pressing Skip. */
-    const hasFinished = !!row.completedAt && !row.dismissedAt;
+    const onboardingKind = role?.onboardingKind ?? "office";
+    const canClaim = hasEmployee && !!role?.claimTierNames.length && !row.claimingClosedAt && !row.completedAt;
+    const steps: OnboardingStep[] = onboardingKind === "equipment" && hasEmployee && (onAnyJob || canClaim) ? ["projects", ...(ctx.session.permissions.has("project.team.read") ? ["crew" as const] : []), "review"] : ["review"];
+    const finished = !!row.completedAt && !row.dismissedAt;
     return {
-      currentStep: row.currentStep as OnboardingStep,
-      completedAt: row.completedAt,
-      dismissedAt: row.dismissedAt,
-      startedAt: row.startedAt,
-      /* The shell reads only this. Keeping the reasons server-side means a new
-         exemption is one edit here, not one here and one in the client. */
-      shouldPrompt: !row.completedAt && wantsWizard && hasEmployee && onAnyJob,
-      /*
-        Skipped and not since finished — what the sidebar's "setup unfinished"
-        notice reads. Deliberately NOT the same question as `shouldPrompt`: this
-        one never redirects anybody, it only offers a way back, which is the
-        whole difference between a nudge and a gate.
-
-        Gated on the same conditions as `shouldPrompt`, and for the same
-        reason: an account that would never be sent to the wizard must not be
-        told its setup is unfinished. That includes somebody on no jobs — the
-        sidebar would otherwise nag a mechanic forever about a wizard that has
-        nothing to ask them.
-      */
-      needsSetup: !!row.dismissedAt && !hasFinished && wantsWizard && hasEmployee && onAnyJob,
-      hasEmployeeRecord: hasEmployee,
-      /* So the wizard can render the right questions, and so a screen can say
-         "your role does not need this" rather than showing empty steps. */
-      onboardingKind,
-      /* So the wizard itself can say why it is empty if somebody reaches
-         `/welcome` by typing the URL, rather than rendering five blank steps. */
-      onAnyJob,
-      steps: ONBOARDING_STEPS,
+      currentStep: steps.includes(row.currentStep as OnboardingStep) ? row.currentStep as OnboardingStep : steps[0]!,
+      completedAt: row.completedAt, dismissedAt: row.dismissedAt, startedAt: row.startedAt,
+      shouldPrompt: !finished && onboardingKind !== "none" && (role?.needsLogin ?? true),
+      needsSetup: !finished && onboardingKind !== "none",
+      hasEmployeeRecord: hasEmployee, onboardingKind, onAnyJob, steps, canClaim,
     };
   }),
+
+  claimOptions: protectedProcedure.query(async ({ ctx }) => {
+    const row = await ensureRow(ctx);
+    const role = await onboardingRole(ctx);
+    if (!ctx.session.employeeId || row.completedAt || row.claimingClosedAt || !role?.claimTierNames.length) return { projects: [], tiers: [] };
+    const denied = await restrictedProjects(ctx.db, ctx.session);
+    const projects = await ctx.db.select({ id: schema.project.id, name: schema.project.name, code: schema.project.code }).from(schema.project).where(and(eq(schema.project.tenantId, ctx.session.tenantId), eq(schema.project.kind, "project"), inArray(schema.project.status, ["awarded", "in_progress", "on_hold"])));
+    const tiers = await ctx.db.select({ name: schema.teamRole.name, label: schema.teamRole.label }).from(schema.teamRole).where(and(eq(schema.teamRole.tenantId, ctx.session.tenantId), inArray(schema.teamRole.name, role.claimTierNames)));
+    return { projects: projects.filter(p => !denied.has(p.id)), tiers };
+  }),
+
+  claimProject: protectedProcedure
+    .input(z.object({ projectId: z.string().uuid(), tier: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await ensureRow(ctx);
+      return ctx.db.transaction(async tx => {
+        // Serialize claiming against finishing: a stale onboarding tab cannot regain access.
+        const [row] = await tx.select().from(schema.userOnboarding).where(and(eq(schema.userOnboarding.userId, ctx.session.userId), eq(schema.userOnboarding.tenantId, ctx.session.tenantId))).for("update");
+        const role = await onboardingRole({ ...ctx, db: tx });
+        if (!ctx.session.employeeId || row?.completedAt || row?.claimingClosedAt || !role?.claimTierNames.includes(input.tier)) throw new TRPCError({ code: "FORBIDDEN", message: "Project claiming is not available. Ask your manager to assign this project." });
+        if ((await restrictedProjects(tx as any, ctx.session)).has(input.projectId)) throw new TRPCError({ code: "FORBIDDEN", message: "Your manager removed access to this project." });
+        const project = await tx.query.project.findFirst({ where: and(eq(schema.project.id, input.projectId), eq(schema.project.tenantId, ctx.session.tenantId)) });
+        if (!project || project.kind !== "project" || !["awarded", "in_progress", "on_hold"].includes(project.status)) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose an active project." });
+        const employee = await tx.query.employee.findFirst({ where: and(eq(schema.employee.id, ctx.session.employeeId), eq(schema.employee.tenantId, ctx.session.tenantId)) });
+        if (!employee || employee.hrFlaggedInactiveAt || employee.employmentStatus !== "active") throw new TRPCError({ code: "FORBIDDEN", message: "Your employee status needs administrator review." });
+        const existing = await tx.query.projectTeamMember.findFirst({ where: and(eq(schema.projectTeamMember.tenantId, ctx.session.tenantId), eq(schema.projectTeamMember.projectId, input.projectId), eq(schema.projectTeamMember.employeeId, ctx.session.employeeId), eq(schema.projectTeamMember.role, input.tier), isNull(schema.projectTeamMember.endedOn)) });
+        if (existing) return { ok: true };
+        // Temporary INTERNAL authority after explicit role, lifecycle and project checks.
+        // No permission is persisted; the existing assignment writer still owns custody.
+        const permissions = new Set(ctx.session.permissions);
+        for (const p of ["project.team.assign", "project.assign.pm", "project.assign.superintendent", "project.assign.foreman"] as const) permissions.add(p);
+        await projectTeamRouter.createCaller({ ...ctx, db: tx as any, session: { ...ctx.session, permissions } }).assign({ projectId: input.projectId, employeeId: ctx.session.employeeId, role: input.tier, source: "manual_entry" });
+        await logEvent({ ...ctx, db: tx as any }, { category: "project", action: "onboarding.claimProject", entityType: "project", entityId: input.projectId, details: { employeeId: ctx.session.employeeId, tier: input.tier } });
+        return { ok: true };
+      });
+    }),
+
+  administer: requirePermission("user.manage")
+    .input(z.object({ userId: z.string().uuid(), action: z.enum(["complete", "reopen"]), reason: z.string().trim().min(1).max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db.query.user.findFirst({ where: and(eq(schema.user.id, input.userId), eq(schema.user.tenantId, ctx.session.tenantId)), columns: { id: true } });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND" });
+      const row = await ensureRow({ ...ctx, session: { ...ctx.session, userId: target.id } });
+      await ctx.db.update(schema.userOnboarding).set({ completedAt: input.action === "complete" ? new Date() : null, dismissedAt: null, claimingClosedAt: row.claimingClosedAt ?? new Date(), currentStep: "projects", updatedAt: new Date() }).where(and(eq(schema.userOnboarding.id, row.id), eq(schema.userOnboarding.tenantId, ctx.session.tenantId)));
+      await logEvent(ctx, { category: "auth", action: `onboarding.admin.${input.action}`, entityType: "user", entityId: target.id, details: { reason: input.reason } });
+      return { ok: true };
+    }),
 
   /* Move the resume point. Idempotent and unvalidated against order on purpose —
      going back a step is a normal thing to do, and a wizard that refuses to is
@@ -214,9 +177,11 @@ export const onboardingRouter = router({
     progress is stored on this table.
   */
   complete: protectedProcedure
-    .input(z.object({ dismissed: z.boolean().default(false) }).optional())
+    .input(z.object({ dismissed: z.boolean().default(false), acknowledged: z.boolean().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
       const row = await ensureRow(ctx);
+      if (input?.dismissed) throw new TRPCError({ code: "BAD_REQUEST", message: "Finish your required setup, or sign out and return later." });
+      if (!input?.acknowledged) throw new TRPCError({ code: "BAD_REQUEST", message: "Confirm your details on the review step before finishing." });
       /* Only a REAL finish is already-done. Somebody who skipped is closed but
          not finished, and pressing Finish after coming back has to land. */
       if (row.completedAt && !row.dismissedAt) return { ok: true, alreadyDone: true };
@@ -225,6 +190,7 @@ export const onboardingRouter = router({
         .update(schema.userOnboarding)
         .set({
           completedAt: new Date(),
+          claimingClosedAt: row.claimingClosedAt ?? new Date(),
           /* Explicitly nulled on a real finish, so somebody who skipped and
              later came back stops being marked as skipped. */
           dismissedAt: input?.dismissed ? new Date() : null,
@@ -691,7 +657,7 @@ export const onboardingRouter = router({
         canAssignIntoTier({
           hasAdminPermission: permissions.has((BUILT_IN_PERM[targetRole.name] ?? "project.team.assign") as Permission),
           targetIsOpenToEveryone: targetRole.assignableByEveryone,
-          callerTierNamesOnThisProject: new Set([mine.role]),
+          callerTierNamesOnThisProject: new Set(myRows.filter(r => r.projectId === mine.projectId).map(r => r.role)),
           targetAssignerTierNames: assignerNamesByTargetId.get(targetRole.id) ?? new Set(),
         });
 
@@ -784,6 +750,7 @@ export const onboardingRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
+      await assertProjectAccess(ctx.db, ctx.session, input.projectId);
 
       /* Both ids checked against this tenant. The FKs have no tenant predicate
          and would accept another tenant's project id happily — the WHERE clause
@@ -887,6 +854,7 @@ export const onboardingRouter = router({
     .input(z.object({ projectId: z.string().uuid(), teamRole: z.string().min(1).max(40) }))
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
+      await assertProjectAccess(ctx.db, ctx.session, input.projectId);
 
       /* Tenant-scoped even though the delete below carries its own predicate —
          CLAUDE.md non-negotiable 3, and it is what makes the NOT_FOUND honest
@@ -904,6 +872,7 @@ export const onboardingRouter = router({
             eq(schema.projectRoleDeferral.tenantId, tid),
             eq(schema.projectRoleDeferral.projectId, input.projectId),
             eq(schema.projectRoleDeferral.teamRole, input.teamRole),
+            ...(ctx.session.permissions.has("project.team.assign") ? [] : [eq(schema.projectRoleDeferral.deferredByUserId, ctx.session.userId)]),
             isNull(schema.projectRoleDeferral.resolvedAt),
           ),
         )

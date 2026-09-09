@@ -114,7 +114,7 @@ export default function PeoplePage() {
     onError: (e) => toast.error("Could not change that account", { description: e.message }),
   });
   const resendInvite = trpc.user.resendInvite.useMutation({
-    onSuccess: () => toast.success("Invitation sent again"),
+    onSuccess: r => r.emailSent ? toast.success("Invitation sent again") : toast.error("Email was not sent", { description: r.emailError ?? "Try again." }),
     onError: (e) => toast.error("Invitation not sent", { description: e.message }),
   });
   /*
@@ -277,6 +277,7 @@ export default function PeoplePage() {
             perm="employee.manage"
             label={e.name}
             actions={[
+              { label: "Account & onboarding…", icon: KeyRound, perm: "user.manage" as const, onSelect: () => { window.location.href = `/people/${e.id}`; } },
               {
                 /* SEATING, distinct from moving. This one names the tier, so it
                    can put somebody on a job as a Director or Area In-charge —
@@ -293,6 +294,7 @@ export default function PeoplePage() {
                 /* Moving somebody to a job is its own action, not an edit — it
                    takes their tools with them. */
                 label: "Move project",
+                perm: "project.team.assign" as const,
                 icon: FolderInput,
                 onSelect: () => setMoving({ id: e.id, name: e.name, projectId: e.primaryProjectId }),
               },
@@ -323,7 +325,7 @@ export default function PeoplePage() {
                     onSelect: () => resendInvite.mutate({ userId: e.userId! }),
                   }]
                 : []),
-              ...(e.userId && e.emailVerifiedAt
+              ...(e.userId
                 ? [{
                     /* "Reset password", NOT "Send a password reset".
                        `user.resetPassword` emails nothing — it generates a

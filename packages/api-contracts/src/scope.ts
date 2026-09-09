@@ -1,9 +1,10 @@
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { activeProjectRows, restrictedProjects } from "./project-access.js";
+import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import type { ResolvedSession } from "@stinventory/auth";
 import { VIEW_SCOPES, type ViewScope } from "@stinventory/types";
-import { tiersAtOrBelow } from "@stinventory/domain";
+import { branchEmployeeIds, tiersAtOrBelow } from "@stinventory/domain";
 
 /*
   The visibility ladder (STI-302) — the one gate every scoped read goes
@@ -51,12 +52,12 @@ export type ViewTier = ViewScope | "none";
    below. `custodianIds` and `projectIds` are already expanded — the walk up
    the reporting chain and out to project membership happens once, not per
    query. */
-export type AssetScope =
+export type AssetScope = (
   | { tier: "assets.view.all" }
   | { tier: "assets.view.project"; projectIds: string[] }
-  | { tier: "assets.view.crew"; custodianIds: string[] }
+  | { tier: "assets.view.crew"; custodianIds: string[]; ownEmployeeId?: string; branches?: { projectId: string; custodianIds: string[] }[] }
   | { tier: "assets.view.own"; custodianIds: string[] }
-  | { tier: "none" };
+  | { tier: "none" }) & { excludedProjectIds?: string[] };
 
 /* A predicate that is false for every row, used wherever a tier resolves to an
    empty set. Written as SQL rather than as `eq(col, "")` so it cannot
@@ -125,79 +126,10 @@ export async function crewEmployeeIds(
   tid: string,
   employeeId: string,
 ): Promise<string[]> {
-  /* Every current tier this person holds, and where. `endedOn` null is what
-     makes a row current. */
-  const mine = await db
-    .select({
-      projectId: schema.projectTeamMember.projectId,
-      role: schema.projectTeamMember.role,
-    })
-    .from(schema.projectTeamMember)
-    .where(
-      and(
-        eq(schema.projectTeamMember.tenantId, tid),
-        eq(schema.projectTeamMember.employeeId, employeeId),
-        isNull(schema.projectTeamMember.endedOn),
-      ),
-    );
-  if (mine.length === 0) return [];
-
-  const tiers = await db
-    .select({
-      id: schema.teamRole.id,
-      name: schema.teamRole.name,
-      reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
-    })
-    .from(schema.teamRole)
-    .where(eq(schema.teamRole.tenantId, tid));
-  const tierByName = new Map(tiers.map((t) => [t.name, t]));
-  const nameById = new Map(tiers.map((t) => [t.id, t.name]));
-  const edges = tiers.map((t) => ({ id: t.id, reportsToTeamRoleId: t.reportsToTeamRoleId }));
-
-  /* Which tier names count as "below me" ON EACH JOB. `hops >= 1` drops the
-     peer tier that `tiersAtOrBelow` includes for the claiming screen: another
-     superintendent on your job is not in your crew. */
-  const belowByProject = new Map<string, Set<string>>();
-  for (const row of mine) {
-    const tier = tierByName.get(row.role);
-    /* A roster row naming a tier since deleted from the register. Legal — the
-       register is editable and rows are never rewritten — and it simply
-       contributes nobody rather than throwing. */
-    if (!tier) continue;
-    const set = belowByProject.get(row.projectId) ?? new Set<string>();
-    for (const t of tiersAtOrBelow(edges, tier.id)) {
-      if (t.hops < 1) continue;
-      const name = nameById.get(t.teamRoleId);
-      if (name) set.add(name);
-    }
-    belowByProject.set(row.projectId, set);
-  }
-
-  const projectIds = [...belowByProject.keys()];
-  if (projectIds.length === 0) return [];
-
-  /* One query for every current roster row on those jobs, matched in memory —
-     the alternative is an OR chain of (project, role) pairs that grows with
-     the ladder and reads far worse for the same answer. */
-  const rows = await db
-    .select({
-      projectId: schema.projectTeamMember.projectId,
-      role: schema.projectTeamMember.role,
-      employeeId: schema.projectTeamMember.employeeId,
-    })
-    .from(schema.projectTeamMember)
-    .where(
-      and(
-        eq(schema.projectTeamMember.tenantId, tid),
-        inArray(schema.projectTeamMember.projectId, projectIds),
-        isNull(schema.projectTeamMember.endedOn),
-      ),
-    );
-
+  const rows = await activeProjectRows(db, tid);
   const out = new Set<string>();
-  for (const r of rows) {
-    if (r.employeeId === employeeId) continue;
-    if (belowByProject.get(r.projectId)?.has(r.role)) out.add(r.employeeId);
+  for (const projectId of new Set(rows.map(r => r.projectId))) {
+    for (const id of branchEmployeeIds(rows, projectId, employeeId)) if (id !== employeeId) out.add(id);
   }
   return [...out];
 }
@@ -244,18 +176,13 @@ async function projectsOf(db: Database, session: ResolvedSession): Promise<strin
   }
 
   if (session.employeeId) {
-    const rows = await db
-      .select({ projectId: schema.projectTeamMember.projectId })
-      .from(schema.projectTeamMember)
-      .where(
-        and(
-          eq(schema.projectTeamMember.tenantId, tid),
-          eq(schema.projectTeamMember.employeeId, session.employeeId),
-          isNull(schema.projectTeamMember.endedOn),
-        ),
-      );
-    for (const r of rows) ids.add(r.projectId);
+    const rows = await activeProjectRows(db, tid);
+    for (const projectId of new Set(rows.map(r => r.projectId))) {
+      const branch = branchEmployeeIds(rows, projectId, session.employeeId);
+      if (rows.some(r => r.projectId === projectId && branch.has(r.employeeId))) ids.add(projectId);
+    }
   }
+  for (const id of await restrictedProjects(db, session)) ids.delete(id);
 
   return [...ids];
 }
@@ -264,7 +191,7 @@ async function projectsOf(db: Database, session: ResolvedSession): Promise<strin
  * Resolve the actor's tier and expand it into concrete ids. Call once per
  * procedure and pass the result to the `*Where` helpers below.
  */
-export async function assetVisibility(db: Database, session: ResolvedSession): Promise<AssetScope> {
+async function resolveAssetVisibility(db: Database, session: ResolvedSession): Promise<AssetScope> {
   const tier = viewTierOf(session);
 
   if (tier === "assets.view.all") return { tier };
@@ -282,9 +209,16 @@ export async function assetVisibility(db: Database, session: ResolvedSession): P
     return { tier, projectIds: await projectsOf(db, session) };
   }
   if (tier === "assets.view.crew") {
-    return { tier, custodianIds: await crewOf(db, session.tenantId, session.employeeId) };
+    const rows = await activeProjectRows(db, session.tenantId);
+    const branches = [...new Set(rows.map(r => r.projectId))].map(projectId => ({ projectId, custodianIds: [...branchEmployeeIds(rows, projectId, session.employeeId!)].filter(id => id !== session.employeeId) })).filter(b => b.custodianIds.length);
+    return { tier, ownEmployeeId: session.employeeId, branches, custodianIds: [session.employeeId, ...new Set(branches.flatMap(b => b.custodianIds))] };
   }
   return { tier: "assets.view.own", custodianIds: [session.employeeId] };
+}
+
+export async function assetVisibility(db: Database, session: ResolvedSession): Promise<AssetScope> {
+  const scope = await resolveAssetVisibility(db, session);
+  return { ...scope, excludedProjectIds: [...await restrictedProjects(db, session)] };
 }
 
 /**
@@ -294,7 +228,7 @@ export async function assetVisibility(db: Database, session: ResolvedSession): P
  *
  * AND this with the tenant predicate — it does not carry one.
  */
-export function assetScopeWhere(scope: AssetScope) {
+function assetScopePredicate(scope: AssetScope) {
   switch (scope.tier) {
     case "assets.view.all":
       return undefined;
@@ -306,6 +240,7 @@ export function assetScopeWhere(scope: AssetScope) {
         ? inArray(schema.asset.currentProjectId, scope.projectIds)
         : MATCHES_NOTHING;
     case "assets.view.crew":
+      if (scope.branches && scope.ownEmployeeId) return or(eq(schema.asset.currentCustodianId, scope.ownEmployeeId), ...scope.branches.map(b => and(eq(schema.asset.currentProjectId, b.projectId), inArray(schema.asset.currentCustodianId, b.custodianIds))));
     case "assets.view.own":
       return scope.custodianIds.length
         ? inArray(schema.asset.currentCustodianId, scope.custodianIds)
@@ -324,7 +259,7 @@ export function assetScopeWhere(scope: AssetScope) {
  * scoping the history by where the tool is *now* would show a foreman a
  * hand-off he was never part of, and hide one he was.
  */
-export function assignmentScopeWhere(scope: AssetScope) {
+function assignmentScopePredicate(scope: AssetScope) {
   switch (scope.tier) {
     case "assets.view.all":
       return undefined;
@@ -333,6 +268,7 @@ export function assignmentScopeWhere(scope: AssetScope) {
         ? inArray(schema.assignment.projectId, scope.projectIds)
         : MATCHES_NOTHING;
     case "assets.view.crew":
+      if (scope.branches && scope.ownEmployeeId) return or(eq(schema.assignment.custodianId, scope.ownEmployeeId), ...scope.branches.map(b => and(eq(schema.assignment.projectId, b.projectId), inArray(schema.assignment.custodianId, b.custodianIds))));
     case "assets.view.own":
       return scope.custodianIds.length
         ? inArray(schema.assignment.custodianId, scope.custodianIds)
@@ -340,6 +276,15 @@ export function assignmentScopeWhere(scope: AssetScope) {
     case "none":
       return MATCHES_NOTHING;
   }
+}
+
+export function assetScopeWhere(scope: AssetScope) {
+  const excluded = scope.excludedProjectIds ?? [];
+  return and(assetScopePredicate(scope), excluded.length ? or(isNull(schema.asset.currentProjectId), notInArray(schema.asset.currentProjectId, excluded)) : undefined);
+}
+export function assignmentScopeWhere(scope: AssetScope) {
+  const excluded = scope.excludedProjectIds ?? [];
+  return and(assignmentScopePredicate(scope), excluded.length ? or(isNull(schema.assignment.projectId), notInArray(schema.assignment.projectId, excluded)) : undefined);
 }
 
 export type ProjectScope = { restrict: boolean; ids: Set<string> };
@@ -359,41 +304,13 @@ export type ProjectScope = { restrict: boolean; ids: Set<string> };
   posting is the fact, the tools follow it.
 */
 export async function visibleProjectScope(db: Database, session: ResolvedSession): Promise<ProjectScope> {
-  const scope = await assetVisibility(db, session);
-
-  if (scope.tier === "assets.view.all") return { restrict: false, ids: new Set() };
-  if (scope.tier === "none") return { restrict: true, ids: new Set() };
-  if (scope.tier === "assets.view.project") return { restrict: true, ids: new Set(scope.projectIds) };
-
-  /* crew and own: the jobs the people in scope are posted to, plus any groups
-     or team rows the account itself carries. A foreman on Lone Star sees Lone
-     Star; a superintendent whose crew spans two jobs sees both. */
-  const tid = session.tenantId;
-  const ids = new Set(await projectsOf(db, session));
-
-  const rows = await db
-    .select({ projectId: schema.employeeProjectAssignment.projectId })
-    .from(schema.employeeProjectAssignment)
-    .where(
-      and(
-        eq(schema.employeeProjectAssignment.tenantId, tid),
-        inArray(schema.employeeProjectAssignment.employeeId, scope.custodianIds),
-        isNull(schema.employeeProjectAssignment.endedOn),
-      ),
-    );
-  for (const r of rows) ids.add(r.projectId);
-
-  /* A crew member's primary project counts too — `employee.primaryProjectId`
-     is set for people the posting table has no open row for, and a
-     superintendent who could not see their own foreman's job would be looking
-     at that foreman's tools with no way to open the job they are on. */
-  const primaries = await db
-    .select({ projectId: schema.employee.primaryProjectId })
-    .from(schema.employee)
-    .where(and(eq(schema.employee.tenantId, tid), inArray(schema.employee.id, scope.custodianIds)));
-  for (const r of primaries) if (r.projectId) ids.add(r.projectId);
-
-  return { restrict: true, ids };
+  const denied = await restrictedProjects(db, session);
+  if (session.permissions.has("assets.view.all") || session.permissions.has("project.team.assign")) {
+    if (!denied.size) return { restrict: false, ids: new Set() };
+    const projects = await db.select({ id: schema.project.id }).from(schema.project).where(eq(schema.project.tenantId, session.tenantId));
+    return { restrict: true, ids: new Set(projects.map(p => p.id).filter(id => !denied.has(id))) };
+  }
+  return { restrict: true, ids: new Set(await projectsOf(db, session)) };
 }
 
 /* Re-exported for the routers that build their own `or(...)` around the

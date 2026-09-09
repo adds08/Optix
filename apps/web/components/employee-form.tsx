@@ -53,6 +53,7 @@ function humanizeRole(name: string) {
 
 export function EmployeeForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
+  const hr = trpc.employee.hrDetails.useQuery({ employeeId: edit?.id ?? "" }, { enabled: !!edit });
   const projects = trpc.project.list.useQuery();
   const roleOptions = trpc.role.options.useQuery();
   const allEmployees = trpc.employee.list.useQuery();
@@ -127,7 +128,7 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
                   register. "Code" matches the convention used for the same
                   kind of field on tools and projects. */}
               <label className="text-sm font-medium">Employee Code</label>
-              <Input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
+              <Input disabled={!!hr.data?.bamboo} value={externalId} onChange={(e) => setExternalId(e.target.value)} />
               <p className="text-xs text-muted-foreground">As issued by HR — the number on the badge.</p>
             </div>
             <div className="space-y-2">

@@ -42,6 +42,8 @@ export const employee = pgTable(
     */
     code: text("code"),
     name: text("name").notNull(),
+    creationSource: text("creation_source").notNull().default("unknown"),
+    createdByUserId: uuid("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
     /*
       LEGACY. `roleId` below is the source of truth as of 2026-08-28.
 

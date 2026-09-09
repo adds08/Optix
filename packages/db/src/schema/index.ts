@@ -17,3 +17,5 @@ export * from "./task";
 export * from "./projectGroup";
 export * from "./feature";
 export * from "./sync";
+
+export * from "./team-access";

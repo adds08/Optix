@@ -18,7 +18,7 @@ import { isAllowedImage, MAX_PHOTO_BYTES, storageFor } from "./storage.js";
 import { sweepRequests } from "./request-worker.js";
 import { bambooCredentialsFrom, processQueuedSyncRuns } from "./bamboo-sync.js";
 import * as schema from "@stinventory/db/schema";
-import { and, eq } from "drizzle-orm";
+import { isNull, gt, and, eq } from "drizzle-orm";
 import { sendMail, passwordResetEmail, passwordChangedEmail, type MailConfig } from "@stinventory/mail";
 
 function detectSource(userAgent: string | undefined): "web" | "mobile" | "api" {
@@ -303,7 +303,11 @@ app.post("/auth/tokens/:token/consume", async (c) => {
   }
 
   const passwordHash = await hashPassword(body.password);
-  await db.transaction(async (tx) => {
+  const consumed = await db.transaction(async (tx) => {
+    const [claimed] = await tx.update(schema.authToken).set({ consumedAt: new Date() })
+      .where(and(eq(schema.authToken.id, row.id), isNull(schema.authToken.consumedAt), gt(schema.authToken.expiresAt, new Date())))
+      .returning({ id: schema.authToken.id });
+    if (!claimed) return false;
     await tx
       .update(schema.user)
       .set({
@@ -342,7 +346,9 @@ app.post("/auth/tokens/:token/consume", async (c) => {
       .update(schema.user)
       .set({ emailVerifiedAt: new Date() })
       .where(and(eq(schema.user.id, row.userId), eq(schema.user.tenantId, row.tenantId)));
+    return true;
   });
+  if (!consumed) return c.json({ error: "invalid_or_expired" }, 400);
 
   const u = await db.query.user.findFirst({ where: eq(schema.user.id, row.userId) });
   if (row.kind === "reset" && u) {

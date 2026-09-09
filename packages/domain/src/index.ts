@@ -50,3 +50,5 @@ export {
   type OrgMemberInput,
   type OrgNode,
 } from "./org-chart.js";
+
+export { branchEmployeeIds, removalBranch } from "./project-branch.js";

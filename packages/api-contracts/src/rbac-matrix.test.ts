@@ -353,6 +353,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       await newScopedTeamRow(superA, p2!.id, "superintendent");
       /* `otherSup` has a team row but NO foremen beneath them. */
       await newScopedTeamRow(otherSup, p2!.id, "superintendent");
+      await db.update(schema.projectTeamMember).set({ reportsToEmployeeId: superA }).where(and(eq(schema.projectTeamMember.tenantId, tenantId), inArray(schema.projectTeamMember.employeeId, [fmA, fmB])));
       /* `loner` holds tools but is on no project team. */
 
       /* Resolve via the real entrypoint for a hand-built session. */
@@ -374,7 +375,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
 
       const bIds = new Set((b as { custodianIds: string[] }).custodianIds);
       expect(bIds).toContain(superB);
-      expect(bIds).toContain(fmA); // superB shares p1 with superA
+      expect(bIds).not.toContain(fmA); // A shared project does not make this a shared branch
       expect(bIds).not.toContain(fmB); // not on p1
 
       /* A foreman with no team row sees only themselves. */
@@ -382,7 +383,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
 
       /* A super on a project WITH foremen sees them — otherSup is on p2 with
          fmB, so their crew is [self, fmB]. */
-      expect((other as { custodianIds: string[] }).custodianIds.sort()).toEqual([otherSup, fmB].sort());
+      expect((other as { custodianIds: string[] }).custodianIds.sort()).toEqual([otherSup]);
 
       /* Clean up the throwaway rows. */
       await db.delete(schema.projectTeamMember).where(
@@ -490,6 +491,10 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       empty the desk's unresolved queue. Both were fixed rather than listed.
     */
     const BARE_BY_DESIGN: Record<string, string> = {
+      "projectTeams.removeBranch": "Checks project access, reporting branch, and assignment authority for every removed tier inside its transaction.",
+      "projectTeams.assignBranch": "Checks source and destination project access and branch authority; each member passes projectTeam.assign's tier gate.",
+      "onboarding.claimProject": "Initial setup only: explicit role claim tiers, active employee, and permanent claimingClosedAt gate checked under a row lock.",
+      "onboarding.undefer": "Checks project access and permits only the deferral creator or project.team.assign administrators.",
       // (a) in-body, input-dependent
       "projectTeam.assign": "assertCanAssign(permissions, input.role) — the permission is per target role",
       "projectTeam.remove": "assertCanAssign(permissions, input.role) — same gate as assign",

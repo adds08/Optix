@@ -22,6 +22,7 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 export type ProjectEditable = {
   id: string;
   name: string;
+  kind?: string;
   externalId?: string | null;
   description?: string | null;
   status?: string | null;
@@ -35,6 +36,7 @@ type Props = { open: boolean; onClose: () => void; edit?: ProjectEditable };
 export function ProjectForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
 
+  const [kind, setKind] = useState<"project" | "yard">(edit?.kind === "yard" ? "yard" : "project");
   const [name, setName] = useState(edit?.name ?? "");
   const [externalId, setExternalId] = useState(edit?.externalId ?? "");
   const [description, setDescription] = useState(edit?.description ?? "");
@@ -57,7 +59,7 @@ export function ProjectForm({ open, onClose, edit }: Props) {
     try {
       if (edit) {
         await utils.client.project.update.mutate({
-          id: edit.id, name, status, startDate,
+          id: edit.id, name, kind, status, startDate,
           externalId: externalId || null,
           description: description || null,
           siteAddress: siteAddress || null,
@@ -65,7 +67,7 @@ export function ProjectForm({ open, onClose, edit }: Props) {
         });
       } else {
         await utils.client.project.create.mutate({
-          name, externalId: externalId || undefined, status, startDate,
+          name, kind, externalId: externalId || undefined, status, startDate,
           description: description || undefined,
           siteAddress: siteAddress || undefined,
           endDate: endDate || undefined,
@@ -86,6 +88,7 @@ export function ProjectForm({ open, onClose, edit }: Props) {
           <DialogTitle>{edit ? `Edit ${edit.name}` : "New Project"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <label className="block space-y-2 text-sm">Record type<select className="block w-full rounded-md border bg-background p-2" value={kind} onChange={e => setKind(e.target.value as "project" | "yard")}><option value="project">Project / jobsite</option><option value="yard">Equipment yard</option></select></label>
           <div className="space-y-2">
             <label className="text-sm font-medium">Name *</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />

@@ -40,6 +40,7 @@ export type ToolRow = {
   currentProjectId?: string | null;
   locationId?: string | null;
   locationName?: string | null;
+  locationType?: string | null;
   /* The rig recorded on the ACTIVE assignment (STI-203) — a per-custody fact
      that can differ from the crew's rig above the table. */
   currentTruckUnit?: string | null;

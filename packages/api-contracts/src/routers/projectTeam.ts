@@ -1,3 +1,4 @@
+import { assertProjectAccess, assertBranchTarget, activeProjectRows, restrictedProjects } from "../project-access.js";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
@@ -97,7 +98,7 @@ type TeamRoleRow = {
   assignableByEveryone: boolean;
 };
 
-async function requireTeamRole(db: any, tid: string, name: string): Promise<TeamRoleRow> {
+export async function requireTeamRole(db: any, tid: string, name: string): Promise<TeamRoleRow> {
   const [row] = await db
     .select({
       id: schema.teamRole.id,
@@ -169,15 +170,16 @@ async function assignerTierNamesFor(db: any, teamRoleId: string): Promise<Readon
   stays callable from a plain object in a test without constructing a tRPC
   context.
 */
-async function assertCanAssign(
+export async function assertCanAssign(
   db: any,
-  session: { permissions: ReadonlySet<Permission>; employeeId: string | null },
+  session: import("@stinventory/auth").ResolvedSession,
   tid: string,
   projectId: string,
   role: TeamRoleRow,
 ): Promise<void> {
+  await assertProjectAccess(db, { ...session, tenantId: tid } as any, projectId);
   const perm = BUILT_IN_PERM[role.name] ?? "project.team.assign";
-  const hasAdminPermission = session.permissions.has(perm);
+  const hasAdminPermission = session.permissions.has("project.team.assign") || session.permissions.has(perm);
 
   /* Short-circuit before either query: the admin path is the common case for
      the built-in three (an office/admin account holding no employee record at
@@ -231,6 +233,7 @@ export const projectTeamRouter = router({
         memberId: schema.projectTeamMember.id,
         employeeId: schema.projectTeamMember.employeeId,
         role: schema.projectTeamMember.role,
+        reportsToEmployeeId: schema.projectTeamMember.reportsToEmployeeId,
         startedOn: schema.projectTeamMember.startedOn,
         note: schema.projectTeamMember.note,
         employeeName: schema.employee.name,
@@ -259,6 +262,7 @@ export const projectTeamRouter = router({
         name: r.employeeName ?? "Unknown",
         externalId: r.employeeExternalId,
         role: r.role,
+        reportsToEmployeeId: r.reportsToEmployeeId,
         employeeRole: r.employeeRole,
         employeeStatus: r.employeeStatus,
         startedOn: r.startedOn,
@@ -297,6 +301,7 @@ export const projectTeamRouter = router({
     }
     const tid = ctx.session.tenantId;
 
+    const projectScope = await visibleProjectScope(ctx.db, ctx.session);
     const rows = await ctx.db
       .select({
         id: schema.projectTeamMember.id,
@@ -321,6 +326,7 @@ export const projectTeamRouter = router({
         and(
           eq(schema.projectTeamMember.tenantId, tid),
           isNull(schema.projectTeamMember.endedOn),
+          projectScope.restrict ? inArray(schema.projectTeamMember.projectId, [...projectScope.ids]) : undefined,
         ),
       );
 
@@ -429,6 +435,7 @@ export const projectTeamRouter = router({
       const tid = ctx.session.tenantId;
       const roleRow = await requireTeamRole(ctx.db, tid, input.role);
       await assertCanAssign(ctx.db, ctx.session, tid, input.projectId, roleRow);
+      await assertBranchTarget(ctx.db, ctx.session, input.projectId, input.employeeId, "reportsToEmployeeId" in input ? input.reportsToEmployeeId as string | null : undefined);
 
       /*
         Refuse an edge that would close a loop, at ANY depth.
@@ -481,6 +488,9 @@ export const projectTeamRouter = router({
         .where(and(eq(schema.project.id, input.projectId), eq(schema.project.tenantId, tid)));
       if (!proj) throw new TRPCError({ code: "NOT_FOUND", message: "No such project in this tenant" });
 
+      const active = await ctx.db.query.projectTeamMember.findFirst({ where: and(eq(schema.projectTeamMember.tenantId, tid), eq(schema.projectTeamMember.projectId, input.projectId), eq(schema.projectTeamMember.employeeId, input.employeeId), eq(schema.projectTeamMember.role, input.role), isNull(schema.projectTeamMember.endedOn)) });
+      if (active) return { ok: true, alreadyAssigned: true };
+
       let moved: { toolsMoved: number; containersMoved: number } | null = null;
 
       if (roleRow.canHoldCustody) {
@@ -502,7 +512,7 @@ export const projectTeamRouter = router({
           moveTools: input.moveTools,
           releaseToolsInPlace: !input.moveTools,
           source: input.source,
-          reportsToEmployeeId: input.reportsToEmployeeId,
+          reportsToEmployeeId: input.reportsToEmployeeId ?? (ctx.session.permissions.has("project.team.assign") ? null : ctx.session.employeeId),
         });
         moved = { toolsMoved: res.toolsMoved, containersMoved: res.containersMoved };
       } else {
@@ -531,10 +541,12 @@ export const projectTeamRouter = router({
               startedOn,
               note: input.note ?? null,
               source: input.source,
-              reportsToEmployeeId: input.reportsToEmployeeId ?? null,
+              reportsToEmployeeId: input.reportsToEmployeeId ?? (ctx.session.permissions.has("project.team.assign") ? null : ctx.session.employeeId),
             });
         });
       }
+
+      await ctx.db.update(schema.projectAccessRestriction).set({ restoredAt: new Date() }).where(and(eq(schema.projectAccessRestriction.tenantId, tid), eq(schema.projectAccessRestriction.projectId, input.projectId), eq(schema.projectAccessRestriction.employeeId, input.employeeId)));
 
       /*
         A tier somebody deferred to their boss has now been filled, so the
@@ -585,58 +597,10 @@ export const projectTeamRouter = router({
      register would show tools working a job their holder no longer works. */
   remove: protectedProcedure
     .input(z.object({ projectId: z.string().uuid(), employeeId: z.string().uuid(), role: z.string().min(1) }))
-    .mutation(async ({ ctx, input }) => {
-      const tid = ctx.session.tenantId;
-      const roleRow = await requireTeamRole(ctx.db, tid, input.role);
-      await assertCanAssign(ctx.db, ctx.session, tid, input.projectId, roleRow);
-
-      const [row] = await ctx.db
-        .select({
-          id: schema.projectTeamMember.id,
-          startedOn: schema.projectTeamMember.startedOn,
-        })
-        .from(schema.projectTeamMember)
-        .where(
-          and(
-            eq(schema.projectTeamMember.tenantId, tid),
-            eq(schema.projectTeamMember.projectId, input.projectId),
-            eq(schema.projectTeamMember.employeeId, input.employeeId),
-            eq(schema.projectTeamMember.role, input.role),
-            isNull(schema.projectTeamMember.endedOn),
-          ),
-        )
-        .limit(1);
-      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "That person is not on this project in that role." });
-
-      if (roleRow.canHoldCustody) {
-        const [person] = await ctx.db
-          .select({ id: schema.employee.id, primaryProjectId: schema.employee.primaryProjectId })
-          .from(schema.employee)
-          .where(and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)));
-        if (person?.primaryProjectId === input.projectId) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              "This foreman is working this project with tools and a truck that follow them. Assign them to another project first, or return their tools, before removing them from the team.",
-          });
-        }
-      }
-
-      const today = new Date().toISOString().slice(0, 10);
-      await ctx.db
-        .update(schema.projectTeamMember)
-        .set({ endedOn: today })
-        .where(and(eq(schema.projectTeamMember.id, row.id), eq(schema.projectTeamMember.tenantId, tid)));
-
-      await logEvent(ctx, {
-        category: "project",
-        action: `project.team.remove.${input.role}`,
-        entityType: "project",
-        entityId: input.projectId,
-        details: { employeeId: input.employeeId, role: input.role },
-      });
-
-      return { ok: true };
+    .mutation(async ({ ctx, input }): Promise<{ ok: boolean }> => {
+      // Compatibility callers use the same audited branch removal as the team page.
+      const { projectTeamsRouter } = await import("./projectTeams.js");
+      return projectTeamsRouter.createCaller(ctx).removeBranch({ projectId: input.projectId, employeeId: input.employeeId, reason: "Removed through project team actions" });
     }),
 
   /*
@@ -675,6 +639,7 @@ export const projectTeamRouter = router({
 
       const roleRow = await requireTeamRole(ctx.db, tid, row.role);
       await assertCanAssign(ctx.db, ctx.session, tid, row.projectId, roleRow);
+      await assertBranchTarget(ctx.db, ctx.session, row.projectId, row.employeeId, input.reportsToEmployeeId);
 
       if (input.reportsToEmployeeId === row.employeeId) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Somebody cannot report to themselves." });
@@ -753,6 +718,7 @@ export const projectTeamRouter = router({
       if (row.endedOn) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "That posting has already ended." });
       }
+      await assertBranchTarget(ctx.db, ctx.session, row.projectId, row.employeeId);
       if (row.confirmedAt) return { ok: true, alreadyConfirmed: true };
 
       const roleRow = await ctx.db.query.teamRole.findFirst({
@@ -1280,7 +1246,7 @@ export const projectTeamRouter = router({
         canAssignIntoTier({
           hasAdminPermission: permissions.has(BUILT_IN_PERM[targetRole.name] ?? "project.team.assign"),
           targetIsOpenToEveryone: targetRole.assignableByEveryone,
-          callerTierNamesOnThisProject: new Set([mine.role]),
+          callerTierNamesOnThisProject: new Set(myRows.filter(r => r.projectId === mine.projectId).map(r => r.role)),
           targetAssignerTierNames: assignerNamesByTargetId.get(targetRole.id) ?? new Set(),
         });
 

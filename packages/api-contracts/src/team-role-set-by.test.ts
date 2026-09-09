@@ -221,19 +221,14 @@ describe.skipIf(!url)("team-role Set-by (STI-503)", () => {
     expect(await rosterRow(projectA, target, "area_in_charge")).toBeUndefined();
   });
 
-  it("assignableByEveryone admits a caller holding no tier and no permission at all", async () => {
+  it("assignableByEveryone still refuses a caller outside the project", async () => {
     const nobody = await makeEmployee("Ordinary Nobody");
     /* Not seated on the project at all — the wildcard is meant to mean
        exactly "no tier check applies". */
     const target = await makeEmployee("Safety Hire");
 
-    await callerFor({ employeeId: nobody, permissions: [] }).assign({
-      projectId: projectA,
-      employeeId: target,
-      role: "safety_officer",
-    });
-
-    expect(await rosterRow(projectA, target, "safety_officer")).toBeTruthy();
+    await expect(callerFor({ employeeId: nobody, permissions: [] }).assign({ projectId: projectA, employeeId: target, role: "safety_officer" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await rosterRow(projectA, target, "safety_officer")).toBeFalsy();
   });
 
   it("REGRESSION: an existing dedicated permission still works with an EMPTY Set-by list — nothing was taken away", async () => {
@@ -242,12 +237,8 @@ describe.skipIf(!url)("team-role Set-by (STI-503)", () => {
     const admin = await makeEmployee("Admin Account Person");
     const target = await makeEmployee("New PM");
 
-    await callerFor({ employeeId: admin, permissions: ["project.assign.pm"] }).assign({
-      projectId: projectA,
-      employeeId: target,
-      role: "pm",
-    });
-
+    await expect(callerFor({ employeeId: admin, permissions: ["project.assign.pm"] }).assign({ projectId: projectA, employeeId: target, role: "pm" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await callerFor({ employeeId: admin, permissions: ["project.team.assign"] }).assign({ projectId: projectA, employeeId: target, role: "pm" });
     expect(await rosterRow(projectA, target, "pm")).toBeTruthy();
   });
 

@@ -158,7 +158,6 @@ export const DESK_NAV: NavGroup[] = [
       { id: "custody", href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read", desc: "Who is holding what, right now" },
       /* The map is the fleet — trucks and trailers — with the small tools
          aboard them, which is why it is not called just a vehicle map. */
-      { id: "fleet-map", href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read", desc: "Where the fleet is sitting right now" },
       /*
         The small-tools register. `id` is deliberately still `tool-register`:
         labels are free to change and ids are not — renaming a row must not
@@ -176,6 +175,8 @@ export const DESK_NAV: NavGroup[] = [
     items: [
       { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read", desc: "Your crew and the roles they hold" },
       /* A job and a project are the same thing — the job ID is the cost code. */
+      { id: "employee-mapping", href: "/settings/employee-mapping", label: "HR role mappings", icon: UsersRound, perm: "config.manage", desc: "Review BambooHR titles and Optix access" },
+      { id: "project-teams", href: "/project-teams", label: "Project Teams", icon: UsersRound, perm: "project.team.read", desc: "Manage complete project reporting branches" },
       { id: "projects", href: "/projects", label: "Projects", icon: HardHat, perm: "project.read", desc: "Every job and job group on record" },
       /* The reporting structure, read from the same project_team_member rows
          the Tools by Jobsite team strip writes — not a second store. Gated on

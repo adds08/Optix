@@ -7,7 +7,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./org-chart": "./src/org-chart.ts"
+    "./org-chart": "./src/org-chart.ts",
+    "./project-branch": "./src/project-branch.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
