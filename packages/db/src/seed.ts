@@ -40,6 +40,7 @@ import {
   vehicle,
   warehouse,
   projectRoleDeferral,
+  projectAccessRestriction,
   userOnboarding,
 } from "./schema/index.js";
 /* The static vocabularies are shared by both datasets — a category, a role and a
@@ -191,6 +192,14 @@ async function main() {
       await tx.delete(location);
       await tx.delete(employeeProjectAssignment); // before employees — it points at them
       await tx.delete(projectTeamMember); // before employees and projects — it points at both
+      /* Both FKs are NO ACTION, so this blocks the employee and project deletes
+         below rather than cascading with them — a removal is a durable access
+         decision and deliberately outlives the posting it refers to. */
+      await tx.delete(projectAccessRestriction);
+      /* custodian_id is RESTRICT, so custody rows that survived the asset delete
+         (an asset row already gone leaves none, but a partial dataset can) would
+         block the employee delete. */
+      await tx.delete(assignment);
       await tx.delete(employee);
       await tx.delete(project);
       await tx.delete(warehouse);

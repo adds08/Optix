@@ -154,10 +154,15 @@ Roles carry permissions *and* behavioural flags: `needs_login`, `can_hold_custod
 > account's login role is `engineer`, its team role is `pm`). See
 > `packages/db/src/schema/reference.ts`'s `teamRole` comment.
 >
-> **The tiers now form a ladder.** `team_role.reports_to_team_role_id`
-> (2026-09-05) records which tier answers to which — the company's own chain,
-> seeded for Urban as director, area in-charge, PM and general superintendent,
-> superintendent, foreman. Per-tenant DATA, edited on the same screen, and
+> **The tiers now form a chain.** `team_role.reports_to_team_role_id`
+> (2026-09-05) records which tier answers to which — the company's own chain.
+> Urban's, as the client drew it on 2026-09-09, is a DIAMOND rather than a
+> line: director, then area in-charge, then general superintendent, PM and
+> superintendent as SIBLINGS beneath it, with project engineer, field engineer
+> and foreman together under the superintendent. PM does not sit above
+> superintendent — an earlier seed said it did, and the client corrected it.
+> The authority is `teamRoleSpecs` in `packages/db/src/seed-data.ts`.
+> Per-tenant DATA, edited on the same screen, and
 > deliberately not a rank: two tiers can share a boss, which an integer cannot
 > express. Nothing about access reads it. `assertCanAssign` still names
 > `project.assign.*`, and a `project_team_member.reportsToEmployeeId` that

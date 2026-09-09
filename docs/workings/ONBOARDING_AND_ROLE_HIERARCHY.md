@@ -104,8 +104,18 @@ Rules that keep it honest, and that the reviewer should check for:
   self-referential and a tenant will eventually point two roles at each other.
 - Null means "top of the chain, or not decided". Both are normal.
 
-Urban's chain, which the register already anticipates in prose, becomes rows:
-director → area in-charge → PM and general superintendent → superintendent → foreman.
+Urban's chain, which the register already anticipates in prose, becomes rows.
+The client drew it on 2026-09-09 and it is a diamond, not a line:
+
+    director
+      area in-charge
+        general superintendent | PM | superintendent      (siblings)
+          project engineer | field engineer | foreman     (siblings)
+
+PM does NOT sit above superintendent — an earlier version of this file and of
+the seed both said it did, and the client corrected it: neither outranks the
+other, which is exactly why the column records an edge and not a rank. The
+authority is `teamRoleSpecs` in `packages/db/src/seed-data.ts`.
 
 ### 3.2 Progress is derived, not stored
 

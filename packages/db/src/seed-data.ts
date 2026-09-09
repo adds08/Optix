@@ -210,9 +210,30 @@ export type TeamRoleSeed = {
   canHoldCustody: boolean;
   reportsTo: string | null;
 };
+/*
+  Urban's real chain, as the client drew it on 2026-09-09.
+
+  A DIAMOND, not a line. PM and superintendent are SIBLINGS under the area
+  in-charge — the client corrected an earlier version that had superintendent
+  reporting to pm, and the correction matters: neither outranks the other, and
+  a rank number could not express that. `reportsToTeamRoleId` records an edge
+  precisely so two tiers can share a boss.
+
+  Project engineer, field engineer and foreman likewise sit together beneath
+  the superintendent — the sketch has them on one line. All three carry tools,
+  so all three hold custody.
+
+  The tenant edits these on the Team Roles screen; this is the starting shape,
+  not a fixed vocabulary. The next customer's chain will not be this one.
+*/
 export const teamRoleSpecs: TeamRoleSeed[] = [
-  { name: "pm", label: "Project Manager", canHoldCustody: false, reportsTo: null },
-  { name: "superintendent", label: "Superintendent", canHoldCustody: true, reportsTo: "pm" },
+  { name: "director", label: "Director", canHoldCustody: false, reportsTo: null },
+  { name: "area_in_charge", label: "Area In-charge", canHoldCustody: false, reportsTo: "director" },
+  { name: "general_superintendent", label: "General Superintendent", canHoldCustody: true, reportsTo: "area_in_charge" },
+  { name: "pm", label: "Project Manager", canHoldCustody: false, reportsTo: "area_in_charge" },
+  { name: "superintendent", label: "Superintendent", canHoldCustody: true, reportsTo: "area_in_charge" },
+  { name: "project_engineer", label: "Project Engineer", canHoldCustody: true, reportsTo: "superintendent" },
+  { name: "field_engineer", label: "Field Engineer", canHoldCustody: true, reportsTo: "superintendent" },
   { name: "foreman", label: "Foreman", canHoldCustody: true, reportsTo: "superintendent" },
 ];
 
