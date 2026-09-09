@@ -93,14 +93,20 @@ const SETTINGS_GROUP: NavGroup = {
        its people sign in at all — and `/people` shows each person's account
        state in its own column. Inviting, resetting, deactivating and resending
        all live on the person's row menu. Don't add this back. */
-    { id: "roles-permissions", href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage", desc: "What each account may do" },
+    { id: "roles-permissions", href: "/admin/roles", label: "Access Roles", icon: ShieldCheck, perm: "config.manage", desc: "What a signed-in account may see and do" },
     /* Distinct from "Roles & Permissions" above: that gates what an ACCOUNT
        may do, this defines the tiers a PERSON can hold on a project team —
        pm/superintendent/foreman today, whatever an organization adds
        tomorrow. Gated on project.team.manage, not config.manage, because
        adding a tier here needs neither platform config access nor a login
        role edit. */
-    { id: "team-roles", href: "/settings/team-roles", label: "Team Roles", icon: HardHat, perm: "project.team.manage", desc: "The tiers a person can hold on a job" },
+    /* "Access Roles" above, "Job Tiers" here. Both were called roles until
+       2026-09-09 and sat side by side in this menu, where the pair was
+       genuinely unreadable — the client's words: "roles for crew role is in
+       settings, and not people". They stay in Settings because both are
+       config a tenant sets up once, not daily work; what changed is that the
+       labels now say which is which. */
+    { id: "team-roles", href: "/settings/team-roles", label: "Job Tiers", icon: HardHat, perm: "project.team.manage", desc: "The tiers a person can hold on a job — foreman, PM, superintendent" },
   ],
 };
 
@@ -175,9 +181,6 @@ export const DESK_NAV: NavGroup[] = [
     items: [
       { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read", desc: "Your crew and the roles they hold" },
       /* A job and a project are the same thing — the job ID is the cost code. */
-      { id: "employee-mapping", href: "/settings/employee-mapping", label: "HR role mappings", icon: UsersRound, perm: "config.manage", desc: "Review BambooHR titles and Optix access" },
-      { id: "project-teams", href: "/project-teams", label: "Project Teams", icon: UsersRound, perm: "project.team.read", desc: "Manage complete project reporting branches" },
-      { id: "projects", href: "/projects", label: "Projects", icon: HardHat, perm: "project.read", desc: "Every job and job group on record" },
       /* The reporting structure, read from the same project_team_member rows
          the Tools by Jobsite team strip writes — not a second store. Gated on
          `project.team.read` like the roster it draws; the procedure narrows a
@@ -195,7 +198,12 @@ export const DESK_NAV: NavGroup[] = [
          second permission kept in step with role-perms.ts. The per-tier
          `canAssign` flag decides which tiers offer a picker, and
          `assertCanAssign` on the write is what actually gates it. */
-      { id: "my-crew", href: "/my-crew", label: "My Crew", icon: UsersRound, perm: "project.team.read", desc: "Name the people who answer to you, job by job" },
+      /* One nav entry for `ProjectTeamsPanel`, not two. `/project-teams` renders
+         the same component without `onlyMine` and KEEPS its route — Tools by
+         Jobsite and the projects register both deep-link it with `?projectId=`
+         — but it no longer sits in the sidebar beside this one, where the pair
+         read as two different features and neither name said which. */
+      { id: "my-crew", href: "/my-crew", label: "Crews", icon: UsersRound, perm: "project.team.read", desc: "Who answers to you, job by job" },
       /* Who below the caller has done first-run setup and who hasn't — see
          `onboarding.progress`. Gated on the same permission as the org chart,
          on purpose (docs/workings/ONBOARDING_AND_ROLE_HIERARCHY.md §7.1): the
@@ -203,6 +211,20 @@ export const DESK_NAV: NavGroup[] = [
          nobody below them simply sees an empty screen rather than needing a
          second permission kept in step with role-perms.ts. */
       { id: "onboarding-progress", href: "/onboarding/progress", label: "Onboarding", icon: UserCheck, perm: "project.team.read", desc: "Who below you has set up their jobs and crew" },
+    ],
+  },
+  /*
+    Jobs, not people. `/projects` sat inside the People group until 2026-09-09,
+    where it read as an attribute of a person rather than the thing the company
+    actually runs — the client's words: "project should be in project
+    management, not even a section for it". A job IS the cost code, so this is
+    the register the equipment and crew screens both point at.
+  */
+  {
+    label: "Projects",
+    icon: HardHat,
+    items: [
+      { id: "projects", href: "/projects", label: "Projects", icon: HardHat, perm: "project.read", desc: "Every job and job group on record" },
     ],
   },
   {

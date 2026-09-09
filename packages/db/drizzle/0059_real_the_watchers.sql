@@ -1,0 +1,1 @@
+DROP TABLE "tbl_config_employee_role_mapping" CASCADE;

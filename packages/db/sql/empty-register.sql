@@ -40,6 +40,13 @@ BEGIN;
 ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER "transaction_no_update_delete";
 
 -- Operational rows first: everything that points at a person, a tool or a job.
+-- `project_access_restriction` leads because BOTH its foreign keys are NO
+-- ACTION rather than CASCADE — a removal is a durable access decision that
+-- deliberately outlives the posting it refers to (schema/team-access.ts), so
+-- no cascade can ever reach it and it blocks the employee and project deletes
+-- below instead. It was absent from this file until 2026-09-09 and the script
+-- appeared to work only because the table happened to be empty.
+DELETE FROM "tbl_ops_project_access_restriction";
 DELETE FROM "tbl_ops_smalltools_custody";
 DELETE FROM "tbl_ops_transfer";
 DELETE FROM "tbl_ops_transaction";
