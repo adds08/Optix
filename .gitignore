@@ -30,24 +30,11 @@ e2e/.auth/
 **/*.webm
 **/trace.zip
 
-# stray screenshot / snapshot dumps at repo root
+# Stray screenshot dumps at repo root. The named one-off rules that used to
+# sit here were deleted along with the files they hid (2026-09-09); this
+# pattern is what stops the next `browser_take_screenshot` from landing in the
+# tree. Deliberate images belong in assets/ or design/.
 /*.png
-/app-polished-*
-/dashboard-*
-/chat-*
-/kanban-and-chat
-/login-*
-/new-login
-/sidebar-check
-/dark-sidebar
-/final-shadcn-dashboard
-/pure-shadcn*
-/shadcn-website
-/v2-*
-/flutter-web-check
-/core-shadcn-final*
-/classic-shadcn-dashboard*
-/newyork-dash*
 
 # Deployed artefacts and secrets that exist only on the server. Tracked here
 # so a `git reset --hard` during deploy cannot remove them.
