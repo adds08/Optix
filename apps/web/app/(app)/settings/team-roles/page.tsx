@@ -94,14 +94,14 @@ function SetByCell({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 w-52 justify-between font-normal">
-          <span className={chosenLabels.length === 0 && !row.assignableByEveryone ? "text-muted-foreground" : undefined}>
+        <Button variant="outline" size="sm" className="h-8 w-52 max-w-full min-w-0 justify-between gap-2 font-normal">
+          <span title={summary} className={`min-w-0 flex-1 truncate text-left ${chosenLabels.length === 0 && !row.assignableByEveryone ? "text-muted-foreground" : ""}`}>
             {summary}
           </span>
-          <ChevronDown className="size-3.5 text-muted-foreground" />
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-2">
+      <PopoverContent align="start" className="w-64 max-w-[calc(100vw-2rem)] max-h-80 overflow-y-auto p-2">
         <label className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent">
           <Checkbox checked={row.assignableByEveryone} onCheckedChange={(v) => onToggleEveryone(v === true)} />
           Everybody
@@ -121,7 +121,7 @@ function SetByCell({
                 disabled={row.assignableByEveryone}
                 onCheckedChange={(v) => onToggleTier(o.id, v === true)}
               />
-              {o.label}
+              <span className="min-w-0 break-words">{o.label}</span>
             </label>
           ))
         )}

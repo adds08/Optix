@@ -27,6 +27,29 @@ export const employeeMappingRouter = router({
       await logEvent(ctx, { category: "auth", action: "employee.mapping.save", entityType: "role_mapping", entityLabel: input.jobTitle, details: input });
       return { ok: true };
     }),
+  /* One disposition/role written for many titles in one action. Always
+     `department: ""` — a blanket rule for the whole title, the same shape
+     `save` writes when no department override is chosen. A title that needs
+     a department-specific exception still goes through `save` individually;
+     this does not touch or clear an existing department-specific row, it only
+     ever writes the department-blank one. */
+  saveMany: requirePermission("config.manage")
+    .input(z.object({ jobTitles: z.array(z.string().trim().min(1).max(200)).min(1).max(500), roleId: z.string().uuid().nullable(), disposition: z.enum(["review", "mapped", "no_login"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      if (input.disposition === "mapped" && !input.roleId) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose an Optix role." });
+      if (input.roleId) {
+        const role = await ctx.db.query.role.findFirst({ where: and(eq(schema.role.id, input.roleId), or(eq(schema.role.tenantId, tid), isNull(schema.role.tenantId))) });
+        if (!role) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a role in this company." });
+      }
+      const titles = [...new Set(input.jobTitles)];
+      await ctx.db
+        .insert(schema.employeeRoleMapping)
+        .values(titles.map(jobTitle => ({ tenantId: tid, jobTitle, department: "", roleId: input.roleId, disposition: input.disposition, updatedByUserId: ctx.session.userId })))
+        .onConflictDoUpdate({ target: [schema.employeeRoleMapping.tenantId, schema.employeeRoleMapping.jobTitle, schema.employeeRoleMapping.department], set: { roleId: input.roleId, disposition: input.disposition, updatedByUserId: ctx.session.userId, updatedAt: new Date() } });
+      await logEvent(ctx, { category: "auth", action: "employee.mapping.saveMany", entityType: "role_mapping", entityLabel: `${titles.length} titles`, details: { jobTitles: titles, roleId: input.roleId, disposition: input.disposition } });
+      return { ok: true, count: titles.length };
+    }),
   applyMapping: requirePermission("user.manage")
     .input(z.object({ mappingId: z.string().uuid(), employeeIds: z.array(z.string().uuid()).min(1).max(200) }))
     .mutation(async ({ ctx, input }) => {
