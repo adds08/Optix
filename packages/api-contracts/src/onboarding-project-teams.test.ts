@@ -14,7 +14,7 @@ describe.skipIf(!process.env.DATABASE_URL)("one-time onboarding and project bran
   const lead = () => caller(leadUser, leadId, ["project.team.read", "project.assign.foreman", "assets.view.crew", "employee.read"]);
   beforeAll(async () => {
     db = createDb(process.env.DATABASE_URL!);
-    [tid] = (await db.insert(schema.tenant).values({ name: "Onboarding branches", slug: `branches-${crypto.randomUUID()}` }).returning()).map(t => t.id);
+    [tid] = (await db.insert(schema.tenant).values({ name: "Onboarding branches", slug: `branches-${crypto.randomUUID()}` }).returning()).map(t => t.id) as [string];
     const [adminUser] = await db.insert(schema.user).values({ tenantId: tid, email: `admin-${tid}@test.local`, firstName: "Admin", lastName: "Test", passwordHash: "unused" }).returning(); adminId = adminUser!.id;
     const [role] = await db.insert(schema.role).values({ tenantId: tid, name: "leader", onboardingKind: "equipment", claimTierNames: ["superintendent"] }).returning(); leadRole = role!.id;
     const employees = await db.insert(schema.employee).values(["Leader", "Foreman", "Other leader"].map(name => ({ tenantId: tid, name, employmentStatus: "active" }))).returning(); [leadId, childId, otherLead] = employees.map(e => e.id) as [string,string,string];
