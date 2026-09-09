@@ -310,7 +310,20 @@ export default function AdminRolesPage() {
 
               <section className="space-y-3 rounded-lg border p-4">
                 <h3 className="font-medium">First-time setup</h3>
-                <label className="block space-y-1 text-sm">Setup for this role<select className="block w-full rounded-md border bg-background p-2" value={flags.onboardingKind} onChange={e => setFlags(f => ({ ...f, onboardingKind: e.target.value as typeof f.onboardingKind }))}><option value="equipment">Projects and equipment</option><option value="people">People / HR</option><option value="office">Office introduction</option><option value="none">No required setup</option></select></label>
+                <div className="space-y-1 text-sm">
+                  <label className="block">Setup for this role</label>
+                  <EntityField
+                    value={flags.onboardingKind}
+                    onChange={v => setFlags(f => ({ ...f, onboardingKind: v as typeof f.onboardingKind }))}
+                    placeholder="Setup for this role"
+                    options={[
+                      { value: "equipment", label: "Projects and equipment" },
+                      { value: "people", label: "People / HR" },
+                      { value: "office", label: "Office introduction" },
+                      { value: "none", label: "No required setup" },
+                    ]}
+                  />
+                </div>
                 <p className="text-sm text-muted-foreground">Allow this role to claim projects in these tiers during initial onboarding only. Leave all unticked to require manager assignment. These choices do not grant ongoing team-management permissions.</p>
                 <div className="flex flex-wrap gap-3">{(tiers.data ?? []).map(t => <label className="flex items-center gap-2 text-sm" key={t.name}><input type="checkbox" checked={flags.claimTierNames.includes(t.name)} onChange={e => setFlags(f => ({ ...f, claimTierNames: e.target.checked ? [...f.claimTierNames, t.name] : f.claimTierNames.filter(n => n !== t.name) }))} />{t.label}</label>)}</div>
                 <Button variant="outline" disabled={!flagsDirty || saveFlags.isPending} onClick={() => saveFlags.mutate({ roleId: selected.id, ...flags })}>Save setup settings</Button>

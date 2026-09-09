@@ -22,8 +22,8 @@ export function EmployeeAccountPanel({ person }: { person: { id: string; name: s
   const refresh = async () => { await Promise.all([query.refetch(), utils.employee.list.invalidate(), utils.onboarding.state.invalidate()]); };
   const reset = trpc.user.resetPassword.useMutation({ onError: e => setError(e.message) });
   const setup = trpc.onboarding.administer.useMutation({ onError: e => setError(e.message) });
-  const mail = trpc.user.sendResetEmail.useMutation({ onSuccess: async r => { r.emailSent ? toast.success("Password link sent") : toast.error("Email was not sent", { description: r.emailError ?? "Try again." }); await refresh(); }, onError: e => toast.error(e.message) });
-  const resend = trpc.user.resendInvite.useMutation({ onSuccess: async r => { r.emailSent ? toast.success("Invitation sent") : toast.error("Email was not sent", { description: r.emailError ?? "Try again." }); await refresh(); }, onError: e => toast.error(e.message) });
+  const mail = trpc.user.sendResetEmail.useMutation({ onSuccess: async r => { if (r.emailSent) toast.success("Password link sent"); else toast.error("Email was not sent", { description: r.emailError ?? "Try again." }); await refresh(); }, onError: e => toast.error(e.message) });
+  const resend = trpc.user.resendInvite.useMutation({ onSuccess: async r => { if (r.emailSent) toast.success("Invitation sent"); else toast.error("Email was not sent", { description: r.emailError ?? "Try again." }); await refresh(); }, onError: e => toast.error(e.message) });
   if (!has("user.manage")) return null;
   const account = query.data?.account;
   const onboarding = query.data?.onboarding;

@@ -88,7 +88,18 @@ export function ProjectForm({ open, onClose, edit }: Props) {
           <DialogTitle>{edit ? `Edit ${edit.name}` : "New Project"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <label className="block space-y-2 text-sm">Record type<select className="block w-full rounded-md border bg-background p-2" value={kind} onChange={e => setKind(e.target.value as "project" | "yard")}><option value="project">Project / jobsite</option><option value="yard">Equipment yard</option></select></label>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Record type</label>
+            <EntityField
+              value={kind}
+              onChange={(v) => setKind(v as "project" | "yard")}
+              placeholder="Record type"
+              options={[
+                { value: "project", label: "Project / jobsite" },
+                { value: "yard", label: "Equipment yard" },
+              ]}
+            />
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Name *</label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
