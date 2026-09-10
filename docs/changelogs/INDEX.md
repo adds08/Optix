@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-11 | [The snapshot that made `generate` loop, and the CI gate that caught it](2026-09-11-the-snapshot-that-made-generate-loop.md) |
 | 2026-09-11 | [A claimed job can be given back, and no removal fires on one click](2026-09-11-undo-a-claim-and-confirm-before-removing.md) |
 | 2026-09-10 | [A tier can be set by everyone above it](2026-09-10-a-tier-is-set-by-everyone-above-it.md) |
 | 2026-09-10 | [Leadership takes on a job, and the chain staffs it](2026-09-10-leadership-claims-jobs-and-staffs-them.md) |
