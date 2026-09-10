@@ -33,10 +33,21 @@ import type {
    they are listed in docs/data/import/rejects.json and rendered for the team in
    docs/data/import/data-issues.html.
 
-   userSpecs below is deliberately NOT generated. Those accounts reference eight
-   employee keys by name (e-fm001, e-sup001, e-pm001, e-eng001, e-mech001,
-   e-karen, e-yard), so the generator assigns each key to a real person and
-   fails loudly rather than emitting a set the logins cannot resolve.
+   userSpecs below is deliberately NOT generated — the two administrator
+   accounts are Optix's own and belong to no employee, so both carry
+   `employeeKey: null`.
+
+   NO INVENTED PEOPLE. Two synthetic rows lived here until 2026-09-11 — "Karen
+   Osei" (equipment_admin) and "Yard Desk" (warehouse), both on `@urban.local`
+   addresses — carried over from the demo fixture's cast. They reached the
+   production register, where a person who does not exist is not a harmless
+   placeholder: this tenant's roster is about to be reconciled against
+   BambooHR, and an invented name matches nobody, so it survives the sync
+   forever as a real-looking employee. Neither held a tool, a crew row or a
+   login, which is what made them safe to delete rather than merge.
+
+   Everybody in this file is now a real person from the workbook. If a fixture
+   needs a desk clerk, add it to the DEMO dataset, never here.
    --------------------------------------------------------------------------- */
 
 export const projectSpecs: ProjectSeed[] = [
@@ -144,8 +155,6 @@ export const employeeSpecs: EmployeeSeed[] = [
   { key: "e-gabrial-zuniga-franco-079", extId: "URB-079", name: "Gabrial Zuniga Franco", role: "foreman", primary: "p-job-24014-24014", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-armando-morado-080", extId: "URB-080", name: "Armando Morado", role: "mechanic", primary: "p-job-25011-25011", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-jose-zamora-081", extId: "URB-081", name: "Jose Zamora", role: "mechanic", primary: "p-equipment-yard", status: "active", email: null, phone: null, reportsTo: null },
-  { key: "e-karen", extId: "0199", name: "Karen Osei", role: "equipment_admin", primary: null, status: "active", email: "karen.osei@urban.local", phone: "214-555-0100", reportsTo: null },
-  { key: "e-yard", extId: "7712", name: "Yard Desk", role: "warehouse", primary: null, status: "active", email: "yard@urban.local", phone: "214-555-0199", reportsTo: null },
 ];
 
 export const postingSpecs: PostingSeed[] = [

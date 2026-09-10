@@ -1,0 +1,23 @@
+-- ---------------------------------------------------------------------------
+-- Arial is the default typeface, for new accounts AND for everyone still on
+-- the old default.
+--
+-- "system" resolved to whatever the operating system supplied — SF on a Mac,
+-- Segoe on Windows, something else again on a field tablet — so the product
+-- looked materially different desk to desk and no rendering was "the" product.
+-- Arial exists on every machine the yard uses.
+--
+-- The UPDATE is the half that matters. Changing only the column default would
+-- leave every existing account on "system", so the people already using the
+-- product would never see the change they asked for; only accounts created
+-- afterwards would. It is scoped to rows still holding the OLD default, so a
+-- person who deliberately chose mono, serif or verdana keeps their pick — this
+-- moves the people who never expressed one, which is what a default is.
+--
+-- Not reversible by re-running: once a row says 'arial' this cannot tell
+-- "never chose" from "chose Arial". That is accepted — the previous value was
+-- itself a default nobody selected.
+-- ---------------------------------------------------------------------------
+ALTER TABLE "tbl_entity_user_preferences" ALTER COLUMN "font_family" SET DEFAULT 'arial';
+--> statement-breakpoint
+UPDATE "tbl_entity_user_preferences" SET "font_family" = 'arial' WHERE "font_family" = 'system';

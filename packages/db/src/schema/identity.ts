@@ -240,7 +240,12 @@ export const userPreferences = pgTable(
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     themeName: text("theme_name").notNull().default("blocky"),
-    fontFamily: text("font_family").notNull().default("system"),
+    /* "arial" since 2026-09-11, matching DEFAULT_PREFS in the web app — the two
+       must agree, or a person's first paint (client default) differs from what
+       they get after their preferences row is created (column default), and the
+       type changes under them for no reason they can see. "system" resolved to
+       a different face on every OS. */
+    fontFamily: text("font_family").notNull().default("arial"),
     fontScale: text("font_scale").notNull().default("1.0"),
     /* Separate from `font_scale` on purpose. Icons already track the type scale
        — everything is rem-based, so a `size-4` glyph grows with the root font
