@@ -98,7 +98,7 @@ export default function CustodyPage() {
 
   const HELD_COLUMNS: ColumnDef<HeldRow>[] = useMemo(
     () => [
-      col<HeldRow>({ header: "Code", accessorFn: (a) => a.code ?? "", width: "6rem", cell: (a) => <Link href={`/tools/${a.assetId}`}><Tag>{a.code}</Tag></Link> }),
+      col<HeldRow>({ header: "Code", accessorFn: (a) => a.code ?? "", width: "7rem", cell: (a) => <Link href={`/tools/${a.assetId}`}><Tag>{a.code}</Tag></Link> }),
       col<HeldRow>({ header: "Model", accessorFn: (a) => a.modelName ?? "", cell: (a) => <span className="font-medium">{a.modelName}</span> }),
       /* Person code before the name, same convention as every other identity
          on the board — the code is the stable key the desk knows. */
@@ -123,7 +123,7 @@ export default function CustodyPage() {
 
   const MOVING_COLUMNS: ColumnDef<TransferRow>[] = useMemo(
     () => [
-      col<TransferRow>({ header: "Code", accessorFn: (t) => t.code ?? "", width: "6rem", cell: (t) => <Link href={`/tools/${t.assetId}`}><Tag>{t.code}</Tag></Link> }),
+      col<TransferRow>({ header: "Code", accessorFn: (t) => t.code ?? "", width: "7rem", cell: (t) => <Link href={`/tools/${t.assetId}`}><Tag>{t.code}</Tag></Link> }),
       col<TransferRow>({ header: "Model", accessorFn: (t) => t.modelName ?? "", cell: (t) => <span className="font-medium">{t.modelName}</span> }),
       col<TransferRow>({ header: "Reason", accessorFn: (t) => String(t.reason ?? "").replace(/_/g, " "), cell: (t) => <span className="capitalize">{String(t.reason).replace(/_/g, " ")}</span> }),
       col<TransferRow>({ header: "Status", accessorFn: (t) => t.status, width: "9rem", cell: (t) => <StatusPill status={t.status} /> }),
@@ -145,7 +145,10 @@ export default function CustodyPage() {
     col<QueueRow>({
       header: "Code",
       accessorFn: (r) => r.assetCode ?? "",
-      width: "6rem",
+      /* 7rem, not 6: a tag is the code plus its own 12px of padding, and every
+         asset code in the register is nine characters — 6rem left the last
+         character under the ellipsis on every row. Measured, not guessed. */
+      width: "7rem",
       cell: (r) => {
         const assetId = assetIdFor(r);
         return assetId ? (

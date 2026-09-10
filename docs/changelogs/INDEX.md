@@ -26,6 +26,8 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-10 | [Delete the browser suite, and the references that outlived it](2026-09-10-delete-the-browser-suite.md) |
+| 2026-09-10 | [Pills and tags stop being sliced by the cell they sit in](2026-09-10-pills-and-tags-stop-being-sliced-by-their-cell.md) |
 | 2026-09-10 | [Delete the three per-tier assign permissions](2026-09-10-delete-the-three-per-tier-assign-permissions.md) |
 | 2026-09-09 | [Retire the HR title mapping, and cut the People menu to four items](2026-09-09-retire-hr-title-mapping-and-trim-the-people-menu.md) |
 | 2026-09-09 | [Urban's real tier structure, and the wipe that could not run](2026-09-09-urban-tier-diamond-and-seed-wipe-fix.md) |

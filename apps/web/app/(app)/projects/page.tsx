@@ -93,7 +93,11 @@ export default function ProjectsPage() {
       col<Row>({
         header: "Status",
         accessorFn: (p) => p.status,
-        width: "7rem",
+        /* 8.5rem: a project's states are the long ones — "In Progress" and
+           "Not Awarded" both overran 7rem, which is what cut the pill in half
+           on this screen. Sized to the widest label this column can actually
+           hold, not to the shortest. */
+        width: "8.5rem",
         cell: (p) => <StatusPill status={p.status} className="text-xs" />,
       }),
       col<Row>({

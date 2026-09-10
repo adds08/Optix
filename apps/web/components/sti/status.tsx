@@ -90,17 +90,28 @@ export function StatusPill({
   className?: string;
 }) {
   const t = tone ?? toneFor(status);
+  const text = label ?? humanize(status);
   return (
     <span
+      /* `max-w-full` + `min-w-0` on the label is what stops a table cell
+         SLICING the pill. The cell clips its overflow (see the `truncate` on
+         `TableCell`), and a bordered, rounded box clipped mid-shape reads as a
+         rendering fault rather than as "there is more text here" — the right
+         edge, the corner radius and the tone border all just stop. Bounding the
+         pill to the cell instead lets the LABEL ellipsize inside a pill that
+         keeps its whole outline, so a narrow Status column degrades to
+         "PENDING APPR…" in a complete pill. `title` keeps the full value
+         reachable on hover once that happens. */
+      title={text}
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-sm border px-1.5 py-0.5",
+        "inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-sm border px-1.5 py-0.5 align-middle",
         "font-mono text-[0.6875rem] uppercase tracking-[0.1em]",
         TONE[t],
         className,
       )}
     >
       <span aria-hidden className={cn("size-1.5 shrink-0", MARK[t])} />
-      {label ?? humanize(status)}
+      <span className="min-w-0 truncate">{text}</span>
     </span>
   );
 }
@@ -114,7 +125,11 @@ export function Tag({ children, className }: { children: React.ReactNode; classN
   return (
     <span
       className={cn(
-        "tag-num rounded-sm px-1.5 py-0.5",
+        /* `inline-block max-w-full` for the same reason as `StatusPill` above:
+           a tag in a table cell is a tinted box, and a clipped box reads as a
+           bug. Bounded to the cell, the CODE ellipsizes inside a tag that keeps
+           its background and its corners. */
+        "tag-num inline-block max-w-full truncate rounded-sm px-1.5 py-0.5 align-middle",
         empty ? "bg-transparent text-muted-foreground italic" : "bg-muted text-foreground",
         className,
       )}
