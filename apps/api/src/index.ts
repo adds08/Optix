@@ -46,7 +46,7 @@ const mailFallback: MailConfig | null = env.SMTP_HOST
       port: env.SMTP_PORT,
       user: env.SMTP_USER ?? null,
       pass: env.SMTP_PASS ?? null,
-      from: env.SMTP_FROM ?? "STInventory <no-reply@stinventory.local>",
+      from: env.SMTP_FROM ?? "Optix <donotreply@optixtec.com>",
     }
   : null;
 
@@ -206,7 +206,7 @@ app.post("/auth/forgot-password", async (c) => {
     await sendMail(config, {
       to: email,
       ...passwordResetEmail({
-        tenantName: tenantRow?.name ?? "STInventory",
+        tenantName: tenantRow?.name ?? "Optix",
         recipientFirstName: u.firstName,
         resetUrl: `${env.WEB_ORIGIN}/reset/${token}`,
         expiresHuman: "1 hour",
@@ -356,7 +356,7 @@ app.post("/auth/tokens/:token/consume", async (c) => {
     const config = await mailConfigFor(db, row.tenantId, env.SESSION_SECRET, mailFallback);
     await sendMail(config, {
       to: u.email,
-      ...passwordChangedEmail({ tenantName: tenantRow?.name ?? "STInventory", recipientFirstName: u.firstName }),
+      ...passwordChangedEmail({ tenantName: tenantRow?.name ?? "Optix", recipientFirstName: u.firstName }),
     });
   }
 

@@ -46,6 +46,6 @@ export async function mailConfigFor(
     port: row.smtpPort ?? 587,
     user: row.smtpUser ?? null,
     pass: row.smtpUser ? decryptSecret(row.smtpPassEnc, sessionSecret) : null,
-    from: row.smtpFrom ?? fallback?.from ?? "STInventory <no-reply@stinventory.local>",
+    from: row.smtpFrom ?? fallback?.from ?? "Optix <donotreply@optixtec.com>",
   };
 }

@@ -527,7 +527,7 @@ export const userRouter = router({
       const sent = await sendMail(config, {
         to: email,
         ...inviteEmail({
-          tenantName: tenantRow?.name ?? "STInventory",
+          tenantName: tenantRow?.name ?? "Optix",
           recipientFirstName: row.firstName,
           inviterLabel: ctx.session.actorLabel ?? "An administrator",
           roleName,
@@ -610,12 +610,17 @@ export const userRouter = router({
       const sent = await sendMail(config, {
         to: target.email,
         ...inviteEmail({
-          tenantName: tenantRow?.name ?? "STInventory",
+          tenantName: tenantRow?.name ?? "Optix",
           recipientFirstName: target.firstName,
           inviterLabel: ctx.session.actorLabel ?? "An administrator",
           roleName: null,
           inviteUrl: `${ctx.webOrigin}/invite/${token}`,
           expiresHuman: "7 days",
+          /* This procedure issues a SECOND invite and consumes the first, so
+             the earlier link is already dead by the time this arrives. Say so:
+             a reader holding two invites otherwise picks the older mail and
+             lands on an expired-token page with no explanation. */
+          resend: true,
         }),
       });
 
