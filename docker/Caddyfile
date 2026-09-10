@@ -28,7 +28,20 @@
 		reverse_proxy api:4100
 	}
 	# Photo upload and removal. Multipart, so it cannot travel over tRPC.
-	handle /assets/* {
+	#
+	# MATCHED NARROWLY — `/assets/*/photo`, not `/assets/*`.
+	#
+	# The broad form collided with the web app's own static files. Next serves
+	# `apps/web/public/` at the site root, so `public/assets/urban_logo.svg` is
+	# requested as `/assets/urban_logo.svg` — which this block sent to the API,
+	# where no such route exists, so every static asset 404'd on both
+	# environments. The two meanings of "asset" (a TOOL in the register, a FILE
+	# the browser loads) had quietly claimed one path.
+	#
+	# The API only ever serves `/assets/:id/photo` (POST and DELETE, see
+	# apps/api/src/index.ts), so matching the suffix keeps photo upload working
+	# and hands everything else back to Next.
+	handle /assets/*/photo {
 		reverse_proxy api:4100 {
 			# Default is 10s, which is not enough for an 8MB photo coming off a
 			# phone on site wifi.
