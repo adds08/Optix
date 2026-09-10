@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { humanizeRole, projectHint } from "@/lib/format";
 
 export type EmployeeEditable = {
   id: string;
@@ -43,12 +44,6 @@ function legacyRoleFor(roleName: string | undefined, fallback: string) {
   if (!roleName) return fallback;
   if (roleName === "project_manager") return "pm";
   return LEGACY_ROLE_NAMES.has(roleName) ? roleName : fallback;
-}
-
-/* `office_admin` -> "Office Admin". The role register stores snake_case so the
-   seed and the permission matrix can name rows; people should never see it. */
-function humanizeRole(name: string) {
-  return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 export function EmployeeForm({ open, onClose, edit }: Props) {
@@ -195,7 +190,7 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
               placeholder="Select..."
               searchPlaceholder="Project name or code"
               emptyLabel="No job matches."
-              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: projectHint(p) }))}
             />
           </div>
           {/* DOMAIN DATA again — the role of the person being edited, not of the

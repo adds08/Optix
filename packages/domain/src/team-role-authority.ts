@@ -56,6 +56,18 @@ export type TeamRoleAuthorityInput = {
    * `targetIsOpenToEveryone` is for.
    */
   targetAssignerTierNames: ReadonlySet<string>;
+  /**
+   * Tier NAMES ABOVE the target on the ladder — its ancestors through
+   * `team_role.reportsToTeamRoleId`, nearest first, resolved by `tiersAbove`.
+   *
+   * Optional so every existing caller keeps compiling and behaves exactly as
+   * before; absent is treated as an empty set, which can only ever refuse.
+   *
+   * The caller resolves it, for the same reason `targetAssignerTierNames` is
+   * resolved outside: this function must stay pure and must not learn how to
+   * walk a ladder out of the database.
+   */
+  targetAncestorTierNames?: ReadonlySet<string>;
 };
 
 export function canAssignIntoTier(input: TeamRoleAuthorityInput): boolean {
@@ -63,6 +75,36 @@ export function canAssignIntoTier(input: TeamRoleAuthorityInput): boolean {
   if (input.targetIsOpenToEveryone) return true;
   for (const held of input.callerTierNamesOnThisProject) {
     if (input.targetAssignerTierNames.has(held)) return true;
+  }
+  /*
+    PATH 4 (2026-09-10): the caller holds a tier ABOVE the target on the ladder.
+
+    The header above predicted a fourth path and asked that it be one clause
+    rather than a re-read of the whole thing; this is it, and it stays last so
+    the three cheaper checks short-circuit first.
+
+    Why it was needed: "Set by" names only the tier immediately competent to
+    fill a slot, so authority did not flow DOWN the chain. A Director on a job
+    she runs could not place a Foreman — Foreman's list is Superintendent, PM
+    and General Superintendent — even though every tier between them answers to
+    her. That was reported as a broken dropdown, which is what an unexplained
+    omission looks like.
+
+    A UNION with "Set by", never a replacement. Ancestry alone would have been
+    worse: nothing reports to General Superintendent on Urban's ladder, so a
+    GSuper would have been left able to set nothing at all, losing the
+    PM/Superintendent/Foreman authority "Set by" gives them. Each edge answers a
+    question the other cannot.
+
+    Still not a free-for-all — a Superintendent is not above a PM on the ladder
+    and is not in the PM tier's "Set by", so it remains refused. That property
+    is what makes this a hierarchy.
+  */
+  const ancestors = input.targetAncestorTierNames;
+  if (ancestors) {
+    for (const held of input.callerTierNamesOnThisProject) {
+      if (ancestors.has(held)) return true;
+    }
   }
   return false;
 }

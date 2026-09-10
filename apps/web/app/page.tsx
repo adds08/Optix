@@ -161,7 +161,28 @@ export default function LoginPage() {
 
       <div className="flex items-center justify-center px-6 py-12">
         <div className="flex w-full max-w-[364px] flex-col gap-9">
-          <motion.div {...rise(0)}>
+          <motion.div {...rise(0)} className="flex flex-col gap-5">
+            {/*
+              THE TENANT'S OWN MARK, above the product's.
+
+              Development is against `urban.optixtec.com`, and a customer
+              signing in to their own subdomain should see their company before
+              they see ours — the same `assets/urban_logo.svg` the app shell
+              puts in its top bar, so the two agree.
+
+              HARDCODED, and knowingly so. Optix is a multi-tenant product and
+              this belongs on `tenant_settings` beside the SMTP and LLM
+              configuration, resolved from the subdomain the way `login()`
+              already accepts an optional `tenantSlug`. That is a real change —
+              an upload, a storage key, a fallback for a tenant with no
+              artwork — and inventing half of it here would leave a column
+              nothing writes. One tenant, one file, and a comment saying which
+              part is temporary.
+
+              Not theme-flipped: a logo is not a palette. `alt=""` because the
+              lockup below carries the accessible name.
+            */}
+            <img src="/assets/urban_logo.svg" alt="" className="h-9 w-auto self-start" />
             <OptixLockup tagline />
           </motion.div>
 

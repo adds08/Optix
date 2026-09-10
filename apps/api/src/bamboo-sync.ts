@@ -648,6 +648,74 @@ export async function applySyncPlan(
     employeeIdByExternal.set(person.externalId, employeeId);
 
     /*
+      Phone numbers.
+
+      The adapter has always BUILT `contacts[]` from `mobilePhone` and
+      `workPhone`, and until now nothing persisted it — the numbers survived
+      only inside the `raw` jsonb, where no screen looks. `employee_contact`
+      was written by the seed alone, and its own schema comment says the
+      collapse of `employee.phone` waits on "something writing these rows".
+      This is that writer.
+
+      Reconciled per person rather than appended, because a sync RE-RUNS. There
+      is no unique index on (employee_id, kind) — only `one_primary_uq` — so an
+      unconditional insert would add a duplicate mobile on every pass and the
+      yard would end up choosing between four identical rows. Deleting the
+      kinds this sync owns and rewriting them keeps the table converged on what
+      HR currently says, which is the same rule the rest of this file follows.
+
+      Only the two kinds BambooHR speaks are touched. A `personal` or `home`
+      number typed in by the desk is not HR's to delete, and this must not
+      become the sync quietly discarding a number somebody added by hand.
+
+      `isPrimary` goes to the mobile when there is one — that is the number the
+      yard actually calls — and `one_primary_uq` is a partial index over
+      `WHERE is_primary`, so exactly one row may claim it. Writing two would
+      abort this person's row and cost the run a person; the ternary is what
+      keeps it to one.
+    */
+    if (person.contacts.length > 0) {
+      const HR_OWNED = ["mobile", "work"];
+      await db
+        .delete(schema.employeeContact)
+        .where(
+          and(
+            eq(schema.employeeContact.tenantId, tenantId),
+            eq(schema.employeeContact.employeeId, employeeId),
+            inArray(schema.employeeContact.kind, HR_OWNED),
+          ),
+        );
+      const hasMobile = person.contacts.some((c) => c.kind === "mobile");
+      await db.insert(schema.employeeContact).values(
+        person.contacts.map((c) => ({
+          tenantId,
+          employeeId: employeeId!,
+          kind: c.kind,
+          value: c.value,
+          /* The mobile is primary when present; otherwise the work line is, so
+             a person with only a desk number still has a number to call. */
+          isPrimary: hasMobile ? c.kind === "mobile" : c.kind === "work",
+          note: "From BambooHR",
+        })),
+      );
+
+      /*
+        `employee.phone` is the single column every screen still reads, so it
+        keeps the primary number in step. Not dropped and not duplicated on
+        purpose — the schema comment on `employeeContact` says collapsing it is
+        its own change, and doing it here would leave every existing reader
+        showing a blank while this table fills.
+      */
+      const primary = person.contacts.find((c) => (hasMobile ? c.kind === "mobile" : c.kind === "work"));
+      if (primary) {
+        await db
+          .update(schema.employee)
+          .set({ phone: primary.value, updatedAt: new Date() })
+          .where(and(eq(schema.employee.id, employeeId), eq(schema.employee.tenantId, tenantId)));
+      }
+    }
+
+    /*
       Bind the person to their BambooHR record. This row is what makes the sync
       re-runnable without duplicating anybody, so it is written on every pass.
 

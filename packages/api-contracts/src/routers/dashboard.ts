@@ -369,7 +369,14 @@ export const dashboardRouter = router({
         assetDescription: schema.asset.description,
         custodianName: schema.employee.name,
         status: schema.transfer.status,
-        fromName: sql<string | null>`(select name from employee where id = ${schema.transfer.fromCustodianId})`,
+        /* The PHYSICAL table name, not the Drizzle export's. This said
+           `from employee` and threw `relation "employee" does not exist` on
+           every call since 2026-07-31 — the tables are prefixed
+           (`tbl_entity_employee`) and a raw fragment gets none of the mapping
+           the query builder does. It went unnoticed because the widget fails
+           closed: the dashboard renders without it. Prefer the builder over a
+           raw subquery; where one is unavoidable, name the real table. */
+        fromName: sql<string | null>`(select name from ${schema.employee} where id = ${schema.transfer.fromCustodianId})`,
         createdAt: schema.transfer.createdAt,
         truckUnit: tTruck.unit,
         truckOwnership: tTruck.ownershipType,

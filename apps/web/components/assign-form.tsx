@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EntityField } from "@/components/ui/entity-picker";
 import { RidePicker } from "./ride-picker";
 import { useViewTier } from "./use-permissions";
+import { personHint, projectHint } from "@/lib/format";
 
 type Props = { open: boolean; onClose: () => void; preselectedAssetId?: string };
 
@@ -132,7 +133,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
               options={custodianOptions.map((e) => ({
                 value: e.id,
                 label: e.name,
-                hint: e.externalId ?? undefined,
+                hint: personHint(e),
               }))}
             />
           </div>
@@ -147,7 +148,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
               options={(projects.data ?? []).map((p) => ({
                 value: p.id,
                 label: p.name,
-                hint: p.externalId ?? undefined,
+                hint: projectHint(p),
               }))}
             />
           </div>

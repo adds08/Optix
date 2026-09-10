@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./org-chart": "./src/org-chart.ts",
-    "./project-branch": "./src/project-branch.ts"
+    "./project-branch": "./src/project-branch.ts",
+    "./role-suggestion": "./src/role-suggestion.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

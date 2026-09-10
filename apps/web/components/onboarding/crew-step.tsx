@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EntityField } from "@/components/ui/entity-picker";
 import { ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { cn } from "@/lib/utils";
+import { personHint } from "@/lib/format";
 
 /*
   Step four: who is above and below you, per the company's declared ladder.
@@ -56,7 +57,7 @@ export function CrewStep() {
 
   const employeeOptions = (employees.data ?? [])
     .filter((e) => e.employmentStatus === "active")
-    .map((e) => ({ value: e.id, label: e.name, hint: e.externalId ?? undefined }));
+    .map((e) => ({ value: e.id, label: e.name, hint: personHint(e) }));
 
   return (
     <section className="flex flex-col gap-5">

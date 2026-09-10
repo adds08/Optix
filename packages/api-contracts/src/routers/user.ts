@@ -668,7 +668,17 @@ export const userRouter = router({
       const [account] = await ctx.db.select({ id: schema.user.id, email: schema.user.email, isActive: schema.user.isActive, emailVerifiedAt: schema.user.emailVerifiedAt, lastSignInAt: schema.user.lastSignInAt, mustChangePassword: schema.user.mustChangePassword }).from(schema.user).where(and(eq(schema.user.tenantId, tid), eq(schema.user.employeeId, input.employeeId)));
       const onboarding = account ? await ctx.db.query.userOnboarding.findFirst({ where: and(eq(schema.userOnboarding.tenantId, tid), eq(schema.userOnboarding.userId, account.id)) }) : null;
       const sources = await ctx.db.select({ system: schema.employeeExternalRef.system, externalId: schema.employeeExternalRef.externalId, lastSyncedAt: schema.employeeExternalRef.lastSyncedAt }).from(schema.employeeExternalRef).where(and(eq(schema.employeeExternalRef.tenantId, tid), eq(schema.employeeExternalRef.employeeId, input.employeeId)));
-      return { account: account ?? null, onboarding, creationSource: employee.creationSource, createdByUserId: employee.createdByUserId, sources };
+      /* The HR job title, so the invite dialog can PRE-FILL the login role from
+         it (`suggestRoleId`, packages/domain). Read-only here and never written
+         back: a title suggests a role, it does not decide one — see the header
+         on role-suggestion.ts for why this is not the mapping table that was
+         retired on 2026-09-09. Null for the ~half of the register HR has never
+         given a title, which is the ordinary case and simply leaves the picker
+         unset. */
+      const [title] = employee.companyRoleId
+        ? await ctx.db.select({ name: schema.companyRole.name }).from(schema.companyRole).where(and(eq(schema.companyRole.tenantId, tid), eq(schema.companyRole.id, employee.companyRoleId)))
+        : [];
+      return { account: account ?? null, onboarding, creationSource: employee.creationSource, createdByUserId: employee.createdByUserId, sources, jobTitle: title?.name ?? null };
     }),
 
   setRole: requirePermission("user.manage")

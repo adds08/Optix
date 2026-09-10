@@ -18,6 +18,7 @@ import { trpc } from "@/lib/trpc";
 import { Tag } from "@/components/sti/status";
 import { SearchSelect } from "@/components/ui/search-select";
 import { cn } from "@/lib/utils";
+import { projectHint } from "@/lib/format";
 
 /*
   The live jobsite feed — what is moving on this site, right now.
@@ -87,7 +88,7 @@ export function JobsiteActivity({
           onChange={setProjectId}
           placeholder="All sites"
           widthClass="ml-auto w-40"
-          options={projectOptions.map((p) => ({ value: p.id, label: p.name }))}
+          options={projectOptions.map((p) => ({ value: p.id, label: p.name, hint: projectHint(p) }))}
         />
         {onHide ? (
           <button

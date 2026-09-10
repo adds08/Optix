@@ -159,7 +159,7 @@ statement says the same thing the code says instead of naming that day's list.
 deletes every tenant, employee, vehicle, asset and ledger row, and **disables the ledger's
 append-only trigger to do it**.
 
-### There are TWO datasets, and one of them is a test fixture
+### There are THREE datasets, and one of them is a test fixture
 
 `seed.ts` chooses on `SEED_DATASET`, and which one you are looking at changes what a
 "wrong" number means:
@@ -168,6 +168,7 @@ append-only trigger to do it**.
 |---|---|---|
 | default | `seed-data.ts` | The **test fixture**. Synthetic people and tools engineered so every permission tier, status and UI state is reachable from a clean database. Keeps the shared `stinventory-demo` password. |
 | `SEED_DATASET=urban` | `seed-data.urban.ts` | Urban Infraconstruction's **real register**, generated from `docs/data/import/*.csv`. One owner account, password from `SEED_OWNER_PASSWORD` or printed once. |
+| `SEED_DATASET=bare` | `seed-data.bare.ts` | An **empty tenant** (2026-09-10): the vocabularies, the permission matrix and ONE owner login. No people, tools, jobs or vehicles at all. For a deployment where **BambooHR is the source of the roster** — a seeded person there is an invented row standing between a real sync and an honest answer about what it did. Takes a real credential, same rule as urban. `make seed-bare`. |
 
 **Do not "fix" the fixture by replacing it with real data.** That was tried on 2026-09-01
 and turned CI red in a way that is easy to miss: `rbac-matrix.test.ts` proves the
@@ -184,12 +185,23 @@ Two consequences worth knowing before editing `seed.ts`:
   accounts using `stinventory-demo`, and browser checking signs in with it. Only the
   urban dataset takes a real credential. (`e2e/roles.ts` also declared it until the
   browser suite was deleted on 2026-09-10; `docs/SETUP.md` is the account list now.)
-- **Fixtures inside `seed.ts` have been silently required.** The personal-allowance truck
-  and the desk approval queue both used non-null assertions on demo-only lookups, so any
-  dataset without them killed the whole seed; both are now guarded and skip. If you add a
-  fixture, guard it, or the next real dataset dies on it.
+- **Fixtures inside `seed.ts` have been silently required.** The personal-allowance truck,
+  the company truck, the desk approval queue and the whole messages-and-tasks block all used
+  non-null assertions on demo-only lookups, so any dataset without them killed the whole
+  seed; all are now guarded and skip. If you add a fixture, guard it, or the next real
+  dataset dies on it.
+- **`db.insert(x).values([])` THROWS** — "values() must be called with at least one value" —
+  it is not the no-op the call site reads as. Every dataset-driven insert is therefore a
+  landmine the moment a dataset is legitimately empty, which the bare one is. Use the
+  `insertRows` helper at the top of `seed.ts` (returns `[]` so downstream `.map` and
+  `Object.fromEntries` lookups keep working), or an `if (specs.length)` guard for a
+  fire-and-forget insert. Found only by RUNNING the bare seed; nothing in the types says it.
+- **A seed log line must count what it wrote, not what it expected to write.** One said
+  "+ 2 synthetic trucks" unconditionally, on a dataset that seeded no vehicles at all. Same
+  class of problem as the `created: 0` scar in the Bamboo sync: a report that misinforms
+  the person who ran it is worse than a crash.
 
-**Run `make seed-demo` before the test suite.** The two datasets are not
+**Run `make seed-demo` before the test suite.** The datasets are not
 interchangeable at test time: against `SEED_DATASET=urban`, `rbac-matrix.test.ts`
 fails with `seeded account missing: hr@stinventory.local` and takes four other
 tests with it. That is the test being RIGHT about the database it was handed —

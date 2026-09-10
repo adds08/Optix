@@ -23,6 +23,20 @@ export type NavItem = {
   desc?: string;
   /* Shown in the field layout as a large primary action rather than a nav row. */
   hint?: string;
+  /*
+    Extra routes that BELONG to this nav item without being it.
+
+    A route with no nav entry matches nothing, so `activeGroup` in
+    `app-shell.tsx` resolves to undefined and the sidebar renders empty — the
+    whole shell collapses to "HOME / Dashboard" and the page reads as somewhere
+    the app does not know about. `/project-teams` did exactly that: it is
+    deliberately absent from the sidebar (see the note on `my-crew`) but is
+    deep-linked from the projects register and Tools by Jobsite.
+
+    So: a route reachable by a link but not listed in the nav needs a home
+    here. Prefixes, matched the same way `href` is.
+  */
+  alsoMatches?: string[];
   /* Wall surfaces: the page owns the whole content region — the shell drops its
      max-width, its padding and its scroll box for these. Declared beside the
      route rather than sniffed from the pathname in app-shell.tsx, so adding a
@@ -203,7 +217,19 @@ export const DESK_NAV: NavGroup[] = [
          Jobsite and the projects register both deep-link it with `?projectId=`
          — but it no longer sits in the sidebar beside this one, where the pair
          read as two different features and neither name said which. */
-      { id: "my-crew", href: "/my-crew", label: "Crews", icon: UsersRound, perm: "project.team.read", desc: "Who answers to you, job by job" },
+      { id: "my-crew", href: "/my-crew", label: "Crews", icon: UsersRound, perm: "project.team.read", desc: "Who answers to you, job by job", alsoMatches: ["/project-teams"] },
+      /* Taking on a job, after setup is over.
+         Deliberately gated on `project.team.read` — the permission every role
+         that could POSSIBLY claim already holds — and NOT on
+         `project.team.assign`. That grant was removed from leadership in 0063
+         because holding it makes `visibleProjectScope` unrestricted, which
+         showed a director every project in the tenant.
+         The real control is the page itself: it reads `onboarding.state` and
+         renders "your role does not take on jobs directly" when `canClaim` is
+         false, so a person who cannot claim sees a sentence rather than an
+         empty picker. A nav gate cannot express `canClaim`, which depends on
+         the role's `claimTierNames` rather than on any permission. */
+      { id: "claim-a-job", href: "/claim-a-job", label: "Take on a job", icon: HardHat, perm: "project.team.read", desc: "Record the jobs you run, so you can staff them" },
       /* Who below the caller has done first-run setup and who hasn't — see
          `onboarding.progress`. Gated on the same permission as the org chart,
          on purpose (docs/workings/ONBOARDING_AND_ROLE_HIERARCHY.md §7.1): the
@@ -299,9 +325,16 @@ export function groupKey(g: NavGroup): string {
   rather than in each of the three callers.
 */
 export function matchItem(items: NavItem[], pathname: string): NavItem | undefined {
+  const hits = (n: NavItem) =>
+    [n.href, ...(n.alsoMatches ?? [])].filter(
+      (h) => pathname === h || pathname.startsWith(h + "/"),
+    );
+  /* Longest matching prefix wins, across `href` AND `alsoMatches`, so a more
+     specific alias still beats a shorter real route. */
   return items
-    .filter((n) => pathname === n.href || pathname.startsWith(n.href + "/"))
-    .sort((a, b) => b.href.length - a.href.length)[0];
+    .map((n) => ({ n, best: hits(n).sort((a, b) => b.length - a.length)[0] }))
+    .filter((x): x is { n: NavItem; best: string } => !!x.best)
+    .sort((a, b) => b.best.length - a.best.length)[0]?.n;
 }
 
 /*

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
 import { CUSTODIAN_ROLES, EQUIPMENT_CLASSES, EQUIPMENT_CLASS_LABELS, type EquipmentClass } from "@stinventory/types";
+import { projectHint } from "@/lib/format";
 
 export type VehicleEditable = {
   id: string;
@@ -205,7 +206,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
               placeholder="Select..."
               searchPlaceholder="Project name or code"
               emptyLabel="No job matches."
-              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: projectHint(p) }))}
             />
           </div>
           {/* Create-only. Changing who has a truck is Hand over on Locations,

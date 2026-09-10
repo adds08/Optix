@@ -146,7 +146,7 @@ the spec.
 | `divisionName` | `division_id` *(new)* | New reference table. Flat — see §5. |
 | `locationName` | *not mapped* | An HR office, not a place a tool sits — see §5. |
 | `workEmail` | `employee.email` | Often personal, exactly as `employee.email`'s comment warns. |
-| `mobilePhone`, `workPhone` | `employee_contact` rows | Two numbers; that table exists for precisely this. |
+| `mobilePhone`, `workPhone` | `employee_contact` rows **+ `employee.phone`** | Two numbers; that table exists for precisely this. **Built 2026-09-10** — until then the adapter shaped `contacts[]` and nothing wrote it, so both numbers reached `raw` jsonb and stopped there. The writer reconciles rather than appends (there is no unique index on `(employee_id, kind)`, so appending duplicates on every re-run), touches only the `mobile` and `work` kinds so a number typed at the desk survives, and mirrors the primary into `employee.phone`, which every screen still reads. |
 | `status` | `employment_status` | Active / Inactive, and nothing else. Observed only. |
 | `employmentStatusName` | `employment_status` | HR's own wording. **The only source for `on_leave`** — see below. Observed only. |
 | `terminationDate` | `employee.terminated_at` | The date a flagged leaver left. Observed only. |

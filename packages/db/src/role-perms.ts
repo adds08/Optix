@@ -32,6 +32,47 @@ export const PM_PERMS = [
 ] as const;
 
 /*
+  Shared by the three roles that may claim a job — `director`,
+  `area_in_charge` and `general_superintendent`.
+
+  PM_PERMS plus exactly three things, and each one is load-bearing for the flow
+  these roles exist to unblock:
+
+  - `project.team.manage` — the Job Tiers register itself, so a director can
+    describe their own chain without an owner.
+
+  And that is ALL. Two permissions were tried here and removed on the same day,
+  because both turned "runs some jobs" into "sees everything":
+
+  - `assets.view.all` and `project.team.assign` each make `visibleProjectScope`
+    return UNRESTRICTED (see scope.ts). A director on three jobs was shown all
+    nineteen projects and 272 people on the wizard's crew step, which is not
+    what "your crew" means and is exactly what the client caught.
+  - Claiming does not need either of them. `onboarding.claimOptions` queries
+    `project` directly with no scope predicate, precisely so somebody can pick a
+    job they are not yet on. That is the ONE place a wide list is correct, and
+    it is already handled.
+  - Placing people does not need `project.team.assign` either. Once a director
+    has claimed a job they hold the `director` TIER on it, and `assertCanAssign`
+    reads the "Set by" rows — Director sets Area In-charge and General
+    Superintendent, and so on down. Their authority is per-job, which is the
+    point: it arrives with the claim and does not extend to jobs they never
+    took on.
+
+  So leadership keeps PM_PERMS plus the tier register. `assets.view.project`
+  stays, which resolves through the roster rows a claim creates.
+
+  Deliberately NOT `config.manage`: that carries the LLM keys and the high-value
+  approval threshold, and "runs the jobs" is not "changes what needs a second
+  signature" — the same line `office_admin` is held to below.
+
+  They share one constant rather than repeating a list, on the same reasoning
+  as `project_manager`/`engineer`: if they ever genuinely diverge, that is the
+  moment to write them out in full and say why.
+*/
+export const LEADERSHIP_PERMS = [...PM_PERMS, "project.team.manage"] as const;
+
+/*
   RBAC: the permission set per login role.
 
   This table is the executable half of `docs/workings/PERMISSION_MATRIX.md` §2.
@@ -145,6 +186,12 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "assets.view.crew",
   ],
   procurement: ["asset.read", "project.read", "employee.read", "report.read", "notification.read", "assets.view.all"],
+  /* The leadership roles — see LEADERSHIP_PERMS above and the note on ROLES in
+     packages/types. They are the only roles seeded with a `claimTierNames`
+     grant, which is what lets an empty tenant record its first roster row. */
+  director: LEADERSHIP_PERMS,
+  area_in_charge: LEADERSHIP_PERMS,
+  general_superintendent: LEADERSHIP_PERMS,
   project_manager: PM_PERMS,
   /* Engineer: the same authority as a Project Manager where small tools are
      concerned (PERMISSION_MATRIX §1). Shares the constant rather than

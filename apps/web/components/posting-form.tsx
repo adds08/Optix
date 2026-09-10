@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { projectHint } from "@/lib/format";
 
 /*
   Post a person to a job.
@@ -88,7 +89,7 @@ export function PostingForm({
               placeholder="Select..."
               searchPlaceholder="Project name or code"
               emptyLabel="No job matches."
-              options={options.map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+              options={options.map((p) => ({ value: p.id, label: p.name, hint: projectHint(p) }))}
             />
           </div>
 

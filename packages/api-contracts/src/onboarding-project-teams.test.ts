@@ -49,13 +49,56 @@ describe.skipIf(!process.env.DATABASE_URL)("one-time onboarding and project bran
     await expect(lead().onboarding.complete({ dismissed: true })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(lead().onboarding.complete()).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
-  it("finishing and re-onboarding both keep project claiming closed", async () => {
+  /*
+    REWRITTEN 2026-09-10. This asserted that finishing setup closed claiming
+    permanently for everybody, which was the shipped rule and is no longer it:
+    a role holding `claimTierNames` keeps the ability and reaches it from
+    `/claim-a-job`, because a director takes on a new job routinely and the old
+    rule made that need an administrator.
+
+    The `leader` fixture holds a claim grant, so it is now a STANDING claimer
+    and this test proves the new rule. The guard the old test was really
+    protecting — that finishing is not a way for somebody with no grant to get
+    a second pass — is asserted by the test below it, which uses an account
+    with an empty `claimTierNames`.
+  */
+  it("a role that may claim keeps claiming after setup is finished", async () => {
     await lead().onboarding.complete({ acknowledged: true });
     expect((await lead().onboarding.state()).shouldPrompt).toBe(false);
-    await expect(lead().onboarding.claimProject({ projectId: otherProject, tier: "superintendent" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await admin().onboarding.administer({ userId: leadUser, action: "reopen", reason: "Review updated responsibilities" });
-    expect((await lead().onboarding.state()).shouldPrompt).toBe(true);
-    expect((await lead().onboarding.claimOptions()).projects).toEqual([]);
+    /* The whole point: still true after completing. */
+    expect((await lead().onboarding.state()).canClaim).toBe(true);
+    await lead().onboarding.claimProject({ projectId: otherProject, tier: "superintendent" });
+    const row = await db.query.projectTeamMember.findFirst({
+      where: and(
+        eq(schema.projectTeamMember.tenantId, tid),
+        eq(schema.projectTeamMember.projectId, otherProject),
+        eq(schema.projectTeamMember.employeeId, leadId),
+        isNull(schema.projectTeamMember.endedOn),
+      ),
+    });
+    /* A claim is a REAL roster row, not a note about intent — that is what
+       separates this from the `project_claim` design that was deleted. */
+    expect(row?.role).toBe("superintendent");
+
+    /* Put `otherProject` back out of reach. The tests below assert the lead
+       CANNOT touch it, and this suite shares one tenant across cases in order —
+       leaving the claim standing would make those two fail for the right reason
+       at the wrong time, which reads as a permission regression and is not one. */
+    await db
+      .update(schema.projectTeamMember)
+      .set({ endedOn: new Date().toISOString().slice(0, 10) })
+      .where(eq(schema.projectTeamMember.id, row!.id));
+  });
+
+  it("a role with no claim grant cannot claim, before or after finishing", async () => {
+    /* The guard the previous version of the test above was protecting. `hrUser`
+       holds a role with an empty `claimTierNames`, so no amount of finishing or
+       reopening hands it a way onto a job. */
+    const hr = caller(hrUser, leadId, ["employee.read"]);
+    expect((await hr.onboarding.state()).canClaim).toBe(false);
+    await expect(
+      hr.onboarding.claimProject({ projectId: otherProject, tier: "superintendent" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
   it("a configured assignment permission still requires the caller's project", async () => {
     await expect(lead().projectTeam.assign({ projectId: otherProject, employeeId: childId, role: "foreman" })).rejects.toMatchObject({ code: "FORBIDDEN" });

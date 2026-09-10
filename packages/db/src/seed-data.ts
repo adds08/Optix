@@ -120,6 +120,17 @@ export type RoleSeed = {
   /* Reaches every tenant. Only `tech_admin`. Nothing reads it yet — see the
      column comment. */
   isCrossTenant?: boolean;
+  /*
+    JOB TIERS this role may put ITSELF into, on a project of its own choosing.
+    Empty (the default) means no self-claiming — see `role.claimTierNames`.
+
+    Only the two leadership roles carry one, and that is the bootstrap: an
+    empty tenant has nobody on any job, so no tier-on-a-project exists for
+    `assertCanAssign` to read, so nobody can be placed by anybody. One role
+    able to place ITSELF is what breaks the circle; everyone below is then
+    placed through the ordinary "Set by" chain.
+  */
+  claimTierNames?: string[];
   isSystem: boolean;
 };
 
@@ -133,6 +144,12 @@ export const roleSpecs: RoleSeed[] = [
   { name: "office_admin", description: "Business records and accounts. Not custody, and not platform configuration.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
   { name: "warehouse", description: "The yard desk. Issues and receives tools, and runs departures operationally.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
   { name: "procurement", description: "Buys equipment and materials. Reads the register, does not move custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  /* The two leadership roles, and the only two seeded with `claimTierNames`.
+     They pick the jobs they run; everybody below them is placed by somebody
+     above through "Set by". The tier names must exist in `teamRoleSpecs`. */
+  { name: "director", description: "Leads the business unit. Claims the jobs they run, then staffs them.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", claimTierNames: ["director"], isSystem: true },
+  { name: "area_in_charge", description: "Runs an area's jobs. Claims their own, and places PMs and superintendents on them.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", claimTierNames: ["area_in_charge"], isSystem: true },
+  { name: "general_superintendent", description: "Runs an area's superintendents. Claims their own jobs, and staffs PMs and superintendents onto them.", needsLogin: true, canHoldCustody: true, usesFieldLayout: false, onboardingKind: "equipment", claimTierNames: ["general_superintendent"], isSystem: true },
   { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
   { name: "engineer", description: "Runs work on a job. Same reach as a project manager where tools are concerned.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
   { name: "superintendent", description: "Runs several crews, and holds tools directly when a job has no foreman yet.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
@@ -242,14 +259,21 @@ export type TeamRoleSeed = {
   not a fixed vocabulary. The next customer's chain will not be this one.
 */
 export const teamRoleSpecs: TeamRoleSeed[] = [
-  /* Nobody fills the top two from inside a job — that is `project.team.assign`,
-     the desk's tenant-wide grant. */
+  /* THE TOP OF THE CHAIN, and the only tier nobody can be placed into: a
+     director puts themselves on a job by claiming it. */
   { name: "director", label: "Director", canHoldCustody: false, reportsTo: null, setBy: [] },
-  { name: "area_in_charge", label: "Area In-charge", canHoldCustody: false, reportsTo: "director", setBy: [] },
-  /* The area in-charge staffs the three tiers below them — the client's own
-     words: "no area-incharge assigns pm and superintendents". */
-  { name: "general_superintendent", label: "General Superintendent", canHoldCustody: true, reportsTo: "area_in_charge", setBy: ["area_in_charge"] },
-  { name: "pm", label: "Project Manager", canHoldCustody: false, reportsTo: "area_in_charge", setBy: ["area_in_charge"] },
+  /* A director staffs the two tiers directly beneath them — the client's own
+     words on 2026-09-10: "directors assigns general superintendents (gsupers)
+     & area-incharge". An area in-charge can also arrive by claiming, which is
+     why the tier carries a claim grant as well as a `setBy` list; the two are
+     different routes onto a job and both are wanted. */
+  { name: "area_in_charge", label: "Area In-charge", canHoldCustody: false, reportsTo: "director", setBy: ["director"] },
+  /* "area-incharge or gsupers assigns pm and superintendent" — so a general
+     superintendent is placed by a director or an area in-charge, and may then
+     staff the tiers below. It also claims, because a job may have a general
+     superintendent running it with no area in-charge above them on that job. */
+  { name: "general_superintendent", label: "General Superintendent", canHoldCustody: true, reportsTo: "area_in_charge", setBy: ["director", "area_in_charge"] },
+  { name: "pm", label: "Project Manager", canHoldCustody: false, reportsTo: "area_in_charge", setBy: ["area_in_charge", "general_superintendent"] },
   { name: "superintendent", label: "Superintendent", canHoldCustody: true, reportsTo: "area_in_charge", setBy: ["area_in_charge", "general_superintendent"] },
   /* The bottom row is filled by whoever runs the job. The PM is included
      alongside the superintendent because a job flatter than the ladder — no

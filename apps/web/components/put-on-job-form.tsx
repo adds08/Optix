@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { projectHint } from "@/lib/format";
 
 /*
   Put a person on a job, in a NAMED TIER — the seating path the product did not
@@ -113,7 +114,7 @@ export function PutOnJobForm({
               options={(projects.data ?? []).map((p) => ({
                 value: p.id,
                 label: p.name,
-                hint: p.externalId ?? undefined,
+                hint: projectHint(p),
               }))}
             />
           </div>

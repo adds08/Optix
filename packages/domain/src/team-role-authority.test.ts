@@ -71,3 +71,102 @@ describe("canAssignIntoTier", () => {
     ).toBe(false);
   });
 });
+
+/*
+  PATH 4 — a tier may be set by everyone ABOVE it on the ladder.
+
+  Urban's ladder, which every case below is drawn from:
+
+    Director
+      └─ Area In-charge
+           ├─ General Superintendent   (nothing reports to it)
+           ├─ Project Manager
+           └─ Superintendent
+                └─ Foreman, Field Engineer, Project Engineer
+
+  and Urban's "Set by": Foreman is set by Superintendent, PM and General
+  Superintendent; PM and Superintendent by Area In-charge and GSuper; GSuper by
+  Director and Area In-charge.
+*/
+describe("canAssignIntoTier — path 4, the ladder", () => {
+  const foremanAncestors = new Set(["superintendent", "area_in_charge", "director"]);
+  const foremanSetBy = new Set(["superintendent", "pm", "general_superintendent"]);
+
+  it("lets a Director set a Foreman, which 'Set by' alone refused", () => {
+    /* The reported bug: Director is not in Foreman's "Set by" list, so the tier
+       was withheld from a person every tier between them answers to. */
+    expect(
+      canAssignIntoTier({
+        ...base,
+        callerTierNamesOnThisProject: new Set(["director"]),
+        targetAssignerTierNames: foremanSetBy,
+        targetAncestorTierNames: foremanAncestors,
+      }),
+    ).toBe(true);
+  });
+
+  it("still refuses a Superintendent setting a PM — the property that keeps this a hierarchy", () => {
+    /* A Superintendent is neither above a PM on the ladder nor in the PM
+       tier's "Set by". If this ever returns true the change has become a
+       free-for-all. */
+    expect(
+      canAssignIntoTier({
+        ...base,
+        callerTierNamesOnThisProject: new Set(["superintendent"]),
+        targetAssignerTierNames: new Set(["area_in_charge", "general_superintendent"]),
+        targetAncestorTierNames: new Set(["area_in_charge", "director"]),
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps a General Superintendent's authority, which ancestry alone would have destroyed", () => {
+    /* The case that forced a UNION rather than a replacement: NOTHING reports
+       to General Superintendent on the ladder, so it is nobody's ancestor. Its
+       authority over Foreman exists only in "Set by", and path 3 must still
+       carry it. */
+    expect(
+      canAssignIntoTier({
+        ...base,
+        callerTierNamesOnThisProject: new Set(["general_superintendent"]),
+        targetAssignerTierNames: foremanSetBy,
+        targetAncestorTierNames: foremanAncestors,
+      }),
+    ).toBe(true);
+  });
+
+  it("is absent-safe: no ancestor set behaves exactly as before", () => {
+    /* Every pre-existing caller omits the field, and must keep its old answer
+       until it is wired up. */
+    expect(
+      canAssignIntoTier({
+        ...base,
+        callerTierNamesOnThisProject: new Set(["director"]),
+        targetAssignerTierNames: foremanSetBy,
+      }),
+    ).toBe(false);
+  });
+
+  it("an empty ancestor set refuses, the same way an empty assigner list does", () => {
+    expect(
+      canAssignIntoTier({
+        ...base,
+        callerTierNamesOnThisProject: new Set(["director"]),
+        targetAssignerTierNames: new Set(),
+        targetAncestorTierNames: new Set(),
+      }),
+    ).toBe(false);
+  });
+
+  it("does not let a tier set ITSELF — a Foreman is not above a Foreman", () => {
+    /* `tiersAbove` excludes the tier it starts from, and this pins that: two
+       foremen on a job must not be able to place each other. */
+    expect(
+      canAssignIntoTier({
+        ...base,
+        callerTierNamesOnThisProject: new Set(["foreman"]),
+        targetAssignerTierNames: foremanSetBy,
+        targetAncestorTierNames: foremanAncestors,
+      }),
+    ).toBe(false);
+  });
+});

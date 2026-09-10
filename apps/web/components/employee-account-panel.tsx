@@ -62,7 +62,7 @@ export function EmployeeAccountPanel({ person }: { person: { id: string; name: s
         </>}
       </div>
     </>}
-    {invite && <InviteDialog person={person} open onClose={() => { setInvite(false); void refresh(); }} />}
+    {invite && <InviteDialog person={{ ...person, jobTitle: query.data?.jobTitle ?? null }} open onClose={() => { setInvite(false); void refresh(); }} />}
     <Dialog open={!!action} onOpenChange={open => { if (!open) { setAction(null); setPassword(""); } }}><DialogContent><DialogHeader><DialogTitle>{action === "password" ? "Set a temporary password" : action === "complete" ? "Mark setup done" : "Re-onboard"}</DialogTitle></DialogHeader>
       {action === "password" ? <label className="space-y-2 text-sm">Temporary password<Input type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave blank to generate one" /><p className="text-muted-foreground">At least 10 characters. The employee must replace it at sign-in. This also activates an unopened invitation and signs out existing sessions.</p></label> : <label className="space-y-2 text-sm">Reason<Input value={reason} onChange={e => setReason(e.target.value)} /><p className="text-muted-foreground">Assignments and history stay intact. Project claiming remains closed.</p></label>}
       {error && <ErrorNote message={error} />}<DialogFooter><Button variant="outline" onClick={() => setAction(null)}>Cancel</Button><Button disabled={reset.isPending || setup.isPending || (action === "password" ? !!password && password.length < 10 : !reason.trim())} onClick={submit}>Save</Button></DialogFooter>

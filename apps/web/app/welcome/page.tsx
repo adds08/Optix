@@ -230,8 +230,8 @@ export default function WelcomePage() {
           </div>
         </div>
       ) : (
-      <div className="flex h-full min-h-0 flex-col">
-        {/*
+        <div className="flex h-full min-h-0 flex-col">
+          {/*
           The header CARRIES THE GREETING ON STEP ONE AND THEN GETS OUT OF THE
           WAY. It used to be 215px of a 900px viewport — lockup, greeting, a
           two-line paragraph and the rail — identical on all five steps, so by
@@ -244,63 +244,77 @@ export default function WelcomePage() {
           if the eye can follow it. `overflow-hidden` on the animating element
           is what stops the greeting spilling past the border while it goes.
         */}
-        <motion.header
-          className="overflow-hidden border-b bg-muted/30"
-          initial={false}
-          animate={{ height: "auto" }}
-          transition={reduced ? { duration: 0 } : { duration: DUR.base, ease: EASE.out }}
-        >
-          <div className={cn("mx-auto flex w-full flex-col gap-5 px-6 py-5 transition-[max-width] duration-300 sm:px-10", STEP_WIDTH[stepKey] ?? "max-w-2xl")}>
-          <motion.div {...rise(0)} className="flex items-center justify-between gap-4">
-            <OptixLockup />
-            {/*
+          <motion.header
+            className="overflow-hidden border-b bg-muted/30"
+            initial={false}
+            animate={{ height: "auto" }}
+            transition={reduced ? { duration: 0 } : { duration: DUR.base, ease: EASE.out }}
+          >
+            {/* py-6 like the header above and the content below, not py-5. Four
+              bands stacked with py-6 / py-5 / py-6 / py-4 read as a drifting
+              rhythm rather than a scale — the eye catches the odd one out even
+              when it cannot name it. One value, and the footer keeps its
+              tighter py-4 because a button row genuinely is a shorter band. */}
+            <div className={cn("mx-auto flex w-full flex-col gap-5 px-2 py-6 transition-[max-width] duration-300", STEP_WIDTH[stepKey] ?? "max-w-2xl")}>
+              <motion.div {...rise(0)} className="flex items-center justify-between gap-4">
+                {/* The tenant's mark beside the product's, the same pairing the
+                login page and the app shell already use — somebody setting up
+                on `urban.optixtec.com` sees their own company first. Hardcoded
+                for the one tenant; see the note on the login page for what the
+                real multi-tenant version needs. */}
+                <div className="flex min-w-0 items-center gap-3">
+                  <img src="/assets/urban_logo.svg" alt="" className="h-7 w-auto shrink-0" />
+                  <span aria-hidden className="h-6 w-px shrink-0 bg-border" />
+                  <OptixLockup />
+                </div>
+                {/*
               Dismissing is a first-class action and belongs at the top, beside
               the mark, not hidden at the end of a five-step form. The gate
               fires once either way — see the app shell — so somebody with
               nothing to add says so and is never asked again.
             */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => { clearSession(); router.replace("/"); }}
-              disabled={complete.isPending}
-            >
-              Save and sign out
-            </Button>
-          </motion.div>
-
-          <AnimatePresence initial={false}>
-            {index === 0 && (
-              <motion.div
-                key="greeting"
-                initial={reduced ? false : { opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={reduced ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                transition={reduced ? { duration: 0 } : { duration: DUR.base, ease: EASE.out }}
-                className="flex flex-col gap-1.5 overflow-hidden"
-              >
-                <h1 className="font-display text-[1.75rem] font-bold leading-[1.1] tracking-tight">
-                  {firstName ? `Let's get you set up, ${firstName}` : "Let's get you set up"}
-                </h1>
-                <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
-                  A few questions about the work you run. You can leave and come back — nothing
-                  here is locked in.
-                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => { clearSession(); router.replace("/"); }}
+                  disabled={complete.isPending}
+                >
+                  Save and sign out
+                </Button>
               </motion.div>
-            )}
-          </AnimatePresence>
 
-          <motion.div {...rise(2)}>
-            <StepRail
-              steps={steps.map((k) => ({ key: k, label: STEP_LABELS[k] ?? k }))}
-              activeIndex={index}
-            />
-          </motion.div>
-          </div>
-        </motion.header>
+              <AnimatePresence initial={false}>
+                {(
+                  <motion.div
+                    key="greeting"
+                    initial={reduced ? false : { opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={reduced ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                    transition={reduced ? { duration: 0 } : { duration: DUR.base, ease: EASE.out }}
+                    className="flex flex-col gap-1.5 overflow-hidden"
+                  >
+                    <h1 className="font-display text-[1.75rem] font-bold leading-[1.1] tracking-tight">
+                      {firstName ? `Let's get you set up, ${firstName}` : "Let's get you set up"}
+                    </h1>
+                    <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
+                      A few questions about the work you run. You can leave and come back — nothing
+                      here is locked in.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-        {/*
+              <motion.div {...rise(2)}>
+                <StepRail
+                  steps={steps.map((k) => ({ key: k, label: STEP_LABELS[k] ?? k }))}
+                  activeIndex={index}
+                />
+              </motion.div>
+            </div>
+          </motion.header>
+
+          {/*
           `justify-center` plus `my-auto` on the block is what fixed the worst
           fault on this screen: the step was top-aligned in a fixed-height
           area, so step five — one sentence — left roughly 500px of empty
@@ -318,24 +332,32 @@ export default function WelcomePage() {
           centring when there is room and collapses to nothing when there is
           not, which is the whole trick.
         */}
-        <div className="sti-scroll flex min-h-0 flex-1 flex-col px-6 py-6 sm:px-10">
-          <motion.div
-            {...rise(3)}
-            className={cn(
-              "mx-auto my-auto flex w-full flex-col gap-4 transition-[max-width] duration-300",
-              STEP_WIDTH[stepKey] ?? "max-w-2xl",
-            )}
-          >
-            <div className="flex flex-col gap-1">
-              <h2 className="font-display text-xl font-bold tracking-tight">{STEP_LABELS[stepKey]}</h2>
+          <div className="sti-scroll flex min-h-0 flex-1 flex-col px-6 py-6 sm:px-10">
+            <motion.div
+              {...rise(3)}
+              className={cn(
+                "mx-auto flex w-full flex-col gap-4 transition-[max-width] duration-300",
+                STEP_WIDTH[stepKey] ?? "max-w-2xl",
+              )}
+            >
+              {/*
+              NO STEP HEADING HERE.
+
+              The progress rail above already names the step — "Your crew" was
+              rendered twice, a few centimetres apart, and the second one bought
+              nothing but height on a screen that is mostly a form.
+
+              The blurb stays: it explains what to DO, which the rail's label
+              cannot. Kept at the same width as the card below it so the column
+              has one left edge.
+            */}
               <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
                 {STEP_BLURB[stepKey]}
               </p>
-            </div>
 
-            {error && <ErrorNote message={error} />}
+              {error && <ErrorNote message={error} />}
 
-            {/* ONE level of elevation, spent here. Everything on this screen
+              {/* ONE level of elevation, spent here. Everything on this screen
                 sat on the page background behind a hairline, so nothing was
                 foreground and the step read as a wall. The card lifts the
                 thing being asked about; the header and footer stay on the
@@ -345,52 +367,52 @@ export default function WelcomePage() {
                 container is already the surface, and wrapping it in a second
                 one boxed a map inside a box and spent 40px of the width it
                 most wanted on a frame nobody needed to see. */}
-            <div
-              className={cn(
-                stepKey !== "location" && "rounded-lg border bg-card p-4 shadow-sm sm:p-5",
-              )}
-            >
-              <StepShell stepKey={stepKey} direction={direction}>
-                {stepKey === "projects" && <JobsStep />}
-                {stepKey === "details" && <DetailsStep />}
-                {stepKey === "location" && <LocationStep />}
-                {stepKey === "crew" && <ProjectTeamsPanel onboarding />}
-                {stepKey === "invite" && <InviteStep />}
-                {stepKey === "review" && <div className="space-y-4"><h3 className="font-medium">Welcome, {firstName}</h3><p className="text-sm text-muted-foreground">{state.data?.onboardingKind === "people" ? "Your workspace is for people and employee records. Project and tool setup is not required." : state.data?.onboardingKind === "equipment" ? "Your saved projects and reporting branch are shared with your manager. Missing assignments can be completed by your manager after you finish." : "Your administrator has configured the screens and actions available to you."}</p><p className="text-sm">Imported HR details are maintained in BambooHR. Ask HR to correct your job title or department; ask your manager about project responsibilities.</p><label className="flex items-start gap-3 rounded-md border p-3 text-sm"><input className="mt-1" type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} />I have reviewed my setup and understand that my manager maintains my project access after onboarding.</label></div>}
-              </StepShell>
-            </div>
-          </motion.div>
-        </div>
-
-        <footer className="border-t px-6 py-4 sm:px-10">
-          <div className={cn("mx-auto flex w-full items-center justify-between gap-3 transition-[max-width] duration-300", STEP_WIDTH[stepKey] ?? "max-w-2xl")}>
-          <Button variant="ghost" size="sm" onClick={() => go(index - 1)} disabled={index === 0}>
-            <ArrowLeft className="mr-1.5 size-4" />
-            Back
-          </Button>
-
-          <span className="text-xs tabular-nums text-muted-foreground">
-            Step {index + 1} of {steps.length}
-          </span>
-
-          {isLast ? (
-            <Button size="sm" onClick={() => complete.mutate({ dismissed: false, acknowledged })} disabled={complete.isPending || !acknowledged}>
-              {complete.isPending ? (
-                <Loader2 className="mr-1.5 size-4 animate-spin" />
-              ) : (
-                <Check className="mr-1.5 size-4" />
-              )}
-              Finish setup
-            </Button>
-          ) : (
-            <Button size="sm" onClick={() => go(index + 1)}>
-              Continue
-              <ArrowRight className="ml-1.5 size-4" />
-            </Button>
-          )}
+              <div
+                className={cn(
+                  stepKey !== "location" && "rounded-lg bg-card p-2 shadow-sm sm:p-4",
+                )}
+              >
+                <StepShell stepKey={stepKey} direction={direction}>
+                  {stepKey === "projects" && <JobsStep />}
+                  {stepKey === "details" && <DetailsStep />}
+                  {stepKey === "location" && <LocationStep />}
+                  {stepKey === "crew" && <ProjectTeamsPanel onboarding />}
+                  {stepKey === "invite" && <InviteStep />}
+                  {stepKey === "review" && <div className="space-y-4"><h3 className="font-medium">Welcome, {firstName}</h3><p className="text-sm text-muted-foreground">{state.data?.onboardingKind === "people" ? "Your workspace is for people and employee records. Project and tool setup is not required." : state.data?.onboardingKind === "equipment" ? "Your saved projects and reporting branch are shared with your manager. Missing assignments can be completed by your manager after you finish." : "Your administrator has configured the screens and actions available to you."}</p><p className="text-sm">Imported HR details are maintained in BambooHR. Ask HR to correct your job title or department; ask your manager about project responsibilities.</p><label className="flex items-start gap-3 rounded-md border p-3 text-sm"><input className="mt-1" type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} />I have reviewed my setup and understand that my manager maintains my project access after onboarding.</label></div>}
+                </StepShell>
+              </div>
+            </motion.div>
           </div>
-        </footer>
-      </div>
+
+          <footer className="border-t px-6 py-4 sm:px-10">
+            <div className={cn("mx-auto flex w-full items-center justify-between gap-3 transition-[max-width] duration-300", STEP_WIDTH[stepKey] ?? "max-w-2xl")}>
+              <Button variant="ghost" size="sm" onClick={() => go(index - 1)} disabled={index === 0}>
+                <ArrowLeft className="mr-1.5 size-4" />
+                Back
+              </Button>
+
+              <span className="text-xs tabular-nums text-muted-foreground">
+                Step {index + 1} of {steps.length}
+              </span>
+
+              {isLast ? (
+                <Button size="sm" onClick={() => complete.mutate({ dismissed: false, acknowledged })} disabled={complete.isPending || !acknowledged}>
+                  {complete.isPending ? (
+                    <Loader2 className="mr-1.5 size-4 animate-spin" />
+                  ) : (
+                    <Check className="mr-1.5 size-4" />
+                  )}
+                  Finish setup
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => go(index + 1)}>
+                  Continue
+                  <ArrowRight className="ml-1.5 size-4" />
+                </Button>
+              )}
+            </div>
+          </footer>
+        </div>
       )}
     </main>
   );

@@ -78,6 +78,34 @@ export const ROLES = [
   "office_admin",
   "warehouse",
   "procurement",
+  /*
+    THE LEADERSHIP ROLES, added 2026-09-10.
+
+    Urban's chain is director → area in-charge → PM & general superintendent →
+    superintendent → foreman, and the login list stopped at `project_manager`.
+    So the people the client actually wanted to invite first — three Project
+    Directors, an Area Manager, an Area Superintendent — had no login role to
+    receive, and inviting one produced an account holding nothing.
+
+    They exist here because they are the only roles that may put themselves on
+    a job (`role.claimTierNames`, seeded in `seed.ts`). Everybody below them is
+    placed by somebody above through the "Set by" chain, so nobody else needs a
+    self-claim grant and none is given one. That is the whole bootstrap: without
+    a role that can claim, an empty tenant has no way to record its first roster
+    row and every user lands on a dead-end wizard.
+
+    NOT the same axis as the JOB TIER of the same name
+    (`tbl_entity_team_role`). This is what an account may DO; the tier is what
+    a person IS on one project, and the two are allowed to disagree — see the
+    header on `apps/web/app/(app)/settings/team-roles/page.tsx`.
+  */
+  "director",
+  "area_in_charge",
+  /* Claims too, because a job may be run by a general superintendent with no
+     area in-charge above them ON THAT JOB. The client's chain on 2026-09-10 put
+     all three of director, area in-charge and general superintendent at the
+     point where somebody picks the jobs they run. */
+  "general_superintendent",
   "project_manager",
   /* Runs work on a project rather than owning it commercially. Identical to
      `project_manager` where small tools are concerned, and seeded from the

@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { personHint, projectHint } from "@/lib/format";
 
 export type LocationEditable = {
   id: string;
@@ -105,7 +106,7 @@ export function LocationForm({ open, onClose, edit }: Props) {
               placeholder="None"
               searchPlaceholder="Project name or code"
               emptyLabel="No job matches."
-              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: projectHint(p) }))}
             />
           </div>
           {/* A container someone carries; a yard nobody does. Leaving this blank
@@ -118,7 +119,7 @@ export function LocationForm({ open, onClose, edit }: Props) {
               placeholder="Nobody carries it"
               searchPlaceholder="Name or employee number"
               emptyLabel="Nobody matches."
-              options={(employees.data ?? []).map((e) => ({ value: e.id, label: e.name, hint: e.externalId ?? undefined }))}
+              options={(employees.data ?? []).map((e) => ({ value: e.id, label: e.name, hint: personHint(e) }))}
             />
           </div>
           {result && <p className="text-sm text-destructive">{result}</p>}

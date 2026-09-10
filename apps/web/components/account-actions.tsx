@@ -6,6 +6,13 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EntityField } from "@/components/ui/entity-picker";
+/* The SUBPATH, not the barrel: `@stinventory/domain` re-exports
+   bamboohr.ts and friends, which Next cannot resolve from the web bundle.
+   Every other web consumer of this package imports a subpath for the same
+   reason — see org-chart/page.tsx and project-teams-panel.tsx. */
+import { suggestRoleId } from "@stinventory/domain/role-suggestion";
+import { humanizeRole } from "@/lib/format";
 import { ErrorNote } from "@/components/sti/page";
 
 /*
@@ -31,6 +38,8 @@ type Person = {
   email?: string | null;
   roleId?: string | null;
   userId?: string | null;
+  /* HR's job title, used ONLY to pre-select the role below. */
+  jobTitle?: string | null;
 };
 
 /* "Dwayne Miller" -> first "Dwayne", last "Miller". A single-word name gets the
@@ -52,6 +61,32 @@ export function InviteDialog({ person, open, onClose }: { person: Person; open: 
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
 
+  /*
+    THE ROLE THIS ACCOUNT WILL HOLD.
+
+    This dialog used to send `person.roleId` with no control at all, on the
+    reasoning that the role lives on the PERSON and the account inherits it.
+    That is still true and the person's role still wins when it is set — but on
+    a register synced from BambooHR nobody has one: 1,851 people carry a job
+    title and none carries a login role, so inviting anybody produced an account
+    holding no permissions, which is a support ticket rather than an invitation.
+
+    So the control is here, pre-filled and always overridable. The suggestion
+    comes from the HR job title (`suggestRoleId`, packages/domain) and is
+    exactly that — a suggestion. An unrecognised title (`Carpenter`, `Curb Man`,
+    and the ~50 titles held by one person each) simply leaves it unset, which is
+    the honest answer and the state this dialog was already in.
+  */
+  const roleOptions = trpc.role.options.useQuery();
+  const [roleId, setRoleId] = useState<string>("");
+  const [roleTouched, setRoleTouched] = useState(false);
+  const suggestedRoleId = suggestRoleId(person.jobTitle, roleOptions.data ?? []);
+  /* Applied while the person has not chosen: `role.options` resolves after
+     first paint, so seeding state once on mount would always seed it empty.
+     `roleTouched` is what stops a late-arriving suggestion overwriting a
+     deliberate choice. */
+  const effectiveRoleId = roleTouched ? roleId : (roleId || person.roleId || suggestedRoleId || "");
+
   const submit = async () => {
     setSending(true);
     setError(null);
@@ -60,10 +95,12 @@ export function InviteDialog({ person, open, onClose }: { person: Person; open: 
         email: email.trim(),
         firstName,
         lastName,
-        /* The person's role, not a second choice. The whole point of the role
-           living on the PERSON is that the account inherits it — offering a
-           different one here would recreate the two-role split this replaced. */
-        roleId: person.roleId ?? undefined,
+        /* What the picker below resolved to: the person's own role when they
+           have one, otherwise the suggestion from their job title, otherwise
+           whatever was chosen here. Still ONE role for the person and the
+           account — this does not reintroduce the two-role split, it just stops
+           the field being silently empty on a synced register. */
+        roleId: effectiveRoleId || undefined,
         employeeId: person.id,
       });
       utils.employee.list.invalidate();
@@ -120,6 +157,28 @@ export function InviteDialog({ person, open, onClose }: { person: Person; open: 
               <label className="text-sm font-medium">Last name</label>
               <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Access role</label>
+            <EntityField
+              value={effectiveRoleId}
+              onChange={(v) => { setRoleTouched(true); setRoleId(v); }}
+              options={(roleOptions.data ?? []).map((r) => ({ value: r.id, label: humanizeRole(r.name) }))}
+              placeholder="Choose a role"
+              searchPlaceholder="Search roles"
+              emptyLabel="No roles"
+            />
+            {/* Naming the title the suggestion came FROM, rather than just
+                pre-selecting silently: an inviter who can see "suggested from
+                Project Director" can tell a good guess from a wrong one, and
+                the wrong ones are the whole reason this stays overridable. */}
+            <p className="text-xs text-muted-foreground">
+              {person.jobTitle && !roleTouched && !person.roleId && suggestedRoleId
+                ? `Suggested from their job title, ${person.jobTitle}. Change it if that is not right.`
+                : person.jobTitle
+                  ? `What this account may see and do. Their job title is ${person.jobTitle}.`
+                  : "What this account may see and do."}
+            </p>
           </div>
           {error ? <ErrorNote message={error} /> : null}
         </div>

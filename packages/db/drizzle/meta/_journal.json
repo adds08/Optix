@@ -414,6 +414,34 @@
       "when": 1788977125568,
       "tag": "0059_real_the_watchers",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1788977126568,
+      "tag": "0060_leadership_roles_that_can_claim",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1788977127568,
+      "tag": "0061_general_superintendent_and_the_chain",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1788977128568,
+      "tag": "0062_restriction_cascades",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1788977129568,
+      "tag": "0063_narrow_leadership_scope",
+      "breakpoints": true
     }
   ]
 }

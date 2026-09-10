@@ -33,6 +33,10 @@ export type NodeState = {
   /* How many CURRENT rows each employee holds, for the "also on N other jobs"
      chip. Counted across the whole chart, not the filtered view. */
   instanceCount: Map<string, number>;
+  /* Name for a SYNTHETIC node — somebody the rows point at who holds no roster
+     row of their own. Without it the card rendered "Unknown", which reads as
+     corrupt data rather than "their boss is not on this job". */
+  refName: (employeeId: string) => string | undefined;
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -72,10 +76,10 @@ function Card({ node, state }: { node: OrgNode<ChartMember>; state: NodeState })
             className="block truncate text-sm font-medium hover:underline"
             title={m?.name ?? node.employeeId}
           >
-            {m?.name ?? "Unknown"}
+            {m?.name ?? state.refName(employeeId) ?? "Not recorded"}
           </button>
           <p className="truncate text-xs text-muted-foreground">
-            {m ? roleLabel(m.role) : "Not on a job"}
+            {m ? roleLabel(m.role) : "Manager · not on this job"}
             {m?.externalId ? ` · ${m.externalId}` : ""}
           </p>
         </div>
@@ -86,10 +90,14 @@ function Card({ node, state }: { node: OrgNode<ChartMember>; state: NodeState })
           {m.projectName}
         </p>
       ) : (
-        /* A synthetic node: somebody every job points at who holds no roster
-           row of their own. Saying so is better than an empty line, which reads
-           as missing data. */
-        <p className="mt-2 text-[11px] italic text-muted-foreground">Above every job below</p>
+        /* A synthetic node: somebody the rows below point at as their manager,
+           who holds no roster row of their own on any job in view. Naming that
+           plainly beats an empty line, which reads as missing data — and beats
+           the old "Above every job below", which described the node's POSITION
+           rather than saying what it is. */
+        <p className="mt-2 text-[11px] italic text-muted-foreground">
+          Their manager, not assigned to a job here
+        </p>
       )}
 
       {others > 0 && (

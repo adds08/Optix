@@ -8,6 +8,7 @@ import { CategorySelect } from "@/components/category-select";
 import { PhotoUpload } from "@/components/photo-upload";
 import { EntityField } from "@/components/ui/entity-picker";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { projectHint } from "@/lib/format";
 
 /*
   One dialog for both jobs.
@@ -230,7 +231,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
                 placeholder="Select..."
                 searchPlaceholder="Project name or code"
                 emptyLabel="No job matches."
-                options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+                options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: projectHint(p) }))}
               />
             ) : (
               <EntityField

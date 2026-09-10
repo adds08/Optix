@@ -346,6 +346,7 @@ export default function OrgChartPage() {
     focusKey,
     onPick: jumpTo,
     instanceCount,
+    refName: (id: string) => refNames.get(id),
   };
 
   return (

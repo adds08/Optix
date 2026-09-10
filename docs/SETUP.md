@@ -14,18 +14,38 @@ make ENV=local up              # builds + starts postgres, api, web
 make seed-demo                 # demo fixture — one account per permission tier
 ```
 
-**Two datasets, and which one you want depends on what you are doing.**
+**Three datasets, and which one you want depends on what you are doing.**
 
 ```bash
 make seed-demo    # the FIXTURE: synthetic people, one account per role
 make seed-urban   # Urban's REAL register: 83 people, 753 tools, 20 jobs, 2 admins
+make seed-bare    # EMPTY: one owner login, no people or tools at all
 ```
 
-Both wipe first. Use `seed-demo` **before running the test suite** —
+All three wipe first. Use `seed-demo` **before running the test suite** —
 `rbac-matrix.test.ts` drives the visibility ladder through the fixture's
 synthetic accounts and fails against real data, by design (see
 `.claude/rules/database.md`). Use `seed-urban` to look at the product with real
 data in it.
+
+Use `seed-bare` when **BambooHR is the source of the roster**. It seeds the
+vocabularies, the permission matrix and one owner login, and nothing else — the
+People register then fills from the sync and from nothing else, which is the
+whole point.
+
+That login is **`optix_it@optixtec.com`**, holding `owner` — the same address
+the urban dataset seeds, deliberately, so the administrator has one spelling
+whichever seed ran. It holds every permission, including `config.manage`, and
+has **no employee record**: an administrator is not somebody who holds tools,
+and BambooHR has no reason to know about them. `user.employee_id` is nullable
+and every employeeId-scoped query has a second branch for exactly this. Every register renders its empty state until you import assets;
+that is not a broken seed. The owner password comes from `SEED_OWNER_PASSWORD`
+or is generated and printed once, the same rule `seed-urban` follows.
+
+Note that `make up` also seeds on first boot, and honours `SEED_DATASET` — so a
+machine deliberately running bare or urban keeps it across a fresh volume rather
+than silently getting the demo fixture back. It is idempotent either way: the
+seed skips when a tenant already exists, so it never overwrites real data.
 
 `SEED_RESET=1 make seed` used to seed nothing at all: `docker compose exec` does
 not inherit the caller's environment, so the variable never arrived and the seed

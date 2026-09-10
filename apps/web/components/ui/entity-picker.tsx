@@ -77,7 +77,22 @@ export function EntityPicker({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    /*
+      `modal` so the LIST SCROLLS INSIDE A DIALOG.
+
+      Radix's Dialog is modal: it locks body scroll and discards wheel events
+      that land outside its own content. This popover renders in a portal, so
+      the person picker inside "Add a person" counted as outside — the list
+      had `max-height: 300px` over 13,064px of options and a real mouse wheel
+      moved it by zero, while setting `scrollTop` in script worked fine. That
+      combination is exactly what "the dropdown does not scroll" looks like,
+      and it is why the list appeared frozen rather than short.
+
+      A modal popover registers its own scroll-lock scope, so the wheel reaches
+      the list. Harmless outside a dialog — it only adds an outside-click
+      guard the picker already wanted.
+    */
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent align={align} className={cn("w-72 p-0", contentClassName)}>
         <Command

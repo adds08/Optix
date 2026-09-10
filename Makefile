@@ -56,7 +56,12 @@ help: ## Show this help
 
 up: ## Build + start postgres, api, web, mailpit (detached); seeds on first boot
 	$(COMPOSE) up -d --build
-	@$(COMPOSE) exec -T api sh -c "cd /workspace/packages/db && pnpm seed" >/dev/null 2>&1 || true
+# Honours SEED_DATASET, from the environment or .env.local — without it this
+# line always loaded the DEMO FIXTURE, so a machine deliberately running the
+# bare or urban dataset got forty-six invented people back the next time
+# somebody brought the stack up on a fresh volume. Idempotent either way: the
+# seed skips when a tenant already exists, so this never overwrites real data.
+	@$(COMPOSE) exec -T -e SEED_DATASET="$(SEED_DATASET)" api sh -c "cd /workspace/packages/db && pnpm seed" >/dev/null 2>&1 || true
 	@echo ""
 	@echo "  api      → http://localhost:4100  (health: /health)"
 	@echo "  web      → http://localhost:3100  (Next.js - shadcn new-york)"
@@ -98,6 +103,24 @@ seed-urban: ## Wipe and load Urban's REAL register (83 people, 753 tools). Local
 		-e SEED_OWNER_PASSWORD="$(or $(SEED_OWNER_PASSWORD),stinventory-demo)" \
 		api sh -c "cd /workspace/packages/db && pnpm seed"
 
+seed-bare: ## Wipe and seed an EMPTY tenant — one owner, no people. For a real BambooHR sync.
+	@echo "This WIPES the local database and seeds a tenant with NO people,"
+	@echo "tools or jobs — just the vocabularies, the permission matrix and one"
+	@echo "owner login. The People register then fills from BambooHR and from"
+	@echo "nothing else, which is the point."
+	@echo ""
+	@echo "The owner password is SEED_OWNER_PASSWORD, or generated and printed"
+	@echo "ONCE below. Save it — it is not stored anywhere."
+	@echo ""
+	$(COMPOSE) exec -e SEED_RESET=1 -e SEED_DATASET=bare \
+		-e SEED_OWNER_PASSWORD="$(SEED_OWNER_PASSWORD)" \
+		api sh -c "cd /workspace/packages/db && pnpm seed"
+
+# Distinct from `seed-bare` above, and the difference matters: this one EMPTIES
+# an existing database with SQL and re-seeds nothing, keeping whatever logins
+# are already there. `seed-bare` rebuilds a tenant from scratch. Reach for this
+# when you want to keep the accounts you have; reach for that when you want a
+# clean tenant.
 reset-bare: ## Empty the register (no employees/tools/jobs), KEEP the logins
 	@echo "This DELETES every employee, tool, job, vehicle, custody and ledger row."
 	@echo "It KEEPS the tenant, permissions, roles, settings and both logins:"

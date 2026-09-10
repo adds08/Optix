@@ -162,6 +162,46 @@ async function assignerTierNamesFor(db: any, teamRoleId: string): Promise<Readon
 }
 
 /*
+  The tiers ABOVE a target on the ladder, as names — path 4 of
+  `canAssignIntoTier`, added 2026-09-10 so authority flows down the chain and a
+  Director can place a Foreman on a job she runs.
+
+  Loads the tenant's whole tier register in one query and hands it to
+  `tiersAbove` (packages/domain/src/org-chart.ts), rather than walking the
+  parent edge one SELECT at a time: the register is a handful of rows, the walk
+  is already written and cycle-safe, and a second walker is exactly how two
+  answers to "who is above whom" start disagreeing.
+
+  Returns names, matching `assignerTierNamesFor` above, because
+  `canAssignIntoTier` compares against the caller's tier NAMES.
+
+  ONE helper for every call site — the real gate in `assertCanAssign`, the
+  `assignable` list on `projectTeams.workspace`, and the `canAssign` hints. The
+  gate and the hint are computed separately and MUST agree; a hint that offers a
+  tier the write then refuses is worse than not offering it.
+*/
+export async function ancestorTierNamesFor(
+  db: any,
+  tenantId: string,
+  teamRoleId: string,
+): Promise<ReadonlySet<string>> {
+  const rows: { id: string; name: string; reportsToTeamRoleId: string | null }[] = await db
+    .select({
+      id: schema.teamRole.id,
+      name: schema.teamRole.name,
+      reportsToTeamRoleId: schema.teamRole.reportsToTeamRoleId,
+    })
+    .from(schema.teamRole)
+    .where(eq(schema.teamRole.tenantId, tenantId));
+  const nameOf = new Map(rows.map((r) => [r.id, r.name]));
+  return new Set(
+    tiersAbove(rows, teamRoleId)
+      .map((id) => nameOf.get(id))
+      .filter((n): n is string => !!n),
+  );
+}
+
+/*
   Now async and PROJECT-AWARE — was a pure permission check before STI-503.
   Same refusal messages for the built-in three, because the commonest way to
   be refused (no employee record, or on no jobs, holding neither the
@@ -200,6 +240,10 @@ export async function assertCanAssign(
       targetIsOpenToEveryone: role.assignableByEveryone,
       callerTierNamesOnThisProject: await callerTierNamesOnProject(db, tid, projectId, session.employeeId),
       targetAssignerTierNames: role.id ? await assignerTierNamesFor(db, role.id) : new Set<string>(),
+      /* Path 4 — the tiers above the target on the ladder. Same `role.id`
+         guard as the line above, for the same reason: a deleted tier has no
+         edges left to walk. */
+      targetAncestorTierNames: role.id ? await ancestorTierNamesFor(db, tid, role.id) : new Set<string>(),
     });
 
   if (!allowed) {
@@ -373,11 +417,24 @@ export const projectTeamRouter = router({
       nodes and needs their names, which are not in `members` by definition.
     */
     const have = new Set(members.map((m) => m.employeeId));
+    /*
+      NOT filtered by `visible`, and that is the fix for the "Unknown" node.
+
+      It used to be `(!visible || visible.has(id))`, which dropped a manager the
+      viewer may not otherwise see. But the roster row still POINTED at them, so
+      `buildOrgForest` drew the parent anyway with no name to put in it — the
+      chart rendered a card reading "Unknown · Not on a job · Above every job
+      below", which looks like corrupt data and tells the reader nothing.
+
+      Withholding the name did not withhold the person: the node, its position
+      and its direct-report count were all already on screen. All the filter
+      achieved was making that node unreadable. So the name is returned for
+      anybody a visible row points at — and nothing else about them is, which
+      is the same amount of information a reader could already infer.
+    */
     const wanted = [
       ...new Set(
-        members
-          .map((m) => m.reportsToEmployeeId)
-          .filter((id): id is string => !!id && !have.has(id) && (!visible || visible.has(id))),
+        members.map((m) => m.reportsToEmployeeId).filter((id): id is string => !!id && !have.has(id)),
       ),
     ];
     const referenced = wanted.length
@@ -808,10 +865,96 @@ export const projectTeamRouter = router({
         assignerIdsByTarget.set(r.teamRoleId, list);
       }
 
+      /*
+        WHICH LOGIN ROLES MAY CLAIM A JOB AS THIS TIER.
+
+        Read from `role.claimTierNames`, which lives on the LOGIN role and not
+        on the tier — this is a view onto another table's column, deliberately,
+        and `setClaimable` below writes it back the same way. Do not "tidy" this
+        into a column on `team_role`: what may put ITSELF on a job is a property
+        of an account, the same axis as every other permission, and the tier
+        register is edited by people who are describing an org chart rather than
+        granting authority.
+
+        Surfaced here because the Job Tiers screen is where somebody reasons
+        about the ladder, and "who can start one of these" is part of that
+        story. `/admin/roles` keeps its own checkboxes over the same data.
+      */
+      const claimRoles = await ctx.db
+        .select({ id: schema.role.id, name: schema.role.name, claimTierNames: schema.role.claimTierNames })
+        .from(schema.role)
+        .where(eq(schema.role.tenantId, tid));
+      const claimersByTier = new Map<string, { id: string; name: string }[]>();
+      for (const role of claimRoles) {
+        for (const tierName of role.claimTierNames ?? []) {
+          const list = claimersByTier.get(tierName) ?? [];
+          list.push({ id: role.id, name: role.name });
+          claimersByTier.set(tierName, list);
+        }
+      }
+
       return rows.map((r) => ({
         ...r,
         assignerTeamRoleIds: assignerIdsByTarget.get(r.id) ?? [],
+        claimedByRoles: claimersByTier.get(r.name) ?? [],
       }));
+    }),
+
+  /*
+    Turn self-claiming on or off for a tier, from the Job Tiers screen.
+
+    Keyed by TIER, because that is the row the administrator is looking at,
+    while the data lives on the login role — so this resolves the tier's name to
+    the role of the same name and edits that role's `claimTierNames`.
+
+    Matching role-to-tier BY NAME is the whole trick and its one limitation:
+    ticking "Director" grants the `director` LOGIN role the right to claim the
+    `director` TIER. Where a tenant has a tier with no matching login role there
+    is nothing to grant, and this says so rather than inventing a role — giving
+    somebody a login is a deliberate act with its own screen, and a settings
+    toggle must not become a second way to do it.
+
+    `config.manage`, matching `role.setFlags`: this is a permission decision
+    wearing a tier's clothes, and it must not be reachable by somebody who only
+    holds `project.team.manage` (the rest of this screen).
+  */
+  setClaimable: requirePermission("config.manage")
+    .input(z.object({ id: z.string().uuid(), claimable: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const [tier] = await ctx.db
+        .select({ name: schema.teamRole.name, label: schema.teamRole.label })
+        .from(schema.teamRole)
+        .where(and(eq(schema.teamRole.id, input.id), eq(schema.teamRole.tenantId, tid)));
+      if (!tier) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const [role] = await ctx.db
+        .select({ id: schema.role.id, claimTierNames: schema.role.claimTierNames })
+        .from(schema.role)
+        .where(and(eq(schema.role.tenantId, tid), eq(schema.role.name, tier.name)));
+      if (!role) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `There is no access role called "${tier.label}", so nobody can hold it. Create one on the Access Roles screen first.`,
+        });
+      }
+
+      const current = new Set(role.claimTierNames ?? []);
+      if (input.claimable) current.add(tier.name);
+      else current.delete(tier.name);
+
+      await ctx.db
+        .update(schema.role)
+        .set({ claimTierNames: [...current] })
+        .where(and(eq(schema.role.id, role.id), eq(schema.role.tenantId, tid)));
+      await logEvent(ctx, {
+        category: "auth",
+        action: "role.setClaimable",
+        entityType: "role",
+        entityId: role.id,
+        details: { tier: tier.name, claimable: input.claimable },
+      });
+      return { ok: true };
     }),
 
     create: requirePermission("project.team.manage")
@@ -1244,7 +1387,7 @@ export const projectTeamRouter = router({
         does not make this true here.
 
         Kept in lockstep with `assertCanAssign` by hand — both call
-        `canAssignIntoTier` with the same three inputs, and a change to one
+        `canAssignIntoTier` with the same four inputs, and a change to one
         without the other is exactly the drift that pure function exists to
         prevent.
       */
@@ -1254,6 +1397,13 @@ export const projectTeamRouter = router({
           targetIsOpenToEveryone: targetRole.assignableByEveryone,
           callerTierNamesOnThisProject: new Set(myRows.filter(r => r.projectId === mine.projectId).map(r => r.role)),
           targetAssignerTierNames: assignerNamesByTargetId.get(targetRole.id) ?? new Set(),
+          /* Path 4, in lockstep with `assertCanAssign` — `edges` is the same
+             tier register `tiersAbove` walks there. */
+          targetAncestorTierNames: new Set(
+            tiersAbove(edges, targetRole.id)
+              .map(id => roleById.get(id)?.name)
+              .filter((n): n is string => !!n),
+          ),
         });
 
       const myTier = roleByName.get(mine.role);

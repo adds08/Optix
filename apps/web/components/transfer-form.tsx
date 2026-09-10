@@ -8,6 +8,7 @@ import { EntityField, type EntityOption } from "@/components/ui/entity-picker";
 import { RidePicker } from "./ride-picker";
 import { useViewTier } from "./use-permissions";
 import { humanize } from "./sti/status";
+import { personHint, projectHint } from "@/lib/format";
 
 type Props = { open: boolean; onClose: () => void; assetId: string; assetCode: string };
 
@@ -33,10 +34,10 @@ export function TransferForm({ open, onClose, assetId, assetCode }: Props) {
      `location` has no code column today, so its hint is what actually
      distinguishes one from another: kind, plus whichever job it belongs to. */
   const custodianEntityOptions: EntityOption[] = custodianOptions.map((e) => ({
-    value: e.id, label: e.name, hint: e.externalId ?? undefined,
+    value: e.id, label: e.name, hint: personHint(e),
   }));
   const projectEntityOptions: EntityOption[] = (projects.data ?? []).map((p) => ({
-    value: p.id, label: p.name, hint: p.externalId ?? undefined,
+    value: p.id, label: p.name, hint: projectHint(p),
   }));
   const locationEntityOptions: EntityOption[] = (locations.data ?? [])
     .filter((l) => l.type !== "vehicle")
