@@ -47,7 +47,7 @@ export const projectGroupRouter = router({
         projectGroupId: schema.projectGroupProject.projectGroupId,
         projectId: schema.projectGroupProject.projectId,
         projectName: schema.project.name,
-        projectExternalId: schema.project.externalId,
+        projectExternalId: schema.project.code,
       })
       .from(schema.projectGroupProject)
       .leftJoin(schema.project, eq(schema.projectGroupProject.projectId, schema.project.id))

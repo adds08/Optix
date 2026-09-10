@@ -32,7 +32,7 @@ export type CrewAssignRequest =
 
 type LooseTool = {
   id: string;
-  tag: string | null;
+  code: string | null;
   serialNumber: string | null;
   make: string | null;
   modelNumber: string | null;
@@ -93,7 +93,7 @@ export function CrewAssignDialog({
           t.status !== "in_maintenance" &&
           t.status !== "lost" &&
           (!needle ||
-            `${t.tag ?? ""} ${t.serialNumber ?? ""} ${t.locationName ?? ""} ${formatAssetModel(t)}`
+            `${t.code ?? ""} ${t.serialNumber ?? ""} ${t.locationName ?? ""} ${formatAssetModel(t)}`
               .toLowerCase()
               .includes(needle)),
       )
@@ -171,7 +171,7 @@ export function CrewAssignDialog({
     }
     return loose.map((t) => ({
       key: t.id,
-      title: t.tag ?? t.serialNumber ?? "Untagged",
+      title: t.code ?? t.serialNumber ?? "Untagged",
       meta: `${formatAssetModel(t) || "No description"} · ${money(t.acquisitionCost)}`,
       location: t.locationName ?? null,
     }));

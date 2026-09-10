@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CategorySelect } from "@/components/category-select";
 import { PhotoUpload } from "@/components/photo-upload";
-import { cn } from "@/lib/utils";
 import { EntityField } from "@/components/ui/entity-picker";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { projectHint } from "@/lib/format";
 
 /*
   One dialog for both jobs.
@@ -22,7 +23,7 @@ import { EntityField } from "@/components/ui/entity-picker";
 */
 export type AssetEditable = {
   id: string;
-  tag: string;
+  code: string;
   make?: string | null;
   modelNumber?: string | null;
   description?: string | null;
@@ -47,7 +48,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
   const departments = trpc.department.list.useQuery();
   const locations = trpc.location.list.useQuery();
 
-  const [tag, setTag] = useState(edit?.tag ?? "");
+  const [code, setCode] = useState(edit?.code ?? "");
   const [make, setMake] = useState(edit?.make ?? "");
   const [modelNumber, setModelNumber] = useState(edit?.modelNumber ?? "");
   const [description, setDescription] = useState(edit?.description ?? "");
@@ -88,7 +89,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
            empty, and `undefined` would leave the old value in place. */
         await utils.client.asset.update.mutate({
           id: edit.id,
-          tag,
+          code,
           make: make || null,
           modelNumber: modelNumber || null,
           description: description || null,
@@ -106,7 +107,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
         utils.asset.get.invalidate({ id: edit.id });
       } else {
         await utils.client.asset.create.mutate({
-          tag: tag || undefined,
+          code: code || undefined,
           make: make || undefined,
           modelNumber: modelNumber || undefined,
           description: description || undefined,
@@ -136,12 +137,12 @@ export function AssetForm({ open, onClose, edit }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{edit ? `Edit ${edit.tag}` : "New Asset"}</DialogTitle>
+          <DialogTitle>{edit ? `Edit ${edit.code}` : "New Asset"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Tag</label>
-            <Input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="e.g. UIC-2001" />
+            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. UIC-2001" />
             <p className="text-xs text-muted-foreground">
               The label physically on the tool. Leave blank until it has one — an untagged tool is a normal state.
             </p>
@@ -205,24 +206,24 @@ export function AssetForm({ open, onClose, edit }: Props) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Charged to</label>
-            <div className="grid grid-cols-2 gap-2 rounded-md border p-1" role="group" aria-label="Cost target">
-              {(["project", "department"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => switchTarget(t)}
-                  aria-pressed={costTarget === t}
-                  className={cn(
-                    "rounded-sm px-3 py-1.5 text-sm transition-colors",
-                    costTarget === t
-                      ? "bg-muted font-medium text-foreground"
-                      : "text-muted-foreground hover:bg-accent",
-                  )}
-                >
-                  {t === "project" ? "Project" : "Department"}
-                </button>
-              ))}
-            </div>
+            {/* A form field: whichever target is selected decides which
+                EntityField renders below AND which id reaches submit — the
+                same state drives both, and ToggleGroup type=single writes it
+                back through the same switchTarget. */}
+            <ToggleGroup
+              type="single"
+              value={costTarget}
+              onValueChange={(v) => {
+                if (v === "project" || v === "department") switchTarget(v);
+              }}
+              variant="outline"
+              spacing={0}
+              aria-label="Cost target"
+              className="w-full"
+            >
+              <ToggleGroupItem value="project" className="w-1/2">Project</ToggleGroupItem>
+              <ToggleGroupItem value="department" className="w-1/2">Department</ToggleGroupItem>
+            </ToggleGroup>
             {costTarget === "project" ? (
               <EntityField
                 value={owningProjectId}
@@ -230,7 +231,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
                 placeholder="Select..."
                 searchPlaceholder="Project name or code"
                 emptyLabel="No job matches."
-                options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+                options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: projectHint(p) }))}
               />
             ) : (
               <EntityField

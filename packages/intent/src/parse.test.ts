@@ -34,8 +34,8 @@ describe("extractJson", () => {
 
 describe("normalizeDraft", () => {
   it("keeps what was actually stated across the three model fields", () => {
-    expect(normalizeDraft({ tag: "UIC-1099", make: "DeWalt", modelNumber: "DCH273", description: "rotary hammer" })).toEqual({
-      tag: "UIC-1099",
+    expect(normalizeDraft({ code: "UIC-1099", make: "DeWalt", modelNumber: "DCH273", description: "rotary hammer" })).toEqual({
+      code: "UIC-1099",
       make: "DeWalt",
       modelNumber: "DCH273",
       description: "rotary hammer",
@@ -49,7 +49,7 @@ describe("normalizeDraft", () => {
     /* A tool described with no brand and no catalogue number is the ordinary
        case for a yard sheet, not a gap — see docs/built/12-model-field-split.md. */
     expect(normalizeDraft({ description: "the big grinder" })).toEqual({
-      tag: null,
+      code: null,
       make: null,
       modelNumber: null,
       description: "the big grinder",
@@ -71,7 +71,7 @@ describe("normalizeDraft", () => {
   });
 
   it("is null when nothing survived", () => {
-    expect(normalizeDraft({ tag: "unknown", make: "", description: "" })).toBeNull();
+    expect(normalizeDraft({ code: "unknown", make: "", description: "" })).toBeNull();
     expect(normalizeDraft(null)).toBeNull();
     expect(normalizeDraft("a string")).toBeNull();
   });

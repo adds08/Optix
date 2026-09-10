@@ -59,8 +59,9 @@ export function ImportButton({ entity }: { entity: ImportEntity }) {
   if (aiState === "hidden") {
     return (
       <Can perm={spec.permission}>
-        <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-          <Upload className="size-4" aria-hidden />
+        {/* default (34px) — matches the search field and toolbar controls beside it. */}
+        <Button size="default" variant="outline" onClick={() => setOpen(true)}>
+          <Upload className="size-3.5" aria-hidden />
           Import
         </Button>
         {open ? <ImportDialog entity={entity} onClose={() => setOpen(false)} /> : null}
@@ -72,10 +73,10 @@ export function ImportButton({ entity }: { entity: ImportEntity }) {
     <Can perm={spec.permission}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="outline">
-            <Upload className="size-4" aria-hidden />
+          <Button size="default" variant="outline">
+            <Upload className="size-3.5" aria-hidden />
             Import
-            <ChevronDown className="size-3.5 opacity-60" aria-hidden />
+            <ChevronDown className="size-3 opacity-60" aria-hidden />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

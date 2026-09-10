@@ -26,9 +26,9 @@ export async function matchEntity(
   const tag = extractTag(text);
   if (tag) {
     const a = await db.query.asset.findFirst({
-      where: and(eq(schema.asset.tag, tag), eq(schema.asset.tenantId, tid)),
+      where: and(eq(schema.asset.code, tag), eq(schema.asset.tenantId, tid)),
     });
-    if (a) return { type: "asset", id: a.id, label: `${a.tag} (${formatAssetModel(a)})` };
+    if (a) return { type: "asset", id: a.id, label: `${a.code} (${formatAssetModel(a)})` };
 
     const v = await db.query.vehicle.findFirst({
       where: and(eq(schema.vehicle.unit, tag), eq(schema.vehicle.tenantId, tid)),
@@ -42,10 +42,10 @@ export async function matchEntity(
     const emp = await db.query.employee.findFirst({
       where: and(
         eq(schema.employee.tenantId, tid),
-        or(ilike(schema.employee.name, `%${token}%`), ilike(schema.employee.externalId, token)),
+        or(ilike(schema.employee.name, `%${token}%`), ilike(schema.employee.code, token)),
       ),
     });
-    if (emp) return { type: "employee", id: emp.id, label: `${emp.name} #${emp.externalId ?? ""}` };
+    if (emp) return { type: "employee", id: emp.id, label: `${emp.name} #${emp.code ?? ""}` };
 
     const proj = await db.query.project.findFirst({
       where: and(eq(schema.project.tenantId, tid), ilike(schema.project.name, `%${token}%`)),
@@ -69,7 +69,7 @@ export async function matchEntity(
         ),
       ),
     });
-    if (asset) return { type: "asset", id: asset.id, label: `${asset.tag} (${formatAssetModel(asset)})` };
+    if (asset) return { type: "asset", id: asset.id, label: `${asset.code} (${formatAssetModel(asset)})` };
   }
   return null;
 }
@@ -79,15 +79,15 @@ export async function resolveEngineAssets(
   db: Database,
   tid: string,
   hints: { label: string; raw: string }[],
-): Promise<{ id: string; label: string; tag: string | null }[]> {
-  const results: { id: string; label: string; tag: string | null }[] = [];
+): Promise<{ id: string; label: string; code: string | null }[]> {
+  const results: { id: string; label: string; code: string | null }[] = [];
   for (const h of hints) {
     const m = await matchEntity(db, tid, `${h.label} ${h.raw}`);
     if (m && m.type === "asset") {
       const a = await db.query.asset.findFirst({
         where: and(eq(schema.asset.id, m.id), eq(schema.asset.tenantId, tid)),
       });
-      if (a) results.push({ id: a.id, label: m.label, tag: a.tag });
+      if (a) results.push({ id: a.id, label: m.label, code: a.code });
     }
   }
   return results;
@@ -110,7 +110,7 @@ export async function resolveCustodian(
         eq(schema.employee.tenantId, tid),
         inArray(schema.employee.role, [...CUSTODIAN_ROLES]),
         eq(schema.employee.employmentStatus, "active"),
-        or(ilike(schema.employee.name, `%${token}%`), ilike(schema.employee.externalId, token)),
+        or(ilike(schema.employee.name, `%${token}%`), ilike(schema.employee.code, token)),
       ),
     });
     if (emp) return { id: emp.id, name: emp.name };

@@ -1,7 +1,8 @@
-import { boolean, date, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { role, tenant, user } from "./identity";
-import { companyRole } from "./reference";
+import { companyRole, division } from "./reference";
+import { department } from "./department";
 import { project } from "./project";
 
 // A person who can hold custody (foreman, superintendent, etc.). Separate from the
@@ -16,10 +17,22 @@ export const employee = pgTable(
       by, printed on the badge and used on the yard's own sheets. It is NOT
       `id`: that is a uuid this system mints and nobody reads aloud.
 
-      Confirmed 2026-08-27 to be one field, not two. It doubles as the
-      BambooHR / Mark 85 sync seam, and the temptation is to add a second
-      "user_id" column beside it for the HR number — don't. Two columns holding
-      the same business identifier is two columns to drift.
+      Confirmed 2026-08-27 to be one field, not two. The temptation is to add a
+      second "user_id" column beside it for the HR number — don't. Two columns
+      holding the same business identifier is two columns to drift.
+
+      NAMED `code`, not `externalId`, since 2026-09-06, and the distinction is
+      the whole reason `employeeExternalRef` below exists. A CODE is assigned by
+      the company: it happens at company level, so the same value identifies
+      this person across every system Urban runs. An EXTERNAL ID is a foreign
+      system's primary key, minted by them for their own purposes and meaningless
+      outside it. This column has only ever held the first kind — badge numbers
+      — while its old comment described it as "the BambooHR / Mark 85 sync
+      seam", which is the second. Those are different facts and a sync that
+      overwrote one with the other would destroy the badge numbers.
+
+      Where a far system's key happens to equal this value, record it as an
+      external ref anyway rather than assuming they stay equal.
 
       NAMING TRAP, worth the line: this value is sometimes spoken as a person's
       "contact", meaning "the reference we contact them by". It has nothing to
@@ -27,8 +40,10 @@ export const employee = pgTable(
       column out of an HR export into a phone field, or the reverse, is the
       mistake this comment exists to stop.
     */
-    externalId: text("external_id"),
+    code: text("code"),
     name: text("name").notNull(),
+    creationSource: text("creation_source").notNull().default("unknown"),
+    createdByUserId: uuid("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
     /*
       LEGACY. `roleId` below is the source of truth as of 2026-08-28.
 
@@ -62,9 +77,66 @@ export const employee = pgTable(
       register predates this and a title is not needed to hold a tool.
     */
     companyRoleId: uuid("company_role_id").references(() => companyRole.id, { onDelete: "set null" }),
+    /*
+      Which arm of the business a person sits in — Operations, Heavy Civil.
+
+      FLAT, and deliberately not nested under `department`. BambooHR ships
+      `divisionName` and `departmentName` as two independent fields on one
+      record and models no relationship between them; so do we. A sample
+      suggesting "Operations" contains "Heavy Civil" is one company's shape read
+      off one payload, and baking it into the schema forces every importer to
+      resolve department-within-division for data no API supplies that way.
+
+      Which combinations are legitimate is a RULE, not a hierarchy. Confirmed
+      with the client 2026-09-06: rules limiting which division or department
+      may be offered come later, on top of these two columns.
+    */
+    divisionId: uuid("division_id").references(() => division.id, { onDelete: "set null" }),
+    /*
+      The other half of the pair above, and the reason the comment on
+      `divisionId` says "these two columns" — until now it named a column that
+      did not exist. `BAMBOOHR_PEOPLE_SYNC.md` §4 has mapped `departmentName`
+      here since 2026-09-06 while migration `0050` added `division_id` alone,
+      so that row of the mapping table pointed at nothing and the gap was
+      rediscovered twice before being closed.
+
+      `tbl_entity_department` is NOT new and was not created for this.
+      `asset.owning_department_id` has referenced it for cost targets since
+      long before any HR sync existed, which is why this is a column on
+      `employee` rather than a table plus a column: the vocabulary already
+      exists, and a second departments table would be the duplication this
+      codebase pays for most.
+
+      `set null` rather than `restrict`, matching `divisionId`: retiring a
+      department is an org change and must not be blocked by, or cascade into,
+      the people who were in it. Nullable because most of the register predates
+      it and a department is not needed to hold a tool.
+    */
+    departmentId: uuid("department_id").references(() => department.id, { onDelete: "set null" }),
     primaryProjectId: uuid("primary_project_id").references(() => project.id, { onDelete: "set null" }),
     employmentStatus: text("employment_status").notNull().default("active"), // active | terminated | on_leave
     terminatedAt: timestamp("terminated_at", { withTimezone: true }),
+    /*
+      A SOURCE SYSTEM'S opinion that this person has left, distinct from
+      `employmentStatus` above on purpose. The settled policy (2026-09-07) is
+      that a departure reported by a sync is a flag for an admin to act on,
+      never a write Optix performs itself — so this column exists precisely so
+      that opinion has somewhere to land WITHOUT touching `employmentStatus`,
+      which stays the admin's own call.
+
+      Before this column existed the flag had nowhere durable to live at all:
+      `bamboo-sync.ts`'s `flaggedInactive` only ever reached one sync run's
+      `detail` jsonb, capped at 500 people and gone the moment that row scrolled
+      out of history. A leaver's row read identical to an active person's — the
+      first real sync flagged 1578 of 1851 people this way and every one of
+      them showed `employment_status: active` with nothing to tell them apart.
+
+      Null means no source has ever flagged this person. Set the first time a
+      sync reports them inactive; cleared if a LATER sync reports them active
+      again, because this names a current disagreement between the source and
+      Optix, not a permanent scar — a rehire should not stay flagged forever.
+    */
+    hrFlaggedInactiveAt: timestamp("hr_flagged_inactive_at", { withTimezone: true }),
     reportsToEmployeeId: uuid("reports_to_employee_id").references((): any => employee.id, { onDelete: "set null" }),
     /*
       Frequently a PERSONAL address on a domain Urban does not own. Labourers
@@ -151,6 +223,35 @@ export const projectTeamMember = pgTable(
     projectId: uuid("project_id").notNull().references(() => project.id, { onDelete: "cascade" }),
     employeeId: uuid("employee_id").notNull().references(() => employee.id, { onDelete: "cascade" }),
     role: text("role").notNull(), // 'pm' | 'superintendent' | 'foreman'
+    /*
+      Who this person answers to ON THIS JOB — the org chart's only edge.
+
+      Deliberately NOT a rank on the role. A rank asserts one company-wide
+      ladder ("a PM always outranks a superintendent"), and Optix is multi-tenant
+      selling to construction firms whose structures genuinely differ — the
+      client's own chain is director -> area in-charge -> PM & general
+      superintendent -> superintendent -> foreman, and the next customer's will
+      not be. Recording the edge per row asserts nothing and can represent any
+      shape, including the messy ones: a PM who acts as area in-charge on the one
+      job in his patch is two rows, not a contradiction.
+
+      NOT the same thing as `employee.reportsToEmployeeId`, and not a revival of
+      it. That column was dropped from scoping on 2026-08-23 (scope.ts crewOf)
+      precisely because it lived on the PERSON, away from the roster, and drifted
+      from it. This lives on the roster row itself, so it cannot disagree with
+      the row that says where the person is working. `employee.reportsToEmployeeId`
+      stays what it became: a display field on the People screen.
+
+      NULL is normal and legal — "no boss recorded yet". Those rows hang off the
+      project in the chart rather than being rejected at the door; a yard that
+      has not decided who reports to whom must still be able to record that
+      somebody is on the job.
+
+      Points at an EMPLOYEE, not at another team row, so the person named needs
+      no row of their own on this project. That is what lets one director sit
+      above forty jobs without forty rows restating it.
+    */
+    reportsToEmployeeId: uuid("reports_to_employee_id").references(() => employee.id, { onDelete: "set null" }),
     assignedByUserId: uuid("assigned_by_user_id").references(() => user.id, { onDelete: "set null" }),
     startedOn: date("started_on").notNull(),
     endedOn: date("ended_on"),
@@ -164,15 +265,111 @@ export const projectTeamMember = pgTable(
        vocabulary here (see .claude/rules/database.md) — Zod at the router edge
        is what refuses an unlisted value. */
     source: text("source").notNull().default("equipment_department"),
+    /*
+      Verified by the person who owns this decision, or null if not yet.
+
+      The case this exists for: a superintendent puts a foreman on a job, and the
+      PM above them onboards afterwards. The PM should see what the superintendent
+      already did rather than an empty crew step, and say "yes, that's right" once.
+      Null means nobody senior has looked at it, which is a normal state and not
+      an error — most rows written by an administrator are confirmed on creation
+      because the person writing them IS the decision-maker.
+
+      NOT a gate on anything. The row is live from the moment it is written: a
+      foreman's roster row physically moves their tools and truck (see
+      `project-assign.ts`), and that happens on write, not on confirmation.
+      Making custody wait for a confirmation would change the custody model, and
+      any diff that does so needs to say it out loud rather than arriving as a
+      side effect of this column. What confirmation changes is what the progress
+      screen counts as outstanding, and nothing else.
+    */
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    confirmedByUserId: uuid("confirmed_by_user_id").references(() => user.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     tenantIdx: index("ptm_tenant_idx").on(t.tenantId),
     projectIdx: index("ptm_project_idx").on(t.projectId),
     employeeIdx: index("ptm_employee_idx").on(t.employeeId),
+    /* The chart walks DOWN this edge ("who reports to X") far more than up, so
+       the index is on the target, not the source. */
+    reportsToIdx: index("ptm_reports_to_idx").on(t.reportsToEmployeeId),
     oneActiveUq: uniqueIndex("ptm_one_active_uq")
       .on(t.tenantId, t.projectId, t.employeeId, t.role)
       .where(sql`${t.endedOn} is null`),
+  }),
+);
+
+/*
+  A tier somebody deliberately left for their boss to fill.
+
+  The state this exists to distinguish: a job with no superintendent recorded
+  because nobody got round to it, versus one with no superintendent recorded
+  because the foreman said "my PM names those". Absence cannot tell those apart,
+  and without the distinction the first reads as an outstanding task on the
+  foreman forever, and the second never reaches the PM at all.
+
+  The same reasoning as `role.needsLogin` on the people register: "we have not
+  invited them" and "they will never have an account" look identical in the data
+  until something records the intent.
+
+  Rows are CLOSED by `resolvedAt` when ANSWERED, and that stays the rule for
+  the case that matters: the audit answer to "who was supposed to do this and
+  did it happen" needs the history, and a deleted row says nothing. Closing is
+  the job of `projectTeam.assign` — the moment a roster row appears for this
+  (project, team role), the deferral has been answered and is stamped. That is
+  the single writer, and a deferral closed anywhere else would drift from the
+  roster the way every parallel record in this codebase eventually has.
+
+  ONE EXCEPTION, added 2026-09-08: `onboarding.undefer` DELETES an open row.
+  This paragraph used to say "never deleted" without qualification, and that
+  left the state one-way — a person who deferred a tier could not then say "I
+  will name them myself", because filling it was the only exit and the screen
+  offering the deferral capped its own tier at one person. The client chose
+  deletion over a second closed state when asked.
+
+  The distinction being kept: `resolvedAt` means ANSWERED, and a withdrawal is
+  not an answer. A deferral lifted before anybody acted on it is somebody
+  changing their mind inside one sitting, not a fact about the job; recording it
+  as "resolved" would make that word mean two things and degrade the audit
+  answer rather than enrich it. A RESOLVED row is still never deleted — the
+  procedure only ever touches rows where `resolvedAt is null`.
+
+  NOT scoped to the person who deferred. The question a PM's screen asks is
+  "what is waiting for me on this job", and two foremen on one job both deferring
+  the superintendent tier is one outstanding decision, not two. The unique index
+  says so.
+*/
+export const projectRoleDeferral = pgTable(
+  "tbl_ops_project_role_deferral",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").notNull().references(() => project.id, { onDelete: "cascade" }),
+    /* The team-role NAME, matching `project_team_member.role` — the same
+       vocabulary and the same reason it is text here (see that column). Not a
+       foreign key to `team_role.id`: a tier deleted from the register should
+       leave the history of what was deferred readable, exactly as a closed
+       roster row naming a since-renamed tier does. */
+    teamRole: text("team_role").notNull(),
+    deferredByUserId: uuid("deferred_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    /* Who it was pushed to, when the person knew. Null means "whoever owns this
+       tier" — the ladder answers that, and it may not have been decided yet. */
+    deferredToEmployeeId: uuid("deferred_to_employee_id").references(() => employee.id, { onDelete: "set null" }),
+    note: text("note"),
+    /* Stamped when a roster row for this (project, team role) appears. */
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("prd_tenant_idx").on(t.tenantId),
+    projectIdx: index("prd_project_idx").on(t.projectId),
+    /* One open deferral per job and tier, the same partial-index shape
+       `ptm_one_active_uq` uses for the same reason: a rule the database keeps
+       cannot be forgotten by a second writer. */
+    oneOpenUq: uniqueIndex("prd_one_open_uq")
+      .on(t.tenantId, t.projectId, t.teamRole)
+      .where(sql`${t.resolvedAt} is null`),
   }),
 );
 
@@ -190,7 +387,7 @@ export const projectTeamMember = pgTable(
   Collapsing it into `isPrimary` here is its own change, once something writes
   these rows.
 
-  Naming trap, repeated from `employee.externalId` because it has already caused
+  Naming trap, repeated from `employee.code` because it has already caused
   confusion: a person's HR-issued employee id is sometimes spoken as their
   "contact". It is not a contact number and does not belong in this table.
 */
@@ -217,5 +414,82 @@ export const employeeContact = pgTable(
     onePrimaryUq: uniqueIndex("employee_contact_one_primary_uq")
       .on(t.tenantId, t.employeeId)
       .where(sql`${t.isPrimary}`),
+  }),
+);
+
+/*
+  One row per (person, far system) — how somebody else's database identifies
+  this person.
+
+  NOT the same thing as `employee.code`, and keeping them apart is the whole
+  point. A code is Urban's own, assigned at company level, and the same value
+  identifies the person in every system Urban runs. An external id is a foreign
+  primary key: BambooHR minted `4471` for its own purposes and it means nothing
+  outside BambooHR. The old `employee.external_id` column held the first kind
+  under a name promising the second, and a sync that believed the name would
+  have overwritten every badge number in the register.
+
+  A CHILD TABLE rather than two more columns on `employee`, because a
+  (external_system, external_id) pair holds exactly ONE far system per person
+  and this codebase's own comments already name three — BambooHR, Mark 85,
+  FoundationSoft. The pair gets widened or duplicated the first time a second
+  system syncs, and widening an identity column is the kind of migration that
+  goes wrong quietly.
+
+  It also lets the unique index say the true thing: the same digits arriving
+  from two different systems are two different facts and must not collide.
+
+  `project.externalId` still carries the identical double duty — its own comment
+  says "the project code shown to users" AND "the FoundationSoft / Mark 85 map".
+  That is deliberately NOT fixed here; recorded so the next reader knows it is
+  known rather than missed.
+*/
+export const employeeExternalRef = pgTable(
+  "tbl_entity_employee_external_ref",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => employee.id, { onDelete: "cascade" }),
+    /* bamboohr | mark85 | foundationsoft — plain text like every other
+       vocabulary here (.claude/rules/database.md); Zod at the router edge is
+       what refuses an unlisted value. */
+    system: text("system").notNull(),
+    /* Their primary key, VERBATIM. Never normalised, never parsed — the far
+       system is free to change what its ids look like and we only have to send
+       them back unaltered. */
+    externalId: text("external_id").notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    /*
+      Fields the API refused to tell us, by their name in the far system.
+
+      BambooHR returns `null` for a field the caller may not read and names it
+      in `_restrictedFields` — so null means "not permitted", not "cleared". An
+      importer treating the two the same blanks real data on the second sync.
+      Stored so a thin record is explainable later instead of looking like bad
+      data somebody typed.
+    */
+    restrictedFields: jsonb("restricted_fields"),
+    /*
+      The last payload, as received.
+
+      Earns its place twice over: when a sync produces a wrong value the only
+      useful question is "what did they actually send", which is unanswerable
+      after the fact without this; and it is what makes the NEXT sync a diff
+      rather than a blind overwrite.
+    */
+    raw: jsonb("raw"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("eer_tenant_idx").on(t.tenantId),
+    employeeIdx: index("eer_employee_idx").on(t.employeeId),
+    /* One id per system per tenant: two of our people cannot both be BambooHR
+       employee 4471. This is what makes a re-run idempotent rather than
+       duplicating the whole directory. */
+    systemIdUq: uniqueIndex("eer_system_id_uq").on(t.tenantId, t.system, t.externalId),
+    /* And one ref per system per person, from the other direction: a re-sync
+       updates the row it already wrote instead of adding a second. */
+    employeeSystemUq: uniqueIndex("eer_employee_system_uq").on(t.tenantId, t.employeeId, t.system),
   }),
 );

@@ -1,4 +1,4 @@
-import { boolean, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { tenant } from "./identity";
 
 /*
@@ -109,5 +109,172 @@ export const companyRole = pgTable(
   (t) => ({
     tenantIdx: index("company_role_tenant_idx").on(t.tenantId),
     tenantNameUq: uniqueIndex("company_role_tenant_name_uq").on(t.tenantId, t.name),
+  }),
+);
+
+/*
+  The tiers a project_team_member row can occupy — pm, superintendent, foreman
+  today. A table rather than the literal array `TEAM_ROLES` used to be
+  (`routers/projectTeam.ts`), for the reason the client stated directly:
+  "the roles and tiers are not fully set, this can expand later" — Urban's real
+  chain is director -> area in-charge -> PM & general superintendent ->
+  superintendent -> foreman, deeper than the three the product launched with,
+  and the NEXT tenant's chain will not be the same shape at all.
+
+  NOT the same thing as `role` (tbl_entity_role, the login/permission role) or
+  `companyRole` (tbl_entity_company_role, the HR job title). Confirmed
+  deliberately separate 2026-09-03 after nearly conflating this with `role`:
+  the seed already has one person whose LOGIN role is `engineer` and whose team
+  role is `pm` — the two vocabularies diverge for the same person on purpose,
+  and a lookup between them would be exactly the two-lists-that-drift pattern
+  `role`'s own header comment was written to end.
+
+  `name` is what gets written into `project_team_member.role` and validated by
+  the Zod edge in `projectTeam.assign`/`remove` — so renaming a row here that a
+  project is currently using orphans that history's display, the same trade-off
+  `department.code` already accepts. `canHoldCustody` replaces the hard-coded
+  `TOOLS_FOLLOW` array: a tier can run a job without moving tools, which is
+  exactly what a director or an area in-charge is.
+*/
+export const teamRole = pgTable(
+  "tbl_entity_team_role",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    label: text("label").notNull(),
+    canHoldCustody: boolean("can_hold_custody").notNull().default(false),
+    /*
+      Which tier this tier answers to, as the COMPANY declares it — the ladder
+      itself, with no people in it.
+
+      Deliberately not a rank number. A rank asserts one total order and cannot
+      express a register where two tiers share a boss, which is the normal case
+      here: Urban's PM and general superintendent both answer to the area
+      in-charge. An edge can say that; `rank: 3` twice cannot.
+
+      NOT a revival of the thing `project_team_member.reportsToEmployeeId`'s
+      comment refuses. What that comment forbids is a company-wide ladder
+      asserted IN CODE, on the grounds that construction firms genuinely differ
+      in shape. This is per-tenant data the tenant edits on the Team Roles
+      screen, the same category of thing every other column on this table is,
+      and the next customer's ladder is their own rows.
+
+      Nothing about ACCESS may read this. `assertCanAssign` reads
+      `team_role_assigner` (the "Set by" table below) and `project.team.assign`
+      — never this column. The two are easy to confuse now that the dedicated
+      `project.assign.*` permissions are gone: this records who a tier ANSWERS
+      to, "Set by" records who may FILL it, and they are frequently not the
+      same tier. A permission decision made out of this column is exactly the
+      drift the roster comment was written to prevent.
+      Its two jobs are to tell the onboarding wizard which tiers to ask a person
+      about, and to tell the progress screen whose work sits below whose.
+
+      It SEEDS, it does not bind: a `project_team_member.reportsToEmployeeId`
+      that disagrees with this ladder is legal and wins, because a real job
+      beats a template. Null means top of the chain, or not decided yet — both
+      normal, and a register whose rows all hold null is a tenant that has not
+      described itself, not a broken one.
+    */
+    reportsToTeamRoleId: uuid("reports_to_team_role_id").references((): any => teamRole.id, { onDelete: "set null" }),
+    /*
+      "Everybody may fill this tier" — the wildcard `team_role_assigner` below
+      cannot express, because it names specific tiers and there is no row that
+      means "any of them". Kept as a flag on THIS side (the tier being filled),
+      not on the assigner side: the question is "who may put someone into me",
+      asked once per target, not "which tiers am I allowed to fill", asked once
+      per assigner and then intersected.
+
+      Additive to `team_role_assigner`, not exclusive: a tier can be open to
+      everybody AND still carry rows in the join table — the rows are simply
+      redundant once this is true. Nothing deletes them when it flips on, so
+      switching it off restores exactly the list that was there before.
+    */
+    assignableByEveryone: boolean("assignable_by_everyone").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("team_role_tenant_idx").on(t.tenantId),
+    tenantNameUq: uniqueIndex("team_role_tenant_name_uq").on(t.tenantId, t.name),
+  }),
+);
+
+/*
+  "Set by" — which tiers may put a person into this tier. STI-503.
+
+  Read ONLY by `assertCanAssign` (`routers/projectTeam.ts`), alongside the
+  tenant-wide `project.team.assign` grant.
+
+  It shipped (STI-503) as an ADDITIONAL path beside three dedicated
+  `project.assign.*` permissions, to give a tenant's OWN tiers — Director, Area
+  In-charge, General Superintendent — the assign authority those three had and
+  they never could. Those permissions were deleted on 2026-09-10, so this table
+  is now the ONLY per-tier mechanism: it is what makes a superintendent able to
+  place a foreman, not a supplement to something else that already did.
+
+  A row means "`assignerTeamRoleId`, HELD ON THE SAME PROJECT, may place someone
+  into `teamRoleId`" — tier-on-that-job, not the login role. That is a real
+  narrowing from the permissions it replaced: a `project_manager` login role
+  used to hold `project.assign.superintendent` tenant-wide, on every project,
+  rostered there or not. It now applies to every tier equally, which is the
+  point — authority over a job belongs to the people ON that job, and
+  `project.team.assign` is the deliberate tenant-wide exception for the desk. See the client conversation this ships from (2026-09-09): crew is set
+  top-down, by whoever already holds authority on THAT job, and setting a
+  crew IS putting them on the project — there is no separate "claim" step.
+
+  No `tenantId` of its own — both foreign keys already point into `team_role`,
+  which is tenant-scoped, so a third copy of the same fact would be a way for
+  the copy to disagree with its parents rather than real isolation (see
+  `.claude/rules/database.md` on `role_permission`, the same shape).
+
+  Deliberately a join table and not an array column on `team_role` — this
+  codebase already chose "edge per row" over a rank/array for the reports-to
+  ladder for exactly this reason (see the comment above), and the same logic
+  that made that ladder queryable and clean makes an array of ids on this
+  table the wrong call too.
+*/
+export const teamRoleAssigner = pgTable(
+  "tbl_entity_team_role_assigner",
+  {
+    /** The tier being filled. */
+    teamRoleId: uuid("team_role_id").notNull().references(() => teamRole.id, { onDelete: "cascade" }),
+    /** A tier that may fill it, held by the caller on the SAME project. */
+    assignerTeamRoleId: uuid("assigner_team_role_id").notNull().references(() => teamRole.id, { onDelete: "cascade" }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.teamRoleId, t.assignerTeamRoleId] }),
+  }),
+);
+
+/*
+  An arm of the business — Operations, Heavy Civil, Utilities.
+
+  Sits BESIDE `department`, not above it. `department` (tbl_entity_department)
+  answers "who pays for this tool when it is not a job" — it is a financial
+  target that mirrors `project`, which is why a mechanic working out of the shop
+  still has something to charge to. A division is not that: it is which arm of
+  the company a PERSON belongs to, and nothing is charged to it.
+
+  Flat by decision, not by omission. See the comment on `employee.divisionId`
+  for why department is not nested under it.
+
+  Shaped exactly like `department` and `companyRole` — name is the identity,
+  `code` is a convenience for exports — because it is the same category of
+  thing: reference data an administrator maintains, that no code branches on.
+*/
+export const division = pgTable(
+  "tbl_entity_division",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    code: text("code"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("division_tenant_idx").on(t.tenantId),
+    tenantNameUq: uniqueIndex("division_tenant_name_uq").on(t.tenantId, t.name),
   }),
 );

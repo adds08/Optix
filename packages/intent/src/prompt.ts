@@ -29,7 +29,7 @@ Your only job is to turn one message from the field into structured JSON. You ne
 
 ## Domain vocabulary
 
-- **Tools/assets** carry a tag like \`UIC-1001\`, and are also called by model name ("rotary hammer", "miter saw", "generator", "GNSS").
+- **Tools/assets** carry a code like \`UIC-1001\`, and are also called by model name ("rotary hammer", "miter saw", "generator", "GNSS").
 - **Vehicles** carry \`TRU-XXX\` (truck) or \`TRA-XXX\` (trailer) and are spoken as "truck 12", "trailer 1001". A vehicle is a place a tool can be, not a tool.
 - **People** are named in the message. Foremen hold tools; superintendents oversee several foremen.
 - **Projects** are job sites. **Locations** are gang boxes, containers, yards and the vehicles above.
@@ -41,7 +41,7 @@ ${intentSection()}
 
 ## Entity extraction
 
-- \`assets\`: an array of \`{label, raw}\` — \`label\` is the canonical tag or name, \`raw\` is the text as written.
+- \`assets\`: an array of \`{label, raw}\` — \`label\` is the canonical code or name, \`raw\` is the text as written.
 - \`destination\`: \`{kind: "employee"|"location"|"project", raw}\` — where the tool is going.
 - \`custodian\`: \`{raw}\` — who currently has it.
 - \`project\`: \`{raw}\` — which job site.
@@ -96,7 +96,7 @@ Respond with a single JSON object and no prose around it.
 export type ParseContext = {
   foremanName: string;
   foremanRole: string;
-  currentAssignments: { tag: string; model: string; project: string; location: string }[];
+  currentAssignments: { code: string; model: string; project: string; location: string }[];
   primaryProject: string;
   currentLocation: string;
   recentMessages: string[];
@@ -109,7 +109,7 @@ export function buildUserPrompt(message: string, c: ParseContext): string {
   if (c.currentAssignments.length) {
     lines.push("- Tools this person currently holds:");
     for (const a of c.currentAssignments) {
-      lines.push(`  - ${a.tag} (${a.model}) @ ${a.project || "no project"} / ${a.location || "no location"}`);
+      lines.push(`  - ${a.code} (${a.model}) @ ${a.project || "no project"} / ${a.location || "no location"}`);
     }
   }
   if (c.recentMessages.length) {

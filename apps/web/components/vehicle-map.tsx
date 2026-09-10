@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FleetMapView,
-  VEHICLE_STATUS_COLOR,
+  VEHICLE_STATUS_VAR,
   VEHICLE_STATUS_LABEL,
 } from "@/components/fleet-map-view";
 import type { VehicleStatus } from "@stinventory/types";
@@ -36,12 +36,12 @@ export function VehicleMap() {
       <aside className="flex flex-col gap-4">
         <div className="flex flex-col gap-2 rounded-md border bg-card p-4">
           <h2 className="text-sm font-medium">Legend</h2>
-          {(Object.keys(VEHICLE_STATUS_COLOR) as VehicleStatus[]).map((s) => (
+          {(Object.keys(VEHICLE_STATUS_VAR) as VehicleStatus[]).map((s) => (
             <div key={s} className="flex items-center gap-2 text-sm">
               <span
                 aria-hidden
                 className="size-3 rounded-full"
-                style={{ backgroundColor: VEHICLE_STATUS_COLOR[s] }}
+                style={{ backgroundColor: VEHICLE_STATUS_VAR[s] }}
               />
               <span>{VEHICLE_STATUS_LABEL[s]}</span>
             </div>

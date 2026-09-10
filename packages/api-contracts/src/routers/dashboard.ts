@@ -139,7 +139,7 @@ export const dashboardRouter = router({
           eventType: schema.transaction.eventType,
           occurredAt: schema.transaction.occurredAt,
           note: schema.transaction.note,
-          assetTag: schema.asset.tag,
+          assetCode: schema.asset.code,
           assetMake: schema.asset.make,
           assetModelNumber: schema.asset.modelNumber,
           assetDescription: schema.asset.description,
@@ -162,7 +162,7 @@ export const dashboardRouter = router({
     const termIds = term.map((t) => t.id);
     return ctx.db
       .select({
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         make: schema.asset.make,
         modelNumber: schema.asset.modelNumber,
         description: schema.asset.description,
@@ -213,7 +213,7 @@ export const dashboardRouter = router({
         .select({
           id: schema.transfer.id,
           assetId: schema.transfer.assetId,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,
           description: schema.asset.description,
@@ -238,7 +238,7 @@ export const dashboardRouter = router({
         .select({
           id: schema.assignment.id,
           assetId: schema.assignment.assetId,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           make: schema.asset.make,
           modelNumber: schema.asset.modelNumber,
           description: schema.asset.description,
@@ -283,7 +283,7 @@ export const dashboardRouter = router({
                refuses, but the projection should not depend on that. */
             direction: outbound ? ("outgoing" as const) : ("incoming" as const),
             assetId: t.assetId,
-            tag: t.tag,
+            code: t.code,
             modelName: formatAssetModel(t),
             otherPartyName: (otherId && nameById.get(otherId)) ?? null,
             createdAt: t.createdAt,
@@ -294,7 +294,7 @@ export const dashboardRouter = router({
           kind: "assignment" as const,
           direction: "incoming" as const,
           assetId: a.assetId,
-          tag: a.tag,
+          code: a.code,
           modelName: formatAssetModel(a),
           otherPartyName: null,
           createdAt: a.createdAt,
@@ -307,79 +307,6 @@ export const dashboardRouter = router({
         (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       );
     }),
-
-  /*
-    The AI briefing bar — one or two sentences of "here is what happened while
-    you were away", composed server-side in the operator's voice.
-
-    Deliberately NOT an LLM call: this is a deterministic fold over the same
-    scoped counts the rest of the page shows, so the prose can never name a
-    tool or a person the caller cannot see. The Blocky concept showed an
-    assistant that answers from a canned script; a script that lies about the
-    data would be the same defect in prose form. If the sentence ever needs
-    three clauses, the dashboard below is failing to say it.
-
-    The wording follows docs/09-vocabulary.md: numbers lead, consequences are
-    named, nothing "goes overdue" (the loan model was removed 2026-08-09).
-  */
-  briefing: requirePermission("asset.read").query(async ({ ctx }) => {
-    const tid = ctx.session.tenantId;
-    const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
-
-    const [approvals, clearance, idle] = await Promise.all([
-      ctx.db
-        .select({ c: count() })
-        .from(schema.assignment)
-        .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
-        .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.status, "pending_approval"), scoped))
-        .then((r) => Number(r[0]?.c ?? 0))
-        .then(async (a) =>
-          a +
-          Number(
-            (
-              await ctx.db
-                .select({ c: count() })
-                .from(schema.transfer)
-                .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
-                .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval"), scoped))
-            )[0]?.c ?? 0,
-          ),
-        ),
-      ctx.db
-        .select({ c: count() })
-        .from(schema.asset)
-        .innerJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
-        .where(
-          and(
-            eq(schema.asset.tenantId, tid),
-            eq(schema.employee.employmentStatus, "terminated"),
-            ne(schema.asset.currentStatus, "available"),
-            scoped,
-          ),
-        )
-        .then((r) => Number(r[0]?.c ?? 0)),
-      ctx.db
-        .select({ c: count() })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentStatus, "available"), scoped))
-        .then((r) => Number(r[0]?.c ?? 0)),
-    ]);
-
-    const clauses: string[] = [];
-    if (approvals > 0) {
-      clauses.push(`${approvals} hand-off${approvals === 1 ? "" : "s"} waiting on a signature`);
-    }
-    if (clearance > 0) {
-      clauses.push(`${clearance} tool${clearance === 1 ? "" : "s"} still held by a departed employee`);
-    }
-    if (idle > 0) {
-      clauses.push(`${idle} tool${idle === 1 ? "" : "s"} sitting available in the yard`);
-    }
-
-    return clauses.length
-      ? clauses.join(", ") + "."
-      : "Nothing needs you — the yard is square.";
-  }),
 
   /*
     The Approval queue's source. STI-206: it now carries the rig.
@@ -414,7 +341,7 @@ export const dashboardRouter = router({
       .select({
         id: schema.assignment.id,
         type: sql<string>`'assignment'`,
-        assetTag: schema.asset.tag,
+        assetCode: schema.asset.code,
         assetMake: schema.asset.make,
         assetModelNumber: schema.asset.modelNumber,
         assetDescription: schema.asset.description,
@@ -436,13 +363,20 @@ export const dashboardRouter = router({
       .select({
         id: schema.transfer.id,
         type: sql<string>`'transfer'`,
-        assetTag: schema.asset.tag,
+        assetCode: schema.asset.code,
         assetMake: schema.asset.make,
         assetModelNumber: schema.asset.modelNumber,
         assetDescription: schema.asset.description,
         custodianName: schema.employee.name,
         status: schema.transfer.status,
-        fromName: sql<string | null>`(select name from employee where id = ${schema.transfer.fromCustodianId})`,
+        /* The PHYSICAL table name, not the Drizzle export's. This said
+           `from employee` and threw `relation "employee" does not exist` on
+           every call since 2026-07-31 — the tables are prefixed
+           (`tbl_entity_employee`) and a raw fragment gets none of the mapping
+           the query builder does. It went unnoticed because the widget fails
+           closed: the dashboard renders without it. Prefer the builder over a
+           raw subquery; where one is unavoidable, name the real table. */
+        fromName: sql<string | null>`(select name from ${schema.employee} where id = ${schema.transfer.fromCustodianId})`,
         createdAt: schema.transfer.createdAt,
         truckUnit: tTruck.unit,
         truckOwnership: tTruck.ownershipType,

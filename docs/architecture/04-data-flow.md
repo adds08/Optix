@@ -93,7 +93,7 @@ flowchart TD
     ER --> D{confident and resolved?}
     D -->|yes| AA["apply-action.ts<br/>→ custody.ts → ledger"]
     D -->|no| PM["pending_manual<br/>the desk decides"]
-    PM --> IB["/inbox · /desk"]
+    PM --> IB["/inbox"]
     IB --> CA["messaging.confirmAction"]
     CA --> AA
     W -.->|worker died mid-batch| RW["request-worker<br/>re-queues after 5 min"]

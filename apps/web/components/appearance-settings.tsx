@@ -10,14 +10,17 @@ import {
   FONT_FAMILY_LABELS,
   FONT_SCALES,
   ICON_SCALES,
+  RADII,
   THEMES,
   type Density,
   type FontFamilyName,
+  type RadiusName,
   type ThemeName,
   type ThemePrefs,
 } from "@/lib/themes/themes";
 import { cn } from "@/lib/utils";
 import { EntityField } from "@/components/ui/entity-picker";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 /*
   Appearance: the theme engine's controls (docs/19).
@@ -34,6 +37,7 @@ export function AppearanceSettings() {
   const setPrefs = useThemeStore((s) => s.setPrefs);
 
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_PREFS.themeName);
+  const [radius, setRadius] = useState<RadiusName>(DEFAULT_PREFS.radius);
   const [fontFamily, setFontFamily] = useState<FontFamilyName>("system");
   const [fontScale, setFontScale] = useState("1.0");
   const [iconScale, setIconScale] = useState("1.0");
@@ -44,6 +48,7 @@ export function AppearanceSettings() {
   useEffect(() => {
     if (prefs.data) {
       setThemeName(prefs.data.themeName as ThemeName);
+      setRadius(prefs.data.radius as RadiusName);
       setFontFamily(prefs.data.fontFamily as FontFamilyName);
       setFontScale(prefs.data.fontScale);
       setIconScale(prefs.data.iconScale);
@@ -76,6 +81,7 @@ export function AppearanceSettings() {
     fontScale,
     iconScale,
     density,
+    radius,
     dashboard: { widgets: {} },
     ...over,
   });
@@ -90,8 +96,8 @@ export function AppearanceSettings() {
       <div className="flex flex-col gap-1">
         <h2 className="text-sm font-medium">Appearance</h2>
         <p className="text-sm text-muted-foreground">
-          Named themes with their own light and dark palettes, plus type and density. Saved per
-          account, applied on every screen.
+          Named themes with their own light and dark palettes, plus type, density and
+          corners. Saved per account, applied on every screen.
         </p>
       </div>
 
@@ -123,6 +129,46 @@ export function AppearanceSettings() {
             );
           })}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Corners</label>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {(Object.keys(RADII) as RadiusName[]).map((name) => {
+            const r = RADII[name];
+            const active = radius === name;
+            const px = Math.round(parseFloat(r.value) * 16);
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => { setRadius(name); preview({ radius: name }); }}
+                aria-pressed={active}
+                className={cn(
+                  "flex flex-col gap-2 rounded-md border p-3 text-left transition-colors",
+                  active ? "border-primary ring-2 ring-ring/40" : "hover:bg-accent",
+                )}
+              >
+                <span
+                  className="flex h-9 items-end gap-1.5 border-b-2 p-2"
+                  style={{ borderBottomLeftRadius: px, borderBottomRightRadius: px }}
+                >
+                  <span className="size-5 border" style={{ borderRadius: px }} />
+                  <span className="size-5 border" style={{ borderRadius: px * 0.7 }} />
+                  <span className="size-5 border" style={{ borderRadius: px * 0.45 }} />
+                </span>
+                <span className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{r.label}</span>
+                  {active ? <Check className="size-3.5 text-primary" /> : null}
+                </span>
+                <span className="text-xs text-muted-foreground">{r.description}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          One preset sets every corner token, so cards, controls and dialogs all move together.
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -191,22 +237,22 @@ export function AppearanceSettings() {
 
       <div className="space-y-2">
         <label className="text-sm font-medium">Density</label>
-        <div className="grid grid-cols-2 gap-2 rounded-md border p-1" role="group" aria-label="Density">
-          {(["comfortable", "compact"] as const).map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => { setDensity(d); preview({ density: d }); }}
-              aria-pressed={density === d}
-              className={cn(
-                "rounded-sm px-3 py-1.5 text-sm capitalize transition-colors",
-                density === d ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-accent",
-              )}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
+        <ToggleGroup
+          type="single"
+          value={density}
+          onValueChange={(v) => {
+            if (!v) return;
+            setDensity(v as Density);
+            preview({ density: v as Density });
+          }}
+          variant="outline"
+          spacing={0}
+          aria-label="Density"
+          className="w-full"
+        >
+          <ToggleGroupItem value="comfortable" className="w-1/2 capitalize">comfortable</ToggleGroupItem>
+          <ToggleGroupItem value="compact" className="w-1/2 capitalize">compact</ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

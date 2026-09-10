@@ -151,11 +151,11 @@ describe("relative", () => {
 });
 
 describe("formatAssetModel", () => {
-  it("joins the columns that are present and drops the ones that are not", () => {
+  it("joins make and model, and leaves the description out of the name", () => {
     expect(formatAssetModel({ make: "BOSCH", modelNumber: "GWS10", description: "grinder" })).toBe(
-      "BOSCH GWS10 grinder",
+      "BOSCH GWS10",
     );
-    expect(formatAssetModel({ make: "BOSCH", modelNumber: null, description: null })).toBe("BOSCH");
+    expect(formatAssetModel({ make: "BOSCH", modelNumber: null, description: "grinder" })).toBe("BOSCH");
     expect(formatAssetModel({})).toBe("");
   });
 });

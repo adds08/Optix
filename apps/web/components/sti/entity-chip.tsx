@@ -65,6 +65,37 @@ const ROLE: Record<string, { icon: LucideIcon; hat: string; label: string }> = {
 
 const FALLBACK = { icon: HardHat, hat: "text-hat-office", label: "" };
 
+/*
+  Deterministic per-person colour for a filled element (the crew row's edge
+  tick, an avatar tile).
+
+  Role hats answer "what kind of person is this" — which is why every foreman
+  looks the same, and on a board where the desk reads a column of foremen that
+  sameness hides who is who. The design colours each foreman's mark per
+  person, so the same foreman carries the same hue on every job and two
+  foremen in one container never collide. The class is picked by hashing the
+  person's id — stable, no storage, no two-instance drift — and the hues
+  deliberately avoid the status set (see the `--person-*` note in globals.css).
+
+  Whole class strings, never `bg-person-${n}` assembled at runtime: Tailwind
+  scans source text, so a dynamically-built class is never generated and the
+  tick renders with no colour at all.
+*/
+const PERSON_BG_TONES = [
+  "bg-person-0",
+  "bg-person-1",
+  "bg-person-2",
+  "bg-person-3",
+  "bg-person-4",
+  "bg-person-5",
+];
+
+export function personToneBg(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return PERSON_BG_TONES[h % PERSON_BG_TONES.length]!;
+}
+
 export function PersonChip({
   id,
   externalId,
@@ -103,11 +134,16 @@ export function PersonChip({
     <span className={cn("flex min-w-0 items-center gap-2", className)}>
       <Icon className={cn("size-4 shrink-0", r.hat)} aria-hidden />
       <span className="min-w-0">
-        <span className="block truncate text-[13.5px] font-semibold leading-tight">{name}</span>
-        <span className="label-xs block truncate">
-          {externalId ? `${externalId} · ` : ""}
-          {roleLabel || "—"}
+        <span className="block truncate text-[13.5px] font-semibold leading-tight">
+          {externalId ? (
+            <>
+              <span className="tnum">{externalId}</span>
+              <span className="mx-1 text-muted-foreground">·</span>
+            </>
+          ) : null}
+          {name}
         </span>
+        <span className="label-xs block truncate">{roleLabel || "—"}</span>
       </span>
     </span>
   );

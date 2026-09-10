@@ -43,7 +43,7 @@ export default function ToolDetailScreen() {
           <>
             <View className="gap-2">
               <View className="flex-row items-center justify-between">
-                <Tag>{a.tag}</Tag>
+                <Tag>{a.code}</Tag>
                 <StatusPill status={a.status} />
               </View>
               <Text className="text-[24px] font-bold leading-7 text-foreground">

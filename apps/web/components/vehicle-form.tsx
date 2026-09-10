@@ -5,11 +5,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { CUSTODIAN_ROLES, EQUIPMENT_CLASSES, EQUIPMENT_CLASS_LABELS, type EquipmentClass } from "@stinventory/types";
+import { projectHint } from "@/lib/format";
 
 export type VehicleEditable = {
   id: string;
   unit: string;
   vehicleType: string;
+  /* REQUIRED, unlike the optional fields around them, and that is the whole
+     point. Both were optional when they were added, so the two call sites that
+     build an `edit` object silently omitted them and the form fell back to its
+     create-time default: opening "Edit" on a truck filed as `heavy` showed
+     "Vehicle", and saving any unrelated field — a plate, a project — wrote that
+     default back and blanked the VIN. Typecheck said nothing, because absent is
+     a legal value for an optional field. Making them required is what turns
+     that class of mistake back into a build error. */
+  equipmentClass: string | null;
+  vin: string | null;
   code?: string | null;
   description?: string | null;
   plate?: string | null;
@@ -30,15 +42,33 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
   const projects = trpc.project.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
   const vehicles = trpc.vehicle.list.useQuery();
-  /* STI-307 — DOMAIN DATA. A truck is assigned to a foreman because that is
-     who drives it to a job; `e.role` is the employee register's field, not the
-     caller's. Authority to edit a vehicle is `vehicle.manage`. */
-  const foremanOptions = foremen.data?.filter((e) => e.role === "foreman" && e.employmentStatus === "active") ?? [];
+  /* STI-307 — DOMAIN DATA. A truck is assigned to whoever drives it to a job;
+     `e.role` is the employee register's field, not the caller's. Authority to
+     edit a vehicle is `vehicle.manage`.
+
+     `CUSTODIAN_ROLES`, not the literal `"foreman"` (changed 2026-09-08). This
+     was the ONE custodian picker still asking for a single role name while its
+     five siblings — assign-form, transfer-form, bulk-move-form,
+     crew-assign-dialog and the jobsites page — all read the shared set. A
+     superintendent has held custody since 2026-09-01 and still could not be
+     given a truck here, which is not a decision anybody made; it is the
+     literal being older than the change that widened custody. */
+  const foremanOptions =
+    foremen.data?.filter(
+      (e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active",
+    ) ?? [];
   const truckOptions = vehicles.data?.filter((v) => v.vehicleType === "truck") ?? [];
 
   const [vehicleType, setVehicleType] = useState<"truck" | "trailer">(
     (edit?.vehicleType as "truck" | "trailer") ?? "truck",
   );
+  /* How the yard files it. Defaults to matching the structural type rather than
+     always to "vehicle": a trailer IS an attachment, and pre-selecting the
+     obvious answer beats making somebody restate it on every trailer. */
+  const [equipmentClass, setEquipmentClass] = useState<EquipmentClass>(
+    (edit?.equipmentClass as EquipmentClass) ?? (edit?.vehicleType === "trailer" ? "attachment" : "vehicle"),
+  );
+  const [vin, setVin] = useState(edit?.vin ?? "");
   const [unit, setUnit] = useState(edit?.unit ?? "");
   const [code, setCode] = useState(edit?.code ?? "");
   const [description, setDescription] = useState(edit?.description ?? "");
@@ -60,7 +90,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
     try {
       if (edit) {
         await utils.client.vehicle.update.mutate({
-          id: edit.id, vehicleType, unit,
+          id: edit.id, vehicleType, equipmentClass, vin: vin || null, unit,
           code: code || null,
           description: description || null,
           plate: plate || null,
@@ -71,7 +101,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
         });
       } else {
         await utils.client.vehicle.create.mutate({
-          vehicleType, unit,
+          vehicleType, equipmentClass, vin: vin || undefined, unit,
           code: code || undefined,
           description: description || undefined,
           plate: plate || undefined,
@@ -105,6 +135,21 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
             <label className="text-sm font-medium">Code</label>
             <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Equipment register code" />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Equipment type</label>
+              <EntityField
+                value={equipmentClass}
+                onChange={(v) => setEquipmentClass(v as EquipmentClass)}
+                placeholder="How is it filed?"
+                options={EQUIPMENT_CLASSES.map((c) => ({ value: c, label: EQUIPMENT_CLASS_LABELS[c] }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">VIN</label>
+              <Input value={vin} onChange={(e) => setVin(e.target.value)} placeholder="Chassis number" />
+            </div>
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Description</label>
             <Input value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -114,7 +159,17 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
               <label className="text-sm font-medium">Type</label>
               <EntityField
                 value={vehicleType}
-                onChange={(v) => setVehicleType(v as "truck" | "trailer")}
+                onChange={(v) => {
+                  const next = v as "truck" | "trailer";
+                  setVehicleType(next);
+                  /* Follow the type only while creating, and only if the class
+                     is still the one we picked for them — never overwrite a
+                     filing somebody chose, and never re-file an existing row
+                     behind their back. */
+                  if (!edit && (equipmentClass === "vehicle" || equipmentClass === "attachment")) {
+                    setEquipmentClass(next === "trailer" ? "attachment" : "vehicle");
+                  }
+                }}
                 placeholder="Truck or trailer"
                 options={[
                   { value: "truck", label: "Truck" },
@@ -151,7 +206,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
               placeholder="Select..."
               searchPlaceholder="Project name or code"
               emptyLabel="No job matches."
-              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: projectHint(p) }))}
             />
           </div>
           {/* Create-only. Changing who has a truck is Hand over on Locations,

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Loader2, TriangleAlert } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { ErrorNote, TableSkeleton } from "@/components/sti/page";
+import { ErrorNote, TableSkeleton, PageHeader } from "@/components/sti/page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { dateTime } from "@/lib/format";
@@ -62,6 +62,11 @@ export default function AiSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader
+        title="AI & API"
+        hideTitle
+        description="The model that reads chat messages into proposed custody actions — endpoint, model and key."
+      />
       <section className="flex flex-col gap-4 rounded-md border bg-card p-5">
         <div className="flex flex-col gap-1">
           <h2 className="text-sm font-medium">Chat parser</h2>

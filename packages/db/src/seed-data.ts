@@ -17,10 +17,10 @@
 export type ProjectSeed = { key: string; extId: string | null; name: string; description?: string; status: string; start: string; end: string; site: string | null };
 export type EmployeeSeed = { key: string; extId: string; name: string; role: string; primary: string | null; status: string; email: string | null; phone: string | null; reportsTo: string | null };
 export type PostingSeed = { emp: string; proj: string; from: string; to: string | null; note: string };
-export type TeamSeed = { emp: string; proj: string; role: string; from: string; note: string };
+export type TeamSeed = { emp: string; proj: string; role: string; from: string; note: string; reportsTo?: string | null };
 export type LocSeed = { key: string; type: string; name: string; warehouse: string | null; project: string | null; custodian: string | null };
 export type VehLocSeed = { key: string; type: string; name: string; project: string | null; custodian: string | null };
-export type VehSeed = { key: string; loc: string; vtype: 'truck' | 'trailer'; unit: string; plate: string | null; make: string | null; own: string; payee: string | null; allow: string | null; freq: string | null; proj: string | null; foreman: string | null; lat: string | null; lng: string | null; code?: string | null; description?: string | null };
+export type VehSeed = { key: string; loc: string; vtype: 'truck' | 'trailer'; eclass?: string | null; vin?: string | null; unit: string; plate: string | null; make: string | null; own: string; payee: string | null; allow: string | null; freq: string | null; proj: string | null; foreman: string | null; lat: string | null; lng: string | null; code?: string | null; description?: string | null };
 export type AssetSeed = { tag: string | null; make: string | null; modelNumber: string | null; description: string | null; serial: string | null; isSerialized: boolean; quantity: number; cost: string | null; own: string | null; dept: boolean; status: string; cust: string | null; cur: string | null; loc: string };
 export type AssignSeed = { tag: string; cust: string; proj: string | null; loc: string; type: string; start: string; end: string | null };
 export type TxSeed = { tag: string; event: string; at: string; note: string; ref: string };
@@ -114,24 +114,51 @@ export type RoleSeed = {
   needsLogin: boolean;
   canHoldCustody: boolean;
   usesFieldLayout: boolean;
+  /* equipment | people | none — which wizard first login runs. See the column
+     comment on `role.onboardingKind`. */
+  onboardingKind: string;
+  /* Reaches every tenant. Only `tech_admin`. Nothing reads it yet — see the
+     column comment. */
+  isCrossTenant?: boolean;
+  /*
+    JOB TIERS this role may put ITSELF into, on a project of its own choosing.
+    Empty (the default) means no self-claiming — see `role.claimTierNames`.
+
+    Only the two leadership roles carry one, and that is the bootstrap: an
+    empty tenant has nobody on any job, so no tier-on-a-project exists for
+    `assertCanAssign` to read, so nobody can be placed by anybody. One role
+    able to place ITSELF is what breaks the circle; everyone below is then
+    placed through the ordinary "Set by" chain.
+  */
+  claimTierNames?: string[];
   isSystem: boolean;
 };
 
 export const roleSpecs: RoleSeed[] = [
-  { name: "owner", description: "Full authority over the organisation, its configuration and its people.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "equipment_admin", description: "Runs the equipment department: the register, custody, and who holds what.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "office_admin", description: "Business records and accounts. Not custody, and not platform configuration.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "warehouse", description: "The yard desk. Issues and receives tools, and runs departures operationally.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "procurement", description: "Buys equipment and materials. Reads the register, does not move custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "engineer", description: "Runs work on a job. Same reach as a project manager where tools are concerned.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "superintendent", description: "Runs several crews, and holds tools directly when a job has no foreman yet.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
-  { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
-  { name: "mechanic", description: "Works out of the shop and keeps tools there. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, isSystem: true },
-  { name: "hr", description: "People records. No access to the register or to custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "finance", description: "Cost and value reporting across the register.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "read_only", description: "Sees the register and reports, changes nothing.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, isSystem: true },
-  { name: "crew", description: "Works on site and can be handed tools. Does not sign in.", needsLogin: false, canHoldCustody: true, usesFieldLayout: false, isSystem: false },
+  { name: "owner", description: "Full authority over the organisation, its configuration and its people.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  /* Optix's own operator. Same grants as `owner` inside a tenant; what differs
+     is `isCrossTenant`. No wizard — a technical administrator is not describing
+     their own crew. */
+  { name: "tech_admin", description: "Optix technical administrator. Supports every tenant; not the customer's own administrator.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isCrossTenant: true, isSystem: true },
+  { name: "equipment_admin", description: "Runs the equipment department: the register, custody, and who holds what.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "office_admin", description: "Business records and accounts. Not custody, and not platform configuration.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  { name: "warehouse", description: "The yard desk. Issues and receives tools, and runs departures operationally.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "procurement", description: "Buys equipment and materials. Reads the register, does not move custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  /* The two leadership roles, and the only two seeded with `claimTierNames`.
+     They pick the jobs they run; everybody below them is placed by somebody
+     above through "Set by". The tier names must exist in `teamRoleSpecs`. */
+  { name: "director", description: "Leads the business unit. Claims the jobs they run, then staffs them.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", claimTierNames: ["director"], isSystem: true },
+  { name: "area_in_charge", description: "Runs an area's jobs. Claims their own, and places PMs and superintendents on them.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", claimTierNames: ["area_in_charge"], isSystem: true },
+  { name: "general_superintendent", description: "Runs an area's superintendents. Claims their own jobs, and staffs PMs and superintendents onto them.", needsLogin: true, canHoldCustody: true, usesFieldLayout: false, onboardingKind: "equipment", claimTierNames: ["general_superintendent"], isSystem: true },
+  { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "engineer", description: "Runs work on a job. Same reach as a project manager where tools are concerned.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "superintendent", description: "Runs several crews, and holds tools directly when a job has no foreman yet.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
+  { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
+  { name: "mechanic", description: "Works out of the shop and keeps tools there. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
+  { name: "hr", description: "People records. No access to the register or to custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "people", isSystem: true },
+  { name: "finance", description: "Cost and value reporting across the register.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  { name: "read_only", description: "Sees the register and reports, changes nothing.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  { name: "crew", description: "Works on site and can be handed tools. Does not sign in.", needsLogin: false, canHoldCustody: true, usesFieldLayout: false, onboardingKind: "equipment", isSystem: false },
 ];
 
 /* The old nine-value `employee.role` enum, mapped onto the role register. Only
@@ -179,6 +206,84 @@ export const uomSpecs: { symbol: string; name: string; category: string }[] = [
   the operational role the system branches on; see `company_role` in the schema.
   Seeded so the join on `employee.company_role_id` has something to resolve.
 */
+/*
+  The job-function tiers, and the ladder they form.
+
+  `reportsTo` names another spec's `name`, resolved to an id in a second pass by
+  the seed — the rows do not exist yet when this array is written, and a self
+  reference cannot be satisfied in a single insert.
+
+  A new tenant starts with exactly the three tiers `project_team_member.role`
+  used to hardcode — pm, superintendent, foreman — as ordinary rows, no
+  different in kind from one a tenant adds itself on `/settings/team-roles`.
+  Director, Area In-charge and General Superintendent were Urban's own
+  addition, made through that screen, not a second starting tier this seed
+  ships — the next customer gets three rows and builds their own ladder from
+  there, the same way Urban did.
+*/
+export type TeamRoleSeed = {
+  name: string;
+  label: string;
+  canHoldCustody: boolean;
+  reportsTo: string | null;
+  /*
+    Which tiers may FILL this one, held on the same job — `team_role_assigner`.
+
+    Distinct from `reportsTo`, and frequently not the same tier: `reportsTo`
+    says who this tier answers to, this says who may put somebody into it. A
+    foreman answers to a superintendent AND is filled by one, but on a job with
+    no superintendent the PM has to be able to fill it too, so the two lists
+    diverge.
+
+    Load-bearing since 2026-09-10. The dedicated `project.assign.*` permissions
+    that used to grant this tenant-wide were removed, so a tier seeded with an
+    empty list can be filled by nobody except an account holding
+    `project.team.assign`.
+  */
+  setBy: string[];
+};
+/*
+  Urban's real chain, as the client drew it on 2026-09-09.
+
+  A DIAMOND, not a line. PM and superintendent are SIBLINGS under the area
+  in-charge — the client corrected an earlier version that had superintendent
+  reporting to pm, and the correction matters: neither outranks the other, and
+  a rank number could not express that. `reportsToTeamRoleId` records an edge
+  precisely so two tiers can share a boss.
+
+  Project engineer, field engineer and foreman likewise sit together beneath
+  the superintendent — the sketch has them on one line. All three carry tools,
+  so all three hold custody.
+
+  The tenant edits these on the Team Roles screen; this is the starting shape,
+  not a fixed vocabulary. The next customer's chain will not be this one.
+*/
+export const teamRoleSpecs: TeamRoleSeed[] = [
+  /* THE TOP OF THE CHAIN, and the only tier nobody can be placed into: a
+     director puts themselves on a job by claiming it. */
+  { name: "director", label: "Director", canHoldCustody: false, reportsTo: null, setBy: [] },
+  /* A director staffs the two tiers directly beneath them — the client's own
+     words on 2026-09-10: "directors assigns general superintendents (gsupers)
+     & area-incharge". An area in-charge can also arrive by claiming, which is
+     why the tier carries a claim grant as well as a `setBy` list; the two are
+     different routes onto a job and both are wanted. */
+  { name: "area_in_charge", label: "Area In-charge", canHoldCustody: false, reportsTo: "director", setBy: ["director"] },
+  /* "area-incharge or gsupers assigns pm and superintendent" — so a general
+     superintendent is placed by a director or an area in-charge, and may then
+     staff the tiers below. It also claims, because a job may have a general
+     superintendent running it with no area in-charge above them on that job. */
+  { name: "general_superintendent", label: "General Superintendent", canHoldCustody: true, reportsTo: "area_in_charge", setBy: ["director", "area_in_charge"] },
+  { name: "pm", label: "Project Manager", canHoldCustody: false, reportsTo: "area_in_charge", setBy: ["area_in_charge", "general_superintendent"] },
+  { name: "superintendent", label: "Superintendent", canHoldCustody: true, reportsTo: "area_in_charge", setBy: ["area_in_charge", "general_superintendent"] },
+  /* The bottom row is filled by whoever runs the job. The PM is included
+     alongside the superintendent because a job flatter than the ladder — no
+     superintendent on it at all — is normal and legal, and without this the
+     PM could staff nothing on such a job. */
+  { name: "project_engineer", label: "Project Engineer", canHoldCustody: true, reportsTo: "superintendent", setBy: ["superintendent", "pm", "general_superintendent"] },
+  { name: "field_engineer", label: "Field Engineer", canHoldCustody: true, reportsTo: "superintendent", setBy: ["superintendent", "pm", "general_superintendent"] },
+  { name: "foreman", label: "Foreman", canHoldCustody: true, reportsTo: "superintendent", setBy: ["superintendent", "pm", "general_superintendent"] },
+];
+
 export const companyRoleSpecs: { name: string; code: string }[] = [
   { name: "Foreman", code: "FRMN" },
   { name: "Superintendent", code: "SUPT" },
@@ -192,9 +297,8 @@ export const companyRoleSpecs: { name: string; code: string }[] = [
 ];
 
 export const projectSpecs: ProjectSeed[] = [
-  { key: "p-equipment-yard", extId: null, name: "Equipment Yard", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
+  { key: "p-equipment-yard", extId: "10001", name: "Equipment Yard", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-lone-star-22018", extId: "22018", name: "Lone Star", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
-  { key: "p-equipment-yard-24002", extId: "24002", name: "Equipment Yard", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-colony-phase-12-23004", extId: "23004", name: "Colony Phase 12", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-nex-22017", extId: "22017", name: "NEX", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
   { key: "p-plano-arterial-renewal-2-24003", extId: "24003", name: "Plano Arterial Renewal-2", status: "in_progress", start: "2025-01-06", end: "2030-12-31", site: null },
@@ -250,8 +354,8 @@ export const employeeSpecs: EmployeeSeed[] = [
     a personal vehicle is NOT — it is not Urban's and leaves with the person.
     A leaver holding only tools would never have proved that.
   */
-  { key: "e-sup001", extId: "SUP-001", name: "Marcus Whitfield", role: "superintendent", primary: "p-equipment-yard-24002", status: "active", email: null, phone: null, reportsTo: null },
-  { key: "e-fm002", extId: "FM-002", name: "Jobani Abarca", role: "foreman", primary: "p-equipment-yard-24002", status: "terminated", email: null, phone: null, reportsTo: "e-sup001" },
+  { key: "e-sup001", extId: "SUP-001", name: "Marcus Whitfield", role: "superintendent", primary: "p-equipment-yard", status: "active", email: null, phone: null, reportsTo: null },
+  { key: "e-fm002", extId: "FM-002", name: "Jobani Abarca", role: "foreman", primary: "p-equipment-yard", status: "terminated", email: null, phone: null, reportsTo: "e-sup001" },
   { key: "e-fm003", extId: "FM-003", name: "ELEASAR MURILLO", role: "foreman", primary: "p-lone-star-22018", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-fm004", extId: "FM-004", name: "JOSE LUIS RODRIGUEZ", role: "foreman", primary: "p-colony-phase-12-23004", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-fm005", extId: "FM-005", name: "ANDRES FLORES", role: "foreman", primary: "p-nex-22017", status: "active", email: null, phone: null, reportsTo: null },
@@ -290,6 +394,12 @@ export const employeeSpecs: EmployeeSeed[] = [
   { key: "e-fm038", extId: "FM-038", name: "FELICIANO VALENCIA", role: "foreman", primary: "p-lone-star-22018", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-fm039", extId: "FM-039", name: "Yoxel Perez", role: "foreman", primary: "p-lone-star-22018", status: "active", email: null, phone: null, reportsTo: null },
   { key: "e-karen", extId: "0199", name: "Karen Osei", role: "equipment_admin", primary: null, status: "active", email: "karen.osei@urban.local", phone: "214-555-0100", reportsTo: null },
+  /* The top of the org chart. Her employee `role` is `pm` because EMPLOYEE_ROLES
+     has no "director" — which is the point the chart is built around: the TIER
+     somebody occupies is the reporting edge, not their job title. She holds no
+     project_team_member row at all, so she exercises the synthetic-node path in
+     buildOrgForest: one director above every job without a row on any of them. */
+  { key: "e-dir001", extId: "0150", name: "Ruth Calloway", role: "pm", primary: null, status: "active", email: "ruth.calloway@urban.local", phone: "214-555-0150", reportsTo: null },
   { key: "e-yard", extId: "7712", name: "Yard Desk", role: "warehouse", primary: null, status: "active", email: "yard@urban.local", phone: "214-555-0199", reportsTo: null },
   /*
     STI-304 — the people behind the login roles that had none.
@@ -329,7 +439,7 @@ export const employeeSpecs: EmployeeSeed[] = [
 
 export const postingSpecs: PostingSeed[] = [
   { emp: "e-fm001", proj: "p-lone-star-22018", from: "2025-01-06", to: null, note: "Assigned with trailer TE-006" },
-  { emp: "e-fm002", proj: "p-equipment-yard-24002", from: "2025-01-06", to: null, note: "Assigned with trailer TE-007" },
+  { emp: "e-fm002", proj: "p-equipment-yard", from: "2025-01-06", to: null, note: "Assigned with trailer TE-007" },
   { emp: "e-fm003", proj: "p-lone-star-22018", from: "2025-01-06", to: null, note: "Assigned with trailer TE-009" },
   { emp: "e-fm004", proj: "p-colony-phase-12-23004", from: "2025-01-06", to: null, note: "Assigned with trailer TE-010" },
   { emp: "e-fm005", proj: "p-nex-22017", from: "2025-01-06", to: null, note: "Assigned with trailer TE-011" },
@@ -358,39 +468,39 @@ export const postingSpecs: PostingSeed[] = [
 ];
 
 export const teamSpecs: TeamSeed[] = [
-  { emp: "e-fm001", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-006" },
-  { emp: "e-fm002", proj: "p-equipment-yard-24002", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-007" },
-  { emp: "e-fm003", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-009" },
+  { emp: "e-fm001", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-006", reportsTo: "e-sup001" },
+  { emp: "e-fm002", proj: "p-equipment-yard", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-007" },
+  { emp: "e-fm003", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-009", reportsTo: "e-sup001" },
   { emp: "e-fm004", proj: "p-colony-phase-12-23004", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-010" },
   { emp: "e-fm005", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-011" },
   { emp: "e-fm006", proj: "p-plano-arterial-renewal-2-24003", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-012" },
   { emp: "e-fm007", proj: "p-garland-22015", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-013" },
   { emp: "e-fm008", proj: "p-austin-lane-24007", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-014" },
-  { emp: "e-fm010", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-016" },
-  { emp: "e-fm011", proj: "p-dart-20011", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-017, TE-027" },
+  { emp: "e-fm010", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-016", reportsTo: "e-sup001" },
+  { emp: "e-fm011", proj: "p-dart-20011", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-017, TE-027", reportsTo: "e-sup001" },
   { emp: "e-fm012", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-018" },
   { emp: "e-fm013", proj: "p-austin-lane-24007", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-019" },
   { emp: "e-fm014", proj: "p-richardson-23002", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-020" },
   { emp: "e-fm015", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-021" },
   { emp: "e-fm016", proj: "p-bell-23010", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-022" },
-  { emp: "e-fm017", proj: "p-dart-20011", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-023" },
+  { emp: "e-fm017", proj: "p-dart-20011", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-023", reportsTo: "e-sup001" },
   { emp: "e-fm018", proj: "p-colony-phase-12-23004", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-024" },
-  { emp: "e-fm019", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-025" },
+  { emp: "e-fm019", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-025", reportsTo: "e-sup001" },
   { emp: "e-fm020", proj: "p-little-elm-23009", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-026" },
   { emp: "e-fm021", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-028" },
   { emp: "e-fm022", proj: "p-nex-22017", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-029" },
   { emp: "e-fm023", proj: "p-austin-lane-24007", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-030" },
-  { emp: "e-fm024", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-033" },
-  { emp: "e-fm038", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-032" },
-  { emp: "e-fm039", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-034" },
+  { emp: "e-fm024", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-033", reportsTo: "e-sup001" },
+  { emp: "e-fm038", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-032", reportsTo: "e-sup001" },
+  { emp: "e-fm039", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-034", reportsTo: "e-sup001" },
   { emp: "e-fm025", proj: "p-little-elm-23009", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-035" },
-  { emp: "e-fm026", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-036" },
+  { emp: "e-fm026", proj: "p-lone-star-22018", role: "foreman", from: "2025-01-06", note: "Working with trailer TE-036", reportsTo: "e-sup001" },
   /* STI-304/STI-302: the only two non-foreman team rows in the seed, and the
      entire basis of `assets.view.project`. Every row above is a foreman, so
      before these the project tier resolved to an empty set for every account
      that held it. */
-  { emp: "e-pm001", proj: "p-lone-star-22018", role: "pm", from: "2025-01-06", note: "Project manager" },
-  { emp: "e-eng001", proj: "p-dart-20011", role: "pm", from: "2025-01-06", note: "Project engineer — login role `engineer`, employee role `pm`" },
+  { emp: "e-pm001", proj: "p-lone-star-22018", role: "pm", from: "2025-01-06", note: "Project manager", reportsTo: "e-dir001" },
+  { emp: "e-eng001", proj: "p-dart-20011", role: "pm", from: "2025-01-06", note: "Project engineer — login role `engineer`, employee role `pm`", reportsTo: "e-dir001" },
   /*
     2026-08-23: Marcus's crew now comes from the PROJECT TEAM, not
     `reportsToEmployeeId` (scope.ts crewOf, myForemen, departure successor). His
@@ -398,8 +508,8 @@ export const teamSpecs: TeamSeed[] = [
     this is what keeps "crew" and "project" from meaning the same thing: Dana
     sees only Lone Star, Marcus's crew spans two jobs.
   */
-  { emp: "e-sup001", proj: "p-lone-star-22018", role: "superintendent", from: "2025-01-06", note: "Superintendent" },
-  { emp: "e-sup001", proj: "p-dart-20011", role: "superintendent", from: "2025-01-06", note: "Superintendent" },
+  { emp: "e-sup001", proj: "p-lone-star-22018", role: "superintendent", from: "2025-01-06", note: "Superintendent", reportsTo: "e-pm001" },
+  { emp: "e-sup001", proj: "p-dart-20011", role: "superintendent", from: "2025-01-06", note: "Superintendent", reportsTo: "e-eng001" },
 ];
 
 export const locSpecs: LocSeed[] = [
@@ -408,7 +518,7 @@ export const locSpecs: LocSeed[] = [
 
 export const vehLocSpecs: VehLocSeed[] = [
   { key: "l-TE-006", type: "vehicle", name: "TE-006", project: "p-lone-star-22018", custodian: "e-fm001" },
-  { key: "l-TE-007", type: "vehicle", name: "TE-007", project: "p-equipment-yard-24002", custodian: "e-fm002" },
+  { key: "l-TE-007", type: "vehicle", name: "TE-007", project: "p-equipment-yard", custodian: "e-fm002" },
   { key: "l-TE-009", type: "vehicle", name: "TE-009", project: "p-lone-star-22018", custodian: "e-fm003" },
   { key: "l-TE-010", type: "vehicle", name: "TE-010", project: "p-colony-phase-12-23004", custodian: "e-fm004" },
   { key: "l-TE-011", type: "vehicle", name: "TE-011", project: "p-nex-22017", custodian: "e-fm005" },
@@ -468,7 +578,7 @@ export const vehLocSpecs: VehLocSeed[] = [
 */
 export const vehSpecs: VehSeed[] = [
   { key: "v-TE-006", loc: "l-TE-006", vtype: "trailer", unit: "TE-006", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm001", lat: "32.7766", lng: "-96.7970" },
-  { key: "v-TE-007", loc: "l-TE-007", vtype: "trailer", unit: "TE-007", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-equipment-yard-24002", foreman: "e-fm002", lat: "32.7766", lng: "-96.7970" },
+  { key: "v-TE-007", loc: "l-TE-007", vtype: "trailer", unit: "TE-007", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-equipment-yard", foreman: "e-fm002", lat: "32.7766", lng: "-96.7970" },
   { key: "v-TE-009", loc: "l-TE-009", vtype: "trailer", unit: "TE-009", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-lone-star-22018", foreman: "e-fm003", lat: "32.7766", lng: "-96.7971" },
   { key: "v-TE-010", loc: "l-TE-010", vtype: "trailer", unit: "TE-010", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-colony-phase-12-23004", foreman: "e-fm004", lat: null, lng: null },
   { key: "v-TE-011", loc: "l-TE-011", vtype: "trailer", unit: "TE-011", plate: null, make: "Enclosed trailer (source)", own: "company_owned", payee: null, allow: null, freq: null, proj: "p-nex-22017", foreman: "e-fm005", lat: "32.8500", lng: "-96.8500" },

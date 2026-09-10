@@ -8,10 +8,11 @@ import { EntityField, type EntityOption } from "@/components/ui/entity-picker";
 import { RidePicker } from "./ride-picker";
 import { useViewTier } from "./use-permissions";
 import { humanize } from "./sti/status";
+import { personHint, projectHint } from "@/lib/format";
 
-type Props = { open: boolean; onClose: () => void; assetId: string; assetTag: string };
+type Props = { open: boolean; onClose: () => void; assetId: string; assetCode: string };
 
-export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
+export function TransferForm({ open, onClose, assetId, assetCode }: Props) {
   const tier = useViewTier();
   const utils = trpc.useUtils();
   const myForemen = trpc.employee.myForemen.useQuery(undefined, { enabled: tier === "assets.view.crew" });
@@ -33,10 +34,10 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
      `location` has no code column today, so its hint is what actually
      distinguishes one from another: kind, plus whichever job it belongs to. */
   const custodianEntityOptions: EntityOption[] = custodianOptions.map((e) => ({
-    value: e.id, label: e.name, hint: e.externalId ?? undefined,
+    value: e.id, label: e.name, hint: personHint(e),
   }));
   const projectEntityOptions: EntityOption[] = (projects.data ?? []).map((p) => ({
-    value: p.id, label: p.name, hint: p.externalId ?? undefined,
+    value: p.id, label: p.name, hint: projectHint(p),
   }));
   const locationEntityOptions: EntityOption[] = (locations.data ?? [])
     .filter((l) => l.type !== "vehicle")
@@ -125,7 +126,7 @@ export function TransferForm({ open, onClose, assetId, assetTag }: Props) {
           <DialogTitle>Transfer Tool</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Transferring: <span className="font-medium text-foreground">{assetTag}</span></p>
+          <p className="text-sm text-muted-foreground">Transferring: <span className="font-medium text-foreground">{assetCode}</span></p>
           <div className="space-y-2">
             <label className="text-sm font-medium">To custodian</label>
             <EntityField

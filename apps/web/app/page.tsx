@@ -23,6 +23,17 @@ import { DUR, EASE } from "@/lib/motion";
   which is the first thing a real deployment does.
 
   Local development sets NEXT_PUBLIC_SHOW_DEMO_LOGINS=1 and loses nothing.
+
+  IT IS ALSO DATASET-SPECIFIC, which the flag's name does not say. The accounts
+  below exist only in the demo FIXTURE (`make seed-demo`). Load Urban's real
+  register (`make seed-urban`) and the database holds two administrators and no
+  `*.local` address at all — so every button here names an account that is not
+  there and fails on click. `.env.local` therefore ships it OFF, and the two
+  make targets set it to match the dataset they load.
+
+  Everyone else joins through an invite from a person's row on /people, which
+  sets their role as it sends and lands in Mailpit locally. That is the real
+  path onto this screen; this list is a fixture convenience.
 */
 const SHOW_DEMO = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "1";
 
@@ -150,7 +161,28 @@ export default function LoginPage() {
 
       <div className="flex items-center justify-center px-6 py-12">
         <div className="flex w-full max-w-[364px] flex-col gap-9">
-          <motion.div {...rise(0)}>
+          <motion.div {...rise(0)} className="flex flex-col gap-5">
+            {/*
+              THE TENANT'S OWN MARK, above the product's.
+
+              Development is against `urban.optixtec.com`, and a customer
+              signing in to their own subdomain should see their company before
+              they see ours — the same `assets/urban_logo.svg` the app shell
+              puts in its top bar, so the two agree.
+
+              HARDCODED, and knowingly so. Optix is a multi-tenant product and
+              this belongs on `tenant_settings` beside the SMTP and LLM
+              configuration, resolved from the subdomain the way `login()`
+              already accepts an optional `tenantSlug`. That is a real change —
+              an upload, a storage key, a fallback for a tenant with no
+              artwork — and inventing half of it here would leave a column
+              nothing writes. One tenant, one file, and a comment saying which
+              part is temporary.
+
+              Not theme-flipped: a logo is not a palette. `alt=""` because the
+              lockup below carries the accessible name.
+            */}
+            <img src="/assets/urban_logo.svg" alt="" className="h-9 w-auto self-start" />
             <OptixLockup tagline />
           </motion.div>
 

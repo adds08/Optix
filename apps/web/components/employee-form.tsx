@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { humanizeRole, projectHint } from "@/lib/format";
 
 export type EmployeeEditable = {
   id: string;
@@ -45,14 +46,9 @@ function legacyRoleFor(roleName: string | undefined, fallback: string) {
   return LEGACY_ROLE_NAMES.has(roleName) ? roleName : fallback;
 }
 
-/* `office_admin` -> "Office Admin". The role register stores snake_case so the
-   seed and the permission matrix can name rows; people should never see it. */
-function humanizeRole(name: string) {
-  return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 export function EmployeeForm({ open, onClose, edit }: Props) {
   const utils = trpc.useUtils();
+  const hr = trpc.employee.hrDetails.useQuery({ employeeId: edit?.id ?? "" }, { enabled: !!edit });
   const projects = trpc.project.list.useQuery();
   const roleOptions = trpc.role.options.useQuery();
   const allEmployees = trpc.employee.list.useQuery();
@@ -127,7 +123,7 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
                   register. "Code" matches the convention used for the same
                   kind of field on tools and projects. */}
               <label className="text-sm font-medium">Employee Code</label>
-              <Input value={externalId} onChange={(e) => setExternalId(e.target.value)} />
+              <Input disabled={!!hr.data?.bamboo} value={externalId} onChange={(e) => setExternalId(e.target.value)} />
               <p className="text-xs text-muted-foreground">As issued by HR — the number on the badge.</p>
             </div>
             <div className="space-y-2">
@@ -194,7 +190,7 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
               placeholder="Select..."
               searchPlaceholder="Project name or code"
               emptyLabel="No job matches."
-              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: p.externalId ?? undefined }))}
+              options={(projects.data ?? []).map((p) => ({ value: p.id, label: p.name, hint: projectHint(p) }))}
             />
           </div>
           {/* DOMAIN DATA again — the role of the person being edited, not of the

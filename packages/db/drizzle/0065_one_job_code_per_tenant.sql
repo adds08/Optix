@@ -1,0 +1,32 @@
+-- ---------------------------------------------------------------------------
+-- A JOB CODE IDENTIFIES A JOB. Nothing made that true until now.
+--
+-- `tbl_entity_project` carried a primary key on `id` and no other uniqueness,
+-- so a tenant could hold any number of rows with the same code or name. The dev
+-- register did: two projects both called "Equipment Yard", one of them job
+-- 24002 (a real job with a foreman and a tool location on it) that had been
+-- renamed. In a picker those are two identical lines and the only way to tell
+-- them apart is to open both.
+--
+-- PARTIAL, and case-insensitive:
+--   * WHERE code IS NOT NULL  — a job with no code is legitimate and several
+--     have none; NULLs do not collide in Postgres anyway, but saying so keeps
+--     the intent readable and the index smaller.
+--   * lower(code)             — "URB-2401" and "urb-2401" are the same code to
+--     anyone reading a list, so they must be the same code to the index.
+--
+-- Names are deliberately NOT unique. "Phase 2" is a reasonable name on two
+-- different sites; the CODE is the discriminator, which is why `projectLabel`
+-- puts it in front of the name on every screen.
+--
+-- `assertCodeFree` in routers/project.ts is the matching check, and it exists
+-- for the error message — this index is what makes the rule true if some future
+-- writer forgets to call it. Same relationship as assignment_one_active_uq and
+-- custody.ts (CLAUDE.md non-negotiable 2).
+--
+-- NOT created concurrently: this runs inside the migration transaction like
+-- every other migration here, and the table is small (tens of rows per tenant).
+-- ---------------------------------------------------------------------------
+CREATE UNIQUE INDEX IF NOT EXISTS "project_code_per_tenant_uq"
+  ON "tbl_entity_project" ("tenant_id", lower("code"))
+  WHERE "code" IS NOT NULL;

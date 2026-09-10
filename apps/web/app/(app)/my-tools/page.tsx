@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MessageSquare, Wrench } from "lucide-react";
 import { formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
-import { EmptyState, TableSkeleton, ErrorNote } from "@/components/sti/page";
+import { EmptyState, TableSkeleton, ErrorNote, PageHeader } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
 
@@ -23,21 +23,18 @@ export default function MyToolsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm text-muted-foreground">
-          {rows.length
-            ? `You are holding ${rows.length} tool${rows.length === 1 ? "" : "s"}.`
-            : "Nothing in your custody right now."}
-        </p>
-        <div className="ml-auto">
+      <PageHeader
+        title="My tools"
+        hideTitle
+        actions={
           <Link href="/chat">
             <Button size="sm">
               <MessageSquare className="size-4" />
               Hand something off
             </Button>
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {me.isLoading || tools.isLoading ? (
         <TableSkeleton rows={4} cols={3} />
@@ -63,7 +60,7 @@ export default function MyToolsPage() {
                 className="flex flex-col gap-2 rounded-md border bg-card p-4 transition-colors hover:border-primary/40"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <Tag>{t.tag}</Tag>
+                  <Tag>{t.code}</Tag>
                   <StatusPill status={t.status} />
                 </div>
                 <span className="font-medium">{formatAssetModel(t) || "Untagged tool"}</span>

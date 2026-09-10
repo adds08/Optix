@@ -235,7 +235,8 @@ failures, and `pinnedItems(groups, pins)` is the pure intersection, called once 
 `useNavPins` starts empty and fills in an effect, because reading storage during render
 would not match the server HTML.
 
-**Verified.** `e2e/tests/nav-pins.spec.ts`: a pin survives a reload; unpinning removes the
+**Verified** (by a browser spec since deleted with the suite on 2026-09-10): a pin
+survives a reload; unpinning removes the
 section; an id naming nothing renders nothing; and an HR account whose seeded `sti-pins`
 names `tool-register`, `custody` and `people` gets exactly one row, `/people`. The last is
 the one that matters — it is what stops a hand-edited `localStorage` key becoming a link.
@@ -373,9 +374,23 @@ project counts once, in the pool, and never twice.
 
 ### STI-1402 — Retire `/old-dash` · S · 5h
 
-**Mechanism.** Delete the route and `dashboard-widgets.tsx` if nothing else reads it. Check
-`widgetVisibility(prefs)` first: STI-501 criterion 6 kept preferences deciding layout while
-permissions decide existence, and that separation must survive.
+**Status: DONE on 2026-09-03**, out of band as part of the design-consistency
+pass (the `/desk` command surface went with it at the user's direction).
+
+**Mechanism (as planned).** Delete the route and `dashboard-widgets.tsx` if
+nothing else reads it. Check `widgetVisibility(prefs)` first: STI-501
+criterion 6 kept preferences deciding layout while permissions decide
+existence, and that separation must survive.
+
+**What actually happened.** `/old-dash` and `/desk` routes, `components/desk/`,
+`components/sti/dashboard/`, `greeting-bar.tsx` and `movement-chart.tsx` were
+deleted. `dashboard-widgets.tsx` SURVIVED — the capital-split, fleet-status
+and movement-rate widgets still feed `/reports/charts/*` and
+`/reports/audit-trail` — but lost the old-dash-only exports (`InboxStatusWidget`,
+`WIDGET_DEFS`, `widgetVisibility`). The orphaned `dashboard.briefing` procedure
+was deleted (its only caller was the Blocky tab). The seed's `old-dashboard`
+hidden feature row went with the module, and the two nav-feature-flags browser
+tests that asserted on it were removed.
 
 ### STI-1403 — Dashboard is per domain, not global · XS · 3h
 

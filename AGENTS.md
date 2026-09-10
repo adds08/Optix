@@ -12,13 +12,19 @@
 
 ## 1. What this is
 
-STInventory is an **internal small-tools & equipment management platform** for Urban
-Infraconstruction (Dallas, TX). Modeled on United Rentals' operating shape
-(catalog → warehouse inventory → dispatch/transfer → charge-to-project) but for an
-internal **owner/custodian** model with no external rental revenue.
+STInventory (product name **Optix**) is a small-tools & equipment management **SaaS**,
+modeled on United Rentals' operating shape (catalog → warehouse inventory →
+dispatch/transfer → charge-to-project) but for an **owner/custodian** model with no
+external rental revenue. It began as an internal tool for Urban Infraconstruction
+(Dallas, TX) and is now in production for Urban as its first tenant, at
+`urban.optixtec.com` — see `DEPLOY.md` §1 for the two-environment topology. A push to
+`main` that passes CI deploys to production automatically.
 
-Separate track from Mark 85 (Urban's ERP effort) for now, built on the same primitives so
-it can later fold in as Mark 85's Equipment module or ship as a satellite SaaS.
+This was originally a separate track from Mark 85 (Urban's ERP effort), built on the same
+primitives so it could fold in as Mark 85's Equipment module *or* ship as a satellite SaaS
+(`docs/02-saas-architecture.md` §1, end state B). End state B is what happened: Optix
+shipped on its own, and a timesheet product is being ported onto the same stack to sell
+alongside it (`docs/workings/TIMESHEET_PORT.md`).
 
 ## 2. Core concepts (read before touching code)
 
@@ -56,7 +62,9 @@ WhatsApp threads buried under other messages. The result:
 - **Auth:** Lucia-style sessions + tenant-scoped RBAC
 - **Monorepo:** pnpm workspaces + Turbo
 - **Event sourcing:** Pure domain fold in `packages/domain`
-- **Deployment:** Docker Compose locally; designed for AWS/GCP
+- **Deployment:** Docker Compose locally; DigitalOcean droplets in dev and production
+  (`DEPLOY.md`) — two environments, each an app droplet plus a dedicated VPC-private
+  Postgres droplet
 
 ## 5. Monorepo layout
 
@@ -74,6 +82,7 @@ packages/
   domain/          Event-sourcing fold + custody rules (pure)
   intent/          Intent catalog, generated LLM prompt, parser — the one place
                    an intent is declared; see docs/08-custom-intents.md
+  mail/            Real SMTP send (nodemailer) — per-tenant config or the env-var fallback
   env/             Zod-validated env loader
   logger/          pino logger
   types/           Branded IDs, enums, permissions
@@ -97,7 +106,12 @@ make ENV=local seed    # load sample data
 
 - Web: http://localhost:3100
 - API: http://localhost:4100 (health: `/health`)
-- Demo password: `stinventory-demo`
+The table below is the **demo dataset** (the default — `SEED_DATASET` unset), a test
+fixture whose accounts share the password `stinventory-demo`. This is NOT what runs on any
+real deployment: `SEED_DATASET=urban` loads Urban's real register instead, with exactly one
+login (`optix_it@optixtec.com`, password from `SEED_OWNER_PASSWORD` or printed once). See
+`.claude/rules/database.md` for the two-dataset split and why it must never collapse into
+one — replacing the fixture with real data has already broken CI once.
 
 | Email | Role | Sees |
 |---|---|---|
@@ -116,17 +130,27 @@ make ENV=local seed    # load sample data
 | readonly@stinventory.local | Read-only | Everything, read-only |
 | jobani@stinventory.local | Foreman | **Deactivated** — refuses to sign in |
 
-The seed (packages/db/src/seed.ts) loads the fleet from
-`packages/db/src/seed-data.ts`, generated from `docs/data/TOOL LIST BY NAME.xlsx`
-via `docs/data/generate_app_seed.py`.
+**`packages/db/src/seed.ts` now selects between TWO datasets on `SEED_DATASET`** — this
+replaces everything this section used to say, and the old advice ("treat `seed-data.ts` as
+the source... regenerate and merge") is exactly the mistake that turned `main`'s CI red on
+2026-09-01. Do not follow it.
 
-**The generator no longer reproduces this file.** `seed-data.ts` has been hand-edited
-since — STI-303's deactivated account, STI-306's terminated employee and reporting chain,
-and STI-304's role accounts are all absent from the generator, so re-running it would
-silently delete them. Treat `seed-data.ts` as the source and the generator as provenance;
-if the tools list is reloaded, regenerate to a scratch file and merge. Raw extraction lives in `docs/data/seed_from_tools_list.json`;
-anything a human must review before trusting it is in
-`docs/data/reconciliation_report.json`.
+- **`packages/db/src/seed-data.ts`** (default) — the demo TEST FIXTURE above. Hand-edited
+  and never regenerated: it carries STI-303's deactivated account, STI-306's terminated
+  employee and reporting chain, STI-304's role accounts, and the synthetic
+  relationships `rbac-matrix.test.ts` asserts on. **Never overwrite this file from real
+  data.**
+- **`packages/db/src/seed-data.urban.ts`** (`SEED_DATASET=urban`) — Urban's real
+  register, machine-generated by `docs/data/build_seed_data.py` from
+  `docs/data/import/*.csv`, which are themselves built by `docs/data/build_import.py`
+  from `docs/data/TOOL LIST BY NAME NEW.xlsx` and the company vehicle list. **This is the
+  one that regenerates safely** — re-run both scripts after correcting a source file.
+  Full pipeline, the human decisions already ruled on, and what is still unresolved:
+  `docs/data/README.md`.
+
+`docs/data/generate_app_seed.py` and `docs/data/generate_seed.py` are the OLD, single-file
+pipeline this replaced — stale in shape (`generate_app_seed.py` emits fields the current
+types no longer have) and must not be run.
 
 ## 7. What's built
 
@@ -138,7 +162,10 @@ anything a human must review before trusting it is in
 - **Assignments** — custody links and the high-value approval gate. Every link is simply
   custody: there is no loan, no due date and no overdue state (removed 2026-08-09)
 - **Transfers** — hand-off reporting, high-value + cross-person approval
-- **Vehicles** — trucks/trailers as moving tracking locations (GPS + ownership)
+- **Vehicles** — the equipment register: trucks/trailers as moving tracking locations
+  (GPS + ownership), plus `equipmentClass` (`vehicle | attachment | heavy | other`,
+  2026-09-01) and a `vin`. Not GPS-tracked locations only — heavy plant and attachments
+  are now registerable rows, not just tool carriers
 - **Job postings** — `employee_project_assignment` records which job a person was on and
   when. `employee.assignToProject` closes the open posting, opens the next, and moves every
   tool in that person's custody to the new project with a `project_change` event each.
@@ -154,9 +181,13 @@ anything a human must review before trusting it is in
   server-side** (`visibleProjectScope`): `project.manage` holders see everything; everyone
   else only the union of their job groups and their team rows. Tools by Jobsite (`/jobsites`)
   is the control hub for this: job ID · name headers, assignable foreman/PM/super chips,
-  editable truck/trailer rows, and "Add Truck / Add Trailer".
-- **Dashboard** — KPIs, HR clearance queue, pending approvals, activity feed. No money
-  figures: fleet value and capital moved to reports on 2026-08-09
+  editable truck/trailer rows, and "Add Truck / Add Trailer". Since 2026-09-02 it also
+  offers a compact **Cards** layout (List | Cards toggle) where a job's tools open in a
+  right-side sheet instead of inline — same underlying data, no separate query.
+- **Dashboard** — KPIs, pending approvals, activity feed. No money figures: fleet value
+  and capital moved to reports on 2026-08-09. **No HR clearance queue** — the offboarding
+  gate was parked 2026-08-27; `dashboard.clearanceQueue` still exists but no screen opens
+  it (see `docs/KNOWN-ISSUES.md` / `packages/api-contracts/src/reachability.test.ts`)
 - **Conversational layer** — chat → LLM intent parse → entity resolution → proposed custody
   action → confirm. Plus tasks extracted from chat and an admin verification queue.
   Full spec: `docs/07-conversational-layer.md`
@@ -196,16 +227,21 @@ anything a human must review before trusting it is in
   is held for signature; `notifyCustodyDecision` closes the loop on approve/decline. Overdue
   and rental detection were removed on 2026-08-09 with the loan and rental models.
 - **Event-sourced core** — append-only `transaction`; rebuild guarantee; audit trail is free
-- **Reports** — `assetRegister`, `byProject`, `byForeman`, `idle`, `lost`,
-  `capitalByProject`, all six with pages under `/reports` driven by
-  `app/(app)/reports/registry.ts`.
+- **Reports** — a register of slugs under `/reports`, driven by
+  `app/(app)/reports/registry.ts`; `assetRegister`, `byProject`, `byForeman`, `idle`,
+  `lost` and `capitalByProject` among them. The registry is the count, not this list —
+  it has grown past what was here.
 
 ## 8. What's not built yet (roadmap)
 
 1. Procurement end-to-end (PR → PO → Receive → Tag → Assign) — no tables at all
 2. Maintenance & inspections module — no tables at all. Blocks the "Service due" flag
    the register prototype shows and production deliberately omits.
-3. HR clearance **sign-off gate** + BambooHR trigger (the queue itself is built)
+3. HR clearance sign-off gate — **abandoned, not pending.** The offboarding gate was
+   parked 2026-08-27; `dashboard.clearanceQueue` still exists but no screen opens it and
+   nothing enforces it. Don't read this as "the queue is built, the gate is next" —
+   building the gate on top of a parked, unreachable queue would need the queue
+   re-verified first
 4. Mobile QR scanning + offline queue — no scan flows, and no offline support at all
 5. Integrations — FoundationSoft, BambooHR, HCSS. United Rentals is now importable by
    file; the Total Control API (EDI / cXML / JSON, punchout catalogue) needs vendor
@@ -227,8 +263,10 @@ anything a human must review before trusting it is in
 - One active **Assignment** per serialized asset at a time.
 - ~~Temporary assignments carry `expected_end_date`; overdue triggers escalating alerts.~~
   **Contradicted §7 of this same document, which was right.** Removed 2026-08-09 with the borrow model: `assignment.expected_end_date` was DROPPED in migration `0012`, `isOverdueLoan` was deleted from `packages/domain`, and no `dashboard.overdueLoans` procedure exists. **Nothing falls due, so nothing goes overdue.** Verified 2026-08-22.
-- HR termination event (`employment_status = terminated`) triggers a **clearance queue**.
-  Offboarding sign-off is blocked until the queue is empty.
+- ~~HR termination triggers a **clearance queue**; offboarding sign-off is blocked until
+  the queue is empty.~~ **The gate does not exist.** The queue procedure is still there
+  (`dashboard.clearanceQueue`) but nothing enforces it and no screen opens it — parked
+  2026-08-27. Don't build against this as if it blocks anything today.
 - Assets in maintenance are not Available and cannot be assigned.
 - `Lost` assets retain full history; they can be Found or Disposed.
 
@@ -277,12 +315,18 @@ anything a human must review before trusting it is in
 - **Production images.** `docker/Dockerfile.{api,web}` + `docker-compose.prod.yml`.
   The API is bundled with esbuild (`apps/api/build.mjs`) because every workspace package
   exports raw `.ts` — `tsc && node dist/index.js` never worked. Web uses Next standalone.
-- **CI.** `.github/workflows/ci.yml` — typecheck, test, all three image builds, and a smoke
-  job that migrates a fresh Postgres and boots the API.
+- **CI.** `.github/workflows/ci.yml` — typecheck, test, **two** image builds (api, web — no
+  mobile image), a smoke job that migrates a fresh Postgres and boots the API, then
+  **`deploy-prod`** (on `main`, deploys `urban.optixtec.com`) and **`deploy-dev`** (on
+  `development`, deploys `urban.bodhitechlabs.com`). A push to `main` that passes every
+  earlier job deploys to production with no separate approval step.
 - **Auth.** bcrypt cost 12 with transparent rehash on login; 32-byte session tokens; login
   rate limited 10/15min per IP+email (in-memory — single-instance only, see `rate-limit.ts`).
   `assertProductionSafe` refuses to boot production with the example secret or a plain-http
-  origin. The seed refuses to run with `NODE_ENV=production`.
+  origin. The seed refuses `NODE_ENV=production` unless `SEED_ALLOW_PRODUCTION=1` — and
+  `SEED_RESET=1` deletes every tenant, employee, vehicle, asset and ledger row (disabling
+  the append-only trigger to do it), so that escape hatch is a real "wipe this environment"
+  switch, not a formality.
 
 ## 13. Known defects (verified 2026-08-06)
 
@@ -299,10 +343,12 @@ Items 1, 2, 3, 4 and 6 below are **resolved** and kept for the record; 5 remains
    along with `packages/design-system` and `packages/frontend-shared`. All three were
    unimported by either app; the latter two are the ones ADR-3 anticipated would serve
    both clients, which never happened.
-   The notification engine itself lives in `apps/api/src/notifications.ts`. Note its delivery
-   layer is still two `console.log` branches — there is no `nodemailer` or `twilio`
-   dependency, and the `SMTP_*`/`TWILIO_*` env vars beyond `SMTP_HOST` are read by nothing.
-   In-app is the only channel that actually works.
+   The notification engine itself lives in `apps/api/src/notifications.ts`. **Email now
+   actually sends** — `packages/mail` (nodemailer) + `mailConfigFor` resolve a tenant's own
+   SMTP row or the `SMTP_*` env-var fallback (`apps/api/src/notifications.ts`); this section
+   used to say the delivery layer was two `console.log` branches, and that stopped being true
+   before this correction. SMS is still a `TWILIO_*`-shaped placeholder nothing reads — that
+   half of the old claim stands.
 4. ~~The manual action path skips the high-value approval rule~~ — **resolved**: verified
    against the code on 2026-08-06 — `action.submit` → `applyChatAction` applies
    `outcomeFor` (which reads `tenantSettings.highValueThreshold`) per asset for

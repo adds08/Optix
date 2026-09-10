@@ -2,28 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "motion/react";
-import { Moon, RotateCw, Sun, TriangleAlert } from "lucide-react";
+import { Bot, Moon, RotateCw, Sun, TriangleAlert } from "lucide-react";
 import { trpc, retryUnlessUnauthorized } from "@/lib/trpc";
 import { clearSession, getSession, logout } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { AppRail } from "@/components/app-rail";
 import { AiPanel } from "@/components/ai-panel";
 import { NotificationCenter } from "@/components/notification-center";
 import { UserMenu } from "@/components/user-menu";
 import { CommandPalette, useCommandPalette } from "@/components/command-palette";
 import { Search } from "lucide-react";
+import { ProjectSwitcher } from "@/components/project-switcher";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorkingBar } from "@/components/working-bar";
 import { AppSplash } from "./app-splash";
+import { FeatureMenu } from "./feature-menu";
 import { DUR, EASE } from "@/lib/motion";
 import { useThemeStore } from "@/lib/themes/store";
 import { applyTheme } from "@/lib/themes/apply-theme";
 import { DEFAULT_PREFS, type ThemePrefs } from "@/lib/themes/themes";
-import { allItems, applyFeatureStates, groupKey, isFieldRole, isSettingsItemId, matchItem, navFor, type NavGroup } from "./nav-config";
-import { LAND_ON_PIN, defaultPinnedHref, readPinOrder } from "./nav-pins";
+import { allItems, applyFeatureStates, groupKey, isSettingsItemId, matchItem, navFor, type NavGroup } from "./nav-config";
+import { LAND_ON_PIN, defaultPinnedHref, readPinOrder, useNavPins } from "./nav-pins";
 
 /*
   The app shell on the shadcn sidebar-07 skeleton.
@@ -67,6 +70,9 @@ export function AppShell({
   const pathname = usePathname();
   const [ready, setReady] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  /* One instance so the sidebar's Pinned section and the feature launcher's
+     Pinned row read the same storage — two hooks would desync after a toggle. */
+  const navPins = useNavPins();
   /* Whether the light/dark preference has been read out of storage yet. It is
      a separate flag from `dark` itself because `false` is a legitimate value
      for that and "not asked yet" has to be distinguishable from "light". */
@@ -177,10 +183,45 @@ export function AppShell({
     }
   }, [me.data?.mustChangePassword, pathname, router]);
 
+  /*
+    First-run setup, the same shape as the password bounce above and for the same
+    reason: a session outlives the login call, so this has to be read per page
+    load rather than off the login response.
+
+    Enabled only once `me` has resolved, so the two redirects cannot race — a
+    person who owes a password change goes there first, and reaches the wizard on
+    the load after they have set it.
+
+    `shouldPrompt` is computed on the SERVER (`onboarding.state`), not here. The
+    exemptions it folds in — an account with no employee record cannot hold the
+    roster rows the wizard is built on — are data questions, and deriving them in
+    a `useEffect` would mean a second copy to keep in step.
+
+    Fires ONCE. `complete` stamps the row whether the person finished or
+    dismissed, because a gate that reappears every session stands between a
+    foreman and the tool they came to check out, and they learn to click through
+    it without reading.
+
+    It needs no "am I already there" guard, unlike the password bounce above:
+    `/welcome` sits OUTSIDE the `(app)` route group and therefore outside this
+    shell, so this effect does not run once somebody has arrived. That is also
+    the point of the route living there — the wizard is the first thing a person
+    sees and must not be framed by a sidebar whose vocabulary they have not
+    learned yet, nor offer them three escape hatches out of it.
+  */
+  const onboarding = trpc.onboarding.state.useQuery(undefined, {
+    enabled: !!me.data && !me.data.mustChangePassword,
+  });
+  useEffect(() => {
+    if (onboarding.data?.shouldPrompt) {
+      router.replace("/welcome");
+    }
+  }, [onboarding.data?.shouldPrompt, router]);
+
   const role = me.data?.role ?? null;
   const perms = me.data?.permissions ?? [];
-  const field = isFieldRole(role);
-  const current = matchItem(allItems(role), pathname);
+  const field = me.data?.usesFieldLayout ?? false;
+  const current = matchItem(allItems(field), pathname);
 
   /* Tenant presentation state — see ADR-11's generalization in
      docs/06-decisions.md. Every signed-in person needs this, the same as
@@ -194,7 +235,7 @@ export function AppShell({
      empty sidebar is worse than no glyph at all. Feature state is applied
      in the SAME pass, after permissions, so the rail and the sidebar read
      one array and can never disagree about what a group contains. */
-  const groups = navFor(role);
+  const groups = navFor(field);
   const railGroups: NavGroup[] = applyFeatureStates(
     groups
       .map((g) => ({ ...g, items: g.items.filter((n) => !n.perm || perms.includes(n.perm)) }))
@@ -243,6 +284,26 @@ export function AppShell({
       why this line exists rather than the obvious version.
     */
     if (!me.data) return;
+    /*
+      And wait for the ONBOARDING gate to have its say, for the same class of
+      reason: both redirects fire on the same sign-in, this one only waits for
+      `me` and so it lands first, and because the marker is consumed on that
+      first pass a person who had never set up was sent to their pinned screen
+      and the wizard never opened at all. Observed on every sign-in for a
+      superintendent, whose first pin is `/my-tools`.
+
+      Returning early rather than consuming the marker is what makes this a
+      yield rather than a cancellation: `onboarding.state` resolves a moment
+      later, and either it sends them to `/welcome` (where the marker waits,
+      unspent, for whenever they next reach `/home`) or it does not and this
+      effect runs properly on the next render.
+    */
+    /* `isPending` alone is not enough: a DISABLED query is not pending, and
+       this query is disabled until `me` lands, which is the exact window the
+       pin redirect used to slip through. Waiting for actual DATA closes it.
+       The wizard gate above fires the moment that data says so. */
+    if (!onboarding.data) return;
+    if (onboarding.data.shouldPrompt) return;
     let marked = false;
     try {
       marked = sessionStorage.getItem(LAND_ON_PIN) === "1";
@@ -257,8 +318,9 @@ export function AppShell({
     if (href && href !== "/home") router.replace(href);
     /* Deliberately not depending on `railGroups`: it is rebuilt every render,
        and the marker — consumed once permissions have landed — is the real
-       guard. */
-  }, [pathname, router, me.data]);
+       guard. The onboarding pair IS depended on, because this effect yields
+       while that query is in flight and has to run again once it answers. */
+  }, [pathname, router, me.data, onboarding.data]);
 
   /* Wall surfaces (the project monitor) own the whole region: no max-width, no
      padding, and no scroll — the readme is explicit that a scrolling embed
@@ -336,54 +398,93 @@ export function AppShell({
       programmatically, and one `scrollIntoView()` in the assistant was enough
       to drag the rail and the content column off-screen while the fixed
       sidebar stayed behind. See the note in `ai-panel.tsx`.
+
+      `flex-col` puts the top bar ABOVE the two-pane row, per the design:
+      the bar spans the full width — mark, scope, breadcrumb — and the sidebar
+      begins below it rather than under a narrower bar over the content only.
     */
-    <SidebarProvider defaultOpen={defaultSidebarOpen} className="relative h-dvh overflow-clip">
+    <SidebarProvider defaultOpen={defaultSidebarOpen} className="relative h-dvh flex-col overflow-clip">
       <AppSplash show={!me.data || !appearanceSettled} />
       <WorkingBar />
-      <AppRail
-        groups={railGroups}
-        activeKey={activeGroupKey}
-        aiOpen={aiOpen}
-        onToggleAi={() => setAiOpen((v) => !v)}
-      />
-      <AppSidebar
-        groups={railGroups}
-        activeGroupKey={activeGroupKey}
-        inboxCount={inboxCount}
-        tenant={me.data?.tenant ?? null}
-      />
-      <SidebarInset>
-        {/* Top bar — page context, search, notifications, account. h-14 is
-            shared with the rail's header so the two bottom borders meet as a
-            single line across the shell. */}
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
-          <SidebarTrigger className="-ml-1.5" />
-          <span className={cn("truncate text-sm font-medium", pathname === "/home" && "hidden")}>
-            {current?.label ?? "Optix"}
-          </span>
-          <div className="ml-auto flex items-center gap-1.5">
-            {!field ? (
-              /* The trigger is a button, not an input: the palette owns the
-                 field, so a second one here would take focus from it. */
-              <Button
-                variant="outline"
-                onClick={() => setPaletteOpen(true)}
-                className="h-8 w-64 max-w-[40vw] justify-start gap-2 px-2.5 text-sm font-normal text-muted-foreground"
-              >
-                <Search className="size-4 shrink-0" aria-hidden />
-                <span className="truncate">Search tools, people, jobs…</span>
-                <kbd className="ml-auto hidden shrink-0 rounded-sm border bg-muted px-1.5 font-mono text-[11px] text-muted-foreground sm:inline">
-                  ⌘K
-                </kbd>
-              </Button>
-            ) : null}
-            <NotificationCenter />
-            <ThemeToggle />
-            {me.data ? (
-              <UserMenu name={userName} role={me.data.role} tenant={me.data.tenant} onSignOut={onLogout} />
-            ) : null}
-          </div>
-        </header>
+
+      {/* Top bar (design/STInventory App.dc.html): mark, toggle, scope
+          selector, the group + page breadcrumb that opens the feature
+          launcher, then search, notifications, theme and account. */}
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card px-4 lg:px-6">
+        {/* The tenant mark — `assets/urban_logo.svg` is the supplied artwork,
+            green + yellow, used verbatim like the design's own `urban-wordmark`
+            image. A logo is not a palette, so it does not flip with the theme;
+            `aria-label` not `alt` because it is a link, not content. */}
+        {/* The supplied artwork is an SVG file with its own fixed colours —
+            inlining it would make the one definition copyable and driftable.
+            `alt=""` because the link carries the accessible name. */}
+        <Link href="/home" aria-label="Urban Infraconstruction home" className="-ml-1.5 shrink-0">
+          <img src="/assets/urban_logo.svg" alt="" className="h-7 w-auto" />
+        </Link>
+        <SidebarTrigger className="-ml-1.5" />
+        <span className="hidden h-6 w-px shrink-0 bg-border md:block" aria-hidden />
+        {/* The system-wide job selector, moved up from the sidebar head per the
+            design. Same component and popover — two panes, job groups,
+            scoping. Phones reach it through the sheet, which is why this is
+            md:block: the sheet has its own copy below. */}
+        <div className="hidden min-w-0 md:block">
+          <ProjectSwitcher />
+        </div>
+        <span className="hidden h-6 w-px shrink-0 bg-border md:block" aria-hidden />
+        {/* Breadcrumb + feature launcher. `current` is the longest nav match,
+            so /tools/[id] still reads "Small Tools" here. */}
+        <FeatureMenu groups={railGroups} currentItem={current} navPins={navPins} />
+
+        <div className="ml-auto flex items-center gap-1.5">
+          {/* The assistant lived in the rail's foot; the rail is gone
+              (design has no rail), so it lives here. */}
+          {!field ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setAiOpen((v) => !v)}
+                  aria-pressed={aiOpen}
+                  aria-label="Assistant"
+                >
+                  <Bot className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Assistant</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {!field ? (
+            /* The palette trigger, styled as the design's pill. It remains a
+               button, not an input: the palette owns the field, so a second
+               one here would take focus from it. */
+            <Button
+              variant="ghost"
+              onClick={() => setPaletteOpen(true)}
+              className="h-8 w-40 justify-start gap-2 rounded-full bg-muted px-3 text-sm font-normal text-muted-foreground hover:bg-accent lg:w-56"
+            >
+              <Search className="size-4 shrink-0" aria-hidden />
+              <span className="hidden truncate sm:inline">Search…</span>
+            </Button>
+          ) : null}
+          <NotificationCenter />
+          <ThemeToggle />
+          {me.data ? (
+            <UserMenu name={userName} role={me.data.role} tenant={me.data.tenant} onSignOut={onLogout} />
+          ) : null}
+        </div>
+      </header>
+
+      {/* The two-pane row: sidebar + content. The bar above is the only full-
+          width element, matching the design. */}
+      <div className="flex min-h-0 flex-1">
+        <AppSidebar
+          groups={railGroups}
+          activeGroupKey={activeGroupKey}
+          inboxCount={inboxCount}
+          navPins={navPins}
+        />
+        <SidebarInset className="min-h-0 min-w-0 flex-1">
 
         {/* The one scroll region. min-h-0 lets it actually shrink to the space
             the header leaves — without it a flex child refuses to go below its
@@ -401,21 +502,60 @@ export function AppShell({
                snapping in. Short on purpose — this sits in front of every
                navigation in the product, and it is the one transition capable
                of making the whole thing feel slow. */
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: DUR.route, ease: EASE.out }}
-              className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8"
-            >
-              {children}
-            </motion.div>
+            <ContentBox pathname={pathname}>{children}</ContentBox>
           )}
         </div>
-      </SidebarInset>
+        </SidebarInset>
+      </div>
+
       <AiPanel open={aiOpen} onClose={() => setAiOpen(false)} />
       {!field ? <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} /> : null}
     </SidebarProvider>
+  );
+}
+
+/*
+  The centred content box, and the reason it is its own component.
+
+  `max-w-[1400px]` plus `mx-auto` interacts badly with collapsing the pane, and
+  the numbers are worth keeping because the effect is counter-intuitive. At a
+  1512px viewport: EXPANDED leaves 1240px for this box, under the cap, so
+  `mx-auto` contributes nothing and the left gutter is just `lg:px-8` — 32px.
+  COLLAPSED leaves 1464px, now OVER the cap, so centring splits the surplus and
+  the gutter DOUBLES to 64px. Collapsing the pane to gain room handed a third of
+  it straight back, and beside a 48px icon rail that band of nothing reads as a
+  broken empty column rather than as breathing room.
+
+  So the horizontal padding tightens when the pane is collapsed: the total
+  gutter stays in the 32-48px range either way instead of stepping up exactly
+  when somebody asked for more space. Centring is kept — on a genuinely wide
+  monitor a 1400px measure beats a full-bleed one.
+
+  A component rather than a class on the div above because `useSidebar()` reads
+  the context that `AppShell` itself provides, and a component cannot consume
+  its own provider. `peer-*` was the other option and cannot reach here: this is
+  a DESCENDANT of `SidebarInset`, not a sibling of the pane, and Tailwind's
+  peer variants compile to a sibling combinator.
+*/
+function ContentBox({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+  const { state } = useSidebar();
+  return (
+    <motion.div
+      /* Keyed on the pathname so each route fades up rather than snapping in.
+         Short on purpose — this sits in front of every navigation in the
+         product, and it is the one transition capable of making the whole thing
+         feel slow. */
+      key={pathname}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: DUR.route, ease: EASE.out }}
+      className={cn(
+        "mx-auto w-full max-w-[1400px] py-6 lg:py-8",
+        state === "collapsed" ? "px-4" : "px-4 lg:px-8",
+      )}
+    >
+      {children}
+    </motion.div>
   );
 }
 

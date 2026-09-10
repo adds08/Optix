@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown, ChevronUp, Pin, PinOff } from "lucide-react";
+import { OptixGlyph, OptixWordmark } from "@/components/optix-mark";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import { SetupNotice } from "@/components/onboarding/setup-notice";
 import { DUR, EASE } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import {
@@ -23,11 +25,11 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { groupKey, matchItem, type NavGroup, type NavItem } from "@/components/sti/nav-config";
-import { pinnedItems, useNavPins } from "@/components/sti/nav-pins";
+import { pinnedItems, type NavPins } from "@/components/sti/nav-pins";
 
 /*
-  The secondary pane of the two-pane shell: the job scope selector at its head,
-  then Pinned, then the rows of the ONE group the rail has selected. The rail
+  The secondary pane of the two-pane shell: the active group's label, then
+  Pinned, then the rows of the ONE group the rail has selected. The rail
   answers "which part of the product am I in"; this answers "which screen".
 
   It listed every group between 2026-08-23 and this change, because switching
@@ -40,10 +42,14 @@ import { pinnedItems, useNavPins } from "@/components/sti/nav-pins";
   and the design's model holds.
 
   Groups arrive already permission-filtered from the shell — the same array the
-  rail draws from, so a glyph and its sidebar can never disagree about what a
-  group contains. That single filtered array is also what Pinned is resolved
-  against, which is what stops a pin outliving the permission that earned it;
-  see `nav-pins.ts`.
+  rail and the feature launcher draw from, so a glyph, a sidebar and a launcher
+  card can never disagree about what a group contains. That single filtered
+  array is also what Pinned is resolved against, which is what stops a pin
+  outliving the permission that earned it; see `nav-pins.ts`.
+
+  The scope selector moved OUT of this pane on 2026-09-04: the design puts it in
+  the top bar, next to the breadcrumb. `navPins` is owned by the shell now too,
+  so the Pinned section here and the launcher's Pinned row share one state.
 */
 
 export type SidebarTenant = {
@@ -57,20 +63,16 @@ export function AppSidebar({
   groups,
   activeGroupKey,
   inboxCount,
-  tenant,
+  navPins,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   groups: NavGroup[];
   activeGroupKey: string | undefined;
   inboxCount: number;
-  /* Candidate placement A (2026-08-30) — a permanent org-identity block in
-     the footer, compared live against candidate B, the same block merged
-     into UserMenu. Whichever the client prefers stays; the other gets
-     deleted in a follow-up, not left behind half-used. */
-  tenant?: SidebarTenant;
+  navPins: NavPins;
 }) {
   const pathname = usePathname();
-  const { pins, order, toggle, move } = useNavPins();
+  const { pins, order, toggle, move } = navPins;
 
   /* Pages outside the navigation — /profile, /account/password — resolve to no
      group. Falling back to the first one keeps the pane populated instead of
@@ -106,14 +108,14 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      {/* h-14 and a border, matching the top bar exactly: the job selector and
-          the page title sit on the same baseline and the two borders read as
-          one rule across the shell instead of a step. */}
-      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border p-2">
+      {/* On a phone the sheet IS the menu, so the scope selector lives here
+          (md:hidden) — the top bar carries it on desktop. Same component; this
+          is just the mobile seat, mirroring where it sat before 2026-09-04. */}
+      <SidebarHeader className="h-14 justify-center border-b border-sidebar-border p-2 md:hidden">
         <ProjectSwitcher />
       </SidebarHeader>
 
-      <SidebarContent className="overscroll-contain pb-2">
+      <SidebarContent className="overscroll-contain pb-2 group-data-[collapsible=icon]:pt-2">
         {/*
           Pinned lands one frame after hydration — `useNavPins` cannot read
           storage during render without desynchronising from the server HTML —
@@ -200,11 +202,37 @@ export function AppSidebar({
         ) : null}
       </SidebarContent>
 
-      {tenant ? (
-        <SidebarFooter className="border-t border-sidebar-border p-2">
-          <OrgIdentity tenant={tenant} />
-        </SidebarFooter>
-      ) : null}
+      {/* The product signature — Optix, in the brand mark colour (navy on
+          light, yellow on dark), set off by its footer border. The tenant's
+          own identity lives in the account menu, not here: the customer does
+          not need their own name under the nav.
+
+          The setup notice sits ABOVE the signature and renders nothing unless
+          the person skipped their first-run setup — see `SetupNotice`. Placed
+          in the footer rather than the nav list on purpose: it is not a screen,
+          it is an outstanding task, and putting it among the routes would make
+          it look like one more place to go. */}
+      <SidebarFooter className="gap-2.5 border-t border-sidebar-border p-2">
+        <SetupNotice />
+        {/*
+          THE MARK SWAPS WITH THE PANE, it is not merely hidden.
+
+          The wordmark is 57px wide and the collapsed rail is 48px, so in icon
+          mode it ran 21px past the edge — measured, not guessed. `optix-mark.tsx`
+          already answers this: a square slot takes `OptixGlyph`, a pane whose
+          width the app controls takes `OptixWordmark`. Both are rendered and CSS
+          picks, rather than a JS branch on `useSidebar()`, because `group` is on
+          the Sidebar element itself and this is a descendant of it — so the
+          state is already in scope for free and there is no second source of
+          truth about which pane is open.
+        */}
+        <div className="px-1 pb-0.5 group-data-[collapsible=icon]:hidden">
+          <OptixWordmark className="h-4 text-brand-mark" />
+        </div>
+        <div className="hidden justify-center pb-0.5 group-data-[collapsible=icon]:flex">
+          <OptixGlyph className="size-5 text-brand-mark" />
+        </div>
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>
@@ -212,36 +240,17 @@ export function AppSidebar({
 }
 
 /*
-  Candidate placement A — a permanent org-identity block, always visible,
-  every screen. No switcher: `session.tenantId` is singular today (a user
-  belongs to exactly one tenant), so there is nothing to switch between yet.
-  This renders the identity now and leaves room for a switcher the day that
-  stops being true, rather than building one against data that cannot yet
-  hold a second tenant.
-*/
-function OrgIdentity({ tenant }: { tenant: NonNullable<SidebarTenant> }) {
-  const displayName = tenant.brandingName || tenant.name || "—";
-  const iconOnly = tenant.brandingLayoutMode === "icon_only";
-  return (
-    <div className="flex items-center gap-2 px-1 py-1">
-      <OrgAvatar name={displayName} />
-      {!iconOnly ? (
-        <div className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</span>
-          {tenant.slug ? (
-            <span className="truncate text-xs text-sidebar-foreground/50">{tenant.slug}</span>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
+  Same shape as UserMenu's initials avatar, deliberately — an org and a
+  person are both "an identity with a name and no picture yet" until a logo
+  upload exists (see the schema comment on tenantSettings.brandingName). A
+  square rather than a circle is the only difference, so the two are never
+  mistaken for each other at a glance.
 
-/* Same shape as UserMenu's initials avatar, deliberately — an org and a
-   person are both "an identity with a name and no picture yet" until a logo
-   upload exists (see the schema comment on tenantSettings.brandingName). A
-   square rather than a circle is the only difference, so the two are never
-   mistaken for each other at a glance. */
+  The org identity is NOT rendered in the sidebar footer any more
+  (2026-09-04) — the account menu carries it — so the tenant block that used
+  to live there is deleted; only this avatar shape survives, because
+  UserMenu uses it by itself.
+*/
 export function OrgAvatar({ name, className }: { name: string; className?: string }) {
   const initial = name.trim()[0]?.toUpperCase() ?? "?";
   return (

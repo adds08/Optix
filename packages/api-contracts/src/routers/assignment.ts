@@ -25,16 +25,16 @@ export const assignmentRouter = router({
       .select({
         id: schema.assignment.id,
         assetId: schema.assignment.assetId,
-        tag: schema.asset.tag,
+        code: schema.asset.code,
         make: schema.asset.make,
         modelNumber: schema.asset.modelNumber,
         description: schema.asset.description,
         custodianId: schema.assignment.custodianId,
         custodianName: schema.employee.name,
-        custodianExternalId: schema.employee.externalId,
+        custodianExternalId: schema.employee.code,
         projectId: schema.assignment.projectId,
         projectName: schema.project.name,
-        projectExternalId: schema.project.externalId,
+        projectExternalId: schema.project.code,
         locationId: schema.assignment.locationId,
         locationName: schema.location.name,
         startDate: schema.assignment.startDate,
@@ -193,7 +193,7 @@ export const assignmentRouter = router({
             approverRole: settings?.custodyApproverRole ?? null,
             refType: "assignment",
             refId: row.id,
-            assetTag: asset.tag,
+            assetCode: asset.code,
             assetLabel: formatAssetModel(asset) || "a tool",
             actorEmployeeId: ctx.session.employeeId ?? null,
             toName: toEmp?.name ?? null,
@@ -302,7 +302,7 @@ export const assignmentRouter = router({
         toCustodianId: a.custodianId,
         refType: "assignment",
         refId: a.id,
-        assetTag: asset?.tag ?? "a tool",
+        assetCode: asset?.code ?? "a tool",
         approved: true,
       });
       return { ok: true };
@@ -395,7 +395,7 @@ export const assignmentRouter = router({
         toCustodianId: a.custodianId,
         refType: "assignment",
         refId: a.id,
-        assetTag: asset?.tag ?? "a tool",
+        assetCode: asset?.code ?? "a tool",
         approved: false,
         reason: input.reason ?? null,
       });
@@ -405,7 +405,7 @@ export const assignmentRouter = router({
         action: "decline",
         entityType: "assignment",
         entityId: a.id,
-        entityLabel: asset?.tag ?? null,
+        entityLabel: asset?.code ?? null,
         details: { reason: input.reason ?? null },
       });
       return { ok: true };

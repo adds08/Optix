@@ -12,12 +12,31 @@ Next.js 15 App Router, shadcn/new-york, TanStack Query via tRPC.
 The README says routes live under `/d02`. They do not, and never do now. Real tree, all under
 the `(app)` route group:
 
-`/home` (the project monitor — the wall board, see below) · `/old-dash` (the widget dashboard
-`/home` used to be, kept until the monitor has been lived with) ·
+`/home` (the project monitor — the wall board, see below) ·
 `/tools` + `/tools/[id]` · `/equipment` + `/equipment/[id]` · `/custody` · `/jobsites` · `/map` ·
 `/reports` + `/reports/[slug]` + `/reports/charts/[slug]` + `/reports/audit-trail` ·
-`/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/job-groups` ·
-`/my-tools` · `/profile` · `/settings` + `/settings/ai` + `/settings/appearance` · `/design/*`
+`/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/org-chart` ·
+`/admin/roles` · `/my-tools` · `/profile` · `/account/password` ·
+`/settings` + `/settings/ai` + `/settings/appearance` + `/settings/modules` +
+`/settings/team-roles` · `/onboarding/progress` · `/design/*`
+
+**`/job-groups` was DELETED on 2026-09-03**, and job groups are alive and well — those are
+two different statements and the second is the important one.
+
+The FEATURE is `components/project-switcher.tsx`, mounted in `app-sidebar.tsx` and therefore
+present on every screen: it lists JOBS and JOB GROUPS, drills into a group's jobs, and offers
+"Create new group". Group create/edit is `components/job-group-modal.tsx`, which sets the
+name, the description, **which jobs are in the group** (`projectGroup.setProjects`) and
+**which users can see it** (`projectGroup.setUsers`).
+
+The deleted PAGE was a strictly weaker duplicate of that: same modal, same job list, and no
+way to assign users at all — which is the half that makes group scoping actually do anything.
+It had no `nav-config.ts` entry and nothing in the shell linked to it, which read as an
+accidental drop until the switcher was compared against it feature by feature. It was not a
+drop; the page had simply been superseded and never deleted.
+
+**Do not re-add a standalone job-groups screen.** If group management needs more room, it
+belongs in the switcher or its modal, next to the scope selector it exists to serve.
 
 The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory, which
 survives as the repo name, the package scope (`@stinventory/*`), the seeded email domain and
@@ -58,12 +77,42 @@ rest mount after hydration, and `prefers-reduced-motion` holds the panel on that
 The indicators are `<span>`s on purpose: four tab stops in front of the email field is a real
 cost for a choice nobody signing in wants to make.
 
+**The panel takes an optional `slide`, and `/welcome` drives it** (2026-09-06). Passing one
+stops the 7-second rotation and hands the caller both the photograph and the copy; the
+wizard changes them per step, so the half of the screen that is not a form still responds
+when the person moves. Sign-in passes nothing and behaves exactly as it always has — this
+is additive, and the default arm is the sign-in arm. The dot indicators are hidden while
+driven: they would be counting photographs while the form counts steps, and two
+progress-looking things disagreeing is worse than one of them missing.
+
 Login is at `/`, not `/login`. Three more routes sit OUTSIDE `(app)`, unauthenticated by
 construction, added with the invite/reset work: `/forgot-password`, `/invite/[token]` and
 `/reset/[token]` (the last two share `AuthTokenForm`,
 `apps/web/components/auth-token-form.tsx`). They call `apps/api`'s auth endpoints directly
 via `lib/auth.ts`, the same way the login form does — not tRPC, because there is no session
 yet for a `protectedProcedure` to check.
+
+**`/welcome` also sits outside `(app)`, and unlike those three it IS authenticated** — it
+is the first-run setup wizard, and `app-shell.tsx` bounces an account whose onboarding is
+unfinished to it. It lives outside the group for a design reason rather than an auth one:
+it was built inside it first, and inheriting the shell meant a person who had never seen
+the product was handed a sidebar, a project switcher and a notification bell to parse
+before the first question — plus three links out of the one screen meant to hold them. It
+is deliberately shaped like the sign-in page next door (jobsite photograph, lockup, task)
+because the two are one sequence.
+
+Do not put the wizard back under `(app)`, and do not give the shell a "hide chrome" flag
+to fake it — `fullBleed` already exists for wall surfaces and is a different thing. Its
+oversight sibling `/onboarding/progress` is a normal in-app screen and correctly stays
+inside the group.
+
+**Centre a scroll region's content with `my-auto` on the child, never `justify-center` on
+the container.** On a scroll container, `justify-center` centres the overflow too: a block
+taller than the box has its top pushed above the scrollport, unreachable, because you
+cannot scroll to negative offset. That took the heading and the search field off the
+wizard's first step — visible instantly in a screenshot, invisible in the source, and
+`overflow` was correct in both versions. `my-auto` centres when there is room and collapses
+to nothing when there is not.
 
 ## Data flow
 
@@ -130,16 +179,42 @@ the one it did. Equipment is a real and separate entity — **trucks and trailer
 equipment, small tools are not** — and it got its own Registry row (`/equipment`,
 `equipment-register`) on 2026-08-30.
 
-The equipment register is the table named `vehicle`, carrying `equipment_class`
-(`vehicle` | `heavy`) plus `can_attach` / `is_attachable`, and since 2026-08-30 a
-`code`/`description` pair matching the small-tools "Code" convention. Those capability
-flags are never current state — what is hitched to what lives in
-`assignment.truckId`/`trailerId` and stays ledger-derived. Do not add an `attached_to_id`
-column; that is a second way to write custody. The table keeps the wrong name on purpose:
-renaming it reaches `assignment`'s composite foreign keys, `transfer`, every router and the
-seed, and that is its own change. `/equipment` shows every row regardless of
-`equipment_class` — today that's trucks and trailers because nothing else exists, and a
-`heavy` row needs no new screen, just data.
+The equipment register is the table named `vehicle`, carrying `can_attach` /
+`is_attachable`, a `code`/`description` pair matching the small-tools "Code" convention
+(2026-08-30), and a `vin` (2026-09-01, migration `0040`). Those capability flags are
+never current state — what is hitched to what lives in `assignment.truckId`/`trailerId`
+and stays ledger-derived. Do not add an `attached_to_id` column; that is a second way to
+write custody. The table keeps the wrong name on purpose: renaming it reaches
+`assignment`'s composite foreign keys, `transfer`, every router and the seed, and that is
+its own change. `/equipment` shows every row regardless of class.
+
+**`vin` is nullable and unconstrained on purpose.** No unique index, no length check:
+Urban's real fleet includes a sixteen-character VIN and five trucks sharing an
+improbable prefix, and a constraint would abort a whole import over one typo rather than
+let the row land and be corrected. Format is reported by `docs/data/build_import.py`,
+never enforced at the write.
+
+**Two columns say "type" and they are not interchangeable.** Getting this wrong breaks
+custody rather than looking wrong:
+
+| Column | Question | Changeable |
+|---|---|---|
+| `vehicle_type` | truck or trailer — STRUCTURAL | **No.** `assignment.truck_id`/`trailer_id` reference `vehicle_id_type_uq` on `(id, vehicle_type)` through composite FKs with a generated constant, so retyping a row orphans every assignment naming it. |
+| `equipment_class` | how the yard FILES it — `vehicle` \| `attachment` \| `heavy` \| `other` (`EQUIPMENT_CLASSES` in `packages/types`) | Yes. Nothing references it. |
+
+A trailer is `vehicle_type: 'trailer'` AND `equipment_class: 'attachment'`; both are true
+at once. Put a new category on `equipment_class`, never on `vehicle_type`.
+
+`equipment_class` gained `attachment` and `other` on 2026-09-01 **together with the form
+control that writes it**. Until then no UI set the column at all, so `heavy` had been
+unreachable since the day it was added and every row held the default — which is how a
+category can exist in the schema and be true of nothing. Migration `0040` backfilled
+existing trailers.
+
+**The class-to-icon mapping is `apps/web/lib/equipment-icon.ts`, and it is the one
+definition.** The register list and the detail page each carried
+`equipmentClass === "heavy" ? Wrench : Truck` inline; correct for two values and silently
+wrong for four, with an attachment drawing a truck on both pages and nothing failing.
 
 **Every `NavItem` carries a stable `id`.** It is never derived from the route, and it is
 what a pin stores — see below. Renaming a route must leave every pin where it was, so
@@ -190,9 +265,10 @@ Two rules, and they are the entire feature:
   array the shell hands the rail. Never render straight out of storage. Storage is
   editable by the person holding the browser, so a pin that could conjure its own link
   would make the sidebar forgeable; this is the same class as the job-scope rule below.
-  `pinnedItems` is the only place the intersection happens, and
-  `e2e/tests/nav-pins.spec.ts` holds it in place with an HR account whose seeded pins name
-  `/tools` and `/custody` and which must render neither.
+  `pinnedItems` is the only place the intersection happens. This was held in place by a
+  browser spec (an HR account whose seeded pins named `/tools` and `/custody` and which
+  had to render neither) until the suite was deleted on 2026-09-10 — **nothing automated
+  guards it now**, so re-check it by hand when you touch pins or permissions.
 
 **A pin MOVES a row, it does not copy it** (changed 2026-08-28). A pinned row is drawn in
 the Pinned section and filtered out of its own group, so the pane never shows the same
@@ -346,8 +422,12 @@ a menu can never reopen already armed. Keep that if you add a destructive item.
 
 **Not everything is a row action.** Custody's Approve/Decline stays as two
 buttons — it is an approval queue, and its primary action should not cost a
-click to reach. Panel headers (`admin/roles`, `job-groups`) keep their buttons
-too; a primary Save behind an ellipsis is a regression, not consistency.
+click to reach. The Inbox's Recognized rows are the same case: Do it / Decline
+are the row's whole purpose, the queue is short by construction (nothing past
+the first screen of requests), and hiding the action behind a menu would put a
+click between the desk and every settlement. Panel headers (`admin/roles`,
+`job-groups`) keep their buttons too; a primary Save behind an ellipsis is a
+regression, not consistency.
 
 ## Nothing moves when you tick a checkbox
 
@@ -372,9 +452,11 @@ Two fixes, one principle, and which one applies depends on where the control liv
   one `selecting` flag that both halves of the row read, so the two can never disagree.
   This costs no vertical space and puts the actions where the eye already is.
 
-`e2e/tests/no-layout-shift.spec.ts` asserts **equality**, not a tolerance — one pixel of
-movement is the same bug as fifty. It was checked against the un-fixed code first and
-fails there with `Expected: 33, Received: 41`.
+The rule is **equality**, not a tolerance — one pixel of movement is the same bug as
+fifty. A browser spec asserted this (verified against the un-fixed code first, where it
+failed `Expected: 33, Received: 41`) until the suite was deleted on 2026-09-10;
+**nothing automated guards it now**, so measure the header height before and after
+selection by hand when you touch this area.
 
 What is still allowed to change height: a genuine error message (`bulkError`). It appears
 on a failed write rather than on every tick, so reserving a permanent blank row for a
@@ -421,6 +503,32 @@ The grip is absolutely positioned and only tinted on hover, so the header is the
 same height whether or not you are pointing at it — the rule above. It sits above
 the sort button and stops propagation, without which every resize would also
 re-sort the table on release.
+
+### A cell ellipsizes TEXT and must never slice a BOX
+
+`TableCell` carries `truncate`, and that is right for text — a long custodian
+name ellipsizes at the column edge instead of wrapping and making every row
+tall.
+
+It does something else entirely to a **box**. `overflow: hidden` does not
+ellipsize a child element, it clips it: a `StatusPill` or a `Tag` wider than its
+column gets cut through the middle, losing its right border and its corner
+radius, which reads as a rendering fault rather than as "there is more text
+here". That shipped twice, most recently on custody and projects
+(2026-09-10), and widening the column is not the fix — it only raises the width
+at which the slicing starts.
+
+**So a box that can land in a table cell bounds itself**: `max-w-full` on the
+element, `min-w-0 truncate` on the label inside it, and a `title` carrying the
+full value. `StatusPill` and `Tag` in `components/sti/status.tsx` both do this,
+so the LABEL ellipsizes inside an outline that stays whole at any width. Give
+any new pill-shaped cell content the same treatment rather than sizing every
+column to its worst-case string — `Status` sized to `Pending Verification` would
+spend that width on every screen that only ever shows `Active`.
+
+Column widths are still worth getting right, and they are **measured, not
+guessed**: every asset code in the register is nine characters, and `6rem` put
+the last one under the ellipsis.
 
 ### Tables are ruled, and the rule lives on the `<table>`
 

@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Info, ShieldAlert, Trash2, Users } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { EmptyState, ErrorNote, TableSkeleton } from "@/components/sti/page";
+import { EmptyState, ErrorNote, TableSkeleton, PageHeader } from "@/components/sti/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityField } from "@/components/ui/entity-picker";
+import { useArmedConfirm } from "@/components/use-armed-confirm";
 
 /*
   Roles & Permissions — what each role may do.
@@ -47,6 +48,7 @@ export default function AdminRolesPage() {
   const mayManage = (me.data?.permissions ?? []).includes("config.manage");
 
   const roles = trpc.role.list.useQuery(undefined, { enabled: mayManage });
+  const tiers = trpc.projectTeam.roles.list.useQuery(undefined, { enabled: mayManage });
   const catalogue = trpc.role.catalogue.useQuery(undefined, { enabled: mayManage });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -80,20 +82,22 @@ export default function AdminRolesPage() {
      saved separately — they are a different kind of statement and a different
      mutation, so one Save button for both would claim an atomicity that is not
      there. */
-  const [flags, setFlags] = useState({ needsLogin: true, canHoldCustody: false, usesFieldLayout: false });
+  const [flags, setFlags] = useState({ needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment" as "equipment" | "people" | "office" | "none", claimTierNames: [] as string[] });
   useEffect(() => {
     if (selected) {
       setFlags({
+        onboardingKind: selected.onboardingKind as "equipment" | "people" | "office" | "none",
+        claimTierNames: selected.claimTierNames,
         needsLogin: selected.needsLogin,
         canHoldCustody: selected.canHoldCustody,
         usesFieldLayout: selected.usesFieldLayout,
       });
     }
-  }, [selectedId, selected?.needsLogin, selected?.canHoldCustody, selected?.usesFieldLayout]);
+  }, [selectedId, selected?.needsLogin, selected?.canHoldCustody, selected?.usesFieldLayout, selected?.onboardingKind, selected?.claimTierNames.join(",")]);
 
   const flagsDirty =
     !!selected &&
-    (flags.needsLogin !== selected.needsLogin ||
+    (flags.onboardingKind !== selected.onboardingKind || flags.claimTierNames.join(",") !== selected.claimTierNames.join(",") || flags.needsLogin !== selected.needsLogin ||
       flags.canHoldCustody !== selected.canHoldCustody ||
       flags.usesFieldLayout !== selected.usesFieldLayout);
 
@@ -137,6 +141,12 @@ export default function AdminRolesPage() {
     },
     onError: (e) => setError(e.data?.userMessage ?? "Could not delete that role."),
   });
+  /* Two-click delete, the same shape as every other destructive control in the
+     app: the first click arms the button and swaps its label, the second
+     actually deletes. `disarm` is called whenever the selected role changes so
+     switching to a different role in the list can never leave THIS button
+     primed to delete something else on the next click. */
+  const deleteConfirm = useArmedConfirm(() => selected && remove.mutate({ id: selected.id }));
 
   const dirty = useMemo(() => {
     if (!selected) return false;
@@ -172,17 +182,16 @@ export default function AdminRolesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-medium">Roles &amp; Permissions</h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            What each role may do. Changes apply on each person&apos;s next page load.
-          </p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
-          New role
-        </Button>
-      </div>
+      <PageHeader
+        title="Roles & Permissions"
+        hideTitle
+        description="What each role may do. Changes apply on each person&apos;s next page load."
+        actions={
+          <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
+            New role
+          </Button>
+        }
+      />
 
       {roles.isError ? <ErrorNote message="Roles could not be loaded." /> : null}
 
@@ -196,7 +205,7 @@ export default function AdminRolesPage() {
               <button
                 key={r.id}
                 type="button"
-                onClick={() => setSelectedId(r.id)}
+                onClick={() => { deleteConfirm.disarm(); setSelectedId(r.id); }}
                 className={`flex flex-col items-start gap-1 bg-card px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent ${
                   r.id === selectedId ? "bg-muted font-medium" : ""
                 }`}
@@ -234,14 +243,17 @@ export default function AdminRolesPage() {
                   {selected.userCount} account{selected.userCount === 1 ? "" : "s"}
                 </span>
                 <div className="ml-auto flex items-center gap-2">
+                  {/* Two-click delete: first click arms and swaps to the red
+                      confirm label, second click actually deletes — the same
+                      shape as every other destructive control in the app. */}
                   {!selected.isBuiltIn ? (
                     <Button
                       size="sm"
-                      variant="ghost"
-                      onClick={() => remove.mutate({ id: selected.id })}
+                      variant={deleteConfirm.armed ? "destructive" : "ghost"}
+                      onClick={deleteConfirm.handleClick}
                       disabled={remove.isPending}
                     >
-                      <Trash2 className="size-3.5" /> Delete
+                      <Trash2 className="size-3.5" /> {deleteConfirm.armed ? "Delete?" : "Delete"}
                     </Button>
                   ) : null}
                   <Button
@@ -305,6 +317,27 @@ export default function AdminRolesPage() {
                   </Button>
                 </div>
               </div>
+
+              <section className="space-y-3 rounded-lg border p-4">
+                <h3 className="font-medium">First-time setup</h3>
+                <div className="space-y-1 text-sm">
+                  <label className="block">Setup for this role</label>
+                  <EntityField
+                    value={flags.onboardingKind}
+                    onChange={v => setFlags(f => ({ ...f, onboardingKind: v as typeof f.onboardingKind }))}
+                    placeholder="Setup for this role"
+                    options={[
+                      { value: "equipment", label: "Projects and equipment" },
+                      { value: "people", label: "People / HR" },
+                      { value: "office", label: "Office introduction" },
+                      { value: "none", label: "No required setup" },
+                    ]}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">Allow this role to claim projects in these tiers during initial onboarding only. Leave all unticked to require manager assignment. These choices do not grant ongoing team-management permissions.</p>
+                <div className="flex flex-wrap gap-3">{(tiers.data ?? []).map(t => <label className="flex items-center gap-2 text-sm" key={t.name}><input type="checkbox" checked={flags.claimTierNames.includes(t.name)} onChange={e => setFlags(f => ({ ...f, claimTierNames: e.target.checked ? [...f.claimTierNames, t.name] : f.claimTierNames.filter(n => n !== t.name) }))} />{t.label}</label>)}</div>
+                <Button variant="outline" disabled={!flagsDirty || saveFlags.isPending} onClick={() => saveFlags.mutate({ roleId: selected.id, ...flags })}>Save setup settings</Button>
+              </section>
 
               {error ? <ErrorNote message={error} /> : null}
 

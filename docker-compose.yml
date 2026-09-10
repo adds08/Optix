@@ -19,6 +19,28 @@ services:
       timeout: 3s
       retries: 20
 
+  # A real SMTP server with a web inbox, for LOCAL development only.
+  #
+  # `sendMail`'s console fallback already stops an unconfigured stack from
+  # losing mail, but a line in a log is not a link anybody can click — and the
+  # invite -> signup -> onboarding loop is only testable end to end if the
+  # invite arrives somewhere you can open it. Mailpit accepts on 1025 and
+  # serves the mailbox at http://localhost:8025.
+  #
+  # It delivers NOWHERE. Everything it accepts stays in memory in this
+  # container, which is exactly what makes it safe to point real-looking
+  # addresses at while testing. Never add this to a deployed environment.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: stinventory-mailpit
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
   api:
     build:
       context: .
@@ -45,9 +67,17 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
-      TWILIO_FROM: ${TWILIO_FROM:-}
+      # BambooHR, read-only. NOT passed to the `web` service — the key is
+      # server-side and a NEXT_PUBLIC_* style leak would put it in a bundle.
+      #
+      # This block is why "it's already in .env.local" is not enough: compose
+      # names every variable it forwards, and `--env-file` only feeds the
+      # `${...}` substitution HERE. A key present on disk and absent from this
+      # list reaches the container as an empty string, and `serverEnv()` then
+      # reports the sync as unconfigured with the file sitting right there.
+      # Empty disables the sync, which is the correct default.
+      BAMBOOHR_COMPANY_DOMAIN: ${BAMBOOHR_COMPANY_DOMAIN:-}
+      BAMBOOHR_API_KEY: ${BAMBOOHR_API_KEY:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
@@ -90,6 +120,12 @@ services:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4100}
       # Local only: pre-fills the form and shows the demo account list.
+      #
+      # Those thirteen accounts exist ONLY in the demo fixture (`make seed-demo`).
+      # After `make seed-urban` the database holds Urban's real register and two
+      # administrators, so every button in that panel names an address that is not
+      # there and fails on click. Set this to 0 alongside the real dataset — or
+      # leave it unset in .env.local, which is what the default below is for.
       NEXT_PUBLIC_SHOW_DEMO_LOGINS: ${NEXT_PUBLIC_SHOW_DEMO_LOGINS:-1}
     ports:
       - "${WEB_PORT:-3100}:3100"

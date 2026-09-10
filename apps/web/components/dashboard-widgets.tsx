@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Area,
   AreaChart,
@@ -15,94 +14,32 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowRight, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import type { useThemeStore } from "@/lib/themes/store";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /*
-  The command-center widgets (docs/19 + docs/20).
+  The chart widgets (docs/19 + docs/20, C2).
 
-  Each widget is one small card reading one query. Visibility is per-user,
-  persisted in user_preferences.dashboard and mirrored through the theme store
-  so the dashboard reacts instantly to the Customize menu.
+  Each widget is one small card reading one query. These three — capital
+  split, fleet by status, movement rate — live on the graphical reports at
+  /reports/charts/*, which is their only consumer since the widget dashboard
+  (and its Command Center tab) was removed on 2026-09-03 along with the Desk.
+  The old visibility machinery (`WIDGET_DEFS`, `widgetVisibility`, the inbox
+  status tile) went with it: no screen reads user_preferences.dashboard any
+  more.
 
-  These live on the Command Center tab only (docs/20, B3). The greeting and
-  weather moved out into the compact GreetingBar on the Fleet tab.
+  `capital` stayed off the old Command Center on purpose — project-versus-
+  department acquisition cost is a finance question, not something the desk
+  acts on between jobs — which is exactly why it now lives as a report of its
+  own.
 */
-
-/*
-  `capital` is deliberately absent. The Capital split widget still exists and is
-  still a report at /reports/charts/capital-split — it was taken off the Command
-  Center because project-versus-department acquisition cost is a finance
-  question, not something the desk acts on between jobs. `widgetVisibility`
-  iterates this list, so a stored preference still carrying `capital: true` is
-  ignored rather than needing a migration.
-*/
-export const WIDGET_DEFS = [
-  { id: "inbox", label: "Inbox status" },
-  { id: "status", label: "Fleet by status" },
-  { id: "movements", label: "Movement rate" },
-  { id: "greeting", label: "Greeting" },
-  { id: "weather", label: "Weather" },
-] as const;
-
-export type WidgetId = (typeof WIDGET_DEFS)[number]["id"];
-
-const DEFAULT_VISIBLE: Record<WidgetId, boolean> = {
-  inbox: true,
-  status: true,
-  movements: true,
-  greeting: true,
-  weather: true,
-};
-
-export function widgetVisibility(prefs: ReturnType<typeof useThemeStore.getState>["prefs"]): Record<WidgetId, boolean> {
-  const stored = prefs?.dashboard.widgets ?? {};
-  const out = { ...DEFAULT_VISIBLE } as Record<WidgetId, boolean>;
-  for (const w of WIDGET_DEFS) {
-    if (typeof stored[w.id] === "boolean") out[w.id] = stored[w.id] as boolean;
-  }
-  return out;
-}
 
 function Card({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn("flex flex-col gap-2 rounded-md border bg-card p-4", className)}>
       <h3 className="text-sm font-medium">{title}</h3>
       {children}
-    </div>
-  );
-}
-
-/* ---- inbox status ---- */
-export function InboxStatusWidget() {
-  const inbox = trpc.inbox.classified.useQuery({ limit: 20 }, { refetchInterval: 15_000 });
-  const c = inbox.data;
-  return (
-    <Link href="/inbox" className="block rounded-md border bg-card p-4 transition-colors hover:bg-accent/60">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Inbox</h3>
-        <Sparkles className="size-3.5 text-warn" />
-      </div>
-      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-        <Stat label="Ready" value={c?.recognized.length ?? "…"} tone={c?.recognized.length ? "text-warn" : "text-ok"} />
-        <Stat label="Stuck" value={c?.unrecognized.length ?? "…"} tone={c?.unrecognized.length ? "text-warn" : "text-muted-foreground"} />
-        <Stat label="Done" value={c?.completed.length ?? "…"} tone="text-muted-foreground" />
-      </div>
-      <span className="mt-2 inline-flex items-center gap-1 text-xs text-primary">
-        Open the inbox <ArrowRight className="size-3" />
-      </span>
-    </Link>
-  );
-}
-
-function Stat({ label, value, tone }: { label: string; value: string | number; tone: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className={cn("tnum text-xl font-semibold", tone)}>{value}</span>
-      <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   );
 }

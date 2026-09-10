@@ -128,9 +128,10 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
-      TWILIO_FROM: ${TWILIO_FROM:-}
+      # BambooHR, read-only. Empty by default, and empty DISABLES the sync —
+      # so production stays inert until somebody deliberately sets these.
+      BAMBOOHR_COMPANY_DOMAIN: ${BAMBOOHR_COMPANY_DOMAIN:-}
+      BAMBOOHR_API_KEY: ${BAMBOOHR_API_KEY:-}
     expose:
       - "4100"
 

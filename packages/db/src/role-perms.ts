@@ -19,15 +19,58 @@ export const PM_PERMS = [
   "asset.read", "project.read", "project.manage", "employee.read", "report.read",
   "assignment.read", "transfer.read", "location.read", "vehicle.read",
   "notification.read",
-  /* PMs assign superintendents and foremen to their projects. */
+  /* A PM places superintendents and foremen on their own jobs, and may NOT
+     place another PM. That distinction used to be two dedicated permissions;
+     it is now the `team_role_assigner` rows for those tiers, which say the
+     same thing for every tenant-added tier too. A PM holds no tenant-wide
+     assign grant — their authority comes from the tier they hold on the job. */
   "project.team.read",
-  "project.assign.superintendent",
-  "project.assign.foreman",
   /* Their projects' tools, resolved through project_team_member and the job
      groups handed to the account. Not everything — a PM on two jobs sees two
      jobs' tools. */
   "assets.view.project",
 ] as const;
+
+/*
+  Shared by the three roles that may claim a job — `director`,
+  `area_in_charge` and `general_superintendent`.
+
+  PM_PERMS plus exactly three things, and each one is load-bearing for the flow
+  these roles exist to unblock:
+
+  - `project.team.manage` — the Job Tiers register itself, so a director can
+    describe their own chain without an owner.
+
+  And that is ALL. Two permissions were tried here and removed on the same day,
+  because both turned "runs some jobs" into "sees everything":
+
+  - `assets.view.all` and `project.team.assign` each make `visibleProjectScope`
+    return UNRESTRICTED (see scope.ts). A director on three jobs was shown all
+    nineteen projects and 272 people on the wizard's crew step, which is not
+    what "your crew" means and is exactly what the client caught.
+  - Claiming does not need either of them. `onboarding.claimOptions` queries
+    `project` directly with no scope predicate, precisely so somebody can pick a
+    job they are not yet on. That is the ONE place a wide list is correct, and
+    it is already handled.
+  - Placing people does not need `project.team.assign` either. Once a director
+    has claimed a job they hold the `director` TIER on it, and `assertCanAssign`
+    reads the "Set by" rows — Director sets Area In-charge and General
+    Superintendent, and so on down. Their authority is per-job, which is the
+    point: it arrives with the claim and does not extend to jobs they never
+    took on.
+
+  So leadership keeps PM_PERMS plus the tier register. `assets.view.project`
+  stays, which resolves through the roster rows a claim creates.
+
+  Deliberately NOT `config.manage`: that carries the LLM keys and the high-value
+  approval threshold, and "runs the jobs" is not "changes what needs a second
+  signature" — the same line `office_admin` is held to below.
+
+  They share one constant rather than repeating a list, on the same reasoning
+  as `project_manager`/`engineer`: if they ever genuinely diverge, that is the
+  moment to write them out in full and say why.
+*/
+export const LEADERSHIP_PERMS = [...PM_PERMS, "project.team.manage"] as const;
 
 /*
   RBAC: the permission set per login role.
@@ -48,6 +91,13 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
   /* System Administrator. `owner` is that role — see the note on ROLES in
      packages/types. Everything, including config.manage. */
   owner: [...PERMISSIONS],
+  /* Technical Administrator — Optix's own operator. Same grants as `owner`
+     WITHIN a tenant; what makes it different is `role.isCrossTenant`, which
+     reaches every tenant and which nothing reads yet. See the note on ROLES in
+     packages/types. A spread, so a permission added later is held by this role
+     on a freshly seeded database — and, per .claude/rules/database.md, needs a
+     migration to reach one that already exists. */
+  tech_admin: [...PERMISSIONS],
   /* Equipment Administrator: owns the small tools programme end to end. The
      matrix grants the same set as System Admin, and the two are kept as
      separate roles because SYSTEM_PLAN §2 forbids collapsing "Admin" into one
@@ -75,10 +125,12 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "project.read",
     "project.manage",
     "project.team.read",
-    /* Placing a PM on a job reads as an administrative act (§5 decision 3,
-       default taken). Placing supers and foremen does not — that is the job
-       of whoever runs the work. */
-    "project.assign.pm",
+    /* Placing anybody in any tier, on any job — the tenant-wide grant. It
+       absorbed `project.assign.pm` on 2026-09-10: placing somebody in a
+       leadership tier reads as administrative whichever tier it is, and the
+       three named ones were never the whole register. */
+    "project.team.assign",
+    "project.team.manage",
     "employee.read",
     "employee.manage",
     "user.manage",
@@ -117,9 +169,7 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
        put on a project (docs: project.team.assign hierarchy) — and it keeps
        project.manage so the yard desk sees every job, the way admins do. */
     "project.team.read",
-    "project.assign.pm",
-    "project.assign.superintendent",
-    "project.assign.foreman",
+    "project.team.assign",
     "assets.view.all",
   ],
   superintendent: [
@@ -127,15 +177,21 @@ export const ROLE_PERMS: Record<(typeof ROLES)[number], readonly string[]> = {
     "assignment.read", "assignment.create", "assignment.approve",
     "transfer.read", "transfer.create", "transfer.approve",
     "report.read", "notification.read",
-    /* Superintendents put foremen on their projects. */
+    /* Superintendents put foremen on their projects — now via the foreman
+       tier's `team_role_assigner` row rather than a dedicated permission. */
     "project.team.read",
-    "project.assign.foreman",
     /* Sees what the foremen reporting to them are holding — resolved through
        employee.reportsToEmployeeId, not through project membership. A
        superintendent whose crew works three jobs sees all three. */
     "assets.view.crew",
   ],
   procurement: ["asset.read", "project.read", "employee.read", "report.read", "notification.read", "assets.view.all"],
+  /* The leadership roles — see LEADERSHIP_PERMS above and the note on ROLES in
+     packages/types. They are the only roles seeded with a `claimTierNames`
+     grant, which is what lets an empty tenant record its first roster row. */
+  director: LEADERSHIP_PERMS,
+  area_in_charge: LEADERSHIP_PERMS,
+  general_superintendent: LEADERSHIP_PERMS,
   project_manager: PM_PERMS,
   /* Engineer: the same authority as a Project Manager where small tools are
      concerned (PERMISSION_MATRIX §1). Shares the constant rather than

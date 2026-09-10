@@ -55,7 +55,7 @@
         "apps/api/src/**"
       ]
     },
-    "e2e": { "agent": "sti-e2e-qa", "blocking": false, "scope": "once per phase, not per ticket" },
+    "e2eAcceptance": { "agent": "sti-e2e-qa", "blocking": false, "scope": "once per phase, not per ticket; drives the Playwright MCP — there is no committed spec suite" },
     "$ultrareviewNote": "Deep multi-agent review (/code-review ultra) is deliberately NOT a gate here. The user runs it themselves, once, after all work is complete. No agent invokes it, prompts for it, or simulates it."
   },
 
@@ -98,7 +98,7 @@
       "videos",
       "test-results/",
       "playwright-report/",
-      "e2e/.auth/"
+      ".playwright-mcp/"
     ]
   },
 

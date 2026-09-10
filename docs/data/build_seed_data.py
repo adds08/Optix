@@ -43,6 +43,12 @@ YARD = "Equipment Yard"
 # a member of a crew.
 RESERVED = []
 OWNER_EMAIL = "optix_it@optixtec.com"
+# Optix's own technical administrator, distinct from the customer's `owner`.
+# Same grants inside the tenant; what differs is role.is_cross_tenant, which
+# reaches every tenant and which nothing reads yet. Client's instruction,
+# 2026-09-07: "one tech and one admin that is organizational admin, and other
+# tech admin is always accessible to all tenant".
+TECH_ADMIN_EMAIL = "tech@optixtec.com"
 
 
 def norm(s):
@@ -79,7 +85,13 @@ project_key = {}          # (name, extId) -> key
 project_rows = []
 for p in projects_csv:
     ext = p["external_id"] or None
-    key = f"p-{slug(p['name'])}" + (f"-{ext}" if ext else "")
+    # The Yard keeps a stable key (no extId suffix): its name resolves to this
+    # same key whether referenced by name or by job number 10001, so the single
+    # Equipment Yard never drifts into a second project on a regenerate.
+    if p["name"] == YARD:
+        key = f"p-{slug(p['name'])}"
+    else:
+        key = f"p-{slug(p['name'])}" + (f"-{ext}" if ext else "")
     project_rows.append({
         "key": key, "extId": ext, "name": p["name"],
         "status": p["status"] or "in_progress",
@@ -195,7 +207,13 @@ for v in vehicles_csv:
         "key": f"v-{slug(unit)}", "loc": loc_key,
         # The register models a trailer as vehicleType 'trailer'; the
         # vehicle/attachment split the templates carry has no column yet.
-        "vtype": v["vehicle_type"], "unit": unit, "code": v["code"] or None,
+        "vtype": v["vehicle_type"],
+        # The category Urban files it under, straight from the templates.
+        "eclass": v["equipment_kind"] or None,
+        # The VIN finally has a column to land in (migration 0040); before it,
+        # every one of these was read from the source and silently dropped.
+        "vin": v["vin"] or None,
+        "unit": unit, "code": v["code"] or None,
         "description": v["make_model"] or None,
         "plate": v["plate"] or None, "make": v["make_model"] or None,
         "own": v["ownership"] or "company_owned",
@@ -346,6 +364,7 @@ A("")
 A("export const vehSpecs: VehSeed[] = [")
 for x in veh_rows:
     A(f'  {{ key: {ts(x["key"])}, loc: {ts(x["loc"])}, vtype: {ts(x["vtype"])}, '
+      f'eclass: {ts(x["eclass"])}, vin: {ts(x["vin"])}, '
       f'unit: {ts(x["unit"])}, code: {ts(x["code"])}, description: {ts(x["description"])}, '
       f'plate: {ts(x["plate"])}, make: {ts(x["make"])}, own: {ts(x["own"])}, '
       f'payee: {ts(x["payee"])}, allow: {ts(x["allow"])}, freq: {ts(x["freq"])}, '
@@ -392,6 +411,7 @@ A("   employeeKey is null on purpose: the IT owner administers the system, they 
 A("   not a foreman holding tools. */")
 A("export const userSpecs: UserSeed[] = [")
 A(f'  {{ email: {ts(OWNER_EMAIL)}, first: "Optix", last: "IT", role: "owner", employeeKey: null }},')
+A(f'  {{ email: {ts(TECH_ADMIN_EMAIL)}, first: "Optix", last: "Tech", role: "tech_admin", employeeKey: null }},')
 A("];")
 
 open(TARGET, "w").write(head + "\n".join(L) + "\n")

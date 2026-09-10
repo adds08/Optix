@@ -7,7 +7,11 @@ export function usePermissions() {
   const role = me.data?.role ?? null;
   const perms = me.data?.permissions ?? [];
   const has = (perm: Permission) => perms.includes(perm);
-  return { role, has };
+  /* Which LAYOUT this account gets, from `tbl_entity_role.uses_field_layout`
+     rather than from a hardcoded set of role names — see the comment on
+     `navFor` in nav-config.ts for what that set was and why it was wrong. */
+  const usesFieldLayout = me.data?.usesFieldLayout ?? false;
+  return { role, has, usesFieldLayout };
 }
 
 /*

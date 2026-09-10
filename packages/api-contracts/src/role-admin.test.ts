@@ -31,6 +31,12 @@ const url = process.env.DATABASE_URL;
 describe.skipIf(!url)("role administration", () => {
   let db: Database;
   let tenantId: string;
+  /* Suite-scoped so `afterAll` can reach it. It was a `const` inside
+     `beforeAll`, and only the ROLE id survived — so the teardown deleted the
+     primary tenant and left this one behind, one orphan per run, in the same
+     database the dev stack and the browser use. Four had accumulated before
+     anyone looked. */
+  let otherTenantId: string;
   let adminUserId: string;
   let outsiderUserId: string;
   let adminRoleId: string;
@@ -78,6 +84,7 @@ describe.skipIf(!url)("role administration", () => {
       .insert(schema.tenant)
       .values({ name: "role admin other", slug: `roleadm-other-${suffix}` })
       .returning({ id: schema.tenant.id });
+    otherTenantId = other!.id;
 
     await db.insert(schema.permission).values([
       { name: "config.manage" }, { name: "asset.read" }, { name: "asset.manage" },
@@ -117,7 +124,10 @@ describe.skipIf(!url)("role administration", () => {
   });
 
   afterAll(async () => {
+    /* Both tenants, not just the first. The role rows go with them — the
+       tenant FK is ON DELETE cascade — so this is the whole cleanup. */
     if (db && tenantId) await db.delete(schema.tenant).where(eq(schema.tenant.id, tenantId));
+    if (db && otherTenantId) await db.delete(schema.tenant).where(eq(schema.tenant.id, otherTenantId));
     await db?.$client.end();
   });
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AssignForm } from "@/components/assign-form";
 import { TransferForm } from "@/components/transfer-form";
 import { ReportForm } from "@/components/report-form";
+import { NoteForm } from "@/components/note-form";
 
 /*
   Custody actions for one tool, on the desk side.
@@ -21,14 +22,14 @@ import { ReportForm } from "@/components/report-form";
 */
 export function AssetActions({
   assetId,
-  assetTag,
+  assetCode,
   heldBySomeone,
 }: {
   assetId: string;
-  assetTag: string;
+  assetCode: string;
   heldBySomeone: boolean;
 }) {
-  const [open, setOpen] = useState<"assign" | "transfer" | "report" | null>(null);
+  const [open, setOpen] = useState<"assign" | "transfer" | "report" | "note" | null>(null);
   const utils = trpc.useUtils();
 
   const invalidate = () => {
@@ -81,8 +82,12 @@ export function AssetActions({
         </Can>
       )}
 
-      <Button size="sm" variant="outline" onClick={() => setOpen("report")}>
+      {/* A note changes nothing; a report moves the tool (or asks the desk to). */}
+      <Button size="sm" variant="outline" onClick={() => setOpen("note")}>
         Add note
+      </Button>
+      <Button size="sm" variant="outline" onClick={() => setOpen("report")}>
+        Report issue
       </Button>
 
       {submit.isError ? (
@@ -99,10 +104,13 @@ export function AssetActions({
         <AssignForm open onClose={close} preselectedAssetId={assetId} />
       ) : null}
       {open === "transfer" ? (
-        <TransferForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+        <TransferForm open onClose={close} assetId={assetId} assetCode={assetCode} />
+      ) : null}
+      {open === "note" ? (
+        <NoteForm open onClose={close} assetId={assetId} assetCode={assetCode} />
       ) : null}
       {open === "report" ? (
-        <ReportForm open onClose={close} assetId={assetId} assetTag={assetTag} />
+        <ReportForm open onClose={close} assetId={assetId} assetCode={assetCode} />
       ) : null}
     </div>
   );

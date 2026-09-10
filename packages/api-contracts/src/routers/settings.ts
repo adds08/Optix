@@ -10,7 +10,7 @@ import {
   type ParseContext,
   type ParsedIntent,
 } from "@stinventory/intent";
-import { sendMail } from "@stinventory/mail";
+import { sendMail, inviteEmail, passwordResetEmail, passwordChangedEmail } from "@stinventory/mail";
 import { requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { mailConfigFor } from "../mail-config.js";
@@ -30,7 +30,7 @@ const TEST_CONTEXT: ParseContext = {
   foremanName: "Test",
   foremanRole: "foreman",
   currentAssignments: [
-    { tag: "UIC-1012", model: "Rotary Hammer", project: "Bridge Job", location: "Gang Box A" },
+    { code: "UIC-1012", model: "Rotary Hammer", project: "Bridge Job", location: "Gang Box A" },
   ],
   primaryProject: "Bridge Job",
   currentLocation: "Gang Box A",
@@ -358,7 +358,22 @@ export const settingsRouter = router({
     "Save" before "Send test email" is required and the page should say so.
   */
   testEmail: requirePermission("config.manage")
-    .input(z.object({ to: z.string().email().max(200) }))
+    .input(
+      z.object({
+        to: z.string().email().max(200),
+        /*
+          WHICH email to send. Defaults to the plain deliverability probe.
+
+          The real templates are here so an administrator can see what an
+          invite actually looks like in their own client — Outlook squares the
+          header ring, some clients strip the button background — WITHOUT
+          having to invite a real person to find out. Every one of these
+          renders with a dead example link and sample names; none of them
+          issues a token, so nothing sent from here can be redeemed.
+        */
+        template: z.enum(["plain", "invite", "resend", "reset", "changed"]).default("plain"),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       const config = await mailConfigFor(ctx.db, tid, ctx.sessionSecret, ctx.mailFallback);
@@ -370,12 +385,42 @@ export const settingsRouter = router({
         });
       }
 
+      /*
+        Sample data for the template previews. The link is deliberately a dead
+        example path with no token in it: this procedure must never mint a
+        credential, and a preview that carried a real invite token would be a
+        way to issue one to any address the sender chooses.
+      */
+      const [tenantRow] = await ctx.db
+        .select({ name: schema.tenant.name })
+        .from(schema.tenant)
+        .where(eq(schema.tenant.id, tid))
+        .limit(1);
+      const tenantName = tenantRow?.name ?? "Optix";
+      const sampleUrl = `${ctx.webOrigin}/invite/example-preview-link`;
+      const sampleName = ctx.session.actorLabel ?? "An administrator";
+
+      const message =
+        input.template === "invite"
+          ? inviteEmail({ tenantName, recipientFirstName: "Dave", inviterLabel: sampleName, roleName: "Foreman", inviteUrl: sampleUrl, expiresHuman: "7 days" })
+          : input.template === "resend"
+            ? inviteEmail({ tenantName, recipientFirstName: "Dave", inviterLabel: sampleName, roleName: "Foreman", inviteUrl: sampleUrl, expiresHuman: "7 days", resend: true })
+            : input.template === "reset"
+              ? passwordResetEmail({ tenantName, recipientFirstName: "Dave", resetUrl: `${ctx.webOrigin}/reset/example-preview-link`, expiresHuman: "1 hour" })
+              : input.template === "changed"
+                ? passwordChangedEmail({ tenantName, recipientFirstName: "Dave" })
+                : {
+                    subject: "Optix test email",
+                    html: `<p>This is a test email from the Optix Settings page. If this arrived, the configured SMTP relay works.</p>`,
+                    text: "This is a test email from the Optix Settings page. If this arrived, the configured SMTP relay works.",
+                  };
+
       const started = Date.now();
       const result = await sendMail(config, {
         to: input.to,
-        subject: "STInventory test email",
-        html: `<p>This is a test email from STInventory's Settings page. If this arrived, the configured SMTP relay works.</p>`,
-        text: "This is a test email from STInventory's Settings page. If this arrived, the configured SMTP relay works.",
+        subject: input.template === "plain" ? message.subject : `[Preview] ${message.subject}`,
+        html: message.html,
+        text: message.text,
       });
 
       await ctx.db
@@ -393,7 +438,7 @@ export const settingsRouter = router({
         entityType: "tenant_settings",
         result: result.ok ? "success" : "failure",
         errorMessage: result.ok ? null : result.error,
-        details: { to: input.to, ms: Date.now() - started },
+        details: { to: input.to, template: input.template, ms: Date.now() - started },
       });
 
       return result.ok

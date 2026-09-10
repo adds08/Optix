@@ -53,6 +53,7 @@ const CLIENT_ROOTS = ["apps/web", "apps/mobile"];
   was, and went).
 */
 const NO_UI_BY_DESIGN: Record<string, string> = {
+  "projectTeam.myCrew": "Compatibility query retained for existing clients; /my-crew now reads the shared projectTeams.workspace to show complete reporting branches.",
   /*
     Superseded on 2026-08-28, not unbuilt — which is why this has no `TODO:`.
 

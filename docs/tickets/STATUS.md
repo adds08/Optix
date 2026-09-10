@@ -260,18 +260,18 @@ rather than deleted, because the *before* is what makes the change legible.
   Departure reassignment shipped; the Desk is at `/desk`, composed from the panel
   registry by permission. **Foundation load remains — it is Phase 4 and is
   blocked on Urban**, who owns the interface question.
-- ~~**No E2E harness.**~~ **Built.** `e2e/` is its own workspace package; run it
-  with `make ENV=local e2e` against the running stack. 27 specs across five roles: each
-  lands where it should, is offered the routes its permissions imply, is **not** offered the
-  ones they forbid, and loads with no console error. Plus a named spec for the desk approval
-  queue, because that is the regression the whole harness exists for.
+- **No E2E harness — again, by choice.** One was built 2026-08-22 (`e2e/`, 27 specs
+  across five roles), dropped from CI on 2026-08-30, and **DELETED on 2026-09-10**: its
+  specs had drifted from renamed UI (clicking an "In Yard" tab now labelled "Yard",
+  asserting a "TAG" column now "CODE"), and specs naming screens that no longer exist
+  mislead every agent that reads them. The two follow-up tickets went with it
+  (`e2e-critical-paths.md`, `make-the-browser-suite-blocking.md`).
 
-  Two things to know before extending it. **It is read-only by design** — that is what lets
-  it run in parallel against a shared database with no isolation mechanism, and the first
-  mutating spec needs one chosen first (the note is in `e2e/playwright.config.ts`). And it
-  **no longer runs in CI** — the `e2e` job was removed on 2026-08-30 after the pin specs
-  went red; it is a local target now, `make ENV=local e2e`. `make-the-browser-suite-blocking.md`
-  covers putting it back.
+  Browser checking is the Playwright MCP now — per-change evidence, not coverage. **What
+  that leaves unguarded:** role landing screens, sidebar permission-widening, layout
+  shift, the table system, and the CSV download path. The router-level half is still
+  covered by `rbac-matrix.test.ts` against real Postgres. Do not rebuild a spec suite
+  unless the user asks for one.
 
 ### Reachability: a set of procedures still have no UI caller
 

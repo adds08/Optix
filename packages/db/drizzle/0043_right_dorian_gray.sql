@@ -1,0 +1,1 @@
+ALTER TABLE "tbl_entity_user_preferences" ADD COLUMN "radius" text DEFAULT 'soft' NOT NULL;

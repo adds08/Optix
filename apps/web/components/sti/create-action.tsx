@@ -28,8 +28,10 @@ export function CreateAction({
 
   return (
     <Can perm={perm}>
-      <Button size="sm" onClick={() => setOpen(true)}>
-        <Plus className="size-4" aria-hidden />
+      {/* default (34px) — the toolbar standard, so Import / New / Export /
+          Saved filters all sit level with the search field beside them. */}
+      <Button size="default" onClick={() => setOpen(true)}>
+        <Plus className="size-3.5" aria-hidden />
         {label}
       </Button>
       {/* Mounted only while open so each run starts with empty fields. */}

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
-import { Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { Inter_Tight, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -18,6 +18,24 @@ import { TooltipProvider } from "@/components/ui/tooltip";
    on the same element and wins, which is what makes the picker real. */
 const interTight = Inter_Tight({ subsets: ["latin"], variable: "--font-sans" });
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+/*
+  The DISPLAY face, for headings on the first-contact screens only.
+
+  Chosen off the artwork rather than taste: `optix-mark.tsx` is stroked
+  outlines — squared terminals, flat top and bottom rails, a wide near-circular
+  O, letters built as geometric silhouettes. Space Grotesk is that same
+  vocabulary, so a heading set in it reads as belonging to the wordmark above
+  it. Chakra Petch is angular in a different direction (motorsport rather than
+  drafting) and fights the mark; JetBrains Mono is already spoken for as this
+  app's machine-value face and reusing it for prose would blur a distinction
+  ADR-7 makes on purpose.
+
+  A THIRD variable rather than a replacement: `--font-sans` stays Inter Tight
+  everywhere, and nothing outside the screens that opt in changes. It is also
+  deliberately NOT wired into the appearance picker's font catalog — that
+  catalog swaps body text, and a display face is a different job.
+*/
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
   title: "Optix",
@@ -66,7 +84,7 @@ try {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={cn(interTight.variable, jetbrainsMono.variable)} suppressHydrationWarning>
+    <html lang="en" className={cn(interTight.variable, jetbrainsMono.variable, spaceGrotesk.variable)} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT_THEME }} />
       </head>

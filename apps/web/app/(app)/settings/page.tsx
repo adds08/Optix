@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Loader2, Mail } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { ErrorNote, TableSkeleton } from "@/components/sti/page";
+import { ErrorNote, TableSkeleton, PageHeader } from "@/components/sti/page";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SaveBar, useHydrateOnce, useTenantSettings } from "@/components/settings/tenant-settings";
@@ -64,6 +64,11 @@ export default function SettingsPage() {
   });
 
   const [testTo, setTestTo] = useState("");
+  /* Which template the test sends. "plain" is the deliverability probe — the
+     others send the REAL template with sample data and a dead example link, so
+     an administrator can see how an invite renders in their own client without
+     inviting somebody to find out. */
+  const [testTemplate, setTestTemplate] = useState<"plain" | "invite" | "resend" | "reset" | "changed">("plain");
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const testEmail = trpc.settings.testEmail.useMutation({
     onSuccess: (res) =>
@@ -82,6 +87,14 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Content below is carded <section>s with their own <h2>s; this header
+          is `hideTitle` so it never reads as a third heading level above the
+          card titles. */}
+      <PageHeader
+        title="General"
+        hideTitle
+        description="Tenant-wide configuration — branding, the custody approval threshold, notifications and mail."
+      />
       {/* ---- branding ---- */}
       <section className="flex flex-col gap-4 rounded-md border bg-card p-5">
         <div className="flex flex-col gap-1">
@@ -242,13 +255,35 @@ export default function SettingsPage() {
               placeholder="you@example.com"
             />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Template</label>
+            {/* EntityField rather than SearchSelect: picking the already-selected
+                option in SearchSelect CLEARS it, which is right for a filter and
+                wrong here — this value is required and has no empty state. */}
+            <div className="w-56">
+              <EntityField
+                value={testTemplate}
+                onChange={(v) => setTestTemplate((v || "plain") as typeof testTemplate)}
+                options={[
+                  { value: "plain", label: "Plain test message", hint: "Deliverability only" },
+                  { value: "invite", label: "Invite", hint: "First invitation" },
+                  { value: "resend", label: "Resend invite", hint: "Says the old link died" },
+                  { value: "reset", label: "Password reset", hint: "One-hour link" },
+                  { value: "changed", label: "Password changed", hint: "Notice, no link" },
+                ]}
+                placeholder="Choose template"
+                searchPlaceholder="Search templates"
+                emptyLabel="No templates"
+              />
+            </div>
+          </div>
           <Button
             type="button"
             variant="outline"
             disabled={!testTo || testEmail.isPending}
             onClick={() => {
               setTestResult(null);
-              testEmail.mutate({ to: testTo });
+              testEmail.mutate({ to: testTo, template: testTemplate });
             }}
           >
             {testEmail.isPending ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
@@ -257,7 +292,9 @@ export default function SettingsPage() {
         </div>
         <p className="text-xs text-muted-foreground">
           Tests whatever is currently SAVED, not what is still typed above — save first if you
-          just changed something.
+          just changed something. A template other than the plain message sends the real
+          thing with sample names and a dead example link, subject-prefixed “[Preview]”; it
+          issues no invite and grants nobody access.
         </p>
         {testResult ? (
           <p className={`text-sm ${testResult.ok ? "text-ok" : "text-crit"}`}>{testResult.message}</p>

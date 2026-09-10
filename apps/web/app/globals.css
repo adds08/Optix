@@ -5,12 +5,16 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* Blocky radii (ADR-7): 3px controls, 4px containers, 6px dialogs/sheets.
-     No pill shapes — the only circle in the system is the user avatar. */
-  --radius-sm: 3px;
+  /* Corner radii (ADR-7), now a scale around ONE knob.
+     `--radius` is the container size and is what Appearance → Corners sets;
+     every other token derives from it so a preset moves the whole system
+     together instead of leaving chips sharp while cards soften. The blocky
+     preset (0.25rem) reproduces the old 3/4/6/6 set exactly — this is the
+     same arithmetic, generalised. */
+  --radius-sm: calc(var(--radius) - 1px);
   --radius-md: var(--radius);
-  --radius-lg: 6px;
-  --radius-xl: 6px;
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 2px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -46,6 +50,14 @@
   --color-hat-trade: var(--hat-trade);
   --color-hat-office: var(--hat-office);
 
+  /* Identity hues — see the --person-* note in :root. */
+  --color-person-0: var(--person-0);
+  --color-person-1: var(--person-1);
+  --color-person-2: var(--person-2);
+  --color-person-3: var(--person-3);
+  --color-person-4: var(--person-4);
+  --color-person-5: var(--person-5);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -74,12 +86,28 @@
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+  /*
+    Space Grotesk, declared in `app/layout.tsx`. The FIRST-CONTACT display
+    face: the welcome wizard's headings and the onboarding progress screen,
+    nothing else yet.
+
+    Deliberately a new token rather than repointing `--font-heading` above,
+    which is aliased to sans and used by nothing. Repointing it would restyle
+    every heading in the product as a side effect of an onboarding change,
+    which is a product-wide decision and not this one. If a broader refresh
+    ever adopts the display face, `--font-heading` is where it goes.
+
+    Chosen to echo `optix-mark.tsx` — see the note beside the font import.
+  */
+  --font-display: var(--font-display);
 }
 
 /*
   STInventory palette.
   Neutrals carry a slight cool bias toward the accent so they read as chosen,
-  not inherited. Radius is tight (6px) — this is a yard tool, not a consumer app.
+  not inherited. Corners are the Appearance → Corners presets below: the soft
+  default keeps the system at 8px containers with a lighter feel than the old
+  tight 4px "Blocky" look, which stays available as a preset.
 */
 /*
   The base tokens ARE the Blocky palette (ADR-7).
@@ -105,7 +133,11 @@
   every palette: they mean the same thing in all of them.
 */
 :root {
-  --radius: 0.25rem;
+  /* The corner preset, applied per user through Appearance → Corners.
+     "soft" (0.5rem = 8px surfaces) is the default — the design file's
+     corners; "blocky" (0.25rem) restores the tight 4px house look; "round"
+     (0.75rem) is the generous end. Set inline by lib/themes/apply-theme.ts. */
+  --radius: 0.5rem;
 
   --background: oklch(0.970 0.003 265);         /* #F4F5F7 */
   --foreground: oklch(0.234 0.013 258);         /* #1A1E24 */
@@ -149,6 +181,19 @@
   --hat-foreman: oklch(0.62 0.130 75);
   --hat-trade: oklch(0.52 0.095 235);
   --hat-office: oklch(0.60 0.014 250);
+
+  /* Identity hues for people, assigned deterministically per person so a
+     foreman is the same colour on every job and two foremen in one crew
+     list never look alike. Deliberately NOT the status set: ok/warn/crit
+     are reserved for state, so these live in the blue-violet-magenta range
+     plus a teal and a chartreuse, each far enough from ok-green (168) and
+     warn-amber (62) that a tinted icon can never read as a status. */
+  --person-0: oklch(0.52 0.090 200);
+  --person-1: oklch(0.46 0.110 265);
+  --person-2: oklch(0.46 0.115 300);
+  --person-3: oklch(0.50 0.105 335);
+  --person-4: oklch(0.50 0.085 185);
+  --person-5: oklch(0.55 0.110 130);
 
   --chart-1: oklch(0.524 0.095 248);
   --chart-2: oklch(0.505 0.092 168);
@@ -231,6 +276,13 @@
   --hat-trade: oklch(0.72 0.090 240);
   --hat-office: oklch(0.62 0.014 250);
 
+  --person-0: oklch(0.76 0.080 200);
+  --person-1: oklch(0.70 0.110 265);
+  --person-2: oklch(0.70 0.115 300);
+  --person-3: oklch(0.74 0.100 335);
+  --person-4: oklch(0.74 0.080 185);
+  --person-5: oklch(0.78 0.110 130);
+
   --chart-1: oklch(0.742 0.092 251);
   --chart-2: oklch(0.735 0.105 168);
   --chart-3: oklch(0.762 0.112 68);
@@ -256,20 +308,23 @@
   --brand-mark: var(--brand-yellow);
 }
 
-/* Two-pane shell (Blocky): the 48px primary rail (app-rail.tsx) owns the left
-   edge, so the fixed secondary shadcn sidebar must sit beside it instead of
-   covering it.
+/* The shadcn sidebar is a FIXED column at `inset-y-0` (ui/sidebar.tsx); with
+   the design's full-width top bar the column must begin below it, or its white
+   background paints over the bar's logo and scope selector.
 
    Target `sidebar-container`, NOT `sidebar`. `data-slot="sidebar"` is the outer
    `md:block` wrapper that holds the layout gap — it is statically positioned, so
-   `left` on it is inert and the fixed column stayed at `left: 0`, painting over
-   the whole rail. The rail was rendering the entire time; nothing could be seen
-   of it, which is why the two-pane shell looked like it had never been built.
-   Only the desktop column carries this slot — the phone sheet is a separate
-   element and keeps its own behaviour. Unlayered, so it beats the utility's
-   `left-0`. */
+   left/top on it are inert and the fixed column stayed at `left: 0`, painting
+   over the edge. Only the desktop column carries this slot — the phone sheet is
+   a separate element and keeps its own behaviour. Unlayered, so it beats the
+   utility's `top-0`/`left-0`. */
 [data-slot="sidebar-wrapper"] [data-slot="sidebar-container"] {
-  left: 3rem;
+  top: 3.5rem; /* h-14 — the top bar that now spans the full width. */
+  bottom: 0;
+  /* The component's own `h-dvh` is the whole viewport; with `top` moved down
+     3.5rem that would run 56px past the bottom edge and chop the footer.
+     `auto` here restores "between the bar and the bottom of the window". */
+  height: auto;
 }
 
 @layer base {
@@ -380,6 +435,22 @@
   .animate-draw-in {
     opacity: 0;
     animation: sti-draw-in 0.6s ease-out forwards;
+  }
+
+  /* The wizard's photo-panel copy, cross-fading as the step changes. Keyed on
+     the caption in `auth-slideshow.tsx`, so React remounts the block and the
+     animation runs again on every step. Durations match `DUR.base` /
+     `EASE.out` in `lib/motion.ts` — the same curve the step content uses, so
+     the two halves of the screen move together rather than in sequence. */
+  @keyframes sti-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .sti-fade-in {
+    animation: sti-fade-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sti-fade-in { animation: none; }
   }
 
   /* ~~The auth panel's line art~~ — `.sti-ink` draw-on, `.sti-route` marching
@@ -649,16 +720,15 @@ tr.sti-freeze-row > .sti-freeze {
    so the last frozen column carries a short shadow as well — that is the part
    that says "the columns continue underneath this", which a border cannot.
 
-   The blur/spread pair here is deliberately small (found on 2026-08-30: an
-   -6px spread insets the shadow 6px above and below EVERY cell before an 8px
-   blur rounds what's left, so a whole column of cells reads as a stack of
-   soft pills instead of one line). A small blur with near-zero spread keeps
-   each cell's shadow the same height as the cell, so adjacent rows' shadows
-   meet exactly at the shared border and read as one continuous seam. */
+   The blurring term was removed on 2026-09-04: a soft blur is a per-CELL
+   effect, so a column of frozen cells read as a stack of clipped pills — one
+   shadow per row — because each cell's border drew over the next cell's blur.
+   The remaining `1px 0 0 0 var(--border)` is a crisp offset rule: it draws the
+   same 1px line on every cell in the column, and because the cells stack at
+   zero spacing those lines meet into ONE continuous vertical rule. It cannot
+   fragment, because it is just an edge, not a glow. */
 .sti-freeze-edge {
-  box-shadow:
-    1px 0 0 0 var(--border),
-    3px 0 3px -2px color-mix(in oklch, var(--foreground) 45%, transparent);
+  box-shadow: 1px 0 0 0 var(--border);
 }
 
 /* The same seam, mirrored, for a column frozen to the RIGHT edge instead of
@@ -666,7 +736,27 @@ tr.sti-freeze-row > .sti-freeze {
    LEFT, so the shadow falls on that side instead. Only ever one column wide;
    this is not the leading-prefix freeze above and carries no count. */
 .sti-freeze-edge-right {
-  box-shadow:
-    -1px 0 0 0 var(--border),
-    -3px 0 3px -2px color-mix(in oklch, var(--foreground) 45%, transparent);
+  box-shadow: -1px 0 0 0 var(--border);
+}
+
+/* Raster map tiles, toned to the palette.
+
+   OpenStreetMap serves a bright daylight map, which is correct on paper and
+   wrong on a dark product — on the onboarding screen it was one glaring white
+   rectangle in the middle of a navy page, the only surface not in the palette.
+   Inverting and re-rotating the hue is the usual way to darken raster tiles
+   without hosting a second tile set: `invert` flips the paper to near-black,
+   `hue-rotate(180deg)` puts the greens and blues back the right way round, and
+   the small brightness/contrast trim stops the roads glowing.
+
+   Scoped to the TILE LAYER, never the map container. Filtering the container
+   would drag the markers, the radius and the zoom controls through the same
+   inversion, which is how a blue pin turns orange. `react-leaflet`'s
+   `className` on <TileLayer> lands on the tile pane, which is exactly the
+   right element.
+
+   Not applied to the fleet map, which has the same brightness problem and is
+   its own decision — see the comment at the TileLayer in pin-picker-map.tsx. */
+.sti-map-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9);
 }

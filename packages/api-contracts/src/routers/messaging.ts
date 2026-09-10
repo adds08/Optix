@@ -143,7 +143,7 @@ export const messagingRouter = router({
         ? await ctx.db
             .select({
               id: schema.asset.id,
-              tag: schema.asset.tag,
+              code: schema.asset.code,
               make: schema.asset.make,
               modelNumber: schema.asset.modelNumber,
               description: schema.asset.description,

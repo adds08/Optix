@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { HardHat } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -76,7 +77,7 @@ export default function ProjectsPage() {
       col<Row>({
         header: "Project",
         accessorFn: (p) => p.name,
-        cell: (p) => <span className="font-medium">{p.name}</span>,
+        cell: (p) => <div><span className="font-medium">{p.name}</span><span className="ml-2 text-xs text-muted-foreground">{p.kind === "yard" ? "Yard" : "Project"}</span>{p.kind !== "yard" && <Link className="mt-1 block text-xs text-primary hover:underline" href={`/project-teams?projectId=${p.id}`}>View project team →</Link>}</div>,
       }),
       col<Row>({
         header: "Site",
@@ -92,7 +93,11 @@ export default function ProjectsPage() {
       col<Row>({
         header: "Status",
         accessorFn: (p) => p.status,
-        width: "7rem",
+        /* 8.5rem: a project's states are the long ones — "In Progress" and
+           "Not Awarded" both overran 7rem, which is what cut the pill in half
+           on this screen. Sized to the widest label this column can actually
+           hold, not to the shortest. */
+        width: "8.5rem",
         cell: (p) => <StatusPill status={p.status} className="text-xs" />,
       }),
       col<Row>({
@@ -137,13 +142,7 @@ export default function ProjectsPage() {
       <PageHeader
         icon={HardHat}
         title="Projects"
-        description="The jobs tools and people are assigned to, and what gets charged against them."
-        actions={
-          <>
-            <ImportButton entity="project" />
-            <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />
-          </>
-        }
+        hideTitle
       />
       {projects.isLoading ? (
         <TableSkeleton />
@@ -184,6 +183,12 @@ export default function ProjectsPage() {
             enableSelection
             selection={selectedIds}
             onSelectionChange={setSelectedIds}
+            toolbarExtra={
+              <>
+                <ImportButton entity="project" />
+                <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />
+              </>
+            }
           />
         </>
       )}

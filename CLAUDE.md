@@ -1,15 +1,20 @@
 # STInventory
 
-Internal small-tools & equipment **custody** platform for Urban Infraconstruction.
+**Optix** is a small-tools & equipment **custody** SaaS, in production for its first tenant
+— Urban Infraconstruction — at `urban.optixtec.com`. A timesheet product is being ported
+onto the same stack to sell alongside it (`docs/workings/TIMESHEET_PORT.md`). It began as
+Urban's internal tool; that framing is history now, not the present tense — a push to
+`main` that passes CI deploys to production automatically (`.github/workflows/ci.yml`,
+`DEPLOY.md`). "STInventory" is the repo name, not the product: see below.
 pnpm + Turbo monorepo · Hono + tRPC API · Next.js 15 web · Expo mobile · Drizzle/Postgres.
 
 **The product is called Optix** (Optix Technologies) in the interface, as of 2026-08-27.
 STInventory is the repo, the package scope `@stinventory/*`, the seeded `*.local` email
-domain and the `sti-*` storage keys — all of which stay. The rename is user-facing text and
-the mark only, and `apps/web/components/optix-mark.tsx` is its single definition. Docs and
-tickets written before that date still say STInventory and are not wrong about anything but
-the name; don't rename the world to make them agree, and don't put "STInventory" back on a
-screen.
+domain (on the demo dataset only — see `.claude/rules/database.md`) and the `sti-*` storage
+keys — all of which stay. The rename is user-facing text and the mark only, and
+`apps/web/components/optix-mark.tsx` is its single definition. Docs and tickets written
+before that date still say STInventory and are not wrong about anything but the name; don't
+rename the world to make them agree, and don't put "STInventory" back on a screen.
 
 **The one idea that explains the codebase:** where a tool is, is *calculated* from an
 append-only ledger — never typed into a field. `transaction` is the system of record; every
@@ -25,6 +30,8 @@ it now) are separate axes, and tools follow the person, not the site.
 | The schema, the routers, the flows, what is built | `docs/architecture/` — derived from the code, corrected when the code moves |
 | Where a file is, and what to read before editing it | `docs/CODEMAP.md` |
 | Why something is the way it is | `docs/changelogs/INDEX.md` |
+| How the product is meant to be USED — invites, sync, crews, custody | `docs/USER_GUIDE.md` — written for the client's staff, not for agents |
+| What adapts to a tenant's own hierarchy and what is still hardcoded | `docs/workings/HIERARCHY_FLEXIBILITY.md` — read before adding a tier or promising a customer their org chart fits |
 
 ---
 
@@ -32,16 +39,30 @@ it now) are separate axes, and tools follow the person, not the site.
 
 | Situation | Skill |
 |---|---|
+| The START of any non-trivial coding or multi-file task — before any code, diagram or plan | **`optix-intent-alignment`** — ask 2-4 questions, then wait |
 | Anything that will produce a diff — plan, implement, review | **`minimal-change`**, before proposing the diff |
 | Any bug, test failure, wrong state, stuck message | **`systematic-debugging`**, before proposing a fix |
 | "Explain this", "I want visuals", a subsystem too big for chat | **`visual-explainer`** |
 | A change that has to be *seen* working — a UI regression, a layout or permission question, "is this reachable" | **`test-on-playwright`** — drives the real stack in a browser |
-| Delivering a whole ticket or feature end to end | **`/feature-delivery <TICKET-ID>`** — ticket, branch, implement, adversarial QA, correctness + security review, PR |
 | A task that produced a diff, as the last step before you report done | **`changelog`** — reconstructs the entry from `git`, writes `docs/changelogs/YYYY-MM-DD-slug.md` |
+| Keeping `.claude/optix-screen-map.yaml` in step after a code change (new page, renamed route) | **`optix-map-update`** — fast, code-only sync. **It cannot build the map from nothing** — see below |
+| About to ask the user to decide something involving jargon, an env var, or a destructive action | **`optix-explain-before-deciding`** — explain each option in plain terms first, separately from the question |
 
-`/feature-delivery` never fires on its own; it runs only when you invoke it. Tunables
-and the off switch are in `.claude/workflow.config.json`. Agents review and comment —
-**a human is the sole approver, and no agent merges.**
+**`optix-map-evaluate` was REMOVED on 2026-09-08**, at the user's request, together with
+`feature-delivery`. It was the only thing that could build `.claude/optix-screen-map.yaml`
+from scratch, so the map that exists now can be refreshed but not rebuilt. If it is ever
+lost or needs a full re-synthesis, that capability has to be written again — do not assume
+`optix-map-update` covers it, because its own text says it does not.
+
+**`feature-delivery` was removed in the same change** — the ticket-to-PR pipeline invoked
+as `/feature-delivery`. Anything in `docs/` still describing that command is describing a
+deleted skill; say so rather than trying to run it.
+
+**User-created skills for this repo carry the `optix-*` prefix** (`optix-intent-alignment`,
+`optix-map-update`, `optix-explain-before-deciding`) to distinguish them from the
+generic ones this project inherited from elsewhere (`minimal-change`,
+`systematic-debugging`, `changelog`, `test-on-playwright`, `visual-explainer`).
+Give a new STInventory-specific skill the same prefix.
 
 These live in `.claude/skills/` and are tuned to this repo. (They sat directly under
 `.claude/` until 2026-08-18, which meant the `Skill` tool could not find them and every

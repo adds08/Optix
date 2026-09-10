@@ -130,6 +130,59 @@ export const role = pgTable(
        own comment called itself "wrong by construction". */
     usesFieldLayout: boolean("uses_field_layout").notNull().default(false),
     /*
+      WHICH onboarding this role gets — the wizard's own routing, as data.
+
+      The client's framing, 2026-09-07: "HR does not care about project, sees
+      all project users, but does not see tools and so on! only people!" while
+      the equipment chain — director, area in-charge, PM, superintendent,
+      foreman and the crew between them — is the wizard that exists today.
+
+      Values (plain text, like every other vocabulary here; Zod at the router
+      edge refuses an unlisted one):
+
+        equipment  the jobs/crew/tools/pin wizard. The default, and what the
+                   whole equipment chain gets.
+        people     HR. Every project's PEOPLE, no tools.
+        none       skip it entirely — technical admins, and anyone the wizard
+                   cannot help. `super@` asked for this directly: "there might
+                   be some roles, especially technical admins, super admins,
+                   that might not even require this on-boarding screen".
+
+      A FLAG rather than a list of role names in code, for the same reason
+      `usesFieldLayout` replaced `FIELD_ROLES`: a role-name branch is wrong the
+      day a tenant adds a role, and `.claude/rules/web.md` records that the one
+      surviving role-name branch in `nav-config` is the last one in the product.
+
+      NOT a permission. What a person may SEE is `role_permission`, and it stays
+      there — this only decides which questions they are asked on first login.
+      A role with `none` that still holds `asset.read` sees tools everywhere;
+      it simply is not walked through a wizard about them.
+    */
+    onboardingKind: text("onboarding_kind").notNull().default("equipment"),
+    // Explicit administrator grants. Empty means no self-claiming.
+    claimTierNames: jsonb("claim_tier_names").$type<string[]>().notNull().default([]),
+    /*
+      Reaches EVERY tenant, not just its own.
+
+      This is not "a role with more permissions" — it is an exemption from the
+      tenant predicate that CLAUDE.md names as non-negotiable 3 and that every
+      query in this codebase carries. There is no RLS here; the WHERE clause IS
+      the isolation. So this flag has to be rare, deliberate and greppable
+      rather than something a tenant can grant itself from the roles screen.
+
+      Added 2026-09-07 on the client's instruction: "one tech and one admin that
+      is organizational admin, and other tech admin is always accessible to all
+      tenant, we will handle multi-tenant later". `owner` is the organisational
+      administrator and stays tenant-scoped; `tech_admin` carries this.
+
+      NOTHING READS IT YET, and that is deliberate. The cross-tenant query path
+      is its own change with its own audit story — this records the intent and
+      seeds the account so that change has somewhere to land. A flag that
+      silently widened every query the moment it was added would be the worst
+      possible way to ship multi-tenancy.
+    */
+    isCrossTenant: boolean("is_cross_tenant").notNull().default(false),
+    /*
       A built-in role. Its NAME and its `isSystem` mark cannot be edited away,
       because the seed and the permission matrix in `role-perms.ts` refer to
       these by name. Its permissions and description remain editable — that is
@@ -196,6 +249,10 @@ export const userPreferences = pgTable(
        multiplies the glyphs alone. */
     iconScale: text("icon_scale").notNull().default("1.0"),
     density: text("density").notNull().default("comfortable"),
+    /* Corner preset, validated in the preferences router against lib/themes'
+       RADII catalog. "soft" is the house default (8px containers); "blocky"
+       restores the old tight corners and "round" is the generous end. */
+    radius: text("radius").notNull().default("soft"),
     dashboard: jsonb("dashboard").$type<{ widgets: Record<string, boolean>; defaultTab?: "fleet" | "command" }>().notNull().default({ widgets: {} }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -203,6 +260,83 @@ export const userPreferences = pgTable(
   (t) => ({
     userUq: uniqueIndex("user_preferences_user_uq").on(t.userId),
     tenantIdx: index("user_preferences_tenant_idx").on(t.tenantId),
+  }),
+);
+
+/*
+  Whether a person has been walked through setting up their work, and how far
+  they got.
+
+  One row per user, created lazily on first sign-in rather than alongside the
+  account: an account created months ago by an administrator has no onboarding
+  state until somebody actually uses it, and backfilling rows for accounts that
+  may never log in would make "has not started" and "does not exist" the same
+  thing.
+
+  Deliberately NOT a progress percentage or a checklist of what was done. What
+  the wizard produces is real rows — roster entries, project coordinates, invites
+  — and those are the record of what happened. Storing a second, parallel account
+  of it is how a screen ends up claiming 80% while the roster underneath disagrees.
+  The progress screen derives from the real tables; this row holds only the two
+  facts that genuinely are not derivable.
+
+  `currentStep` is the resume point, not an achievement. Somebody who abandons the
+  wizard at the map step comes back to the map step.
+
+  `completedAt` closes the wizard either way — finished or skipped — because the
+  REDIRECT question ("should we send this person here again") has the same answer
+  for both. `dismissedAt` says WHICH, and exists because a second question turned
+  up that the first answer could not serve: the sidebar wants to tell somebody who
+  skipped that their setup is unfinished, and offer them the way back.
+
+  That was originally one column with a comment arguing the distinction did not
+  matter. It was wrong in a specific way worth remembering: it answered the
+  question in front of it and threw away the information, and skipping then became
+  a dead end with no route back to the wizard at all. A boolean that costs nothing
+  to keep should be kept when the two states are genuinely different events.
+*/
+export const userOnboarding = pgTable(
+  "tbl_ops_user_onboarding",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    /* The step the person is on, as the wizard's own step key. Plain text like
+       every other vocabulary column in this schema (see .claude/rules/database.md)
+       — Zod at the router edge refuses an unlisted value, not the database. */
+    currentStep: text("current_step").notNull().default("projects"),
+    claimingClosedAt: timestamp("claiming_closed_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    /*
+      Finished or dismissed. Null means the wizard is still theirs to complete,
+      and is what the first-run redirect reads.
+
+      The redirect fires ONCE — see the app shell. A person who dismisses is not
+      asked again, because a gate that reappears every session stands between a
+      foreman and the tool they came to check out, and they will learn to click
+      through it without reading.
+    */
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    /*
+      Set INSTEAD of a real finish when somebody pressed "Skip setup". Both
+      stamp `completedAt`, so the gate treats them identically; only this tells
+      them apart afterwards.
+
+      Cleared when they come back and finish properly — `resume` nulls it and
+      `complete` overwrites it — so "skipped" is a current state rather than a
+      permanent mark against somebody who later did the work.
+    */
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantIdx: index("user_onboarding_tenant_idx").on(t.tenantId),
+    /* One row per person. The lazy create is a read-then-insert, so two tabs
+       opening at once would otherwise both insert — this is what makes the
+       second one fail instead of producing a duplicate the resume logic would
+       have to choose between. */
+    userUq: uniqueIndex("user_onboarding_user_uq").on(t.userId),
   }),
 );
 

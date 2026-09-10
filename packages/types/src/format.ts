@@ -1,12 +1,17 @@
 /* One place that decides how the four columns read as a single line, so a
    register row, a chat card, a report and an overdue email cannot disagree
-   about what a tool is called. */
+   about what a tool is called.
+
+   Only make + modelNumber: the `description` column is long free-text, and
+   reading it into every name made each row a sentence — "Milwaukee 2904-20 1/2\"
+   Hammer Drill/Driver". A tool's name is its make and model; the description
+   stays where the field belongs (the tool's detail). */
 export function formatAssetModel(a: {
   make?: string | null;
   modelNumber?: string | null;
   description?: string | null;
 }): string {
-  return [a.make, a.modelNumber, a.description].filter(Boolean).join(" ");
+  return [a.make, a.modelNumber].filter(Boolean).join(" ");
 }
 
 /*

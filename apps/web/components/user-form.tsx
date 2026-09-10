@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { personHint } from "@/lib/format";
 
 /*
   New login account — by invite, not by a password an admin hands over.
@@ -174,7 +175,7 @@ export function UserForm({ open, onClose }: { open: boolean; onClose: () => void
                 placeholder="Not linked — office account"
                 searchPlaceholder="Name or employee number"
                 emptyLabel="Nobody matches."
-                options={(employees.data ?? []).map((e) => ({ value: e.id, label: e.name, hint: e.externalId ?? undefined }))}
+                options={(employees.data ?? []).map((e) => ({ value: e.id, label: e.name, hint: personHint(e) }))}
               />
               <p className="text-xs text-muted-foreground">
                 Optional, both ways. People hold tools; accounts sign in. A foreman on the People

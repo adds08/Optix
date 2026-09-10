@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { equipmentIcon, equipmentClassLabel } from "@/lib/equipment-icon";
 import Link from "next/link";
-import { Truck, Wrench } from "lucide-react";
+import { Truck } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
@@ -82,12 +83,12 @@ export default function EquipmentPage() {
            own column — an icon on the name carries it instead, the same
            reasoning `ToolIcon` on /tools rides the category icon on the name. */
         cell: (v) => {
-          const Icon = v.equipmentClass === "heavy" ? Wrench : Truck;
+          const Icon = equipmentIcon(v.equipmentClass);
           return (
             <Link href={`/equipment/${v.id}`} className="group/eq flex items-center gap-2">
               <Icon
                 className="size-4 shrink-0 text-muted-foreground"
-                aria-label={v.equipmentClass === "heavy" ? "Heavy equipment" : "Vehicle"}
+                aria-label={equipmentClassLabel(v.equipmentClass)}
               />
               <span className="font-medium group-hover/eq:underline">{v.unit}</span>
             </Link>
@@ -133,6 +134,8 @@ export default function EquipmentPage() {
                 id: v.id,
                 unit: v.unit,
                 vehicleType: v.vehicleType,
+                equipmentClass: v.equipmentClass,
+                vin: v.vin,
                 code: v.code,
                 description: v.description,
                 plate: v.plate,
@@ -154,17 +157,7 @@ export default function EquipmentPage() {
   return (
     <div className="flex flex-col gap-4">
       {editing ? <VehicleForm open onClose={() => setEditing(null)} edit={editing} /> : null}
-      <PageHeader
-        icon={Truck}
-        title="Equipment"
-        description="Trucks and trailers today, heavy plant when it joins the register — the fleet, not the small tools riding on it."
-        actions={
-          <>
-            <ImportButton entity="vehicle" />
-            <CreateAction perm="vehicle.manage" label="New equipment" Form={VehicleForm} />
-          </>
-        }
-      />
+      <PageHeader icon={Truck} title="Equipment" hideTitle />
       {vehicles.isLoading ? (
         <TableSkeleton />
       ) : vehicles.isError ? (
@@ -186,6 +179,12 @@ export default function EquipmentPage() {
           enableSelection
           selection={selectedIds}
           onSelectionChange={setSelectedIds}
+          toolbarExtra={
+            <>
+              <ImportButton entity="vehicle" />
+              <CreateAction perm="vehicle.manage" label="New equipment" Form={VehicleForm} />
+            </>
+          }
         />
       )}
     </div>

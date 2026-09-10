@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useMemo, useState } from "react";
+import { equipmentIcon } from "@/lib/equipment-icon";
 import Link from "next/link";
 import { ArrowLeft, Truck, Wrench } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -80,7 +81,7 @@ export default function EquipmentDetailPage({ params }: { params: Promise<{ id: 
     );
   }
 
-  const Icon = v.equipmentClass === "heavy" ? Wrench : Truck;
+  const Icon = equipmentIcon(v.equipmentClass);
 
   return (
     <div className="flex flex-col gap-4">
@@ -93,6 +94,8 @@ export default function EquipmentDetailPage({ params }: { params: Promise<{ id: 
               id: v.id,
               unit: v.unit,
               vehicleType: v.vehicleType,
+              equipmentClass: v.equipmentClass,
+              vin: v.vin,
               code: v.code,
               description: v.description,
               plate: v.plate,

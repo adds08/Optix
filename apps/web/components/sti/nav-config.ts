@@ -1,12 +1,12 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, History, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, Users, Workflow, Wrench } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, UserCheck, Users, UsersRound, Wrench, PlugZap } from "lucide-react";
 
 export type NavItem = {
   /*
     Stable identity, never derived from the route.
 
-    A pin stores THIS, not the href — see `nav-pins.ts`. Renaming `/old-dash`
-    or moving Custody under a different prefix has to leave everybody's pins
+    A pin stores THIS, not the href — see `nav-pins.ts`. Renaming a route or
+    moving Custody under a different prefix has to leave everybody's pins
     where they were; keying on the route means a rename silently empties a
     sidebar section nobody edited, and nothing fails loudly enough for anyone
     to connect the two. Change a label, change a route, change a permission —
@@ -17,8 +17,26 @@ export type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   perm?: Permission;
+  /* One-line description, shown in the "Search all features" launcher card.
+     Written here, not at the call site, so the launcher and any future copy
+     of it read the same words. */
+  desc?: string;
   /* Shown in the field layout as a large primary action rather than a nav row. */
   hint?: string;
+  /*
+    Extra routes that BELONG to this nav item without being it.
+
+    A route with no nav entry matches nothing, so `activeGroup` in
+    `app-shell.tsx` resolves to undefined and the sidebar renders empty — the
+    whole shell collapses to "HOME / Dashboard" and the page reads as somewhere
+    the app does not know about. `/project-teams` did exactly that: it is
+    deliberately absent from the sidebar (see the note on `my-crew`) but is
+    deep-linked from the projects register and Tools by Jobsite.
+
+    So: a route reachable by a link but not listed in the nav needs a home
+    here. Prefixes, matched the same way `href` is.
+  */
+  alsoMatches?: string[];
   /* Wall surfaces: the page owns the whole content region — the shell drops its
      max-width, its padding and its scroll box for these. Declared beside the
      route rather than sniffed from the pathname in app-shell.tsx, so adding a
@@ -35,15 +53,10 @@ export type NavItem = {
 export type NavGroup = {
   label: string;
   items: NavItem[];
-  /* The rail's glyph for this group. Declared here rather than borrowed from
+  /* The launcher's glyph for this group. Declared here rather than borrowed from
      `items[0]`, which is what it used to do: reordering a group's rows then
      silently changed the icon somebody had learned to aim at. */
   icon: React.ComponentType<{ className?: string }>;
-  /* `foot` pins the group to the bottom of the rail, under the assistant.
-     Settings lives there because it is not a part of the product you work in —
-     it is the thing you leave the product to adjust, and a gear in the flow of
-     Overview/Operations/Equipment reads as another module. */
-  placement?: "main" | "foot";
 };
 
 /*
@@ -71,14 +84,17 @@ export type NavGroup = {
 const SETTINGS_GROUP: NavGroup = {
   label: "Settings",
   icon: Settings,
-  placement: "foot",
   items: [
-    { id: "settings-general", href: "/settings", label: "General", icon: SlidersHorizontal, perm: "config.manage" },
-    { id: "settings-modules", href: "/settings/modules", label: "Modules", icon: LayoutGrid, perm: "config.manage" },
-    { id: "settings-ai", href: "/settings/ai", label: "AI & API", icon: Cpu, perm: "config.manage" },
+    { id: "settings-general", href: "/settings", label: "General", icon: SlidersHorizontal, perm: "config.manage", desc: "Branding, approvals and mail" },
+    { id: "settings-modules", href: "/settings/modules", label: "Modules", icon: LayoutGrid, perm: "config.manage", desc: "Which parts this organisation uses" },
+    { id: "settings-ai", href: "/settings/ai", label: "AI & API", icon: Cpu, perm: "config.manage", desc: "The chat parser's model and key" },
+    /* `employee.manage`, not `config.manage`: this page can create and edit
+       PEOPLE via the sync, so it is gated on the permission that matches the
+       effect rather than on "can administer settings". */
+    { id: "settings-integrations", href: "/settings/integrations", label: "Integrations", icon: PlugZap, perm: "employee.manage", desc: "BambooHR and other systems Optix reads" },
     /* No `perm`: a per-user preference written through `preferences.set`, which
        writes the caller's own row. */
-    { id: "settings-appearance", href: "/settings/appearance", label: "Appearance", icon: Palette },
+    { id: "settings-appearance", href: "/settings/appearance", label: "Appearance", icon: Palette, desc: "Your own theme, type and density" },
     /* ~~User Accounts~~ — removed 2026-08-28 with `/admin/users`.
 
        STI-303 split it from `/people` on the reasoning that "has an account"
@@ -91,7 +107,20 @@ const SETTINGS_GROUP: NavGroup = {
        its people sign in at all — and `/people` shows each person's account
        state in its own column. Inviting, resetting, deactivating and resending
        all live on the person's row menu. Don't add this back. */
-    { id: "roles-permissions", href: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, perm: "config.manage" },
+    { id: "roles-permissions", href: "/admin/roles", label: "Access Roles", icon: ShieldCheck, perm: "config.manage", desc: "What a signed-in account may see and do" },
+    /* Distinct from "Roles & Permissions" above: that gates what an ACCOUNT
+       may do, this defines the tiers a PERSON can hold on a project team —
+       pm/superintendent/foreman today, whatever an organization adds
+       tomorrow. Gated on project.team.manage, not config.manage, because
+       adding a tier here needs neither platform config access nor a login
+       role edit. */
+    /* "Access Roles" above, "Job Tiers" here. Both were called roles until
+       2026-09-09 and sat side by side in this menu, where the pair was
+       genuinely unreadable — the client's words: "roles for crew role is in
+       settings, and not people". They stay in Settings because both are
+       config a tenant sets up once, not daily work; what changed is that the
+       labels now say which is which. */
+    { id: "team-roles", href: "/settings/team-roles", label: "Job Tiers", icon: HardHat, perm: "project.team.manage", desc: "The tiers a person can hold on a job — foreman, PM, superintendent" },
   ],
 };
 
@@ -100,15 +129,8 @@ export const FIELD_NAV: NavGroup[] = [
     label: "Field",
     icon: Wrench,
     items: [
-      /* STI-501: the Desk is in BOTH navs on purpose. SYSTEM_PLAN §6.5 calls it
-         "the intended long-term surface for the entire system", and two of its
-         four panels — `tools.mine` and `crew.tools` — exist for exactly the
-         people this nav serves. It carries no `perm`: the Desk composes itself
-         from the registry and shows an explanation when nothing matches, so
-         gating the LINK would be a second, cruder copy of that rule. */
-      { id: "desk", href: "/desk", label: "Desk", icon: LayoutDashboard, hint: "Everything you can act on" },
-      { id: "my-tools", href: "/my-tools", label: "My Tools", icon: Wrench, hint: "What you are holding" },
-      { id: "handoff", href: "/chat", label: "Hand Off", icon: MessageSquare, hint: "Type it in one sentence" },
+      { id: "my-tools", href: "/my-tools", label: "My Tools", icon: Wrench, hint: "What you are holding", desc: "The tools in your own hands" },
+      { id: "handoff", href: "/chat", label: "Hand Off", icon: MessageSquare, hint: "Type it in one sentence", desc: "Tell the desk what you are handing over" },
       /* ~~"Overdue and requests"~~ — nothing goes overdue; the borrow model and
          `expected_end_date` were removed on 2026-08-09 (migration 0012).
 
@@ -116,136 +138,153 @@ export const FIELD_NAV: NavGroup[] = [
          job on this layout is the alerts list, and a phone's bell icon is a
          worse place to bury it than a nav row. Say so if you want it gone from
          here too — it is a deliberate divergence, not an oversight. */
-      { id: "alerts", href: "/inbox", label: "Alerts", icon: Inbox, hint: "Requests and notifications" },
+      { id: "alerts", href: "/inbox", label: "Alerts", icon: Inbox, hint: "Requests and notifications", desc: "Requests, replies and reminders" },
+      /* A superintendent has a real crew below them (their foremen) and this
+         is the only surface that shows who below has set up their own jobs
+         and crew — see `onboarding.progress`. A plain foreman with no crew of
+         their own gets an empty screen rather than a hidden link, matching
+         the same permission's behaviour on the desk. */
+      { id: "onboarding-progress", href: "/onboarding/progress", label: "My Crew's Setup", icon: UserCheck, perm: "project.team.read", desc: "Who below you has logged in and set up their jobs" },
     ],
   },
   SETTINGS_GROUP,
 ];
 
 /*
-  The desk groups are MODULES, not a flat list of screens.
-
-  This shell is the frame the rest of the product gets added to — scheduling,
-  documents, procurement, safety — so a group has to answer "which part of the
-  business is this", and adding one has to be a new entry here rather than a
-  new branch in the rail. Two rules keep that true:
-
-    - a FUNCTION lives with the other functions, a RECORD lives with the other
-      records. "Equipment" used to name the group holding Custody and the map,
-      which are things you DO; the register, which is the thing you KEEP, sat
-      three groups away under "Entity". Operations now holds the doing and
-      Registry holds the records, so a new module lands in an obvious place
-      instead of extending whichever group is nearest.
-    - configuration is not a module. Users, roles, theming and the API keys are
-      all Settings, reached from the rail's foot — see SETTINGS_GROUP.
-
-  Inbox is deliberately absent: it is a queue, not a record, and it is reached
-  from the bell in the top bar, which already carries the same count.
+  The desk groups are MODULES, one surface of the business each
+  (design/STInventory App.dc.html). "Equipment" is the whole equipment side —
+  where it is and who holds it, plus the two registers — not two modules, so
+  the sidebar never shows a job hub with its register missing.
 */
 export const DESK_NAV: NavGroup[] = [
   {
-    label: "Overview",
-    icon: LayoutGrid,
+    label: "Home",
+    icon: LayoutDashboard,
     items: [
-      { id: "desk", href: "/desk", label: "Desk", icon: LayoutGrid, hint: "Composed from your permissions" },
       /* The project monitor — a wall surface, cycling one job at a time. It
-         replaced the widget dashboard on 2026-08-23; that page still exists,
-         unchanged, one row down, until this one has been lived with. */
-      { id: "dashboard", href: "/home", label: "Dashboard", icon: LayoutDashboard, fullBleed: true },
-      { id: "old-dashboard", href: "/old-dash", label: "Old Dash", icon: History },
+         replaced the widget dashboard and the Desk command surface on
+         2026-08-23; both were removed on 2026-09-03 once the monitor had been
+         lived with. */
+      { id: "dashboard", href: "/home", label: "Dashboard", icon: LayoutDashboard, fullBleed: true, desc: "The jobsite board, cycling one job at a time" },
     ],
   },
   {
-    label: "Operations",
-    icon: Workflow,
+    label: "Equipment",
+    icon: Boxes,
     items: [
       /* The control hub: one card per job, with crews (foreman + truck/trailer)
          and the tools working it. */
-      { id: "tools-by-jobsite", href: "/jobsites", label: "Tools by Jobsite", icon: Building2, perm: "asset.read" },
-      { id: "custody", href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read" },
+      { id: "tools-by-jobsite", href: "/jobsites", label: "Tools by Jobsite", icon: Building2, perm: "asset.read", desc: "Every tool, grouped by job and crew" },
+      { id: "custody", href: "/custody", label: "Custody", icon: Wrench, perm: "assignment.read", desc: "Who is holding what, right now" },
       /* The map is the fleet — trucks and trailers — with the small tools
          aboard them, which is why it is not called just a vehicle map. */
-      { id: "fleet-map", href: "/map", label: "Fleet & Small Tools Map", icon: Radio, perm: "location.read" },
+      /*
+        The small-tools register. `id` is deliberately still `tool-register`:
+        labels are free to change and ids are not — renaming a row must not
+        empty anybody's pins.
+      */
+      { id: "tool-register", href: "/tools", label: "Small Tools", icon: Wrench, perm: "asset.read", desc: "The master asset list and serials" },
+      /* Trucks and trailers today, heavy plant the moment a row exists for it.
+         `vehicle.read` gates it, same as the fleet map. */
+      { id: "equipment-register", href: "/equipment", label: "Equipment", icon: Truck, perm: "vehicle.read", desc: "Trucks, trailers and heavy plant" },
+    ],
+  },
+  {
+    label: "People",
+    icon: Users,
+    items: [
+      { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read", desc: "Your crew and the roles they hold" },
+      /* A job and a project are the same thing — the job ID is the cost code. */
+      /* The reporting structure, read from the same project_team_member rows
+         the Tools by Jobsite team strip writes — not a second store. Gated on
+         `project.team.read` like the roster it draws; the procedure narrows a
+         non-admin to their own chain, so the LINK does not need a second gate. */
+      { id: "org-chart", href: "/org-chart", label: "Org Chart", icon: Network, perm: "project.team.read", desc: "Who answers to whom, on each job" },
+      /* Claim your own crew, top-down. The org chart above READS the same rows
+         this WRITES, which is why they sit together — but they answer different
+         questions: that one is "who answers to whom" across the company, this
+         is "who is mine to name" on the jobs I run.
+
+         Gated on `project.team.read` like its two neighbours and for the same
+         documented reason: `projectTeam.myCrew` narrows to the caller's own
+         team rows and returns [] for somebody with no position in the ladder,
+         so a person with no crew sees an empty screen rather than needing a
+         second permission kept in step with role-perms.ts. The per-tier
+         `canAssign` flag decides which tiers offer a picker, and
+         `assertCanAssign` on the write is what actually gates it. */
+      /* One nav entry for `ProjectTeamsPanel`, not two. `/project-teams` renders
+         the same component without `onlyMine` and KEEPS its route — Tools by
+         Jobsite and the projects register both deep-link it with `?projectId=`
+         — but it no longer sits in the sidebar beside this one, where the pair
+         read as two different features and neither name said which. */
+      { id: "my-crew", href: "/my-crew", label: "Crews", icon: UsersRound, perm: "project.team.read", desc: "Who answers to you, job by job", alsoMatches: ["/project-teams"] },
+      /* Taking on a job, after setup is over.
+         Deliberately gated on `project.team.read` — the permission every role
+         that could POSSIBLY claim already holds — and NOT on
+         `project.team.assign`. That grant was removed from leadership in 0063
+         because holding it makes `visibleProjectScope` unrestricted, which
+         showed a director every project in the tenant.
+         The real control is the page itself: it reads `onboarding.state` and
+         renders "your role does not take on jobs directly" when `canClaim` is
+         false, so a person who cannot claim sees a sentence rather than an
+         empty picker. A nav gate cannot express `canClaim`, which depends on
+         the role's `claimTierNames` rather than on any permission. */
+      { id: "claim-a-job", href: "/claim-a-job", label: "Take on a job", icon: HardHat, perm: "project.team.read", desc: "Record the jobs you run, so you can staff them" },
+      /* Who below the caller has done first-run setup and who hasn't — see
+         `onboarding.progress`. Gated on the same permission as the org chart,
+         on purpose (docs/workings/ONBOARDING_AND_ROLE_HIERARCHY.md §7.1): the
+         procedure narrows a non-admin to their own crew, so a foreman with
+         nobody below them simply sees an empty screen rather than needing a
+         second permission kept in step with role-perms.ts. */
+      { id: "onboarding-progress", href: "/onboarding/progress", label: "Onboarding", icon: UserCheck, perm: "project.team.read", desc: "Who below you has set up their jobs and crew" },
     ],
   },
   /*
-    REGISTRY is the entity shelf: one row per kind of thing the business keeps a
-    record of.
-
-    It was called "Equipment" until 2026-08-27, and that name read as correct
-    while being wrong, which is why it survived a rebuild. The first row is the
-    SMALL TOOLS register: the data is drills, saws, generators, grinders,
-    blowers, survey gear and compaction plant, and there is no excavator,
-    loader, backhoe, dozer, skid steer, forklift or crane anywhere in `asset`.
-    The menu used to advertise a resource the product did not have and hide the
-    one it did.
-
-    Equipment is a real and separate entity — trucks and trailers ARE equipment,
-    small tools are not — and it got its own row on 2026-08-30: `/equipment`,
-    backed by the `vehicle` table, which already carried `equipmentClass`
-    (vehicle | heavy), a `code`/`description` pair matching the small-tools
-    "Code" convention, and GPS status. Trucks and trailers are what the
-    register actually holds today; a `heavy` row needs no new screen, just
-    data.
-
-    `id` is deliberately still `tool-register` on the first row. Labels are
-    free to change and ids are not: renaming a row must not empty anybody's
-    pins.
+    Jobs, not people. `/projects` sat inside the People group until 2026-09-09,
+    where it read as an attribute of a person rather than the thing the company
+    actually runs — the client's words: "project should be in project
+    management, not even a section for it". A job IS the cost code, so this is
+    the register the equipment and crew screens both point at.
   */
   {
-    label: "Registry",
-    icon: Boxes,
+    label: "Projects",
+    icon: HardHat,
     items: [
-      { id: "tool-register", href: "/tools", label: "Small Tools", icon: Wrench, perm: "asset.read" },
-      /* The row this group's own comment has been reserving since
-         2026-08-27: trucks and trailers today, heavy plant the moment a row
-         exists for it. `vehicle.read` gates it, same as the fleet map. */
-      { id: "equipment-register", href: "/equipment", label: "Equipment", icon: Truck, perm: "vehicle.read" },
+      { id: "projects", href: "/projects", label: "Projects", icon: HardHat, perm: "project.read", desc: "Every job and job group on record" },
     ],
   },
   {
-    label: "Organization",
-    icon: Users,
-    items: [
-      { id: "people", href: "/people", label: "People", icon: Users, perm: "employee.read" },
-      /* A job and a project are the same thing — the job ID is the cost code. */
-      { id: "projects", href: "/projects", label: "Projects", icon: HardHat, perm: "project.read" },
-    ],
-  },
-  {
-    label: "Insight",
+    label: "Reports",
     icon: BarChart3,
     items: [
-      { id: "reports", href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read" },
-      { id: "activity", href: "/activity", label: "Activity", icon: Activity, perm: "asset.read" },
+      { id: "reports", href: "/reports", label: "Reports & Logs", icon: BarChart3, perm: "report.read", desc: "Every register and report in one place" },
+      { id: "activity", href: "/activity", label: "Activity", icon: Activity, perm: "asset.read", desc: "The live tool-movement feed" },
     ],
   },
   SETTINGS_GROUP,
 ];
 
 /*
-  Roles that live in the field. Everyone else gets the desk layout.
+  Which layout an account gets — the FIELD three-item menu or the DESK one.
 
-  `mechanic` added by STI-304 — a mechanic holds tools and works out of the
-  shop, so the desk's twelve-item navigation is the wrong shelf to put them on.
-  This is the LAST role-name branch in the product (STI-307 removed the rest),
-  and it is a layout decision rather than an access control: every item in both
-  sets is separately permission-filtered in `app-sidebar.tsx`, so a wrong
-  answer here shows somebody the wrong menu, never data they may not see.
+  This was `FIELD_ROLES = new Set(["foreman","superintendent","mechanic"])`
+  until 2026-09-08: a hardcoded set of role NAMES, described in its own comment
+  as "the LAST role-name branch in the product" and "wrong by construction —
+  a set of role names has to be edited every time a role is added". It was
+  worse than that comment admitted. `tbl_entity_role.uses_field_layout` already
+  existed, was already editable at /admin/roles and was already written by
+  `role.update` — but never reached any client, so the toggle an administrator
+  flipped did NOTHING, and a role a tenant created could never get the field
+  layout at all.
 
-  It is still wrong by construction — a set of role names has to be edited
-  every time a role is added, which is exactly what happened here. Replacing it
-  with a permission-driven registry is STI-501, and this line is the argument
-  for doing it.
+  `identity.me` now returns the flag and these take it directly. The decision
+  moved to the register where it was always meant to live; nothing here reads
+  a role name any more.
 
-  `engineer` and `office_admin` correctly get the desk layout: an engineer runs
-  jobs from a desk and an office administrator never leaves one.
+  Still a LAYOUT decision, not an access control: every item in both sets is
+  separately permission-filtered in `app-sidebar.tsx`, so a wrong answer shows
+  somebody the wrong menu, never data they may not see.
 */
-const FIELD_ROLES = new Set(["foreman", "superintendent", "mechanic"]);
-
-export function isFieldRole(role: string | null | undefined): boolean {
-  return !!role && FIELD_ROLES.has(role);
-}
 
 const SETTINGS_ITEM_IDS = new Set(SETTINGS_GROUP.items.map((n) => n.id));
 
@@ -257,12 +296,12 @@ export function isSettingsItemId(id: string): boolean {
   return SETTINGS_ITEM_IDS.has(id);
 }
 
-export function navFor(role: string | null | undefined): NavGroup[] {
-  return isFieldRole(role) ? FIELD_NAV : DESK_NAV;
+export function navFor(usesFieldLayout: boolean | null | undefined): NavGroup[] {
+  return usesFieldLayout ? FIELD_NAV : DESK_NAV;
 }
 
-export function allItems(role: string | null | undefined): NavItem[] {
-  return navFor(role).flatMap((g) => g.items);
+export function allItems(usesFieldLayout: boolean | null | undefined): NavItem[] {
+  return navFor(usesFieldLayout).flatMap((g) => g.items);
 }
 
 /*
@@ -286,20 +325,16 @@ export function groupKey(g: NavGroup): string {
   rather than in each of the three callers.
 */
 export function matchItem(items: NavItem[], pathname: string): NavItem | undefined {
+  const hits = (n: NavItem) =>
+    [n.href, ...(n.alsoMatches ?? [])].filter(
+      (h) => pathname === h || pathname.startsWith(h + "/"),
+    );
+  /* Longest matching prefix wins, across `href` AND `alsoMatches`, so a more
+     specific alias still beats a shorter real route. */
   return items
-    .filter((n) => pathname === n.href || pathname.startsWith(n.href + "/"))
-    .sort((a, b) => b.href.length - a.href.length)[0];
-}
-
-/* The rail draws these in flow; `foot` groups are pinned to the bottom under
-   the assistant. Split here so both the rail and any future shell read the
-   same rule off the config instead of hard-coding which label sinks. */
-export function mainGroups(groups: NavGroup[]): NavGroup[] {
-  return groups.filter((g) => g.placement !== "foot");
-}
-
-export function footGroups(groups: NavGroup[]): NavGroup[] {
-  return groups.filter((g) => g.placement === "foot");
+    .map((n) => ({ n, best: hits(n).sort((a, b) => b.length - a.length)[0] }))
+    .filter((x): x is { n: NavItem; best: string } => !!x.best)
+    .sort((a, b) => b.best.length - a.best.length)[0]?.n;
 }
 
 /*

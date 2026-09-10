@@ -1,13 +1,58 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { logEvent } from "../audit.js";
-import { visibleProjectScope } from "../scope.js";
+import { crewEmployeeIds, visibleProjectScope } from "../scope.js";
 import { moveEmployeeToProject } from "../project-assign.js";
 import { PROJECT_STATUSES } from "@stinventory/types";
+
+/*
+  A JOB CODE IS HOW PEOPLE TELL TWO JOBS APART.
+
+  Nothing enforced this: `tbl_entity_project` carries a primary key on `id` and
+  nothing else, so a tenant could hold any number of projects with the same code
+  or the same name. It did — the dev register grew two rows both called
+  "Equipment Yard", one of them a real job (24002, with a foreman and a tool
+  location on it) that had been renamed. In a picker they are two identical
+  lines, and the only way to tell which is which is to open both.
+
+  The code is the discriminator every screen leans on — `projectLabel` puts it
+  in front of the name for exactly this reason — so it is the thing that has to
+  be unique. Names are deliberately NOT unique: "Phase 2" is a reasonable name
+  on two different sites, and the code is what separates them.
+
+  Case-insensitive: "24002" and "24002 " and "URB-2401"/"urb-2401" are the same
+  code to a human reading a list, so they must be the same code to the check.
+  Migration 0065 carries the matching partial unique index — this check gives
+  the good error message, the index is what makes the rule true even if some
+  future writer forgets to call it.
+*/
+async function assertCodeFree(
+  db: any,
+  tenantId: string,
+  code: string | null | undefined,
+  exceptProjectId?: string,
+): Promise<void> {
+  const trimmed = code?.trim();
+  if (!trimmed) return; // A job with no code is allowed; several have none.
+  const clash = await db.query.project.findFirst({
+    where: and(
+      eq(schema.project.tenantId, tenantId),
+      sql`lower(${schema.project.code}) = lower(${trimmed})`,
+      ...(exceptProjectId ? [ne(schema.project.id, exceptProjectId)] : []),
+    ),
+    columns: { id: true, name: true },
+  });
+  if (clash) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: `Job code ${trimmed} is already used by ${clash.name}. Codes identify a job on every screen, so each one has to be unique.`,
+    });
+  }
+}
 
 export const projectRouter = router({
   /*
@@ -30,7 +75,8 @@ export const projectRouter = router({
       .select({
         id: schema.project.id,
         name: schema.project.name,
-        externalId: schema.project.externalId,
+        kind: schema.project.kind,
+        externalId: schema.project.code,
         description: schema.project.description,
         status: schema.project.status,
         siteAddress: schema.project.siteAddress,
@@ -50,7 +96,10 @@ export const projectRouter = router({
     .input(
       z.object({
         name: z.string().min(1).max(200),
-        externalId: z.string().optional(),
+        kind: z.enum(["project", "yard"]).optional(),
+        /* `.max(60)` to match `update` and the column — this was unbounded, so
+           a job could be BORN with a code no edit form would accept. */
+        externalId: z.string().max(60).optional(),
         description: z.string().max(2000).optional(),
         /* Same enum as `update` — a job could otherwise be BORN with a status
            no screen understands, which no amount of validation on update
@@ -62,9 +111,14 @@ export const projectRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      /* Trim before storing AND before comparing: a trailing space is
+         invisible in a list and would otherwise slip past a plain equality
+         check as a "different" code. */
+      const code = input.externalId?.trim() || null;
+      await assertCodeFree(ctx.db, ctx.session.tenantId, code);
       const [row] = await ctx.db
         .insert(schema.project)
-        .values({ tenantId: ctx.session.tenantId, ...input })
+        .values({ tenantId: ctx.session.tenantId, ...input, code })
         .returning();
       if (row) await logEvent(ctx, { category: "project", action: "create", entityType: "project", entityId: row.id, entityLabel: row.name });
       return row;
@@ -75,6 +129,7 @@ export const projectRouter = router({
       z.object({
         id: z.string().uuid(),
         name: z.string().min(1).max(200).optional(),
+        kind: z.enum(["project", "yard"]).optional(),
         externalId: z.string().max(60).nullable().optional(),
         description: z.string().max(2000).nullable().optional(),
         /* STI-105: was `z.string().max(30)`, so "compleet" — or any other
@@ -96,6 +151,14 @@ export const projectRouter = router({
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such project in this tenant" });
 
+      /* Only when the code is actually being changed — re-saving a job with
+         its own existing code must not collide with itself. */
+      if (changes.externalId !== undefined) {
+        const next = changes.externalId?.trim() || null;
+        await assertCodeFree(ctx.db, tid, next, id);
+        changes.externalId = next;
+      }
+
       /*
         A job cannot be completed while tools are still out on it (STI-105).
 
@@ -115,7 +178,7 @@ export const projectRouter = router({
       */
       if (changes.status === "completed" && existing.status !== "completed") {
         const held = await ctx.db
-          .select({ tag: schema.asset.tag, assetId: schema.assignment.assetId })
+          .select({ code: schema.asset.code, assetId: schema.assignment.assetId })
           .from(schema.assignment)
           .innerJoin(schema.asset, eq(schema.asset.id, schema.assignment.assetId))
           .where(
@@ -129,7 +192,7 @@ export const projectRouter = router({
         if (held.length) {
           /* Name a few, so the desk knows where to start rather than being
              told a number and left to find them. */
-          const sample = held.slice(0, 3).map((h) => h.tag ?? "untagged").join(", ");
+          const sample = held.slice(0, 3).map((h) => h.code ?? "untagged").join(", ");
           const more = held.length > 3 ? `, and ${held.length - 3} more` : "";
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -141,7 +204,8 @@ export const projectRouter = router({
         }
       }
 
-      const patch = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
+      const { externalId, ...fields } = changes;
+      const patch = Object.fromEntries(Object.entries({ ...fields, ...(externalId !== undefined ? { code: externalId } : {}) }).filter(([, v]) => v !== undefined));
       if (!Object.keys(patch).length) return existing;
 
       const [row] = await ctx.db
@@ -243,21 +307,55 @@ async function assertRoleInTenant(db: Context["db"], tid: string, roleId: string
 }
 
 export const employeeRouter = router({
+  hrDetails: protectedProcedure.input(z.object({ employeeId: z.string().uuid() })).query(async ({ ctx, input }) => {
+    if (!ctx.session.permissions.has("employee.read") && !ctx.session.permissions.has("employee.manage") && ctx.session.employeeId !== input.employeeId) throw new TRPCError({ code: "FORBIDDEN" });
+    const tid = ctx.session.tenantId;
+    const [person] = await ctx.db.select({ id: schema.employee.id, code: schema.employee.code, jobTitle: schema.companyRole.name, department: schema.department.name, division: schema.division.name, creationSource: schema.employee.creationSource, createdByUserId: schema.employee.createdByUserId }).from(schema.employee).leftJoin(schema.companyRole, eq(schema.companyRole.id, schema.employee.companyRoleId)).leftJoin(schema.department, eq(schema.department.id, schema.employee.departmentId)).leftJoin(schema.division, eq(schema.division.id, schema.employee.divisionId)).where(and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)));
+    if (!person) throw new TRPCError({ code: "NOT_FOUND" });
+    const [source] = await ctx.db.select({ externalId: schema.employeeExternalRef.externalId, lastSyncedAt: schema.employeeExternalRef.lastSyncedAt }).from(schema.employeeExternalRef).where(and(eq(schema.employeeExternalRef.employeeId, input.employeeId), eq(schema.employeeExternalRef.tenantId, tid), eq(schema.employeeExternalRef.system, "bamboohr")));
+    return { ...person, bamboo: source ?? null };
+  }),
+  setHrDetails: requirePermission("employee.manage")
+    .input(z.object({ employeeId: z.string().uuid(), jobTitle: z.string().trim().max(200), division: z.string().trim().max(200), department: z.string().trim().max(200), code: z.string().trim().max(60) }))
+    .mutation(async ({ ctx, input }) => ctx.db.transaction(async tx => {
+      const tid = ctx.session.tenantId;
+      const [person] = await tx.select().from(schema.employee).where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.id, input.employeeId))).for("update");
+      if (!person) throw new TRPCError({ code: "NOT_FOUND" });
+      const source = await tx.query.employeeExternalRef.findFirst({ where: and(eq(schema.employeeExternalRef.tenantId, tid), eq(schema.employeeExternalRef.employeeId, input.employeeId), eq(schema.employeeExternalRef.system, "bamboohr")) });
+      if (source) throw new TRPCError({ code: "FORBIDDEN", message: "These details are maintained in BambooHR. Ask HR to correct them there." });
+      const resolve = async (table: typeof schema.companyRole | typeof schema.department | typeof schema.division, name: string) => {
+        if (!name) return null;
+        await tx.insert(table).values({ tenantId: tid, name }).onConflictDoNothing();
+        const [row] = await tx.select({ id: table.id }).from(table).where(and(eq(table.tenantId, tid), eq(table.name, name)));
+        return row!.id;
+      };
+      await tx.update(schema.employee).set({ companyRoleId: await resolve(schema.companyRole, input.jobTitle), departmentId: await resolve(schema.department, input.department), divisionId: await resolve(schema.division, input.division), code: input.code || null, updatedAt: new Date() }).where(and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)));
+      await logEvent({ ...ctx, db: tx as any }, { category: "auth", action: "employee.hrDetails.update", entityType: "employee", entityId: input.employeeId, details: { fields: ["jobTitle", "division", "department", "code"] } });
+      return { ok: true };
+    })),
+
   list: protectedProcedure.query(async ({ ctx }) => {
     const reportsTo = alias(schema.employee, "reports_to");
     return ctx.db
       .select({
         id: schema.employee.id,
-        externalId: schema.employee.externalId,
+        externalId: schema.employee.code,
         name: schema.employee.name,
         role: schema.employee.role,
         email: schema.employee.email,
         phone: schema.employee.phone,
         employmentStatus: schema.employee.employmentStatus,
         terminatedAt: schema.employee.terminatedAt,
+        /* A SOURCE SYSTEM'S opinion, not Optix's own — see the column comment
+           on `employee.ts`. Non-null means BambooHR (or whichever source last
+           synced this person) currently reports them as gone, while
+           `employmentStatus` above still says whatever an admin last set it
+           to. The two are allowed to disagree; that disagreement is the
+           entire point of this column existing. */
+        hrFlaggedInactiveAt: schema.employee.hrFlaggedInactiveAt,
         primaryProjectId: schema.employee.primaryProjectId,
         primaryProjectName: schema.project.name,
-        primaryProjectExternalId: schema.project.externalId,
+        primaryProjectExternalId: schema.project.code,
         reportsToEmployeeId: schema.employee.reportsToEmployeeId,
         reportsToName: reportsTo.name,
         /* The role register, and the three facts about the PERSON that come
@@ -267,6 +365,14 @@ export const employeeRouter = router({
         roleId: schema.employee.roleId,
         roleName: schema.role.name,
         roleNeedsLogin: schema.role.needsLogin,
+        /* The HR facts, not the login role above — a different axis entirely.
+           `jobTitleName` is what BambooHR calls this same fact; here it is
+           `companyRole`, named that way since before the sync existed. All
+           three are nullable on a hand-created person and on any BambooHR
+           record the sync could not resolve. */
+        jobTitle: schema.companyRole.name,
+        divisionName: schema.division.name,
+        departmentName: schema.department.name,
         /*
           The account, joined in rather than listed on a second screen.
 
@@ -285,6 +391,9 @@ export const employeeRouter = router({
       .leftJoin(schema.project, eq(schema.employee.primaryProjectId, schema.project.id))
       .leftJoin(reportsTo, eq(schema.employee.reportsToEmployeeId, reportsTo.id))
       .leftJoin(schema.role, eq(schema.employee.roleId, schema.role.id))
+      .leftJoin(schema.companyRole, eq(schema.employee.companyRoleId, schema.companyRole.id))
+      .leftJoin(schema.division, eq(schema.employee.divisionId, schema.division.id))
+      .leftJoin(schema.department, eq(schema.employee.departmentId, schema.department.id))
       /* One account per person by construction — `user.employeeId` is how an
          account names its person, and nothing creates two. A left join is safe
          here for that reason; if that ever stops being true this multiplies. */
@@ -308,6 +417,12 @@ export const employeeRouter = router({
         email: z.string().email().optional(),
         phone: z.string().optional(),
         primaryProjectId: z.string().uuid().optional(),
+        /* The badge number — `employee.code`. Named `externalId` on the wire
+           because every caller still says so; the column was renamed on
+           2026-09-06 and a foreign system's key now lives in
+           `employee_external_ref`. Mapped EXPLICITLY below rather than spread:
+           a spread of a mismatched key is silently dropped by Drizzle, so the
+           badge number would stop persisting and nothing would fail. */
         externalId: z.string().optional(),
         employmentStatus: z.string().optional(),
         reportsToEmployeeId: z.string().uuid().optional(),
@@ -315,9 +430,11 @@ export const employeeRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       if (input.roleId) await assertRoleInTenant(ctx.db, ctx.session.tenantId, input.roleId);
+      const { externalId, ...rest } = input;
       const [row] = await ctx.db
         .insert(schema.employee)
-        .values({ tenantId: ctx.session.tenantId, ...input })
+        .values({ tenantId: ctx.session.tenantId,
+          creationSource: "manual", createdByUserId: ctx.session.userId, ...rest, code: externalId })
         .returning();
 
       /* Opening the posting here rather than leaving it to the first move means
@@ -343,9 +460,10 @@ export const employeeRouter = router({
       const [row] = await ctx.db
         .select({
           id: schema.employee.id,
-          externalId: schema.employee.externalId,
+          externalId: schema.employee.code,
           name: schema.employee.name,
           role: schema.employee.role,
+          roleId: schema.employee.roleId,
           email: schema.employee.email,
           phone: schema.employee.phone,
           employmentStatus: schema.employee.employmentStatus,
@@ -354,10 +472,18 @@ export const employeeRouter = router({
           primaryProjectName: schema.project.name,
           reportsToEmployeeId: schema.employee.reportsToEmployeeId,
           reportsToName: reportsTo.name,
+          /* Whether the person page's custody tabs are even worth showing.
+             `role.canHoldCustody` already replaced a hard-coded set of
+             custodian role NAMES once (see the column's own comment) — a PM
+             or an office admin has no custody tab to hide behind an empty
+             state, and a role list here would be the same "wrong by
+             construction" pattern re-introduced through a different door. */
+          roleCanHoldCustody: schema.role.canHoldCustody,
         })
         .from(schema.employee)
         .leftJoin(schema.project, eq(schema.employee.primaryProjectId, schema.project.id))
         .leftJoin(reportsTo, eq(schema.employee.reportsToEmployeeId, reportsTo.id))
+        .leftJoin(schema.role, eq(schema.employee.roleId, schema.role.id))
         .where(
           and(
             eq(schema.employee.id, input.id),
@@ -383,7 +509,7 @@ export const employeeRouter = router({
           id: schema.employeeProjectAssignment.id,
           projectId: schema.employeeProjectAssignment.projectId,
           projectName: schema.project.name,
-          projectExternalId: schema.project.externalId,
+          projectExternalId: schema.project.code,
           startedOn: schema.employeeProjectAssignment.startedOn,
           endedOn: schema.employeeProjectAssignment.endedOn,
           note: schema.employeeProjectAssignment.note,
@@ -438,6 +564,8 @@ export const employeeRouter = router({
       }),
     )
         .mutation(async ({ ctx, input }) => {
+      if (!ctx.session.permissions.has("project.team.assign")) throw new TRPCError({ code: "FORBIDDEN", message: "Use Project Teams to assign people within your reporting branch. Moving a posting directly requires project.team.assign." });
+
       /*
         Everything is one transaction in the shared engine (project-assign.ts):
         close the posting, open the next, catch up primaryProjectId, move the
@@ -491,6 +619,8 @@ export const employeeRouter = router({
         roleId: z.string().uuid().nullable().optional(),
         email: z.string().email().nullable().optional(),
         phone: z.string().max(40).nullable().optional(),
+        /* `employee.code` on the wire — see the note on `create`. Remapped
+           below before the patch is built, for the same reason. */
         externalId: z.string().max(60).nullable().optional(),
         employmentStatus: z.string().max(30).optional(),
         reportsToEmployeeId: z.string().uuid().nullable().optional(),
@@ -504,6 +634,8 @@ export const employeeRouter = router({
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
 
+      const bamboo = await ctx.db.query.employeeExternalRef.findFirst({ where: and(eq(schema.employeeExternalRef.employeeId, id), eq(schema.employeeExternalRef.tenantId, tid), eq(schema.employeeExternalRef.system, "bamboohr")) });
+      if (bamboo && changes.externalId !== undefined && changes.externalId !== existing.code) throw new TRPCError({ code: "FORBIDDEN", message: "The employee number is maintained in BambooHR." });
       /* `primaryProjectId` is deliberately absent. Moving somebody to a job is
          `assignToProject` — it closes their posting, opens the next and takes
          their tools with them. Editing the column here would change the answer
@@ -513,9 +645,11 @@ export const employeeRouter = router({
       }
       if (changes.roleId) await assertRoleInTenant(ctx.db, tid, changes.roleId);
 
+      const { externalId, ...restChanges } = changes;
       const patch: Record<string, unknown> = Object.fromEntries(
-        Object.entries(changes).filter(([, v]) => v !== undefined),
+        Object.entries(restChanges).filter(([, v]) => v !== undefined),
       );
+      if (externalId !== undefined) patch.code = externalId;
       if (!Object.keys(patch).length) return existing;
 
       /* Terminating from this form still has to stamp the date the clearance
@@ -643,24 +777,19 @@ export const employeeRouter = router({
     const tid = ctx.session.tenantId;
     const employeeId = ctx.session.employeeId;
 
-    const supers = await ctx.db
-      .select({ projectId: schema.projectTeamMember.projectId })
-      .from(schema.projectTeamMember)
-      .where(
-        and(
-          eq(schema.projectTeamMember.tenantId, tid),
-          eq(schema.projectTeamMember.employeeId, employeeId),
-          eq(schema.projectTeamMember.role, "superintendent"),
-          isNull(schema.projectTeamMember.endedOn),
-        ),
-      );
-    if (supers.length === 0) return [];
+    /* THE SAME QUESTION `scope.ts crewOf` ASKS, and now literally the same
+       code — it used to be a second hand-written copy of the superintendent ->
+       foreman walk, with a comment on both sides asking whoever changed one to
+       remember the other. That is not a rule anybody can keep; the ladder went
+       five tiers deep in the register and only one of the two copies was ever
+       going to be updated. `crewEmployeeIds` is now the single answer. */
+    const crewIds = await crewEmployeeIds(ctx.db, tid, employeeId);
+    if (crewIds.length === 0) return [];
 
-    const projectIds = supers.map((s) => s.projectId);
     return ctx.db
       .select({
         id: schema.employee.id,
-        externalId: schema.employee.externalId,
+        externalId: schema.employee.code,
         name: schema.employee.name,
         role: schema.employee.role,
         email: schema.employee.email,
@@ -669,16 +798,12 @@ export const employeeRouter = router({
         primaryProjectId: schema.employee.primaryProjectId,
       })
       .from(schema.employee)
-      .innerJoin(
-        schema.projectTeamMember,
+      .where(
         and(
-          eq(schema.projectTeamMember.employeeId, schema.employee.id),
-          eq(schema.projectTeamMember.tenantId, tid),
-          eq(schema.projectTeamMember.role, "foreman"),
-          isNull(schema.projectTeamMember.endedOn),
-          inArray(schema.projectTeamMember.projectId, projectIds),
+          eq(schema.employee.tenantId, tid),
+          inArray(schema.employee.id, crewIds),
+          eq(schema.employee.employmentStatus, "active"),
         ),
-      )
-      .where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.employmentStatus, "active")));
+      );
   }),
 });

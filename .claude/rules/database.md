@@ -148,7 +148,7 @@ statement says the same thing the code says instead of naming that day's list.
 - **No `relations()` are defined anywhere.** `db.query.X.findFirst` works because the schema
   map is passed to `drizzle()`, but `with:` eager loading is unavailable — every join is a
   hand-written `leftJoin`/`innerJoin`.
-- Missing unique constraints worth knowing about: `user.email`, `asset.tag`,
+- Missing unique constraints worth knowing about: `user.email`, `asset.code`,
   `asset.serial_number`, `channel.slug`, `vehicle.location_id`,
   `tenant_settings.tenant_id`.
 
@@ -159,7 +159,7 @@ statement says the same thing the code says instead of naming that day's list.
 deletes every tenant, employee, vehicle, asset and ledger row, and **disables the ledger's
 append-only trigger to do it**.
 
-### There are TWO datasets, and one of them is a test fixture
+### There are THREE datasets, and one of them is a test fixture
 
 `seed.ts` chooses on `SEED_DATASET`, and which one you are looking at changes what a
 "wrong" number means:
@@ -168,6 +168,7 @@ append-only trigger to do it**.
 |---|---|---|
 | default | `seed-data.ts` | The **test fixture**. Synthetic people and tools engineered so every permission tier, status and UI state is reachable from a clean database. Keeps the shared `stinventory-demo` password. |
 | `SEED_DATASET=urban` | `seed-data.urban.ts` | Urban Infraconstruction's **real register**, generated from `docs/data/import/*.csv`. One owner account, password from `SEED_OWNER_PASSWORD` or printed once. |
+| `SEED_DATASET=bare` | `seed-data.bare.ts` | An **empty tenant** (2026-09-10): the vocabularies, the permission matrix and ONE owner login. No people, tools, jobs or vehicles at all. For a deployment where **BambooHR is the source of the roster** — a seeded person there is an invented row standing between a real sync and an honest answer about what it did. Takes a real credential, same rule as urban. `make seed-bare`. |
 
 **Do not "fix" the fixture by replacing it with real data.** That was tried on 2026-09-01
 and turned CI red in a way that is easy to miss: `rbac-matrix.test.ts` proves the
@@ -180,13 +181,50 @@ apparatus.
 
 Two consequences worth knowing before editing `seed.ts`:
 
-- **The fixture's password is load-bearing.** `e2e/roles.ts` signs every browser test in
-  with `stinventory-demo`, and the login page offers one-click demo accounts using it.
-  Only the urban dataset takes a real credential.
-- **Fixtures inside `seed.ts` have been silently required.** The personal-allowance truck
-  and the desk approval queue both used non-null assertions on demo-only lookups, so any
-  dataset without them killed the whole seed; both are now guarded and skip. If you add a
-  fixture, guard it, or the next real dataset dies on it.
+- **The fixture's password is load-bearing.** The login page offers one-click demo
+  accounts using `stinventory-demo`, and browser checking signs in with it. Only the
+  urban dataset takes a real credential. (`e2e/roles.ts` also declared it until the
+  browser suite was deleted on 2026-09-10; `docs/SETUP.md` is the account list now.)
+- **Fixtures inside `seed.ts` have been silently required.** The personal-allowance truck,
+  the company truck, the desk approval queue and the whole messages-and-tasks block all used
+  non-null assertions on demo-only lookups, so any dataset without them killed the whole
+  seed; all are now guarded and skip. If you add a fixture, guard it, or the next real
+  dataset dies on it.
+- **`db.insert(x).values([])` THROWS** — "values() must be called with at least one value" —
+  it is not the no-op the call site reads as. Every dataset-driven insert is therefore a
+  landmine the moment a dataset is legitimately empty, which the bare one is. Use the
+  `insertRows` helper at the top of `seed.ts` (returns `[]` so downstream `.map` and
+  `Object.fromEntries` lookups keep working), or an `if (specs.length)` guard for a
+  fire-and-forget insert. Found only by RUNNING the bare seed; nothing in the types says it.
+- **A seed log line must count what it wrote, not what it expected to write.** One said
+  "+ 2 synthetic trucks" unconditionally, on a dataset that seeded no vehicles at all. Same
+  class of problem as the `created: 0` scar in the Bamboo sync: a report that misinforms
+  the person who ran it is worse than a crash.
+
+**Run `make seed-demo` before the test suite.** The datasets are not
+interchangeable at test time: against `SEED_DATASET=urban`, `rbac-matrix.test.ts`
+fails with `seeded account missing: hr@stinventory.local` and takes four other
+tests with it. That is the test being RIGHT about the database it was handed —
+its apparatus is the fixture's synthetic accounts. `make seed-urban` and
+`make seed-demo` exist so switching is one command and the choice is explicit.
+
+(Both targets forward `SEED_RESET`/`SEED_DATASET` explicitly. `docker compose
+exec` does not inherit the caller's environment, so `SEED_RESET=1 make seed`
+silently seeded NOTHING before 2026-09-07 — the seed saw no variable, found a
+tenant, and skipped, while printing enough output to look like it had run.)
+
+**`build_seed_data.py` is NOT a safe re-run — it DELETES roster rows.** Running it
+on 2026-09-07 cut `teamSpecs` from 48 rows to 26, silently: the generator emits only
+what it can derive from `docs/data/import/*.csv`, and the other 22 foreman-to-project
+rows (with their `reportsTo` chain) were added afterwards and exist nowhere in the
+CSVs. Its own summary line says `team 26` and looks like success. It also drops any
+account hand-added to `userSpecs`.
+
+So: do NOT regenerate to pick up a schema rename or to "refresh" the data. Edit
+`seed-data.urban.ts` directly for anything the CSVs do not carry, and only run the
+generator when the CSVs themselves have genuinely changed — then diff the result and
+re-add what it dropped. `git diff --stat` on that file is the check: a one-line
+change is an edit, an 88-line change is data loss.
 
 The generated file is regenerated by `docs/data/build_seed_data.py`, which rewrites only
 the data blocks. `generate_app_seed.py` is **stale in shape** — it emits a `costCenter`
@@ -218,10 +256,30 @@ desk-queue block in `src/seed.ts`.
 
 ## Conventions
 
+- **`code` vs `external_id` — one word for one idea.** A **`code`** is the
+  COMPANY's own identifier: Urban assigns it, and the same value means the same
+  thing in every system they run (`employee.code` = `URB-001`,
+  `project.code` = `22018`, `asset.code` = `TOOL-0001`, `vehicle.code`). An
+  **`external_id`** is a FOREIGN system's primary key — BambooHR's `4471` — and
+  it never lives on the entity: it goes in an external-ref child table
+  (`tbl_entity_employee_external_ref`), because one column holds exactly one far
+  system and this codebase already names three. Extra identifiers are their own
+  fields, not overloads of either: `asset.asset_number` is the database's own
+  sequence, `asset.serial_number` is the MANUFACTURER's. Display puts the code
+  before the name (`22018 - Lone Star`). Settled with the client 2026-09-07;
+  `asset.tag` and `project.external_id` were the last two violations and were
+  renamed in migration `0052`.
+- **A stale key name in a Drizzle insert loses data SILENTLY.** Drizzle drops an
+  unknown key with no error and `tsc` cannot see it — a spread of a wider object
+  into an insert is legal TypeScript. Renaming a column therefore means grepping
+  every write, not trusting the compiler: after migration `0052` the seed still
+  said `externalId: p.extId` and produced twenty projects with no code, on a
+  green run. Four separate writers have now been bitten by this in two days.
 - Physical names are snake_case singular; Drizzle exports are camelCase.
 - `asset_model` / `manufacturer` / `asset.model_id` are **vestigial** — nothing reads or
   writes them (see the comment at `schema/asset.ts:24-30`). Don't build on them.
-- `asset.tag` is nullable by design — a tag is a physical label, not a system id.
+- `asset.code` is nullable by design — the code is a physical label somebody sticks
+  on the tool, not an id the system mints. `asset_number` is the always-present one.
 - `photo_key` stores an object key, never a URL, so the storage host isn't baked into rows.
 - A new workspace dependency may need a line in `docker/Dockerfile.dev`'s COPY list *and* an
   anonymous volume in `docker-compose.yml`.

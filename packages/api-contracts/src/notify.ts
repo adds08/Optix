@@ -22,7 +22,7 @@ export type CustodyDecision = {
   fromCustodianId?: string | null;
   refType: "transfer" | "assignment";
   refId: string;
-  assetTag: string;
+  assetCode: string;
   approved: boolean;
   reason?: string | null;
   /** Who decided, so the message can say. */
@@ -49,8 +49,8 @@ export async function notifyCustodyDecision(db: any, d: CustodyDecision): Promis
   if (!recipients.size) return 0;
 
   const title = d.approved
-    ? `Approved: ${d.assetTag} hand-off`
-    : `Not approved: ${d.assetTag} hand-off`;
+    ? `Approved: ${d.assetCode} hand-off`
+    : `Not approved: ${d.assetCode} hand-off`;
 
   const body = d.approved
     ? `The equipment desk signed this off.${d.decidedBy ? ` (${d.decidedBy})` : ""}`
@@ -100,7 +100,7 @@ export type DeskPending = {
   approverRole?: string | null;
   refType: "transfer" | "assignment";
   refId: string;
-  assetTag: string | null;
+  assetCode: string | null;
   assetLabel: string;
   /** Employee id of whoever raised it, so they are not told about themselves. */
   actorEmployeeId?: string | null;
@@ -125,7 +125,7 @@ export async function notifyDeskPending(db: any, d: DeskPending): Promise<number
 
   if (!desk.length) return 0;
 
-  const what = d.assetTag ? `${d.assetTag} — ${d.assetLabel}` : d.assetLabel;
+  const what = d.assetCode ? `${d.assetCode} — ${d.assetLabel}` : d.assetLabel;
   const title = `Waiting for approval: ${what}`;
   const body = `This one is held until somebody signs it off${
     d.toName ? `, then it goes to ${d.toName}` : ""

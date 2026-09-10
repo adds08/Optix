@@ -1,3 +1,4 @@
+import { projectTeamsRouter } from "./routers/projectTeams.js";
 import { router } from "./trpc.js";
 import { identityRouter } from "./routers/identity.js";
 import { dashboardRouter } from "./routers/dashboard.js";
@@ -25,6 +26,9 @@ import { userRouter } from "./routers/user.js";
 import { roleRouter } from "./routers/role.js";
 import { departureRouter } from "./routers/custody-reassign.js";
 import { featureRouter } from "./routers/feature.js";
+import { onboardingRouter } from "./routers/onboarding.js";
+import { syncRouter } from "./routers/sync.js";
+export { ONBOARDING_STEPS, type OnboardingStep } from "./routers/onboarding.js";
 export { llmConfigFor } from "./routers/settings.js";
 export { mailConfigFor } from "./mail-config.js";
 
@@ -38,6 +42,7 @@ export const appRouter = router({
   category: categoryRouter,
   project: projectRouter,
   projectTeam: projectTeamRouter,
+  projectTeams: projectTeamsRouter,
   department: departmentRouter,
   employee: employeeRouter,
   location: locationRouter,
@@ -57,6 +62,8 @@ export const appRouter = router({
   preferences: preferencesRouter,
   projectGroup: projectGroupRouter,
   feature: featureRouter,
+  onboarding: onboardingRouter,
+  sync: syncRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -78,34 +78,40 @@ export function OptixWordmark({ className }: { className?: string }) {
 }
 
 /*
-  The short form: the O with the X shut inside it.
+  The short form: the wordmark's OWN "O", and nothing else.
 
-  A wordmark 3.6 times wider than it is tall cannot go in a 32px rail slot, a
-  favicon or an app icon, so the compact mark takes the two letters that carry
-  the identity — the ring and the pinched X — and stacks them. It reads as an
-  aperture closing, which is the name.
+  It was a circle with a solid X shut inside it — a drawn idea about the name
+  rather than a piece of the logo, and at rail size the X read as a smudge
+  inside a ring. The identity is already carried by the first letter of the
+  supplied artwork, so the compact mark is now that letter, not an
+  interpretation of the word.
 
-  **The X is solid here and outlined in the wordmark, and that is deliberate.**
-  Outlined, its two 1.8px strokes and the ring's collapse into a smudge at
-  18px, which is the size the rail actually renders. A compact mark simplifies;
-  it does not shrink.
+  **The ellipse is the wordmark's, re-measured, not redrawn.** In artwork units
+  the O is cx 69, cy 70.5, rx 53, ry 54.5 with a 9.5 stroke — very slightly
+  wider than tall (ratio 0.9747), which is visible against a true circle. Its
+  outer box is 115.5 x 118.5, so the viewBox below is that box with the stroke
+  included and the ellipse re-centred in it. Scaling the whole thing keeps the
+  stroke at 8.02% of the height, exactly as the wordmark has it.
+
+  If the artwork is reissued, re-measure from `logo.png` and update BOTH this
+  and O_ELLIPSE above — they are the same curve at two sizes, and one drifting
+  from the other is the failure this comment exists to prevent.
 */
 export function OptixGlyph({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 0 115.5 118.5"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.8}
+      strokeWidth={WORDMARK_STROKE}
       strokeLinecap="round"
       strokeLinejoin="round"
-      aria-hidden
+      role="img"
+      aria-label="Optix"
       className={cn("size-6", className)}
     >
-      <circle cx="12" cy="12" r="8.6" />
-      {/* Same proportions as the wordmark's X: the gap between the points is
-          just over half the width. */}
-      <path d="M7 7.4 H17 L14.6 12 L17 16.6 H7 L9.4 12 Z" fill="currentColor" stroke="none" />
+      {/* The wordmark's O, translated so its outer box starts at the origin. */}
+      <ellipse cx={57.75} cy={59.25} rx={O_ELLIPSE.rx} ry={O_ELLIPSE.ry} />
     </svg>
   );
 }

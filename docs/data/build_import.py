@@ -33,15 +33,20 @@ ROOT = "/Users/adds08/Development/Urbaniconstruction/STInventory"
 SRC = f"{ROOT}/docs/data/TOOL LIST BY NAME NEW.xlsx"
 OUT = f"{ROOT}/docs/data/import"
 
-# The yard is NOT a job, so it carries no job number. Job 24002 is a separate
-# real job (it has its own superintendent and surveyor in the truck list) that
-# somebody also typed against the yard on TE-007 — see DECISIONS.
+# The Equipment Yard IS a job — project / job number 10001 — the Equipment
+# Department's own project (YARD_JOB below). Job 24002 is a separate real job
+# (it has its own superintendent and surveyor in the truck list) that somebody
+# also typed against the yard on TE-007 — see DECISIONS.
 #
 # The name must stay exactly "Equipment Yard": apps/web/app/(app)/jobsites/page.tsx
 # matches the yard by name (`YARD_PROJECT_NAME = "equipment yard"`), so calling
 # this project "YARD" would make isYardProject() miss it and draw the yard as an
 # ordinary job card — the bug that page exists to fix.
 YARD = "Equipment Yard"
+# The Equipment Yard is a real Equipment-Department job: project / job number
+# 10001. It is NOT a numberless place, so every reference to "the yard" resolves
+# here (and nothing named the yard gets its own numberless project).
+YARD_JOB = "10001"
 
 # ---------------------------------------------------------------- DECISIONS
 # Human rulings on the identity collisions, 2026-09-01. Recorded here rather
@@ -273,7 +278,7 @@ TRUCK_RE = re.compile(r"^TRK[- ]?0*(\d{1,5})$", re.I)
 STATUS_WORDS = re.compile(r"damage|repair|reapair|concrete pouring|shop", re.I)
 
 JOB_CANON = {
-    "22018": "Lone Star", "22017": "NEX", "23004": "Colony Phase 12",
+    "10001": YARD, "22018": "Lone Star", "22017": "NEX", "23004": "Colony Phase 12",
     "24003": "Plano Arterial Renewal-2", "22015": "Garland", "24007": "Austin Lane",
     "20011": "DART", "23002": "Richardson", "23010": "Bell", "23009": "Little Elm",
     "24005": "Mesquite",
@@ -612,6 +617,11 @@ projects = OrderedDict()
 def add_project(name, job):
     if not name and not job:
         return None
+    # The yard is always project 10001, even when a row names it with no job
+    # number — that keeps ONE yard rather than a numberless one plus 10001.
+    if name and nkey(name) == nkey(YARD):
+        name = YARD
+        job = YARD_JOB
     key = job or nkey(name)
     if key not in projects:
         projects[key] = {"external_id": job, "name": name or f"Job {job}", "status": "in_progress"}
@@ -621,7 +631,7 @@ def add_project(name, job):
 
 
 # The yard first, so everything unresolvable has somewhere to land.
-add_project(YARD, None)
+add_project(YARD, YARD_JOB)
 for t in trailers.values():
     add_project(t["project"], t["job"])
 for t in truck_rows:
@@ -631,12 +641,22 @@ for t in tools:
     if t["job"]:
         add_project(JOB_CANON.get(t["job"]), t["job"])
 
-# DECISIONS 3: the yard is the yard and carries no job number; 24002 is a real
-# job of its own. Enforce both rather than trusting whichever row was seen first.
+# DECISIONS 3 + GUARANTEE: the Equipment Yard is ALWAYS a job — project / job
+# number 10001 — no matter what the source data does. It is not a numberless
+# place, and it is not optional: a fresh register must always carry it so the In
+# Yard view has an anchor even before anything is booked there. Do not trust a
+# source row to create it — create it if it is missing. (24002, by contrast, is a
+# real job of its own.)
 yard_key = nkey(YARD)
-if yard_key in projects:
-    projects[yard_key]["external_id"] = None
-    projects[yard_key]["name"] = YARD
+# Migrate any numberless "Equipment Yard" row an earlier pass created so the
+# yard is exactly one project, keyed by its job number.
+if yard_key in projects and yard_key != YARD_JOB:
+    projects[YARD_JOB] = projects.pop(yard_key)
+# Idempotent guarantee: the 10001 project exists with the yard's identity.
+projects.setdefault(YARD_JOB, {})
+projects[YARD_JOB]["external_id"] = YARD_JOB
+projects[YARD_JOB]["name"] = YARD
+projects[YARD_JOB]["status"] = "in_progress"
 
 if "24002" in projects:
     p = projects["24002"]
@@ -656,9 +676,9 @@ for t in trailers.values():
     if t["job"] == "24002" and t["project"] and nkey(t["project"]) == yard_key:
         t["job"] = None
         reject("vehicle", t["unit"],
-               "TE lists this trailer as YARD with job #24002; the yard carries no "
-               "job number, so the job link is dropped and the trailer stays at the "
-               "Equipment Yard", "info")
+               "TE lists this trailer as YARD with job #24002; the yard is its own "
+               "job (#10001), so the 24002 job link is dropped and the trailer stays "
+               "at the Equipment Yard", "info")
 
 # ---------------------------------------------------------------- ambiguous people
 settled = {frozenset((nkey(a), nkey(b))) for a, b in KEPT_SEPARATE}

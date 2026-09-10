@@ -7,11 +7,12 @@ import { EMPLOYEE_ROLES, CUSTODIAN_ROLES } from "./enums.js";
   it — no database, no fixtures.
 
   `VIEW_SCOPES` is not just a list, it is an ORDER: `scope.ts` resolves a tier
-  by walking it front to back and taking the first match, and
-  `panel-registry.tsx` compares indices to answer "at least this wide". Both
-  read this array precisely so the order is written down once. Reordering it
-  silently changes who sees what, in two places, with no other test failing —
-  which is what this file exists to stop.
+  by walking it front to back and taking the first match. The former
+  `panel-registry.tsx` (removed 2026-09-03 with the Desk) also compared
+  indices to answer "at least this wide". Both read this array precisely so
+  the order is written down once. Reordering it silently changes who sees
+  what, in two places, with no other test failing — which is what this file
+  exists to stop.
 */
 describe("the visibility ladder (STI-302)", () => {
   it("is ordered widest-first, and that order is the rule", () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Boxes, UserMinus } from "lucide-react";
+import { PageHeader } from "@/components/sti/page";
 import { GridPanel, HazardBand, Plate, TickRule, TitleBlock } from "@/components/sti/construction";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { Button } from "@/components/ui/button";
@@ -21,17 +22,11 @@ import { Button } from "@/components/ui/button";
 export default function ConstructionLanguagePage() {
   return (
     <div className="flex flex-col gap-10">
-      <header className="flex flex-col gap-1.5 border-b pb-5">
-        <span className="label-xs">Design scratch</span>
-        <h1 className="text-2xl font-semibold tracking-tight">Construction language</h1>
-        <p className="max-w-[68ch] text-sm text-muted-foreground text-pretty">
-          The login panel is drawn like a jobsite; the app behind it looks like any admin console.
-          These are four marks that carry the language across that seam — hazard striping, a
-          drawing title block, a stamped plate, and a ruled divider. Each is shown against the
-          plain version it would replace. Every one is built from theme tokens, so change the
-          theme in Settings and they follow.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Design scratch"
+        title="Construction language"
+        description="The login panel is drawn like a jobsite; the app behind it looks like any admin console. These are four marks that carry the language across that seam — hazard striping, a drawing title block, a stamped plate, and a ruled divider. Each is shown against the plain version it would replace. Every one is built from theme tokens, so change the theme in Settings and they follow."
+      />
 
       <Pair
         title="Hazard band"

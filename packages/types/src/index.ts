@@ -47,6 +47,27 @@ export const asId = <T extends string>(s: string) => s as T;
 // ---------------------------------------------------------------------------
 export const ROLES = [
   "owner",
+  /*
+    THE TECHNICAL ADMINISTRATOR — Optix's own operator, not the customer's.
+
+    The note above argues that a second all-permissions role is two names for
+    one authority, and that argument still holds for anything tenant-scoped.
+    This role is not that. It differs on a DIFFERENT AXIS: `role.isCrossTenant`,
+    reaching every tenant rather than one. `owner` is the customer's own
+    administrator and is deliberately confined to their own data; this is the
+    person who supports all of them.
+
+    Added 2026-09-07 on the client's instruction — "one tech and one admin that
+    is organizational admin, and other tech admin is always accessible to all
+    tenant". Multi-tenancy proper is explicitly later; what exists now is the
+    role, the flag, and one seeded account, so that when the cross-tenant query
+    path is built it has somewhere to land.
+
+    NOTHING reads `isCrossTenant` yet. Today this behaves exactly like `owner`
+    within its own tenant. Say so plainly rather than implying the isolation is
+    already crossed — the WHERE clause is still the only isolation there is.
+  */
+  "tech_admin",
   "equipment_admin",
   /* Operations, accounts and general business administration. Business
      records — NOT custody, NOT platform configuration. Deliberately without
@@ -57,6 +78,34 @@ export const ROLES = [
   "office_admin",
   "warehouse",
   "procurement",
+  /*
+    THE LEADERSHIP ROLES, added 2026-09-10.
+
+    Urban's chain is director → area in-charge → PM & general superintendent →
+    superintendent → foreman, and the login list stopped at `project_manager`.
+    So the people the client actually wanted to invite first — three Project
+    Directors, an Area Manager, an Area Superintendent — had no login role to
+    receive, and inviting one produced an account holding nothing.
+
+    They exist here because they are the only roles that may put themselves on
+    a job (`role.claimTierNames`, seeded in `seed.ts`). Everybody below them is
+    placed by somebody above through the "Set by" chain, so nobody else needs a
+    self-claim grant and none is given one. That is the whole bootstrap: without
+    a role that can claim, an empty tenant has no way to record its first roster
+    row and every user lands on a dead-end wizard.
+
+    NOT the same axis as the JOB TIER of the same name
+    (`tbl_entity_team_role`). This is what an account may DO; the tier is what
+    a person IS on one project, and the two are allowed to disagree — see the
+    header on `apps/web/app/(app)/settings/team-roles/page.tsx`.
+  */
+  "director",
+  "area_in_charge",
+  /* Claims too, because a job may be run by a general superintendent with no
+     area in-charge above them ON THAT JOB. The client's chain on 2026-09-10 put
+     all three of director, area in-charge and general superintendent at the
+     point where somebody picks the jobs they run. */
+  "general_superintendent",
   "project_manager",
   /* Runs work on a project rather than owning it commercially. Identical to
      `project_manager` where small tools are concerned, and seeded from the
@@ -95,15 +144,28 @@ export const PERMISSIONS = [
   "vehicle.manage",
   "project.read",
   "project.manage",
-  /* Who may be placed on a project's team, by target role. The hierarchy is
-     enforced server-side in project.team.assign: pm needs the pm permission,
-     superintendent the pm-or-superintendent tier, foreman any of them (plus
-     the equipment department). Keep the matrix here so the seed and the
-     router agree. */
+  /* Who may be placed on a project's team.
+
+     `project.assign.pm`, `.superintendent` and `.foreman` were removed on
+     2026-09-10. They named three specific tiers in a system where tiers are
+     tenant DATA — Urban's own `area_in_charge` and `general_superintendent`
+     had no permission of their own and fell through to
+     `project.team.assign`, so the hierarchy they encoded was already only
+     half the register's shape. What they expressed — that a PM may place a
+     superintendent but not another PM — is exactly what
+     `team_role_assigner` records per tier, for every tier, without a deploy.
+
+     `project.team.assign` is now the single tenant-wide grant, and the
+     per-tier question is answered by `canAssignIntoTier`. */
   "project.team.read",
-  "project.assign.pm",
-  "project.assign.superintendent",
-  "project.assign.foreman",
+  /* Assigns a TENANT-ADDED team role — one with no dedicated permission of its
+     own because it did not exist when this list was written (director, area
+     in-charge, ...). `pm`/`superintendent`/`foreman` keep their own permissions
+     above; this is the fallback `assertCanAssign` reaches for everything else,
+     so a new tier is usable the moment an admin creates it in the team-role
+     register, with no new Permission string required. */
+  "project.team.assign",
+  "project.team.manage",
   "employee.read",
   "employee.manage",
   "assignment.read",
@@ -218,9 +280,8 @@ export const PERMISSION_GROUPS = [
       ["project.read", "See the list of jobs"],
       ["project.manage", "Add and edit jobs. Also widens what the job selector offers"],
       ["project.team.read", "See who is on a job"],
-      ["project.assign.pm", "Put a project manager on a job"],
-      ["project.assign.superintendent", "Put a superintendent on a job"],
-      ["project.assign.foreman", "Put a foreman on a job — this MOVES their tools"],
+      ["project.team.assign", "Put anyone in any team tier, on any job. Without it, who you may place is decided per tier on the Job Tiers screen"],
+      ["project.team.manage", "Add or edit the team-role register (Director, Area In-charge, ...)"],
       ["employee.read", "See the people register — everyone, not just their crew"],
       ["employee.manage", "Add and edit people"],
     ],

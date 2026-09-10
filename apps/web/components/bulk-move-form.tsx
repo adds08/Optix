@@ -9,6 +9,7 @@ import { EntityField, type EntityOption } from "@/components/ui/entity-picker";
 import { RidePicker } from "./ride-picker";
 import { useViewTier } from "./use-permissions";
 import { humanize } from "./sti/status";
+import { personHint, projectHint } from "@/lib/format";
 
 /*
   One dialog for moving a selection of tools — the bulk path that turns the
@@ -58,10 +59,10 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
   /* Code before name — see transfer-form.tsx, which this dialog otherwise
      mirrors field for field. */
   const custodianEntityOptions: EntityOption[] = custodianOptions.map((e) => ({
-    value: e.id, label: e.name, hint: e.externalId ?? undefined,
+    value: e.id, label: e.name, hint: personHint(e),
   }));
   const projectEntityOptions: EntityOption[] = (projects.data ?? []).map((p) => ({
-    value: p.id, label: p.name, hint: p.externalId ?? undefined,
+    value: p.id, label: p.name, hint: projectHint(p),
   }));
   const locationEntityOptions: EntityOption[] = (locations.data ?? [])
     .filter((l) => l.type !== "vehicle")

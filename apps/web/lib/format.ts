@@ -132,3 +132,80 @@ export function photoUrl(key: string | null | undefined): string | null {
   const base = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
   return `${base}/media/${key}`;
 }
+
+/* `office_admin` -> "Office Admin". The role register stores snake_case so the
+   seed and the permission matrix can name rows; people should never see it.
+
+   Moved here from `employee-form.tsx` on 2026-09-10 when the invite dialog
+   became the second consumer — two copies of a display rule is how two screens
+   start spelling the same role differently. */
+export function humanizeRole(name: string) {
+  return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/*
+  HOW A PERSON AND A JOB ARE NAMED IN A PICKER. Two functions, one definition.
+
+  This was written out by hand at two dozen call sites, and every one of them
+  chose differently: some passed the employee code as a hint, some passed the
+  project name only, none showed a person's job title. The result was a
+  register of 1,851 people offered as bare repeated names, and the same
+  inconsistency reported over and over.
+
+  The rule, settled with the client and not to be re-litigated per screen:
+
+    A PERSON is  name  ·  job title · code
+    A JOB    is  name  ·  code
+
+  `EntityField` renders `hint` under the label AND searches it, so the code
+  becomes findable by typing it — which is the actual reason the code has to be
+  there rather than a stylistic preference.
+
+  Both take a loose shape on purpose. The tRPC procedures behind these pickers
+  disagree about what they call the same column — `code`, `externalId`,
+  `employeeCode` — because `project.external_id` was renamed to `code` in
+  migration 0052 and not every caller followed. Accepting all of them here is
+  what stops this decision fragmenting again the next time one is renamed.
+*/
+
+type PersonLike = {
+  name?: string | null;
+  jobTitle?: string | null;
+  code?: string | null;
+  externalId?: string | null;
+  employeeCode?: string | null;
+};
+
+type ProjectLike = {
+  name?: string | null;
+  code?: string | null;
+  externalId?: string | null;
+};
+
+const firstOf = (...vals: (string | null | undefined)[]) =>
+  vals.find((v) => typeof v === "string" && v.trim().length > 0)?.trim();
+
+/** The subtitle for a person: "Foreman · 1288". Undefined when we know neither. */
+export function personHint(p: PersonLike): string | undefined {
+  const code = firstOf(p.code, p.externalId, p.employeeCode);
+  return [firstOf(p.jobTitle), code].filter(Boolean).join(" · ") || undefined;
+}
+
+/** The subtitle for a job: its code. Undefined for a job that has none. */
+export function projectHint(p: ProjectLike): string | undefined {
+  return firstOf(p.code, p.externalId);
+}
+
+/** A person as one line — for a chip or a cell where there is no room for two. */
+export function personLabel(p: PersonLike): string {
+  const hint = personHint(p);
+  const name = firstOf(p.name) ?? "Unnamed";
+  return hint ? `${name} · ${hint}` : name;
+}
+
+/** A job as one line: "22018 · Lone Star", code first, the way the desk says it. */
+export function projectLabel(p: ProjectLike): string {
+  const code = projectHint(p);
+  const name = firstOf(p.name) ?? "Unnamed job";
+  return code ? `${code} · ${name}` : name;
+}

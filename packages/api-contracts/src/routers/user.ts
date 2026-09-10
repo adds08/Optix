@@ -5,7 +5,7 @@ import { TRPCError } from "@trpc/server";
 import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import { generateAuthToken, hashAuthToken, hashPassword, verifyPassword } from "@stinventory/auth";
-import { inviteEmail, sendMail } from "@stinventory/mail";
+import { inviteEmail, passwordResetEmail, sendMail } from "@stinventory/mail";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { mailConfigFor } from "../mail-config.js";
@@ -203,7 +203,7 @@ async function requireUser(db: Database, tid: string, id: string) {
   /* Columns, explicitly — `findFirst` with no projection would pull
      `passwordHash` into scope for every caller below. */
   const [u] = await db
-    .select({ id: schema.user.id, email: schema.user.email })
+    .select({ id: schema.user.id, email: schema.user.email, isActive: schema.user.isActive, emailVerifiedAt: schema.user.emailVerifiedAt, employeeId: schema.user.employeeId })
     .from(schema.user)
     .where(and(eq(schema.user.id, id), eq(schema.user.tenantId, tid)))
     .limit(1);
@@ -353,6 +353,11 @@ export const userRouter = router({
           .where(and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)))
           .limit(1);
         if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
+        const employee = await ctx.db.query.employee.findFirst({ where: and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)) });
+        if (employee?.hrFlaggedInactiveAt || employee?.employmentStatus !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Review this person's inactive status before inviting them." });
+        const linked = await ctx.db.query.user.findFirst({ where: and(eq(schema.user.employeeId, input.employeeId), eq(schema.user.tenantId, tid)), columns: { id: true } });
+        if (linked) throw new TRPCError({ code: "CONFLICT", message: "This employee already has an account. Resend their invitation or reset their password." });
+        input.roleId = employee?.roleId ?? input.roleId;
       }
 
       if (input.roleId) await requireTenantRole(ctx.db, tid, input.roleId);
@@ -456,6 +461,11 @@ export const userRouter = router({
           .where(and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)))
           .limit(1);
         if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
+        const employee = await ctx.db.query.employee.findFirst({ where: and(eq(schema.employee.id, input.employeeId), eq(schema.employee.tenantId, tid)) });
+        if (employee?.hrFlaggedInactiveAt || employee?.employmentStatus !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Review this person's inactive status before inviting them." });
+        const linked = await ctx.db.query.user.findFirst({ where: and(eq(schema.user.employeeId, input.employeeId), eq(schema.user.tenantId, tid)), columns: { id: true } });
+        if (linked) throw new TRPCError({ code: "CONFLICT", message: "This employee already has an account. Resend their invitation or reset their password." });
+        input.roleId = employee?.roleId ?? input.roleId;
       }
 
       /* Fetches the name in the same query `requireTenantRole` elsewhere uses
@@ -517,7 +527,7 @@ export const userRouter = router({
       const sent = await sendMail(config, {
         to: email,
         ...inviteEmail({
-          tenantName: tenantRow?.name ?? "STInventory",
+          tenantName: tenantRow?.name ?? "Optix",
           recipientFirstName: row.firstName,
           inviterLabel: ctx.session.actorLabel ?? "An administrator",
           roleName,
@@ -539,7 +549,7 @@ export const userRouter = router({
         details: { roleId: input.roleId ?? null, employeeId: input.employeeId ?? null },
       });
 
-      return { user: row, emailSent: sent.ok, emailError: sent.ok ? null : sent.error };
+      return { user: row, emailSent: !!config && sent.ok, emailError: !config ? "Email is not configured. Set up SMTP or use a temporary password." : sent.ok ? null : sent.error };
     }),
 
   /*
@@ -600,12 +610,17 @@ export const userRouter = router({
       const sent = await sendMail(config, {
         to: target.email,
         ...inviteEmail({
-          tenantName: tenantRow?.name ?? "STInventory",
+          tenantName: tenantRow?.name ?? "Optix",
           recipientFirstName: target.firstName,
           inviterLabel: ctx.session.actorLabel ?? "An administrator",
           roleName: null,
           inviteUrl: `${ctx.webOrigin}/invite/${token}`,
           expiresHuman: "7 days",
+          /* This procedure issues a SECOND invite and consumes the first, so
+             the earlier link is already dead by the time this arrives. Say so:
+             a reader holding two invites otherwise picks the older mail and
+             lands on an expired-token page with no explanation. */
+          resend: true,
         }),
       });
 
@@ -619,7 +634,56 @@ export const userRouter = router({
         errorMessage: sent.ok ? null : sent.error,
       });
 
-      return { ok: true, emailSent: sent.ok, emailError: sent.ok ? null : sent.error };
+      return { ok: true, emailSent: !!config && sent.ok, emailError: !config ? "Email is not configured. Set up SMTP or use a temporary password." : sent.ok ? null : sent.error };
+    }),
+
+  sendResetEmail: requirePermission("user.manage")
+    .input(z.object({ userId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const target = await requireUser(ctx.db, tid, input.userId);
+      if (!target.isActive && target.emailVerifiedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "Reactivate this account before sending a reset link." });
+      if (target.employeeId) {
+        const employee = await ctx.db.query.employee.findFirst({ where: and(eq(schema.employee.id, target.employeeId), eq(schema.employee.tenantId, tid)) });
+        if (!employee || employee.hrFlaggedInactiveAt || employee.employmentStatus !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Review this employee's inactive status before granting access." });
+      }
+      const token = generateAuthToken();
+      // An unopened invite still needs activation when redeemed; a verified account never does.
+      const kind = target.isActive ? "reset" : "invite";
+      await ctx.db.transaction(async tx => {
+        await tx.update(schema.authToken).set({ consumedAt: new Date() }).where(and(eq(schema.authToken.tenantId, tid), eq(schema.authToken.userId, input.userId), isNull(schema.authToken.consumedAt)));
+        await tx.insert(schema.authToken).values({ tenantId: tid, userId: input.userId, tokenHash: hashAuthToken(token), kind, expiresAt: new Date(Date.now() + 60 * 60_000) });
+      });
+      const tenant = await ctx.db.query.tenant.findFirst({ where: eq(schema.tenant.id, tid) });
+      const config = await mailConfigFor(ctx.db, tid, ctx.sessionSecret, ctx.mailFallback);
+      const sent = await sendMail(config, {
+        to: target.email,
+        ...passwordResetEmail({ tenantName: tenant?.name ?? "Optix", recipientFirstName: "", resetUrl: `${ctx.webOrigin}/${kind === "invite" ? "invite" : "reset"}/${token}`, expiresHuman: "1 hour" }),
+      });
+      await logEvent(ctx, { category: "auth", action: "user.sendResetEmail", entityType: "user", entityId: input.userId, result: sent.ok ? "success" : "failure", errorMessage: sent.ok ? null : sent.error });
+      return { emailSent: !!config && sent.ok, emailError: !config ? "Email is not configured. Set up SMTP or use a temporary password." : sent.ok ? null : sent.error };
+    }),
+
+  accountForEmployee: requirePermission("user.manage")
+    .input(z.object({ employeeId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      const employee = await ctx.db.query.employee.findFirst({ where: and(eq(schema.employee.tenantId, tid), eq(schema.employee.id, input.employeeId)) });
+      if (!employee) throw new TRPCError({ code: "NOT_FOUND" });
+      const [account] = await ctx.db.select({ id: schema.user.id, email: schema.user.email, isActive: schema.user.isActive, emailVerifiedAt: schema.user.emailVerifiedAt, lastSignInAt: schema.user.lastSignInAt, mustChangePassword: schema.user.mustChangePassword }).from(schema.user).where(and(eq(schema.user.tenantId, tid), eq(schema.user.employeeId, input.employeeId)));
+      const onboarding = account ? await ctx.db.query.userOnboarding.findFirst({ where: and(eq(schema.userOnboarding.tenantId, tid), eq(schema.userOnboarding.userId, account.id)) }) : null;
+      const sources = await ctx.db.select({ system: schema.employeeExternalRef.system, externalId: schema.employeeExternalRef.externalId, lastSyncedAt: schema.employeeExternalRef.lastSyncedAt }).from(schema.employeeExternalRef).where(and(eq(schema.employeeExternalRef.tenantId, tid), eq(schema.employeeExternalRef.employeeId, input.employeeId)));
+      /* The HR job title, so the invite dialog can PRE-FILL the login role from
+         it (`suggestRoleId`, packages/domain). Read-only here and never written
+         back: a title suggests a role, it does not decide one — see the header
+         on role-suggestion.ts for why this is not the mapping table that was
+         retired on 2026-09-09. Null for the ~half of the register HR has never
+         given a title, which is the ordinary case and simply leaves the picker
+         unset. */
+      const [title] = employee.companyRoleId
+        ? await ctx.db.select({ name: schema.companyRole.name }).from(schema.companyRole).where(and(eq(schema.companyRole.tenantId, tid), eq(schema.companyRole.id, employee.companyRoleId)))
+        : [];
+      return { account: account ?? null, onboarding, creationSource: employee.creationSource, createdByUserId: employee.createdByUserId, sources, jobTitle: title?.name ?? null };
     }),
 
   setRole: requirePermission("user.manage")
@@ -727,14 +791,20 @@ export const userRouter = router({
       const tid = ctx.session.tenantId;
       const target = await requireUser(ctx.db, tid, input.userId);
 
+      if (!target.isActive && target.emailVerifiedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "This account is deactivated. Reactivate it before resetting its password." });
+      if (target.employeeId) {
+        const person = await ctx.db.query.employee.findFirst({ where: and(eq(schema.employee.id, target.employeeId), eq(schema.employee.tenantId, tid)) });
+        if (person?.hrFlaggedInactiveAt || person?.employmentStatus !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Review this employee's inactive status before granting access." });
+      }
       const issued = input.password ? null : generatePassword();
       const passwordHash = await hashPassword(input.password ?? issued!);
 
       await ctx.db.transaction(async (tx) => {
         await tx
           .update(schema.user)
-          .set({ passwordHash, mustChangePassword: true })
+          .set({ passwordHash, mustChangePassword: true, isActive: true })
           .where(and(eq(schema.user.id, input.userId), eq(schema.user.tenantId, tid)));
+        await tx.update(schema.authToken).set({ consumedAt: new Date() }).where(and(eq(schema.authToken.tenantId, tid), eq(schema.authToken.userId, input.userId), isNull(schema.authToken.consumedAt)));
         /* The revocation half. Without this the old bearer token keeps working
            and the reset has changed nothing for whoever already has it. */
         await tx

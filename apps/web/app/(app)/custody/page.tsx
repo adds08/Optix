@@ -5,15 +5,15 @@ import Link from "next/link";
 import { ArrowLeftRight, CheckCircle2, Wrench } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
-import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
+import { TableSkeleton, ErrorNote, EmptyState, PageHeader } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 import { shortDate, relative, idName } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 /*
   Assignments and transfers on one screen. Splitting them across two pages
@@ -98,11 +98,13 @@ export default function CustodyPage() {
 
   const HELD_COLUMNS: ColumnDef<HeldRow>[] = useMemo(
     () => [
-      col<HeldRow>({ header: "Tag", accessorFn: (a) => a.tag ?? "", width: "6rem", cell: (a) => <Link href={`/tools/${a.assetId}`}><Tag>{a.tag}</Tag></Link> }),
+      col<HeldRow>({ header: "Code", accessorFn: (a) => a.code ?? "", width: "7rem", cell: (a) => <Link href={`/tools/${a.assetId}`}><Tag>{a.code}</Tag></Link> }),
       col<HeldRow>({ header: "Model", accessorFn: (a) => a.modelName ?? "", cell: (a) => <span className="font-medium">{a.modelName}</span> }),
-      col<HeldRow>({ header: "Held by", accessorFn: (a) => a.custodianName ?? "", cell: (a) => a.custodianName ?? "—" }),
+      /* Person code before the name, same convention as every other identity
+         on the board — the code is the stable key the desk knows. */
+      col<HeldRow>({ header: "Held by", accessorFn: (a) => idName(a.custodianExternalId, a.custodianName), cell: (a) => (a.custodianName ? idName(a.custodianExternalId, a.custodianName) : "—") }),
       col<HeldRow>({ header: "Project", accessorFn: (a) => a.projectName ?? "", cell: (a) => (a.projectName ? idName(a.projectExternalId, a.projectName) : "—") }),
-      col<HeldRow>({ header: "Rig", accessorFn: (a) => a.locationName ?? "", cell: (a) => a.locationName ?? "—" }),
+      col<HeldRow>({ header: "Rides in", accessorFn: (a) => a.locationName ?? "", cell: (a) => a.locationName ?? "—" }),
       col<HeldRow>({
         header: "Since",
         accessorFn: (a) => a.startDate ?? "",
@@ -121,7 +123,7 @@ export default function CustodyPage() {
 
   const MOVING_COLUMNS: ColumnDef<TransferRow>[] = useMemo(
     () => [
-      col<TransferRow>({ header: "Tag", accessorFn: (t) => t.tag ?? "", width: "6rem", cell: (t) => <Link href={`/tools/${t.assetId}`}><Tag>{t.tag}</Tag></Link> }),
+      col<TransferRow>({ header: "Code", accessorFn: (t) => t.code ?? "", width: "7rem", cell: (t) => <Link href={`/tools/${t.assetId}`}><Tag>{t.code}</Tag></Link> }),
       col<TransferRow>({ header: "Model", accessorFn: (t) => t.modelName ?? "", cell: (t) => <span className="font-medium">{t.modelName}</span> }),
       col<TransferRow>({ header: "Reason", accessorFn: (t) => String(t.reason ?? "").replace(/_/g, " "), cell: (t) => <span className="capitalize">{String(t.reason).replace(/_/g, " ")}</span> }),
       col<TransferRow>({ header: "Status", accessorFn: (t) => t.status, width: "9rem", cell: (t) => <StatusPill status={t.status} /> }),
@@ -141,15 +143,18 @@ export default function CustodyPage() {
       cell: (r) => <span className="capitalize">{r.type}</span>,
     }),
     col<QueueRow>({
-      header: "Tag",
-      accessorFn: (r) => r.assetTag ?? "",
-      width: "6rem",
+      header: "Code",
+      accessorFn: (r) => r.assetCode ?? "",
+      /* 7rem, not 6: a tag is the code plus its own 12px of padding, and every
+         asset code in the register is nine characters — 6rem left the last
+         character under the ellipsis on every row. Measured, not guessed. */
+      width: "7rem",
       cell: (r) => {
         const assetId = assetIdFor(r);
         return assetId ? (
-          <Link href={`/tools/${assetId}`}><Tag>{r.assetTag}</Tag></Link>
+          <Link href={`/tools/${assetId}`}><Tag>{r.assetCode}</Tag></Link>
         ) : (
-          <Tag>{r.assetTag}</Tag>
+          <Tag>{r.assetCode}</Tag>
         );
       },
     }),
@@ -189,7 +194,7 @@ export default function CustodyPage() {
                     truck. It is also the distinction the departure path keys
                     off. */}
                 {r.truckOwnership === "personal_allowance" ? (
-                  <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                  <span className="ml-1 rounded bg-warn-bg px-1 text-[10px] font-medium text-warn">
                     personal
                   </span>
                 ) : null}
@@ -235,30 +240,25 @@ export default function CustodyPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader icon={ArrowLeftRight} title="Custody" hideTitle />
       {/* Counts ride on the tabs, so there is no card row here repeating them
           back. In-motion gets one line of text because it is not a tab of its
-          own. */}
+          own. Radix owns the tablist roles and roving focus (arrow keys move
+          between tabs); the old hand-rolled pills had neither. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex gap-1" role="tablist">
-          {([["held", "Held", active.length], ["moving", "Moving", transfers.data?.length ?? 0], ["queue", "Approval queue", queue.length]] as const).map(
-            ([k, label, n]) => (
-              <button
-                key={k}
-                role="tab"
-                aria-selected={tab === k}
-                onClick={() => setTab(k)}
-                className={cn(
-                  "rounded-sm border px-3 py-1.5 text-sm transition-colors",
-                  tab === k
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )}
-              >
-                {label} <span className="tnum opacity-75">{n}</span>
-              </button>
-            ),
-          )}
-        </div>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <TabsList variant="default">
+            <TabsTrigger value="held">
+              Held <span className="tnum opacity-75">{active.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="moving">
+              Moving <span className="tnum opacity-75">{transfers.data?.length ?? 0}</span>
+            </TabsTrigger>
+            <TabsTrigger value="queue">
+              Approval queue <span className="tnum opacity-75">{queue.length}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         <p className="text-sm text-muted-foreground">
           <span className="tnum">{inFlight.length}</span> in motion
         </p>

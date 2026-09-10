@@ -30,11 +30,28 @@ export const asset = pgTable(
     */
     assetNumber: bigint("asset_number", { mode: "number" }).notNull().generatedAlwaysAsIdentity(),
     /*
-      A tag is a physical label on the tool, not an id the system assigns. Null
-      means nobody has labelled it yet — a normal state for anything imported from
-      the yard's own sheets. See docs/built/17-optional-tags.md.
+      THE TOOL'S CODE — how Urban identifies this tool, the value a person reads
+      off the screen and says out loud.
+
+      Named `code` since 2026-09-07, matching every other entity in the system
+      (`employee.code`, `project.code`, `vehicle.code`, ...). The naming rule is
+      the client's, and it is one line: a `code` is the COMPANY's own
+      identifier; an `external_id` is a foreign system's primary key. This
+      column has only ever held the first kind, and `tag` was a name from the
+      spreadsheet it arrived in, not a different fact.
+
+      It was called `tag` until then, on the reasoning that a tag is a physical
+      label rather than an id — still true, and it is why this stays NULLABLE:
+      null means nobody has labelled the tool yet, which is normal for anything
+      imported from the yard's own sheets. See docs/built/17-optional-tags.md.
+
+      The other two identifiers on this table are NOT this, and neither replaces
+      it: `assetNumber` is the database's own generated sequence, and
+      `serialNumber` is the MANUFACTURER's, so it is closer to a foreign id than
+      to a code. Small tools show both — the code with the name, the serial
+      beneath it.
     */
-    tag: text("tag"),
+    code: text("code"),
     modelId: uuid("model_id").references(() => assetModel.id, { onDelete: "set null" }),
     /*
       Vestigial. Nothing reads or writes through `asset_model` / `manufacturer` /
@@ -93,7 +110,7 @@ export const asset = pgTable(
   (t) => ({
     tenantIdx: index("asset_tenant_idx").on(t.tenantId),
     assetNumberIdx: index("asset_number_idx").on(t.assetNumber),
-    tagIdx: index("asset_tag_idx").on(t.tag),
+    codeIdx: index("asset_code_idx").on(t.code),
     custodianIdx: index("asset_custodian_idx").on(t.currentCustodianId),
     projectIdx: index("asset_project_idx").on(t.currentProjectId),
     statusIdx: index("asset_status_idx").on(t.currentStatus),

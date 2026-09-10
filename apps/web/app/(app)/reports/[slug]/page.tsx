@@ -100,7 +100,7 @@ type Bundle = {
 };
 
 type RegisterRow = {
-  id: string; tag: string | null; make: string | null; modelNumber: string | null;
+  id: string; code: string | null; make: string | null; modelNumber: string | null;
   description: string | null; otherRef: string | null; categoryName: string | null;
   serialNumber: string | null; status: string; condition: string | null;
   acquisitionCost: string | null; custodianName: string | null;
@@ -110,11 +110,11 @@ type RegisterRow = {
 type ProjectRow = { projectId: string; projectName: string; assetCount: number; totalValue: string };
 type ForemanRow = { employeeId: string; foremanName: string; assetCount: number; totalValue: string; projectCount: number };
 type MechanicRow = { employeeId: string; mechanicName: string; assetCount: number; totalValue: string };
-type IdleRow = { tag: string | null; make: string | null; modelNumber: string | null; description: string | null; categoryName: string | null; locationName: string | null; acquisitionCost: string | null };
-type LostRow = { tag: string | null; make: string | null; modelNumber: string | null; description: string | null; acquisitionCost: string | null; custodianName: string | null };
+type IdleRow = { code: string | null; make: string | null; modelNumber: string | null; description: string | null; categoryName: string | null; locationName: string | null; acquisitionCost: string | null };
+type LostRow = { code: string | null; make: string | null; modelNumber: string | null; description: string | null; acquisitionCost: string | null; custodianName: string | null };
 type CapitalRow = { projectId: string; projectName: string; assetCount: number; capitalValue: string };
 type CapitalDeptRow = { departmentId: string; departmentName: string; assetCount: number; capitalValue: string };
-type NeedsTagRow = { tag: string | null; make: string | null; modelNumber: string | null; description: string | null; serialNumber: string | null; categoryName: string | null; locationName: string | null; acquisitionCost: string | null };
+type NeedsTagRow = { code: string | null; make: string | null; modelNumber: string | null; description: string | null; serialNumber: string | null; categoryName: string | null; locationName: string | null; acquisitionCost: string | null };
 
 const tagCell = (t: string | null) => <Tag>{t}</Tag>;
 
@@ -122,7 +122,7 @@ function Body({ slug, data }: { slug: string; data: Bundle }) {
   if (slug === "asset-register") {
     const rows = data.register.data ?? [];
     const cols: Col<RegisterRow>[] = [
-      { key: "tag", header: "Tag", cell: (r) => tagCell(r.tag), width: "110px" },
+      { key: "code", header: "Code", cell: (r) => tagCell(r.code), width: "110px" },
       /* One joined model column on screen — three separate ones would crowd the
          table. The CSV export below still carries all three raw. */
       { key: "make", header: "Model", value: (r) => formatAssetModel(r), cell: (r) => formatAssetModel(r) || <span className="text-muted-foreground">Untagged tool</span> },
@@ -214,7 +214,7 @@ function Body({ slug, data }: { slug: string; data: Bundle }) {
   if (slug === "idle") {
     const rows = data.idle.data ?? [];
     const cols: Col<IdleRow>[] = [
-      { key: "tag", header: "Tag", cell: (r) => tagCell(r.tag), width: "110px" },
+      { key: "code", header: "Code", cell: (r) => tagCell(r.code), width: "110px" },
       { key: "make", header: "Model", value: (r) => formatAssetModel(r), cell: (r) => formatAssetModel(r) || <span className="text-muted-foreground">Untagged tool</span> },
       { key: "categoryName", header: "Category" },
       { key: "locationName", header: "Sitting at" },
@@ -236,7 +236,7 @@ function Body({ slug, data }: { slug: string; data: Bundle }) {
   if (slug === "lost") {
     const rows = data.lost.data ?? [];
     const cols: Col<LostRow>[] = [
-      { key: "tag", header: "Tag", cell: (r) => tagCell(r.tag), width: "110px" },
+      { key: "code", header: "Code", cell: (r) => tagCell(r.code), width: "110px" },
       { key: "make", header: "Model", value: (r) => formatAssetModel(r), cell: (r) => formatAssetModel(r) || <span className="text-muted-foreground">Untagged tool</span> },
       { key: "custodianName", header: "Last custodian", value: (r) => r.custodianName ?? "Unknown" },
       { key: "acquisitionCost", header: "Write-down", numeric: true, value: (r) => Number(r.acquisitionCost ?? 0), cell: (r) => money(r.acquisitionCost) },

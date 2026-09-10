@@ -185,3 +185,5 @@ export function useNavPins() {
 
   return { pins, order, toggle, move };
 }
+
+export type NavPins = ReturnType<typeof useNavPins>;

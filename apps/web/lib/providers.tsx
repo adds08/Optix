@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "motion/react";
 import { useState } from "react";
 import { trpc, trpcClient } from "./trpc";
+import { Toaster } from "@/components/ui/sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   /*
@@ -30,6 +31,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <trpc.Provider client={client} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         <MotionConfig reducedMotion="user">{children}</MotionConfig>
+        {/*
+          Mounted at the ROOT, not inside the app shell, so the unauthenticated
+          routes get it too — `/invite/[token]`, `/reset/[token]`,
+          `/forgot-password` and `/welcome` all live outside the `(app)` group
+          (see `.claude/rules/web.md`) and are exactly where somebody needs to
+          be told whether the thing they just submitted worked.
+        */}
+        <Toaster />
       </QueryClientProvider>
     </trpc.Provider>
   );

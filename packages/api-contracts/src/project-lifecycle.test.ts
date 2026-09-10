@@ -56,13 +56,13 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
   }
 
   /** A tool held by the foreman AND booked to the job, via a real custody link. */
-  async function holdToolOn(projectId: string, tag: string) {
+  async function holdToolOn(projectId: string, code: string) {
     const [row] = await db
       .insert(schema.asset)
       .values({
         tenantId,
-        tag,
-        description: `STI-105 ${tag}`,
+        code,
+        description: `STI-105 ${code}`,
         currentStatus: "assigned",
         currentCustodianId: foremanId,
         currentProjectId: projectId,
@@ -180,7 +180,7 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
        a guard written against `asset.current_project_id` would wrongly refuse. */
     await db.insert(schema.asset).values({
       tenantId,
-      tag: "STI105-D",
+      code: "STI105-D",
       description: "STI-105 unheld but booked",
       currentStatus: "available",
       currentProjectId: id,

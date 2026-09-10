@@ -200,8 +200,10 @@ it will tell you.
 make ENV=local typecheck    # every package
 make ENV=local test         # unit + integration, real Postgres for the integration ones
 make ENV=local lint
-make ENV=local e2e          # browser suite; needs `make e2e-install` once
 ```
+
+(The `make ENV=local e2e` browser suite this list used to name was deleted on
+2026-09-10 — see `docs/SETUP.md`.)
 
 ### Phase 1 — custody trail
 
@@ -308,17 +310,14 @@ could reach the screen to look at it.
 If a bucket is empty on a fresh database, the seed has regressed — that is the whole point
 of seeding them.
 
-### The browser suite
+### The browser suite — DELETED 2026-09-10
 
-```bash
-make ENV=local up && make ENV=local seed
-make e2e-install     # once
-make ENV=local e2e
-```
+This section described `make ENV=local e2e`, a Playwright suite driving the stack per
+role. **It no longer exists.** The specs had drifted from renamed UI ("In Yard" → "Yard",
+"TAG" → "CODE") and were deleted at the user's request, along with STI-122 (the ticket to
+make it blocking again). Its CI job had already been removed on 2026-08-30.
 
-It drives a real browser against the running stack from outside, per role. It runs
-**locally only** — the `e2e` CI job was non-blocking from 2026-08-22 and was removed on
-2026-08-30 after the nav-pin specs went red. Putting it back, green, is STI-122.
+Browser checking is the Playwright MCP now — `.claude/skills/test-on-playwright`.
 
 ---
 
@@ -358,7 +357,7 @@ they existed only as prose in a tracker comment, which is how things get lost.
 | Seed gave every trailer one identical GPS coordinate | **Fixed** — it is why the map bug was never seen internally |
 | Seed created no messages and no tasks, so the inbox was unreachable | **Fixed** — every bucket now has an occupant |
 | `downloadCsv` never appended its anchor and revoked the blob synchronously | **Fixed** — the app's only download path |
-| `make e2e` never ran the browser suite (target collided with the `e2e/` directory) | **Fixed** |
+| `make e2e` never ran the browser suite (target collided with the `e2e/` directory) | **Fixed**, then moot — the suite and its targets were deleted 2026-09-10 |
 | A partial unique index on `transfer` | **Still open** — see below |
 
 **The `transfer` index is the one still outstanding.** It would make "one open hand-off per
@@ -369,11 +368,12 @@ Urban's real data rather than a code decision. It needs a sweep against producti
 
 ### A caveat about the CSV export test
 
-`e2e/tests/csv-export.spec.ts` exercises the export path end to end, but it does **not**
-catch either of the two defects it was written alongside — verified by restoring the broken
-version and watching it still pass. Chromium follows a detached anchor happily. Catching
-that one needs a Gecko project, which the suite deliberately does not have. The spec's own
-comment says all of this; do not read more into it than it claims.
+The spec this section described (`e2e/tests/csv-export.spec.ts`) was deleted with the rest
+of the suite on 2026-09-10. The finding it recorded is worth keeping: that test exercised
+the export path end to end and still did **not** catch either defect it was written
+alongside, because Chromium follows a detached anchor happily. **The CSV download path has
+no automated coverage at all now** — check it by hand, and in a Gecko browser if you want
+the detached-anchor class of bug to show up.
 
 ---
 

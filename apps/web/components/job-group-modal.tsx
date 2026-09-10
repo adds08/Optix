@@ -5,6 +5,7 @@ import { FolderKanban, Search } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useArmedConfirm } from "@/components/use-armed-confirm";
 import { Input } from "@/components/ui/input";
 import { idName, jobSearchText } from "@/lib/format";
 
@@ -56,6 +57,10 @@ export function JobGroupModal({
     setJobQuery("");
     setUserQuery("");
     setResult("");
+    deleteConfirm.disarm();
+    /* `deleteConfirm` is intentionally not a dependency: this effect resets the
+       form when the modal opens on a different group, and re-running it every
+       time the confirm's identity changes would disarm the button mid-click. */
   }, [edit, open]);
 
   const allProjects = projects.data ?? [];
@@ -84,6 +89,11 @@ export function JobGroupModal({
       onClose();
     },
   });
+  /* Two-click delete, the same shape as every other destructive control in
+     the app: the first click arms the button, the second actually deletes the
+     group. Disarmed below whenever the modal opens on a different group, so
+     it can never carry an armed state from one group over to the next. */
+  const deleteConfirm = useArmedConfirm(() => edit && remove.mutate({ id: edit.id }));
 
   const toggle = (set: Set<string>, id: string) => {
     const next = new Set(set);
@@ -224,12 +234,12 @@ export function JobGroupModal({
         <DialogFooter>
           {edit ? (
             <Button
-              variant="outline"
-              className="mr-auto text-destructive hover:text-destructive"
-              onClick={() => remove.mutate({ id: edit.id })}
+              variant={deleteConfirm.armed ? "destructive" : "outline"}
+              className={deleteConfirm.armed ? "mr-auto" : "mr-auto text-destructive hover:text-destructive"}
+              onClick={deleteConfirm.handleClick}
               disabled={remove.isPending}
             >
-              {remove.isPending ? "Deleting…" : "Delete group"}
+              {remove.isPending ? "Deleting…" : deleteConfirm.armed ? "Delete group?" : "Delete group"}
             </Button>
           ) : null}
           <Button variant="outline" onClick={onClose}>

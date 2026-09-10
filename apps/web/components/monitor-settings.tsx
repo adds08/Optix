@@ -9,7 +9,7 @@ import {
   writeMonitorPrefs,
 } from "@/lib/monitor-prefs";
 import { dwellFor } from "@/components/sti/monitor/project-monitor";
-import { cn } from "@/lib/utils";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 /*
   Project monitor pace.
@@ -36,9 +36,10 @@ export function MonitorSettings() {
      device that has ever been tuned. */
   useEffect(() => setPace(readMonitorPrefs().pace), []);
 
-  function choose(value: number) {
-    setPace(value);
-    writeMonitorPrefs({ pace: value });
+  function choose(value: string) {
+    const next = Number(value);
+    setPace(next);
+    writeMonitorPrefs({ pace: next });
   }
 
   const seconds = Math.round(dwellFor(SAMPLE_ROWS, pace) / 1000);
@@ -59,25 +60,20 @@ export function MonitorSettings() {
 
       <div className="space-y-2">
         <span className="text-sm font-medium">Pace</span>
-        <div className="flex flex-wrap gap-1.5">
+        <ToggleGroup
+          type="single"
+          value={String(pace)}
+          onValueChange={(v) => v && choose(v)}
+          variant="outline"
+          spacing={1}
+          className="w-full flex-wrap"
+        >
           {PACE_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => choose(o.value)}
-              aria-pressed={pace === o.value}
-              title={o.hint || undefined}
-              className={cn(
-                "rounded-sm border px-3 py-1.5 text-sm transition-colors",
-                pace === o.value
-                  ? "border-primary bg-primary/10 font-medium text-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              )}
-            >
+            <ToggleGroupItem key={o.value} value={String(o.value)} title={o.hint || undefined}>
               {o.label}
-            </button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
         <p className="text-sm text-muted-foreground">
           A job with {SAMPLE_ROWS} tools stays on screen for{" "}
           <span className="font-mono font-semibold text-foreground tnum">{seconds}s</span>.

@@ -353,6 +353,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       await newScopedTeamRow(superA, p2!.id, "superintendent");
       /* `otherSup` has a team row but NO foremen beneath them. */
       await newScopedTeamRow(otherSup, p2!.id, "superintendent");
+      await db.update(schema.projectTeamMember).set({ reportsToEmployeeId: superA }).where(and(eq(schema.projectTeamMember.tenantId, tenantId), inArray(schema.projectTeamMember.employeeId, [fmA, fmB])));
       /* `loner` holds tools but is on no project team. */
 
       /* Resolve via the real entrypoint for a hand-built session. */
@@ -374,7 +375,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
 
       const bIds = new Set((b as { custodianIds: string[] }).custodianIds);
       expect(bIds).toContain(superB);
-      expect(bIds).toContain(fmA); // superB shares p1 with superA
+      expect(bIds).not.toContain(fmA); // A shared project does not make this a shared branch
       expect(bIds).not.toContain(fmB); // not on p1
 
       /* A foreman with no team row sees only themselves. */
@@ -382,7 +383,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
 
       /* A super on a project WITH foremen sees them — otherSup is on p2 with
          fmB, so their crew is [self, fmB]. */
-      expect((other as { custodianIds: string[] }).custodianIds.sort()).toEqual([otherSup, fmB].sort());
+      expect((other as { custodianIds: string[] }).custodianIds.sort()).toEqual([otherSup]);
 
       /* Clean up the throwaway rows. */
       await db.delete(schema.projectTeamMember).where(
@@ -472,11 +473,12 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
 
       Two kinds of entry live below and they are NOT the same thing:
 
-      (a) IN-BODY CHECKS. The permission depends on the INPUT, so no static
-          `requirePermission` can express it — assigning a PM to a job costs
-          `project.assign.pm` while assigning a foreman costs
-          `project.assign.foreman`, and which one applies is not known until
-          the call arrives. CLAUDE.md sanctions exactly this ("or a documented
+      (a) IN-BODY CHECKS. The answer depends on the INPUT, so no static
+          `requirePermission` can express it — whether a caller may fill a tier
+          depends on which tier, which project, and what that tier's "Set by"
+          rows say, none of it known until the call arrives. (This example used
+          to be three per-tier permissions; they were deleted on 2026-09-10,
+          but `assertCanAssign` is still an in-body check for the same reason.) CLAUDE.md sanctions exactly this ("or a documented
           in-body check"). Each names the function that does the checking, so a
           reviewer can go and read it.
 
@@ -490,9 +492,17 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       empty the desk's unresolved queue. Both were fixed rather than listed.
     */
     const BARE_BY_DESIGN: Record<string, string> = {
+      "projectTeams.removeBranch": "Checks project access, reporting branch, and assignment authority for every removed tier inside its transaction.",
+      "projectTeams.assignBranch": "Checks source and destination project access and branch authority; each member passes projectTeam.assign's tier gate.",
+      "onboarding.claimProject": "Initial setup only: explicit role claim tiers, active employee, and permanent claimingClosedAt gate checked under a row lock.",
+      "onboarding.undefer": "Checks project access and permits only the deferral creator or project.team.assign administrators.",
       // (a) in-body, input-dependent
       "projectTeam.assign": "assertCanAssign(permissions, input.role) — the permission is per target role",
       "projectTeam.remove": "assertCanAssign(permissions, input.role) — same gate as assign",
+      "projectTeam.setReportsTo":
+        "assertCanAssign(permissions, roleRow) — the permission is per team role, and WHICH role is not in the input: it is read off the roster row being edited, so it cannot be known until the call arrives",
+      "projectTeam.confirm":
+        "assertCanAssign(permissions, roleRow) — verifying a placement costs exactly what making it costs, and the tier is read off the row being confirmed rather than passed in",
       "task.approve": "canApplyAction(task.actionType, permissions) — charged against the APPROVER, by action",
       "task.decline": "canApplyAction(task.actionType, permissions) — declining costs what approving costs",
       "action.submit": "canApplyAction(input.type, permissions) — and falls back to a request when refused",
@@ -508,6 +518,20 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
         "posting to chat. Field intake must be open to every account — the message is an observation, and what it PROPOSES is gated when it is applied",
       "notification.markRead":
         "clearing your own alert. Bare of a permission by design, but scoped to recipientEmployeeId — see the note in notification.ts",
+      "onboarding.setStep":
+        "moving a resume marker on the caller's OWN onboarding row. Writes nothing but where they are up to, and reads the row by session userId — there is no id in the input to point elsewhere",
+      "onboarding.complete":
+        "the caller finishing or dismissing THEIR OWN first-run setup. Same shape as user.changePassword: gating it would mean the accounts sent to the wizard are exactly the ones that cannot leave it",
+      "onboarding.defer":
+        "recording that a tier on a job is somebody else's to fill. Writes nothing to the roster — it is the admission of a limit, and gating it behind the permission the caller is admitting they LACK would be incoherent. Every id in the input is checked against the caller's tenant",
+      "onboarding.resume":
+        "reopening the caller's OWN first-run setup after they skipped it. Reads and writes the row keyed by ctx.session.userId with no id in the input, and only ever clears two timestamps on it — the same shape as setStep and complete beside it",
+      "onboarding.fillDetails":
+        "filling gaps on a job the CALLER is actually on, double-checked in-body against their own live project_team_member row rather than a static permission — the same shape project.update's project.manage would be too wide for, since the primary onboarding user does not hold it",
+      "onboarding.setLocation":
+        "pinning a job the CALLER is actually on, same in-body roster-row check as fillDetails and the same reason. A radius with no pin is refused in-body too, which is why this needed the input-dependent shape rather than a bare requirePermission",
+      "onboarding.unclaimProject":
+        "undoing the caller's OWN claim, and only while it is still an undo. It ends exactly one row — the caller's, found by ctx.session.employeeId — and refuses in-body the moment it would touch anyone else: once somebody has been added under them on that job (removalBranch returns more than the one member) or they are holding tools through it. The counterpart of claimProject, which is listed above for the same reason: gating the undo behind a permission the claimer does not hold would mean the people who can make this mistake are exactly the ones who cannot correct it. project.team.assign administrators keep projectTeams.removeBranch for everything wider",
     };
 
     it("has no mutating procedure without a permission", () => {

@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { DataTable, type DataTableServerState } from "@/components/sti/data-table/data-table";
 import { col } from "@/components/sti/data-table/columns";
 import { Tag } from "@/components/sti/status";
+import { PageHeader, ErrorNote } from "@/components/sti/page";
 import { MovementsWidget } from "@/components/dashboard-widgets";
 import { dateTime } from "@/lib/format";
 
@@ -25,7 +26,7 @@ type AuditRow = {
   eventType: string;
   occurredAt: Date;
   note: string | null;
-  tag: string | null;
+  code: string | null;
   model: string;
   actorName: string | null;
 };
@@ -61,10 +62,10 @@ export default function AuditTrailPage() {
     }),
     col<AuditRow>({
       header: "Tool",
-      accessorFn: (r) => r.tag ?? r.model,
+      accessorFn: (r) => r.code ?? r.model,
       cell: (r) => (
         <span className="flex items-center gap-2">
-          <Tag>{r.tag}</Tag>
+          <Tag>{r.code}</Tag>
           <span className="truncate text-muted-foreground">{r.model || "—"}</span>
         </span>
       ),
@@ -91,24 +92,30 @@ export default function AuditTrailPage() {
         All reports
       </Link>
 
+      <PageHeader title="Audit trail" />
+
       <MovementsWidget />
 
-      <DataTable<AuditRow>
-        mode="server"
-        columns={columns}
-        rows={query.data?.rows ?? []}
-        rowCount={query.data?.total ?? 0}
-        rowId={(r) => String(r.id)}
-        state={state}
-        onStateChange={setState}
-        searchPlaceholder="Search tag, model or note…"
-        emptyTitle="No movements recorded yet"
-        emptyDescription="The ledger is empty — every assignment, transfer and return will appear here."
-        filename="audit-trail"
-        enableSelection
-        selection={selectedIds}
-        onSelectionChange={setSelectedIds}
-      />
+      {query.isError ? (
+        <ErrorNote message="The audit trail could not be loaded. Check that the API is running, then reload." />
+      ) : (
+        <DataTable<AuditRow>
+          mode="server"
+          columns={columns}
+          rows={query.data?.rows ?? []}
+          rowCount={query.data?.total ?? 0}
+          rowId={(r) => String(r.id)}
+          state={state}
+          onStateChange={setState}
+          searchPlaceholder="Search tag, model or note…"
+          emptyTitle="No movements recorded yet"
+          emptyDescription="The ledger is empty — every assignment, transfer and return will appear here."
+          filename="audit-trail"
+          enableSelection
+          selection={selectedIds}
+          onSelectionChange={setSelectedIds}
+        />
+      )}
     </div>
   );
 }

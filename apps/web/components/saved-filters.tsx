@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Bookmark, Check, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useArmedConfirm } from "@/components/use-armed-confirm";
 
 /*
   Saved filter presets for one page, kept in the browser under that page's key.
@@ -70,8 +71,9 @@ export function SavedFilters({
 
   return (
     <div className="relative">
+      {/* default (34px) — matches the search field and toolbar controls beside it. */}
       <Button
-        size="sm"
+        size="default"
         variant="outline"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
@@ -105,27 +107,15 @@ export function SavedFilters({
               </p>
             ) : (
               saved.map((s) => (
-                <div key={s.name} className="group flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onApply(s.filters);
-                      setOpen(false);
-                    }}
-                    className="flex flex-1 items-center gap-2 rounded px-1.5 py-1 text-left text-sm hover:bg-accent"
-                  >
-                    <Bookmark className="size-3 text-muted-foreground" aria-hidden />
-                    {s.name}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(s.name)}
-                    aria-label={`Delete ${s.name}`}
-                    className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                  >
-                    <Trash2 className="size-3.5" aria-hidden />
-                  </button>
-                </div>
+                <SavedFilterRow
+                  key={s.name}
+                  name={s.name}
+                  onApply={() => {
+                    onApply(s.filters);
+                    setOpen(false);
+                  }}
+                  onDelete={() => remove(s.name)}
+                />
               ))
             )}
             {hasActive ? (
@@ -141,6 +131,56 @@ export function SavedFilters({
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/*
+  One saved-filter row, pulled out so `useArmedConfirm` — the same
+  first-click-arms, second-click-fires shape every other destructive control
+  in the app uses now — can attach to THIS row's delete button rather than the
+  whole list.
+*/
+function SavedFilterRow({
+  name,
+  onApply,
+  onDelete,
+}: {
+  name: string;
+  onApply: () => void;
+  onDelete: () => void;
+}) {
+  const { armed, handleClick } = useArmedConfirm(onDelete);
+
+  return (
+    <div className="group flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onApply}
+        className="flex flex-1 items-center gap-2 rounded px-1.5 py-1 text-left text-sm hover:bg-accent"
+      >
+        <Bookmark className="size-3 text-muted-foreground" aria-hidden />
+        {name}
+      </button>
+      {armed ? (
+        <button
+          type="button"
+          onClick={handleClick}
+          aria-label={`Confirm deleting ${name}`}
+          className="rounded bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground"
+        >
+          Delete?
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleClick}
+          aria-label={`Delete ${name}`}
+          className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+        >
+          <Trash2 className="size-3.5" aria-hidden />
+        </button>
+      )}
     </div>
   );
 }

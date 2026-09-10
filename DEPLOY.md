@@ -204,6 +204,48 @@ this is true rather than merely hoped for.
 
 ---
 
+## Transactional email (SMTP)
+
+Invites, password resets and notifications all go out through one relay. **An
+unconfigured relay is not an error**: `sendMail` logs the message to the console
+and returns `ok: true`, so a deployment with no SMTP silently reports every
+invite as sent while delivering nothing. Production ran that way from
+2026-09-01 until this was noticed on 2026-09-11 — check
+`smtpLastCheckOk` in Settings rather than trusting a successful-looking invite.
+
+Two layers, and the tenant row **wins outright** over the environment — no
+per-field merging, so a half-filled row cannot silently borrow the env's relay:
+
+| Layer | Where | Use it for |
+|---|---|---|
+| Tenant row | Settings → Email, in the browser | The real credential. AES-GCM encrypted, never returned to the client (the UI shows only "Saved, ending in ..."). |
+| Env fallback | `SMTP_*` in `.env.production` | Host/port/user/from, so a stack works before anyone opens Settings. |
+
+### optixtec.com
+
+The mailbox is `donotreply@optixtec.com` on `mail.optixtec.com`
+(137.184.101.30), which runs **Stalwart ESMTP** and advertises
+`AUTH PLAIN LOGIN`.
+
+**Use port 465, not 587.** Verified from the dev droplet on 2026-09-11: 465 and
+25 are open, **587 and 2525 are not**. `sendMail` sets `secure: true` only when
+the port is exactly 465 (implicit TLS); anything else starts plaintext and
+expects STARTTLS, which is why the port is not a free choice here.
+
+DNS is otherwise in good shape — SPF `v=spf1 mx -all`, DMARC `p=none`, and rDNS
+that matches the host. **There is no DKIM record** on any common selector; not
+blocking, but worth adding in Stalwart before any bulk invite run.
+
+Set a per-environment `SMTP_FROM` (dev sends as `Optix Dev <...>`) so a test
+invite is never mistaken for a real one.
+
+### Setting the credential
+
+The password belongs in Settings, not in a file. Sign in as an admin, fill
+Settings → Email, **Save**, then **Send test email** — in that order, because
+the test reads the saved row and never the unsaved form. A failure is recorded
+on the row (`smtpLastCheckOk`, `smtpLastCheckError`) rather than only shown once.
+
 ## Known gaps
 
 - **No backups.** Each Postgres droplet holds its own data with nothing

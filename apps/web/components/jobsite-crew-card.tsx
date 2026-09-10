@@ -4,7 +4,7 @@ import { ChevronRight, Container, Pencil, Truck } from "lucide-react";
 import { ActionMenuTrigger } from "@/components/sti/action-menu";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
-import { PersonChip } from "@/components/sti/entity-chip";
+import { PersonChip, personToneBg } from "@/components/sti/entity-chip";
 import type { PickerRequest } from "@/components/rig-picker";
 import { moneyShort } from "@/lib/format";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -52,6 +52,8 @@ export function CrewCard({
   canAct = false,
   striped = false,
   highlight,
+  compact = false,
+  flush = false,
 }: {
   crew: Crew;
   projectId: string;
@@ -72,27 +74,37 @@ export function CrewCard({
   striped?: boolean;
   /* The live search text, for marking the foreman's name. */
   highlight?: string;
+  /* A stacked layout instead of the wide row below, for the jobsite card
+     view's right sheet — added alongside ToolTable's own `compact` prop and
+     for the same reason. The wide row's rig zone is a FIXED `w-[23rem]`
+     three-track grid, deliberate for a dense list (it is what lines up the
+     hitch down every row), and exactly the kind of fixed width that does not
+     fit a ~32rem sheet without wrapping badly. Compact drops the grid for a
+     flex-wrap group instead — every `onPick`/`onAddTools` call, every
+     DropdownMenu item, stays byte-identical; only the layout branches, so the
+     two views can never offer different actions for the same crew. */
+  compact?: boolean;
+  /* Connected rows for the jobsite LIST body: no per-crew rounded box and no
+     side borders, so foremen sit one under the other in the card's single
+     container like the register's rows — the alternating `striped` fill falls
+     on the row line itself, not on a nested card. The parent draws the rules
+     between rows (divide-y); this component deliberately draws none. */
+  flush?: boolean;
 }) {
   const { rig } = crew;
 
-  /* The crew tick (design readme, "The edge accent"): crews get a short 3x20px
-     mark rather than the full-height bar a job card carries, so a column of
-     crews inside one job never competes with the job's own edge. It states the
-     rig, which is the crew-level question the board exists to answer — amber
-     the moment a crew cannot haul, accent once truck and trailer are both on. */
   /*
-    The crew tick marks the EXCEPTION, not the rule.
+    The crew tick (design readme, "The edge accent"): a short 3x20px mark
+    rather than the full-height bar a job card carries, so a column of crews
+    inside one job never competes with the job's own edge.
 
-    It first shipped as warn-when-no-truck, which is defensible until you look
-    at a real yard: 49 of 51 crews have no truck, so every row lit amber and a
-    column of identical marks carried no information at all. Worse, on an amber
-    palette warn and primary are the same hue, so the marks were indistinguish-
-    able from the chrome around them.
-
-    A fully rigged crew is the rare, good state, so that is what gets the
-    accent; everything else gets the border colour and stays quiet. The missing
-    truck is not lost — the row already carries a "+ Truck" control saying so in
-    words, and the job header above counts them.
+    Its colour is the FOREMAN's identity hue, deterministic per person (see
+    `personToneBg`): on a board where the desk scans a column of foremen, the
+    tick is what tells two rows apart at a glance, and the same foreman stays
+    the same colour on every job. It used to state the RIG (green when a crew
+    could haul, amber when not) — but 49 of 51 crews have no truck, so every
+    row lit amber and the signal said nothing; the row already says "no
+    truck" in words on the chip, so the rig is not lost.
 
     Whole class strings, never `before:${tone}`: Tailwind scans source text, so
     a class assembled at runtime is never generated and the tick renders with no
@@ -101,16 +113,10 @@ export function CrewCard({
   /*
     The crew row, 1:1 with the design (App.jsx CrewCard).
 
-    Rigged is the whole signal on the left edge: a 3x22 bar, GREEN when the crew
-    has both a truck and a trailer and AMBER when it does not. That is the one
-    piece of state a foreman's row carries, and unlike the earlier version it
-    actually varies down a list, because most crews are missing one or the other.
-
     The header is the toggle. There is no separate chevron button on the right —
     the whole strip is clickable and the caret on the left rotates. A row that
     opens a table should not need you to find a 32px target at the far edge.
   */
-  const rigged = !!rig.truck && !!rig.trailer;
   const value = crew.tools.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0);
 
   /* A trailer with no truck is legal here — assigning one hands it straight to
@@ -164,8 +170,93 @@ export function CrewCard({
       <span className="text-xs text-muted-foreground">no {kind}</span>
     );
 
+  if (compact) {
+    return (
+      <div className={cn("overflow-visible rounded-md border", striped ? "bg-muted/15" : "bg-card")}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onToggle}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onToggle();
+            }
+          }}
+          aria-expanded={expanded}
+          className="crew-row flex cursor-pointer flex-col gap-1.5 px-3 py-2.5 transition-colors hover:bg-muted/40"
+        >
+          <div className="flex items-start gap-2">
+            <span
+              aria-hidden
+              className={cn("mt-1 h-[16px] w-[3px] shrink-0 rounded-sm", personToneBg(crew.foremanId))}
+            />
+            <ChevronRight
+              aria-hidden
+              className={cn("mt-1 size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", expanded && "rotate-90")}
+            />
+            <span className="min-w-0 flex-1">
+              <PersonChip
+                id={crew.foremanId}
+                externalId={crew.foremanExternalId}
+                name={crew.foremanName}
+                role={crew.foremanRole}
+                detail={[
+                  `${crew.tools.length} tool${crew.tools.length === 1 ? "" : "s"}`,
+                  moneyShort(value),
+                  crew.otherJobs ? `also on ${crew.otherJobs} other job${crew.otherJobs === 1 ? "" : "s"}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              />
+            </span>
+            {canManage ? (
+              <DropdownMenu>
+                <ActionMenuTrigger label={crew.foremanName} onClick={(e) => e.stopPropagation()} />
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem onSelect={() => onPick({ kind: "truck", foremanId: crew.foremanId })}>
+                    {rig.truck ? "Change truck" : "Assign truck"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id })}>
+                    {rig.trailer ? "Change hitched trailer" : rig.truck ? "Hitch a trailer" : "Assign a trailer"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => { window.location.href = `/project-teams?projectId=${projectId}`; }}>
+                    Manage project team
+                  </DropdownMenuItem>
+                  {onAddTools ? <DropdownMenuItem onSelect={onAddTools}>Add tools to this crew</DropdownMenuItem> : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </div>
+          {/* Rig slots wrap instead of sitting in a fixed 23rem track — nothing
+              here needs to line up down a column the way the list's does,
+              since crews stack one at a time in the sheet rather than sitting
+              beside each other. */}
+          <div
+            className="ml-[23px] flex flex-wrap items-center gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {slot(rig.truck?.unit, "truck", () => onPick({ kind: "truck", foremanId: crew.foremanId }))}
+            <Hitch broken={brokenHitch} />
+            {slot(rig.trailer?.unit, "trailer", () => onPick({ kind: "trailer", foremanId: crew.foremanId, truckId: rig.truck?.id }))}
+          </div>
+        </div>
+        {expanded ? (
+          <div className="border-t bg-muted/10">
+            {crew.tools.length ? (
+              <ToolTable rows={crew.tools} highlight={highlight} actions={canAct} compact />
+            ) : (
+              <p className="px-3 py-2.5 text-sm text-muted-foreground">This crew is holding nothing yet.</p>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <div className={cn("overflow-visible rounded-md border", striped ? "bg-muted/15" : "bg-card")}>
+    <div className={flush ? undefined : cn("overflow-visible rounded-md border", striped ? "bg-muted/15" : "bg-card")}>
       <div
         role="button"
         tabIndex={0}
@@ -177,11 +268,16 @@ export function CrewCard({
           }
         }}
         aria-expanded={expanded}
-        className="crew-row flex cursor-pointer flex-wrap items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-muted/40"
+        className={cn(
+          "crew-row flex cursor-pointer flex-wrap items-center gap-2.5 px-3 py-2.5 transition-colors hover:bg-muted/40",
+          /* In the connected-list (flush) layout the zebra lives on the row
+             line itself, since there is no box behind it to tint. */
+          flush && striped && "bg-muted/20",
+        )}
       >
         <span
           aria-hidden
-          className={cn("h-[22px] w-[3px] shrink-0 rounded-sm", rigged ? "bg-ok" : "bg-warn")}
+          className={cn("h-[22px] w-[3px] shrink-0 rounded-sm", personToneBg(crew.foremanId))}
         />
         <ChevronRight
           aria-hidden
@@ -261,8 +357,8 @@ export function CrewCard({
                 {rig.trailer ? "Change hitched trailer" : rig.truck ? "Hitch a trailer" : "Assign a trailer"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => onPick({ kind: "move", foremanId: crew.foremanId, projectId })}>
-                Move this crew to another job
+              <DropdownMenuItem onSelect={() => { window.location.href = `/project-teams?projectId=${projectId}`; }}>
+                Manage project team
               </DropdownMenuItem>
               {onAddTools ? (
                 <DropdownMenuItem onSelect={onAddTools}>Add tools to this crew</DropdownMenuItem>

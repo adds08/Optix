@@ -1,0 +1,1 @@
+ALTER TABLE "tbl_entity_team_role" DROP COLUMN IF EXISTS "is_system";

@@ -510,10 +510,38 @@ export const THEMES: Record<ThemeName, ThemeDef> = {
 */
 export const FONT_FAMILIES = {
   system: {},
-  serif: { "--font-sans": "Georgia, 'Times New Roman', serif" },
+  serif: {
+    "--font-sans": "Georgia, 'Times New Roman', serif",
+    /* Uniform: the whole UI — including the mono accents — follows the pick.
+       Only "system" keeps the house split (sans prose + JetBrains Mono values). */
+    "--font-mono": "Georgia, 'Times New Roman', serif",
+  },
   /* Everything mono, including prose: dense and unambiguous, and a real request
      from screens that are read as instrument panels rather than documents. */
   mono: { "--font-sans": "var(--font-mono)" },
+  /* Named, web-safe families. Each overrides `--font-sans` AND `--font-mono`,
+     so codes, labels and numerals switch with the prose — a uniform look rather
+     than the house pairing. */
+  arial: {
+    "--font-sans": "Arial, 'Helvetica Neue', Helvetica, sans-serif",
+    "--font-mono": "Arial, 'Helvetica Neue', Helvetica, sans-serif",
+  },
+  verdana: {
+    "--font-sans": "Verdana, Geneva, Tahoma, sans-serif",
+    "--font-mono": "Verdana, Geneva, Tahoma, sans-serif",
+  },
+  georgia: {
+    "--font-sans": "Georgia, 'Times New Roman', Times, serif",
+    "--font-mono": "Georgia, 'Times New Roman', Times, serif",
+  },
+  times: {
+    "--font-sans": "'Times New Roman', Times, serif",
+    "--font-mono": "'Times New Roman', Times, serif",
+  },
+  courier: {
+    "--font-sans": "'Courier New', Courier, monospace",
+    "--font-mono": "'Courier New', Courier, monospace",
+  },
   /* `satisfies`, not an annotation: an annotation widens the keys to `string`
      and `FontFamilyName` below stops being the three-value union the API
      contract validates against. */
@@ -523,8 +551,13 @@ export type FontFamilyName = keyof typeof FONT_FAMILIES;
 
 export const FONT_FAMILY_LABELS: Record<FontFamilyName, { label: string; hint: string }> = {
   system: { label: "Inter Tight", hint: "The house pairing — Inter Tight with JetBrains Mono for values" },
-  serif: { label: "Serif", hint: "Georgia for prose, values stay mono" },
+  serif: { label: "Serif", hint: "The whole app uses Georgia" },
   mono: { label: "All mono", hint: "JetBrains Mono everywhere" },
+  arial: { label: "Arial", hint: "The whole app uses Arial" },
+  verdana: { label: "Verdana", hint: "The whole app uses Verdana" },
+  georgia: { label: "Georgia", hint: "The whole app uses Georgia" },
+  times: { label: "Times New Roman", hint: "The whole app uses Times New Roman" },
+  courier: { label: "Courier New", hint: "The whole app uses Courier New" },
 };
 
 /* Every variable any font choice can set — the union, so switching back to the
@@ -559,12 +592,29 @@ export const ICON_SCALES = ["1.0", "1.15", "1.3", "1.5"] as const;
 
 export type Density = "comfortable" | "compact";
 
+/* Corner presets (docs/19, Appearance → Corners).
+
+   Each is a value for the single `--radius` token; `--radius-sm/lg/xl` derive
+   from it in globals.css, so one knob moves every surface together. The
+   blocky value (0.25rem) reproduces the old 3/4/6/6 set exactly; soft is the
+   default — the design file's 8px containers. */
+export type RadiusName = "blocky" | "soft" | "round";
+
+export const RADII: Record<RadiusName, { label: string; value: string; description: string }> = {
+  blocky: { label: "Blocky", value: "0.25rem", description: "The tight 4px house corners" },
+  soft: { label: "Soft", value: "0.5rem", description: "The design file's 8px surfaces" },
+  round: { label: "Round", value: "0.75rem", description: "Generous 12px corners" },
+};
+
 export type ThemePrefs = {
   themeName: ThemeName;
   fontFamily: FontFamilyName;
   fontScale: string;
   iconScale: string;
   density: Density;
+  /* Which corner preset `--radius` resolves to. Default soft — the whole
+     system reads closer to the design file until a user picks otherwise. */
+  radius: RadiusName;
   dashboard: {
     widgets: Record<string, boolean>;
     /* The tab that opens first (docs/20, B1). The star on the dashboard sets
@@ -579,5 +629,6 @@ export const DEFAULT_PREFS: ThemePrefs = {
   fontScale: "1.0",
   iconScale: "1.0",
   density: "comfortable",
+  radius: "soft",
   dashboard: { widgets: {} },
 };

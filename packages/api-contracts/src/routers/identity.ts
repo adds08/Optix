@@ -50,9 +50,37 @@ export const identityRouter = router({
       .where(eq(schema.tenantSettings.tenantId, ctx.session.tenantId))
       .limit(1);
 
+    /*
+      THE LAYOUT FLAG, and why it is queried here rather than inferred on the
+      client.
+
+      `tbl_entity_role.uses_field_layout` has existed, been editable at
+      /admin/roles and been written by `role.update` for some time — and was
+      never sent to any client. The web app instead kept its own
+      `FIELD_ROLES = new Set(["foreman","superintendent","mechanic"])` and
+      branched on the role NAME, so the administrator-facing toggle had no
+      effect on the layout whatsoever: flipping it changed a column nothing
+      read. A role a tenant creates could never get the field layout at all.
+
+      Sent from here because a session outlives the login call — the same
+      reasoning `mustChangePassword` above carries — and because this is the
+      one query every screen already waits on.
+    */
+    const [r] = await ctx.db
+      .select({ usesFieldLayout: schema.role.usesFieldLayout })
+      .from(schema.userRole)
+      .innerJoin(schema.role, eq(schema.role.id, schema.userRole.roleId))
+      .where(eq(schema.userRole.userId, ctx.session.userId))
+      .limit(1);
+
     return {
       ...u,
       role: ctx.session.roleName ?? null,
+      /* Defaults to the DESK layout when a user somehow has no role row: the
+         desk navigation is permission-filtered down to nothing for somebody
+         with no grants, whereas defaulting to the field layout would show a
+         three-item menu to an administrator and look broken. */
+      usesFieldLayout: r?.usesFieldLayout ?? false,
       permissions: Array.from(ctx.session.permissions),
       tenant: {
         name: t?.name ?? null,

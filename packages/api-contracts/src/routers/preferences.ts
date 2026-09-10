@@ -29,7 +29,23 @@ export const THEME_NAMES = [
   "site-slate",
   "hi-vis",
 ] as const;
-export const FONT_FAMILIES = ["system", "serif", "mono"] as const;
+/* Must stay in step with `FONT_FAMILIES` in the web app's lib/themes/themes.ts —
+   adding a family here without adding it there makes the settings picker and the
+   apply layer disagree about what a stored value means. */
+export const FONT_FAMILIES = [
+  "system",
+  "serif",
+  "mono",
+  "arial",
+  "verdana",
+  "georgia",
+  "times",
+  "courier",
+] as const;
+
+/* Must stay in step with `RADII` in the web app's lib/themes/themes.ts — the
+   CSS only knows the three presets this enum allows. */
+export const CORNER_RADII = ["blocky", "soft", "round"] as const;
 
 const prefsInput = z.object({
   themeName: z.enum(THEME_NAMES),
@@ -40,11 +56,13 @@ const prefsInput = z.object({
      pattern, so a stale client cannot write `scale(9999)` into a style. */
   iconScale: z.string().regex(/^(0\.\d|1|1\.\d|2)$/),
   density: z.enum(["comfortable", "compact"]),
+  radius: z.enum(CORNER_RADII),
   dashboard: z.object({
     widgets: z.record(z.string(), z.boolean()),
-    /* The Desk (STI-501) is a ROUTE, not a tab — it is at /desk and appears in
-       both navs — so it deliberately does not belong in this enum. A dashboard
-       tab preference names one of the two dashboard tabs and nothing else. */
+    /* The dashboard-tab preference named one of the two old widget-dashboard
+       tabs (Fleet / Command Center) and deliberately nothing else. Both the
+       Desk — once a separate /desk route, removed 2026-09-03 — and the old
+       dashboard itself are gone; the field is retained for stored rows. */
     defaultTab: z.enum(["fleet", "command"]).optional(),
   }),
 });
@@ -63,6 +81,7 @@ export const preferencesRouter = router({
         fontScale: "1.0",
         iconScale: "1.0",
         density: "comfortable" as const,
+        radius: "soft" as const,
         dashboard: { widgets: {} },
       };
     }
@@ -72,6 +91,7 @@ export const preferencesRouter = router({
       fontScale: row.fontScale,
       iconScale: row.iconScale,
       density: row.density,
+      radius: row.radius,
       dashboard: row.dashboard,
     };
   }),

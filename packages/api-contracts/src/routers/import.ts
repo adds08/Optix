@@ -75,21 +75,24 @@ async function loadExisting(db: any, tenantId: string, spec: ImportSpec): Promis
 
   if (spec.entity === "asset" && spec.unique.length) {
     const rows = await db
-      .select({ tag: schema.asset.tag, serialNumber: schema.asset.serialNumber })
+      .select({ code: schema.asset.code, serialNumber: schema.asset.serialNumber })
       .from(schema.asset)
       .where(eq(schema.asset.tenantId, tenantId));
     for (const r of rows) {
-      if (r.tag) out.tag?.add(String(r.tag).toLowerCase());
+      if (r.code) out.code?.add(String(r.code).toLowerCase());
       if (r.serialNumber) out.serialNumber?.add(String(r.serialNumber).toLowerCase());
     }
   }
   if (spec.entity === "employee") {
-    const rows = await db.select({ externalId: schema.employee.externalId })
+    /* Keyed by the SPEC key (`externalId`, the CSV's `employee_id`) while
+       reading the COLUMN it now lives in (`code`). The two differ since the
+       2026-09-06 rename and both names are correct in their own layer. */
+    const rows = await db.select({ code: schema.employee.code })
       .from(schema.employee).where(eq(schema.employee.tenantId, tenantId));
-    for (const r of rows) if (r.externalId) out.externalId?.add(String(r.externalId).toLowerCase());
+    for (const r of rows) if (r.code) out.externalId?.add(String(r.code).toLowerCase());
   }
   if (spec.entity === "project") {
-    const rows = await db.select({ externalId: schema.project.externalId })
+    const rows = await db.select({ externalId: schema.project.code })
       .from(schema.project).where(eq(schema.project.tenantId, tenantId));
     for (const r of rows) if (r.externalId) out.externalId?.add(String(r.externalId).toLowerCase());
   }
@@ -338,7 +341,17 @@ async function insertOne(
   }
 
   if (entity === "employee") {
-    const [row] = await tx.insert(schema.employee).values({ tenantId, ...values }).returning();
+    /* `externalId` is the CSV's `employee_id` and lands in `employee.code` —
+       the column was renamed on 2026-09-06 so that `externalId` could mean what
+       it says, a foreign system's key, which now lives in
+       `employee_external_ref`. Remapped explicitly rather than spread: Drizzle
+       drops an unknown key SILENTLY, so a spread here would import every person
+       with a blank badge number and raise nothing. */
+    const { externalId, ...rest } = values;
+    const [row] = await tx
+      .insert(schema.employee)
+      .values({ tenantId, ...rest, ...(externalId !== undefined ? { code: externalId as string } : {}) })
+      .returning();
     if (!row) return null;
 
     /* Mirrors employee.create: a person who arrives already posted to a job

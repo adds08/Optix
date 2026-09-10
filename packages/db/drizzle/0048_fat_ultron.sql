@@ -1,0 +1,1 @@
+ALTER TABLE "tbl_ops_user_onboarding" ADD COLUMN "dismissed_at" timestamp with time zone;

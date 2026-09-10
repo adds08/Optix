@@ -38,7 +38,7 @@ export default function DeskScreen() {
     return (tools.data ?? []).filter((t) => {
       if (status && t.status !== status) return false;
       if (!needle) return true;
-      return [t.tag, t.make, t.modelNumber, t.description, t.serialNumber].some((v) =>
+      return [t.code, t.make, t.modelNumber, t.description, t.serialNumber].some((v) =>
         v?.toLowerCase().includes(needle),
       );
     });
@@ -121,7 +121,7 @@ export default function DeskScreen() {
                       <Card>
                         <View className="gap-2">
                           <View className="flex-row items-center justify-between gap-3">
-                            <Tag>{t.tag}</Tag>
+                            <Tag>{t.code}</Tag>
                             <StatusPill status={t.status} />
                           </View>
                           <Text className="text-[17px] font-semibold leading-6 text-foreground">

@@ -293,7 +293,7 @@ describe("applyIntake typed refusals", () => {
        client as a 500. Whitespace-only fields count as nothing — the worker's
        gate checks truthiness untrimmed, so this is the last line of defence. */
     const err = await thrownBy(
-      applyChatAction(noDb, { ...baseOpts, action: { type: "intake", draft: { tag: "  " } } }),
+      applyChatAction(noDb, { ...baseOpts, action: { type: "intake", draft: { code: "  " } } }),
     );
     expect(err.code).toBe("BAD_REQUEST");
     expect(err.message).toMatch(/needs a tag/);
@@ -304,7 +304,7 @@ describe("applyIntake typed refusals", () => {
        two surfaces must disagree with the user in the same voice. */
     const db = dbWith({ query: { asset: { findFirst: async () => ({ id: "existing" }) } } });
     const err = await thrownBy(
-      applyChatAction(db, { ...baseOpts, action: { type: "intake", draft: { tag: "DEV204-DUP", make: "DeWalt" } } }),
+      applyChatAction(db, { ...baseOpts, action: { type: "intake", draft: { code: "DEV204-DUP", make: "DeWalt" } } }),
     );
     expect(err.code).toBe("CONFLICT");
     expect(err.message).toMatch(/already in the register/);
@@ -317,7 +317,7 @@ describe("applyIntake typed refusals", () => {
       insert: () => ({ values: () => ({ returning: async () => [] }) }),
     });
     const err = await thrownBy(
-      applyChatAction(db, { ...baseOpts, action: { type: "intake", draft: { tag: "DEV204-NEW", make: "DeWalt" } } }),
+      applyChatAction(db, { ...baseOpts, action: { type: "intake", draft: { code: "DEV204-NEW", make: "DeWalt" } } }),
     );
     expect(err.code).toBe("INTERNAL_SERVER_ERROR");
   });

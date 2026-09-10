@@ -89,7 +89,7 @@ const TRAVEL_END = 0.88;
 
 type MonitorTool = {
   id: string;
-  tag: string | null;
+  code: string | null;
   name: string;
   serial: string | null;
   custodian: string;
@@ -152,7 +152,7 @@ export function ProjectMonitor() {
         status: p.status,
         tools: rows.map((a) => ({
           id: a.id,
-          tag: a.tag,
+          code: a.code,
           name: formatAssetModel(a),
           serial: a.serialNumber,
           custodian: a.custodianName ?? "—",
@@ -398,7 +398,7 @@ export function ProjectMonitor() {
       {/* ───── band 3: the payload ───── */}
       <div className="relative flex min-h-0 flex-1">
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-hidden">
-          <table className="sti-grid w-full table-fixed border-collapse">
+          <table className="sti-grid w-full table-fixed">
             <thead className="sticky top-0 z-10 bg-card">
               <tr className="border-b">
                 <Th className="w-[9rem]">Tag</Th>
@@ -424,7 +424,7 @@ export function ProjectMonitor() {
                     className={cn("border-b border-border/40", i % 2 ? "bg-muted/20" : "")}
                   >
                     <Td>
-                      <Tag>{t.tag}</Tag>
+                      <Tag>{t.code}</Tag>
                     </Td>
                     <Td className="truncate text-foreground">{t.name}</Td>
                     <Td className="truncate font-mono text-muted-foreground">

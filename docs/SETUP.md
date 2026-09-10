@@ -11,20 +11,84 @@ Node 22+, pnpm 9+, Docker. Postgres comes from Docker — you do not need one in
 ```bash
 cp .env.example .env.local     # required — the Makefile hard-errors without it
 make ENV=local up              # builds + starts postgres, api, web
-make ENV=local seed            # sample data from the real trailer sheets
+make seed-demo                 # demo fixture — one account per permission tier
 ```
+
+**Three datasets, and which one you want depends on what you are doing.**
+
+```bash
+make seed-demo    # the FIXTURE: synthetic people, one account per role
+make seed-urban   # Urban's REAL register: 83 people, 753 tools, 20 jobs, 2 admins
+make seed-bare    # EMPTY: one owner login, no people or tools at all
+```
+
+All three wipe first. Use `seed-demo` **before running the test suite** —
+`rbac-matrix.test.ts` drives the visibility ladder through the fixture's
+synthetic accounts and fails against real data, by design (see
+`.claude/rules/database.md`). Use `seed-urban` to look at the product with real
+data in it.
+
+Use `seed-bare` when **BambooHR is the source of the roster**. It seeds the
+vocabularies, the permission matrix and one owner login, and nothing else — the
+People register then fills from the sync and from nothing else, which is the
+whole point.
+
+That login is **`optix_it@optixtec.com`**, holding `owner` — the same address
+the urban dataset seeds, deliberately, so the administrator has one spelling
+whichever seed ran. It holds every permission, including `config.manage`, and
+has **no employee record**: an administrator is not somebody who holds tools,
+and BambooHR has no reason to know about them. `user.employee_id` is nullable
+and every employeeId-scoped query has a second branch for exactly this. Every register renders its empty state until you import assets;
+that is not a broken seed. The owner password comes from `SEED_OWNER_PASSWORD`
+or is generated and printed once, the same rule `seed-urban` follows.
+
+Note that `make up` also seeds on first boot, and honours `SEED_DATASET` — so a
+machine deliberately running bare or urban keeps it across a fresh volume rather
+than silently getting the demo fixture back. It is idempotent either way: the
+seed skips when a tenant already exists, so it never overwrites real data.
+
+`SEED_RESET=1 make seed` used to seed nothing at all: `docker compose exec` does
+not inherit the caller's environment, so the variable never arrived and the seed
+skipped an already-populated database while printing enough to look busy. The
+make targets now forward it explicitly.
 
 | Service | Where |
 |---|---|
 | Web | <http://localhost:3100> |
 | API | <http://localhost:4100> — health at `/health` |
 | Postgres | `postgres://postgres:stinventory@localhost:5433/stinventory` |
+| Mailbox | <http://localhost:8025> — every email this stack sends, delivered nowhere |
 
-### Sign-in accounts
+### The local mailbox
+
+`make ENV=local up` runs Mailpit, a real SMTP server that accepts everything and
+delivers none of it. `.env.local` points `SMTP_HOST` at it, so an invite sent
+from `/people` arrives at <http://localhost:8025> with a **clickable link** that
+completes signup and drops the new account into whatever onboarding its role
+declares (`role.onboarding_kind`).
+
+That is the whole invite -> email -> signup -> onboarding loop, testable without
+sending mail to anybody. Never point a deployed environment at it.
+
+### Urban's real register (`make seed-urban`)
+
+Two administrator accounts, both on `SEED_OWNER_PASSWORD` (or a random one
+printed once):
+
+| Account | Role | What it is |
+|---|---|---|
+| `optix_it@optixtec.com` | `owner` | The ORGANISATIONAL administrator — the customer's own, confined to this tenant |
+| `tech@optixtec.com` | `tech_admin` | Optix's own operator. Same grants inside the tenant; `role.is_cross_tenant` is set but **nothing reads it yet** |
+
+No other logins. Everybody else joins through an invite, which sets their role
+as it sends.
+
+### Sign-in accounts (demo fixture — `SEED_DATASET` unset)
 
 Password `stinventory-demo` for every account except `invited@` (below), which has none yet
-by design. **Development credentials only** — the seed refuses to run against
-`NODE_ENV=production` for exactly this reason.
+by design. **Development credentials only, and only for this dataset** — the seed refuses
+to run against `NODE_ENV=production` for exactly this reason. `SEED_DATASET=urban` seeds a
+single real login instead; see `docs/data/README.md`.
 
 Since STI-304 there is **one account per role**, which is what makes a permission denial
 observable at all: until then the only three accounts were `owner`, `equipment_admin` and
@@ -55,20 +119,17 @@ Urban, is `docs/workings/PERMISSION_MATRIX.md`.
 
 `SEED_RESET=1 make ENV=local seed` wipes first.
 
-### The browser suite
+### Checking it in a browser
 
-```bash
-make ENV=local e2e-install   # once — fetches Chromium
-make ENV=local e2e           # needs the stack already up
-```
+There is **no committed browser suite.** The `e2e/` Playwright package and its
+`make e2e` / `make e2e-install` targets were deleted on 2026-09-10: the specs had drifted
+from renamed UI — clicking an "In Yard" tab that is now "Yard", asserting a "TAG" column
+that is now "CODE" — and a spec naming a screen that no longer exists misleads whoever
+reads it next.
 
-It drives a real browser against `:3100` from OUTSIDE the containers, which is the only way
-to test the stack rather than a process's opinion of itself. `make ENV=local up` must be
-running first; the auth setup fails with a readable message if it is not.
-
-**Read-only by design.** That is what lets it run in parallel against the shared database
-with no isolation mechanism — and it means the first spec that CHANGES a row needs one
-chosen first. The reasoning is in `e2e/playwright.config.ts`.
+Browser checking is now the Playwright MCP, driven a step at a time against the running
+stack — see `.claude/skills/test-on-playwright`. It proves the change in front of you and
+leaves no regression protection behind, so do not record it as coverage.
 
 ## The chat parser
 

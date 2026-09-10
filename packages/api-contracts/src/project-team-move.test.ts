@@ -45,12 +45,7 @@ describe.skipIf(!url)("moving a crew between jobs", () => {
       userId: actorUserId,
       tenantId,
       employeeId: null,
-      permissions: new Set<Permission>([
-        "project.assign.foreman",
-        "project.assign.superintendent",
-        "project.assign.pm",
-        "project.team.read",
-      ]),
+      permissions: new Set<Permission>(["project.team.assign", "project.team.read"]),
       roleName: null,
       actorLabel: null,
     },
@@ -126,6 +121,15 @@ describe.skipIf(!url)("moving a crew between jobs", () => {
       .values({ name: "crew move test", slug: `crewmove-${suffix}` })
       .returning({ id: schema.tenant.id });
     tenantId = t!.id;
+
+    /* `projectTeamRouter.assign`/`remove` resolve the target role against
+       this register since 2026-09-03 — a throwaway tenant with none of the
+       three built-in rows cannot assign a foreman at all. */
+    await db.insert(schema.teamRole).values([
+      { tenantId, name: "pm", label: "Project Manager", canHoldCustody: false },
+      { tenantId, name: "superintendent", label: "Superintendent", canHoldCustody: true },
+      { tenantId, name: "foreman", label: "Foreman", canHoldCustody: true },
+    ]);
 
     const projects = await db
       .insert(schema.project)

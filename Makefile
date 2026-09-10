@@ -48,20 +48,20 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-# `e2e` and `e2e-install` MUST be listed here: there is a directory called
-# `e2e/`, so without .PHONY make sees a target that is already satisfied by a
-# file of the same name and prints "'e2e' is up to date" without running
-# anything. The browser suite silently did not run for anyone invoking it
-# through make. CI calls playwright directly, so CI never noticed.
-.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint e2e e2e-install mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
+.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
-up: ## Build + start postgres, api, web (detached); seeds on first boot
+up: ## Build + start postgres, api, web, mailpit (detached); seeds on first boot
 	$(COMPOSE) up -d --build
-	@$(COMPOSE) exec -T api sh -c "cd /workspace/packages/db && pnpm seed" >/dev/null 2>&1 || true
+# Honours SEED_DATASET, from the environment or .env.local — without it this
+# line always loaded the DEMO FIXTURE, so a machine deliberately running the
+# bare or urban dataset got forty-six invented people back the next time
+# somebody brought the stack up on a fresh volume. Idempotent either way: the
+# seed skips when a tenant already exists, so this never overwrites real data.
+	@$(COMPOSE) exec -T -e SEED_DATASET="$(SEED_DATASET)" api sh -c "cd /workspace/packages/db && pnpm seed" >/dev/null 2>&1 || true
 	@echo ""
 	@echo "  api      → http://localhost:4100  (health: /health)"
 	@echo "  web      → http://localhost:3100  (Next.js - shadcn new-york)"
@@ -86,8 +86,55 @@ logs: ## Tail logs from all services
 ps: ## Show running containers
 	$(COMPOSE) ps
 
-seed: ## Populate sample data (idempotent; SEED_RESET=1 to wipe first)
-	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm seed"
+# SEED_RESET / SEED_DATASET / SEED_OWNER_PASSWORD are forwarded EXPLICITLY.
+# `docker compose exec` does not inherit the caller's environment, so
+# `SEED_RESET=1 make seed` silently seeded nothing before this — the seed saw no
+# variable, found a tenant already there, and skipped.
+SEED_ENV = -e SEED_RESET="$(SEED_RESET)" -e SEED_DATASET="$(SEED_DATASET)" -e SEED_OWNER_PASSWORD="$(SEED_OWNER_PASSWORD)"
+
+seed: ## Populate sample data (SEED_RESET=1 to wipe first; SEED_DATASET=urban for the real register)
+	$(COMPOSE) exec $(SEED_ENV) api sh -c "cd /workspace/packages/db && pnpm seed"
+
+seed-urban: ## Wipe and load Urban's REAL register (83 people, 753 tools). Local only.
+	@echo "This WIPES the local database and loads Urban's real data."
+	@echo "Note: the sign-in page's demo-account list names accounts this dataset"
+	@echo "      does NOT have. Keep NEXT_PUBLIC_SHOW_DEMO_LOGINS=0 in .env.local."
+	$(COMPOSE) exec -e SEED_RESET=1 -e SEED_DATASET=urban \
+		-e SEED_OWNER_PASSWORD="$(or $(SEED_OWNER_PASSWORD),stinventory-demo)" \
+		api sh -c "cd /workspace/packages/db && pnpm seed"
+
+seed-bare: ## Wipe and seed an EMPTY tenant — one owner, no people. For a real BambooHR sync.
+	@echo "This WIPES the local database and seeds a tenant with NO people,"
+	@echo "tools or jobs — just the vocabularies, the permission matrix and one"
+	@echo "owner login. The People register then fills from BambooHR and from"
+	@echo "nothing else, which is the point."
+	@echo ""
+	@echo "The owner password is SEED_OWNER_PASSWORD, or generated and printed"
+	@echo "ONCE below. Save it — it is not stored anywhere."
+	@echo ""
+	$(COMPOSE) exec -e SEED_RESET=1 -e SEED_DATASET=bare \
+		-e SEED_OWNER_PASSWORD="$(SEED_OWNER_PASSWORD)" \
+		api sh -c "cd /workspace/packages/db && pnpm seed"
+
+# Distinct from `seed-bare` above, and the difference matters: this one EMPTIES
+# an existing database with SQL and re-seeds nothing, keeping whatever logins
+# are already there. `seed-bare` rebuilds a tenant from scratch. Reach for this
+# when you want to keep the accounts you have; reach for that when you want a
+# clean tenant.
+reset-bare: ## Empty the register (no employees/tools/jobs), KEEP the logins
+	@echo "This DELETES every employee, tool, job, vehicle, custody and ledger row."
+	@echo "It KEEPS the tenant, permissions, roles, settings and both logins:"
+	@echo "  optix_it@optixtec.com / tech@optixtec.com"
+	@echo "Nothing is re-seeded. Run 'make seed-urban' or 'make seed-demo' after"
+	@echo "if you want a dataset back."
+	@echo ""
+	$(COMPOSE) exec -T postgres psql -U postgres -d $(or $(POSTGRES_DB),stinventory) \
+		-v ON_ERROR_STOP=1 -f /dev/stdin < packages/db/sql/empty-register.sql
+
+seed-demo: ## Wipe and load the demo FIXTURE — what rbac-matrix.test.ts needs. Run before the test suite.
+	@echo "Tip: set NEXT_PUBLIC_SHOW_DEMO_LOGINS=1 in .env.local to get the"
+	@echo "     one-click account list back; those accounts exist in THIS dataset."
+	$(COMPOSE) exec -e SEED_RESET=1 api sh -c "cd /workspace/packages/db && pnpm seed"
 
 generate: ## Generate a migration from schema changes (commit the result)
 	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm generate"
@@ -114,16 +161,6 @@ reset: ## Wipe DB volume + restart + reseed (DESTRUCTIVE)
 
 test: ## Run vitest inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm test"
-
-e2e: ## Run the browser suite against the running stack (STI-001)
-	@# Deliberately NOT inside the api container. The suite drives a browser
-	@# against web:3100 and api:4100 from OUTSIDE, which is the only way to
-	@# test the stack rather than a process's opinion of itself — and the
-	@# container has no browser. `make ENV=local up` must be running.
-	pnpm --dir e2e exec playwright test
-
-e2e-install: ## One-time: fetch the Chromium the browser suite drives
-	pnpm --dir e2e exec playwright install chromium
 
 typecheck: ## Run typecheck inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm typecheck"

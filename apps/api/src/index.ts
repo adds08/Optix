@@ -16,8 +16,9 @@ import { corsOptions } from "./cors.js";
 import { clearRateLimit, clientIp, rateLimit } from "./rate-limit.js";
 import { isAllowedImage, MAX_PHOTO_BYTES, storageFor } from "./storage.js";
 import { sweepRequests } from "./request-worker.js";
+import { bambooCredentialsFrom, processQueuedSyncRuns } from "./bamboo-sync.js";
 import * as schema from "@stinventory/db/schema";
-import { and, eq } from "drizzle-orm";
+import { isNull, gt, and, eq } from "drizzle-orm";
 import { sendMail, passwordResetEmail, passwordChangedEmail, type MailConfig } from "@stinventory/mail";
 
 function detectSource(userAgent: string | undefined): "web" | "mobile" | "api" {
@@ -45,7 +46,7 @@ const mailFallback: MailConfig | null = env.SMTP_HOST
       port: env.SMTP_PORT,
       user: env.SMTP_USER ?? null,
       pass: env.SMTP_PASS ?? null,
-      from: env.SMTP_FROM ?? "STInventory <no-reply@stinventory.local>",
+      from: env.SMTP_FROM ?? "Optix <donotreply@optixtec.com>",
     }
   : null;
 
@@ -205,7 +206,7 @@ app.post("/auth/forgot-password", async (c) => {
     await sendMail(config, {
       to: email,
       ...passwordResetEmail({
-        tenantName: tenantRow?.name ?? "STInventory",
+        tenantName: tenantRow?.name ?? "Optix",
         recipientFirstName: u.firstName,
         resetUrl: `${env.WEB_ORIGIN}/reset/${token}`,
         expiresHuman: "1 hour",
@@ -302,7 +303,11 @@ app.post("/auth/tokens/:token/consume", async (c) => {
   }
 
   const passwordHash = await hashPassword(body.password);
-  await db.transaction(async (tx) => {
+  const consumed = await db.transaction(async (tx) => {
+    const [claimed] = await tx.update(schema.authToken).set({ consumedAt: new Date() })
+      .where(and(eq(schema.authToken.id, row.id), isNull(schema.authToken.consumedAt), gt(schema.authToken.expiresAt, new Date())))
+      .returning({ id: schema.authToken.id });
+    if (!claimed) return false;
     await tx
       .update(schema.user)
       .set({
@@ -341,7 +346,9 @@ app.post("/auth/tokens/:token/consume", async (c) => {
       .update(schema.user)
       .set({ emailVerifiedAt: new Date() })
       .where(and(eq(schema.user.id, row.userId), eq(schema.user.tenantId, row.tenantId)));
+    return true;
   });
+  if (!consumed) return c.json({ error: "invalid_or_expired" }, 400);
 
   const u = await db.query.user.findFirst({ where: eq(schema.user.id, row.userId) });
   if (row.kind === "reset" && u) {
@@ -349,7 +356,7 @@ app.post("/auth/tokens/:token/consume", async (c) => {
     const config = await mailConfigFor(db, row.tenantId, env.SESSION_SECRET, mailFallback);
     await sendMail(config, {
       to: u.email,
-      ...passwordChangedEmail({ tenantName: tenantRow?.name ?? "STInventory", recipientFirstName: u.firstName }),
+      ...passwordChangedEmail({ tenantName: tenantRow?.name ?? "Optix", recipientFirstName: u.firstName }),
     });
   }
 
@@ -577,6 +584,37 @@ setInterval(async () => {
 log.info(`[messaging-worker] poller started (every ${MSG_POLL_INTERVAL_MS / 1000}s)`);
 
 /*
+  BambooHR sync worker: picks up runs the "Sync from" button queued.
+
+  10s, not 4s: pressing a button is the trigger, so latency to first byte is
+  what matters and nobody is waiting on a sub-second response. A slower tick
+  also means fewer overlapping scans against a network-bound job.
+
+  IN-FLIGHT GUARD, and it is not optional here. `.claude/rules/api-server.md`
+  records that none of the other three loops has one, so a scan slower than its
+  interval overlaps itself. Those are all local database work; this one fetches
+  a paginated roster over the internet and WILL routinely outrun a 10s tick.
+  Without the flag, a slow sync would be re-entered every 10 seconds and hammer
+  the client's production HR system — the exact opposite of the read-only
+  restraint the rest of this feature is built around. The claim in
+  `executeSyncRun` makes a double-claim harmless; this stops the pile-up.
+*/
+const SYNC_POLL_INTERVAL_MS = 10_000;
+let syncInFlight = false;
+setInterval(async () => {
+  if (syncInFlight) return;
+  syncInFlight = true;
+  try {
+    await processQueuedSyncRuns(db, bambooCredentialsFrom(env));
+  } catch (err) {
+    log.error("[bamboo-sync] poll failed", { err: String(err) });
+  } finally {
+    syncInFlight = false;
+  }
+}, SYNC_POLL_INTERVAL_MS);
+log.info(`[bamboo-sync] poller started (every ${SYNC_POLL_INTERVAL_MS / 1000}s)`);
+
+/*
   Request worker: retries messages stranded by an unreachable parser, and makes
   sure a field request waiting on the desk gets noticed.
 
@@ -619,7 +657,7 @@ async function sweepProjectionDivergence() {
         .select({
           assetId: schema.asset.id,
           assetNumber: schema.asset.assetNumber,
-          tag: schema.asset.tag,
+          code: schema.asset.code,
           status: schema.asset.currentStatus,
           custodianId: schema.asset.currentCustodianId,
           projectId: schema.asset.currentProjectId,
@@ -627,7 +665,7 @@ async function sweepProjectionDivergence() {
         })
         .from(schema.asset)
         .where(eq(schema.asset.tenantId, t.id))
-    ).map((a) => ({ ...a, label: a.tag ? `#${a.assetNumber} ${a.tag}` : `#${a.assetNumber}` }));
+    ).map((a) => ({ ...a, label: a.code ? `#${a.assetNumber} ${a.code}` : `#${a.assetNumber}` }));
     const events = (await db
       .select()
       .from(schema.transaction)

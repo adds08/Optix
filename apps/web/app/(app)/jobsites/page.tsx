@@ -1,24 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Building2, ChevronDown, Package, PackageOpen, Plus, Search, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Building2, ChevronDown, ChevronRight, LayoutGrid, Package, PackageOpen, Plus, Rows3, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
 import { TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
+import { TableToolbar } from "@/components/sti/table-toolbar";
 import { FilterPills, FilterField } from "@/components/sti/facets";
 import { isHighValue } from "@/components/sti/flags";
 import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
-import { JobsiteTeamStrip } from "@/components/jobsite-team-strip";
+import { JobsiteCardView } from "@/components/jobsite-card-view";
+import Link from "next/link";
 import { RigPicker, type PickerRequest } from "@/components/rig-picker";
 import { CrewAssignDialog, type CrewAssignRequest } from "@/components/crew-assign-dialog";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
 import { Highlight } from "@/components/highlight";
 import { Button } from "@/components/ui/button";
 import { ActionMenuTrigger } from "@/components/sti/action-menu";
-import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SearchSelect } from "@/components/ui/search-select";
 import { humanize } from "@/components/sti/status";
@@ -52,28 +53,9 @@ import { cn } from "@/lib/utils";
 
 const YARD = "__yard";
 
-/*
-  The equipment department's own holding project, which is not a job.
-
-  Urban carries a project literally called "Equipment Yard" — two of them, in
-  fact, one with the cost code 24002 and one with none — and they were drawn in
-  the Jobs tab as ordinary sites. They hold no tools, so they were two empty
-  cards padding the job list with somewhere nobody is working.
-
-  MATCHED BY NAME, which is the weak part and is called out rather than hidden:
-  nothing on `project` marks it as the department's own, so a rename or a third
-  "Equipment Yard 2" walks straight past this. The durable fix is a column on
-  the project — a kind, or a link to `department` — and until that exists this
-  is one function so there is exactly one place to change.
-*/
-const YARD_PROJECT_NAME = "equipment yard";
-function isYardProject(name: string | null | undefined): boolean {
-  return (name ?? "").trim().toLowerCase() === YARD_PROJECT_NAME;
-}
 const NOJOB = "__nojob";
 
-/* Headers are one band (`bg-muted` + a rule) across every card. Only the two
-   cards that are NOT jobs carry a tint on top, because there the colour says
+/* The two cards that are NOT jobs carry a tint, because there the colour says
    something — this pile is the yard, this one is people between jobs. Jobs
    themselves are the default and get no wash: they were all tinted the same
    primary, which made twenty-six identical strips and told you nothing. */
@@ -85,6 +67,7 @@ export default function JobsitesPage() {
   const employees = trpc.employee.list.useQuery();
   const assets = trpc.asset.list.useQuery();
   const projects = trpc.project.list.useQuery();
+  const yardProjectIds = new Set((projects.data ?? []).filter(p => p.kind === "yard").map(p => p.id));
   const vehicles = trpc.vehicle.list.useQuery();
   /* The project roster (pm/superintendent/foreman per job), for the team strip
      on each card. Loaded once, keyed by project — see projectTeam.all. */
@@ -95,19 +78,22 @@ export default function JobsitesPage() {
   /* What this viewer may actually drive. The picker actions are each backed
      by a server permission — a foreman browsing the yard must not see buttons
      that can only fail, nor the tenant-wide vehicle list behind them. */
-  const canAssignCrew = has("project.assign.foreman");
+  const canAssignCrew = false; // Team assignments live in Project Teams.
   const canManageRig = has("vehicle.manage") || has("location.manage");
-  const canDrive = canAssignCrew || canManageRig;
+  const canDrive = canManageRig;
   /* Handing a loose tool to a foreman is assignment.create — held by more
      people than the rig controls, so it gates the loose-tool selection. */
   const canAssignTools = has("assignment.create");
   /* The per-tool ⋯ menu (return / hand over / status) needs any of the custody
      or manage permissions to be worth showing. */
   const canActTools = has("assignment.create") || has("transfer.create") || has("asset.manage");
-  /* Team strip: PM/super assignment is roster-only and each carries its own
-     permission (projectTeam.ts PERM_FOR_ROLE). */
-  const canAssignPm = has("project.assign.pm");
-  const canAssignSuper = has("project.assign.superintendent");
+  /* Team strip. Both used to read a per-tier permission; those were removed on
+     2026-09-10, so this is the tenant-wide grant for both. It is a HINT for
+     what to render — `assertCanAssign` is the gate, and it also admits a caller
+     whose own tier on this job is registered to fill the target tier, which
+     this cannot see without a per-project lookup the strip does not do. */
+  const canAssignPm = has("project.team.assign");
+  const canAssignSuper = has("project.team.assign");
 
   const { projectIds: scope } = useJobScope();
 
@@ -128,10 +114,12 @@ export default function JobsitesPage() {
      order the projects happened to arrive in. Sort keys come from the Blocky
      board (tools, value, gaps, name). */
   const [cardSort, setCardSort] = useState<"tools" | "value" | "gaps" | "name">("tools");
-  /* Blocky concept delta: the Unassigned pool view. The design's board split
-     into a Jobs tab and an Unassigned pool tab; the pool here is the yard and
-     the project-less groups, which the page ALREADY renders as cards — this
-     toggle just narrows the list to those cards instead of re-querying. */
+  /* Blocky concept delta: the Projects / Yard / Unassigned split. The design's
+     board split into a Projects tab and a yard tab; the Yard view here is the
+     yard groups and Unassigned the project-less ones, which the page ALREADY
+     renders as cards — this toggle just narrows the list to those cards instead
+     of re-querying. (The yard tab was labelled "In Yard" until 2026-09-10; the
+     `poolView === "pool"` key still carries the older name.) */
   /*
     Renamed from `view` on 2026-08-23. The merge that brought the Blocky concept
     onto main landed a SECOND `const [view, setView]` in this same function —
@@ -143,7 +131,35 @@ export default function JobsitesPage() {
     are independent features that simply chose the same name, so telling them
     apart is the whole fix.
   */
-  const [poolView, setPoolView] = useState<"jobs" | "pool">("jobs");
+  const [poolView, setPoolView] = useState<"jobs" | "pool" | "unassigned">("jobs");
+  /*
+     How the cards are DRAWN — the detailed list (default) or the compact grid
+     whose tools open in a right sheet. Distinct from `poolView` above, which
+     picks WHICH cards exist; the two compose. Named `renderView` — the comment
+     on `poolView` records the merge break a bare `view` binding caused here
+     once already.
+
+     Per-browser, like column widths: a presentation preference, not data.
+     Starts as "list" and reads storage in an effect so the server HTML and the
+     first client render agree (the nav-pins pattern) — which also means a
+     fresh browser, starting with clean storage, always lands on the list view.
+  */
+  const [renderView, setRenderView] = useState<"list" | "cards">("list");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("sti-jobsites-view") === "cards") setRenderView("cards");
+    } catch {
+      /* Never break rendering over a cache. */
+    }
+  }, []);
+  const pickRenderView = (v: "list" | "cards") => {
+    setRenderView(v);
+    try {
+      localStorage.setItem("sti-jobsites-view", v);
+    } catch {
+      /* Quota / private mode — the choice just does not stick. */
+    }
+  };
   const [openJobs, setOpenJobs] = useState<Record<string, boolean>>({});
   const [openCrews, setOpenCrews] = useState<Record<string, boolean>>({});
   /*
@@ -255,8 +271,6 @@ export default function JobsitesPage() {
       value: number;
       gaps: string[];
       tint: string;
-      trucks: number;
-      trailers: number;
       fullyRigged: number;
     }[] = [];
 
@@ -280,7 +294,7 @@ export default function JobsitesPage() {
         const rigText = `${person?.name ?? ""} ${rig.truck?.unit ?? ""} ${rig.truck?.makeModel ?? ""} ${rig.trailer?.unit ?? ""}`;
         const visible = crewTools.filter(
           (t) =>
-            (jobHit || hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} ${rigText}`)) &&
+            (jobHit || hit(`${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} ${rigText}`)) &&
             toolOk(t),
         );
         crews.push({
@@ -337,7 +351,7 @@ export default function JobsitesPage() {
         (t) =>
           !t.custodianId &&
           !foremanFilter &&
-          (jobHit || hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`)) &&
+          (jobHit || hit(`${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`)) &&
           toolOk(t),
       );
       const toolCount = crews.reduce((n, c) => n + c.tools.length, 0) + loose.length;
@@ -350,19 +364,19 @@ export default function JobsitesPage() {
         id: p.id,
         name: p.name,
         code: p.externalId,
-        isJob: true,
+        isJob: p.kind !== "yard",
         crews,
         loose,
         toolCount,
         value,
         gaps,
-        /* No tint. The card already carries an accent edge, a bordered header
-           and an icon chip; a primary wash behind all of it was the fourth use
-           of the same hue in one strip. The header is separated by its border
-           and the metric bar under it, not by colour. */
+        /* No tint: the job header gets its band from the render site's
+           fallback (bg-muted/40) rather than a coloured wash. The card
+           already carries an icon chip, the gap pill and the crew list; a
+           primary wash behind all of it was the third use of the same hue in
+           one strip. The special (yard / between jobs) cards tint differently
+           because there the colour says what kind of pile this is. */
         tint: "",
-        trucks: crews.filter((c) => c.rig.truck).length,
-        trailers: crews.filter((c) => c.rig.trailer).length,
         fullyRigged: crews.filter((c) => c.rig.truck && c.rig.trailer).length,
       });
     }
@@ -383,7 +397,7 @@ export default function JobsitesPage() {
         const rig = rigOf(f.id, vehicles.data ?? []);
         const visible = crewTools.filter(
           (t) =>
-            hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`) &&
+            hit(`${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)}`) &&
             toolOk(t),
         );
         noJobCrews.push({
@@ -403,8 +417,8 @@ export default function JobsitesPage() {
          in the yard — Dave's shop tools are held, just not booked to a job. */
       const yardTools = forProject(null).filter(
         (t) =>
-          !t.custodianId &&
-          hit(`${t.tag ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} yard`) &&
+          !t.custodianId && t.locationType === "warehouse" &&
+          hit(`${t.code ?? ""} ${t.serialNumber ?? ""} ${formatAssetModel(t)} yard`) &&
           toolOk(t),
       );
       out.push({
@@ -418,67 +432,77 @@ export default function JobsitesPage() {
         value: yardTools.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0),
         gaps: [],
         tint: CARD_TINT[YARD] ?? "",
-        trucks: 0,
-        trailers: 0,
         fullyRigged: 0,
       });
 
       /* The not-assigned group comes last, even when it is empty — it is the
          permanent home for project-less foremen, not a section that comes and
          goes with the current roster. */
-      const noJobToolCount = noJobCrews.reduce((n, c) => n + c.tools.length, 0);
+      const unplacedTools = forProject(null).filter(t => !t.custodianId && t.locationType !== "warehouse" && toolOk(t) && hit(`${t.code ?? ""} ${formatAssetModel(t)}`));
+      const noJobToolCount = unplacedTools.length + noJobCrews.reduce((n, c) => n + c.tools.length, 0);
       out.push({
         id: NOJOB,
         name: "Not assigned to any project",
         code: null,
         isJob: false,
         crews: noJobCrews,
-        loose: [],
+        loose: unplacedTools,
         toolCount: noJobToolCount,
-        value: noJobCrews.reduce((n, c) => n + c.tools.reduce((m, t) => m + (Number(t.acquisitionCost) || 0), 0), 0),
+        value: unplacedTools.reduce((n, t) => n + (Number(t.acquisitionCost) || 0), 0) + noJobCrews.reduce((n, c) => n + c.tools.reduce((m, t) => m + (Number(t.acquisitionCost) || 0), 0), 0),
         gaps: [],
         tint: CARD_TINT[NOJOB] ?? "",
-        trucks: noJobCrews.filter((c) => c.rig.truck).length,
-        trailers: noJobCrews.filter((c) => c.rig.trailer).length,
         fullyRigged: noJobCrews.filter((c) => c.rig.truck && c.rig.trailer).length,
       });
     }
 
     return out.filter((c) => {
       /* The Equipment Yard is NOT a job — neither the synthetic yard card nor
-         the real project(s) Urban names that way. Both belong in the Pool.
+         the real project(s) Urban names that way. Both belong in the Yard
+         tab, and are excluded from Projects below. */
 
-         Computed BEFORE the pool filter below, not after: that filter keeps
-         only YARD and NOJOB by id, so a real "Equipment Yard" project failed it
-         and disappeared from the Pool as well as from Jobs — out of both tabs
-         and off the screen entirely. Caught by walking the two tabs and
-         counting cards rather than by trusting the diff. */
-      const isYard = c.id === YARD || isYardProject(c.name);
-      /*
-        The yard shows in BOTH tabs as of 2026-09-01, pinned last in Jobs.
-
-        It was excluded from Jobs because it is not a job — true, and it turned
-        out to be the wrong conclusion. The yard is where the tools NOT on a job
-        are, which is the question the Jobs tab is being read to answer: a desk
-        scanning the list for "what is spare" had to know the Pool tab existed
-        and go and look. Sorting it in with the jobs was the original mistake
-        (it out-ranked real jobs on "most tools" and led the board), so it is
-        pinned to the bottom instead of ranked — present, never competing.
-      */
+      const isYard = c.id === YARD || yardProjectIds.has(c.id);
+      /* The Equipment Yard is not a job. It shows ONLY in the Yard tab, so a
+         desk scanning the projects list never has to page past a place nobody
+         is working to read the sites that are. */
+      if (poolView === "jobs" && (isYard || c.id === NOJOB)) return false;
 
       /* Pool view shows the unassigned groups only — the yard, the yard
-         projects, and the project-less people. Jobs drop out entirely (the
-         design's "Unassigned pool" tab), but NOJOB keeps its pinned-bottom rule
-         below. */
-      if (poolView === "pool" && !isYard && c.id !== NOJOB) return false;
+         projects, and the project-less people. Projects drop out entirely, but
+         NOJOB keeps its pinned-bottom rule below. */
+      if (poolView === "pool" && !isYard) return false;
+      if (poolView === "unassigned" && c.id !== NOJOB) return false;
       /* The not-assigned group is pinned at the bottom permanently — it must
          survive filters that prune everything else. */
       if (c.id === NOJOB) return true;
       if (gapFilter === "no_crew" && c.crews.length) return false;
       if (gapFilter === "no_truck" && !c.crews.some((x) => !x.rig.truck)) return false;
       if (gapFilter === "no_trailer" && !c.crews.some((x) => !x.rig.trailer)) return false;
-      /* A card filtered down to nothing is noise, not information. */
-      if (anyFilter && c.toolCount === 0 && c.crews.length === 0) return false;
+      /*
+        A card filtered down to nothing is noise, not information — but a
+        text search and the browsing filters (status/category/gap) disagree
+        on what "nothing" means, and conflating them was the bug.
+
+        `crews.length` counts every foreman ON THE PROJECT, built before any
+        filter runs (buildCrews always pushes a crew, even one whose `tools`
+        the filter emptied out) — so it stays non-zero for almost any staffed
+        job regardless of what was typed. That is exactly the right thing to
+        lean on for status/category/gap: "this crew has nobody matching THIS
+        filter, but they're real people on a real job" is worth keeping
+        visible. It is exactly the wrong thing for a text search: typing a
+        tag or a serial and getting back every staffed job on the board,
+        holding none of it, is the "everything is shown" a foreman actually
+        hit searching for one tool by its code.
+
+        So a non-empty search drops a toolless card outright UNLESS the job's
+        own name or code is what matched (`hit` against `c.name`/`c.code`,
+        the same predicate `jobHit` used above) — a newly awarded job with
+        zero tools yet is still the right answer to searching its own name.
+        Every other filter keeps the old, more forgiving rule.
+      */
+      if (c.toolCount === 0) {
+        if (q.trim() && !hit(`${c.name} ${c.code ?? ""}`)) return false;
+        if (anyFilter && c.crews.length === 0) return false;
+      }
       return true;
     }).sort((a, b) => {
       /* Two pinned tails, in order: the yard sits below every job, and the
@@ -490,8 +514,8 @@ export default function JobsitesPage() {
          them. */
       if (a.id === NOJOB) return 1;
       if (b.id === NOJOB) return -1;
-      const aYard = a.id === YARD || isYardProject(a.name);
-      const bYard = b.id === YARD || isYardProject(b.name);
+      const aYard = a.id === YARD || yardProjectIds.has(a.id);
+      const bYard = b.id === YARD || yardProjectIds.has(b.id);
       if (aYard !== bYard) return aYard ? 1 : -1;
       if (cardSort === "name") return a.name.localeCompare(b.name);
       if (cardSort === "gaps") return b.gaps.length - a.gaps.length || b.toolCount - a.toolCount;
@@ -536,7 +560,8 @@ export default function JobsitesPage() {
   if (assets.isError || projects.isError) return <ErrorNote message="The jobsite view could not be loaded." />;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <p className="rounded-md border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">Projects show tools booked to a job. Yard shows tools recorded at warehouse locations or a yard. Unassigned shows tools and custodians without a project; their physical location may be elsewhere. Manage reporting branches in <Link className="font-medium text-primary underline" href="/project-teams">Project Teams</Link>.</p>
       <RigPicker request={picker} onClose={() => setPicker(null)} onDone={invalidate} foremen={foremen} vehicles={vehicles.data ?? []} projects={projects.data ?? []} />
       <CrewAssignDialog
         request={assign}
@@ -549,23 +574,23 @@ export default function JobsitesPage() {
 
       <div className="flex min-w-0 flex-col gap-3">
           <>
-          <section className="flex flex-col gap-2 rounded-md border bg-card p-3">
-            {/* Search stays on the bar because it is the one control used on
-                every visit. The other six live in the sheet — as loose
-                dropdowns they wrapped to one per line the moment the window
-                narrowed, turning the filter bar into a column taller than the
-                first card. */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-56 flex-1">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search everything — job, foreman, truck, trailer, serial or tool…"
-                  className="pl-8"
-                  aria-label="Search the jobsite list"
-                />
-              </div>
+          {/* Carded on `bg-card`, same as every other search/filter bar: the
+              toolbar is a control strip, so it sits on the surface controls
+              are drawn on rather than floating on the page background. The
+              one bar that used to be carded and the ones that were bare are
+              now the same treatment. */}
+          <section className="flex flex-col gap-2 rounded-md border bg-card p-2">
+            {/* The top row is the shared register toolbar: search on the left,
+                every button to its right — Filter, sort, List/Cards,
+                the Projects/Yard/Unassigned tabs, master expand. The counts that used to share
+                this row now sit on their own summary line below, the same way
+                the register toolbars keep numbers out of the button row. */}
+            <TableToolbar
+              searchValue={q}
+              onSearchChange={setQ}
+              placeholder="Search everything — job, foreman, truck, trailer, serial or tool…"
+              ariaLabel="Search the jobsite list"
+            >
               <FilterSheet
                 title="Filter jobsites"
                 activeCount={sheetFilterCount}
@@ -621,11 +646,11 @@ export default function JobsitesPage() {
                     options={categoryOptions.map((c) => ({ value: c, label: c }))}
                   />
                 </FilterField>
-                <FilterField label="Rig gap">
+                <FilterField label="Truck & trailer">
                   <SearchSelect
                     value={gapFilter}
                     onChange={(v) => setGapFilter(v as typeof gapFilter)}
-                    placeholder="Any rig"
+                    placeholder="Any"
                     widthClass="w-full"
                     options={[
                       { value: "no_crew", label: "Job with no crew" },
@@ -644,6 +669,144 @@ export default function JobsitesPage() {
                   <TriangleAlert className="size-3.5" /> High-value tools only
                 </Button>
               </FilterSheet>
+
+              {/* View MODE — a simple icon switch, kept apart from the tools
+                  below. Two text tabs read like another data filter; and the
+                  words swapped the row's width when toggling, which is the
+                  "UI jumping" between the two layouts. Icons have a fixed
+                  width, so the mode changes without the row shifting. */}
+              <div className="flex items-center overflow-hidden rounded-md border" role="group" aria-label="Layout">
+                <button
+                  type="button"
+                  onClick={() => pickRenderView("list")}
+                  aria-pressed={renderView === "list"}
+                  aria-label="List view"
+                  title="Full cards, crews and tools inline"
+                  className={cn(
+                    "grid size-[34px] place-items-center transition-colors",
+                    renderView === "list"
+                      ? "bg-muted text-foreground"
+                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  <Rows3 className="size-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => pickRenderView("cards")}
+                  aria-pressed={renderView === "cards"}
+                  aria-label="Cards view"
+                  title="Compact cards, tools in a side sheet"
+                  className={cn(
+                    "grid size-[34px] place-items-center transition-colors",
+                    renderView === "cards"
+                      ? "bg-muted text-foreground"
+                      : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  <LayoutGrid className="size-4" aria-hidden />
+                </button>
+              </div>
+
+              {/* Projects / Yard / Unassigned split. "Jobs" named a thing this
+                  tab is only partly about (a job is a site), and "Pool" was
+                  jargon. The labels say what each tab actually is; the state
+                  keys ("jobs"/"pool"/"unassigned") still carry the old names. */}
+              <div className="flex overflow-hidden rounded-md border" role="group" aria-label="View">
+                {([["jobs", "Projects"], ["pool", "Yard"], ["unassigned", "Unassigned"]] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setPoolView(key)}
+                    aria-pressed={poolView === key}
+                    className={cn(
+                      /* Wide enough to read as two tabs. At `px-2.5` the pair
+                         was narrower than the sort control beside it and read
+                         as one small chip rather than a choice. */
+                      "min-w-[4.5rem] h-[34px] px-4 text-xs transition-colors",
+                      poolView === key
+                        ? "bg-muted font-medium text-foreground"
+                        : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Job-level sort. The one control the design's board adds that
+                  the page did not have. */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-1.5" aria-label="Sort jobs">
+                    <ArrowDownWideNarrow className="size-3.5" />
+                    {cardSort === "tools" ? "Most tools" : cardSort === "value" ? "Most value" : cardSort === "gaps" ? "Most gaps" : "Name"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setCardSort("tools")}>Most tools</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCardSort("value")}>Most value</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCardSort("gaps")}>Most gaps</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCardSort("name")}>Name</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Expand / collapse is a property of the FULL cards — the
+                  layout where crews open inline. The compact grid opens
+                  sheets instead, so it has no master expand to offer. */}
+              {renderView === "list" ? (
+                <Button
+                  variant="outline"
+                  onClick={stepMaster}
+                  title="Steps through: jobs open, crews open, crews shut, everything shut"
+                >
+                  {master.next === "Expand all" || master.next === "Expand crews" ? (
+                    <Eye className="size-3.5" />
+                  ) : (
+                    <ChevronDown className={cn("size-3.5", master.next === "Collapse all" && "rotate-180")} />
+                  )}
+                  {master.next}
+                </Button>
+              ) : null}
+            </TableToolbar>
+
+            {/* The summary line — what the filters produced, in numbers. It is
+                information, so it does not sit in the button row above. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              <span className="tnum font-mono">
+                {shownTools} tool{shownTools === 1 ? "" : "s"} · {shownCrews} crew{shownCrews === 1 ? "" : "s"} · {cards.length} card{cards.length === 1 ? "" : "s"}
+              </span>
+              {/* The count is also the way in: seeing that eleven crews cannot
+                  haul anything and then having to open the sheet to find them
+                  is a dead end where a link belongs. */}
+              {crewsWithoutTruck ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn("tnum h-6 rounded-full px-2 text-warn", gapFilter === "no_truck" && "bg-warn-bg")}
+                  onClick={() => setGapFilter(gapFilter === "no_truck" ? "" : "no_truck")}
+                  aria-pressed={gapFilter === "no_truck"}
+                >
+                  {crewsWithoutTruck} without a truck
+                </Button>
+              ) : null}
+              {anyFilter ? (
+                <Button variant="ghost" size="sm" className="h-6 rounded-full px-2 text-primary" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              ) : null}
+              {/* What the Yard tab actually holds, said in numbers.
+
+                  Only in the Yard tab: on Projects it would be describing cards that
+                  are not on screen. The two figures are the two cards below it,
+                  so the label is a summary of the view rather than a statistic
+                  from somewhere else. */}
+              {poolView === "pool" ? (
+                <span className="text-xs text-muted-foreground">
+                  <span className="tnum font-medium text-foreground">{poolCounts.yard}</span> in the yard
+
+                </span>
+              ) : null}
             </div>
 
             {/* What is currently narrowing the list, each removable on its own —
@@ -692,108 +855,39 @@ export default function JobsitesPage() {
                   : []),
               ]}
             />
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              {/* The whole card-row summary in one line — the numbers that used
-                  to sit in metric cards above, where they only pushed the cards
-                  themselves below the fold. */}
-              <span className="tnum font-mono">
-                {shownTools} tool{shownTools === 1 ? "" : "s"} · {shownCrews} crew{shownCrews === 1 ? "" : "s"} · {cards.length} card{cards.length === 1 ? "" : "s"}
-              </span>
-              {/* The count is also the way in: seeing that eleven crews cannot
-                  haul anything and then having to open the sheet to find them
-                  is a dead end where a link belongs. */}
-              {crewsWithoutTruck ? (
-                <button
-                  type="button"
-                  onClick={() => setGapFilter(gapFilter === "no_truck" ? "" : "no_truck")}
-                  aria-pressed={gapFilter === "no_truck"}
-                  className={cn(
-                    "tnum rounded-full px-2 py-0.5 font-medium text-warn transition-colors hover:bg-warn-bg",
-                    gapFilter === "no_truck" && "bg-warn-bg",
-                  )}
-                >
-                  {crewsWithoutTruck} without a truck
-                </button>
-              ) : null}
-              {anyFilter ? (
-                <Button variant="ghost" size="sm" className="h-6 rounded-full px-2 text-primary" onClick={clearFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-              {/* What the Pool actually holds, said in numbers.
-
-                  Only in the Pool tab: on Jobs it would be describing cards that
-                  are not on screen. The two figures are the two cards below it,
-                  so the label is a summary of the view rather than a statistic
-                  from somewhere else. */}
-              {poolView === "pool" ? (
-                <span className="text-xs text-muted-foreground">
-                  <span className="tnum font-medium text-foreground">{poolCounts.yard}</span> in the yard
-                  {" · "}
-                  <span className="tnum font-medium text-foreground">{poolCounts.noJob}</span> held with no job
-                </span>
-              ) : null}
-              <div className="ml-auto flex items-center gap-2">
-                {/* Blocky concept delta: the Jobs / Unassigned pool split. */}
-                <div className="flex overflow-hidden rounded-md border" role="group" aria-label="View">
-                  {([["jobs", "Jobs"], ["pool", "Pool"]] as const).map(([key, label]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setPoolView(key)}
-                      aria-pressed={poolView === key}
-                      className={cn(
-                        /* Wide enough to read as two tabs. At `px-2.5` the pair
-                           was narrower than the sort control beside it and read
-                           as one small chip rather than a choice. */
-                        "min-w-[4.5rem] px-4 py-1.5 text-xs transition-colors",
-                        poolView === key
-                          ? "bg-muted font-medium text-foreground"
-                          : "bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {/* Blocky concept delta: job-level sort. The one control the
-                    design's board adds that the page did not have. */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1.5" aria-label="Sort jobs">
-                      <ArrowDownWideNarrow className="size-3.5" />
-                      {cardSort === "tools" ? "Most tools" : cardSort === "value" ? "Most value" : cardSort === "gaps" ? "Most gaps" : "Name"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => setCardSort("tools")}>Most tools</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setCardSort("value")}>Most value</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setCardSort("gaps")}>Most gaps</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => setCardSort("name")}>Name</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={stepMaster}
-                  title="Steps through: jobs open, crews open, crews shut, everything shut"
-                >
-                  {master.next === "Expand all" || master.next === "Expand crews" ? (
-                    <Eye className="size-3.5" />
-                  ) : (
-                    <ChevronDown className={cn("size-3.5", master.next === "Collapse all" && "rotate-180")} />
-                  )}
-                  {master.next}
-                </Button>
-              </div>
-            </div>
           </section>
 
           {!cards.length ? (
             <EmptyState icon={Building2} title="Nothing matches those filters" description="Clear a filter, or search for a different unit." />
           ) : null}
 
-          {cards.map((card) => {
+          {renderView === "cards" ? (
+            /* The same `cards` array the list maps over — both views are one
+               derivation with two layouts, so a filter, the scope selector or
+               the Projects/Yard/Unassigned split can never show different worlds
+               in the two modes.
+               The icon is chosen HERE because this file owns the YARD/NOJOB
+               sentinels; the card view rendering them would mean the string
+               literals living in two files. */
+            <JobsiteCardView
+              cards={cards.map((c) => ({
+                ...c,
+                icon: c.id === NOJOB ? Users : c.id === YARD ? Warehouse : Building2,
+              }))}
+              canAct={canActTools}
+              highlight={q}
+              onPick={setPicker}
+              onAssignRequest={setAssign}
+              canManage={canDrive}
+              canAssignCrew={canAssignCrew}
+              canAssignTools={canAssignTools}
+              team={team.data ?? []}
+              employees={employees.data ?? []}
+              canAssignPm={canAssignPm}
+              canAssignSuper={canAssignSuper}
+            />
+          ) : (
+          cards.map((card) => {
             const open = openJobs[card.id] ?? master.jobs;
             /* Each card kind has its own icon: jobs are sites, the yard is the
                warehouse, the project-less people are a crew waiting for work. */
@@ -842,14 +936,32 @@ export default function JobsitesPage() {
               >
                 <header
                   className={cn(
-                    /* A distinct band with a rule under it, the same treatment
-                       the tool table's head gets. Both sides of the pair move
-                       with the palette, so this reads identically in light and
-                       dark instead of needing a second set of values. */
-                    "flex flex-wrap items-center gap-3 border-b-2 border-border bg-muted px-3.5 py-3",
-                    card.tint,
+                    /* Slim list header, per the design: the icon chip, the
+                       name, the counts. Normal jobs carry a faint wash so the
+                       project row reads as the outer level of the nested
+                       layout — the foreman boxes that open below are white
+                       cards on the tinted body, and the header is the band
+                       they hang from. The special (yard / between jobs) cards
+                       keep their stronger tints — there the colour says what
+                       kind of pile this is. */
+                    "flex flex-wrap items-center gap-2 px-2.5 py-2",
+                    card.tint || "bg-muted/40",
                   )}
                 >
+                  {/* Expand / collapse at the FRONT, beside the foreman
+                      chevrons that open under it — the desk clicks down the
+                      left edge, and a project toggle stranded at the far right
+                      would cost a mouse trip across every card. */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="order-first -ml-1 size-8 shrink-0"
+                    aria-label={open ? `Collapse ${card.name}` : `Expand ${card.name}`}
+                    aria-expanded={open}
+                    onClick={() => setOpenJobs((o) => ({ ...o, [card.id]: !open }))}
+                  >
+                    <ChevronRight className={cn("size-4 transition-transform", open && "rotate-90")} />
+                  </Button>
                   {/* The chip identifies the KIND of card (job / yard / between jobs). That
                       is not a state, so it does not take the accent — with the
                       edge bar right beside it, an accent chip made the same point
@@ -858,15 +970,18 @@ export default function JobsitesPage() {
                     <CardIcon className="size-4.5" aria-hidden />
                   </span>
                   <span className="flex min-w-40 flex-1 flex-wrap items-center gap-2">
-                    <span className="text-[17px] font-semibold tracking-tight">
-                      <Highlight text={card.name} q={q} />
-                    </span>
+                    {/* The job code leads the name — a yard talks in units
+                        ("JOB 22017"), and a row of cards scanning on the code
+                        reads faster than one scanning prose. */}
                     {card.code ? (
                       <span className="tnum rounded-sm border bg-muted/60 px-2 py-0.5 font-mono text-sm text-foreground/75">
                         {card.isJob ? <span className="text-muted-foreground">JOB </span> : null}
                         {card.code}
                       </span>
                     ) : null}
+                    <span className="text-[15px] font-semibold tracking-tight">
+                      <Highlight text={card.name} q={q} />
+                    </span>
                     <span className="text-sm text-muted-foreground">
                       {card.isJob ? (card.crews.length ? `${card.crews.length} crew${card.crews.length === 1 ? "" : "s"}` : "no crew yet") : "between jobs"}
                     </span>
@@ -874,15 +989,6 @@ export default function JobsitesPage() {
                       <span className="flex items-center gap-1.5 rounded-sm border border-warn/30 bg-warn-bg px-2 py-1 text-[13px] font-medium text-warn">
                         <TriangleAlert className="size-3.5" aria-hidden /> {card.gaps.join(" · ")}
                       </span>
-                    ) : null}
-                    {card.isJob ? (
-                      <JobsiteTeamStrip
-                        projectId={card.id}
-                        members={teamLeaders}
-                        candidates={teamCandidates}
-                        canAssignPm={canAssignPm}
-                        canAssignSuper={canAssignSuper}
-                      />
                     ) : null}
                   </span>
                   <span className="ml-auto flex items-center gap-2">
@@ -892,9 +998,9 @@ export default function JobsitesPage() {
                       </span>
                       <span className="tnum mt-1 block font-mono text-[13px] text-muted-foreground">{moneyShort(card.value)}</span>
                     </span>
-                    {card.isJob && canAssignCrew ? (
-                      <Button variant="outline" size="sm" className="border-dashed border-muted-foreground/40 text-primary hover:border-primary/50" onClick={() => setPicker({ kind: "crew", projectId: card.id })}>
-                        <Plus className="size-3.5" /> Add crew
+                    {card.isJob && has("project.team.read") ? (
+                      <Button variant="outline" size="sm" className="border-dashed border-muted-foreground/40 text-primary hover:border-primary/50" onClick={() => { window.location.href = `/project-teams?projectId=${card.id}`; }}>
+                        View team
                       </Button>
                     ) : null}
                     <DropdownMenu>
@@ -908,114 +1014,125 @@ export default function JobsitesPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button variant="outline" size="icon" className="size-8" aria-label="Expand" onClick={() => setOpenJobs((o) => ({ ...o, [card.id]: !open }))}>
-                      <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
-                    </Button>
                   </span>
                 </header>
 
                 {open ? (
-                  <div className="flex flex-col gap-2.5 border-t bg-muted/25 p-3">
-                    {/* Blocky concept delta: the per-job metric strip. The
-                        design's board led each job with TOOLS · CREWS · TRUCKS
-                        n/N · TRAILERS n/N · FULLY RIGGED n/N · VALUE so the gap
-                        was visible before opening anything. The page already
-                        carried these numbers on the summary line; this is the
-                        same data, laid out per card, one line, not a grid of
-                        cards (which is what pushed them below the fold once). */}
-                    {card.isJob ? (
-                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b pb-2 text-[11px]">
-                        {/*
-                          Rig readiness only — TOOLS, CREWS and VALUE are gone
-                          from this bar because the header two centimetres above
-                          already carries all three, and printing 210 and $3.8k
-                          twice in one strip is noise the eye has to resolve
-                          before it can read either.
-
-                          The header keeps them rather than this bar because the
-                          bar is inside the collapsed section: a shut card would
-                          otherwise show a name and nothing to judge it by. So
-                          the split is by STATE, not preference — headline totals
-                          live where they survive collapsing, and the breakdown
-                          that only means something once you can see the crews
-                          lives with the crews.
-                        */}
-                        <MetricCell label="TRUCKS" value={`${card.trucks}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.trucks < card.crews.length} />
-                        <MetricCell label="TRAILERS" value={`${card.trailers}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.trailers < card.crews.length} />
-                        <MetricCell label="RIGGED" value={`${card.fullyRigged}/${card.crews.length || "—"}`} warn={card.crews.length > 0 && card.fullyRigged < card.crews.length} />
-                      </div>
-                    ) : null}
-                    {card.crews.map((crew, i) => (
-                      <CrewCard
-                        key={crew.id}
-                        crew={crew}
-                        /* STI-401: jobs open, CREWS CLOSED by default, which
-                           is `master.crews` at step 0. Urban runs ~28 crews,
-                           so expanding every crew's tool table turned the
-                           department's morning question ("who needs a
-                           vehicle") into a scroll. A crew the desk opens stays
-                           open via `openCrews` until the master steps, which
-                           clears the map so it can address every crew at once
-                           — the second level the old boolean could not reach. */
-                        expanded={openCrews[crew.id] ?? master.crews}
-                        onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(o[crew.id] ?? master.crews) }))}
-                        onPick={setPicker}
-                        onAddTools={
-                          canAssignTools
-                            ? () => setAssign({ mode: "pickTools", foremanId: crew.foremanId, foremanName: crew.foremanName })
-                            : undefined
-                        }
-                        canManage={canDrive}
-                        canAct={canActTools}
-                        striped={i % 2 === 1}
-                        highlight={q}
-                        projectId={card.id}
-                      />
-                    ))}
-
-                    {card.isJob && !card.crews.length && canAssignCrew ? (
-                      <button
-                        type="button"
-                        onClick={() => setPicker({ kind: "crew", projectId: card.id })}
-                        className="rounded-md border border-dashed border-muted-foreground/40 bg-card p-4 text-left text-sm font-medium text-primary hover:border-primary/50"
-                      >
-                        No crew on this job yet — add a foreman with a truck or trailer.
-                      </button>
-                    ) : null}
-
-                    {card.id === NOJOB && !card.crews.length ? (
-                      <p className="rounded-md border border-dashed bg-card px-4 py-3 text-sm text-muted-foreground">
-                        Every foreman is on a project right now — this group holds whoever is between jobs.
-                      </p>
-                    ) : null}
-                    {card.loose.length ? (
-                      <LooseSection
-                        isJob={card.isJob}
-                        rows={card.loose}
-                        selected={selectedLoose[card.id] ?? new Set<string>()}
-                        canAssign={canAssignTools}
-                        canAct={canActTools}
-                        highlight={q}
-                        onToggle={(assetId) =>
-                          setSelectedLoose((m) => {
-                            const cur = m[card.id] ?? new Set<string>();
-                            const next = new Set(cur);
-                            if (next.has(assetId)) next.delete(assetId);
-                            else next.add(assetId);
-                            return { ...m, [card.id]: next };
-                          })
-                        }
-                        onAssign={() =>
-                          setAssign({ mode: "pickForeman", assetIds: [...(selectedLoose[card.id] ?? [])] })
-                        }
-                        onClear={() => setSelectedLoose((m) => ({ ...m, [card.id]: new Set<string>() }))}
-                      />
-                    ) : null}
-                  </div>
+                  /* One bordered container per foreman, nested inside the job
+                     card — the design's two-level shape, not a flat register.
+                     The body carries a faint wash so the white crew boxes read
+                     as cards ON it, not as one more flat surface; each crew
+                     box has its own header row and the tool table opens under
+                     it (folded to five rows + "Show more" inside ToolTable).
+                     The loose section keeps its tinted band below as its own
+                     row under the crew list. */
+                  <div className="border-t border-border bg-muted/10">
+                    <div className="flex flex-col gap-2 p-2">
+                      {/*
+                        When the desk types a search, only crews actually holding
+                        a match stay — a foreman whose toolbox holds no matching
+                        tool is noise, not information, and their header was
+                        showing anyway because `buildCrews` pushes a crew even
+                        when its `visible` tool list came out empty. Those crews
+                        are also forced OPEN: the whole reason to filter is to
+                        see WHERE the match is, and a crew that stays collapsed
+                        hides the very row the search found.
+                      */}
+                      {function () {
+                        const searching = q.trim().length > 0;
+                        const crews = searching ? card.crews.filter((c) => c.tools.length > 0) : card.crews;
+                        if (!card.crews.length) return null;
+                        return crews.length ? (
+                          crews.map((crew) => (
+                            <CrewCard
+                              key={crew.id}
+                              crew={crew}
+                              /* STI-401: jobs open, CREWS CLOSED by default, which
+                                 is `master.crews` at step 0. Urban runs ~28 crews,
+                                 so expanding every crew's tool table turned the
+                                 department's morning question ("who needs a
+                                 vehicle") into a scroll. A crew the desk opens stays
+                                 open via `openCrews` until the master steps, which
+                                 clears the map so it can address every crew at once
+                                 — the second level the old boolean could not reach. */
+                              expanded={searching ? true : openCrews[crew.id] ?? master.crews}
+                              onToggle={() => setOpenCrews((o) => ({ ...o, [crew.id]: !(o[crew.id] ?? master.crews) }))}
+                              onPick={setPicker}
+                              onAddTools={
+                                canAssignTools
+                                  ? () => setAssign({ mode: "pickTools", foremanId: crew.foremanId, foremanName: crew.foremanName })
+                                  : undefined
+                              }
+                              canManage={canDrive}
+                              canAct={canActTools}
+                              highlight={q}
+                              projectId={card.id}
+                            />
+                          ))
+                        ) : (
+                          <p className="px-4 py-3 text-sm text-muted-foreground">
+                            No crew on this job holds a tool matching that search.
+                          </p>
+                        );
+                      }()}
+                      {!card.crews.length && card.isJob && canAssignCrew ? (
+                        <div className="p-3">
+                          <button
+                            type="button"
+                            onClick={() => setPicker({ kind: "crew", projectId: card.id })}
+                            className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-muted-foreground/40 px-4 py-4 text-left text-sm font-medium text-primary hover:border-primary/50"
+                          >
+                            <Plus className="size-4" aria-hidden /> No crew on this job yet — add a foreman with a truck or trailer.
+                          </button>
+                        </div>
+                      ) : card.id === NOJOB && !card.crews.length ? (
+                        <p className="px-4 py-3 text-sm text-muted-foreground">
+                          Every foreman is on a project right now — this group holds whoever is between jobs.
+                        </p>
+                      ) : null}
+                    </div>
+                      {card.loose.length ? (
+                        <div className="px-2 pb-2">
+                          <LooseSection
+                            isJob={card.isJob}
+                            rows={card.loose}
+                            selected={selectedLoose[card.id] ?? new Set<string>()}
+                            canAssign={canAssignTools}
+                            canAct={canActTools}
+                            highlight={q}
+                            flush
+                            onToggle={(assetId) =>
+                              setSelectedLoose((m) => {
+                                const cur = m[card.id] ?? new Set<string>();
+                                const next = new Set(cur);
+                                if (next.has(assetId)) next.delete(assetId);
+                                else next.add(assetId);
+                                return { ...m, [card.id]: next };
+                              })
+                            }
+                            onAssign={() =>
+                              setAssign({ mode: "pickForeman", assetIds: [...(selectedLoose[card.id] ?? [])] })
+                            }
+                            onClear={() => setSelectedLoose((m) => ({ ...m, [card.id]: new Set<string>() }))}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
                 ) : null}
+
+                {/* Project leads, at the bottom of the card on purpose: who
+                    runs the job is the summary, not the headline. The code/name
+                    row above says WHAT this is; this rule says WHO. Kept visible
+                    when the card is collapsed so a desk reading the board sees
+                    who is accountable on every site without opening it. The
+                    strip itself returns null for a viewer who can neither see
+                    nor add a leader, so the row only exists when there is
+                    something worth the space. */}
+                {card.isJob && has("project.team.read") && <div className="flex items-center justify-between gap-3 border-t bg-muted/20 px-4 py-3 text-sm"><span>{roster.length} team members · Leadership and reporting branches</span><Link className="shrink-0 font-medium text-primary hover:underline" href={`/project-teams?projectId=${card.id}`}>View team →</Link></div>}
               </section>
             );
-          })}
+          })
+          )}
           </>
       </div>
     </div>
@@ -1038,6 +1155,7 @@ function LooseSection({
   canAssign,
   canAct,
   highlight,
+  flush = false,
   onToggle,
   onAssign,
   onClear,
@@ -1048,6 +1166,11 @@ function LooseSection({
   canAssign: boolean;
   canAct: boolean;
   highlight: string;
+  /* The connected-row list layout: no own box or rounding — the card's body
+     container and the divide rule above it do that. Kept a flag rather than
+     restyled unconditionally so the sheet/card surfaces can carry the boxed
+     variant as long as they want it. */
+  flush?: boolean;
   onToggle: (assetId: string) => void;
   onAssign: () => void;
   onClear: () => void;
@@ -1057,7 +1180,12 @@ function LooseSection({
   return (
     /* The whole block takes its own tint so unassigned tools read differently
        from the foreman crew cards around them. */
-    <div className={cn("overflow-hidden rounded-md border", isJob ? "border-primary/15 bg-primary/5" : "border-muted/60 bg-muted/10")}>
+    <div
+      className={cn(
+        isJob ? "border-primary/15 bg-primary/5" : "border-muted/60 bg-muted/10",
+        flush ? "" : "overflow-hidden rounded-md border",
+      )}
+    >
       <div
         className={cn(
           "flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs font-semibold",
@@ -1106,36 +1234,5 @@ function LooseSection({
         actions={canAct}
       />
     </div>
-  );
-}
-
-/* The Blocky metric strip cell — mono label over a tabular value. The value
-   colors warn when a ratio is not at parity (a job where every crew is fully
-   rigged shows plain foreground; anything less reads amber). */
-/*
-  The inline metric pair used in the job card's readiness strip.
-
-  A shared `sti/metric-cell.tsx` also existed and was imported by nothing: it
-  was a different component wearing the same name — a full-width bar cell with
-  the label and value pushed apart, not this inline pair. Deleted rather than
-  merged, because forcing one component to be both is how a primitive ends up
-  serving neither. If a second caller ever wants THIS shape, lift this one.
-*/
-function MetricCell({
-  label,
-  value,
-  warn,
-}: {
-  label: string;
-  value: string;
-  warn?: boolean;
-}) {
-  return (
-    <span className="flex items-baseline gap-1.5">
-      <span className="label-xs text-muted-foreground">{label}</span>
-      <span className={cn("tnum font-semibold", warn ? "text-warn" : "text-foreground")}>
-        {value}
-      </span>
-    </span>
   );
 }

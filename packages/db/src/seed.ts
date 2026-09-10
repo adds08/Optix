@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import bcrypt from "bcryptjs";
@@ -13,11 +13,15 @@ import {
   category,
   channel,
   department,
+  division,
   companyRole,
+  teamRole,
+  teamRoleAssigner,
   uomCategory,
   unitOfMeasure,
   employeeContact,
   employee,
+  employeeExternalRef,
   employeeProjectAssignment,
   location,
   message,
@@ -36,6 +40,9 @@ import {
   userRole,
   vehicle,
   warehouse,
+  projectRoleDeferral,
+  projectAccessRestriction,
+  userOnboarding,
 } from "./schema/index.js";
 /* The static vocabularies are shared by both datasets — a category, a role and a
    unit of measure mean the same thing whichever register is loaded. */
@@ -44,12 +51,14 @@ import {
   departmentSpecs,
   companyRoleSpecs,
   roleSpecs,
+  teamRoleSpecs,
   legacyEmployeeRoleToRole,
   uomCategorySpecs,
   uomSpecs,
 } from "./seed-data.js";
 import * as demoDataset from "./seed-data.js";
 import * as urbanDataset from "./seed-data.urban.js";
+import * as bareDataset from "./seed-data.bare.js";
 
 /*
   TWO datasets, and they answer different questions.
@@ -67,11 +76,19 @@ import * as urbanDataset from "./seed-data.urban.js";
   the enclosed-trailer workbook and the company vehicle list, carrying one real
   owner account and no demo passwords.
 
-  So neither replaces the other. SEED_DATASET=urban loads the real one; anything
-  else keeps the fixture, which is what CI, the tests and a local dev database
-  all want.
+  `seed-data.bare.ts` is NEITHER — it is an empty tenant: the vocabularies, the
+  permission matrix and one owner login, with no people, tools or projects at
+  all. It exists for the case where BambooHR is the source of truth for the
+  roster, where a seeded person is not a convenience but an invented row
+  standing between a real sync and an honest answer about what it did.
+
+  So none of the three replaces another. SEED_DATASET=urban loads the real
+  register, SEED_DATASET=bare loads the empty one, and anything else keeps the
+  fixture — which is what CI and the RBAC tests want, because only the fixture
+  builds the per-role accounts they sign in as.
 */
 const USE_URBAN = process.env.SEED_DATASET === "urban";
+const USE_BARE = process.env.SEED_DATASET === "bare";
 const {
   assetSpecs,
   assignSpecs,
@@ -84,7 +101,7 @@ const {
   userSpecs,
   vehLocSpecs,
   vehSpecs,
-} = USE_URBAN ? urbanDataset : demoDataset;
+} = USE_BARE ? bareDataset : USE_URBAN ? urbanDataset : demoDataset;
 
 const url = process.env.DATABASE_URL ?? "postgres://postgres:stinventory@localhost:5433/stinventory";
 const client = postgres(url, { max: 1 });
@@ -92,6 +109,27 @@ const db = drizzle(client, { schema });
 
 // Fixed "today" for deterministic overdue detection (matches the prototype).
 const TODAY = "2026-07-09";
+
+/*
+  Insert rows, or do nothing if there are none.
+
+  `db.insert(x).values([])` THROWS in Drizzle — "values() must be called with at
+  least one value" — rather than being the no-op the call site reads as. Every
+  dataset-driven insert below is therefore a landmine the moment a dataset is
+  legitimately empty, which is exactly what `seed-data.bare.ts` is. Found by
+  running it: the seed died on the first empty array (projects) with a stack
+  trace that says nothing about datasets.
+
+  Returning `[]` rather than throwing keeps the downstream `Object.fromEntries`
+  and `.map` lookups working unchanged — they simply iterate nothing.
+*/
+async function insertRows<R>(
+  rows: unknown[],
+  run: () => Promise<R[]>,
+): Promise<R[]> {
+  if (rows.length === 0) return [];
+  return run();
+}
 
 /*
   Acquisition costs, by tag (STI-108). The tools-list source carries no prices,
@@ -161,9 +199,11 @@ async function main() {
      deployment, or Urban's register onto a machine running the RBAC tests, both
      look like success without this line. */
   console.log(
-    USE_URBAN
-      ? "[seed] dataset: URBAN — the real register (SEED_DATASET=urban)"
-      : "[seed] dataset: demo fixture — set SEED_DATASET=urban for the real register",
+    USE_BARE
+      ? "[seed] dataset: BARE — an empty tenant, no people or tools (SEED_DATASET=bare)"
+      : USE_URBAN
+        ? "[seed] dataset: URBAN — the real register (SEED_DATASET=urban)"
+        : "[seed] dataset: demo fixture — set SEED_DATASET=urban for the real register",
   );
 
   if (process.env.SEED_RESET === "1") {
@@ -185,6 +225,14 @@ async function main() {
       await tx.delete(location);
       await tx.delete(employeeProjectAssignment); // before employees — it points at them
       await tx.delete(projectTeamMember); // before employees and projects — it points at both
+      /* Both FKs are NO ACTION, so this blocks the employee and project deletes
+         below rather than cascading with them — a removal is a durable access
+         decision and deliberately outlives the posting it refers to. */
+      await tx.delete(projectAccessRestriction);
+      /* custodian_id is RESTRICT, so custody rows that survived the asset delete
+         (an asset row already gone leaves none, but a partial dataset can) would
+         block the employee delete. */
+      await tx.delete(assignment);
       await tx.delete(employee);
       await tx.delete(project);
       await tx.delete(warehouse);
@@ -252,6 +300,13 @@ async function main() {
         needsLogin: r.needsLogin,
         canHoldCustody: r.canHoldCustody,
         usesFieldLayout: r.usesFieldLayout,
+        onboardingKind: r.onboardingKind,
+        isCrossTenant: r.isCrossTenant ?? false,
+        /* Written explicitly, never left to the column default: the default is
+           `[]` — "no self-claiming" — and a tenant seeded entirely that way has
+           no way to record its first roster row. Two roles carry a value; see
+           the comment on `claimTierNames` in seed-data.ts. */
+        claimTierNames: r.claimTierNames ?? [],
         isSystem: r.isSystem,
       })),
     )
@@ -267,6 +322,56 @@ async function main() {
     }
   }
 
+  /* Job-function tiers a roster row can occupy — pm, superintendent, foreman.
+     Data since 2026-09-03, not the literal `TEAM_ROLES` array it replaced, for
+     the reason on `teamRole`'s schema comment: this vocabulary is NOT the login
+     role above it and must not be confused with it. */
+  const teamRoleRows = await db
+    .insert(teamRole)
+    .values(
+      teamRoleSpecs.map((r) => ({
+        tenantId: tid,
+        name: r.name,
+        label: r.label,
+        canHoldCustody: r.canHoldCustody,
+      })),
+    )
+    .returning({ id: teamRole.id, name: teamRole.name });
+
+  /* The ladder, in a second pass: `reports_to_team_role_id` points at a row in
+     this same table, so the parents have no ids until the insert above has run.
+     Without this the register seeds as a flat list and the onboarding wizard has
+     no tiers to ask anybody about — the state CLAUDE.md's seed rule is about. */
+  const teamRoleIdByName = new Map(teamRoleRows.map((r) => [r.name, r.id]));
+  for (const spec of teamRoleSpecs) {
+    if (!spec.reportsTo) continue;
+    const childId = teamRoleIdByName.get(spec.name);
+    const parentId = teamRoleIdByName.get(spec.reportsTo);
+    if (!childId || !parentId) continue;
+    await db
+      .update(teamRole)
+      .set({ reportsToTeamRoleId: parentId })
+      .where(eq(teamRole.id, childId));
+  }
+
+  /* "Set by" — which tiers may FILL each tier, held on the same job. Same
+     second-pass reason as the ladder above: both ends are rows in this table.
+
+     Not optional. Since the dedicated `project.assign.*` permissions were
+     removed (2026-09-10), these rows ARE the per-tier authority: a tenant
+     seeded without them has a register in which only `project.team.assign`
+     can staff anything, which is precisely the "data the seed cannot produce
+     is behaviour nobody tests" trap CLAUDE.md's seed rule names. */
+  const assignerRows = teamRoleSpecs.flatMap((spec) => {
+    const teamRoleId = teamRoleIdByName.get(spec.name);
+    if (!teamRoleId) return [];
+    return spec.setBy.flatMap((assigner) => {
+      const assignerTeamRoleId = teamRoleIdByName.get(assigner);
+      return assignerTeamRoleId ? [{ teamRoleId, assignerTeamRoleId }] : [];
+    });
+  });
+  if (assignerRows.length) await db.insert(teamRoleAssigner).values(assignerRows);
+
   // ---- Departments ----
   /* Repair & Maintenance is infrastructure; Equipment and Purchased are the
      two cost owners the tools-list mapping assigns to (serial -> Equipment,
@@ -276,6 +381,23 @@ async function main() {
     .values(departmentSpecs.map((dd) => ({ tenantId: tid, name: dd.name, code: dd.code, isActive: true })))
     .returning();
   const deptByCode = Object.fromEntries(deptRows.map((d) => [d.code, d.id]));
+
+  // ---- Divisions ----
+  /* The arm of the business a person belongs to, FLAT alongside department
+     rather than above it — see the comment on `employee.divisionId`. Seeded
+     with more than one row on purpose: a single-row reference table cannot
+     show whether a picker actually filters, and "Operations" is the only name
+     BambooHR's sample happened to contain. */
+  const divisionRows = await db
+    .insert(division)
+    .values(
+      [
+        { name: "Operations", code: "OPS" },
+        { name: "Heavy Civil", code: "HC" },
+        { name: "Utilities", code: "UTIL" },
+      ].map((d) => ({ tenantId: tid, name: d.name, code: d.code, isActive: true })),
+    )
+    .returning();
 
   // ---- Company roles (job titles) ----
   /* Distinct from `employee.role`: this is what HR calls the job, and nothing
@@ -314,12 +436,16 @@ async function main() {
 
   // ---- Employees (domain persons; custody holders) ----
   // Insert projects first (employees reference primaryProjectId).
-  const projectRows = await db
+  const projectRows = await insertRows(projectSpecs, () => db
     .insert(project)
     .values(
       projectSpecs.map((p) => ({
         tenantId: tid,
-        externalId: p.extId,
+        /* The job number. Column renamed from `external_id` on 2026-09-07 —
+           Drizzle drops an unknown key SILENTLY, and this line kept the old
+           name for one seed run, which wiped every project code without an
+           error. */
+        code: p.extId,
         name: p.name,
         description: p.description ?? null,
         status: p.status,
@@ -328,16 +454,33 @@ async function main() {
         endDate: p.end,
       })),
     )
-    .returning();
+    .returning());
   const projectByKey: Record<string, string> = {};
   projectSpecs.forEach((p, i) => (projectByKey[p.key] = projectRows[i]!.id));
 
-  const employeeRows = await db
+  const employeeRows = await insertRows(employeeSpecs, () => db
     .insert(employee)
     .values(
-      employeeSpecs.map((e) => ({
+      employeeSpecs.map((e, i) => ({
         tenantId: tid,
-        externalId: e.extId,
+        /* The badge number. Column renamed from `external_id` on 2026-09-06 —
+           this was always Urban's own code, never a foreign system's key. */
+        code: e.extId,
+        /* Round-robin across the three divisions, with every fourth person left
+           null. Null is a legal, normal state — most of the register predates
+           divisions entirely — and a seed where every row is populated cannot
+           show whether a screen handles the empty one. */
+        divisionId: i % 4 === 3 ? null : divisionRows[i % 3]!.id,
+        /*
+          Department, the flat partner of division rather than a child of it.
+
+          `% 5` where division uses `% 4`, so the two nulls fall on DIFFERENT
+          people and all four combinations exist in a clean database — both
+          set, one set, the other set, neither. Reusing `% 4` would have made
+          the columns move together and a screen that read the wrong one, or
+          conflated the pair, would have looked correct on every row.
+        */
+        departmentId: i % 5 === 4 ? null : deptRows[i % 3]!.id,
         name: e.name,
         role: e.role,
         primaryProjectId: e.primary ? projectByKey[e.primary]! : null,
@@ -355,7 +498,7 @@ async function main() {
           ] ?? null,
       })),
     )
-    .returning();
+    .returning());
 
   /*
     Contact numbers, one row per number.
@@ -380,6 +523,82 @@ async function main() {
   if (contactValues.length) await db.insert(employeeContact).values(contactValues);
   const empByKey: Record<string, string> = {};
   employeeSpecs.forEach((e, i) => (empByKey[e.key] = employeeRows[i]!.id));
+
+  /*
+    External refs — how a far system identifies these people.
+
+    Seeded to reach every state the table can be in, because none of them is
+    reachable from the importer yet and an untested state is one nobody has
+    seen (CLAUDE.md rule 9):
+
+      - TWO systems on one person, which is the case a single
+        (external_system, external_id) column pair could never have held, and
+        the reason this is a child table at all.
+      - ONE system, the ordinary case.
+      - A row whose `restrictedFields` is non-empty and whose `raw` therefore
+        has nulls that mean "not permitted", NOT "cleared". Anything that reads
+        this table has to tell those apart, and it cannot be shown to unless a
+        row exists where they differ.
+      - And, by omission, the majority with NO ref at all — a person typed in
+        by hand who no far system has ever heard of.
+
+    Deliberately NOT given to everybody. A fixture where every row is populated
+    proves the populated path and hides the empty one.
+  */
+  const refTargets = employeeRows.slice(0, 3);
+  if (refTargets.length === 3) {
+    const [withTwo, withOne, withRestricted] = refTargets as [
+      (typeof employeeRows)[number],
+      (typeof employeeRows)[number],
+      (typeof employeeRows)[number],
+    ];
+    await db.insert(employeeExternalRef).values([
+      {
+        tenantId: tid,
+        employeeId: withTwo.id,
+        system: "bamboohr",
+        externalId: "4471",
+        lastSyncedAt: new Date("2026-09-05T09:00:00Z"),
+        raw: { id: "4471", firstName: withTwo.name.split(" ")[0], status: "Active" },
+      },
+      /* The same person in a second system, with a DIFFERENT key. This is the
+         row that makes the unique indexes meaningful. */
+      {
+        tenantId: tid,
+        employeeId: withTwo.id,
+        system: "mark85",
+        externalId: "EMP-00087",
+        lastSyncedAt: new Date("2026-09-05T09:00:00Z"),
+        raw: { employeeCode: "EMP-00087" },
+      },
+      {
+        tenantId: tid,
+        employeeId: withOne.id,
+        system: "bamboohr",
+        externalId: "4472",
+        lastSyncedAt: new Date("2026-09-05T09:00:00Z"),
+        raw: { id: "4472", firstName: withOne.name.split(" ")[0], status: "Active" },
+      },
+      /* A narrow API key: the fields it could not read came back null and were
+         named in `_restrictedFields`. A sync that treats these nulls as values
+         would blank real data on its next run. */
+      {
+        tenantId: tid,
+        employeeId: withRestricted.id,
+        system: "bamboohr",
+        externalId: "4473",
+        lastSyncedAt: new Date("2026-09-05T09:00:00Z"),
+        restrictedFields: ["mobilePhone", "workEmail"],
+        raw: {
+          id: "4473",
+          firstName: withRestricted.name.split(" ")[0],
+          mobilePhone: null,
+          workEmail: null,
+          _restrictedFields: ["mobilePhone", "workEmail"],
+        },
+      },
+    ]);
+  }
 
   /*
     The person's role, from the role register.
@@ -416,7 +635,7 @@ async function main() {
   // ---- Job postings ----
   // One open posting per trailer foreman — the backtrack behind "tools follow
   // the foreman", driven by the tools-list assignments.
-  await db.insert(employeeProjectAssignment).values(
+  if (postingSpecs.length) await db.insert(employeeProjectAssignment).values(
     postingSpecs.map((p) => ({
       tenantId: tid,
       employeeId: empByKey[p.emp]!,
@@ -431,7 +650,7 @@ async function main() {
   // ---- Project team roster ----
   // A foreman row here means that foreman is working that project — the rule
   // the Tools by Jobsite hub and the server-side project scope read.
-  await db.insert(projectTeamMember).values(
+  if (teamSpecs.length) await db.insert(projectTeamMember).values(
     teamSpecs.map((s) => ({
       tenantId: tid,
       projectId: projectByKey[s.proj]!,
@@ -439,9 +658,13 @@ async function main() {
       role: s.role,
       startedOn: s.from,
       note: s.note,
+      /* The org chart's only edge. A key that names somebody with no roster row
+         of their own is intentional — that is the director case. */
+      reportsToEmployeeId: s.reportsTo ? empByKey[s.reportsTo]! : null,
     })),
   );
   console.log(`[seed] ${teamSpecs.length} project team members`);
+
 
   // ---- Login users ----
   /* The real register gets a real credential; the fixture keeps its shared one.
@@ -449,16 +672,22 @@ async function main() {
      an owner with every permission — fine for a throwaway demo database, and a
      full compromise on any deployment reachable from the internet.
 
-     The DEMO fixture keeps that password on purpose: `e2e/roles.ts` signs every
+     The DEMO fixture keeps that password on purpose: browser checking signs every
      browser test in with it and the login page offers one-click demo accounts
      that use it, so changing it there breaks the suite for no gain — that
      dataset is not meant to exist anywhere real.
 
      The URBAN dataset takes SEED_OWNER_PASSWORD, or a random one printed ONCE,
      so a real deployment never ends up with a credential that is in git. */
+  /* The bare dataset follows the URBAN rule, not the fixture's: it seeds a
+     single real owner for a tenant that is about to hold real people from
+     BambooHR, so it must never carry a password that is written down in this
+     repository. Only the demo fixture keeps `stinventory-demo`, because
+     `e2e/roles.ts` and the login page's demo buttons both depend on it. */
+  const REAL_CREDENTIAL = USE_URBAN || USE_BARE;
   const generatedPassword =
-    USE_URBAN && !process.env.SEED_OWNER_PASSWORD ? randomBytes(12).toString("base64url") : null;
-  const seedPassword = USE_URBAN
+    REAL_CREDENTIAL && !process.env.SEED_OWNER_PASSWORD ? randomBytes(12).toString("base64url") : null;
+  const seedPassword = REAL_CREDENTIAL
     ? process.env.SEED_OWNER_PASSWORD ?? generatedPassword!
     : "stinventory-demo";
   const passwordHash = await bcrypt.hash(seedPassword, 10);
@@ -501,6 +730,127 @@ async function main() {
   console.log(`[seed] ${userRows.length} users, ${employeeRows.length} employees`);
 
   /*
+    Onboarding states, so every branch of the first-run flow is reachable on a
+    clean database (CLAUDE.md behaviour rule 9: seed the edge that trips the
+    rule, not just the happy path).
+
+    Without these, four states could only be produced by hand-editing rows in
+    psql, which means nobody would ever really exercise them:
+
+      - a CONFIRMED roster row versus an unconfirmed one, which is the whole
+        difference the progress screen reads
+      - an OPEN deferral, the "my PM names those" state
+      - a RESOLVED deferral, so the closing path has an example
+      - a user who has FINISHED onboarding, so the app-shell gate can be seen
+        not firing as well as firing
+
+    Placed AFTER the login users are inserted, not beside the roster it edits:
+    every one of these needs a `user.id` to attribute the confirmation and the
+    deferral to, and the accounts do not exist until further down. Written here
+    first and moved once the guarded lookups silently no-opped.
+
+    Fixture-only and guarded: the urban dataset has different people, and an
+    unguarded lookup here would kill the whole seed on it — the trap
+    `.claude/rules/database.md` records the personal-allowance truck falling into
+    twice.
+  */
+  const demoTeamRows = await db
+    .select({ id: projectTeamMember.id, role: projectTeamMember.role })
+    .from(projectTeamMember)
+    .where(eq(projectTeamMember.tenantId, tid));
+
+  /* Half the superintendent rows confirmed, the rest left open, so both sides of
+     the distinction exist rather than a uniform column nobody can tell apart. */
+  const supRows = demoTeamRows.filter((r) => r.role === "superintendent");
+  const ownerUser = await db.query.user.findFirst({
+    where: and(eq(user.tenantId, tid), eq(user.email, "owner@stinventory.local")),
+    columns: { id: true },
+  });
+  if (ownerUser && supRows.length > 0) {
+    const half = supRows.slice(0, Math.ceil(supRows.length / 2)).map((r) => r.id);
+    await db
+      .update(projectTeamMember)
+      .set({ confirmedAt: new Date(), confirmedByUserId: ownerUser.id })
+      .where(and(eq(projectTeamMember.tenantId, tid), inArray(projectTeamMember.id, half)));
+    console.log(`[seed] ${half.length} team rows confirmed, ${supRows.length - half.length} left for a boss to verify`);
+  }
+
+  /* One open deferral and one already resolved. The open one is what a PM's
+     progress screen should show as waiting on them. */
+  const deferProjects = Object.values(projectByKey).slice(0, 2);
+  if (deferProjects.length === 2) {
+    await db.insert(projectRoleDeferral).values([
+      {
+        tenantId: tid,
+        projectId: deferProjects[0]!,
+        teamRole: "superintendent",
+        deferredByUserId: ownerUser?.id ?? null,
+        note: "Foreman left this for the PM to name.",
+      },
+      {
+        tenantId: tid,
+        projectId: deferProjects[1]!,
+        teamRole: "pm",
+        deferredByUserId: ownerUser?.id ?? null,
+        resolvedAt: new Date(),
+        note: "Deferred, then filled — the closed case.",
+      },
+    ]);
+    console.log("[seed] 1 open deferral + 1 resolved");
+  }
+
+  /*
+    One account already through onboarding, so the gate can be observed NOT
+    firing.
+
+    `pm@` and not `warehouse@`, which is what this was until 2026-09-06 and
+    which quietly stopped proving anything. The gate now requires a live roster
+    row as well as an employee record — the yard desk, the equipment admin and
+    the mechanic all have an employee and no crew rows, because they serve every
+    job rather than working on any, and none of them is ever prompted. A
+    "finished" row on `warehouse@` therefore demonstrated nothing: the account
+    would have been skipped anyway, and the fixture and the gate agreed by
+    accident.
+
+    `pm@` (Dana) is on a job, so she WOULD be prompted, and the completed row is
+    the only reason she is not. That is the state this fixture exists to reach.
+
+    `foreman@` is onboarded for a different reason: it is the account used to
+    check the FIELD layout, which lands on `/my-tools`. An un-onboarded foreman
+    is intercepted by the wizard and never reaches it, so anyone checking the
+    field shell sees `/welcome` instead. That is not a hypothetical; it is what
+    this feature did, and it went unnoticed because nobody drove the field
+    layout while the wizard was being built. The fixture has to represent a
+    foreman who is already through setup.
+
+    (This also once broke the deleted `e2e/` browser suite at its login step.
+    `mechanic@` — also a field role — is still NOT onboarded, which is why it
+    lands on `/welcome`; that is the gate working, not a bug.)
+
+    `super@` is deliberately left UNFINISHED so a fresh login still lands on the
+    wizard — it has two jobs and a tier above and below it, which makes it the
+    most interesting account to open the crew step as. Leaving at least one
+    account unfinished is the point of the fixture; leaving all of them
+    unfinished is what broke the suite.
+  */
+  const onboardedEmails = ["pm@stinventory.local", "foreman@stinventory.local"];
+  const doneUsers = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(and(eq(user.tenantId, tid), inArray(user.email, onboardedEmails)));
+  if (doneUsers.length > 0) {
+    await db.insert(userOnboarding).values(
+      doneUsers.map((u) => ({
+        tenantId: tid,
+        userId: u.id,
+        currentStep: "invite" as const,
+        completedAt: new Date(),
+      })),
+    );
+    console.log(`[seed] ${doneUsers.length} accounts already onboarded`);
+  }
+
+  /*
     The invite token itself. `hashAuthToken` in packages/auth is not imported
     here on purpose — packages/auth already depends on packages/db (for
     `Database`/schema types), so importing it back would be a circular
@@ -535,7 +885,7 @@ async function main() {
   const whByName = Object.fromEntries(whRows.map((w) => [w.name, w.id]));
 
   // Non-vehicle locations (warehouses). Vehicle locations are one per trailer.
-  const allLocRows = await db
+  const allLocRows = await insertRows([...locSpecs, ...vehLocSpecs], () => db
     .insert(location)
     .values(
       [...locSpecs, ...vehLocSpecs].map((l) => ({
@@ -547,26 +897,28 @@ async function main() {
         custodianEmployeeId: l.custodian ? empByKey[l.custodian]! : null,
       })),
     )
-    .returning();
+    .returning());
   const locByKey: Record<string, string> = {};
   [...locSpecs, ...vehLocSpecs].forEach((l, i) => (locByKey[l.key] = allLocRows[i]!.id));
 
   // Vehicles (1:1 with vehicle locations). The tools-list source has trailers
   // only — every truck column is null by spec — so all rows are trailers.
-  const vehicleRows = await db.insert(vehicle).values(
+  const vehicleRows = await insertRows(vehSpecs, () => db.insert(vehicle).values(
     vehSpecs.map((v) => ({
       tenantId: tid,
       locationId: locByKey[v.loc]!,
       vehicleType: v.vtype,
-      /* Every seeded row is a road vehicle; heavy plant is not in the source
-         data. The column exists so the register can hold it — see `vehicle` in
-         the schema for why classifying was the point rather than renaming. */
-      equipmentClass: "vehicle",
       /* CAPABILITY, not current state: a truck can tow, a trailer can be towed.
          What is hitched to what right now lives in `assignment.trailerId`,
          where it is ledger-derived like every other "where is it". */
       canAttach: v.vtype === "truck",
       isAttachable: v.vtype === "trailer",
+      /* Falls back to the structural type rather than the column default: a
+         trailer is an attachment, and a dataset that predates the category
+         should still file itself correctly instead of calling everything a
+         vehicle. */
+      equipmentClass: v.eclass ?? (v.vtype === "trailer" ? "attachment" : "vehicle"),
+      vin: v.vin ?? null,
       code: v.code ?? null,
       description: v.description ?? null,
       unit: v.unit,
@@ -587,7 +939,7 @@ async function main() {
       projectId: v.proj ? projectByKey[v.proj]! : null,
       foremanEmployeeId: v.foreman ? empByKey[v.foreman]! : null,
     })),
-  ).returning();
+  ).returning());
   /* Location key -> TRAILER id, so an assignment whose `loc` is a trailer's
      location row can also carry that trailer in `trailer_id` (STI-202).
      Filtered by vtype so the synthetic truck below can never land in a
@@ -599,7 +951,14 @@ async function main() {
   /* The one SYNTHETIC truck — see the rationale on its vehSpecs entry.
      TOOL-0001 below rides on it so a real assignment row exercises
      assignment_truck_fk and a real ledger event carries a uuid truckId. */
-  const seedTruckId = vehicleRows[vehSpecs.findIndex((v) => v.vtype === "truck")]!.id;
+  /* OPTIONAL for the same reason as the personal-allowance truck below, and it
+     failed the same way: `findIndex` returns -1 on a dataset with no truck,
+     `vehicleRows[-1]` is undefined, and the bare `!.id` killed the whole seed.
+     The bare dataset has no vehicles at all, so this is now reachable rather
+     than theoretical. Null means no tool rides a truck, which is the honest
+     outcome for a register that has none. */
+  const seedTruckIdx = vehSpecs.findIndex((v) => v.vtype === "truck");
+  const seedTruckId = seedTruckIdx >= 0 ? vehicleRows[seedTruckIdx]!.id : null;
   /*
     ONE assignment in the MODEL-CORRECT shape (STI-207).
 
@@ -650,7 +1009,16 @@ async function main() {
      still recorded, the location no longer names it. */
   const locKeyOf = (tag: string | null, loc: string) => (tag === modelCorrectTag ? YARD_LOC_KEY : loc);
   const trailerCount = vehSpecs.filter((v) => v.vtype === "trailer").length;
-  console.log(`[seed] ${trailerCount} trailers (no trucks in source) + 2 synthetic trucks (1 company, 1 personal-allowance)`);
+  /* Counted, not asserted. This line claimed "+ 2 synthetic trucks"
+     unconditionally and said so on a dataset that seeded no vehicles at all —
+     a seed log that misreports what it wrote is the same class of problem as
+     the `created: 0` bug in the Bamboo sync. */
+  const truckCount = vehSpecs.filter((v) => v.vtype === "truck").length;
+  console.log(
+    vehicleRows.length === 0
+      ? "[seed] no vehicles — this dataset carries none"
+      : `[seed] ${trailerCount} trailers (no trucks in source) + ${truckCount} synthetic truck(s)`,
+  );
 
   // ---- Assets (the register). current_* projection set at seed time; matching
   // transactions are appended below so the rebuild guarantee holds.
@@ -691,12 +1059,12 @@ async function main() {
      flags provenance without inventing a code that was never there. */
   const MANUAL_CODE_TAGS = new Set(["TOOL-0001", "TOOL-0002"]);
 
-  const assetRows = await db
+  const assetRows = await insertRows(assetSpecs, () => db
     .insert(asset)
     .values(
       assetSpecs.map((a) => ({
         tenantId: tid,
-        tag: a.tag,
+        code: a.tag,
         modelId: null,
         make: a.make,
         modelNumber: a.modelNumber,
@@ -720,12 +1088,12 @@ async function main() {
         createdBy: seedActor.id,
       })),
     )
-    .returning();
+    .returning());
   /* Untagged tools (UI-68) are deliberately absent from both tag maps: a null
      tag is not a key, and letting two of them collide on one "null" entry would
      hand the assignment and ledger writers below the wrong asset. Nothing
      references them, so skipping is correct rather than merely safe. */
-  const assetByTag = Object.fromEntries(assetRows.filter((a) => a.tag).map((a) => [a.tag!, a]));
+  const assetByTag = Object.fromEntries(assetRows.filter((a) => a.code).map((a) => [a.code!, a]));
   // Tag -> spec, so the ledger events below can snapshot the same state the
   // projection was written from. One source of truth for both sides.
   const assetSpecByTag = Object.fromEntries(assetSpecs.filter((a) => a.tag).map((a) => [a.tag!, a]));
@@ -733,7 +1101,7 @@ async function main() {
 
   // ---- Assignments (active custody). One per tool with a foreman. ----
   const adminId = seedActor.id;
-  await db.insert(assignment).values(
+  if (assignSpecs.length) await db.insert(assignment).values(
     assignSpecs.map((s) => ({
       tenantId: tid,
       assetId: assetByTag[s.tag]!.id,
@@ -769,7 +1137,7 @@ async function main() {
      what makes the fix survive a reseed (STI-108). A missing key is NOT the
      same as an explicit null: the fold replaces rather than merges, so a
      partial snapshot blanks custodian, project and location on rebuild. */
-  await db.insert(transaction).values(
+  if (txSpecs.length) await db.insert(transaction).values(
     txSpecs.map((t) => {
       const spec = assetSpecByTag[t.tag]!;
       return {
@@ -898,27 +1266,25 @@ async function main() {
 
   /*
     Feature states seeded from a clean database rather than only reachable by
-    hand-editing a row (CLAUDE.md rule 9) — and, for `old-dashboard`, because
-    STI-1204's own acceptance criteria says so directly: "seed a tenant with
-    at least one module disabled. A setting no seeded data exercises is a
-    setting nobody tests."
+    hand-editing a row (CLAUDE.md rule 9). STI-1204's own acceptance criteria
+    says so directly: "seed a tenant with at least one module disabled. A
+    setting no seeded data exercises is a setting nobody tests."
 
     - `import.ai` upcoming is the state the AI Import button actually ships in.
     - `activity` beta exercises the nav-badge path on a real row.
-    - `old-dashboard` hidden is the real disabled-module case: `/old-dash` is
-      the widget dashboard `/home` replaced on 2026-08-23, kept only "until
-      this one has been lived with" (see nav-config.ts) — the safest real
-      candidate to demonstrate hiding without removing anything anyone
-      still depends on.
     - `settings-general` hidden proves the one thing that must never work:
       Settings is exempt from hiding regardless of what a row here says. If
       this ever starts hiding the General settings row, the exemption in
       `applyFeatureStates` broke.
+
+    The disabled-module demo row that used to sit here (`old-dashboard`
+    hidden, the widget dashboard waiting to be retired) went with the module:
+    /old-dash was removed on 2026-09-03, so hiding it would prove nothing a
+    browser could still navigate to.
   */
   await db.insert(tenantFeature).values([
     { tenantId: tid, key: "import.ai", state: "upcoming" },
     { tenantId: tid, key: "activity", state: "beta" },
-    { tenantId: tid, key: "old-dashboard", state: "hidden" },
     { tenantId: tid, key: "settings-general", state: "hidden" },
   ]);
 
@@ -956,8 +1322,17 @@ async function main() {
     with no LLM configured at all.
   */
   const deskUserId = seedActor.id;
-  const foremanEmpId = empByKey["e-fm001"]!;
-  const repairAsset = assetByTag["TOOL-0004"]!;
+  /* Both are demo-fixture lookups: this block narrates one repair conversation
+     through every inbox bucket, so it needs THAT foreman and THAT tool. A
+     dataset without them (the bare one has neither) skips the whole block
+     rather than dying on a non-null assertion — same guard the desk approval
+     queue above already uses, and the same reason. */
+  const foremanEmpId = empByKey["e-fm001"];
+  const repairAsset = assetByTag["TOOL-0004"];
+  if (!foremanEmpId || !repairAsset) {
+    console.log("[seed] messages + tasks skipped — this dataset has none of their fixtures");
+  } else {
+
 
   await db.insert(message).values([
     {
@@ -1036,27 +1411,59 @@ async function main() {
     },
   ]);
   console.log("[seed] 4 messages + 2 tasks — every inbox bucket has an occupant");
+  }
 
   console.log(`
 [seed] DONE.
 
-${USE_URBAN
-  ? `Login — ONE account, the system owner:
+${USE_BARE
+  ? `An EMPTY tenant. No people, no tools, no projects — by design.
 
-  ${userRows[0]?.email ?? "(no account seeded)"}
+Login:
+
+${userRows.map((u) => `  ${u.email}`).join("\n")}
+
   password: ${generatedPassword
       ? `${generatedPassword}      <-- GENERATED, shown once. Save it now.`
       : "(taken from SEED_OWNER_PASSWORD)"}
 
-No demo accounts were created. Add colleagues through /admin/users, each with
-their own password.`
+This account has NO employee record, which is a supported state — it is an
+administrator, not somebody who holds tools.
+
+Next: Settings -> Integrations, add the BambooHR key, and press Sync. The
+People register fills from that sync and from nothing else, which is the
+entire point of this dataset — every person you see afterwards came from HR.
+
+The registers will read empty until you import assets. That is not a broken
+seed. For a populated database use 'make seed-urban' (the real register) or
+'make seed-demo' (the test fixture the RBAC suite needs).`
+  : USE_URBAN
+  ? `Login — the two administrators, both on the SAME password:
+
+${userRows.map((u) => `  ${u.email}`).join("\n")}
+
+  password: ${generatedPassword
+      ? `${generatedPassword}      <-- GENERATED, shown once. Save it now.`
+      : "(taken from SEED_OWNER_PASSWORD)"}
+
+  owner       the ORGANISATIONAL administrator — the customer's own, and
+              confined to this tenant like every other account.
+  tech_admin  Optix's own operator. Same grants inside the tenant; what
+              differs is role.is_cross_tenant, which reaches every tenant
+              and which NOTHING READS YET. Say that plainly rather than
+              implying the isolation is already crossed.
+
+No demo people were created — these are Urban's real 83. Everybody else joins
+through an invite from a person's row on /people, which sets their role as it
+sends. Locally that mail lands in Mailpit at http://localhost:8025 with a
+clickable link; it is delivered nowhere.`
   : `Login — password  stinventory-demo  for every account (STI-304).
 One per role, because a permission system only ever tested as 'owner'
 is not a tested permission system. See docs/SETUP.md.
 
-This is the DEMO fixture, not a real register. e2e/roles.ts and the login
-page's one-click accounts both depend on that password, and rbac-matrix.test.ts
-drives the visibility ladder through these accounts. For Urban's real data:
+This is the DEMO fixture, not a real register. The login page's one-click
+accounts depend on that password, and rbac-matrix.test.ts drives the
+visibility ladder through these accounts. For Urban's real data:
 SEED_DATASET=urban`}
 `);
   await client.end();

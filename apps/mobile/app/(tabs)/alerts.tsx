@@ -94,7 +94,7 @@ export default function AlertsScreen() {
                     <Card key={`${p.kind}-${p.id}`} className={outgoing ? "border-warn" : ""}>
                       <View className="gap-2">
                         <View className="flex-row items-center justify-between">
-                          <Tag>{p.tag}</Tag>
+                          <Tag>{p.code}</Tag>
                           <View className="flex-row items-center gap-1">
                             <Ionicons
                               name={outgoing ? "hourglass-outline" : "arrow-down-circle-outline"}

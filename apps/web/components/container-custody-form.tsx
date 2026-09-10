@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { personHint } from "@/lib/format";
 
 /*
   Hand a trailer, truck or gang box to a foreman — or take it back.
@@ -88,7 +89,7 @@ export function ContainerCustodyForm({
               placeholder="Nobody — back in the yard"
               searchPlaceholder="Name or employee number"
               emptyLabel="Nobody matches."
-              options={people.map((e) => ({ value: e.id, label: e.name, hint: e.primaryProjectName ?? undefined }))}
+              options={people.map((e) => ({ value: e.id, label: e.name, hint: personHint(e) ?? e.primaryProjectName ?? undefined }))}
             />
             {currentCustodianName ? (
               <p className="text-xs text-muted-foreground">
