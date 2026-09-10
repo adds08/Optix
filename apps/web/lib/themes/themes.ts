@@ -623,9 +623,25 @@ export type ThemePrefs = {
   };
 };
 
+/*
+  What a person sees before they have ever opened Settings — and what most
+  people will see forever, because most never open Settings.
+
+  `fontFamily` is "arial" rather than "system" as of 2026-09-11, at the client's
+  request. "system" resolves to whatever the OS supplies (SF on a Mac, Segoe on
+  Windows), so the product looked materially different desk to desk and nobody
+  could point at one rendering as "the" product. Arial is on every machine the
+  yard uses and renders identically on all of them.
+
+  It deliberately takes the MONO slot too (see FONT_FAMILIES.arial): codes,
+  tags and quantities set in Arial lose the column alignment JetBrains Mono
+  gave them. That was the explicit choice — one uniform face over aligned
+  numerals — and `mono`, `system` and the rest remain one click away in
+  Settings for anyone who wants the house pairing back.
+*/
 export const DEFAULT_PREFS: ThemePrefs = {
   themeName: "blocky",
-  fontFamily: "system",
+  fontFamily: "arial",
   fontScale: "1.0",
   iconScale: "1.0",
   density: "comfortable",
