@@ -5,6 +5,7 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { cn } from "@/lib/utils";
+import { useArmedConfirm } from "@/components/use-armed-confirm";
 
 /*
   The team strip on a Tools by Jobsite card: who RUNS this job.
@@ -84,37 +85,15 @@ export function JobsiteTeamStrip({
           : c.employeeRole === "superintendent"),
     );
 
-  const chip = (m: Member) => {
-    const Icon = ROLE_ICON[m.role];
-    return (
-      <span
-        key={m.id}
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
-          m.role === "pm"
-            ? "border-primary/25 bg-primary/5 text-foreground"
-            : "border-warn/25 bg-warn-bg text-foreground",
-        )}
-      >
-        <Icon className="size-3 shrink-0 text-hat-white" aria-hidden />
-        {m.role === "pm" ? "PM" : "SUP"}
-        <span className="font-medium">{m.externalId ? `${m.externalId} · ${m.name}` : m.name}</span>
-        {canAssign(m.role) ? (
-          <button
-            type="button"
-            aria-label={`Remove ${m.name} from the ${m.role} role`}
-            disabled={remove.isPending}
-            onClick={() => {
-              remove.mutate({ projectId, employeeId: m.employeeId, role: m.role });
-            }}
-            className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
-          >
-            <X className="size-3" aria-hidden />
-          </button>
-        ) : null}
-      </span>
-    );
-  };
+  const chip = (m: Member) => (
+    <TeamChip
+      key={m.id}
+      m={m}
+      removable={canAssign(m.role)}
+      removing={remove.isPending}
+      onRemove={() => remove.mutate({ projectId, employeeId: m.employeeId, role: m.role })}
+    />
+  );
 
   const addButton = (role: "pm" | "superintendent") => {
     if (!canAssign(role)) return null;
@@ -168,5 +147,66 @@ export function JobsiteTeamStrip({
       {addButton("pm")}
       {addButton("superintendent")}
     </div>
+  );
+}
+
+/*
+  One PM/superintendent chip, pulled out of the inline `chip()` closure it used
+  to be so `useArmedConfirm` — which every OTHER destructive control in the app
+  now goes through — can be called once per chip rather than once per array
+  element inside a `.map`.
+*/
+function TeamChip({
+  m,
+  removable,
+  removing,
+  onRemove,
+}: {
+  m: Member;
+  removable: boolean;
+  removing: boolean;
+  onRemove: () => void;
+}) {
+  const Icon = ROLE_ICON[m.role];
+  /* Same arm-then-confirm shape as every other destructive control with no
+     dialog: first click swaps the × for a filled red check, the second
+     actually removes the PM/superintendent from the job. */
+  const { armed, handleClick } = useArmedConfirm(onRemove);
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
+        m.role === "pm"
+          ? "border-primary/25 bg-primary/5 text-foreground"
+          : "border-warn/25 bg-warn-bg text-foreground",
+      )}
+    >
+      <Icon className="size-3 shrink-0 text-hat-white" aria-hidden />
+      {m.role === "pm" ? "PM" : "SUP"}
+      <span className="font-medium">{m.externalId ? `${m.externalId} · ${m.name}` : m.name}</span>
+      {removable ? (
+        armed ? (
+          <button
+            type="button"
+            aria-label={`Confirm removing ${m.name} from the ${m.role} role`}
+            disabled={removing}
+            onClick={handleClick}
+            className="rounded bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground disabled:opacity-50"
+          >
+            {removing ? "…" : "?"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={`Remove ${m.name} from the ${m.role} role`}
+            onClick={handleClick}
+            className="text-muted-foreground transition-colors hover:text-destructive"
+          >
+            <X className="size-3" aria-hidden />
+          </button>
+        )
+      ) : null}
+    </span>
   );
 }

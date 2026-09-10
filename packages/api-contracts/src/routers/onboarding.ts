@@ -1,9 +1,9 @@
-import { restrictedProjects, assertProjectAccess } from "../project-access.js";
+import { restrictedProjects, assertProjectAccess, activeProjectRows } from "../project-access.js";
 import { and, eq, isNull, inArray, desc } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
-import { adjacentTiers, canAssignIntoTier, descendantsOf, tiersAtOrBelow } from "@stinventory/domain";
+import { adjacentTiers, canAssignIntoTier, descendantsOf, removalBranch, tiersAbove, tiersAtOrBelow } from "@stinventory/domain";
 import type { Permission } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
@@ -81,6 +81,22 @@ async function ensureRow(ctx: any) {
   }
 }
 
+/*
+  Does this role keep the ability to claim after setup is finished?
+
+  Today: any role granted a tier. The grant is already narrow — three roles hold
+  one — and it is exactly the set that leads jobs, so a second flag saying
+  "...and may keep doing it" would be a second name for the same fact and one
+  more thing to keep in step.
+
+  Kept as a named function anyway, because `canClaim`, `claimOptions` and
+  `claimProject` all have to agree and three copies of `!!role.claimTierNames.length`
+  is how they would stop agreeing.
+*/
+function isStandingClaimer(role: { claimTierNames: string[] } | undefined): boolean {
+  return !!role?.claimTierNames.length;
+}
+
 async function onboardingRole(ctx: any) {
   const roles = await ctx.db.select({ onboardingKind: schema.role.onboardingKind, needsLogin: schema.role.needsLogin, claimTierNames: schema.role.claimTierNames }).from(schema.userRole).innerJoin(schema.role, eq(schema.role.id, schema.userRole.roleId)).where(eq(schema.userRole.userId, ctx.session.userId));
   if (roles.length > 1) throw new TRPCError({ code: "CONFLICT", message: "Ask an administrator to select one access role for your account." });
@@ -95,7 +111,26 @@ export const onboardingRouter = router({
     const onAnyJob = projects.length > 0;
     const hasEmployee = !!ctx.session.employeeId;
     const onboardingKind = role?.onboardingKind ?? "office";
-    const canClaim = hasEmployee && !!role?.claimTierNames.length && !row.claimingClosedAt && !row.completedAt;
+    /*
+      CLAIMING DOES NOT CLOSE FOR THE TIERS THAT LEAD JOBS.
+
+      `claimingClosedAt` and `completedAt` were both hard stops: a person
+      claimed during first-run setup and never again. That is right for
+      somebody describing where they already work — the wizard asks once and
+      their boss corrects it afterwards.
+
+      It is wrong for the tiers that RUN jobs. A director takes on a new job
+      routinely, and under the old rule the only way to record it was for an
+      administrator to reopen their onboarding, which made a weekly act need a
+      support request. Since 2026-09-10 a role holding `claimTierNames` keeps
+      the ability, and reaches it from a standing page (`/claim-a-job`) rather
+      than only from the wizard.
+
+      Everyone else is unchanged, which is what stops this becoming a way to
+      regain access: a person with no claim grant still gets one pass, and
+      Re-onboard still cannot hand them another.
+    */
+    const canClaim = hasEmployee && !!role?.claimTierNames.length && (isStandingClaimer(role) || (!row.claimingClosedAt && !row.completedAt));
     const steps: OnboardingStep[] = onboardingKind === "equipment" && hasEmployee && (onAnyJob || canClaim) ? ["projects", ...(ctx.session.permissions.has("project.team.read") ? ["crew" as const] : []), "review"] : ["review"];
     const finished = !!row.completedAt && !row.dismissedAt;
     return {
@@ -110,7 +145,8 @@ export const onboardingRouter = router({
   claimOptions: protectedProcedure.query(async ({ ctx }) => {
     const row = await ensureRow(ctx);
     const role = await onboardingRole(ctx);
-    if (!ctx.session.employeeId || row.completedAt || row.claimingClosedAt || !role?.claimTierNames.length) return { projects: [], tiers: [] };
+    if (!ctx.session.employeeId || !role?.claimTierNames.length) return { projects: [], tiers: [] };
+    if (!isStandingClaimer(role) && (row.completedAt || row.claimingClosedAt)) return { projects: [], tiers: [] };
     const denied = await restrictedProjects(ctx.db, ctx.session);
     const projects = await ctx.db.select({ id: schema.project.id, name: schema.project.name, code: schema.project.code }).from(schema.project).where(and(eq(schema.project.tenantId, ctx.session.tenantId), eq(schema.project.kind, "project"), inArray(schema.project.status, ["awarded", "in_progress", "on_hold"])));
     const tiers = await ctx.db.select({ name: schema.teamRole.name, label: schema.teamRole.label }).from(schema.teamRole).where(and(eq(schema.teamRole.tenantId, ctx.session.tenantId), inArray(schema.teamRole.name, role.claimTierNames)));
@@ -125,7 +161,18 @@ export const onboardingRouter = router({
         // Serialize claiming against finishing: a stale onboarding tab cannot regain access.
         const [row] = await tx.select().from(schema.userOnboarding).where(and(eq(schema.userOnboarding.userId, ctx.session.userId), eq(schema.userOnboarding.tenantId, ctx.session.tenantId))).for("update");
         const role = await onboardingRole({ ...ctx, db: tx });
-        if (!ctx.session.employeeId || row?.completedAt || row?.claimingClosedAt || !role?.claimTierNames.includes(input.tier)) throw new TRPCError({ code: "FORBIDDEN", message: "Project claiming is not available. Ask your manager to assign this project." });
+        const closed = !isStandingClaimer(role) && (row?.completedAt || row?.claimingClosedAt);
+        if (!ctx.session.employeeId || closed || !role?.claimTierNames.includes(input.tier)) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            /* Two different refusals wearing one sentence was the complaint
+               that started this: a director with no claim grant was told to
+               ask a manager they do not have. Say which case it is. */
+            message: role?.claimTierNames.length
+              ? "That is not a tier you may take on. Choose one of your own, or ask whoever runs this job."
+              : "Project claiming is not available for your role. Ask whoever runs this job to add you.",
+          });
+        }
         if ((await restrictedProjects(tx as any, ctx.session)).has(input.projectId)) throw new TRPCError({ code: "FORBIDDEN", message: "Your manager removed access to this project." });
         const project = await tx.query.project.findFirst({ where: and(eq(schema.project.id, input.projectId), eq(schema.project.tenantId, ctx.session.tenantId)) });
         if (!project || project.kind !== "project" || !["awarded", "in_progress", "on_hold"].includes(project.status)) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose an active project." });
@@ -139,6 +186,105 @@ export const onboardingRouter = router({
         permissions.add("project.team.assign");
         await projectTeamRouter.createCaller({ ...ctx, db: tx as any, session: { ...ctx.session, permissions } }).assign({ projectId: input.projectId, employeeId: ctx.session.employeeId, role: input.tier, source: "manual_entry" });
         await logEvent({ ...ctx, db: tx as any }, { category: "project", action: "onboarding.claimProject", entityType: "project", entityId: input.projectId, details: { employeeId: ctx.session.employeeId, tier: input.tier } });
+        return { ok: true };
+      });
+    }),
+
+  /*
+    UNDO A MISCLICK. Not the same feature as `projectTeams.removeBranch`.
+
+    That procedure exists to take somebody ELSE off a job for cause: it demands
+    a reason, and it writes a `projectAccessRestriction` row so the person stays
+    barred until an admin lifts it. Using it for "I clicked the wrong project"
+    would read as an accusation over a typo, and would leave a restriction
+    record nobody meant to create.
+
+    This is the narrow case: undoing YOUR OWN claim, made moments ago, before
+    anyone has built anything on top of it. So:
+
+      - Only your own row (`employeeId` is always the caller's, never an input)
+      - No reason, no restriction row — the row just ends
+      - Refuses once it is no longer a simple undo: somebody reports to you on
+        this project, or you are already holding a tool through it. Both mean
+        this stopped being "a project I clicked by mistake" and became "a job I
+        am running" — at that point `removeBranch` is the correct tool, with
+        its reason and its record.
+
+    Deliberately no `assertCanAssign` check the way `removeBranch` has one:
+    the caller is always ending their OWN row, which needs no permission over
+    anybody else's tier — the same reasoning `claimProject` uses to let a
+    person write a roster row for themselves without a tenant-wide grant.
+  */
+  unclaimProject: protectedProcedure
+    .input(z.object({ projectId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+      if (!ctx.session.employeeId) throw new TRPCError({ code: "FORBIDDEN", message: "No employee record to undo a claim for." });
+      return ctx.db.transaction(async (tx) => {
+        const rows = await activeProjectRows(tx as any, tid);
+        const { members, employeeIds } = removalBranch(rows, input.projectId, ctx.session.employeeId!);
+        const own = members.find((m) => m.employeeId === ctx.session.employeeId && m.projectId === input.projectId);
+        if (!own) throw new TRPCError({ code: "NOT_FOUND", message: "You are not on this job." });
+        /* `removalBranch` walks downward from you — if it found anyone besides
+           your own row, somebody has already been placed under you here, and
+           this is no longer a plain undo. */
+        if (employeeIds.length > 1 || members.length > 1) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You have already added people to this job. Ask an administrator to remove the branch instead.",
+          });
+        }
+        const [held] = await tx
+          .select({ id: schema.assignment.id })
+          .from(schema.assignment)
+          .where(
+            and(
+              eq(schema.assignment.tenantId, tid),
+              eq(schema.assignment.projectId, input.projectId),
+              eq(schema.assignment.custodianId, ctx.session.employeeId!),
+              isNull(schema.assignment.returnedAt),
+            ),
+          )
+          .limit(1);
+        if (held) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "You are holding tools through this job. Return or transfer them before undoing this.",
+          });
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        await tx
+          .update(schema.projectTeamMember)
+          .set({ endedOn: today })
+          .where(and(eq(schema.projectTeamMember.tenantId, tid), eq(schema.projectTeamMember.id, own.id)));
+        await tx
+          .update(schema.employeeProjectAssignment)
+          .set({ endedOn: today })
+          .where(
+            and(
+              eq(schema.employeeProjectAssignment.tenantId, tid),
+              eq(schema.employeeProjectAssignment.projectId, input.projectId),
+              eq(schema.employeeProjectAssignment.employeeId, ctx.session.employeeId!),
+              isNull(schema.employeeProjectAssignment.endedOn),
+            ),
+          );
+        await tx
+          .update(schema.employee)
+          .set({ primaryProjectId: null })
+          .where(
+            and(
+              eq(schema.employee.tenantId, tid),
+              eq(schema.employee.id, ctx.session.employeeId!),
+              eq(schema.employee.primaryProjectId, input.projectId),
+            ),
+          );
+        await logEvent({ ...ctx, db: tx as any }, {
+          category: "project",
+          action: "onboarding.unclaimProject",
+          entityType: "project",
+          entityId: input.projectId,
+          details: { employeeId: ctx.session.employeeId },
+        });
         return { ok: true };
       });
     }),
@@ -660,6 +806,13 @@ export const onboardingRouter = router({
           targetIsOpenToEveryone: targetRole.assignableByEveryone,
           callerTierNamesOnThisProject: new Set(myRows.filter(r => r.projectId === mine.projectId).map(r => r.role)),
           targetAssignerTierNames: assignerNamesByTargetId.get(targetRole.id) ?? new Set(),
+          /* Path 4, in lockstep with `assertCanAssign` and `myCrew` —
+             `allRoles` is this procedure's copy of the tier register. */
+          targetAncestorTierNames: new Set(
+            tiersAbove(allRoles, targetRole.id)
+              .map((id) => roleById.get(id)?.name)
+              .filter((n): n is string => !!n),
+          ),
         });
 
       const myTier = roleByName.get(mine.role);

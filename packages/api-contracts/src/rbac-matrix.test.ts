@@ -530,6 +530,8 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
         "filling gaps on a job the CALLER is actually on, double-checked in-body against their own live project_team_member row rather than a static permission — the same shape project.update's project.manage would be too wide for, since the primary onboarding user does not hold it",
       "onboarding.setLocation":
         "pinning a job the CALLER is actually on, same in-body roster-row check as fillDetails and the same reason. A radius with no pin is refused in-body too, which is why this needed the input-dependent shape rather than a bare requirePermission",
+      "onboarding.unclaimProject":
+        "undoing the caller's OWN claim, and only while it is still an undo. It ends exactly one row — the caller's, found by ctx.session.employeeId — and refuses in-body the moment it would touch anyone else: once somebody has been added under them on that job (removalBranch returns more than the one member) or they are holding tools through it. The counterpart of claimProject, which is listed above for the same reason: gating the undo behind a permission the claimer does not hold would mean the people who can make this mistake are exactly the ones who cannot correct it. project.team.assign administrators keep projectTeams.removeBranch for everything wider",
     };
 
     it("has no mutating procedure without a permission", () => {

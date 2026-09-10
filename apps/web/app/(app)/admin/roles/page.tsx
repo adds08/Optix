@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EntityField } from "@/components/ui/entity-picker";
+import { useArmedConfirm } from "@/components/use-armed-confirm";
 
 /*
   Roles & Permissions — what each role may do.
@@ -140,6 +141,12 @@ export default function AdminRolesPage() {
     },
     onError: (e) => setError(e.data?.userMessage ?? "Could not delete that role."),
   });
+  /* Two-click delete, the same shape as every other destructive control in the
+     app: the first click arms the button and swaps its label, the second
+     actually deletes. `disarm` is called whenever the selected role changes so
+     switching to a different role in the list can never leave THIS button
+     primed to delete something else on the next click. */
+  const deleteConfirm = useArmedConfirm(() => selected && remove.mutate({ id: selected.id }));
 
   const dirty = useMemo(() => {
     if (!selected) return false;
@@ -198,7 +205,7 @@ export default function AdminRolesPage() {
               <button
                 key={r.id}
                 type="button"
-                onClick={() => setSelectedId(r.id)}
+                onClick={() => { deleteConfirm.disarm(); setSelectedId(r.id); }}
                 className={`flex flex-col items-start gap-1 bg-card px-3 py-2.5 text-left text-sm transition-colors hover:bg-accent ${
                   r.id === selectedId ? "bg-muted font-medium" : ""
                 }`}
@@ -236,14 +243,17 @@ export default function AdminRolesPage() {
                   {selected.userCount} account{selected.userCount === 1 ? "" : "s"}
                 </span>
                 <div className="ml-auto flex items-center gap-2">
+                  {/* Two-click delete: first click arms and swaps to the red
+                      confirm label, second click actually deletes — the same
+                      shape as every other destructive control in the app. */}
                   {!selected.isBuiltIn ? (
                     <Button
                       size="sm"
-                      variant="ghost"
-                      onClick={() => remove.mutate({ id: selected.id })}
+                      variant={deleteConfirm.armed ? "destructive" : "ghost"}
+                      onClick={deleteConfirm.handleClick}
                       disabled={remove.isPending}
                     >
-                      <Trash2 className="size-3.5" /> Delete
+                      <Trash2 className="size-3.5" /> {deleteConfirm.armed ? "Delete?" : "Delete"}
                     </Button>
                   ) : null}
                   <Button

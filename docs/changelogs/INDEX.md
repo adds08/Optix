@@ -26,6 +26,10 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-11 | [A claimed job can be given back, and no removal fires on one click](2026-09-11-undo-a-claim-and-confirm-before-removing.md) |
+| 2026-09-10 | [A tier can be set by everyone above it](2026-09-10-a-tier-is-set-by-everyone-above-it.md) |
+| 2026-09-10 | [Leadership takes on a job, and the chain staffs it](2026-09-10-leadership-claims-jobs-and-staffs-them.md) |
+| 2026-09-10 | [An empty tenant to sync into, and phone numbers that survive the sync](2026-09-10-an-empty-tenant-and-phones-that-persist.md) |
 | 2026-09-10 | [Delete the browser suite, and the references that outlived it](2026-09-10-delete-the-browser-suite.md) |
 | 2026-09-10 | [Pills and tags stop being sliced by the cell they sit in](2026-09-10-pills-and-tags-stop-being-sliced-by-their-cell.md) |
 | 2026-09-10 | [Delete the three per-tier assign permissions](2026-09-10-delete-the-three-per-tier-assign-permissions.md) |

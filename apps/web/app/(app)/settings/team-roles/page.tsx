@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, Plus, Trash2, Wrench } from "lucide-react";
+import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { EmptyState, ErrorNote, PageHeader, TableSkeleton } from "@/components/sti/page";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SearchSelect } from "@/components/ui/search-select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useArmedConfirm } from "@/components/use-armed-confirm";
 
 /*
   Team Roles — the tiers a person can hold on a job.
@@ -57,6 +59,10 @@ type TeamRoleListItem = {
   reportsToTeamRoleId: string | null;
   assignableByEveryone: boolean;
   assignerTeamRoleIds: string[];
+  /* The LOGIN roles that may put themselves on a job as this tier. Comes from
+     `role.claimTierNames`, not from the tier — see the comment on
+     `projectTeam.roles.list`. */
+  claimedByRoles: { id: string; name: string }[];
 };
 
 /*
@@ -69,6 +75,38 @@ type TeamRoleListItem = {
   splitting them would let a reader miss that "Everybody" makes the list
   below it redundant rather than wrong.
 */
+/*
+  Two-click delete, the same shape every other destructive control in the app
+  now uses: the first click swaps the trash icon for a filled confirm state,
+  the second actually deletes the tier. Pulled into its own component (rather
+  than a `useState` inline in the row) so `useArmedConfirm` attaches to THIS
+  button and not to the whole table row it sits in.
+*/
+function DeleteTierButton({ onConfirm }: { onConfirm: () => void }) {
+  const { armed, handleClick } = useArmedConfirm(onConfirm);
+  return armed ? (
+    <Button
+      variant="destructive"
+      size="sm"
+      className="h-8 px-2 text-xs"
+      onClick={handleClick}
+      title="Click again to delete this tier"
+    >
+      Delete?
+    </Button>
+  ) : (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-8 text-destructive disabled:opacity-40"
+      onClick={handleClick}
+      title="Delete — only possible if nobody currently holds this role"
+    >
+      <Trash2 className="size-4" />
+    </Button>
+  );
+}
+
 function SetByCell({
   row,
   allRoles,
@@ -137,6 +175,11 @@ export default function TeamRolesPage() {
   const utils = trpc.useUtils();
   const me = trpc.identity.me.useQuery();
   const mayManage = (me.data?.permissions ?? []).includes("project.team.manage");
+  /* Claiming is a PERMISSION decision, so it is gated harder than the rest of
+     this screen — see the comment on `roles.setClaimable`. Somebody who may
+     describe the ladder does not thereby get to decide who may grant
+     themselves a job. */
+  const canConfigure = (me.data?.permissions ?? []).includes("config.manage");
 
   const roles = trpc.projectTeam.roles.list.useQuery(undefined, { enabled: mayManage });
 
@@ -185,6 +228,14 @@ export default function TeamRolesPage() {
   const setAssigners = trpc.projectTeam.roles.setAssigners.useMutation({
     onSuccess: () => utils.projectTeam.roles.list.invalidate(),
   });
+  /* Toasts the refusal rather than swallowing it: the reachable failure is "no
+     access role of that name exists", which is a thing the administrator can
+     act on and would otherwise look like a checkbox that silently will not
+     tick. */
+  const setClaimable = trpc.projectTeam.roles.setClaimable.useMutation({
+    onSuccess: () => utils.projectTeam.roles.list.invalidate(),
+    onError: (e) => toast.error("That tier was not changed", { description: e.message }),
+  });
 
   if (!me.isLoading && !mayManage) {
     return (
@@ -200,7 +251,7 @@ export default function TeamRolesPage() {
       <PageHeader
         title="Team Roles"
         hideTitle
-        description="The tiers a person can hold on a job, and which tier each one answers to."
+        description="The tiers a person can hold on a job, and which tier each one answers to. Anyone above a tier in the Reports-to ladder can also set it, on top of whoever Set by names."
         icon={Wrench}
         actions={
           <Button size="sm" onClick={() => setOpen(true)}>
@@ -232,6 +283,7 @@ export default function TeamRolesPage() {
                 <TableHead>Role</TableHead>
                 <TableHead>Reports to</TableHead>
                 <TableHead>Set by</TableHead>
+                <TableHead>Can claim a job</TableHead>
                 <TableHead>Holds tools &amp; a truck</TableHead>
                 <TableHead />
               </TableRow>
@@ -272,6 +324,29 @@ export default function TeamRolesPage() {
                       onToggleEveryone={(checked) => update.mutate({ id: r.id, assignableByEveryone: checked })}
                     />
                   </TableCell>
+                  {/* WHO CAN START A JOB'S ROSTER.
+
+                      A tenant with nobody on any job is deadlocked: authority
+                      to place somebody comes from the tier you hold ON THAT
+                      JOB, and on an empty job nobody holds one. A tier that can
+                      claim ITSELF is what breaks the circle — the first person
+                      records themselves, and "Set by" carries it from there.
+
+                      Ticking this edits `role.claimTierNames` on the LOGIN role
+                      of the same name, which is why it needs `config.manage`
+                      rather than the `project.team.manage` the rest of this
+                      screen uses: it grants authority, it does not describe a
+                      chart. */}
+                  <TableCell>
+                    <label className="flex items-center gap-2">
+                      <Checkbox
+                        checked={r.claimedByRoles.length > 0}
+                        disabled={!canConfigure || setClaimable.isPending}
+                        onCheckedChange={(v) => setClaimable.mutate({ id: r.id, claimable: v === true })}
+                      />
+                      {r.claimedByRoles.length > 0 ? "Yes" : "No"}
+                    </label>
+                  </TableCell>
                   <TableCell>
                     <label className="flex items-center gap-2">
                       <Checkbox
@@ -282,15 +357,7 @@ export default function TeamRolesPage() {
                     </label>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-destructive disabled:opacity-40"
-                      onClick={() => del.mutate({ id: r.id })}
-                      title="Delete — only possible if nobody currently holds this role"
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    <DeleteTierButton onConfirm={() => del.mutate({ id: r.id })} />
                   </TableCell>
                 </TableRow>
               ))}
