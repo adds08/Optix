@@ -1,5 +1,5 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
@@ -8,6 +8,51 @@ import { logEvent } from "../audit.js";
 import { crewEmployeeIds, visibleProjectScope } from "../scope.js";
 import { moveEmployeeToProject } from "../project-assign.js";
 import { PROJECT_STATUSES } from "@stinventory/types";
+
+/*
+  A JOB CODE IS HOW PEOPLE TELL TWO JOBS APART.
+
+  Nothing enforced this: `tbl_entity_project` carries a primary key on `id` and
+  nothing else, so a tenant could hold any number of projects with the same code
+  or the same name. It did — the dev register grew two rows both called
+  "Equipment Yard", one of them a real job (24002, with a foreman and a tool
+  location on it) that had been renamed. In a picker they are two identical
+  lines, and the only way to tell which is which is to open both.
+
+  The code is the discriminator every screen leans on — `projectLabel` puts it
+  in front of the name for exactly this reason — so it is the thing that has to
+  be unique. Names are deliberately NOT unique: "Phase 2" is a reasonable name
+  on two different sites, and the code is what separates them.
+
+  Case-insensitive: "24002" and "24002 " and "URB-2401"/"urb-2401" are the same
+  code to a human reading a list, so they must be the same code to the check.
+  Migration 0065 carries the matching partial unique index — this check gives
+  the good error message, the index is what makes the rule true even if some
+  future writer forgets to call it.
+*/
+async function assertCodeFree(
+  db: any,
+  tenantId: string,
+  code: string | null | undefined,
+  exceptProjectId?: string,
+): Promise<void> {
+  const trimmed = code?.trim();
+  if (!trimmed) return; // A job with no code is allowed; several have none.
+  const clash = await db.query.project.findFirst({
+    where: and(
+      eq(schema.project.tenantId, tenantId),
+      sql`lower(${schema.project.code}) = lower(${trimmed})`,
+      ...(exceptProjectId ? [ne(schema.project.id, exceptProjectId)] : []),
+    ),
+    columns: { id: true, name: true },
+  });
+  if (clash) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: `Job code ${trimmed} is already used by ${clash.name}. Codes identify a job on every screen, so each one has to be unique.`,
+    });
+  }
+}
 
 export const projectRouter = router({
   /*
@@ -52,7 +97,9 @@ export const projectRouter = router({
       z.object({
         name: z.string().min(1).max(200),
         kind: z.enum(["project", "yard"]).optional(),
-        externalId: z.string().optional(),
+        /* `.max(60)` to match `update` and the column — this was unbounded, so
+           a job could be BORN with a code no edit form would accept. */
+        externalId: z.string().max(60).optional(),
         description: z.string().max(2000).optional(),
         /* Same enum as `update` — a job could otherwise be BORN with a status
            no screen understands, which no amount of validation on update
@@ -64,9 +111,14 @@ export const projectRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      /* Trim before storing AND before comparing: a trailing space is
+         invisible in a list and would otherwise slip past a plain equality
+         check as a "different" code. */
+      const code = input.externalId?.trim() || null;
+      await assertCodeFree(ctx.db, ctx.session.tenantId, code);
       const [row] = await ctx.db
         .insert(schema.project)
-        .values({ tenantId: ctx.session.tenantId, ...input, code: input.externalId })
+        .values({ tenantId: ctx.session.tenantId, ...input, code })
         .returning();
       if (row) await logEvent(ctx, { category: "project", action: "create", entityType: "project", entityId: row.id, entityLabel: row.name });
       return row;
@@ -98,6 +150,14 @@ export const projectRouter = router({
         where: and(eq(schema.project.id, id), eq(schema.project.tenantId, tid)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such project in this tenant" });
+
+      /* Only when the code is actually being changed — re-saving a job with
+         its own existing code must not collide with itself. */
+      if (changes.externalId !== undefined) {
+        const next = changes.externalId?.trim() || null;
+        await assertCodeFree(ctx.db, tid, next, id);
+        changes.externalId = next;
+      }
 
       /*
         A job cannot be completed while tools are still out on it (STI-105).
