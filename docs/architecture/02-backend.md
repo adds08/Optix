@@ -177,4 +177,5 @@ Two populations, and knowing which is which matters:
 `reachability.test.ts` greps both clients for tRPC procedures nothing calls — the
 guard against building a backend feature no screen can open, which has happened.
 
-The browser suite is separate, in `e2e/`, and runs against the Docker stack.
+There is no committed browser suite — `e2e/` was deleted on 2026-09-10; browser
+checking is the Playwright MCP (`.claude/skills/test-on-playwright`).

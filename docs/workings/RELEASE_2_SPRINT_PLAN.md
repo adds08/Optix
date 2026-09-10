@@ -235,7 +235,8 @@ failures, and `pinnedItems(groups, pins)` is the pure intersection, called once 
 `useNavPins` starts empty and fills in an effect, because reading storage during render
 would not match the server HTML.
 
-**Verified.** `e2e/tests/nav-pins.spec.ts`: a pin survives a reload; unpinning removes the
+**Verified** (by a browser spec since deleted with the suite on 2026-09-10): a pin
+survives a reload; unpinning removes the
 section; an id naming nothing renders nothing; and an HR account whose seeded `sti-pins`
 names `tool-register`, `custody` and `people` gets exactly one row, `/people`. The last is
 the one that matters — it is what stops a hand-edited `localStorage` key becoming a link.

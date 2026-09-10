@@ -635,7 +635,7 @@ async function main() {
      an owner with every permission — fine for a throwaway demo database, and a
      full compromise on any deployment reachable from the internet.
 
-     The DEMO fixture keeps that password on purpose: `e2e/roles.ts` signs every
+     The DEMO fixture keeps that password on purpose: browser checking signs every
      browser test in with it and the login page offers one-click demo accounts
      that use it, so changing it there breaks the suite for no gain — that
      dataset is not meant to exist anywhere real.
@@ -772,14 +772,17 @@ async function main() {
     `pm@` (Dana) is on a job, so she WOULD be prompted, and the completed row is
     the only reason she is not. That is the state this fixture exists to reach.
 
-    `foreman@` is onboarded for a different reason: **the browser suite.**
-    `e2e/roles.ts` declares that a foreman lands on `/my-tools`, and
-    `auth.setup.ts` waits for exactly that before saving the session — so an
-    un-onboarded foreman sends every spec's setup to `/welcome` and the whole
-    suite fails at the door. That is not a hypothetical; it is what this feature
-    did, and it went unnoticed because the browser suite was not run while the
-    wizard was being built. The fixture has to represent a foreman who is
-    already through setup, or the suite tests the wizard instead of the app.
+    `foreman@` is onboarded for a different reason: it is the account used to
+    check the FIELD layout, which lands on `/my-tools`. An un-onboarded foreman
+    is intercepted by the wizard and never reaches it, so anyone checking the
+    field shell sees `/welcome` instead. That is not a hypothetical; it is what
+    this feature did, and it went unnoticed because nobody drove the field
+    layout while the wizard was being built. The fixture has to represent a
+    foreman who is already through setup.
+
+    (This also once broke the deleted `e2e/` browser suite at its login step.
+    `mechanic@` — also a field role — is still NOT onboarded, which is why it
+    lands on `/welcome`; that is the gate working, not a bug.)
 
     `super@` is deliberately left UNFINISHED so a fresh login still lands on the
     wizard — it has two jobs and a tier above and below it, which makes it the
@@ -1368,9 +1371,9 @@ clickable link; it is delivered nowhere.`
 One per role, because a permission system only ever tested as 'owner'
 is not a tested permission system. See docs/SETUP.md.
 
-This is the DEMO fixture, not a real register. e2e/roles.ts and the login
-page's one-click accounts both depend on that password, and rbac-matrix.test.ts
-drives the visibility ladder through these accounts. For Urban's real data:
+This is the DEMO fixture, not a real register. The login page's one-click
+accounts depend on that password, and rbac-matrix.test.ts drives the
+visibility ladder through these accounts. For Urban's real data:
 SEED_DATASET=urban`}
 `);
   await client.end();

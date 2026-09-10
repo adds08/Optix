@@ -265,9 +265,10 @@ Two rules, and they are the entire feature:
   array the shell hands the rail. Never render straight out of storage. Storage is
   editable by the person holding the browser, so a pin that could conjure its own link
   would make the sidebar forgeable; this is the same class as the job-scope rule below.
-  `pinnedItems` is the only place the intersection happens, and
-  `e2e/tests/nav-pins.spec.ts` holds it in place with an HR account whose seeded pins name
-  `/tools` and `/custody` and which must render neither.
+  `pinnedItems` is the only place the intersection happens. This was held in place by a
+  browser spec (an HR account whose seeded pins named `/tools` and `/custody` and which
+  had to render neither) until the suite was deleted on 2026-09-10 — **nothing automated
+  guards it now**, so re-check it by hand when you touch pins or permissions.
 
 **A pin MOVES a row, it does not copy it** (changed 2026-08-28). A pinned row is drawn in
 the Pinned section and filtered out of its own group, so the pane never shows the same
@@ -451,9 +452,11 @@ Two fixes, one principle, and which one applies depends on where the control liv
   one `selecting` flag that both halves of the row read, so the two can never disagree.
   This costs no vertical space and puts the actions where the eye already is.
 
-`e2e/tests/no-layout-shift.spec.ts` asserts **equality**, not a tolerance — one pixel of
-movement is the same bug as fifty. It was checked against the un-fixed code first and
-fails there with `Expected: 33, Received: 41`.
+The rule is **equality**, not a tolerance — one pixel of movement is the same bug as
+fifty. A browser spec asserted this (verified against the un-fixed code first, where it
+failed `Expected: 33, Received: 41`) until the suite was deleted on 2026-09-10;
+**nothing automated guards it now**, so measure the header height before and after
+selection by hand when you touch this area.
 
 What is still allowed to change height: a genuine error message (`bulkError`). It appears
 on a failed write rather than on every tick, so reserving a permanent blank row for a
@@ -500,6 +503,32 @@ The grip is absolutely positioned and only tinted on hover, so the header is the
 same height whether or not you are pointing at it — the rule above. It sits above
 the sort button and stops propagation, without which every resize would also
 re-sort the table on release.
+
+### A cell ellipsizes TEXT and must never slice a BOX
+
+`TableCell` carries `truncate`, and that is right for text — a long custodian
+name ellipsizes at the column edge instead of wrapping and making every row
+tall.
+
+It does something else entirely to a **box**. `overflow: hidden` does not
+ellipsize a child element, it clips it: a `StatusPill` or a `Tag` wider than its
+column gets cut through the middle, losing its right border and its corner
+radius, which reads as a rendering fault rather than as "there is more text
+here". That shipped twice, most recently on custody and projects
+(2026-09-10), and widening the column is not the fix — it only raises the width
+at which the slicing starts.
+
+**So a box that can land in a table cell bounds itself**: `max-w-full` on the
+element, `min-w-0 truncate` on the label inside it, and a `title` carrying the
+full value. `StatusPill` and `Tag` in `components/sti/status.tsx` both do this,
+so the LABEL ellipsizes inside an outline that stays whole at any width. Give
+any new pill-shaped cell content the same treatment rather than sizing every
+column to its worst-case string — `Status` sized to `Pending Verification` would
+spend that width on every screen that only ever shows `Active`.
+
+Column widths are still worth getting right, and they are **measured, not
+guessed**: every asset code in the register is nine characters, and `6rem` put
+the last one under the ellipsis.
 
 ### Tables are ruled, and the rule lives on the `<table>`
 

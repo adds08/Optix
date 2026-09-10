@@ -58,9 +58,9 @@ route the actor may not open resolves to nothing rather than rendering it.
 Nothing may change height or position in response to hovering, selecting or
 opening. Controls that appear on interaction occupy their space permanently and
 change only their opacity; bulk-action bars swap into an existing toolbar row
-rather than inserting a new one. `e2e/tests/no-layout-shift.spec.ts` measures it,
-and it measures scroll-adjusted position because the shell scrolls an inner
-region rather than the window.
+rather than inserting a new one. A browser spec measured this — scroll-adjusted,
+because the shell scrolls an inner region rather than the window — until the suite
+was deleted on 2026-09-10. **Nothing automated measures it now.**
 
 ## Theming
 
@@ -129,11 +129,19 @@ job scope is the clearest case — **a client-side filter is not access control*
 
 ## Testing
 
-`e2e/` drives a real browser against the Docker stack. Every spec is **read-only**
-by design — it signs in, navigates and asserts — which is why the suite needs no
-database isolation. The first mutating spec needs an isolation mechanism *first*,
-and that decision is written into the config rather than left to be discovered.
+**There is no committed browser suite.** `e2e/` — a read-only Playwright package that
+drove the Docker stack per role — was deleted on 2026-09-10 after its specs drifted from
+renamed UI ("In Yard" → "Yard", "TAG" → "CODE"). Stale specs naming screens that no
+longer exist mislead every agent that reads them, which cost more than the coverage was
+worth.
 
-`reachability.spec.ts` asserts each seeded role lands on the right screen and is
-offered exactly the navigation its permissions imply — including the half that
-catches a widening, because an extra link is a leak nobody reports.
+Browser checking is now the Playwright MCP, driven a step at a time
+(`.claude/skills/test-on-playwright`). It proves the change in hand and leaves no
+regression protection behind.
+
+**What is therefore unguarded:** role landing screens, sidebar
+permission-widening (an extra link is a leak nobody reports), the no-layout-shift rule
+above, table freeze/resize/overflow, and the CSV download path. Check these by hand when
+you touch them. The router-level half is still covered — `rbac-matrix.test.ts` in
+`packages/api-contracts` drives the permission ladder through the seeded accounts against
+real Postgres.

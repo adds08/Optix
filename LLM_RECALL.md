@@ -179,8 +179,11 @@ asserts on. Full account in `.claude/rules/database.md` and
   never run.** The database-backed suites in `api-contracts` skip silently. Custody,
   RBAC and tenant isolation are all in that population. Run vitest inside the api
   container to actually exercise them — the command is in `docs/CODEMAP.md`.
-- The browser suite in `e2e/` is **read-only by design**. Do not write a mutating
-  spec without an isolation mechanism first.
+- **There is no committed browser suite.** `e2e/` and its `make e2e` targets were
+  DELETED on 2026-09-10 — the specs had drifted from renamed UI ("In Yard" → "Yard",
+  "TAG" → "CODE") and were misleading agents. Browser checking is the Playwright MCP
+  only (`.claude/skills/test-on-playwright`), and it is evidence for the change in hand,
+  never durable coverage. Anything telling you to run `make e2e` describes deleted code.
 
 ### Writing code
 

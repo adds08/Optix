@@ -59,7 +59,7 @@ make ENV=local seed             # load sample data (SEED_RESET=1 to wipe first)
 Sign in with any seeded account — `owner@stinventory.local`,
 `warehouse@stinventory.local`, `foreman@stinventory.local` and others — password
 **`stinventory-demo`**. One account per role, so permission differences are
-visible without editing anything; the full list is `e2e/roles.ts`.
+visible without editing anything; the full list is in `docs/SETUP.md`.
 
 Useful afterwards:
 
@@ -112,7 +112,6 @@ real sentence before relying on it.
 pnpm typecheck                                    # the only thing between a router edit and a broken app
 pnpm --filter @stinventory/web lint
 pnpm test
-cd e2e && pnpm exec playwright test --project=chromium   # needs the stack up
 ```
 
 > **`pnpm test` on a host with no database prints green while the suites that

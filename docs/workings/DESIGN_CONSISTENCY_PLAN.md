@@ -192,8 +192,9 @@ markup almost verbatim; lowest priority, internal pages.
 
 - **`/tools` — actions MUST stay in the toolbar.** Its Import/Export/New group
   (`tools/page.tsx:593-605`) is the same row the bulk-action bar swaps into. That is a
-  documented decision and **`e2e/tests/no-layout-shift.spec.ts:53` asserts pixel equality on
-  it**; moving the actions up reintroduces the exact 58px jump the spec exists to prevent.
+  documented decision — a browser spec asserted pixel equality on it until the suite was
+  deleted 2026-09-10, so **nothing guards it now**; moving the actions up reintroduces the
+  exact 58px jump that spec existed to prevent.
   Give `/tools` `hideTitle` + `description` and **no `actions`**, and leave a comment there
   pointing at the spec.
 - **`/old-dash`** — its own comment calls the tabs "the page's only header". After A2 the
@@ -251,9 +252,10 @@ majority, and the `gap-4` pages will look crowded once a description is added. T
 
 - `pnpm typecheck`, **`pnpm lint`** and `pnpm test` after each step. Lint is the gate that
   was skipped and it is what turned `development` red.
-- **`pnpm --dir e2e exec playwright test no-layout-shift` is mandatory after any `/tools` or
-  `/jobsites` change** — it asserts pixel equality, not a tolerance.
-- `table-grid-and-filter.spec.ts` and `nav-pins.spec.ts` after the header work.
+- **After any `/tools` or `/jobsites` change, measure header height before and after
+  selection by hand** — the rule is pixel equality, not a tolerance. The spec that
+  enforced this was deleted with the browser suite on 2026-09-10.
+- Re-check the table grid/filter and the nav pins in a browser after the header work.
 - **In a browser** — outstanding for everything in Part 0 as well: each migrated tab surface
   driven by **keyboard alone** (arrow keys should move between tabs; that is what Radix buys
   and no hand-rolled version had it), and every touched page in light + dark on two palettes.
@@ -298,8 +300,8 @@ plan superseded by that execution; the doc above remains the audit record).
 - **C4** — **the `/desk` and `/old-dash` surfaces were fully removed at the
   user's direction** (see the C4 heading below), reversing this plan's own
   "keep all three" lean. Routes, components, the orphaned `dashboard.briefing`
-  procedure, the seed's hidden-module row, e2e role expectations and the
-  nav-feature-flags hidden tests went with them. `dashboard-widgets.tsx`
+  procedure, the seed's hidden-module row, the browser suite's role expectations and
+  its nav-feature-flags hidden tests went with them. `dashboard-widgets.tsx`
   survives with only the three chart widgets `/reports/*` uses.
 - **C5** — web.md now names the Inbox Recognized rows beside Custody as the
   deliberate row-action-strip exception (approve/decline is the row's purpose).

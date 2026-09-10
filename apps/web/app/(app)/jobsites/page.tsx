@@ -114,10 +114,12 @@ export default function JobsitesPage() {
      order the projects happened to arrive in. Sort keys come from the Blocky
      board (tools, value, gaps, name). */
   const [cardSort, setCardSort] = useState<"tools" | "value" | "gaps" | "name">("tools");
-  /* Blocky concept delta: the Projects / In Yard split. The design's board
-     split into a Projects tab and an In Yard tab; the In Yard view here is the
-     yard and the project-less groups, which the page ALREADY renders as cards —
-     this toggle just narrows the list to those cards instead of re-querying. */
+  /* Blocky concept delta: the Projects / Yard / Unassigned split. The design's
+     board split into a Projects tab and a yard tab; the Yard view here is the
+     yard groups and Unassigned the project-less ones, which the page ALREADY
+     renders as cards — this toggle just narrows the list to those cards instead
+     of re-querying. (The yard tab was labelled "In Yard" until 2026-09-10; the
+     `poolView === "pool"` key still carries the older name.) */
   /*
     Renamed from `view` on 2026-08-23. The merge that brought the Blocky concept
     onto main landed a SECOND `const [view, setView]` in this same function —
@@ -139,9 +141,8 @@ export default function JobsitesPage() {
 
      Per-browser, like column widths: a presentation preference, not data.
      Starts as "list" and reads storage in an effect so the server HTML and the
-     first client render agree (the nav-pins pattern) — which also means e2e
-     runs, which start with clean storage, always land on the list view the
-     jobsites specs measure.
+     first client render agree (the nav-pins pattern) — which also means a
+     fresh browser, starting with clean storage, always lands on the list view.
   */
   const [renderView, setRenderView] = useState<"list" | "cards">("list");
   useEffect(() => {
@@ -456,11 +457,11 @@ export default function JobsitesPage() {
 
     return out.filter((c) => {
       /* The Equipment Yard is NOT a job — neither the synthetic yard card nor
-         the real project(s) Urban names that way. Both belong in the In Yard
+         the real project(s) Urban names that way. Both belong in the Yard
          tab, and are excluded from Projects below. */
 
       const isYard = c.id === YARD || yardProjectIds.has(c.id);
-      /* The Equipment Yard is not a job. It shows ONLY in the In Yard tab, so a
+      /* The Equipment Yard is not a job. It shows ONLY in the Yard tab, so a
          desk scanning the projects list never has to page past a place nobody
          is working to read the sites that are. */
       if (poolView === "jobs" && (isYard || c.id === NOJOB)) return false;
@@ -581,7 +582,7 @@ export default function JobsitesPage() {
           <section className="flex flex-col gap-2 rounded-md border bg-card p-2">
             {/* The top row is the shared register toolbar: search on the left,
                 every button to its right — Filter, sort, List/Cards,
-                Projects/In Yard, master expand. The counts that used to share
+                the Projects/Yard/Unassigned tabs, master expand. The counts that used to share
                 this row now sit on their own summary line below, the same way
                 the register toolbars keep numbers out of the button row. */}
             <TableToolbar
@@ -707,10 +708,10 @@ export default function JobsitesPage() {
                 </button>
               </div>
 
-              {/* Projects / In Yard split. "Jobs" named a thing this tab is
-                  only partly about (a job is a site; this is also where
-                  unassigned-foreman crews sit), and "Pool" was jargon. The
-                  two labels say what each tab actually is. */}
+              {/* Projects / Yard / Unassigned split. "Jobs" named a thing this
+                  tab is only partly about (a job is a site), and "Pool" was
+                  jargon. The labels say what each tab actually is; the state
+                  keys ("jobs"/"pool"/"unassigned") still carry the old names. */}
               <div className="flex overflow-hidden rounded-md border" role="group" aria-label="View">
                 {([["jobs", "Projects"], ["pool", "Yard"], ["unassigned", "Unassigned"]] as const).map(([key, label]) => (
                   <button
@@ -794,9 +795,9 @@ export default function JobsitesPage() {
                   Clear filters
                 </Button>
               ) : null}
-              {/* What the In Yard tab actually holds, said in numbers.
+              {/* What the Yard tab actually holds, said in numbers.
 
-                  Only in the In Yard tab: on Projects it would be describing cards that
+                  Only in the Yard tab: on Projects it would be describing cards that
                   are not on screen. The two figures are the two cards below it,
                   so the label is a summary of the view rather than a statistic
                   from somewhere else. */}
@@ -863,8 +864,8 @@ export default function JobsitesPage() {
           {renderView === "cards" ? (
             /* The same `cards` array the list maps over — both views are one
                derivation with two layouts, so a filter, the scope selector or
-               the Projects/In Yard split can never show different worlds in the
-               two modes.
+               the Projects/Yard/Unassigned split can never show different worlds
+               in the two modes.
                The icon is chosen HERE because this file owns the YARD/NOJOB
                sentinels; the card view rendering them would mean the string
                literals living in two files. */

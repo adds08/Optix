@@ -530,7 +530,8 @@ export default function ToolsPage() {
       {/* Deliberately no `actions` here: Import/Export/New live in the toolbar
           row below, which is the same row the bulk-action bar swaps into.
           Moving them up reintroduces the 58px jump
-          e2e/tests/no-layout-shift.spec.ts asserts never comes back. */}
+          the no-layout-shift rule in .claude/rules/web.md forbids. The spec that
+          asserted it was deleted with the e2e suite on 2026-09-10; check by hand. */}
       <PageHeader title="Small tools" hideTitle />
       <div className="flex flex-col gap-3">
         {/* One toolbar: job scope, search, the filter sheet (the former facet

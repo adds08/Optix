@@ -6,7 +6,7 @@ at anything the sources don't actually say. Read this before touching any
 `.py` or `.csv` file here, and before running `SEED_DATASET=urban`.
 
 If you are looking for the demo dataset instead — the test fixture
-`rbac-matrix.test.ts` and `e2e/roles.ts` depend on — it lives entirely in
+`rbac-matrix.test.ts` depends on — it lives entirely in
 `packages/db/src/seed-data.ts` and has nothing to do with this directory. See
 `.claude/rules/database.md` for why the two must never be merged into one.
 

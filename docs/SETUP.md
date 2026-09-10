@@ -99,20 +99,17 @@ Urban, is `docs/workings/PERMISSION_MATRIX.md`.
 
 `SEED_RESET=1 make ENV=local seed` wipes first.
 
-### The browser suite
+### Checking it in a browser
 
-```bash
-make ENV=local e2e-install   # once — fetches Chromium
-make ENV=local e2e           # needs the stack already up
-```
+There is **no committed browser suite.** The `e2e/` Playwright package and its
+`make e2e` / `make e2e-install` targets were deleted on 2026-09-10: the specs had drifted
+from renamed UI — clicking an "In Yard" tab that is now "Yard", asserting a "TAG" column
+that is now "CODE" — and a spec naming a screen that no longer exists misleads whoever
+reads it next.
 
-It drives a real browser against `:3100` from OUTSIDE the containers, which is the only way
-to test the stack rather than a process's opinion of itself. `make ENV=local up` must be
-running first; the auth setup fails with a readable message if it is not.
-
-**Read-only by design.** That is what lets it run in parallel against the shared database
-with no isolation mechanism — and it means the first spec that CHANGES a row needs one
-chosen first. The reasoning is in `e2e/playwright.config.ts`.
+Browser checking is now the Playwright MCP, driven a step at a time against the running
+stack — see `.claude/skills/test-on-playwright`. It proves the change in front of you and
+leaves no regression protection behind, so do not record it as coverage.
 
 ## The chat parser
 

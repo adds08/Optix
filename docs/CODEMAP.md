@@ -36,7 +36,6 @@ packages/
   env/            validated environment, server and client halves
   logger/         structured logging
   config-*/       shared eslint and tsconfig
-e2e/            Playwright, read-only, against the Docker stack
 docs/           see docs/README.md
 docs/data/      the real-data import pipeline — see docs/data/README.md
 .claude/        rules, skills, workflow config
@@ -85,7 +84,6 @@ make ENV=local reset            # when a dependency change did not take
 pnpm typecheck                  # the only thing between a router edit and a broken app
 pnpm test                       # see the warning below
 pnpm --filter @stinventory/web lint
-cd e2e && pnpm exec playwright test --project=chromium
 ```
 
 **`pnpm test` on the host is not the whole suite.** The database-backed suites in

@@ -180,9 +180,10 @@ apparatus.
 
 Two consequences worth knowing before editing `seed.ts`:
 
-- **The fixture's password is load-bearing.** `e2e/roles.ts` signs every browser test in
-  with `stinventory-demo`, and the login page offers one-click demo accounts using it.
-  Only the urban dataset takes a real credential.
+- **The fixture's password is load-bearing.** The login page offers one-click demo
+  accounts using `stinventory-demo`, and browser checking signs in with it. Only the
+  urban dataset takes a real credential. (`e2e/roles.ts` also declared it until the
+  browser suite was deleted on 2026-09-10; `docs/SETUP.md` is the account list now.)
 - **Fixtures inside `seed.ts` have been silently required.** The personal-allowance truck
   and the desk approval queue both used non-null assertions on demo-only lookups, so any
   dataset without them killed the whole seed; both are now guarded and skip. If you add a
