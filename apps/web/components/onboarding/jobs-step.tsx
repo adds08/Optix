@@ -41,7 +41,7 @@ export function JobsStep() {
      walk back. */
   const [removeError, setRemoveError] = useState<{ id: string; message: string } | null>(null);
   const unclaim = trpc.onboarding.unclaimProject.useMutation({
-    onSuccess: async (_data, variables) => {
+    onSuccess: async () => {
       setRemoveError(null);
       await Promise.all([utils.onboarding.invalidate(), utils.project.list.invalidate(), utils.projectTeams.invalidate()]);
     },

@@ -58,7 +58,9 @@ export function JobGroupModal({
     setUserQuery("");
     setResult("");
     deleteConfirm.disarm();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    /* `deleteConfirm` is intentionally not a dependency: this effect resets the
+       form when the modal opens on a different group, and re-running it every
+       time the confirm's identity changes would disarm the button mid-click. */
   }, [edit, open]);
 
   const allProjects = projects.data ?? [];

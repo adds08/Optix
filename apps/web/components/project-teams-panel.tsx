@@ -126,7 +126,8 @@ export function ProjectTeamsPanel({ onboarding = false, onlyMine = false }: { on
   const toggleCollapse = (employeeId: string) =>
     setCollapsed(prev => {
       const next = new Set(prev);
-      next.has(employeeId) ? next.delete(employeeId) : next.add(employeeId);
+      if (next.has(employeeId)) next.delete(employeeId);
+      else next.add(employeeId);
       return next;
     });
   const visible = useMemo(() => {
