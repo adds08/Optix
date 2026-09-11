@@ -29,5 +29,11 @@ export { ROLE_PERMS, PM_PERMS } from "./role-perms";
 /* The role register's factory defaults, exported for the same reason: the RBAC
    matrix test pins `canHoldCustody` against `CUSTODIAN_ROLES`, and a test that
    reached in by path would be one more thing to fix when the file moves. */
-export { roleSpecs } from "./seed-data";
+/* `teamRoleSpecs` rides along for `team-role-baseline.test.ts`, which pins the
+   onboarding chain — tiers, "Set by", the ladder and the claim grants — as one
+   baseline every environment starts from. They had drifted three ways at once
+   (dev held no tiers at all, production eight extra edges and a fourth claim
+   grant), and the dev case shipped a General Superintendent the "ask your
+   manager" screen. */
+export { roleSpecs, teamRoleSpecs } from "./seed-data";
 export * from "./schema/index";
