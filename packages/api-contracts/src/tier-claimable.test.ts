@@ -28,6 +28,8 @@ describe.skipIf(!url)("turning self-claiming on for a tier", () => {
   let directorTierId: string;
   let orphanTierId: string;
   let directorRoleId: string;
+  let pmTierId: string;
+  let pmRoleId: string;
 
   const caller = (permissions: Permission[]) =>
     appRouter.createCaller({
@@ -72,22 +74,32 @@ describe.skipIf(!url)("turning self-claiming on for a tier", () => {
 
     /* A tier WITH a login role of the same name, and one WITHOUT. The second is
        the interesting fixture: a tenant may invent a tier on this screen, and
-       nothing creates a login role to match. */
+       nothing creates a login role to match.
+
+       `pm` is the third and the awkward one — the ONE seeded tier whose name
+       does not match its login role. It is reproduced here rather than assumed,
+       because the whole point is that the two registers spell it differently. */
     const tiers = await db
       .insert(schema.teamRole)
       .values([
         { tenantId, name: "director", label: "Director" },
         { tenantId, name: "site_marshal", label: "Site Marshal" },
+        { tenantId, name: "pm", label: "Project Manager" },
       ])
       .returning();
     directorTierId = tiers.find((r) => r.name === "director")!.id;
     orphanTierId = tiers.find((r) => r.name === "site_marshal")!.id;
+    pmTierId = tiers.find((r) => r.name === "pm")!.id;
 
-    const [role] = await db
+    const roles = await db
       .insert(schema.role)
-      .values({ tenantId, name: "director", description: "Test director" })
+      .values([
+        { tenantId, name: "director", description: "Test director" },
+        { tenantId, name: "project_manager", description: "Test project manager" },
+      ])
       .returning();
-    directorRoleId = role!.id;
+    directorRoleId = roles.find((r) => r.name === "director")!.id;
+    pmRoleId = roles.find((r) => r.name === "project_manager")!.id;
   });
 
   afterAll(async () => {
@@ -150,6 +162,35 @@ describe.skipIf(!url)("turning self-claiming on for a tier", () => {
         claimable: true,
       }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  /*
+    THE TIER WHOSE NAME IS NOT ITS ROLE'S NAME.
+
+    `pm` vs `project_manager` made Project Manager the one tier that could never
+    be made claimable, on any environment — the screen answered "there is no
+    access role called Project Manager", which was false: it existed under its
+    spelled-out name. Resolving by label as well as by name is the fix, and
+    these three tests are the reason it cannot quietly come back.
+  */
+  it("finds the login role by the tier's LABEL when the names differ", async () => {
+    await admin().projectTeam.roles.setClaimable({ id: pmTierId, claimable: true });
+    expect(await claimTiersOf(pmRoleId)).toEqual(["pm"]);
+  });
+
+  it("grants the TIER's name, not the role's, so the job picker resolves it", async () => {
+    /* The subtle half. `claimOptions` joins these names against `team_role`, so
+       a grant reading `project_manager` would match no tier and hand the user
+       an empty take-on form — the same dead screen an unseeded tier register
+       produces, reached by a different route. */
+    const rows = await admin().projectTeam.roles.list();
+    const pm = rows.find((r) => r.name === "pm");
+    expect(pm?.claimedByRoles.map((r) => r.name)).toEqual(["project_manager"]);
+  });
+
+  it("switches off again through the same label route", async () => {
+    await admin().projectTeam.roles.setClaimable({ id: pmTierId, claimable: false });
+    expect(await claimTiersOf(pmRoleId)).toEqual([]);
   });
 
   it("cannot reach a tier in another tenant", async () => {
