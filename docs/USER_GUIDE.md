@@ -91,7 +91,8 @@ them.
   has none.
 - The invite address goes on their **login**, not on their employee record. So
   their Email column may stay blank afterwards. That is correct.
-- They get a link, set a password, and land in first-run setup (§5).
+- They get a link and set a password. Foremen land on My Tools; roles requiring
+  setup enter the welcome wizard (§5).
 - You will get a confirmation naming the address it went to. If you do not see
   that confirmation, it did not send.
 
@@ -114,34 +115,39 @@ They will be asked to choose their own password on their next sign-in.
 **Deactivate login** stops somebody signing in and keeps all their history.
 That is almost always what you want.
 
-**Delete** removes the person entirely and **refuses** if they hold any tools
-or appear anywhere in custody history — it will tell you to set them to
-*terminated* instead. Deleting cannot be undone.
+**Deactivate person** keeps the person, account, crew memberships, tools and
+history. It sets the person to inactive and disables their login. Existing sessions
+and outstanding invite/password links stop working. To restore access, use **Edit
+details → Status → Active**, then **Reactivate login**. Reactivation requires a fresh
+sign-in; it does not revive an old session.
+
+**Resend invitation** is for an invitation that has not been accepted. It replaces
+the previous link. For an accepted account that was later deactivated, use
+**Reactivate login** rather than sending another invitation.
 
 ---
 
 ## 5. First-run setup (the welcome wizard)
 
-Anybody whose login role expects it is taken through five steps the first time
-they sign in. Administrators, finance and office roles skip it — they have
-nothing to set up.
+Roles configured for onboarding receive the steps relevant to their access.
+Foremen skip it and see their assigned tools directly. System administrators and
+other roles configured with no onboarding also skip it. Invitation acceptance and
+password requirements still apply.
 
-It only appears if all of these are true: their role expects it, they are
-linked to an employee record, and they are on at least one job's team. If a new
-person sees no wizard, that last one is usually why.
+A person with no assigned projects can complete a review-only setup. Roles allowed
+to claim projects can choose their own jobs; otherwise their manager places them
+on a crew. Claims are configured per role, so different environments may offer
+different choices.
 
-**Step 4, "Your crew"**, is the useful one. It shows the tier above them and
-every tier below, and lets them:
+For someone already assigned, the project and crew steps show the saved roster.
+They cannot edit themselves, managers above them, or another manager's reporting
+branch. Permitted changes below them use the same crew records as their manager's
+screen.
 
-- **Confirm** somebody a subordinate already recorded,
-- **Add another** person to a tier — several superintendents and several
-  foremen per job are normal,
-- **leave it** for whoever owns that decision ("My in-charge will handle
-  this"), and
-- **change their mind** — "I'll name them" withdraws that.
-
-They can leave and come back; nothing is locked in, and **Skip setup** is
-always available.
+**Save and sign out** preserves progress. Required setup finishes with the review
+acknowledgement. An administrator can use **Re-onboard** on the person's account
+panel; this reopens setup without removing their projects, crew or tools. It does
+not grant new claiming rights, and does not force foremen into onboarding.
 
 ---
 

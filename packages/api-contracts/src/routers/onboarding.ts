@@ -23,8 +23,8 @@ import { projectTeamRouter } from "./projectTeam.js";
   own permissions, exactly as the Tools by Jobsite card does — see the note on
   `assertCanAssign`. A superintendent puts their foremen on; a foreman does not,
   because a foreman never could, and the wizard is not the place to invent an
-  exception to that. What a foreman gets instead is the confirmation step: their
-  superintendent already recorded them, and they see it.
+  exception to that. Foremen skip onboarding (role onboardingKind = none) and
+  see their superintendent-recorded crew and assigned tools in the app.
 
   So this router owns:
     - the per-user state row (where am I up to, am I done)
@@ -1137,9 +1137,11 @@ export const onboardingRouter = router({
         name: schema.employee.name,
         userId: schema.user.id,
         lastSignInAt: schema.user.lastSignInAt,
+        onboardingKind: schema.role.onboardingKind,
       })
       .from(schema.employee)
       .leftJoin(schema.user, eq(schema.user.employeeId, schema.employee.id))
+      .leftJoin(schema.role, eq(schema.role.id, schema.employee.roleId))
       .where(and(eq(schema.employee.tenantId, tid), inArray(schema.employee.id, employeeIds)));
     const employeeById = new Map(employees.map((e) => [e.id, e]));
 
@@ -1234,7 +1236,7 @@ export const onboardingRouter = router({
           name: emp?.name ?? "Unknown",
           hasAccount: !!emp?.userId,
           everSignedIn: !!emp?.lastSignInAt,
-          onboardingComplete: !!onboarding?.completedAt,
+          onboardingComplete: emp?.onboardingKind === "none" || !!onboarding?.completedAt,
         };
       });
     byPerson.sort((a, b) => a.name.localeCompare(b.name));

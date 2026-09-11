@@ -172,13 +172,14 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
                 placeholder="Employment status"
                 options={[
                   { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" },
                   { value: "on_leave", label: "On leave" },
                   { value: "terminated", label: "Terminated" },
                 ]}
               />
               <p className="text-xs text-muted-foreground">
-                Terminating stamps the date. Anything they hold stays on their name until
-                somebody moves it — nothing is blocked, and the ledger keeps the history.
+                Inactive disables their login and keeps their assignments and history. To restore
+                access, set Active here and use Reactivate login in the People menu.
               </p>
             </div>
           ) : null}

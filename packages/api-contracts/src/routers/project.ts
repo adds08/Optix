@@ -7,6 +7,7 @@ import { protectedProcedure, requirePermission, router, type Context } from "../
 import { logEvent } from "../audit.js";
 import { crewEmployeeIds, visibleProjectScope } from "../scope.js";
 import { moveEmployeeToProject } from "../project-assign.js";
+import { userRouter } from "./user.js";
 import { PROJECT_STATUSES } from "@stinventory/types";
 
 /*
@@ -681,6 +682,13 @@ export const employeeRouter = router({
       const roleChanged = "roleId" in patch && patch.roleId !== existing.roleId;
 
       const [row] = await ctx.db.transaction(async (tx) => {
+        if (patch.employmentStatus === "inactive") {
+          const accounts = await tx.select({ id: schema.user.id }).from(schema.user)
+            .where(and(eq(schema.user.employeeId, id), eq(schema.user.tenantId, tid)));
+          for (const account of accounts) {
+            await userRouter.createCaller({ ...ctx, db: tx as any }).setActive({ userId: account.id, isActive: false });
+          }
+        }
         const [updated] = await tx
           .update(schema.employee)
           .set({ ...patch, updatedAt: new Date() })
@@ -714,54 +722,32 @@ export const employeeRouter = router({
       return row;
     }),
 
-  /*
-    Somebody who has held a tool is terminated, not deleted.
-
-    Custody history names them, and the HR clearance queue is built on knowing
-    who was holding what when they left. Deleting the row nulls those links and
-    the queue silently empties — which is precisely the failure this system
-    exists to prevent.
-  */
+  // Keep the old procedure name for existing clients; removal is reversible.
+  // A person's crew, imported identities and custody history must outlive login.
   delete: requirePermission("employee.manage")
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const existing = await ctx.db.query.employee.findFirst({
-        where: and(eq(schema.employee.id, input.id), eq(schema.employee.tenantId, tid)),
-      });
-      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
-
-      const [holding] = await ctx.db
-        .select({ id: schema.asset.id })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentCustodianId, input.id)))
-        .limit(1);
-      if (holding) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "They are still holding tools. Return or transfer those first.",
+      return ctx.db.transaction(async tx => {
+        const existing = await tx.query.employee.findFirst({
+          where: and(eq(schema.employee.id, input.id), eq(schema.employee.tenantId, tid)),
         });
-      }
-
-      const [everHeld] = await ctx.db
-        .select({ id: schema.assignment.id })
-        .from(schema.assignment)
-        .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.custodianId, input.id)))
-        .limit(1);
-      if (everHeld) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "This person appears in custody history. Set them to terminated instead — deleting them would break the trail.",
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such person in this tenant" });
+        const accounts = await tx.select({ id: schema.user.id }).from(schema.user)
+          .where(and(eq(schema.user.employeeId, input.id), eq(schema.user.tenantId, tid)));
+        // Reuse account permission and self-deactivation guards. If either fails,
+        // the entire operation rolls back, including the employee status.
+        for (const account of accounts) {
+          await userRouter.createCaller({ ...ctx, db: tx as any }).setActive({ userId: account.id, isActive: false });
+        }
+        await tx.update(schema.employee).set({ employmentStatus: "inactive", updatedAt: new Date() })
+          .where(and(eq(schema.employee.id, input.id), eq(schema.employee.tenantId, tid)));
+        await logEvent({ ...ctx, db: tx as any }, {
+          category: "assignment", action: "employee.deactivate", entityType: "employee",
+          entityId: input.id, entityLabel: existing.name,
         });
-      }
-
-      await ctx.db.delete(schema.employee).where(and(eq(schema.employee.id, input.id), eq(schema.employee.tenantId, tid)));
-      await logEvent(ctx, {
-        category: "assignment", action: "employee.delete", entityType: "employee",
-        entityId: input.id, entityLabel: existing.name,
+        return { ok: true };
       });
-      return { ok: true };
     }),
 
   /*

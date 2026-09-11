@@ -135,7 +135,8 @@ export const role = pgTable(
       The client's framing, 2026-09-07: "HR does not care about project, sees
       all project users, but does not see tools and so on! only people!" while
       the equipment chain — director, area in-charge, PM, superintendent,
-      foreman and the crew between them — is the wizard that exists today.
+      and the crew between them — uses the equipment wizard. Foremen skip
+      onboarding as of 2026-09-11; their managers maintain their assignments.
 
       Values (plain text, like every other vocabulary here; Zod at the router
       edge refuses an unlisted one):

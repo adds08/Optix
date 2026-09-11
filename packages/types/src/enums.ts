@@ -110,7 +110,7 @@ export const CUSTODIAN_ROLES = ["foreman", "superintendent", "mechanic"] as cons
 export const TEAM_SOURCES = ["equipment_department", "payroll_import", "manual_entry", "api_sync", "onboarding"] as const;
 export type TeamSource = (typeof TEAM_SOURCES)[number];
 export const DEFAULT_TEAM_SOURCE: TeamSource = "equipment_department";
-export const EMPLOYMENT_STATUSES = ["active", "terminated", "on_leave"] as const;
+export const EMPLOYMENT_STATUSES = ["active", "inactive", "terminated", "on_leave"] as const;
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
 export const PROJECT_STATUSES = [
   "not_awarded",
