@@ -1,5 +1,5 @@
 import { assertProjectAccess, assertBranchTarget, activeProjectRows, restrictedProjects } from "../project-access.js";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { TRPCError } from "@trpc/server";
@@ -928,10 +928,36 @@ export const projectTeamRouter = router({
         .where(and(eq(schema.teamRole.id, input.id), eq(schema.teamRole.tenantId, tid)));
       if (!tier) throw new TRPCError({ code: "NOT_FOUND" });
 
+      /*
+        A TIER AND ITS LOGIN ROLE DO NOT ALWAYS SHARE A NAME.
+
+        Seven of the eight match exactly. The eighth does not: the tier is
+        `pm` and the login role is `project_manager` — the abbreviation is the
+        tier register's, and the role register spells it out. Matching on name
+        alone therefore made Project Manager the ONE tier that could never be
+        made claimable from the Job Tiers screen, on any environment, with an
+        error telling the user to create an access role that already existed.
+
+        So the label is the second key: the tier's label IS "Project Manager",
+        which is the role's name with the underscores turned back into spaces.
+        That is the same normalisation `humanizeRole` does for display, running
+        in the other direction.
+
+        Not a rename. Renaming the tier to `project_manager` would rewrite
+        `team_role.name` — a value `setBy` lists, `claimTierNames` stores and
+        every roster row's `role` column holds as text — on every tenant. This
+        is a two-line read instead.
+      */
+      const roleNameFromLabel = tier.label.trim().toLowerCase().replace(/\s+/g, "_");
       const [role] = await ctx.db
         .select({ id: schema.role.id, claimTierNames: schema.role.claimTierNames })
         .from(schema.role)
-        .where(and(eq(schema.role.tenantId, tid), eq(schema.role.name, tier.name)));
+        .where(
+          and(
+            eq(schema.role.tenantId, tid),
+            or(eq(schema.role.name, tier.name), eq(schema.role.name, roleNameFromLabel)),
+          ),
+        );
       if (!role) {
         throw new TRPCError({
           code: "BAD_REQUEST",
