@@ -6,7 +6,26 @@ import type { ResolvedSession } from "@stinventory/auth";
 import { TRPCError } from "@trpc/server";
 
 export async function activeProjectRows(db: Database, tenantId: string) {
-  return db.select().from(schema.projectTeamMember).where(and(eq(schema.projectTeamMember.tenantId, tenantId), isNull(schema.projectTeamMember.endedOn)));
+  /*
+    ORDERED, because an unordered roster is not a stable fact.
+
+    This is the single source of every members array on the Crew screens, and it
+    carried no `ORDER BY` — so Postgres returned the same rows in whatever order
+    it liked, and two identical reads could disagree. That surfaced as
+    `account-lifecycle.test.ts` comparing the roster before and after an
+    onboarding reopen and failing on nothing: same three people, shuffled. It
+    failed for `project_manager` and passed for the other three roles in the
+    same `it.each`, which is the signature of order luck rather than a
+    regression. On screen the same gap let a crew list reshuffle between page
+    loads.
+
+    `createdAt` then `id`, the tie-break rule this codebase already follows for
+    the ledger: a bulk writer inserts many rows inside one timestamp, so the
+    timestamp alone does not order them.
+  */
+  return db.select().from(schema.projectTeamMember)
+    .where(and(eq(schema.projectTeamMember.tenantId, tenantId), isNull(schema.projectTeamMember.endedOn)))
+    .orderBy(schema.projectTeamMember.createdAt, schema.projectTeamMember.id);
 }
 export async function restrictedProjects(db: Database, session: ResolvedSession) {
   if (!session.employeeId) return new Set<string>();
