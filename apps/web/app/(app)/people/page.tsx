@@ -73,26 +73,15 @@ export default function PeoplePage() {
     onSuccess: (_d, vars) => {
       setFailed(null);
       utils.employee.list.invalidate();
-      /*
-        NO UNDO, and that is not an omission. `employee.delete` is a hard
-        `db.delete` — there is no soft-delete column to restore from, so an
-        "Undo" could only re-INSERT, minting a NEW uuid and a different row that
-        merely looks the same. Offering it would be a lie about what happened.
-        Real undo needs soft-delete first; see the changelog.
-
-        The blast radius is already narrow by construction: the procedure
-        refuses outright if the person holds tools or appears anywhere in
-        custody history, telling the caller to terminate them instead.
-      */
       const name = rows.find((r) => r.id === vars.id)?.name;
-      toast.success("Person deleted", { description: name });
+      toast.success("Person deactivated", { description: name });
     },
     onError: (e, vars) => {
       /* Inline AS WELL as toasted: `failed` is keyed by row id and renders
          against the row that refused, which is what makes "they are still
          holding tools" actionable. The toast is for somebody who has scrolled. */
       setFailed({ id: vars.id, message: e.message });
-      toast.error("Could not delete", { description: e.message });
+      toast.error("Could not deactivate", { description: e.message });
     },
   });
 
@@ -372,7 +361,8 @@ export default function PeoplePage() {
                 reportsToEmployeeId: e.reportsToEmployeeId,
               })
             }
-            onDelete={() => remove.mutate({ id: e.id })}
+            deleteLabel="Deactivate person"
+            onDelete={e.employmentStatus !== "inactive" ? () => remove.mutate({ id: e.id }) : undefined}
             deleting={remove.isPending}
             error={failed?.id === e.id ? failed.message : null}
           />

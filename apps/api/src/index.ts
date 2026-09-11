@@ -304,6 +304,11 @@ app.post("/auth/tokens/:token/consume", async (c) => {
 
   const passwordHash = await hashPassword(body.password);
   const consumed = await db.transaction(async (tx) => {
+    // Same lock order as account deactivation: user first, then tokens. A link
+    // being consumed concurrently must not undo an administrator's deactivation.
+    const [account] = await tx.select({ id: schema.user.id }).from(schema.user)
+      .where(and(eq(schema.user.id, row.userId), eq(schema.user.tenantId, row.tenantId))).for("update");
+    if (!account) return false;
     const [claimed] = await tx.update(schema.authToken).set({ consumedAt: new Date() })
       .where(and(eq(schema.authToken.id, row.id), isNull(schema.authToken.consumedAt), gt(schema.authToken.expiresAt, new Date())))
       .returning({ id: schema.authToken.id });

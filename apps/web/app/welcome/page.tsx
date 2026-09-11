@@ -150,7 +150,8 @@ export default function WelcomePage() {
   useEffect(() => {
     if (me.error?.data?.code === "UNAUTHORIZED" || me.data === null) router.replace("/");
     else if (me.data?.mustChangePassword) router.replace("/account/password");
-  }, [me.data, me.error, router]);
+    else if (me.data && state.data?.onboardingKind === "none") router.replace("/home");
+  }, [me.data, me.error, state.data?.onboardingKind, router]);
 
   const steps = state.data?.steps ?? ["review"];
   const [index, setIndex] = useState(0);

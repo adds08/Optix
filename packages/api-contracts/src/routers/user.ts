@@ -34,7 +34,7 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   **Deactivate, never delete.** A user is the actor stamped on `event_log` rows
   and on ledger history that can never be rewritten. Deleting the row cascades
   those links away and leaves a trail nobody can attribute — the same reasoning
-  as `employee.delete`, which refuses for the same reason. `isActive = false` is
+  as `employee.delete`, which now deactivates the person instead. `isActive = false` is
   the whole of "this person has left": `resolveSession` refuses an inactive
   user, so live sessions stop working at their next request without anything
   having to hunt them down.
@@ -564,15 +564,15 @@ export const userRouter = router({
       const tid = ctx.session.tenantId;
 
       const [target] = await ctx.db
-        .select({ id: schema.user.id, email: schema.user.email, firstName: schema.user.firstName, isActive: schema.user.isActive })
+        .select({ id: schema.user.id, email: schema.user.email, firstName: schema.user.firstName, isActive: schema.user.isActive, emailVerifiedAt: schema.user.emailVerifiedAt, lastSignInAt: schema.user.lastSignInAt })
         .from(schema.user)
         .where(and(eq(schema.user.id, input.userId), eq(schema.user.tenantId, tid)))
         .limit(1);
       if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "No such account in this tenant" });
-      if (target.isActive) {
+      if (target.isActive || target.emailVerifiedAt || target.lastSignInAt) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "This account has already been activated. Resend only applies to a pending invite.",
+          message: "This account has already been activated. Reactivate its login or reset its password; resend only applies to a pending invite.",
         });
       }
 
@@ -584,6 +584,18 @@ export const userRouter = router({
 
       const token = generateAuthToken();
       await ctx.db.transaction(async (tx) => {
+        // Serialize resends with acceptance and deactivation, so concurrent
+        // requests cannot leave two valid links or re-invite an accepted user.
+        const [account] = await tx.select().from(schema.user)
+          .where(and(eq(schema.user.id, input.userId), eq(schema.user.tenantId, tid))).for("update");
+        if (!account || account.isActive || account.emailVerifiedAt || account.lastSignInAt) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Resend only applies to a pending invite. Reactivate the account or reset its password instead." });
+        }
+        const invitation = await tx.query.authToken.findFirst({
+          where: and(eq(schema.authToken.userId, input.userId), eq(schema.authToken.tenantId, tid), eq(schema.authToken.kind, "invite")),
+          columns: { id: true },
+        });
+        if (!invitation) throw new TRPCError({ code: "BAD_REQUEST", message: "This account was not invited. Reactivate its login or reset its password instead." });
         /* Supersede every earlier unconsumed invite for this user first, so a
            copy of an old link forwarded or left in an inbox stops working the
            moment a fresh one is issued — only the newest should be live. */
@@ -760,11 +772,21 @@ export const userRouter = router({
         });
       }
 
-      const [row] = await ctx.db
-        .update(schema.user)
-        .set({ isActive: input.isActive })
-        .where(and(eq(schema.user.id, input.userId), eq(schema.user.tenantId, tid)))
-        .returning(publicColumns);
+      const row = await ctx.db.transaction(async (tx) => {
+        const [updated] = await tx.update(schema.user)
+          .set({ isActive: input.isActive })
+          .where(and(eq(schema.user.id, input.userId), eq(schema.user.tenantId, tid)))
+          .returning(publicColumns);
+        if (!input.isActive) {
+          // Deactivation must also cancel pending invitations and old sessions.
+          // Otherwise an invite reactivates the account, or reactivation revives
+          // a session held by someone who was deliberately signed out.
+          await tx.delete(schema.session).where(and(eq(schema.session.userId, input.userId), eq(schema.session.tenantId, tid)));
+          await tx.update(schema.authToken).set({ consumedAt: new Date() })
+            .where(and(eq(schema.authToken.userId, input.userId), eq(schema.authToken.tenantId, tid), isNull(schema.authToken.consumedAt)));
+        }
+        return updated;
+      });
 
       /* Nothing here touches `assignment`, `asset.current_*` or the ledger, and
          nothing should. An account going dark says nothing about where the

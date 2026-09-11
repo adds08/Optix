@@ -69,6 +69,7 @@ export function RowActions({
   label,
   onEdit,
   onDelete,
+  deleteLabel = "Delete",
   deleting,
   error,
   actions = [],
@@ -78,6 +79,7 @@ export function RowActions({
   label: string;
   onEdit?: () => void;
   onDelete?: () => void;
+  deleteLabel?: string;
   deleting?: boolean;
   error?: string | null;
   /*
@@ -146,7 +148,7 @@ export function RowActions({
             confirming ? (
               <DropdownMenuItem variant="danger" onSelect={onDelete}>
                 <Trash2 />
-                Really delete {label}?
+                {deleteLabel} {label}?
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
@@ -159,7 +161,7 @@ export function RowActions({
                 }}
               >
                 <Trash2 />
-                Delete
+                {deleteLabel}
               </DropdownMenuItem>
             )
           ) : null}

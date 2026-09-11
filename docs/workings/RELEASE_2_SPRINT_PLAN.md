@@ -566,3 +566,98 @@ Release 1's §16 applies unchanged. Two additions:
   prove the point.
 - **Seeded.** If the story adds a threshold, a status, a role or a state, the seed reaches
   it — including the edge that trips the rule.
+
+## 7. Pending user acceptance and data work — 2026-09-11
+
+Requested by the product owner. All checks below are **pending**, not evidence of
+passing tests. Phase A is dev-server acceptance work; Phase B is later import work.
+
+### Phase A — Invitations, onboarding, and account lifecycle
+
+Use controlled dev accounts and capture the account/employee IDs, role, pre-existing
+branch and crew, expected result, actual result, and pass/fail for each case. Generate
+invite links through the app; keep tokens out of committed test notes.
+
+- [ ] **Re-invite:** resend a pending invitation; verify the new link works, the
+  superseded link cannot be reused, and acceptance retains the same employee and
+  account without duplicating crew memberships. Cover expired and already accepted
+  invitations, with a clear result for each.
+- [ ] **Re-onboard:** reopen onboarding after completing it and after leaving it
+  partially complete. Existing projects, branch, crew and custody must be reflected;
+  repeating completion must not duplicate or erase those records.
+- [ ] **Delete means deactivate:** exercise the user-facing delete/deactivate action
+  on an account with existing data. The account remains with the same ID and becomes
+  inactive; login and authenticated access are denied. Employee, tools, custody,
+  project/team relationships and historical records remain intact, with no cascade
+  deletion or automatic custody reassignment.
+- [ ] **Reactivate:** restore that account and verify login, identity, permissions,
+  crew and retained data. Confirm the re-invite/reset-password paths behave clearly
+  for an inactive account rather than creating a replacement person.
+
+For each management role below, test both a person nobody has ever placed on a crew
+and a person already assigned by an authorised manager. Invite, accept, onboard,
+reload and sign in again. Compare the resulting roster with the assigning manager's
+view. Preassigned users must see the same relevant crew and cannot change the
+hierarchy above their own position in the branch; check server enforcement as well
+as disabled UI controls. Record precisely which changes at/below their position
+are allowed by the role.
+
+| Role | Never assigned to a crew | Already assigned |
+|---|---|---|
+| Superintendent | [ ] | [ ] By director; [ ] by general superintendent |
+| Project manager | [ ] | [ ] By authorised manager |
+| General superintendent | [ ] | [ ] By authorised manager |
+| Director | [ ] | [ ] By authorised manager |
+| Area incharge | [ ] | [ ] By authorised manager |
+
+- [ ] **Equipment administrator:** invite and verify the role-appropriate onboarding
+  or landing flow and access, without assuming a management branch exists.
+- [ ] **Project engineer:** repeat and record the actual onboarding and crew access.
+- [ ] **Engineer:** repeat and record the actual onboarding and crew access.
+- [ ] **Foreman skips onboarding:** invitation acceptance/password setup can still
+  apply, but the foreman should reach the app without a required onboarding wizard.
+  Existing assigned small tools must remain visible. Verify both new and existing
+  foreman accounts, including accounts with unfinished onboarding state.
+
+Source inspection only: `user.setActive` in
+`packages/api-contracts/src/routers/user.ts` updates `isActive` and records an audit
+event without changing custody. This does not prove every UI deletion path is safe.
+`packages/api-contracts/src/routers/onboarding.ts` describes a foreman confirmation
+step, so foreman bypass requires verification against the requested behaviour.
+
+### Phase B — Match BambooHR people to spreadsheet custody (later)
+
+**Priority:** put small tools into the correct foremen's custody. Project data is
+optional for this pass and must not block a confidently matched foreman/tool link.
+Include truck and trailer custody from their respective sources. This import scope
+is foremen only.
+
+- [ ] Inventory the actual supplied files: trailer workbook summary and individual
+  `TE-*` sheets, the separate truck data sheet, and any available project references.
+  The existing `docs/data/README.md` pipeline uses a transcribed truck PDF; do not
+  assume it already reads the newly requested truck sheet.
+- [ ] Match against BambooHR-synced employees by a verified employee code where
+  supplied; otherwise use a unique normalised name. Generated `URB-*` seed numbers
+  are not automatically BambooHR codes. Conflicting codes/names, duplicate names,
+  ambiguous matches and missing people are left unassigned for human resolution;
+  do not guess or create duplicate employees to force a match.
+- [ ] Produce a reviewable dry-run manifest of accepted matches and an unresolved
+  report with source file/sheet/row, candidates and reason. Retain source provenance
+  so other staff can finish the unresolved assignments later.
+- [ ] Apply accepted small-tool custody and truck/trailer links through the existing
+  domain writers so projections and immutable history agree. Preserve ownership.
+  Missing project data stays unknown; it is not inferred to satisfy the import.
+- [ ] Attribute import actions to the intended **superadmin**, not the Optix admin.
+  Resolve the actual account/role mapping before applying; the system plan currently
+  distinguishes organisation `owner` from a deferred platform administrator.
+- [ ] Make the import additive and repeatable across local, dev and production:
+  stable source keys, environment-local ID resolution, duplicate prevention, and
+  before/after reconciliation. Re-running must not duplicate custody or ledger
+  events. Preserve existing records and the separate demo test fixture; a seed reset
+  is not the delivery mechanism for this work.
+- [ ] Rehearse locally and in dev, then apply the reviewed manifest to production.
+  Track applied/unresolved counts separately per environment and retain recovery
+  evidence for the import batch.
+- [ ] Verify imported holdings appear in applicable onboarding views and crew
+  summaries. Foremen still skip onboarding and see their holdings directly in the
+  app; importing data must not introduce a new onboarding requirement for them.

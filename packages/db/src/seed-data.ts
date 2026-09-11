@@ -153,7 +153,7 @@ export const roleSpecs: RoleSeed[] = [
   { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
   { name: "engineer", description: "Runs work on a job. Same reach as a project manager where tools are concerned.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
   { name: "superintendent", description: "Runs several crews, and holds tools directly when a job has no foreman yet.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
-  { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
+  { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "none", isSystem: true },
   { name: "mechanic", description: "Works out of the shop and keeps tools there. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
   { name: "hr", description: "People records. No access to the register or to custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "people", isSystem: true },
   { name: "finance", description: "Cost and value reporting across the register.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
