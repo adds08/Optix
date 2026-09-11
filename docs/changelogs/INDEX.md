@@ -26,6 +26,7 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-11 | [An unordered roster is not a stable fact](2026-09-11-an-unordered-roster-is-not-a-stable-fact.md) |
 | 2026-09-11 | [A tier and its login role stop having to share a name](2026-09-11-a-tier-and-its-login-role-stop-sharing-a-name.md) |
 | 2026-09-11 | [No invented people in the real register, and Arial by default](2026-09-11-no-invented-people-and-arial-by-default.md) |
 | 2026-09-11 | [A job code identifies a job](2026-09-11-a-job-code-identifies-a-job.md) |
