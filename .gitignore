@@ -49,3 +49,4 @@ scratch/
 # A conversation, not a record: anything durable belongs in docs/ or
 # .claude/rules/ instead.
 AGENT_HANDOFF.md
+.~lock.*#

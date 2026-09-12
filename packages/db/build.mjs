@@ -16,12 +16,13 @@ const externalizeNodeModules = {
   },
 };
 
-/* The seed ships too. Reference data — tenant, roles, permissions — has to be
-   creatable on a fresh production database, and the alternative is a human
-   running SQL by hand on day one. The demo *accounts* it also creates are
-   guarded separately inside seed.ts by SEED_ALLOW_PRODUCTION. */
+/* Migrations only. The seed was deleted on 2026-09-13 — it invented tool codes,
+   dropped vehicles and named jobs "Job 24002", and a fixture that is
+   approximately right is worse than an empty register. Tenant configuration
+   (roles, tiers, categories, units) lives in src/tenant-config.ts and is
+   imported as data, not run as a script. */
 await build({
-  entryPoints: ["src/migrate.ts", "src/seed.ts"],
+  entryPoints: ["src/migrate.ts"],
   outdir: "dist",
   bundle: true,
   platform: "node",

@@ -95,13 +95,174 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
 
   beforeAll(async () => {
     db = createDb(url!);
-    const [t] = await db
-      .select({ id: schema.tenant.id })
-      .from(schema.tenant)
-      .where(eq(schema.tenant.slug, "urban"));
-    tenantId = t!.id;
 
+    /*
+      THIS SUITE BUILDS ITS OWN TENANT (2026-09-13).
+
+      It used to look up the tenant with slug "urban" and run against whatever
+      the seed had put there. The seed was deleted — it invented tool codes,
+      dropped vehicles and named jobs "Job 24002" — so there is no longer a
+      populated tenant to find, and a test that depends on fixture data is a
+      test that fails for reasons unrelated to the code it guards.
+
+      What this suite actually needs is a tenant with the factory roles, their
+      permissions, and one login per role. All three are built here from
+      `ROLES` / `ROLE_PERMS` / `roleSpecs` — the same constants the register is
+      provisioned from — so the matrix is still asserted against the real
+      authority model, and the accounts below are real accounts resolved the
+      way login resolves them.
+
+      Everything is torn down in afterAll.
+    */
     const suffix = crypto.randomUUID().slice(0, 8);
+    const [main] = await db
+      .insert(schema.tenant)
+      .values({ name: "STI-308 matrix", slug: `sti308-main-${suffix}` })
+      .returning({ id: schema.tenant.id });
+    tenantId = main!.id;
+
+    await db.insert(schema.permission).values(PERMISSIONS.map((name) => ({ name }))).onConflictDoNothing();
+    const mainRoles = await db
+      .insert(schema.role)
+      .values(ROLES.map((name) => ({ tenantId, name })))
+      .returning({ id: schema.role.id, name: schema.role.name });
+    for (const r of mainRoles) {
+      const perms = ROLE_PERMS[r.name as (typeof ROLES)[number]] ?? [];
+      if (perms.length) {
+        await db
+          .insert(schema.rolePermission)
+          .values(perms.map((p) => ({ roleId: r.id, permissionName: p })))
+          .onConflictDoNothing();
+      }
+    }
+
+    /* One login per role that has one, at the addresses the tests below name.
+       Each is linked to an employee, because the visibility ladder resolves
+       `assets.view.own` and `.crew` through `session.employeeId`. */
+    for (const spec of roleSpecs) {
+      if (!spec.needsLogin) continue;
+      const role = mainRoles.find((r) => r.name === spec.name);
+      if (!role) continue;
+      const [emp] = await db
+        .insert(schema.employee)
+        .values({ tenantId, name: `${spec.name} account`, role: spec.name })
+        .returning({ id: schema.employee.id });
+      /* The short addresses the assertions below use. `project_manager` and
+         `superintendent` are the ROLE names; `pm@` and `super@` are what the
+         accounts were always called, and renaming the tests to match would
+         churn more than it explains. */
+      const localPart =
+        spec.name === "project_manager" ? "pm" : spec.name === "superintendent" ? "super" : spec.name;
+      const [user] = await db
+        .insert(schema.user)
+        .values({
+          tenantId,
+          email: `${localPart}@stinventory.local`,
+          firstName: spec.name,
+          lastName: "account",
+          passwordHash: "x",
+          employeeId: emp!.id,
+        })
+        .returning({ id: schema.user.id });
+      await db.insert(schema.userRole).values({ userId: user!.id, roleId: role.id });
+    }
+
+    /*
+      A MINIMAL REGISTER, built to exercise the ladder rather than to look real.
+
+      Section 2 asserts each tier sees strictly less than the one above, so the
+      fixture has to be shaped so that is true: a job the PM is on, a foreman
+      and a mechanic holding their own tools on it, a superintendent over that
+      foreman, and tools elsewhere that only the desk can see.
+
+      Deliberately tiny — five tools, not Urban's 753. The assertions are
+      relative ("strictly less"), never absolute, so size buys nothing and a
+      big fixture is just a slow one.
+    */
+    const accountEmp = async (roleName: string) => {
+      const [row] = await db
+        .select({ id: schema.employee.id })
+        .from(schema.employee)
+        .where(and(eq(schema.employee.tenantId, tenantId), eq(schema.employee.role, roleName)));
+      return row!.id;
+    };
+    const foremanEmp = await accountEmp("foreman");
+    const mechanicEmp = await accountEmp("mechanic");
+    const supEmp = await accountEmp("superintendent");
+    const pmEmp = await accountEmp("project_manager");
+
+    const [job] = await db
+      .insert(schema.project)
+      .values({ tenantId, name: "Ladder job", startDate: "2025-01-06" })
+      .returning({ id: schema.project.id });
+    const [other] = await db
+      .insert(schema.project)
+      .values({ tenantId, name: "Desk-only job", startDate: "2025-01-06" })
+      .returning({ id: schema.project.id });
+
+    /* The roster is what crew scope reads — `scope.ts` derives a
+       superintendent's crew from the foremen on the jobs they are on, not from
+       `employee.reportsToEmployeeId`. */
+    const [second] = await db
+      .insert(schema.project)
+      .values({ tenantId, name: "Sup-only job", startDate: "2025-01-06" })
+      .returning({ id: schema.project.id });
+
+    /* The sup's crew is on TWO jobs, the PM on one of them. That asymmetry is
+       what "does not let crew and project mean the same thing" asserts: each
+       must see something the other cannot, in both directions. */
+    /* `reportsToEmployeeId` is set ON THE ROSTER ROW, which is what
+       `branchEmployeeIds` walks — a branch is project-specific, and a lower
+       tier alone conveys no relationship. On the shared job the foreman
+       reports to the PM; on the sup-only job, to the sup. */
+    await db.insert(schema.projectTeamMember).values([
+      { tenantId, projectId: job!.id, employeeId: pmEmp, role: "pm", startedOn: "2025-01-06" },
+      { tenantId, projectId: job!.id, employeeId: supEmp, role: "superintendent", startedOn: "2025-01-06", reportsToEmployeeId: pmEmp },
+      { tenantId, projectId: job!.id, employeeId: foremanEmp, role: "foreman", startedOn: "2025-01-06", reportsToEmployeeId: supEmp },
+      { tenantId, projectId: second!.id, employeeId: supEmp, role: "superintendent", startedOn: "2025-01-06" },
+      { tenantId, projectId: second!.id, employeeId: foremanEmp, role: "foreman", startedOn: "2025-01-06", reportsToEmployeeId: supEmp },
+    ]);
+
+    /* Two for the foreman, one for the mechanic, two only the desk can see —
+       so desk(5) > pm(3) > foreman(2) > mechanic(1), and sup sees its crew. */
+    const tools: { holder: string | null; project: string | null }[] = [
+      { holder: foremanEmp, project: job!.id },
+      { holder: foremanEmp, project: job!.id },
+      /* PM sees this (their job); the sup does not — a mechanic is not on the
+         roster, so they are nobody's crew. */
+      { holder: mechanicEmp, project: job!.id },
+      /* The sup sees this through their crew on the second job; the PM is not
+         on that job, so they cannot. */
+      { holder: foremanEmp, project: second!.id },
+      /* Held by the sup on the PM's job: the PM sees it (their job), the
+         foreman does not (not his custody). This is what keeps pm > foreman. */
+      { holder: supEmp, project: job!.id },
+      { holder: null, project: other!.id },
+      { holder: null, project: other!.id },
+    ];
+    for (const [i, t] of tools.entries()) {
+      const [asset] = await db
+        .insert(schema.asset)
+        .values({
+          tenantId,
+          description: `Ladder tool ${i + 1}`,
+          currentCustodianId: t.holder,
+          currentProjectId: t.project,
+          currentStatus: t.holder ? "assigned" : "available",
+        })
+        .returning({ id: schema.asset.id });
+      if (t.holder) {
+        await db.insert(schema.assignment).values({
+          tenantId,
+          assetId: asset!.id,
+          custodianId: t.holder,
+          projectId: t.project,
+          startDate: "2025-01-06",
+          status: "active",
+        });
+      }
+    }
+
     const [factory] = await db
       .insert(schema.tenant)
       .values({ name: "STI-308 factory default", slug: `sti308-${suffix}` })
@@ -130,6 +291,9 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
   afterAll(async () => {
     if (db && factoryTenantId) {
       await db.delete(schema.tenant).where(eq(schema.tenant.id, factoryTenantId));
+    }
+    if (db && tenantId) {
+      await db.delete(schema.tenant).where(eq(schema.tenant.id, tenantId));
     }
   });
 

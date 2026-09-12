@@ -14,7 +14,6 @@
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/migrate.ts",
     "studio": "drizzle-kit studio",
-    "seed": "tsx src/seed.ts",
     "clean": "rm -rf dist .turbo",
     "push:dangerous": "drizzle-kit push",
     "build": "node build.mjs"
