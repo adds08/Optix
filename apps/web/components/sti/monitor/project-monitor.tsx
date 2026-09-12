@@ -176,9 +176,14 @@ export function ProjectMonitor() {
   const portfolio = useMemo(() => {
     const assets = assetsQ.data ?? [];
     return {
-      yard: assets.filter((a) => !a.currentProjectId && a.status === "available").length,
+      // "Shop" and "yard" are the same physical place to Urban's crew — an idle
+      // available tool and one sent for repair are both "at the equipment
+      // department" in how people actually talk about it, so this is one count,
+      // not two tiles that use different words for where a foreman's tool went.
+      shopAndYard: assets.filter(
+        (a) => (!a.currentProjectId && a.status === "available") || a.status === "in_maintenance",
+      ).length,
       onJobs: assets.filter((a) => a.currentProjectId).length,
-      shop: assets.filter((a) => a.status === "in_maintenance").length,
       lost: assets.filter((a) => a.status === "lost").length,
     };
   }, [assetsQ.data]);
@@ -346,9 +351,8 @@ export function ProjectMonitor() {
         </div>
 
         <div className="ml-auto flex items-center gap-6">
-          <Stat label="In the yard" value={portfolio.yard} />
+          <Stat label="Shop and yard" value={portfolio.shopAndYard} />
           <Stat label="On jobs" value={portfolio.onJobs} />
-          <Stat label="In the shop" value={portfolio.shop} />
           <Stat label="Unaccounted" value={portfolio.lost} tone={portfolio.lost ? "crit" : undefined} />
           <Clock />
           <div className="flex items-center gap-1">
