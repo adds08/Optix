@@ -69,6 +69,19 @@ DELETE FROM "tbl_entity_warehouse";
 DELETE FROM "tbl_entity_employee_external_ref";
 DELETE FROM "tbl_entity_employee_contact";
 DELETE FROM "tbl_entity_employee";
+
+-- `user.employee_id` is a plain uuid with NO foreign key — deliberately, to keep
+-- the schema import-graph acyclic (see schema/identity.ts:18). So nothing clears
+-- it when the employee it names is deleted, and the retained logins are left
+-- pointing at people who no longer exist. `resolveSession` hands that id straight
+-- into every session, where the scoped reads (`assets.view.own`, `.crew`) resolve
+-- their custodian set against a ghost.
+--
+-- Found on 2026-09-12: this script left 8 of 15 logins dangling that way. The
+-- register is empty at this point, so a surviving link cannot be correct — the
+-- person will be re-linked when the real roster is imported.
+UPDATE "tbl_entity_user" SET "employee_id" = NULL WHERE "employee_id" IS NOT NULL;
+
 DELETE FROM "tbl_entity_project_group_project";
 DELETE FROM "tbl_entity_project_group_user";
 DELETE FROM "tbl_entity_project_group";
