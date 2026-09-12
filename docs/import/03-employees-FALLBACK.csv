@@ -1,0 +1,82 @@
+name,role,employee_id,email,phone,status,primary_project
+Alejandro Capuchino,foreman,URB-001,,,active,Lone Star
+Jobani Abarca,foreman,URB-002,,,active,Job 24002
+ELEASAR MURILLO,foreman,URB-003,,,active,Lone Star
+JOSE LUIS RODRIGUEZ,foreman,URB-004,,,active,Colony Phase 12
+ANDRES FLORES,foreman,URB-005,,,active,NEX
+HUGO NUNEZ,foreman,URB-006,,,active,Plano Arterial Renewal-2
+ALBERTO MENDES ALEMAN,foreman,URB-007,,,active,Garland
+CESAR RODRIGUEZ,foreman,URB-008,,,active,Austin Lane
+MARIO NUNEZ,foreman,URB-009,,,active,
+ZELVIN PEREZ,foreman,URB-010,,,active,Lone Star
+FELIPE PORTILLO,foreman,URB-011,,,active,DART
+RAFAEL PLACENCIA,foreman,URB-012,,,active,NEX
+Miguel Quijas,foreman,URB-013,,,active,Austin Lane
+MARIANO JIMENEZ,foreman,URB-014,,,active,Richardson
+GABRIEL VILLAREAL,foreman,URB-015,,,active,NEX
+SENOVIO ACUNA,foreman,URB-016,,,active,Bell
+RAFAEL JAIMES,foreman,URB-017,,,active,DART
+NICOLAS DIRCIO,foreman,URB-018,,,active,Colony Phase 12
+JOSE RICO,foreman,URB-019,,,active,
+CANDELARIO CASTANEDA,foreman,URB-020,,,active,Little Elm
+Juan Martinez (1975),foreman,URB-021,,,active,NEX
+ROQUE GUERRERO,foreman,URB-022,,,active,NEX
+MARGARITO NOYOLA,foreman,URB-023,,,active,Austin Lane
+EDWIN ROMERO,foreman,URB-024,,,active,Lone Star
+Santiago Zetina,foreman,URB-025,,,active,Little Elm
+Lucio Rodriguez,foreman,URB-026,,,active,Lone Star
+FLORENCIO LOZA SR.,foreman,URB-027,,,active,Lone Star
+JOSUE ROMERO,foreman,URB-028,,,active,Lone Star
+Gilmer Medina,foreman,URB-029,,,active,
+Luis Luna,superintendent,URB-030,,,active,
+Bobby Valdez,foreman,URB-031,,,active,
+Francisco Perez,mechanic,URB-032,,,active,Equipment Yard
+Bill Taylor,foreman,URB-033,,,active,
+Romualdo,foreman,URB-034,,,active,
+JOVANI ABARCA,foreman,URB-035,,,active,Little Elm
+Jose Danery,foreman,URB-036,,,active,NEX
+RAFAEL JIMENEZ,foreman,URB-037,,,active,DART
+FLORIBERTO LOZA SR.,foreman,URB-038,,,active,Lone Star
+FELICIANO VALENCIA,foreman,URB-039,,,active,Lone Star
+Yoxel Perez,foreman,URB-040,,,active,
+Anup Tamrakar,equipment_admin,URB-041,,,active,
+Romualdo Almaguer,foreman,URB-042,,,active,Job 26002
+Gabriel Garcia,foreman,URB-043,,,active,
+Herman Garza,foreman,URB-044,,,active,Job 25011
+Christhopher John,mechanic,URB-045,,,active,Equipment Yard
+Prajwal Shrsetha,equipment_admin,URB-046,,,active,Equipment Yard
+Raimando Fabela,foreman,URB-047,,,active,Equipment Yard
+Arnulfo Galvan,foreman,URB-048,,,active,NEX
+Gilmar Medina,foreman,URB-049,,,active,Job 24002
+Dago Ruiz,equipment_admin,URB-050,,,active,
+Yajju Maharjan,pm,URB-051,,,active,
+Richard Willis,pm,URB-052,,,active,
+Joel Gonzalez,pm,URB-053,,,active,
+Aryana Jimenez,pm,URB-054,,,active,NEX
+Julius Guerra,superintendent,URB-055,,,active,Job 26002
+Ismael Davilia,superintendent,URB-056,,,active,NEX
+Juan Carlos Martinez,foreman,URB-057,,,active,Job 25001
+Shane Thiesse,pm,URB-058,,,active,Lone Star
+Mohamad Nooh Ansari,pm,URB-059,,,active,
+Carlos Espinosa,equipment_admin,URB-060,,,active,Equipment Yard
+Alex Garcia,superintendent,URB-061,,,active,Job 24002
+Saul Maldonado,pm,URB-062,,,active,Job 25008
+Orlando Gurera,foreman,URB-063,,,active,Job 24002
+John Solorzano,pm,URB-064,,,active,
+Daniel Stewart,equipment_admin,URB-065,,,active,Job 25008
+Fernando Aguillon,foreman,URB-066,,,active,Job 26007
+Bryon Arevalo,foreman,URB-067,,,active,Job 24015
+Kevin Zalasar,pm,URB-068,,,active,Job 24002
+Ruben Palacio,superintendent,URB-069,,,active,Job 26002
+Alejandro Aranda Capuchino,foreman,URB-070,,,active,Lone Star
+Raymandu Rodriguiz,superintendent,URB-071,,,active,Lone Star
+Santiago Gonzalez Franco,pm,URB-072,,,active,
+Christain Carroll,pm,URB-073,,,active,Lone Star
+Eduardo Reyana,pm,URB-074,,,active,
+Joel de Hoyos,foreman,URB-075,,,active,NEX
+Rafael Herrera,superintendent,URB-076,,,active,Job 24014
+Yunior Ruiz,foreman,URB-077,,,active,Lone Star
+Misael Hernandez Rivas,foreman,URB-078,,,active,Job 26002
+Gabrial Zuniga Franco,foreman,URB-079,,,active,Job 24014
+Armando Morado,mechanic,URB-080,,,active,Job 25011
+Jose Zamora,mechanic,URB-081,,,active,Equipment Yard
