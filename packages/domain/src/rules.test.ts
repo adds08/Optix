@@ -52,4 +52,12 @@ describe("isIdleAsset", () => {
     expect(isIdleAsset("in_maintenance")).toBe(false);
     expect(isIdleAsset("lost")).toBe(false);
   });
+
+  it("treats every shop-workflow status as not idle", () => {
+    /* A tool at the shop is not idle stock waiting to be handed out, whichever
+       hop of the repair it is on. */
+    expect(isIdleAsset("diagnosing")).toBe(false);
+    expect(isIdleAsset("waiting_parts")).toBe(false);
+    expect(isIdleAsset("ready_for_pickup")).toBe(false);
+  });
 });

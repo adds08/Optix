@@ -30,7 +30,16 @@ import { downloadCsv } from "@/lib/csv";
 import { exportAssetsToSpec } from "@/lib/export-assets";
 import { money, idName, assetNumberDisplay } from "@/lib/format";
 
-const STATUSES = ["available", "assigned", "in_maintenance", "reserved", "lost"] as const;
+const STATUSES = [
+  "available",
+  "assigned",
+  "in_maintenance",
+  "diagnosing",
+  "waiting_parts",
+  "ready_for_pickup",
+  "reserved",
+  "lost",
+] as const;
 type FlagKey = "high_value" | "warranty" | "no_project";
 
 const FLAG_LABELS: Record<FlagKey, string> = {

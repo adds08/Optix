@@ -8,6 +8,7 @@ import { logEvent } from "../audit.js";
 import { ASSET_STATUSES, COST_TARGETS, formatAssetModel } from "@stinventory/types";
 import { foldAssetState, hasSnapshotEvidence, reconcileProjections, type EventEnvelope } from "@stinventory/domain";
 import { assetVisibility, assetScopeWhere } from "../scope.js";
+import { vehicleContextFromLedger } from "../custody.js";
 
 /* A tool needs to be describable, not catalogued. A brand with no catalogue
    number is completely ordinary ("Skill Saw" is a description, not a brand), so
@@ -671,6 +672,20 @@ export const assetRouter = router({
         .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)))
         .returning();
       if (row) {
+        /*
+          The shop-workflow statuses (diagnosing/waiting_parts/ready_for_pickup)
+          are status-only hops on a tool already sitting at the shop from the
+          `repair` action — custodian is already null on the asset row. Without
+          this, setStatus stayed silently four-key (it never asked about
+          vehicles), which is honest for a first-time status write but wrong
+          for a *second* hop: the vehicle keys the `repair` event recorded
+          would be absent again here, and since the fold replaces rather than
+          merges, a rebuild would erase "still on TE-006" for a tool that never
+          left it. Carry the newest recorded keys forward verbatim, same as
+          every other writer that asserts nothing new about vehicles
+          (`vehicleContextFromLedger`, custody.ts).
+        */
+        const vehicleContext = await vehicleContextFromLedger(tx, ctx.session.tenantId, row.id);
         await tx.insert(schema.transaction).values({
           tenantId: ctx.session.tenantId,
           assetId: row.id,
@@ -695,6 +710,7 @@ export const assetRouter = router({
             custodianId: row.currentCustodianId,
             projectId: row.currentProjectId,
             locationId: row.currentLocationId,
+            ...vehicleContext,
           },
           refType: "manual",
           note: input.note ?? `Status → ${input.status}`,

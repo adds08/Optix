@@ -356,6 +356,9 @@ export const ASSET_STATUSES = [
   "assigned",
   "in_transit",
   "in_maintenance",
+  "diagnosing",
+  "waiting_parts",
+  "ready_for_pickup",
   "lost",
   "disposed",
 ] as const;

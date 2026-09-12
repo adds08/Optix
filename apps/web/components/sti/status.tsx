@@ -36,6 +36,11 @@ const ASSET_TONE: Record<string, Tone> = {
   approved: "idle",
   on_order: "idle",
   in_maintenance: "warn",
+  /* shop workflow — same maintenance family as in_maintenance, see
+     dashboard.ts and project-monitor.tsx's shopAndYard tile */
+  diagnosing: "warn",
+  waiting_parts: "warn",
+  ready_for_pickup: "ok",
   lost: "crit",
   disposed: "idle",
   /* assignment + transfer states */

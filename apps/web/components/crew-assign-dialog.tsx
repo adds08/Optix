@@ -91,6 +91,9 @@ export function CrewAssignDialog({
         (t) =>
           !t.custodianId &&
           t.status !== "in_maintenance" &&
+          t.status !== "diagnosing" &&
+          t.status !== "waiting_parts" &&
+          t.status !== "ready_for_pickup" &&
           t.status !== "lost" &&
           (!needle ||
             `${t.code ?? ""} ${t.serialNumber ?? ""} ${t.locationName ?? ""} ${formatAssetModel(t)}`

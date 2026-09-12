@@ -28,10 +28,22 @@ export const dashboardRouter = router({
         .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentStatus, status), scoped))
         .then((r) => Number(r[0]?.c ?? 0));
 
+    /* The "In maintenance" tile is the whole shop-workflow family, not just the
+       entry status: a tool that has moved on to diagnosing/waiting_parts/
+       ready_for_pickup hasn't come back into service, and undercounting it here
+       would read as tools the desk lost track of rather than tools still at
+       the shop. Same family as project-monitor.tsx's shopAndYard tile. */
+    const byStatusIn = (statuses: string[]) =>
+      ctx.db
+        .select({ c: count() })
+        .from(schema.asset)
+        .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.currentStatus, statuses), scoped))
+        .then((r) => Number(r[0]?.c ?? 0));
+
     const [available, assigned, inMaintenance, lost, reserved] = await Promise.all([
       byStatus("available"),
       byStatus("assigned"),
-      byStatus("in_maintenance"),
+      byStatusIn(["in_maintenance", "diagnosing", "waiting_parts", "ready_for_pickup"]),
       byStatus("lost"),
       byStatus("reserved"),
     ]);

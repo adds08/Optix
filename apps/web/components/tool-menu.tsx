@@ -272,13 +272,13 @@ export function ToolMenu({
               <DialogTitle>Change status of {assetCode}</DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-1 gap-1.5">
-              {/* `as const` so the array is the four literals rather than
-                  string[]. `asset.setStatus` takes the status enum since
+              {/* `as const` so the array is the literal status strings rather
+                  than string[]. `asset.setStatus` takes the status enum since
                   KNOWN-ISSUES 3 was fixed, and without this the widened type
                   is what let an arbitrary string reach the ledger. */}
               {(heldBySomeone
-                ? (["reserved", "in_maintenance", "lost"] as const)
-                : (["available", "reserved", "in_maintenance", "lost"] as const)
+                ? (["reserved", "in_maintenance", "diagnosing", "waiting_parts", "ready_for_pickup", "lost"] as const)
+                : (["available", "reserved", "in_maintenance", "diagnosing", "waiting_parts", "ready_for_pickup", "lost"] as const)
               ).map(
                 (s) => (
                   <button
@@ -291,7 +291,7 @@ export function ToolMenu({
                     }}
                     className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-left text-sm hover:bg-accent disabled:opacity-50"
                   >
-                    {s === "in_maintenance" ? <Wrench className="size-4 text-warn" /> : s === "lost" ? <Trash2 className="size-4 text-crit" /> : s === "reserved" ? <BadgeCheck className="size-4 text-ok" /> : <TagIcon className="size-4 text-muted-foreground" />}
+                    {s === "in_maintenance" || s === "diagnosing" || s === "waiting_parts" || s === "ready_for_pickup" ? <Wrench className="size-4 text-warn" /> : s === "lost" ? <Trash2 className="size-4 text-crit" /> : s === "reserved" ? <BadgeCheck className="size-4 text-ok" /> : <TagIcon className="size-4 text-muted-foreground" />}
                     <span className="font-medium">{humanize(s)}</span>
                   </button>
                 ),

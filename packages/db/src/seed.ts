@@ -297,6 +297,7 @@ async function main() {
         tenantId: tid,
         name: r.name,
         description: r.description,
+        category: r.category ?? null,
         needsLogin: r.needsLogin,
         canHoldCustody: r.canHoldCustody,
         usesFieldLayout: r.usesFieldLayout,
@@ -400,7 +401,7 @@ async function main() {
     .returning();
 
   // ---- Company roles (job titles) ----
-  /* Distinct from `employee.role`: this is what HR calls the job, and nothing
+  /* Distinct from `employee.roleId`: this is what HR calls the job, and nothing
      branches on it. Seeded so `employee.company_role_id` resolves to a name. */
   const roleRows = await db
     .insert(companyRole)
@@ -482,6 +483,14 @@ async function main() {
         */
         departmentId: i % 5 === 4 ? null : deptRows[i % 3]!.id,
         name: e.name,
+        /* Still written, because `employee.role` still EXISTS and nine readers
+           still query it — report.byForeman/byMechanic, notify.ts's desk
+           lookup, request-worker's deskFor, entity-resolve, project-assign and
+           three display selects. Dropping the write before those move gives
+           every seeded person the column's `'foreman'` default: byMechanic
+           returns nothing and the desk notification lookups find nobody, on a
+           green seed. Remove this line in the same change that removes the
+           last reader, not before. */
         role: e.role,
         primaryProjectId: e.primary ? projectByKey[e.primary]! : null,
         employmentStatus: e.status,
@@ -603,10 +612,17 @@ async function main() {
   /*
     The person's role, from the role register.
 
+    `EmployeeSeed.role` is the seed's OWN nine-value vocabulary — the shape the
+    import CSVs and the hand-written fixture rows already carry — mapped here
+    onto `role.id` via `legacyEmployeeRoleToRole`, which only needs `pm` ->
+    `project_manager`. It is ALSO still written verbatim to `employee.role`
+    above, because that column and its readers are still here; see the note at
+    that write.
+
     Everyone who is not a custodian and has no desk account is `crew` — the
     no-login role — which is what makes that flag reachable from a clean
     database rather than a column nobody has ever set. Everyone else maps from
-    the legacy nine-value enum, which only needed `pm` -> `project_manager`.
+    `legacyEmployeeRoleToRole`.
   */
   const accountEmployeeKeys = new Set(userSpecs.map((u) => u.employeeKey).filter(Boolean) as string[]);
   for (let i = 0; i < employeeSpecs.length; i++) {

@@ -33,15 +33,26 @@ Since STI-203 the writers split three ways — pick the right bucket before addi
   out of one. `assertVehicleContext` (custody.ts) must gate every id before it is written —
   the composite FK behind the columns is **tenant-blind** and raises raw 23503s.
 - **Writers that assert nothing new about vehicles carry the newest snapshot's keys
-  forward VERBATIM** (`vehicleContextFromLedger`, custody.ts) — absent stays absent. Three
+  forward VERBATIM** (`vehicleContextFromLedger`, custody.ts) — absent stays absent. Four
   members: the from=to decline writers, `applyContainerCustody`'s `custodian_change`
   (a container hand-over moves the WHO, not the where-it-rides — the tools stay in the
   same box, and a four-key event here erased "still in TE-006" from the fold for a tool
-  that never left the trailer), and the departure move
-  (`reassignOnDeparture`, `departure.ts`, STI-306). The asset table has no truck columns,
+  that never left the trailer), the departure move
+  (`reassignOnDeparture`, `departure.ts`, STI-306), and `asset.setStatus` (routers/asset.ts,
+  since the shop-workflow statuses). The asset table has no truck columns,
   so the ledger is the only source; a blind null would stamp "affirmatively no truck" over
   a recorded ride and the next rebuild would blank it. The container writer also puts the
   carried context on the link it opens, so row and event tell one story.
+
+  **`asset.setStatus` joined this bucket for vehicle keys only** when
+  `diagnosing`/`waiting_parts`/`ready_for_pickup` were added as status-only hops on a tool
+  already sitting at the shop from the `repair` action. A single status write staying
+  four-key is honest ("unknown"), but these three chain — `in_maintenance` →
+  `diagnosing` → `waiting_parts` → `ready_for_pickup` — and every hop after the first would
+  otherwise re-erase the `truckId`/`trailerId` the `repair` event recorded, because the
+  fold replaces rather than merges. `custodianId`/`projectId`/`locationId` were already
+  restated from the asset row on every write, so only the vehicle keys needed the
+  carry-forward call.
 
   **The departure move is in this bucket despite asserting a new custodian**, which is the
   counter-intuitive one — the reflex is bucket 1, because a new custody does not inherit
@@ -64,9 +75,10 @@ Since STI-203 the writers split three ways — pick the right bucket before addi
   so trailers, trucks and gang boxes — and whatever is inside them — move by exactly one
   set of rules whichever screen started it.
 - **Writers that never asked stay four-key**: `lost`/`report` in apply-action,
-  `requestChatAction`'s annotation, `asset.setStatus`, the `project_change` bulk writer,
+  `requestChatAction`'s annotation, the `project_change` bulk writer,
   and the intake/import/create baseline events. Absent keys are how those snapshots
-  honestly say "unknown".
+  honestly say "unknown". (`asset.setStatus` moved to the carry-forward bucket above,
+  for vehicle keys only — see there.)
 
 This bug has shipped three times. `fold.test.ts:114-135` pins it. Every writer that got it
 wrong carries a scar-tissue comment — grep "Same fallbacks the asset update"

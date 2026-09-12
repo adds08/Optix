@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { createDb, schema, type Database } from "@stinventory/db";
 import type { Permission } from "@stinventory/types";
 import { assetRouter } from "./routers/asset.js";
@@ -222,5 +222,76 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
       .from(schema.asset)
       .where(eq(schema.asset.id, row!.id));
     expect(after!.status).toBe("in_maintenance");
+  });
+
+  /*
+    The shop-workflow statuses (diagnosing/waiting_parts/ready_for_pickup) chain
+    onto `in_maintenance` as further setStatus hops on the same tool, not a
+    fresh custody event. `vehicleContextFromLedger` (custody.ts) must carry the
+    truck/trailer keys the `repair` event recorded forward through every hop —
+    the fold replaces rather than merges, so a hop that stayed silent on them
+    would erase "still on T-1" from the fold for a tool that never left the
+    truck. custodianId/projectId/locationId are restated from the asset row on
+    every write already; this pins that the vehicle keys survive alongside them.
+  */
+  it("carries custodian/project/location/vehicle keys forward through every shop-status hop", async () => {
+    const ctx = makeCtx(db);
+    const [loc] = await db
+      .insert(schema.location)
+      .values({ tenantId, type: "vehicle", name: "STI shop-status truck" })
+      .returning({ id: schema.location.id });
+    const [truck] = await db
+      .insert(schema.vehicle)
+      .values({ tenantId, locationId: loc!.id, vehicleType: "truck", unit: "T-SHOPSTATUS" })
+      .returning({ id: schema.vehicle.id });
+
+    const row = await assetRouter.createCaller(ctx).create({ description: "shop-status drill", locationId });
+
+    /* Simulate the `repair` action's ledger event (apply-action.ts): custody
+       closes (custodianId null) but the tool is recorded as riding the shop's
+       own truck (`truckId` set, not null) — the newest evidence a status-only
+       hop later has to find and carry forward without being asked about it. */
+    await db.insert(schema.transaction).values({
+      tenantId,
+      assetId: row!.id,
+      eventType: "repair_start",
+      toState: {
+        status: "in_maintenance",
+        custodianId: null,
+        projectId: null,
+        locationId,
+        truckId: truck!.id,
+        trailerId: null,
+      },
+      note: "STI shop-status fixture: repair",
+    });
+    await db
+      .update(schema.asset)
+      .set({ currentStatus: "in_maintenance", currentCustodianId: null, currentLocationId: loc!.id })
+      .where(eq(schema.asset.id, row!.id));
+
+    for (const status of ["diagnosing", "waiting_parts", "ready_for_pickup"] as const) {
+      await assetRouter.createCaller(ctx).setStatus({ id: row!.id, status });
+
+      const [latest] = await db
+        .select({ toState: schema.transaction.toState })
+        .from(schema.transaction)
+        .where(and(eq(schema.transaction.assetId, row!.id), eq(schema.transaction.eventType, "status_change")))
+        .orderBy(desc(schema.transaction.occurredAt), desc(schema.transaction.id))
+        .limit(1);
+
+      /* toEqual, not toMatchObject: a missing vehicle key is not "unchanged",
+         it is "blanked on the next rebuild" — the same rule STI-115's create
+         test pins for the four base keys, extended here to the two vehicle
+         keys this writer now also carries forward. */
+      expect(latest!.toState).toEqual({
+        status,
+        custodianId: null,
+        projectId: null,
+        locationId: loc!.id,
+        truckId: truck!.id,
+        trailerId: null,
+      });
+    }
   });
 });

@@ -111,6 +111,11 @@ export const departmentSpecs: DeptSeed[] = [
 export type RoleSeed = {
   name: string;
   description: string;
+  /* What `employee.role` answers, moved onto this register — see the column
+     comment on `role.category` in identity.ts. Null for a role the old
+     nine-value enum had no name for. (`employee.role` itself is still present
+     and still read; this is the column its readers migrate to.) */
+  category?: string;
   needsLogin: boolean;
   canHoldCustody: boolean;
   usesFieldLayout: boolean;
@@ -140,29 +145,31 @@ export const roleSpecs: RoleSeed[] = [
      is `isCrossTenant`. No wizard — a technical administrator is not describing
      their own crew. */
   { name: "tech_admin", description: "Optix technical administrator. Supports every tenant; not the customer's own administrator.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isCrossTenant: true, isSystem: true },
-  { name: "equipment_admin", description: "Runs the equipment department: the register, custody, and who holds what.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "equipment_admin", description: "Runs the equipment department: the register, custody, and who holds what.", category: "equipment_admin", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
   { name: "office_admin", description: "Business records and accounts. Not custody, and not platform configuration.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
-  { name: "warehouse", description: "The yard desk. Issues and receives tools, and runs departures operationally.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
-  { name: "procurement", description: "Buys equipment and materials. Reads the register, does not move custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  { name: "warehouse", description: "The yard desk. Issues and receives tools, and runs departures operationally.", category: "warehouse", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "procurement", description: "Buys equipment and materials. Reads the register, does not move custody.", category: "procurement", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
   /* The two leadership roles, and the only two seeded with `claimTierNames`.
      They pick the jobs they run; everybody below them is placed by somebody
      above through "Set by". The tier names must exist in `teamRoleSpecs`. */
   { name: "director", description: "Leads the business unit. Claims the jobs they run, then staffs them.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", claimTierNames: ["director"], isSystem: true },
   { name: "area_in_charge", description: "Runs an area's jobs. Claims their own, and places PMs and superintendents on them.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", claimTierNames: ["area_in_charge"], isSystem: true },
   { name: "general_superintendent", description: "Runs an area's superintendents. Claims their own jobs, and staffs PMs and superintendents onto them.", needsLogin: true, canHoldCustody: true, usesFieldLayout: false, onboardingKind: "equipment", claimTierNames: ["general_superintendent"], isSystem: true },
-  { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
+  { name: "project_manager", description: "Owns a job commercially. Sees the tools on their own projects.", category: "pm", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
   { name: "engineer", description: "Runs work on a job. Same reach as a project manager where tools are concerned.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "equipment", isSystem: true },
-  { name: "superintendent", description: "Runs several crews, and holds tools directly when a job has no foreman yet.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
-  { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "none", isSystem: true },
-  { name: "mechanic", description: "Works out of the shop and keeps tools there. Holds custody.", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
-  { name: "hr", description: "People records. No access to the register or to custody.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "people", isSystem: true },
-  { name: "finance", description: "Cost and value reporting across the register.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
+  { name: "superintendent", description: "Runs several crews, and holds tools directly when a job has no foreman yet.", category: "superintendent", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
+  { name: "foreman", description: "Runs a crew and carries the tools to the job. Holds custody.", category: "foreman", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "none", isSystem: true },
+  { name: "mechanic", description: "Works out of the shop and keeps tools there. Holds custody.", category: "mechanic", needsLogin: true, canHoldCustody: true, usesFieldLayout: true, onboardingKind: "equipment", isSystem: true },
+  { name: "hr", description: "People records. No access to the register or to custody.", category: "hr", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "people", isSystem: true },
+  { name: "finance", description: "Cost and value reporting across the register.", category: "finance", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
   { name: "read_only", description: "Sees the register and reports, changes nothing.", needsLogin: true, canHoldCustody: false, usesFieldLayout: false, onboardingKind: "none", isSystem: true },
   { name: "crew", description: "Works on site and can be handed tools. Does not sign in.", needsLogin: false, canHoldCustody: true, usesFieldLayout: false, onboardingKind: "equipment", isSystem: false },
 ];
 
-/* The old nine-value `employee.role` enum, mapped onto the role register. Only
-   `pm` needed renaming; everything else was already the same word. */
+/* `EmployeeSeed.role`'s nine-value vocabulary, mapped onto the role register —
+   the seed's own input shape, matching what the import CSVs and the
+   `employee.role` column both carry. Only `pm` needed renaming; everything
+   else was already the same word. */
 export const legacyEmployeeRoleToRole: Record<string, string> = {
   foreman: "foreman",
   superintendent: "superintendent",
@@ -1431,6 +1438,19 @@ export const assetSpecs: AssetSeed[] = [
   */
   { tag: "ZZ-SUP-01", make: "SYNTHETIC", modelNumber: "SEED-SUP-1", description: "SYNTHETIC — seed-only, superintendent custody", serial: null, isSerialized: false, quantity: 1, cost: "410.00", own: null, dept: true, status: "assigned", cust: "e-sup001", cur: "p-lone-star-22018", loc: "l-dal" },
   { tag: "ZZ-SUP-02", make: "SYNTHETIC", modelNumber: "SEED-SUP-2", description: "SYNTHETIC — seed-only, superintendent custody", serial: null, isSerialized: false, quantity: 1, cost: "380.00", own: null, dept: true, status: "assigned", cust: "e-sup001", cur: "p-lone-star-22018", loc: "l-dal" },
+  /*
+    The shop-workflow statuses (diagnosing/waiting_parts/ready_for_pickup),
+    plus a baseline `in_maintenance` — no seeded row carried it before these
+    were added, which left the "In maintenance" KPI tile, the shopAndYard
+    wallboard tile and every status filter checkable only by hand-editing rows
+    in psql. CLAUDE.md rule 9: seed the edge that trips the rule, not just the
+    happy path. All four sit at the yard, unheld, matching what `repair`
+    (apply-action.ts) actually writes — custody closed, tool at the shop.
+  */
+  { tag: "ZZ-SHOP-01", make: "SYNTHETIC", modelNumber: "SEED-SHOP-1", description: "SYNTHETIC — seed-only, in_maintenance baseline", serial: null, isSerialized: false, quantity: 1, cost: null, own: null, dept: true, status: "in_maintenance", cust: null, cur: null, loc: "l-dal" },
+  { tag: "ZZ-SHOP-02", make: "SYNTHETIC", modelNumber: "SEED-SHOP-2", description: "SYNTHETIC — seed-only, diagnosing", serial: null, isSerialized: false, quantity: 1, cost: null, own: null, dept: true, status: "diagnosing", cust: null, cur: null, loc: "l-dal" },
+  { tag: "ZZ-SHOP-03", make: "SYNTHETIC", modelNumber: "SEED-SHOP-3", description: "SYNTHETIC — seed-only, waiting_parts", serial: null, isSerialized: false, quantity: 1, cost: null, own: null, dept: true, status: "waiting_parts", cust: null, cur: null, loc: "l-dal" },
+  { tag: "ZZ-SHOP-04", make: "SYNTHETIC", modelNumber: "SEED-SHOP-4", description: "SYNTHETIC — seed-only, ready_for_pickup", serial: null, isSerialized: false, quantity: 1, cost: null, own: null, dept: true, status: "ready_for_pickup", cust: null, cur: null, loc: "l-dal" },
 ];
 
 export const assignSpecs: AssignSeed[] = [
@@ -2950,6 +2970,16 @@ export const txSpecs: TxSeed[] = [
   { tag: "TOOL-0752", event: "assign", at: "2025-01-06 08:00", note: "Assigned to Santiago Zetina — Little Elm", ref: "assignment" },
   { tag: "TOOL-0753", event: "assign", at: "2025-01-06 08:00", note: "Assigned to Santiago Zetina — Little Elm", ref: "assignment" },
   { tag: "TOOL-0754", event: "assign", at: "2025-01-06 08:00", note: "Assigned to Santiago Zetina — Little Elm", ref: "assignment" },
+  /* The shop-workflow synthetic tools above (assetSpecs) need ledger evidence
+     too, or asset.rebuild skips them as no-evidence and asset.verifyProjection
+     reports a divergence on every fresh database. `repair_start` matches the
+     eventType `repair` (apply-action.ts) actually writes when a tool is sent
+     for maintenance; the three status-only hops don't get their own genesis
+     event, the same way an assigned tool's later transfers don't. */
+  { tag: "ZZ-SHOP-01", event: "repair_start", at: "2025-01-06 08:00", note: "SYNTHETIC — seed-only, in_maintenance baseline", ref: "manual" },
+  { tag: "ZZ-SHOP-02", event: "repair_start", at: "2025-01-06 08:00", note: "SYNTHETIC — seed-only, diagnosing", ref: "manual" },
+  { tag: "ZZ-SHOP-03", event: "repair_start", at: "2025-01-06 08:00", note: "SYNTHETIC — seed-only, waiting_parts", ref: "manual" },
+  { tag: "ZZ-SHOP-04", event: "repair_start", at: "2025-01-06 08:00", note: "SYNTHETIC — seed-only, ready_for_pickup", ref: "manual" },
 ];
 
 export const userSpecs: UserSeed[] = [

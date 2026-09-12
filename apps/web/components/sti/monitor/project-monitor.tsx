@@ -180,8 +180,16 @@ export function ProjectMonitor() {
       // available tool and one sent for repair are both "at the equipment
       // department" in how people actually talk about it, so this is one count,
       // not two tiles that use different words for where a foreman's tool went.
+      // The maintenance half covers the whole shop-workflow family, not just the
+      // entry status: a tool that has moved on to diagnosing/waiting_parts/
+      // ready_for_pickup hasn't left the shop, so it stays in this tile too.
       shopAndYard: assets.filter(
-        (a) => (!a.currentProjectId && a.status === "available") || a.status === "in_maintenance",
+        (a) =>
+          (!a.currentProjectId && a.status === "available") ||
+          a.status === "in_maintenance" ||
+          a.status === "diagnosing" ||
+          a.status === "waiting_parts" ||
+          a.status === "ready_for_pickup",
       ).length,
       onJobs: assets.filter((a) => a.currentProjectId).length,
       lost: assets.filter((a) => a.status === "lost").length,

@@ -635,7 +635,7 @@ export default function JobsitesPage() {
                     onChange={setStatusFilter}
                     placeholder="Any status"
                     widthClass="w-full"
-                    options={["assigned", "available", "in_maintenance", "lost"].map((s) => ({
+                    options={["assigned", "available", "in_maintenance", "diagnosing", "waiting_parts", "ready_for_pickup", "lost"].map((s) => ({
                       value: s,
                       label: humanize(s),
                     }))}
