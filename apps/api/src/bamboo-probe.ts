@@ -111,6 +111,6 @@ for (const [s, n] of [...empTypes.entries()].sort((a, b) => b[1] - a[1]).slice(0
   console.log(`  ${String(n).padStart(5)}  ${s}`);
 }
 
-const restricted = people.filter((p) => (p.restrictedFields?.length ?? 0) > 0).length;
+const restricted = people.filter((p) => (p.withheld?.length ?? 0) > 0).length;
 console.log(`\npeople with restricted fields  ${restricted}`);
 console.log("\n[probe] done. Nothing was written.");

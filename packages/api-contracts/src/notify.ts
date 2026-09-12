@@ -39,7 +39,10 @@ export async function notifyCustodyDecision(db: any, d: CustodyDecision): Promis
     const [u] = await db
       .select({ employeeId: schema.user.employeeId })
       .from(schema.user)
-      .where(eq(schema.user.id, d.requestedByUserId))
+      /* Tenant-scoped: `d.tenantId` is already in hand and used below, and the
+         no-exceptions rule on the tenant predicate exists so that a lookup
+         written without one never becomes the pattern that gets copied. */
+      .where(and(eq(schema.user.id, d.requestedByUserId), eq(schema.user.tenantId, d.tenantId)))
       .limit(1);
     if (u?.employeeId) recipients.add(u.employeeId);
   }

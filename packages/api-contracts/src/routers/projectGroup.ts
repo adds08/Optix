@@ -136,23 +136,36 @@ export const projectGroupRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const [group] = await ctx.db
-        .insert(schema.projectGroup)
-        .values({ tenantId: tid, name: input.name, description: input.description ?? null })
-        .returning();
-      if (!group)
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create the job group" });
 
-      if (input.projectIds.length) {
-        await ctx.db.insert(schema.projectGroupProject).values(
-          input.projectIds.map((projectId) => ({ tenantId: tid, projectGroupId: group.id, projectId })),
-        );
-      }
-      if (input.userIds.length) {
-        await ctx.db.insert(schema.projectGroupUser).values(
-          input.userIds.map((userId) => ({ tenantId: tid, projectGroupId: group.id, userId })),
-        );
-      }
+      /*
+        THREE WRITES, ONE TRANSACTION.
+
+        `scope.ts` derives which jobs a person may see from exactly these
+        membership rows, so a group that half-committed does not fail loudly —
+        it silently narrows what a PM can see, with no error and nothing on
+        screen to say why. A group with its projects but not its users, or its
+        users but not its projects, is worse than no group at all.
+      */
+      const group = await ctx.db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(schema.projectGroup)
+          .values({ tenantId: tid, name: input.name, description: input.description ?? null })
+          .returning();
+        if (!created)
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create the job group" });
+
+        if (input.projectIds.length) {
+          await tx.insert(schema.projectGroupProject).values(
+            input.projectIds.map((projectId) => ({ tenantId: tid, projectGroupId: created.id, projectId })),
+          );
+        }
+        if (input.userIds.length) {
+          await tx.insert(schema.projectGroupUser).values(
+            input.userIds.map((userId) => ({ tenantId: tid, projectGroupId: created.id, userId })),
+          );
+        }
+        return created;
+      });
 
       await logEvent(ctx, {
         category: "project",
@@ -213,14 +226,19 @@ export const projectGroupRouter = router({
         where: and(eq(schema.projectGroup.id, input.id), eq(schema.projectGroup.tenantId, tid)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such job group" });
-      await ctx.db
-        .delete(schema.projectGroupProject)
-        .where(and(eq(schema.projectGroupProject.projectGroupId, input.id), eq(schema.projectGroupProject.tenantId, tid)));
-      if (input.projectIds.length) {
-        await ctx.db.insert(schema.projectGroupProject).values(
-          input.projectIds.map((projectId) => ({ tenantId: tid, projectGroupId: input.id, projectId })),
-        );
-      }
+      /* Delete-then-insert in one transaction: a failure between the two
+         empties the group's job membership outright, and `scope.ts` reads
+         these rows to decide what a PM can see. */
+      await ctx.db.transaction(async (tx) => {
+        await tx
+          .delete(schema.projectGroupProject)
+          .where(and(eq(schema.projectGroupProject.projectGroupId, input.id), eq(schema.projectGroupProject.tenantId, tid)));
+        if (input.projectIds.length) {
+          await tx.insert(schema.projectGroupProject).values(
+            input.projectIds.map((projectId) => ({ tenantId: tid, projectGroupId: input.id, projectId })),
+          );
+        }
+      });
       return { ok: true, projectCount: input.projectIds.length };
     }),
 
@@ -233,14 +251,19 @@ export const projectGroupRouter = router({
         where: and(eq(schema.projectGroup.id, input.id), eq(schema.projectGroup.tenantId, tid)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such job group" });
-      await ctx.db
-        .delete(schema.projectGroupUser)
-        .where(and(eq(schema.projectGroupUser.projectGroupId, input.id), eq(schema.projectGroupUser.tenantId, tid)));
-      if (input.userIds.length) {
-        await ctx.db.insert(schema.projectGroupUser).values(
-          input.userIds.map((userId) => ({ tenantId: tid, projectGroupId: input.id, userId })),
-        );
-      }
+      /* One transaction, for the same reason as `setProjects`: a failure
+         between the delete and the insert revokes everybody's access to the
+         group rather than replacing it. */
+      await ctx.db.transaction(async (tx) => {
+        await tx
+          .delete(schema.projectGroupUser)
+          .where(and(eq(schema.projectGroupUser.projectGroupId, input.id), eq(schema.projectGroupUser.tenantId, tid)));
+        if (input.userIds.length) {
+          await tx.insert(schema.projectGroupUser).values(
+            input.userIds.map((userId) => ({ tenantId: tid, projectGroupId: input.id, userId })),
+          );
+        }
+      });
       return { ok: true, userCount: input.userIds.length };
     }),
 

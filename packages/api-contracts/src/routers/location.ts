@@ -772,45 +772,62 @@ export const vehicleRouter = router({
         resolvedForeman = input.foremanEmployeeId ?? truck.foremanEmployeeId ?? null;
       }
 
-      // Insert location row (type=vehicle) first since vehicle.locationId is NOT NULL.
-      const [loc] = await ctx.db
-        .insert(schema.location)
-        .values({
-          tenantId: tid,
-          type: "vehicle",
-          name: input.unit,
-          projectId: input.projectId ?? null,
-          parentLocationId: attachedLocId,
-          /* The location column is the authoritative one for "who holds this
-             container"; vehicle.foremanEmployeeId is the older, vehicle-only
-             version of the same fact. Set both until the callers move over. */
-          custodianEmployeeId: resolvedForeman,
-        })
-        .returning();
-      if (!loc)
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create vehicle location" });
+      /*
+        BOTH INSERTS IN ONE TRANSACTION.
 
-      const [row] = await ctx.db
-        .insert(schema.vehicle)
-        .values({
-          tenantId: tid,
-          locationId: loc.id,
-          vehicleType: input.vehicleType,
-          unit: input.unit,
-          equipmentClass: input.equipmentClass,
-          vin: input.vin ?? null,
-          code: input.code ?? null,
-          description: input.description ?? null,
-          plate: input.plate ?? null,
-          makeModel: input.makeModel ?? null,
-          ownershipType: input.ownershipType,
-          payeeEmployeeId: input.payeeEmployeeId ?? null,
-          allowanceRate: input.allowanceRate ?? null,
-          allowanceFrequency: input.allowanceFrequency ?? null,
-          projectId: input.projectId ?? null,
-          foremanEmployeeId: resolvedForeman,
-        })
-        .returning();
+        A vehicle is two rows because it is two things: a machine in the
+        register, and a PLACE tools sit in — `location` is what custody points
+        at, which is how "TOOL-0007 is in trailer TE-011" is recorded at all.
+
+        Without a transaction a failure between the two leaves a location of
+        type `vehicle` with no vehicle behind it: a phantom container that
+        shows up in every location picker, that no screen owns, and that
+        nothing can delete because `vehicle.delete` is the only path that
+        removes a vehicle location and there is no vehicle to delete.
+      */
+      const row = await ctx.db.transaction(async (tx) => {
+        // Location first: vehicle.locationId is NOT NULL.
+        const [loc] = await tx
+          .insert(schema.location)
+          .values({
+            tenantId: tid,
+            type: "vehicle",
+            name: input.unit,
+            projectId: input.projectId ?? null,
+            parentLocationId: attachedLocId,
+            /* The location column is the authoritative one for "who holds this
+               container"; vehicle.foremanEmployeeId is the older, vehicle-only
+               version of the same fact. Set both until the callers move over. */
+            custodianEmployeeId: resolvedForeman,
+          })
+          .returning();
+        if (!loc)
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create vehicle location" });
+
+        const [created] = await tx
+          .insert(schema.vehicle)
+          .values({
+            tenantId: tid,
+            locationId: loc.id,
+            vehicleType: input.vehicleType,
+            unit: input.unit,
+            equipmentClass: input.equipmentClass,
+            vin: input.vin ?? null,
+            code: input.code ?? null,
+            description: input.description ?? null,
+            plate: input.plate ?? null,
+            makeModel: input.makeModel ?? null,
+            ownershipType: input.ownershipType,
+            payeeEmployeeId: input.payeeEmployeeId ?? null,
+            allowanceRate: input.allowanceRate ?? null,
+            allowanceFrequency: input.allowanceFrequency ?? null,
+            projectId: input.projectId ?? null,
+            foremanEmployeeId: resolvedForeman,
+          })
+          .returning();
+        return created;
+      });
+
       if (row) await logEvent(ctx, { category: "vehicle", action: "create", entityType: "vehicle", entityId: row.id, entityLabel: row.unit });
       return row;
     }),
@@ -996,9 +1013,13 @@ export const vehicleRouter = router({
         });
       }
 
-      /* Vehicle first, then its location: the FK points that way. */
-      await ctx.db.delete(schema.vehicle).where(and(eq(schema.vehicle.id, input.id), eq(schema.vehicle.tenantId, tid)));
-      await ctx.db.delete(schema.location).where(and(eq(schema.location.id, existing.locationId), eq(schema.location.tenantId, tid)));
+      /* Vehicle first, then its location: the FK points that way. Both in one
+         transaction — a failure between them leaves the location behind as a
+         phantom container with no vehicle to delete it (see `create`). */
+      await ctx.db.transaction(async (tx) => {
+        await tx.delete(schema.vehicle).where(and(eq(schema.vehicle.id, input.id), eq(schema.vehicle.tenantId, tid)));
+        await tx.delete(schema.location).where(and(eq(schema.location.id, existing.locationId), eq(schema.location.tenantId, tid)));
+      });
 
       await logEvent(ctx, {
         category: "vehicle", action: "delete", entityType: "vehicle",

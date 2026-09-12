@@ -491,27 +491,60 @@ export async function loadExisting(db: Database, tenantId: string) {
   two people in the same new division inside one run, both race the unique
   index on (tenant_id, name).
 */
+/*
+  Division / department / job-title ids, resolved once per NAME rather than
+  once per person.
+
+  These three sets are tiny and hugely repeated: Urban's live roster is 1,859
+  people across ~10 divisions, ~20 departments and 123 job titles, and 247 of
+  those people are "Carpenter". Without the cache the apply loop resolved the
+  same handful of names thousands of times — up to three calls per person, each
+  of them a select, a conditional insert and a re-select, so 2,000-4,000
+  sequential round-trips for one sync.
+
+  The cache is per-CALL, not module-level: it is created by `applySyncPlan` and
+  dies with the run, so a name created by one sync is still looked up fresh by
+  the next. Keyed by table name and value, because the same string can be both
+  a department and a division.
+*/
+export type NameCache = Map<string, string | null>;
+
 async function resolveByName(
   db: Database,
   table: typeof schema.division | typeof schema.department | typeof schema.companyRole,
   tenantId: string,
   name: string,
+  cache?: NameCache,
 ): Promise<string | null> {
   const trimmed = name.trim();
   if (!trimmed) return null;
+
+  /* `getName()` rather than a passed-in label: the key has to distinguish the
+     three tables, and the table object already knows which one it is. */
+  const key = `${(table as unknown as { _: { name: string } })._.name}:${trimmed}`;
+  if (cache?.has(key)) return cache.get(key) ?? null;
+
   const found = await db
     .select({ id: table.id })
     .from(table)
     .where(and(eq(table.tenantId, tenantId), eq(table.name, trimmed)))
     .limit(1);
-  if (found[0]) return found[0].id;
+  if (found[0]) {
+    cache?.set(key, found[0].id);
+    return found[0].id;
+  }
   await db.insert(table).values({ tenantId, name: trimmed }).onConflictDoNothing();
   const again = await db
     .select({ id: table.id })
     .from(table)
     .where(and(eq(table.tenantId, tenantId), eq(table.name, trimmed)))
     .limit(1);
-  return again[0]?.id ?? null;
+  const id = again[0]?.id ?? null;
+  /* Cached even when null — a name that could not be resolved will not resolve
+     on the next person either, and re-trying it 246 more times is the cost
+     this cache exists to remove. */
+  cache?.set(key, id);
+  return id;
 }
 
 /*
@@ -557,6 +590,9 @@ export async function applySyncPlan(
   let firstError: string | null = null;
   let updated = 0;
 
+  /* One cache for the whole run — see the note on `resolveByName`. */
+  const nameCache: NameCache = new Map();
+
   for (const step of plan.people) {
    try {
     const person = byExternalId.get(step.externalId);
@@ -565,13 +601,13 @@ export async function applySyncPlan(
     if (step.action === "skip" && !step.employeeId) continue;
 
     const divisionId = person.writable.divisionName
-      ? await resolveByName(db, schema.division, tenantId, person.writable.divisionName)
+      ? await resolveByName(db, schema.division, tenantId, person.writable.divisionName, nameCache)
       : null;
     const departmentId = person.writable.departmentName
-      ? await resolveByName(db, schema.department, tenantId, person.writable.departmentName)
+      ? await resolveByName(db, schema.department, tenantId, person.writable.departmentName, nameCache)
       : null;
     const companyRoleId = person.writable.jobTitleName
-      ? await resolveByName(db, schema.companyRole, tenantId, person.writable.jobTitleName)
+      ? await resolveByName(db, schema.companyRole, tenantId, person.writable.jobTitleName, nameCache)
       : null;
 
     let employeeId = step.employeeId;

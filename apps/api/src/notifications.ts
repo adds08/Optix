@@ -85,12 +85,16 @@ export async function deliverPendingNotifications(
        the employee has none on file. The in-app row already carries the
        alert, so this is a normal outcome, not a failure — mark it done and
        move on rather than retrying something that can never succeed. */
+    /* Tenant-scoped like every other read. The id comes from a tenant-scoped
+       row today, so this is defence in depth rather than a live fix — but the
+       rule in routers/assignment.ts has no exceptions precisely so that an
+       unscoped lookup never becomes the template somebody copies. */
     const employee = n.recipientEmployeeId
       ? (
           await db
             .select({ email: schema.employee.email })
             .from(schema.employee)
-            .where(eq(schema.employee.id, n.recipientEmployeeId))
+            .where(and(eq(schema.employee.id, n.recipientEmployeeId), eq(schema.employee.tenantId, n.tenantId)))
             .limit(1)
         )[0]
       : null;
