@@ -679,7 +679,21 @@ export const vehicleRouter = router({
         .leftJoin(foreman, eq(schema.vehicle.foremanEmployeeId, foreman.id))
         .leftJoin(schema.location, eq(schema.vehicle.locationId, schema.location.id))
         .leftJoin(attached, eq(schema.location.parentLocationId, attached.locationId))
-        .where(and(...conditions));
+        .where(and(...conditions))
+        /* `rigOf()` (apps/web/lib/rig.ts) picks the first truck in this array
+           matching a foreman with a bare `.find()` — with no ORDER BY that was
+           heap order, so which truck a foreman's card and the rig picker agreed
+           on depended on where Postgres happened to put the row. The schema
+           comment on `vehicle_one_truck_per_foreman_uq` already names this
+           exact failure mode. This does not change how many trucks a foreman
+           CAN hold (STI-306's personal-allowance-plus-company-truck pair is
+           still allowed by the index) — it only makes which one `rigOf` shows
+           deterministic, and prefers the company truck, matching the index's
+           own company-owned-only scope. */
+        .orderBy(
+          sql`case when ${schema.vehicle.ownershipType} = 'company_owned' then 0 else 1 end`,
+          schema.vehicle.createdAt,
+        );
       return rows.map((r) => ({
         ...r,
         /* Derived once, server-side, so the locations page and the map cannot

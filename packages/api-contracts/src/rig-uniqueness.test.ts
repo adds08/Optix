@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
 import { createDb, schema, type Database } from "@stinventory/db";
 import type { Permission } from "@stinventory/types";
-import { locationRouter } from "./routers/location.js";
+import { locationRouter, vehicleRouter } from "./routers/location.js";
 import type { Context } from "./trpc.js";
 
 /*
@@ -42,7 +42,7 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
       userId,
       tenantId,
       employeeId: null,
-      permissions: new Set<Permission>(["location.manage"]),
+      permissions: new Set<Permission>(["location.manage", "vehicle.read"]),
       roleName: null,
       actorLabel: null,
     },
@@ -176,6 +176,38 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
     expect(await foremanOfVehicle(personal.vehicleId)).toBe(foremanId);
     /* And they still hold their company truck. */
     expect(await foremanOfVehicle(truckA.vehicleId)).toBe(foremanId);
+  });
+
+  it("vehicle.list orders a foreman's company truck before the personal one, regardless of insertion order", async () => {
+    /*
+      The bug this pins: `rigOf()` (apps/web/lib/rig.ts) picks the first
+      matching truck in `vehicle.list`'s array with a bare `.find()`. Before
+      the ORDER BY this test was added alongside, two trucks for one foreman —
+      exactly the STI-306 pairing, and exactly the case the
+      `vehicle_one_truck_per_foreman_uq` comment names as its own known
+      consequence — came back in whatever order Postgres happened to produce,
+      so which one `rigOf()` showed a foreman's card was not a decided
+      question.
+
+      Inserted PERSONAL-then-COMPANY, deliberately the reverse of what
+      insertion order would coincidentally return, so this can only pass
+      because of the ORDER BY — a company-then-personal fixture (like the test
+      above) would pass by insertion-order accident even with no ordering
+      applied at all, which is not a real pin.
+    */
+    const reverseForeman = otherForemanId;
+    const personalFirst = await newVehicle("STI502-TRUCK-REV-PERSONAL", "truck", reverseForeman, "personal_allowance");
+    const companySecond = await newVehicle("STI502-TRUCK-REV-COMPANY", "truck", reverseForeman, "company_owned");
+
+    const rows = await vehicleRouter.createCaller(ctx()).list();
+    const theirTrucks = rows.filter(
+      (r) => r.vehicleType === "truck" && r.foremanEmployeeId === reverseForeman,
+    );
+    expect(theirTrucks.map((t) => t.id)).toEqual(
+      expect.arrayContaining([personalFirst.vehicleId, companySecond.vehicleId]),
+    );
+    expect(theirTrucks[0]!.id).toBe(companySecond.vehicleId);
+    expect(theirTrucks[0]!.ownershipType).toBe("company_owned");
   });
 
   it("setCustodian does not block a personal truck for someone who has a company one", async () => {

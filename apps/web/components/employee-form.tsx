@@ -133,7 +133,11 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
                   people. It reads `role.options` — gated on `employee.manage`
                   rather than `config.manage`, because choosing somebody's role
                   is not the same authority as changing what a role may do. */}
-              <label className="text-sm font-medium">Role</label>
+              {/* "Access Role", not bare "Role" — matches the People table
+                  column and the Access Roles settings screen this list comes
+                  from, and distinguishes it from Job Title below on the
+                  person's own detail page. */}
+              <label className="text-sm font-medium">Access Role</label>
               <EntityField
                 value={roleId}
                 onChange={setRoleId}

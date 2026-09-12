@@ -129,10 +129,6 @@ export const vehicle = pgTable(
     makeModel: text("make_model"),
     ownershipType: text("ownership_type").notNull().default("company_owned"), // company_owned | personal_allowance
     payeeEmployeeId: uuid("payee_employee_id").references(() => employee.id, { onDelete: "set null" }),
-    // NOTE: mirrors location.custodianEmployeeId on this vehicle's location row.
-    // The location column is authoritative; this one is kept in sync because the
-    // locations page, vehicle form and import spec already read it. Collapse the
-    // two once those move over.
     allowanceRate: decimal("allowance_rate", { precision: 10, scale: 2 }),
     allowanceFrequency: text("allowance_frequency"), // weekly | monthly
     gpsLat: decimal("gps_lat", { precision: 10, scale: 6 }),
@@ -140,6 +136,13 @@ export const vehicle = pgTable(
     gpsAt: timestamp("gps_at", { withTimezone: true }),
     gpsSource: text("gps_source"),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
+    // NOTE: mirrors location.custodianEmployeeId on this vehicle's location row.
+    // The location column is authoritative; this one is kept in sync because the
+    // locations page, vehicle form and import spec already read it. Collapse the
+    // two once those move over. (Moved down to this field 2026-09-12 — it was
+    // sitting under payeeEmployeeId above, which is who is PAID an allowance,
+    // not who HOLDS the vehicle; routers/location.ts's own mirror comment
+    // already named foremanEmployeeId as the field it keeps in sync.)
     foremanEmployeeId: uuid("foreman_employee_id").references(() => employee.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

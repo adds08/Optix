@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { FolderInput, HardHat, KeyRound, Mail, UserCheck, UserX, Users } from "lucide-react";
+import { FolderInput, HardHat, KeyRound, Mail, UserCheck, UserMinus, UserX, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -83,6 +83,22 @@ export default function PeoplePage() {
       setFailed({ id: vars.id, message: e.message });
       toast.error("Could not deactivate", { description: e.message });
     },
+  });
+
+  /*
+    One click for the "HR Flag" column, next to it: the same write the Edit
+    form already uses when somebody switches Status to Terminated by hand
+    (`employee.update`, which stamps `terminatedAt` and is what the clearance
+    queue reads). No new backend path — this is the shortcut, not a second way
+    to do the thing.
+  */
+  const markTerminated = trpc.employee.update.useMutation({
+    onSuccess: (_d, vars) => {
+      utils.employee.list.invalidate();
+      const name = rows.find((r) => r.id === vars.id)?.name;
+      toast.success("Marked as Terminated", { description: name });
+    },
+    onError: (e) => toast.error("Could not mark as Terminated", { description: e.message }),
   });
 
   /*
@@ -184,9 +200,12 @@ export default function PeoplePage() {
       }),
       /* The role register, not the legacy enum. `roleName` is snake_case
          because the seed and the permission matrix name rows by it; nobody
-         should ever see that, hence `humanize`. */
+         should ever see that, hence `humanize`. Header says "Access Role",
+         not bare "Role" — this column sits beside Job Title, and the two
+         answer different questions (what a login can do vs. what HR calls
+         the person); a bare "Role" read as one of the two arbitrarily. */
       col<EmployeeRow>({
-        header: "Role",
+        header: "Access Role",
         accessorFn: (e) => e.roleName ?? "",
         width: "9rem",
         cell: (e) => (e.roleName ? humanize(e.roleName) : <span className="text-muted-foreground">—</span>),
@@ -347,6 +366,21 @@ export default function PeoplePage() {
                     onSelect: () => setActive.mutate({ userId: e.userId!, isActive: !e.userIsActive }),
                   }]
                 : []),
+              /*
+                The HR Flag column ("Reported left …") had no action attached
+                to it — acting on it meant opening Edit details and changing
+                Status by hand. Same write either way (`employee.update`), so
+                this is a shortcut to it, not a second way to do it. Gone once
+                Status agrees with the flag, in either direction: this fires
+                only while there is still something to act on.
+              */
+              ...(e.hrFlaggedInactiveAt && e.employmentStatus !== "terminated"
+                ? [{
+                    label: "Mark as Terminated",
+                    icon: UserMinus,
+                    onSelect: () => markTerminated.mutate({ id: e.id, employmentStatus: "terminated" }),
+                  }]
+                : []),
             ]}
             onEdit={() =>
               setEditing({
@@ -369,7 +403,7 @@ export default function PeoplePage() {
         ),
       }),
     ],
-    [remove.isPending, failed, setActive, resendInvite, resetPassword],
+    [remove.isPending, failed, setActive, resendInvite, resetPassword, markTerminated],
   );
 
   return (

@@ -41,7 +41,11 @@ import { cn } from "@/lib/utils";
   foreman", made legible.
 
   Nothing here is a new concept in the API:
-    crew        = (project, custodian) pair derived from asset.list
+    crew        = (project, custodian) pair derived from asset.list, PLUS a
+                  roster foreman (projectTeam.all) who holds no tools yet —
+                  buildCrews below adds those explicitly, because a foreman
+                  freshly assigned to a job would otherwise not appear on it
+                  until somebody hands them a tool
     truck       = vehicle.list where foremanEmployeeId = the foreman
     trailer     = vehicle.list where attachedToVehicleId = that truck
     hand a rig  = location.setCustodian (tools + hitched trailer follow)

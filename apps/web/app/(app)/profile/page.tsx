@@ -50,7 +50,10 @@ export default function ProfilePage() {
         <dl className="max-w-lg overflow-hidden rounded-md border">
           <Field label="Name" value={`${me.data?.firstName ?? ""} ${me.data?.lastName ?? ""}`.trim()} />
           <Field label="Email" value={me.data?.email ?? "—"} />
-          <Field label="Role" value={me.data?.role?.replace(/_/g, " ") ?? "—"} />
+          {/* "Access Role", matching the People table and the employee form —
+              a bare "Role" doesn't say whether it means application access,
+              an HR title, or a project responsibility. */}
+          <Field label="Access Role" value={me.data?.role?.replace(/_/g, " ") ?? "—"} />
           <Field
             label="Permissions"
             value={(me.data?.permissions?.length ?? 0) > 0 ? `${me.data?.permissions.length} granted` : "none"}

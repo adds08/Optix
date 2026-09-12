@@ -75,9 +75,14 @@ export const preferencesRouter = router({
       where: and(eq(schema.userPreferences.tenantId, tid), eq(schema.userPreferences.userId, uid)),
     });
     if (!row) {
+      /* Must match `DEFAULT_PREFS` in the web app's lib/themes/themes.ts —
+         that file is the one with the rationale (2026-09-11, client request).
+         This used to say "system" while the client default said "arial", so
+         which font a person with no preference row saw depended on whether
+         this request or the client's own fallback path answered first. */
       return {
         themeName: "blocky" as const,
-        fontFamily: "system" as const,
+        fontFamily: "arial" as const,
         fontScale: "1.0",
         iconScale: "1.0",
         density: "comfortable" as const,
