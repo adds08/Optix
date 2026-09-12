@@ -159,27 +159,34 @@ export const vehicle = pgTable(
     */
     idTypeUq: unique("vehicle_id_type_uq").on(t.id, t.vehicleType),
     /*
-      One COMPANY truck per foreman, enforced at the database (STI-502).
+      One truck per foreman, of EITHER ownership type, enforced at the
+      database (STI-502, widened 2026-09-12).
 
-      A rig is one truck, one trailer, one foreman. The rule was stated in the
+      A rig is one truck, one trailer, one foreman — a truck row is either
+      `company_owned` or `personal_allowance`, but a foreman is linked to
+      exactly one truck ROW, whichever kind it is. The rule was stated in the
       plan and in three documents and enforced nowhere, so nothing stopped a
       second truck being stamped onto the same person — at which point
       `rigOf()` picks whichever row the query happens to return first and two
       screens can disagree about what a crew drives.
 
-      Three deliberate narrowings, each one a case that would otherwise be
-      broken by this index:
+      This index originally covered company-owned trucks only, on the belief
+      that a foreman may hold a personal-allowance truck AND drive a company
+      one at the same time — that pair was thought to be the premise STI-306's
+      departure logic needed. Revisited 2026-09-12 at the client's explicit
+      direction: the register should hold ONE truck per foreman, full stop,
+      never two of any kind at once. Checked before narrowing further:
+      `reassignOnDeparture` (departure.ts) does not actually need a leaver to
+      hold both at once — it just processes whatever containers they hold when
+      they go, however many that is — and no foreman in Urban's real data held
+      two trucks of any kind at the time of this change. `departure.test.ts`
+      now proves the personal-truck-stays and company-truck-moves halves
+      separately, on two leavers, rather than on one holding both.
+
+      Two remaining narrowings:
 
       PARTIAL on `foreman_employee_id IS NOT NULL` — a yard full of unheld
       trucks is the normal resting state, and NULLs must not collide.
-
-      COMPANY-OWNED ONLY. A foreman may draw a personal-allowance truck AND
-      drive a company one; that pair is the entire premise of STI-306, where a
-      departure reassigns the company vehicle and the personal one leaves with
-      the person. Constraining across both would forbid the arrangement the
-      departure logic exists to handle — caught by departure.test.ts, whose
-      fixture builds exactly that foreman. A vehicle somebody owns is also
-      simply not the rig, and not this system's to ration.
 
       TRUCKS ONLY. The same index for trailers would be wrong on Urban's real
       data: FELIPE PORTILLO holds TE-017 (22 tools) and TE-027 (30 tools),
@@ -191,7 +198,7 @@ export const vehicle = pgTable(
     oneTruckPerForemanUq: uniqueIndex("vehicle_one_truck_per_foreman_uq")
       .on(t.tenantId, t.foremanEmployeeId)
       .where(
-        sql`${t.vehicleType} = 'truck' AND ${t.foremanEmployeeId} IS NOT NULL AND ${t.ownershipType} = 'company_owned'`,
+        sql`${t.vehicleType} = 'truck' AND ${t.foremanEmployeeId} IS NOT NULL`,
       ),
   }),
 );

@@ -26,7 +26,10 @@ alone cannot explain.
 
 | Date | Entry |
 |---|---|
+| 2026-09-12 | [Keep the existing Jobsites layout](2026-09-12-remove-jobsite-explorer.md) |
+| 2026-09-12 | [A foreman is linked to one truck, not one truck per ownership type](2026-09-12-one-truck-per-foreman-of-either-kind.md) |
 | 2026-09-12 | [Five of thirteen audited issues fixed; the other eight need a decision or their own pass](2026-09-12-five-safe-fixes-from-the-discovered-issues-audit.md) |
+| 2026-09-12 | [A jobsite explorer keeps the selected job and its tools together](2026-09-12-jobsite-explorer.md) |
 | 2026-09-11 | [The HR Flag gets a shortcut to Terminated, not a second way there](2026-09-11-a-shortcut-to-terminated-not-a-second-way-there.md) |
 | 2026-09-11 | [An unordered roster is not a stable fact](2026-09-11-an-unordered-roster-is-not-a-stable-fact.md) |
 | 2026-09-11 | [A tier and its login role stop having to share a name](2026-09-11-a-tier-and-its-login-role-stop-sharing-a-name.md) |

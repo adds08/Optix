@@ -227,6 +227,16 @@ export function RigPicker({
         const theirs = v.foremanEmployeeId === request.foremanId;
         const takenFrom = !theirs && v.foremanEmployeeId ? v.foremanName : null;
         const foreman = foremanNameOf(request.foremanId);
+        /* One truck per foreman, of EITHER ownership type (STI-502, widened
+           2026-09-12). If the desk assigns this truck to someone who already
+           has a different one — company or personal, it makes no difference —
+           the server refuses with a CONFLICT naming it. Checked here so the
+           desk is WARNED and can choose to proceed, rather than clicking
+           Assign and reading a raw error: the same "ask first" treatment
+           `takenFrom` below already gets for taking a truck off someone else. */
+        const existingOfTarget = !theirs
+          ? vehicles.find((x) => x.vehicleType === "truck" && x.foremanEmployeeId === request.foremanId)
+          : undefined;
         const apply = (custodian: string | null) =>
           run(() =>
             setCustodian.mutateAsync({
@@ -235,6 +245,26 @@ export function RigPicker({
               moveContents: true,
             }),
           );
+        /* Detach the foreman's current truck first, THEN assign this one —
+           two calls, not one, because `setCustodian` sets who holds THIS
+           location; it has no way to know about a different one. Mirrors
+           `applyDirect` in the trailer branch below, which unhitches before
+           handing a trailer over for the same reason. */
+        const applyReassign = () =>
+          run(async () => {
+            if (existingOfTarget) {
+              await setCustodian.mutateAsync({
+                locationId: existingOfTarget.locationId,
+                custodianEmployeeId: null,
+                moveContents: true,
+              });
+            }
+            await setCustodian.mutateAsync({
+              locationId: v.locationId,
+              custodianEmployeeId: request.foremanId,
+              moveContents: true,
+            });
+          });
         return {
           key: v.id,
           title: `${v.unit}${v.makeModel ? ` · ${v.makeModel}` : ""}`,
@@ -249,12 +279,26 @@ export function RigPicker({
                 "Detach",
                 () => apply(null),
               );
+            } else if (takenFrom && existingOfTarget) {
+              ask(
+                `Take ${v.unit} from ${takenFrom}, and detach ${foreman}'s truck?`,
+                `${v.unit} is currently with ${takenFrom}. ${foreman} already has ${existingOfTarget.unit} — one truck per foreman, so taking ${v.unit} detaches ${existingOfTarget.unit} first and returns it to the yard. The hitched trailer and every tool aboard either truck carries come off with it.`,
+                "Take it over",
+                applyReassign,
+              );
             } else if (takenFrom) {
               ask(
                 `Take ${v.unit} from ${takenFrom}?`,
                 `${v.unit} is currently with ${takenFrom}. Taking it removes it from them first — the hitched trailer and every tool aboard go to ${foreman}.`,
                 "Take it over",
                 () => apply(request.foremanId),
+              );
+            } else if (existingOfTarget) {
+              ask(
+                `Assign ${v.unit} to ${foreman}, detaching ${existingOfTarget.unit}?`,
+                `${foreman} already has ${existingOfTarget.unit} — a foreman drives one truck, so assigning ${v.unit} detaches ${existingOfTarget.unit} first and returns it to the yard. The hitched trailer and every tool aboard ${existingOfTarget.unit} carries come off with it; ${v.unit}'s own trailer and tools follow ${foreman} as usual.`,
+                "Assign",
+                applyReassign,
               );
             } else {
               ask(

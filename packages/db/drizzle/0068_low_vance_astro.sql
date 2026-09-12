@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS "vehicle_one_truck_per_foreman_uq";--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "vehicle_one_truck_per_foreman_uq" ON "tbl_entity_vehicle" USING btree ("tenant_id","foreman_employee_id") WHERE "tbl_entity_vehicle"."vehicle_type" = 'truck' AND "tbl_entity_vehicle"."foreman_employee_id" IS NOT NULL;

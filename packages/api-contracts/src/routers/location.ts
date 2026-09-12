@@ -1,5 +1,5 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
 import { EQUIPMENT_CLASSES, vehicleStatus, type VehicleStatus } from "@stinventory/types";
@@ -305,9 +305,10 @@ export const locationCustodyRouter = {
         custodianName = emp.name;
 
         /*
-          One truck per foreman (STI-502). The partial unique index
-          `vehicle_one_truck_per_foreman_uq` is the guarantee; this check is
-          the MESSAGE.
+          One truck per foreman, of EITHER ownership type (STI-502, widened
+          2026-09-12 at the client's explicit direction — see the schema
+          comment on `oneTruckPerForemanUq`). The partial unique index is the
+          guarantee; this check is the MESSAGE.
 
           Without it the index still holds, but the desk sees a raw
           constraint violation as an INTERNAL_SERVER_ERROR — the same
@@ -322,17 +323,12 @@ export const locationCustodyRouter = {
           .select({
             id: schema.vehicle.id,
             vehicleType: schema.vehicle.vehicleType,
-            ownershipType: schema.vehicle.ownershipType,
           })
           .from(schema.vehicle)
           .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, input.locationId)))
           .limit(1);
 
-        /* Company trucks only — the index is narrowed the same way, and the
-           two MUST agree. A personal-allowance truck is the foreman's own
-           vehicle: they may draw one and still drive a company truck, which
-           is the pair STI-306's departure logic is built around. */
-        if (thisVehicle?.vehicleType === "truck" && thisVehicle.ownershipType === "company_owned") {
+        if (thisVehicle?.vehicleType === "truck") {
           const [heldTruck] = await ctx.db
             .select({ id: schema.vehicle.id, unit: schema.vehicle.unit })
             .from(schema.vehicle)
@@ -340,7 +336,6 @@ export const locationCustodyRouter = {
               and(
                 eq(schema.vehicle.tenantId, tid),
                 eq(schema.vehicle.vehicleType, "truck"),
-                eq(schema.vehicle.ownershipType, "company_owned"),
                 eq(schema.vehicle.foremanEmployeeId, input.custodianEmployeeId),
               ),
             )
@@ -680,20 +675,19 @@ export const vehicleRouter = router({
         .leftJoin(schema.location, eq(schema.vehicle.locationId, schema.location.id))
         .leftJoin(attached, eq(schema.location.parentLocationId, attached.locationId))
         .where(and(...conditions))
-        /* `rigOf()` (apps/web/lib/rig.ts) picks the first truck in this array
-           matching a foreman with a bare `.find()` — with no ORDER BY that was
-           heap order, so which truck a foreman's card and the rig picker agreed
-           on depended on where Postgres happened to put the row. The schema
-           comment on `vehicle_one_truck_per_foreman_uq` already names this
-           exact failure mode. This does not change how many trucks a foreman
-           CAN hold (STI-306's personal-allowance-plus-company-truck pair is
-           still allowed by the index) — it only makes which one `rigOf` shows
-           deterministic, and prefers the company truck, matching the index's
-           own company-owned-only scope. */
-        .orderBy(
-          sql`case when ${schema.vehicle.ownershipType} = 'company_owned' then 0 else 1 end`,
-          schema.vehicle.createdAt,
-        );
+        /* Matches the newest-first convention `project.list`/`employee.list`
+           already use (UI-73/74) — an unordered list is heap order, which
+           surfaces new rows wherever Postgres happens to put them rather than
+           where somebody who just created one would look.
+
+           This used to break ties on ownership type (company truck before
+           personal), because `rigOf()` (apps/web/lib/rig.ts) picks the first
+           truck in this array matching a foreman with a bare `.find()`, and a
+           foreman could hold one of each at once. Since the schema tightened
+           to one truck per foreman of EITHER kind (2026-09-12), that tie can
+           no longer occur — a foreman's own truck rows never collide — so a
+           plain newest-first order is enough. */
+        .orderBy(desc(schema.vehicle.createdAt));
       return rows.map((r) => ({
         ...r,
         /* Derived once, server-side, so the locations page and the map cannot
