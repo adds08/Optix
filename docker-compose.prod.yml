@@ -146,7 +146,6 @@ services:
         # Pre-fills the login form and lists the demo accounts. Defaults off:
         # on a reachable host it publishes valid addresses and their shared
         # password. Set to 1 deliberately while this is a demo deployment.
-        NEXT_PUBLIC_SHOW_DEMO_LOGINS: ${NEXT_PUBLIC_SHOW_DEMO_LOGINS:-0}
     image: stinventory-web:latest
     container_name: stinventory-web
     restart: unless-stopped

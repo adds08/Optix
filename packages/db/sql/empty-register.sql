@@ -10,6 +10,11 @@
 --   tenant, permission, role, role_permission, user, user_role
 --       Without these nobody can sign in and nothing can be authorised. The
 --       point of this script is an empty register you can still USE.
+--       Since 2026-09-13 that means exactly two accounts, and the thirteen
+--       demo logins it used to preserve are gone: `tech@optixtec.com`
+--       (tech_admin — Optix's own operator, reaches every tenant) and
+--       `optix_it@optixtec.com` (owner — the customer's administrator, their
+--       IT team or ours acting for them). Everybody else joins by invitation.
 --   tenant_settings, tenant_feature
 --       Configuration, not data. The high-value threshold and which modules are
 --       on are not things a roster reload should reset.
