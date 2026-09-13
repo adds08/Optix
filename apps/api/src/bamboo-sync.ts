@@ -435,6 +435,10 @@ export async function loadExisting(db: Database, tenantId: string) {
       code: schema.employee.code,
       email: schema.employee.email,
       hrFlaggedInactiveAt: schema.employee.hrFlaggedInactiveAt,
+      /* So `applySyncPlan` can tell "has no role yet" from "a human chose one",
+         and fill only the first. Read here rather than per person: this map is
+         already the snapshot of what the tenant held before the run. */
+      roleId: schema.employee.roleId,
     })
     .from(schema.employee)
     .where(eq(schema.employee.tenantId, tenantId));
@@ -564,12 +568,27 @@ async function resolveByName(
   the people already written correct and the run reports what it managed. The
   operation is safe to re-run because matching is by `(system, external_id)`.
 */
+/*
+  What role this person holds right now.
+
+  Only reached when the pre-run snapshot does not mention them — a caller that
+  passed a partial map, or a person created earlier in this same run. One row
+  by primary key, and never on the common path.
+*/
+async function currentRoleId(db: Database, tenantId: string, employeeId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ roleId: schema.employee.roleId })
+    .from(schema.employee)
+    .where(and(eq(schema.employee.id, employeeId), eq(schema.employee.tenantId, tenantId)));
+  return row?.roleId ?? null;
+}
+
 export async function applySyncPlan(
   db: Database,
   tenantId: string,
   plan: SyncPlan,
   incoming: AdaptedBambooPerson[],
-  existingById: Map<string, { hrFlaggedInactiveAt: Date | null }> = new Map(),
+  existingById: Map<string, { hrFlaggedInactiveAt: Date | null; roleId?: string | null }> = new Map(),
 ): Promise<{ created: number; updated: number; failed: number; firstError: string | null }> {
   const byExternalId = new Map(incoming.map((p) => [p.externalId, p]));
   /* Bamboo id -> our employee id, filled as we go and used by the second pass
@@ -617,6 +636,29 @@ export async function applySyncPlan(
       ? await resolveByName(db, schema.companyRole, "jobTitle", tenantId, person.writable.jobTitleName, nameCache)
       : null;
 
+    /*
+      The login role this job title grants, if an administrator has said
+      (migration 0071, `/settings/job-titles`).
+
+      Until this existed the sync set no `roleId` at all, so every person it
+      created arrived with no permissions and no custody eligibility, and
+      somebody assigned 190 of them by hand — again after each nightly run that
+      added a starter.
+
+      `null` where the title is unmapped, or where `resolveByName` has just
+      CREATED the title because BambooHR reported one we had never seen. A brand
+      new title cannot have a mapping yet, and guessing one would be the worst
+      possible moment to guess: nobody has looked at it.
+    */
+    const defaultRoleId = companyRoleId
+      ? (
+          await db
+            .select({ id: schema.companyRole.defaultRoleId })
+            .from(schema.companyRole)
+            .where(and(eq(schema.companyRole.id, companyRoleId), eq(schema.companyRole.tenantId, tenantId)))
+        )[0]?.id ?? null
+      : null;
+
     let employeeId = step.employeeId;
 
     if (step.action === "create") {
@@ -645,6 +687,9 @@ export async function applySyncPlan(
           ...(divisionId ? { divisionId } : {}),
           ...(departmentId ? { departmentId } : {}),
           ...(companyRoleId ? { companyRoleId } : {}),
+          /* The mapped role, where the title has one. Absent leaves `roleId`
+             null, which is the honest state: nobody has decided yet. */
+          ...(defaultRoleId ? { roleId: defaultRoleId } : {}),
           ...(step.flaggedInactive ? { hrFlaggedInactiveAt: new Date() } : {}),
         })
         .returning({ id: schema.employee.id });
@@ -669,6 +714,30 @@ export async function applySyncPlan(
       if (divisionId) patch.divisionId = divisionId;
       if (departmentId) patch.departmentId = departmentId;
       if (companyRoleId) patch.companyRoleId = companyRoleId;
+      /*
+        FILL, NEVER OVERWRITE. An existing person keeps whatever role a human
+        gave them, even if their job title later changes — a nightly job that
+        quietly undid an administrator's decision is how people stop trusting a
+        sync, and re-roling somebody is a security change, not a tidy-up.
+
+        So this only reaches people who have no role at all: the ones created
+        before the mapping existed, and anyone whose title was mapped after they
+        arrived. Checked against what they hold NOW, from the same snapshot the
+        flag comparison below uses, so it costs no extra query.
+      */
+      if (defaultRoleId) {
+        /*
+          `has()` first, deliberately. `?.roleId == null` is true both for
+          "this person has no role" and for "this person is not in the
+          snapshot", and those must not be treated alike: the second is how a
+          caller passing an empty map (the contacts test does) would have every
+          person's role overwritten by their job title's default. Absent from
+          the snapshot means unknown, and unknown is not a licence to write.
+        */
+        const known = existingById.get(employeeId);
+        const held = known ? known.roleId ?? null : await currentRoleId(db, tenantId, employeeId);
+        if (held == null) patch.roleId = defaultRoleId;
+      }
       /* Only written on an actual STATE CHANGE, checked against what this
          person held before this run — never unconditionally, or `updated`
          would count every synced person as changed the moment this column

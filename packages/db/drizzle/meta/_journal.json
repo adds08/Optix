@@ -491,6 +491,13 @@
       "when": 1789297013927,
       "tag": "0070_drop_the_settings_that_drive_nothing",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1789383413927,
+      "tag": "0071_job_title_default_role",
+      "breakpoints": true
     }
   ]
 }

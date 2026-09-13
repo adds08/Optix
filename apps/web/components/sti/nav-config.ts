@@ -1,5 +1,5 @@
 import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, UserCheck, Users, UsersRound, Wrench, PlugZap } from "lucide-react";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, IdCard, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, UserCheck, Users, UsersRound, Wrench, PlugZap } from "lucide-react";
 
 export type NavItem = {
   /*
@@ -121,6 +121,15 @@ const SETTINGS_GROUP: NavGroup = {
        config a tenant sets up once, not daily work; what changed is that the
        labels now say which is which. */
     { id: "team-roles", href: "/settings/team-roles", label: "Job Tiers", icon: HardHat, perm: "project.team.manage", desc: "The tiers a person can hold on a job — foreman, PM, superintendent" },
+    /* The third of the trio, and the bridge between the other two: HR's job
+       title decides which "Access Role" a synced person arrives with. Added
+       2026-09-14 with `company_role.default_role_id` — before it the sync
+       recorded a person's title and never set their role, so everybody it
+       created arrived able to do nothing and was fixed by hand.
+
+       `employee.manage`, not `config.manage`: deciding what a Carpenter may do
+       is a roster call, made by whoever runs the people register. */
+    { id: "job-titles", href: "/settings/job-titles", label: "Job Titles", icon: IdCard, perm: "employee.manage", desc: "Which role somebody gets when HR gives them a title" },
   ],
 };
 
