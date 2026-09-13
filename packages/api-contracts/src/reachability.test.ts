@@ -116,8 +116,6 @@ const NO_UI_BY_DESIGN: Record<string, string> = {
   "task.create": "TODO: tasks are raised by the chat path today; a form to raise one directly is unbuilt.",
   "task.update": "TODO: no screen edits a task. A desk that wants to correct a mistyped request has to decline it and ask for it again, which loses the thread.",
   "task.delete": "TODO: no screen deletes a task, and the flow that exists DECLINES instead — which is better, because it keeps the fact that somebody asked and was refused. Deleting may simply be wrong here; that is the decision to make.",
-  "task.approve":
-    "TODO: the inbox wires `task.decline` but not `task.approve`, which is the asymmetry worth looking at first — a desk can refuse a request from the UI and cannot grant one.",
 };
 
 function sourceFiles(dir: string): string[] {
