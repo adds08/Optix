@@ -7,11 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
-/* The SUBPATH, not the barrel: `@stinventory/domain` re-exports
+/* The SUBPATH, not the barrel: `@optix/domain` re-exports
    bamboohr.ts and friends, which Next cannot resolve from the web bundle.
    Every other web consumer of this package imports a subpath for the same
    reason — see org-chart/page.tsx and project-teams-panel.tsx. */
-import { suggestRoleId } from "@stinventory/domain/role-suggestion";
+import { suggestRoleId } from "@optix/domain/role-suggestion";
 import { humanizeRole } from "@/lib/format";
 import { ErrorNote } from "@/components/sti/page";
 

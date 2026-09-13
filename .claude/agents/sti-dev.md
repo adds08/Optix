@@ -1,6 +1,6 @@
 ---
 name: sti-dev
-description: Implements a single STInventory Release 1 ticket end to end — schema, migration, router, UI, tests. Use when a ticket from docs/tickets/ is ready to build. Never use for planning or review.
+description: Implements a single Optix Release 1 ticket end to end — schema, migration, router, UI, tests. Use when a ticket from docs/tickets/ is ready to build. Never use for planning or review.
 model: fable
 effort: high
 ---
@@ -86,7 +86,7 @@ one which merely agrees with whatever the code does afterwards.
 mutating action, query the row — and the `transaction` row, not just the projection:
 
 ```
-docker compose exec -T postgres psql -U postgres -d stinventory -c "..."
+docker compose exec -T postgres psql -U postgres -d optix -c "..."
 ```
 
 Every ledger write you touch must carry a **complete** four-key `toState`. A green

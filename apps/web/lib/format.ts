@@ -2,7 +2,7 @@
    a report that formats currency differently from the dashboard is a report
    people stop trusting. */
 
-import { toDate } from "@stinventory/types";
+import { toDate } from "@optix/types";
 
 const USD = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -84,7 +84,7 @@ export function dateTime(v: string | Date | null | undefined): string {
 }
 
 /*
-  `daysFrom` and `relative` moved to `@stinventory/types` so they could get a
+  `daysFrom` and `relative` moved to `@optix/types` so they could get a
   test suite — `apps/web` has none, and `relative`'s handling of FUTURE dates
   (warranty expiry) is exactly the kind of sign-convention detail that needs
   one. Re-exported here so the call sites keep importing from `@/lib/format`
@@ -94,7 +94,7 @@ export function dateTime(v: string | Date | null | undefined): string {
   a second local copy of "a date-only column is a calendar day" is exactly how
   UI-60 would come back.
 */
-export { daysFrom, relative, toDate } from "@stinventory/types";
+export { daysFrom, relative, toDate } from "@optix/types";
 
 /*
   Entity identifiers everywhere read as "<ID> - <Entity name>" — the job ID is

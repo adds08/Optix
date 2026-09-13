@@ -7,7 +7,7 @@ import { build } from "esbuild";
   `"main": "./src/index.ts"` — which is excellent for local development,
   because a change in packages/domain is live in the API with no build step.
   It also means `tsc && node dist/index.js` cannot work: node reaches the first
-  `@stinventory/*` import and refuses a `.ts` file. The production build was
+  `@optix/*` import and refuses a `.ts` file. The production build was
   broken from the first commit; nobody noticed because nothing had ever been
   run outside `tsx`.
 
@@ -24,7 +24,7 @@ import { build } from "esbuild";
   Externalise by shape, not by listing apps/api's own dependencies.
 
   A dependency list only covers direct deps, and the packages that break when
-  bundled are usually transitive — `pino` arrives through @stinventory/logger,
+  bundled are usually transitive — `pino` arrives through @optix/logger,
   and it resolves its worker thread by path at runtime, so a bundled copy looks
   for `dist/lib/worker.js` and dies on first log. Anything that is not a
   workspace package or a relative import stays in node_modules where its own
@@ -36,7 +36,7 @@ const externalizeNodeModules = {
     build.onResolve({ filter: /.*/ }, (args) => {
       if (args.kind === "entry-point") return null;
       if (args.path.startsWith(".") || args.path.startsWith("/")) return null;
-      if (args.path.startsWith("@stinventory/")) return null;
+      if (args.path.startsWith("@optix/")) return null;
       return { path: args.path, external: true };
     });
   },

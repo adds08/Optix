@@ -1,4 +1,4 @@
-import type { OrgMemberInput } from "@stinventory/domain/org-chart";
+import type { OrgMemberInput } from "@optix/domain/org-chart";
 
 /*
   A roster row as the chart page uses it: the edge fields `buildOrgForest` needs

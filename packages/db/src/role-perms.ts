@@ -12,7 +12,7 @@
   Urban, is docs/workings/PERMISSION_MATRIX.md. When the two disagree, THIS
   file is what the system does.
 */
-import { PERMISSIONS, ROLES } from "@stinventory/types";
+import { PERMISSIONS, ROLES } from "@optix/types";
 
 /* Shared by `project_manager` and `engineer` — see PERMISSION_MATRIX §1. */
 export const PM_PERMS = [

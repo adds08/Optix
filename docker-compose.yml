@@ -1,20 +1,20 @@
-# STInventory — local dev compose. Brings up Postgres + API + Web.
+# Optix — local dev compose. Brings up Postgres + API + Web.
 # `make ENV=local up` then `make provision`.
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: stinventory-postgres
+    container_name: optix-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stinventory}
-      POSTGRES_DB: ${POSTGRES_DB:-stinventory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-optix}
+      POSTGRES_DB: ${POSTGRES_DB:-optix}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d stinventory"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d optix"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -32,7 +32,7 @@ services:
   # addresses at while testing. Never add this to a deployed environment.
   mailpit:
     image: axllent/mailpit:latest
-    container_name: stinventory-mailpit
+    container_name: optix-mailpit
     ports:
       - "${MAILPIT_SMTP_PORT:-1025}:1025"
       - "${MAILPIT_UI_PORT:-8025}:8025"
@@ -45,13 +45,13 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.dev
-    image: stinventory-dev:latest
-    container_name: stinventory-api
+    image: optix-dev:latest
+    container_name: optix-api
     working_dir: /workspace/apps/api
     command: >
       sh -c "
         echo '[api] waiting for postgres' &&
-        until pg_isready -h postgres -U postgres -d stinventory -t 1 >/dev/null 2>&1; do sleep 1; done &&
+        until pg_isready -h postgres -U postgres -d optix -t 1 >/dev/null 2>&1; do sleep 1; done &&
         echo '[api] applying migrations' &&
         cd /workspace/packages/db && pnpm migrate &&
         cd /workspace/apps/api && pnpm dev
@@ -59,8 +59,8 @@ services:
     environment:
       NODE_ENV: development
       PORT: 4100
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-stinventory}@postgres:5432/${POSTGRES_DB:-stinventory}
-      SESSION_SECRET: ${SESSION_SECRET:-stinventory-dev-secret-please-change-to-32-chars-minimum}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-optix}@postgres:5432/${POSTGRES_DB:-optix}
+      SESSION_SECRET: ${SESSION_SECRET:-optix-dev-secret-please-change-to-32-chars-minimum}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3100}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -112,8 +112,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.dev
-    image: stinventory-dev:latest
-    container_name: stinventory-web
+    image: optix-dev:latest
+    container_name: optix-web
     working_dir: /workspace/apps/web
     command: sh -c "pnpm dev"
     environment:

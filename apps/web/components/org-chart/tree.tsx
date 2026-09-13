@@ -2,7 +2,7 @@
 
 import { ChevronDown, ChevronRight, HardHat, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { OrgNode } from "@stinventory/domain/org-chart";
+import type { OrgNode } from "@optix/domain/org-chart";
 import type { ChartMember } from "./types";
 
 /*

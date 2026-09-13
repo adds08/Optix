@@ -1,16 +1,16 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import type { Database } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
-import { custodyOutcome, type AssetStateSnapshot, type CustodyOutcome } from "@stinventory/domain";
-import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel, type Permission } from "@stinventory/types";
+import type { Database } from "@optix/db";
+import * as schema from "@optix/db/schema";
+import { custodyOutcome, type AssetStateSnapshot, type CustodyOutcome } from "@optix/domain";
+import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel, type Permission } from "@optix/types";
 import {
   ACTION_DEPARTMENTS,
   ACTION_PERMISSIONS,
   AUTO_SAFE_INTENTS,
   CUSTODY_INTENTS,
   REQUEST_TITLES,
-} from "@stinventory/intent";
+} from "@optix/intent";
 import { assertVehicleContext, closeActiveCustody, moveCustody, projectForCustodian } from "./custody.js";
 
 /*
@@ -60,7 +60,7 @@ export type ChatAction = {
 
 /*
   Which intents need a human, which are safe to run unattended, and what each
-  one costs — all re-exported from the catalog in @stinventory/intent rather
+  one costs — all re-exported from the catalog in @optix/intent rather
   than declared here.
 
   These were three hand-maintained maps sitting next to a fourth copy of the

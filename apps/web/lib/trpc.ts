@@ -1,6 +1,6 @@
 "use client";
 import { createTRPCReact } from "@trpc/react-query";
-import type { AppRouter } from "@stinventory/api-contracts";
+import type { AppRouter } from "@optix/api-contracts";
 import superjson from "superjson";
 import { httpBatchLink, type TRPCClientErrorLike } from "@trpc/client";
 

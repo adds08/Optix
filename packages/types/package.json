@@ -1,5 +1,5 @@
 {
-  "name": "@stinventory/types",
+  "name": "@optix/types",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "test": "TZ=America/Chicago vitest run"
   },
   "devDependencies": {
-    "@stinventory/config-tsconfig": "workspace:*",
+    "@optix/config-tsconfig": "workspace:*",
     "typescript": "^5.6.3",
     "vitest": "^2.1.5"
   }

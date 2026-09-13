@@ -1,4 +1,4 @@
-import { DEFAULT_HIGH_VALUE_THRESHOLD } from "@stinventory/types";
+import { DEFAULT_HIGH_VALUE_THRESHOLD } from "@optix/types";
 import { daysFrom } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

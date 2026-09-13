@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
-import { MENTION_KINDS, formatAssetModel, type ChatMention } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { MENTION_KINDS, formatAssetModel, type ChatMention } from "@optix/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { TRPCError } from "@trpc/server";

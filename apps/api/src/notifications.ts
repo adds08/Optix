@@ -5,11 +5,11 @@
 // `tenantSettings.smsEnabled` in packages/db/src/schema/event.ts.
 
 import { and, eq, isNull, lt } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import { mailConfigFor } from "@stinventory/api-contracts";
-import { esc, sendMail, type MailConfig } from "@stinventory/mail";
-import type { NotificationType } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import { mailConfigFor } from "@optix/api-contracts";
+import { esc, sendMail, type MailConfig } from "@optix/mail";
+import type { NotificationType } from "@optix/types";
 
 type NotificationInput = {
   tenantId: string;

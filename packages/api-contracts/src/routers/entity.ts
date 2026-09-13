@@ -1,7 +1,7 @@
 import { and, eq, ilike, ne, or } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
-import { formatAssetModel, type MentionKind } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { formatAssetModel, type MentionKind } from "@optix/types";
 import { protectedProcedure, router } from "../trpc.js";
 
 export const entityRouter = router({

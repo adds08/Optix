@@ -7,7 +7,7 @@ import { ErrorNote, TableSkeleton, PageHeader } from "@/components/sti/page";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SaveBar, useHydrateOnce, useTenantSettings } from "@/components/settings/tenant-settings";
-import { BRANDING_LAYOUT_MODES, type BrandingLayoutMode } from "@stinventory/types";
+import { BRANDING_LAYOUT_MODES, type BrandingLayoutMode } from "@optix/types";
 import { EntityField } from "@/components/ui/entity-picker";
 
 /*

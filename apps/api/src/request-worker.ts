@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import { createLogger } from "@stinventory/logger";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import { createLogger } from "@optix/logger";
 import { createNotification } from "./notifications.js";
 
 const log = createLogger("request-worker");

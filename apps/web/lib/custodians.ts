@@ -1,4 +1,4 @@
-import { CUSTODIAN_ROLES } from "@stinventory/types";
+import { CUSTODIAN_ROLES } from "@optix/types";
 
 /*
   Who may be handed a tool — asked once, in one place.

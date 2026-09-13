@@ -1,7 +1,7 @@
 import { assertProjectAccess, assertBranchTarget, activeProjectRows, restrictedProjects } from "../project-access.js";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
@@ -15,8 +15,8 @@ import {
   tiersAtOrBelow,
   tiersAbove,
   visibleEmployeeIds,
-} from "@stinventory/domain";
-import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory/types";
+} from "@optix/domain";
+import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@optix/types";
 
 /*
   The project team roster — who runs a job and who is working it.
@@ -215,7 +215,7 @@ export async function ancestorTierNamesFor(
 */
 export async function assertCanAssign(
   db: any,
-  session: import("@stinventory/auth").ResolvedSession,
+  session: import("@optix/auth").ResolvedSession,
   tid: string,
   projectId: string,
   role: TeamRoleRow,

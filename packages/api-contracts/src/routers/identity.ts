@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { protectedProcedure, router } from "../trpc.js";
 
 export const identityRouter = router({

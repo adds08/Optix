@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import { VEHICLE_OWNERSHIP } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import { VEHICLE_OWNERSHIP } from "@optix/types";
 import { moveCustody } from "./custody.js";
 import {
   PERSONAL_VEHICLE,

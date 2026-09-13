@@ -1,5 +1,5 @@
 import type { cors } from "hono/cors";
-import type { ServerEnv } from "@stinventory/env";
+import type { ServerEnv } from "@optix/env";
 
 type CorsOptions = NonNullable<Parameters<typeof cors>[0]>;
 

@@ -1,5 +1,5 @@
 {
-  "name": "stinventory",
+  "name": "optix",
   "version": "0.0.0",
   "private": true,
   "packageManager": "pnpm@9.11.0",
@@ -13,10 +13,10 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "clean": "turbo run clean && rm -rf node_modules",
-    "db:migrate": "pnpm --filter @stinventory/db migrate",
-    "db:studio": "pnpm --filter @stinventory/db studio",
-    "db:generate": "pnpm --filter @stinventory/db generate",
-    "db:provision": "pnpm --filter @stinventory/db provision"
+    "db:migrate": "pnpm --filter @optix/db migrate",
+    "db:studio": "pnpm --filter @optix/db studio",
+    "db:generate": "pnpm --filter @optix/db generate",
+    "db:provision": "pnpm --filter @optix/db provision"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

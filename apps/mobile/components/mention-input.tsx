@@ -7,7 +7,7 @@ import {
   applyMention,
   type ChatMention,
   type MentionKind,
-} from "@stinventory/types";
+} from "@optix/types";
 import { trpc } from "../lib/trpc";
 
 /*

@@ -1,8 +1,8 @@
 import { and, count, desc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
-import { formatAssetModel } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { formatAssetModel } from "@optix/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { assetVisibility, assetScopeWhere, type AssetScope } from "../scope.js";
 

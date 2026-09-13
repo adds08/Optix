@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
-import { formatAssetModel } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { formatAssetModel } from "@optix/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { assetVisibility, assetScopeWhere } from "../scope.js";
 

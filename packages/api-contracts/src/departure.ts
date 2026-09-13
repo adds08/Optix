@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
-import type { Database, Transaction } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
-import { formatAssetModel, type VehicleOwnership } from "@stinventory/types";
-import { tiersAbove } from "@stinventory/domain";
+import type { Database, Transaction } from "@optix/db";
+import * as schema from "@optix/db/schema";
+import { formatAssetModel, type VehicleOwnership } from "@optix/types";
+import { tiersAbove } from "@optix/domain";
 import { projectForCustodian, moveCustody, vehicleContextFromLedger } from "./custody.js";
 /* The one writer that knows what handing a container over means — custodian
    column, vehicle mirror, and the contents that ride inside it. A departure is

@@ -1,14 +1,14 @@
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { crewEmployeeIds, visibleProjectScope } from "../scope.js";
 import { moveEmployeeToProject } from "../project-assign.js";
 import { userRouter } from "./user.js";
-import { EMPLOYMENT_STATUSES, PROJECT_STATUSES } from "@stinventory/types";
+import { EMPLOYMENT_STATUSES, PROJECT_STATUSES } from "@optix/types";
 
 /*
   A JOB CODE IS HOW PEOPLE TELL TWO JOBS APART.

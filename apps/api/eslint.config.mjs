@@ -1,2 +1,2 @@
-import base from "@stinventory/config-eslint/base";
+import base from "@optix/config-eslint/base";
 export default base;

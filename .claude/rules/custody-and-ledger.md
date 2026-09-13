@@ -169,7 +169,7 @@ tool away weeks earlier. Read the header comment at the top of `custody.ts`.
   (STI-203, see the writer buckets above). "Considered, and refused" belongs in the
   tool's history; the reasoning lives on the ledger insert in `assignment.decline`.
 - **Since STI-102, custody writes are transactional and row-locked.** `closeActiveCustody`
-  and `moveCustody` take a `Transaction` (exported by `@stinventory/db`) as their first
+  and `moveCustody` take a `Transaction` (exported by `@optix/db`) as their first
   parameter — a raw `db` handle is a **compile error**, which is the enforcement: the old
   `db: any` signatures are how bare unwrapped writes shipped. The caller owns the
   transaction, because its projection update and ledger insert must commit or vanish with

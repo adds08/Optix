@@ -10,7 +10,7 @@ const externalizeNodeModules = {
     build.onResolve({ filter: /.*/ }, (args) => {
       if (args.kind === "entry-point") return null;
       if (args.path.startsWith(".") || args.path.startsWith("/")) return null;
-      if (args.path.startsWith("@stinventory/")) return null;
+      if (args.path.startsWith("@optix/")) return null;
       return { path: args.path, external: true };
     });
   },

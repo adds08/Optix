@@ -1,12 +1,12 @@
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
-import { ASSET_STATUSES, COST_TARGETS, formatAssetModel } from "@stinventory/types";
-import { foldAssetState, hasSnapshotEvidence, reconcileProjections, type EventEnvelope } from "@stinventory/domain";
+import { ASSET_STATUSES, COST_TARGETS, formatAssetModel } from "@optix/types";
+import { foldAssetState, hasSnapshotEvidence, reconcileProjections, type EventEnvelope } from "@optix/domain";
 import { assetVisibility, assetScopeWhere } from "../scope.js";
 import { vehicleContextFromLedger } from "../custody.js";
 

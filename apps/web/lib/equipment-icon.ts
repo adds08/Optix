@@ -1,5 +1,5 @@
 import { Box, Caravan, Truck, Wrench, type LucideIcon } from "lucide-react";
-import { EQUIPMENT_CLASS_LABELS, type EquipmentClass } from "@stinventory/types";
+import { EQUIPMENT_CLASS_LABELS, type EquipmentClass } from "@optix/types";
 
 /*
   Which glyph the register draws for an equipment class, and what it is called.

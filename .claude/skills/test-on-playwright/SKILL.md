@@ -1,6 +1,6 @@
 ---
 name: test-on-playwright
-description: Drive the running STInventory stack in a real browser through the Playwright MCP. Use whenever a change has to be SEEN working rather than argued for: "test this in the browser", "click through it", "take a screenshot", "is this screen reachable", "does this work as a foreman", or any UI regression, layout or permission question. Use ESPECIALLY before claiming a feature is delivered — a procedure with no screen that opens it is not delivered.
+description: Drive the running Optix stack in a real browser through the Playwright MCP. Use whenever a change has to be SEEN working rather than argued for: "test this in the browser", "click through it", "take a screenshot", "is this screen reachable", "does this work as a foreman", or any UI regression, layout or permission question. Use ESPECIALLY before claiming a feature is delivered — a procedure with no screen that opens it is not delivered.
 ---
 
 # Test on Playwright

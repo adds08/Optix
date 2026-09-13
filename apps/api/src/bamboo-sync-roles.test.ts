@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { createDb } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
-import { adaptBambooEmployee } from "@stinventory/domain";
+import { createDb } from "@optix/db";
+import * as schema from "@optix/db/schema";
+import { adaptBambooEmployee } from "@optix/domain";
 import { applySyncPlan, buildSyncPlan, loadExisting } from "./bamboo-sync.js";
 
 /*

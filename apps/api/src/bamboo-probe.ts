@@ -6,11 +6,11 @@
   BambooHR. It also writes NOTHING to our own Postgres: no sync_run row, no
   employee upsert. It counts and prints, and that is all.
 
-  Run: pnpm --filter @stinventory/api exec tsx src/bamboo-probe.ts
+  Run: pnpm --filter @optix/api exec tsx src/bamboo-probe.ts
 */
 import "dotenv/config";
 import { bambooCredentialsFrom, fetchAllBambooEmployees } from "./bamboo-sync.js";
-import { adaptBambooPage } from "@stinventory/domain";
+import { adaptBambooPage } from "@optix/domain";
 
 const creds = bambooCredentialsFrom(process.env as Record<string, string | undefined>);
 if (!creds) {

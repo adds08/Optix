@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Boxes, Download, Pencil, Search } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/types";
+import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
@@ -419,7 +419,7 @@ export default function ToolsPage() {
       locationName: r.locationName,
       owningProjectName: r.owningProjectName,
     }));
-    downloadCsv(`stinventory-assets-export-${new Date().toISOString().slice(0, 10)}`, exportAssetsToSpec(rows));
+    downloadCsv(`optix-assets-export-${new Date().toISOString().slice(0, 10)}`, exportAssetsToSpec(rows));
   };
 
   const filtering = category !== "all" || status !== "all" || flags.size > 0;

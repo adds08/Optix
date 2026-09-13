@@ -19,7 +19,7 @@ and possibly attach to an issue or a client email. Both are attack surfaces:
    after we've stopped looking at it.
 3. **A webfont or remote image** is a beacon. Opening the file tells a third
    party who opened it, from what IP, and when. That is a quiet leak of "someone
-   is reading the STInventory custody spec".
+   is reading the Optix custody spec".
 4. **Writes outside the project** — `~/.agent/`, `~/Documents`, `/tmp` — put
    internal content in places nobody is auditing or cleaning up.
 5. **Auto-opening a browser** turns a file write into code execution in the

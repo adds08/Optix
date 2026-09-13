@@ -36,7 +36,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: stinventory_ci
+          POSTGRES_DB: optix_ci
         ports:
           - 5432:5432
         options: >-
@@ -45,7 +45,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/stinventory_ci
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/optix_ci
       SESSION_SECRET: ci-session-secret-at-least-32-characters-long
       CI: "true"
     steps:
@@ -121,10 +121,10 @@ jobs:
       # could not actually run, because workspace packages export raw
       # TypeScript. A build that is never executed proves nothing.
       - name: Build API image
-        run: docker build -f docker/Dockerfile.api -t stinventory-api:ci .
+        run: docker build -f docker/Dockerfile.api -t optix-api:ci .
 
       - name: Build web image
-        run: docker build -f docker/Dockerfile.web -t stinventory-web:ci .
+        run: docker build -f docker/Dockerfile.web -t optix-web:ci .
 
   smoke:
     name: migrate + boot against a real postgres
@@ -135,7 +135,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: stinventory_ci
+          POSTGRES_DB: optix_ci
         ports:
           - 5432:5432
         options: >-
@@ -144,7 +144,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/stinventory_ci
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/optix_ci
       SESSION_SECRET: ci-session-secret-at-least-32-characters-long
       WEB_ORIGIN: http://localhost:3100
       PORT: 4100
@@ -195,8 +195,8 @@ jobs:
 
       - name: Build and boot the API
         run: |
-          pnpm --filter @stinventory/db build
-          pnpm --filter @stinventory/api build
+          pnpm --filter @optix/db build
+          pnpm --filter @optix/api build
           node apps/api/dist/index.js &
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:4100/health > /dev/null; then

@@ -1,5 +1,5 @@
 import { and, eq, ne } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 
 /*
   Telling people what happened to the thing they asked for.

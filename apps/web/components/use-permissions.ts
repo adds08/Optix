@@ -1,6 +1,6 @@
 "use client";
 import { trpc } from "@/lib/trpc";
-import { VIEW_SCOPES, type Permission, type ViewScope } from "@stinventory/types";
+import { VIEW_SCOPES, type Permission, type ViewScope } from "@optix/types";
 
 export function usePermissions() {
   const me = trpc.identity.me.useQuery();

@@ -1,10 +1,10 @@
 import { activeProjectRows, restrictedProjects } from "./project-access.js";
 import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import type { ResolvedSession } from "@stinventory/auth";
-import { VIEW_SCOPES, type ViewScope } from "@stinventory/types";
-import { branchEmployeeIds, tiersAtOrBelow } from "@stinventory/domain";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import type { ResolvedSession } from "@optix/auth";
+import { VIEW_SCOPES, type ViewScope } from "@optix/types";
+import { branchEmployeeIds, tiersAtOrBelow } from "@optix/domain";
 
 /*
   The visibility ladder (STI-302) — the one gate every scoped read goes

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { and, eq, isNull } from "drizzle-orm";
-import { createDb } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
-import { PERMISSIONS, type Permission } from "@stinventory/types";
+import { createDb } from "@optix/db";
+import * as schema from "@optix/db/schema";
+import { PERMISSIONS, type Permission } from "@optix/types";
 import { appRouter } from "./index";
 import type { Context } from "./trpc";
 

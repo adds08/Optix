@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Download, Sparkles, Upload } from "lucide-react";
 import * as XLSX from "xlsx";
-import { IMPORT_SPECS, templateRows, type ImportEntity } from "@stinventory/types";
+import { IMPORT_SPECS, templateRows, type ImportEntity } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { downloadCsv, parseCsvRows, rowsToObjects } from "@/lib/csv";
 import { Can } from "@/components/can";
@@ -209,7 +209,7 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
             <Button
               variant="outline"
               size="sm"
-              onClick={() => downloadCsv(`stinventory-${entity}-template`, templateRows(entity))}
+              onClick={() => downloadCsv(`optix-${entity}-template`, templateRows(entity))}
             >
               <Download className="size-4" aria-hidden />
               Download template

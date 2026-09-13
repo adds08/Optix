@@ -1,7 +1,7 @@
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { assetVisibility, assetScopeWhere } from "../scope.js";
 import { pageParamsSchema, type Paginated, type SortableMap, sortSql } from "../table-helpers.js";

@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PROJECT_STATUSES, type ProjectStatus } from "@stinventory/types";
+import { PROJECT_STATUSES, type ProjectStatus } from "@optix/types";
 import { EntityField } from "@/components/ui/entity-picker";
 
 /* Sentence case for the select; the values themselves come from the shared

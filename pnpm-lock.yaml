@@ -29,31 +29,31 @@ importers:
       '@hono/trpc-server':
         specifier: ^0.3.4
         version: 0.3.4(@trpc/server@11.18.0(typescript@5.9.3))(hono@4.12.29)
-      '@stinventory/api-contracts':
+      '@optix/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
-      '@stinventory/auth':
+      '@optix/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@stinventory/db':
+      '@optix/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@stinventory/domain':
+      '@optix/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@stinventory/env':
+      '@optix/env':
         specifier: workspace:*
         version: link:../../packages/env
-      '@stinventory/intent':
+      '@optix/intent':
         specifier: workspace:*
         version: link:../../packages/intent
-      '@stinventory/logger':
+      '@optix/logger':
         specifier: workspace:*
         version: link:../../packages/logger
-      '@stinventory/mail':
+      '@optix/mail':
         specifier: workspace:*
         version: link:../../packages/mail
-      '@stinventory/types':
+      '@optix/types':
         specifier: workspace:*
         version: link:../../packages/types
       '@trpc/server':
@@ -75,10 +75,10 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
-      '@stinventory/config-eslint':
+      '@optix/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../../packages/config-tsconfig
       '@types/node':
@@ -105,10 +105,10 @@ importers:
       '@expo/vector-icons':
         specifier: ^15.0.2
         version: 15.1.1(expo-font@57.0.1(expo@57.0.8(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.7)(expo-router@57.0.8)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native-worklets@0.10.2(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.7)(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
-      '@stinventory/api-contracts':
+      '@optix/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
-      '@stinventory/types':
+      '@optix/types':
         specifier: workspace:*
         version: link:../../packages/types
       '@tanstack/react-query':
@@ -196,13 +196,13 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.3)
-      '@stinventory/api-contracts':
+      '@optix/api-contracts':
         specifier: workspace:*
         version: link:../../packages/api-contracts
-      '@stinventory/domain':
+      '@optix/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@stinventory/types':
+      '@optix/types':
         specifier: workspace:*
         version: link:../../packages/types
       '@tabler/icons-react':
@@ -272,10 +272,10 @@ importers:
         specifier: ^5.0.14
         version: 5.0.14(@types/react@19.2.17)(immer@11.1.15)(react@19.2.3)(use-sync-external-store@1.6.0(react@19.2.3))
     devDependencies:
-      '@stinventory/config-eslint':
+      '@optix/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../../packages/config-tsconfig
       '@tailwindcss/postcss':
@@ -329,22 +329,22 @@ importers:
 
   packages/api-contracts:
     dependencies:
-      '@stinventory/auth':
+      '@optix/auth':
         specifier: workspace:*
         version: link:../auth
-      '@stinventory/db':
+      '@optix/db':
         specifier: workspace:*
         version: link:../db
-      '@stinventory/domain':
+      '@optix/domain':
         specifier: workspace:*
         version: link:../domain
-      '@stinventory/intent':
+      '@optix/intent':
         specifier: workspace:*
         version: link:../intent
-      '@stinventory/mail':
+      '@optix/mail':
         specifier: workspace:*
         version: link:../mail
-      '@stinventory/types':
+      '@optix/types':
         specifier: workspace:*
         version: link:../types
       '@trpc/server':
@@ -360,7 +360,7 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../config-tsconfig
       typescript:
@@ -372,10 +372,10 @@ importers:
 
   packages/auth:
     dependencies:
-      '@stinventory/db':
+      '@optix/db':
         specifier: workspace:*
         version: link:../db
-      '@stinventory/types':
+      '@optix/types':
         specifier: workspace:*
         version: link:../types
       bcryptjs:
@@ -385,7 +385,7 @@ importers:
         specifier: ^0.36.4
         version: 0.36.4(@types/react@19.2.17)(postgres@3.4.9)(react@19.2.3)
     devDependencies:
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../config-tsconfig
       '@types/bcryptjs':
@@ -420,7 +420,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@stinventory/types':
+      '@optix/types':
         specifier: workspace:*
         version: link:../types
       bcryptjs:
@@ -436,7 +436,7 @@ importers:
         specifier: ^3.4.5
         version: 3.4.9
     devDependencies:
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../config-tsconfig
       '@types/bcryptjs':
@@ -457,11 +457,11 @@ importers:
 
   packages/domain:
     dependencies:
-      '@stinventory/types':
+      '@optix/types':
         specifier: workspace:*
         version: link:../types
     devDependencies:
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../config-tsconfig
       typescript:
@@ -477,7 +477,7 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../config-tsconfig
       typescript:
@@ -486,11 +486,11 @@ importers:
 
   packages/intent:
     dependencies:
-      '@stinventory/types':
+      '@optix/types':
         specifier: workspace:*
         version: link:../types
     devDependencies:
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../config-tsconfig
       typescript:
@@ -509,7 +509,7 @@ importers:
         specifier: ^11.3.0
         version: 11.3.0
     devDependencies:
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../config-tsconfig
       '@types/node':
@@ -525,7 +525,7 @@ importers:
         specifier: ^6.9.16
         version: 6.10.1
     devDependencies:
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../config-tsconfig
       '@types/node':
@@ -543,7 +543,7 @@ importers:
 
   packages/types:
     devDependencies:
-      '@stinventory/config-tsconfig':
+      '@optix/config-tsconfig':
         specifier: workspace:*
         version: link:../config-tsconfig
       typescript:

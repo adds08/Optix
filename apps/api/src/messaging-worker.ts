@@ -1,8 +1,8 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import type { ServerEnv } from "@stinventory/env";
-import { createLogger } from "@stinventory/logger";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import type { ServerEnv } from "@optix/env";
+import { createLogger } from "@optix/logger";
 import { parseIntent } from "./engine-client.js";
 import type { EngineParseResponse } from "./engine-client.js";
 import {
@@ -11,15 +11,15 @@ import {
   departmentForAction,
   llmConfigFor,
   type ChatAction,
-} from "@stinventory/api-contracts";
-import { NEW_TOOL_INTENTS } from "@stinventory/intent";
+} from "@optix/api-contracts";
+import { NEW_TOOL_INTENTS } from "@optix/intent";
 import {
   formatAssetModel,
   slotsFromMentions,
   type ChatMention,
   type MentionSlots,
   type Permission,
-} from "@stinventory/types";
+} from "@optix/types";
 import {
   resolveEngineAssets,
   resolveCustodian,

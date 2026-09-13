@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
-import type { Database, Transaction } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
+import type { Database, Transaction } from "@optix/db";
+import * as schema from "@optix/db/schema";
 
 /*
   The one place a custody link opens or closes.

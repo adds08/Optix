@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, Pencil, Pin, PinOff, Trash2, type LucideIcon } from "lucide-react";
-import type { Permission } from "@stinventory/types";
+import type { Permission } from "@optix/types";
 import { usePermissions } from "@/components/use-permissions";
 import { ActionMenuTrigger } from "@/components/sti/action-menu";
 import {

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
-import { createDb, schema, ROLE_PERMS, roleSpecs, type Database } from "@stinventory/db";
-import { CUSTODIAN_ROLES, PERMISSIONS, ROLES, VIEW_SCOPES, type Permission } from "@stinventory/types";
+import { createDb, schema, ROLE_PERMS, roleSpecs, type Database } from "@optix/db";
+import { CUSTODIAN_ROLES, PERMISSIONS, ROLES, VIEW_SCOPES, type Permission } from "@optix/types";
 import { appRouter } from "./index.js";
 import { assetVisibility, assetScopeWhere, viewTierOf } from "./scope.js";
 import { assetRouter } from "./routers/asset.js";

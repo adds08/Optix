@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
-import { FEATURE_STATES } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { FEATURE_STATES } from "@optix/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 

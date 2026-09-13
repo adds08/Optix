@@ -4,8 +4,8 @@
   "main": "index.ts",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
-    "@stinventory/api-contracts": "workspace:*",
-    "@stinventory/types": "workspace:*",
+    "@optix/api-contracts": "workspace:*",
+    "@optix/types": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "@trpc/client": "^11.0.0-rc.660",
     "@trpc/react-query": "^11.0.0-rc.660",

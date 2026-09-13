@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ImportColumn, ImportSpec } from "@stinventory/types";
+import type { ImportColumn, ImportSpec } from "@optix/types";
 import { checkCell, validateRows, type RefIndex } from "./routers/import.js";
 
 /*

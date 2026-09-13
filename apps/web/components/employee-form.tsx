@@ -1,5 +1,5 @@
 "use client";
-import type { EmploymentStatus } from "@stinventory/types";
+import type { EmploymentStatus } from "@optix/types";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";

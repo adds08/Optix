@@ -34,7 +34,7 @@ desk and complete the job. That is the standard you hold the phase to.
    finding.
 4. **After every mutating action, verify what was actually written:**
    ```
-   docker compose exec -T postgres psql -U postgres -d stinventory -c "..."
+   docker compose exec -T postgres psql -U postgres -d optix -c "..."
    ```
    A green screen is a claim. The row is the evidence. Check the `transaction` row
    too, not just the projection — this is an event-sourced system and the ledger is

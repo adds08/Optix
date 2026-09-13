@@ -31,7 +31,7 @@ import crypto from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { createDb } from "./index";
 import * as schema from "./schema/index";
-import { ROLES, PERMISSIONS, type Permission } from "@stinventory/types";
+import { ROLES, PERMISSIONS, type Permission } from "@optix/types";
 import { ROLE_PERMS } from "./role-perms";
 import {
   roleSpecs,
@@ -57,7 +57,7 @@ const ownerEmail = process.env.OWNER_EMAIL?.trim() || "optix_it@optixtec.com";
 
 const db = createDb(url);
 
-/* bcrypt lives in @stinventory/auth, which depends on this package — importing
+/* bcrypt lives in @optix/auth, which depends on this package — importing
    it here would close a cycle. The cost factor is the one `hashPassword` uses. */
 const bcrypt = (await import("bcryptjs")).default;
 

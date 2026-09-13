@@ -3,7 +3,7 @@ import { httpBatchLink } from "@trpc/client";
 import superjson from "superjson";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
-import type { AppRouter } from "@stinventory/api-contracts";
+import type { AppRouter } from "@optix/api-contracts";
 import { cachedToken } from "./session";
 
 export const trpc = createTRPCReact<AppRouter>();

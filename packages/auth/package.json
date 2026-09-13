@@ -1,5 +1,5 @@
 {
-  "name": "@stinventory/auth",
+  "name": "@optix/auth",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,13 +14,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@stinventory/db": "workspace:*",
-    "@stinventory/types": "workspace:*",
+    "@optix/db": "workspace:*",
+    "@optix/types": "workspace:*",
     "bcryptjs": "^2.4.3",
     "drizzle-orm": "^0.36.4"
   },
   "devDependencies": {
-    "@stinventory/config-tsconfig": "workspace:*",
+    "@optix/config-tsconfig": "workspace:*",
     "@types/bcryptjs": "^2.4.6",
     "typescript": "^5.6.3",
     "vitest": "^2.1.5"

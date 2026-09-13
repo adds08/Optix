@@ -1,4 +1,4 @@
-import type { Permission } from "@stinventory/types";
+import type { Permission } from "@optix/types";
 import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, IdCard, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, UserCheck, Users, UsersRound, Wrench, PlugZap } from "lucide-react";
 
 export type NavItem = {

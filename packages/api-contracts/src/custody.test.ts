@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import { foldAssetState, reconcileProjections, type EventEnvelope } from "@stinventory/domain";
-import type { Permission } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import { foldAssetState, reconcileProjections, type EventEnvelope } from "@optix/domain";
+import type { Permission } from "@optix/types";
 import { closeActiveCustody, moveCustody } from "./custody.js";
 import { assignmentRouter } from "./routers/assignment.js";
 import { transferRouter } from "./routers/transfer.js";

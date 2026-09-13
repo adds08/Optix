@@ -21,6 +21,13 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:
 
 const ALGO = "aes-256-gcm";
 const IV_BYTES = 12; // 96 bits, the size GCM is defined for
+/* DO NOT RENAME THIS STRING. It is a cryptographic input, not a name.
+   The package scope became `@optix/*` on 2026-09-14 and this deliberately did
+   not follow: scrypt derives the key from (SESSION_SECRET, SALT), so changing
+   the salt changes the key and every tenant's stored LLM key decrypts to
+   garbage. `decryptSecret` returns null on that, so the failure would look like
+   "the key needs re-entering" on every tenant at once, with no error naming the
+   cause. The `v1` suffix is the migration path if it ever must change. */
 const SALT = "stinventory:secret:v1";
 
 function keyFrom(sessionSecret: string): Buffer {

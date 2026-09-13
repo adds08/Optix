@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import {
   IMPORT_SPECS,
   formatAssetModel,
@@ -8,7 +8,7 @@ import {
   type ImportEntity,
   type ImportRefTarget,
   type ImportSpec,
-} from "@stinventory/types";
+} from "@optix/types";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../trpc.js";
 import { logEvent } from "../audit.js";

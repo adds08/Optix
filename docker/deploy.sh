@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deploy STInventory on the droplet.
+# Deploy Optix on the droplet.
 #
 # This is the ONLY thing the CI deploy key is permitted to run — see the
 # `command="..."` restriction in the server's authorized_keys. That matters:
@@ -9,7 +9,7 @@
 # the CI secret owns the box".
 #
 # Run on the server, never from a laptop:
-#   /opt/stinventory/docker/deploy.sh
+#   /opt/optix/docker/deploy.sh
 #
 # Replaces the old rsync-from-laptop flow, which twice deleted files that live
 # only here (.env.production, the Expo export) because --delete does not know
@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-APP_DIR=/opt/stinventory
+APP_DIR=/opt/optix
 COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env.production"
 BRANCH="${DEPLOY_BRANCH:-main}"
 

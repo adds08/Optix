@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNull, notInArray } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { TRPCError } from "@trpc/server";
 import { moveCustody } from "./custody.js";
 

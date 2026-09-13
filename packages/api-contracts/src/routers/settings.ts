@@ -1,16 +1,16 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
-import { decryptSecret, encryptSecret, secretHint } from "@stinventory/auth";
-import { BRANDING_LAYOUT_MODES, DEFAULT_HIGH_VALUE_THRESHOLD } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { decryptSecret, encryptSecret, secretHint } from "@optix/auth";
+import { BRANDING_LAYOUT_MODES, DEFAULT_HIGH_VALUE_THRESHOLD } from "@optix/types";
 import { TRPCError } from "@trpc/server";
 import {
   IntentParseError,
   parseIntent,
   type ParseContext,
   type ParsedIntent,
-} from "@stinventory/intent";
-import { sendMail, inviteEmail, passwordResetEmail, passwordChangedEmail } from "@stinventory/mail";
+} from "@optix/intent";
+import { sendMail, inviteEmail, passwordResetEmail, passwordChangedEmail } from "@optix/mail";
 import { requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { mailConfigFor } from "../mail-config.js";

@@ -1,8 +1,8 @@
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
-import { EQUIPMENT_CLASSES, LOCATION_TYPES, vehicleStatus, type VehicleStatus } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { EQUIPMENT_CLASSES, LOCATION_TYPES, vehicleStatus, type VehicleStatus } from "@optix/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { visibleProjectScope } from "../scope.js";
 import { TRPCError } from "@trpc/server";
@@ -696,7 +696,7 @@ export const vehicleRouter = router({
       return rows.map((r) => ({
         ...r,
         /* Derived once, server-side, so the locations page and the map cannot
-           disagree about whether a unit is online. See @stinventory/types/gps. */
+           disagree about whether a unit is online. See @optix/types/gps. */
         status: vehicleStatus(r.gpsAt) as VehicleStatus,
       }));
     }),

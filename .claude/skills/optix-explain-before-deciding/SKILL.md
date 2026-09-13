@@ -1,6 +1,6 @@
 ---
 name: optix-explain-before-deciding
-description: Use whenever you are about to ask the user to make a decision, approve a destructive or unfamiliar action, or choose between options -- especially ones involving jargon, env vars, flags, or commands they didn't introduce themselves. Explain each option first in plain terms before presenting the choice. Triggers on any AskUserQuestion call, or any inline "should I do X or Y" moment in STInventory.
+description: Use whenever you are about to ask the user to make a decision, approve a destructive or unfamiliar action, or choose between options -- especially ones involving jargon, env vars, flags, or commands they didn't introduce themselves. Explain each option first in plain terms before presenting the choice. Triggers on any AskUserQuestion call, or any inline "should I do X or Y" moment in Optix.
 ---
 
 # Explain before deciding
@@ -55,7 +55,7 @@ as an explanation. It did not — a name is not a definition, and stacking the
 explanation onto the proposal rather than separating it forces the user to
 reverse-engineer what they are agreeing to.
 
-## Where this applies in STInventory specifically
+## Where this applies in Optix specifically
 
 Recurring shapes worth calling out because they've come up before, and will again:
 

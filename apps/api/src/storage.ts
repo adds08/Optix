@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import type { ServerEnv } from "@stinventory/env";
-import { createLogger } from "@stinventory/logger";
+import type { ServerEnv } from "@optix/env";
+import { createLogger } from "@optix/logger";
 
 const log = createLogger("storage");
 

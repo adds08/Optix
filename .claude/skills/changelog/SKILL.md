@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: Record what changed in docs/changelogs/ after any code or file change in STInventory. Use at the end of every task that produced a diff -- implementation, fix, refactor, migration, doc edit -- and whenever the user says "log this", "changelog", "what changed", or asks what happened in a past session. Reconstructs the entry from git rather than from memory.
+description: Record what changed in docs/changelogs/ after any code or file change in Optix. Use at the end of every task that produced a diff -- implementation, fix, refactor, migration, doc edit -- and whenever the user says "log this", "changelog", "what changed", or asks what happened in a past session. Reconstructs the entry from git rather than from memory.
 ---
 
 # Changelog

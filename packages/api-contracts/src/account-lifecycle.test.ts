@@ -1,13 +1,13 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { and, eq, isNull } from "drizzle-orm";
-import { createDb, schema, roleSpecs, ROLE_PERMS, teamRoleSpecs } from "@stinventory/db";
-import { generateAuthToken, hashAuthToken, resolveSession } from "@stinventory/auth";
-import { PERMISSIONS, type Permission } from "@stinventory/types";
+import { createDb, schema, roleSpecs, ROLE_PERMS, teamRoleSpecs } from "@optix/db";
+import { generateAuthToken, hashAuthToken, resolveSession } from "@optix/auth";
+import { PERMISSIONS, type Permission } from "@optix/types";
 import { appRouter } from "./index";
 import type { Context } from "./trpc";
 
 // Exercise the real routers and database, with no external mail delivery.
-vi.mock("@stinventory/mail", async (original) => ({ ...await original<any>(), sendMail: vi.fn(async () => ({ ok: true })) }));
+vi.mock("@optix/mail", async (original) => ({ ...await original<any>(), sendMail: vi.fn(async () => ({ ok: true })) }));
 
 describe.skipIf(!process.env.DATABASE_URL)("invited people retain identity, crew and access boundaries", () => {
   let db: ReturnType<typeof createDb>, tenantId: string, adminId: string;

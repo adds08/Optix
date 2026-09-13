@@ -15,12 +15,12 @@ services:
   # internet at all.
   caddy:
     image: caddy:2-alpine
-    container_name: stinventory-caddy
+    container_name: optix-caddy
     restart: unless-stopped
     environment:
       SITE_HOST: ${SITE_HOST:?set SITE_HOST to the public hostname, e.g. tools.example.com}
       # Caddy prefixes /media/* with this so the database can store a bare key.
-      S3_BUCKET: ${S3_BUCKET:-stinventory}
+      S3_BUCKET: ${S3_BUCKET:-optix}
     ports:
       - "80:80"
       - "443:443"
@@ -41,7 +41,7 @@ services:
 
   # The Python parser service was removed. It had drifted into a second,
   # unreachable copy of the intent logic: the API never called it (it talks to
-  # the model directly, now via @stinventory/intent), so it sat holding ~150MB
+  # the model directly, now via @optix/intent), so it sat holding ~150MB
   # on a 1GB droplet while carrying its own stale list of valid intents. Two
   # places to add a custom intent, one of which did nothing.
 
@@ -51,7 +51,7 @@ services:
   # tool should not wait on somebody buying a bucket.
   minio:
     image: minio/minio:latest
-    container_name: stinventory-minio
+    container_name: optix-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -88,15 +88,15 @@ services:
     environment:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
-      S3_BUCKET: ${S3_BUCKET:-stinventory}
+      S3_BUCKET: ${S3_BUCKET:-optix}
     restart: "no"
 
   api:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
-    image: stinventory-api:latest
-    container_name: stinventory-api
+    image: optix-api:latest
+    container_name: optix-api
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -119,7 +119,7 @@ services:
       LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-15000}
       # Photo storage. Internal endpoint for writing, public base for reading.
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
-      S3_BUCKET: ${S3_BUCKET:-stinventory}
+      S3_BUCKET: ${S3_BUCKET:-optix}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-}
       S3_PUBLIC_URL: ${S3_PUBLIC_URL:-${WEB_ORIGIN}/media}
@@ -146,8 +146,8 @@ services:
         # Pre-fills the login form and lists the demo accounts. Defaults off:
         # on a reachable host it publishes valid addresses and their shared
         # password. Set to 1 deliberately while this is a demo deployment.
-    image: stinventory-web:latest
-    container_name: stinventory-web
+    image: optix-web:latest
+    container_name: optix-web
     restart: unless-stopped
     environment:
       NODE_ENV: production

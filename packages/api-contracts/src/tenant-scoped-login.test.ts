@@ -1,8 +1,8 @@
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { createDb, type Database } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
-import { hashPassword, login } from "@stinventory/auth";
+import { createDb, type Database } from "@optix/db";
+import * as schema from "@optix/db/schema";
+import { hashPassword, login } from "@optix/auth";
 
 /*
   STI-305 — the credential lookup used to be `where email = ?` with NO tenant
@@ -13,7 +13,7 @@ import { hashPassword, login } from "@stinventory/auth";
 
   These tests live here rather than in `packages/auth` because they need a real
   database, and `api-contracts` is where `turbo.json` passes `DATABASE_URL`
-  through. `@stinventory/auth` is already a dependency of this package.
+  through. `@optix/auth` is already a dependency of this package.
 */
 const url = process.env.DATABASE_URL;
 const maybe = url ? describe : describe.skip;

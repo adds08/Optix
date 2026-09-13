@@ -7,7 +7,7 @@ import {
   VEHICLE_STATUS_VAR,
   VEHICLE_STATUS_LABEL,
 } from "@/components/fleet-map-view";
-import type { VehicleStatus } from "@stinventory/types";
+import type { VehicleStatus } from "@optix/types";
 
 /*
   Where the fleet is, right now.

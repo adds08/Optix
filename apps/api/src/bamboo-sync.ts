@@ -1,12 +1,12 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
 import {
   adaptBambooPage,
   BAMBOO_OPTIONAL_FIELDS,
   type AdaptedBambooPerson,
   type BambooEmployeeRecord,
-} from "@stinventory/domain";
+} from "@optix/domain";
 
 /*
   The BambooHR people sync: fetch, diff, then either report or write.

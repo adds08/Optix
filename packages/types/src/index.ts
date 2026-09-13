@@ -502,7 +502,7 @@ export const PROCESSING_STATUSES = [
 export type ProcessingStatus = (typeof PROCESSING_STATUSES)[number];
 
 /*
-  The intent list lives in @stinventory/intent, not here.
+  The intent list lives in @optix/intent, not here.
 
   There was a `MESSAGE_INTENTS` const at this spot with nothing importing it, and
   it had already drifted — no `intake`, which shipped months ago. That is the

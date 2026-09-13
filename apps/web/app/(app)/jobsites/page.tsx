@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Building2, ChevronDown, ChevronRight, LayoutGrid, Package, PackageOpen, Plus, Rows3, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { activeCustodians } from "@/lib/custodians";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";

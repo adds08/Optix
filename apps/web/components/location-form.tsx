@@ -1,5 +1,5 @@
 "use client";
-import type { LocationType } from "@stinventory/types";
+import type { LocationType } from "@optix/types";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";

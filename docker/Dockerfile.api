@@ -14,7 +14,7 @@ FROM base AS deps
 # Manifests only, so `pnpm install` is cached against dependency changes rather
 # than source changes. The cost of that is this list: a NEW WORKSPACE PACKAGE
 # MUST BE ADDED HERE or pnpm never links it, and the build fails much later
-# with a misleading "Cannot find module '@stinventory/types'" from inside the
+# with a misleading "Cannot find module '@optix/types'" from inside the
 # package that was missed.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 # NOTE: the repo pins `node-linker=hoisted` in .npmrc for Metro's benefit —
@@ -40,7 +40,7 @@ COPY apps/api/package.json apps/api/
 # the whole workspace and hoists it into the root node_modules, so the API
 # image ended up carrying Next.js, Expo, React Native and Hermes — none of
 # which it can even load. `...` includes each one's workspace dependencies.
-RUN pnpm install --frozen-lockfile --filter @stinventory/api... --filter @stinventory/db...
+RUN pnpm install --frozen-lockfile --filter @optix/api... --filter @optix/db...
 
 # ---- build ------------------------------------------------------------------
 FROM deps AS build
@@ -49,7 +49,7 @@ COPY packages/ packages/
 COPY apps/api/ apps/api/
 # The db package builds too: its migrator has to be runnable in an image with
 # no tsx, and it imports workspace code that only exists as TypeScript.
-RUN pnpm --filter @stinventory/db build && pnpm --filter @stinventory/api build
+RUN pnpm --filter @optix/db build && pnpm --filter @optix/api build
 
 # ---- prod deps --------------------------------------------------------------
 # A second install with dev dependencies stripped. The build needs esbuild,
@@ -59,7 +59,7 @@ RUN pnpm --filter @stinventory/db build && pnpm --filter @stinventory/api build
 # left here is only the real runtime packages.
 FROM deps AS proddeps
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts \
-      --filter @stinventory/api... --filter @stinventory/db...
+      --filter @optix/api... --filter @optix/db...
 
 # ---- runtime ----------------------------------------------------------------
 FROM base AS runtime

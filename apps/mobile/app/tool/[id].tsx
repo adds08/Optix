@@ -2,7 +2,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "../../lib/trpc";
 import { ScreenFade } from "../../components/motion";
 import { Card, Empty, ErrorNote, Loading, StatusPill, Tag, SCREEN_CONTENT } from "../../components/ui";

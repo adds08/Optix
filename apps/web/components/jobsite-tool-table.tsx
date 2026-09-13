@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { humanize } from "@/components/sti/status";
 import { Highlight } from "@/components/highlight";
 import { ToolMenu } from "@/components/tool-menu";

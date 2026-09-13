@@ -1,7 +1,7 @@
 /*
   BambooHR `GET /api/v1/employees` -> Optix, as a pure function.
 
-  No network, no database, no imports from `@stinventory/db`. That is the whole
+  No network, no database, no imports from `@optix/db`. That is the whole
   point of it living here: the mapping is the part most likely to be wrong and
   the part least in need of a running stack to test. `bamboohr.test.ts` covers
   it with no fixtures.

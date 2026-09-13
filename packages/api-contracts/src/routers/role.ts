@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import * as schema from "@stinventory/db/schema";
-import { PERMISSIONS, PERMISSION_GROUPS, ROLES, VIEW_SCOPES, type Permission } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { PERMISSIONS, PERMISSION_GROUPS, ROLES, VIEW_SCOPES, type Permission } from "@optix/types";
 import { requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 

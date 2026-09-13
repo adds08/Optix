@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TRPCError } from "@trpc/server";
-import type { Database } from "@stinventory/db";
-import { DEFAULT_HIGH_VALUE_THRESHOLD, type Permission } from "@stinventory/types";
+import type { Database } from "@optix/db";
+import { DEFAULT_HIGH_VALUE_THRESHOLD, type Permission } from "@optix/types";
 import {
   ACTION_PERMISSIONS,
   AUTO_SAFE_INTENTS,

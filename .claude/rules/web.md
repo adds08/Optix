@@ -38,9 +38,10 @@ drop; the page had simply been superseded and never deleted.
 **Do not re-add a standalone job-groups screen.** If group management needs more room, it
 belongs in the switcher or its modal, next to the scope selector it exists to serve.
 
-The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory, which
-survives as the repo name, the package scope (`@stinventory/*`), the seeded email domain and
-the `sti-*` localStorage keys. Nothing user-facing says STInventory any more.
+The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory,
+which survives only as the repo directory name and the `sti-*` localStorage keys. The
+package scope became `@optix/*` on 2026-09-14, along with the container names, the local
+database and the dev image. Nothing user-facing says STInventory any more.
 
 **`components/optix-mark.tsx` is the ONE definition of the mark** and it is the real
 artwork as of 2026-09-01: the supplied `logo.png` measured off its alpha channel and
@@ -812,7 +813,7 @@ procedure. Moving the filter without moving the counts re-creates the original b
 
 ### The High value badge is the approval gate, wearing a badge
 
-`flags.tsx` imports `DEFAULT_HIGH_VALUE_THRESHOLD` from `@stinventory/types` — the
+`flags.tsx` imports `DEFAULT_HIGH_VALUE_THRESHOLD` from `@optix/types` — the
 same constant `apply-action.ts` uses to decide whether a hand-off needs a second
 signature. So a tool badged **High value** in the register is exactly the tool that
 will demand a signature when somebody tries to hand it over.

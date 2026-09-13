@@ -1,4 +1,4 @@
-import type { NotificationType } from "@stinventory/types";
+import type { NotificationType } from "@optix/types";
 import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant, user } from "./identity";
 import { asset } from "./asset";
@@ -151,7 +151,7 @@ export const tenantSettings = pgTable("tbl_entity_tenant_settings", {
     that rule exists here).
   */
   brandingName: text("branding_name"),
-  // icon_and_text | icon_only — see BRANDING_LAYOUT_MODES in @stinventory/types
+  // icon_and_text | icon_only — see BRANDING_LAYOUT_MODES in @optix/types
   brandingLayoutMode: text("branding_layout_mode").notNull().default("icon_and_text"),
 
   /*

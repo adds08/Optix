@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, CircleAlert, Loader2, MessageSquare, Send } from "lucide-react";
-import type { ChatMention } from "@stinventory/types";
+import type { ChatMention } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { EmptyState, ErrorNote, PageHeader, TableSkeleton } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";

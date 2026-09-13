@@ -1,7 +1,7 @@
-import type { Database } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
+import type { Database } from "@optix/db";
+import * as schema from "@optix/db/schema";
 import { and, eq, ilike, inArray, isNull, or } from "drizzle-orm";
-import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
+import { CUSTODIAN_ROLES, formatAssetModel } from "@optix/types";
 
 export type EntityMatch = { type: "asset" | "employee" | "project" | "vehicle" | "location"; id: string; label: string };
 

@@ -1,4 +1,4 @@
-# STInventory — top-level Makefile.
+# Optix — top-level Makefile.
 # Usage:
 #   make dev                # run everything (docker + print mobile cmd)
 #   make ENV=local up        # build + start postgres + api + web
@@ -23,7 +23,7 @@ PROD_USER ?= root
 PROD_KEY  ?= $(HOME)/.ssh/do@it_urban
 PROD_URL  ?= https://urban.optixtec.com
 PROD_SSH  := ssh -o ConnectTimeout=20 -i $(PROD_KEY) $(PROD_USER)@$(PROD_HOST)
-PROD_DIR  := /opt/stinventory
+PROD_DIR  := /opt/optix
 PROD_COMPOSE := cd $(PROD_DIR) && docker compose -f docker-compose.prod.yml --env-file .env.production
 
 # --- dev/test droplet (optix-dev-app-01, urban.bodhitechlabs.com) ------------
@@ -32,7 +32,7 @@ DEV_USER ?= root
 DEV_KEY  ?= $(HOME)/.ssh/do@it_urban
 DEV_URL  ?= https://urban.bodhitechlabs.com
 DEV_SSH  := ssh -o ConnectTimeout=20 -i $(DEV_KEY) $(DEV_USER)@$(DEV_HOST)
-DEV_DIR  := /opt/stinventory
+DEV_DIR  := /opt/optix
 DEV_COMPOSE := cd $(DEV_DIR) && docker compose -f docker-compose.prod.yml --env-file .env.production
 
 ENV ?= local
@@ -50,7 +50,7 @@ SVC ?= api
 .PHONY: help dev up down restart build rebuild logs ps provision reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
 
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "\nOptix — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
 up: ## Build + start postgres, api, web, mailpit (detached)
@@ -58,7 +58,7 @@ up: ## Build + start postgres, api, web, mailpit (detached)
 	@echo ""
 	@echo "  api      → http://localhost:4100  (health: /health)"
 	@echo "  web      → http://localhost:3100  (Next.js - shadcn new-york)"
-	@echo "  db       → postgres://postgres:stinventory@localhost:5433/stinventory"
+	@echo "  db       → postgres://postgres:optix@localhost:5433/optix"
 	@echo ""
 
 build: ## Build images without starting
@@ -88,7 +88,7 @@ reset-bare: ## Empty the register (no employees/tools/jobs), KEEP the logins
 	@echo "Nothing is re-seeded — there is no seed. Import real data:"
 	@echo "  docs/import/README.md"
 	@echo ""
-	$(COMPOSE) exec -T postgres psql -U postgres -d $(or $(POSTGRES_DB),stinventory) \
+	$(COMPOSE) exec -T postgres psql -U postgres -d $(or $(POSTGRES_DB),optix) \
 		-v ON_ERROR_STOP=1 -f /dev/stdin < packages/db/sql/empty-register.sql
 
 
@@ -143,7 +143,7 @@ lint: ## Run lint inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm lint"
 
 psql: ## Open psql against the DB
-	$(COMPOSE) exec postgres psql -U postgres -d stinventory
+	$(COMPOSE) exec postgres psql -U postgres -d optix
 
 dev: up ## Start web + api + db, then print next steps
 	@echo ""
@@ -152,7 +152,7 @@ dev: up ## Start web + api + db, then print next steps
 	@echo ""
 	@echo "  Web:     http://localhost:3100"
 	@echo "  API:     http://localhost:4100 (health: /health)"
-	@echo "  DB:      postgres://postgres:stinventory@localhost:5433/stinventory"
+	@echo "  DB:      postgres://postgres:optix@localhost:5433/optix"
 	@echo ""
 	@echo "  Login:   optix_it@optixtec.com   (owner)"
 	@echo "           tech@optixtec.com      (tech_admin, cross-tenant)"
@@ -184,7 +184,7 @@ tunnel: ## Expose localhost:3100 through a cloudflared quick tunnel
 		exit 1; \
 	fi
 	@echo "  Tunneling http://localhost:3100 — the printed URL is your public address."
-	@echo "  Web dev must be listening on 0.0.0.0:  pnpm --filter @stinventory/web dev -- -H 0.0.0.0"
+	@echo "  Web dev must be listening on 0.0.0.0:  pnpm --filter @optix/web dev -- -H 0.0.0.0"
 	@cloudflared tunnel --url http://localhost:3100
 
 # --- production ---------------------------------------------------------------

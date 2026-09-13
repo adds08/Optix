@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap, useMapEvent } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { groupByPosition, VEHICLE_MARKER_RADIUS_PX, type VehicleStatus } from "@stinventory/types";
+import { groupByPosition, VEHICLE_MARKER_RADIUS_PX, type VehicleStatus } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { dateTime } from "@/lib/format";
 import { humanize } from "@/components/sti/status";
@@ -16,7 +16,7 @@ import { useThemeStore } from "@/lib/themes/store";
   The map itself, shared by the /map page and the dashboard panel.
 
   A tracker pushes a ping to vehicle.updateGps and the row's gps_at is stamped;
-  "online" just means that stamp is fresh (see @stinventory/types/gps). Tools
+  "online" just means that stamp is fresh (see @optix/types/gps). Tools
   aboard a truck are wherever the truck is, so the popup carries the count —
   this is the answer to "where is the drill that should be on Truck 12".
 

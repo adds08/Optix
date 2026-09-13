@@ -5,7 +5,7 @@ import { equipmentIcon } from "@/lib/equipment-icon";
 import Link from "next/link";
 import { ArrowLeft, Truck, Wrench } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { Tag, humanize } from "@/components/sti/status";

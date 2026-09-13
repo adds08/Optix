@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
+import { createDb, schema, type Database } from "@optix/db";
 
 /*
   Integration tests for STI-104: the `transaction` ledger is append-only,

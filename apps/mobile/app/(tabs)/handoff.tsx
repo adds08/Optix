@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import type { ChatMention } from "@stinventory/types";
+import type { ChatMention } from "@optix/types";
 import { trpc } from "../../lib/trpc";
 import { MentionInput, MentionChips } from "../../components/mention-input";
 import { Button, Card, Empty, ErrorNote, Loading, ScreenTitle, SCREEN_CONTENT } from "../../components/ui";
