@@ -1,6 +1,6 @@
 import type { Database } from "@stinventory/db";
 import * as schema from "@stinventory/db/schema";
-import { and, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
 
 export type EntityMatch = { type: "asset" | "employee" | "project" | "vehicle" | "location"; id: string; label: string };
@@ -105,14 +105,33 @@ export async function resolveCustodian(
   const tokens = searchTokens(text);
   for (const token of tokens) {
     if (token.length < 2) continue;
-    const emp = await db.query.employee.findFirst({
-      where: and(
-        eq(schema.employee.tenantId, tid),
-        inArray(schema.employee.role, [...CUSTODIAN_ROLES]),
-        eq(schema.employee.employmentStatus, "active"),
-        or(ilike(schema.employee.name, `%${token}%`), ilike(schema.employee.code, token)),
-      ),
-    });
+    /*
+      `role.can_hold_custody` first, the legacy name list second.
+
+      The flag is the editable answer — an administrator ticking the box on
+      /admin/roles is how a tenant says a Field Engineer carries tools — and
+      `CUSTODIAN_ROLES` is kept only for rows with no login role joined, where
+      the flag has nothing to say. The web pickers make the same choice in the
+      same order (`apps/web/lib/custodians.ts`); if these two ever disagree the
+      assistant and the screens resolve different people for one sentence,
+      which is the bug class this whole change exists to close.
+    */
+    const [emp] = await db
+      .select({ id: schema.employee.id, name: schema.employee.name })
+      .from(schema.employee)
+      .leftJoin(schema.role, eq(schema.role.id, schema.employee.roleId))
+      .where(
+        and(
+          eq(schema.employee.tenantId, tid),
+          or(
+            eq(schema.role.canHoldCustody, true),
+            and(isNull(schema.employee.roleId), inArray(schema.employee.role, [...CUSTODIAN_ROLES])),
+          ),
+          eq(schema.employee.employmentStatus, "active"),
+          or(ilike(schema.employee.name, `%${token}%`), ilike(schema.employee.code, token)),
+        ),
+      )
+      .limit(1);
     if (emp) return { id: emp.id, name: emp.name };
   }
   return null;

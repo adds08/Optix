@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Building2, ChevronDown, ChevronRight, LayoutGrid, Package, PackageOpen, Plus, Rows3, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
-import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@stinventory/types";
+import { activeCustodians } from "@/lib/custodians";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
@@ -240,15 +241,7 @@ export default function JobsitesPage() {
   /* The foreman picker wants active custodians; crew DISPLAY must resolve any
      holder — including terminated staff, who are exactly the people whose
      crews the HR-clearance workflow cares about. */
-  const foremen = useMemo(
-    () =>
-      (employees.data ?? []).filter(
-        (e) =>
-          e.employmentStatus === "active" &&
-          CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]),
-      ),
-    [employees.data],
-  );
+  const foremen = useMemo(() => activeCustodians(employees.data), [employees.data]);
   const allCustodians = employees.data ?? [];
 
   const hit = (text: string) => !q.trim() || text.toLowerCase().includes(q.trim().toLowerCase());

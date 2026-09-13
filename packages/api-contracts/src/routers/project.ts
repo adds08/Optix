@@ -366,6 +366,27 @@ export const employeeRouter = router({
         roleId: schema.employee.roleId,
         roleName: schema.role.name,
         roleNeedsLogin: schema.role.needsLogin,
+        /*
+          WHETHER THIS PERSON MAY BE HANDED A TOOL, and the answer every
+          custodian picker reads.
+
+          Six pickers used to filter on `CUSTODIAN_ROLES`, a compile-time
+          constant of three role NAMES. `role.can_hold_custody` was stored,
+          seeded and editable on /admin/roles the whole time, and reading it
+          changed nothing — so an administrator could tick the box and watch
+          the pickers ignore it, which is a screen that lies.
+
+          It is the LOGIN role's flag rather than the tier's on purpose: a
+          picker asks a tenant-wide question ("who could hold this?"), while a
+          tier is per-project and answers a different one ("who may be placed
+          into this job at this level?"). `team_role.can_hold_custody` still
+          governs that second question in `put-on-job-form`; the two are not
+          duplicates.
+
+          Nullable: an employee with no login role at all (`role_id` null) has
+          no answer, and the helper reads that as false.
+        */
+        roleCanHoldCustody: schema.role.canHoldCustody,
         /* The HR facts, not the login role above — a different axis entirely.
            `jobTitleName` is what BambooHR calls this same fact; here it is
            `companyRole`, named that way since before the sync existed. All

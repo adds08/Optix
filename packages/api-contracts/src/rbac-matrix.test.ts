@@ -50,15 +50,17 @@ const url = process.env.DATABASE_URL;
 
 
 /*
-  Every role a custodian picker offers must be one the register says can hold a
-  tool.
+  Every role the FALLBACK offers must be one the register says can hold a tool.
 
-  `CUSTODIAN_ROLES` (packages/types) is what the pickers read; `canHoldCustody`
-  on `roleSpecs` (packages/db) is what the role register seeds. They are two
-  statements of one fact, in two packages, and nothing connected them until
-  2026-09-01 — the comments on both claimed this test enforced it while it did
-  not, which is worse than no claim. Adding `superintendent` to one and
-  forgetting the other would have offered a custodian the database refuses.
+  `CUSTODIAN_ROLES` stopped being what the pickers read on 2026-09-14. All six
+  now go through `apps/web/lib/custodians.ts`, which reads
+  `role.can_hold_custody` — the column an administrator can actually edit — and
+  keeps this constant only for rows where no login role joined. So this asserts
+  the fallback stays a SUBSET of what the register permits.
+
+  Worth keeping for the same reason it was written: the two are statements of
+  one fact in two packages, and for a year nothing connected them while the
+  comments on both claimed otherwise.
 
   Asserted in ONE direction on purpose. `canHoldCustody` is the wider set:
   `crew` carries it — most of a yard holds tools and never signs in — and is
@@ -69,7 +71,7 @@ const url = process.env.DATABASE_URL;
   Pure — no database, no fixtures. Both sides are literals in code.
 */
 describe("custodian roles and the role register agree", () => {
-  it("gives every CUSTODIAN_ROLE canHoldCustody in the seeded register", () => {
+  it("gives every fallback role canHoldCustody in the provisioned register", () => {
     for (const role of CUSTODIAN_ROLES) {
       const spec = roleSpecs.find((r) => r.name === role);
       expect(spec, `CUSTODIAN_ROLES names "${role}", which roleSpecs does not define`).toBeDefined();

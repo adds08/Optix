@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Check, Search } from "lucide-react";
-import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@stinventory/types";
+import { activeCustodians } from "@/lib/custodians";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -71,15 +72,7 @@ export function CrewAssignDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const foremen = useMemo(
-    () =>
-      (employees.data ?? []).filter(
-        (e) =>
-          e.employmentStatus === "active" &&
-          CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]),
-      ),
-    [employees.data],
-  );
+  const foremen = useMemo(() => activeCustodians(employees.data), [employees.data]);
 
   /* Tools nobody is holding — the pool for "give to this foreman". Maintenance
      and lost kit is not hand-over-able (the register says so too), so it is

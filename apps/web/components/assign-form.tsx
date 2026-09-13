@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@stinventory/types";
+import { activeCustodians } from "@/lib/custodians";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,8 +28,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const isSuper = tier === "assets.view.crew";
   const isWarehouseOrAdmin = tier === "assets.view.all";
 
-  let custodianOptions =
-    foremen.data?.filter((e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active") ?? [];
+  let custodianOptions = activeCustodians(foremen.data);
   if (isSuper) {
     const myForemanIds = new Set(myForemen.data?.map((f) => f.id) ?? []);
     custodianOptions = custodianOptions.filter((e) => myForemanIds.has(e.id));

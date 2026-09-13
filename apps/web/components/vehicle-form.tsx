@@ -5,7 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
-import { CUSTODIAN_ROLES, EQUIPMENT_CLASSES, EQUIPMENT_CLASS_LABELS, type EquipmentClass } from "@stinventory/types";
+import { EQUIPMENT_CLASSES, EQUIPMENT_CLASS_LABELS, type EquipmentClass } from "@stinventory/types";
+import { activeCustodians } from "@/lib/custodians";
 import { projectHint } from "@/lib/format";
 
 export type VehicleEditable = {
@@ -46,17 +47,12 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
      `e.role` is the employee register's field, not the caller's. Authority to
      edit a vehicle is `vehicle.manage`.
 
-     `CUSTODIAN_ROLES`, not the literal `"foreman"` (changed 2026-09-08). This
-     was the ONE custodian picker still asking for a single role name while its
-     five siblings — assign-form, transfer-form, bulk-move-form,
-     crew-assign-dialog and the jobsites page — all read the shared set. A
-     superintendent has held custody since 2026-09-01 and still could not be
-     given a truck here, which is not a decision anybody made; it is the
-     literal being older than the change that widened custody. */
-  const foremanOptions =
-    foremen.data?.filter(
-      (e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active",
-    ) ?? [];
+     `activeCustodians` since 2026-09-14, with its five siblings — assign-form,
+     transfer-form, bulk-move-form, crew-assign-dialog and the jobsites page.
+     All six read `role.can_hold_custody` through that one helper now; before
+     it they each filtered on a compile-time name list that ignored the column
+     an administrator can actually edit. */
+  const foremanOptions = activeCustodians(foremen.data);
   const truckOptions = vehicles.data?.filter((v) => v.vehicleType === "truck") ?? [];
 
   const [vehicleType, setVehicleType] = useState<"truck" | "trailer">(
