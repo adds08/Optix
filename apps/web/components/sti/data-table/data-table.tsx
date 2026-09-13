@@ -456,20 +456,53 @@ export function DataTable<T>({
     selectAllRef.current.indeterminate = some && !all;
   }, [table, selection]);
 
+  /*
+    Export what the person is looking at, labelled the way the screen labels it.
+
+    Three things here were wrong, and only one of them is reachable from the one
+    caller that enables export today (`/reports/audit-trail`) — fixed together
+    because the next caller will not be so lucky:
+
+      1. ROWS. `getRowModel()` is the post-pagination model in CLIENT mode, so a
+         client-mode table would export one page of however many it holds.
+         `getPrePaginationRowModel()` is every filtered row, which is what
+         "export" means. In SERVER mode the two are identical — the browser only
+         has the page the server sent — so this is correct in both modes rather
+         than correct in one.
+      2. HEADERS. It wrote column IDS. `col()` defaults an id to the header, so
+         today they usually match; a column that passes an explicit `id` would
+         put `occurred_at` where the screen says "When".
+      3. EMPTY COLUMNS. A visible column with no `accessorFn` (an actions menu,
+         a pill rendered only through `cell`) contributed a blank column with a
+         heading. Those are excluded now — a column with no value to export is
+         not a column, and an unexplained empty column reads as data loss.
+
+    `report-table.tsx` has always got all three right and is the reference.
+  */
   const exportCsv = () => {
-    const pageRows = table.getRowModel().rows.map((r) => r.original);
-    if (!filename || !pageRows.length) return;
-    const headers = table.getVisibleLeafColumns().map((c) => c.id);
-    const data = pageRows.map((r) =>
-      headers.map((h) => {
-        const c = columns.find((col) => col.id === h) as
-          | { accessorFn?: (row: T) => unknown }
-          | undefined;
-        const v = c?.accessorFn ? c.accessorFn(r) : "";
+    const rows = table.getPrePaginationRowModel().rows.map((r) => r.original);
+    const cols = table
+      .getVisibleLeafColumns()
+      .map((c) => ({
+        id: c.id,
+        label: String((c.columnDef as { header?: unknown }).header ?? c.id),
+        accessorFn: (columns.find((d) => d.id === c.id) as { accessorFn?: (row: T) => unknown } | undefined)
+          ?.accessorFn,
+      }))
+      .filter((c) => !!c.accessorFn);
+
+    if (!filename || !rows.length || !cols.length) return;
+
+    const data = rows.map((r) =>
+      cols.map((c) => {
+        const v = c.accessorFn!(r);
         return v === null || v === undefined ? "" : String(v);
       }),
     );
-    downloadCsv(`${filename}-${new Date().toISOString().slice(0, 10)}`, [headers, ...data]);
+    downloadCsv(`${filename}-${new Date().toISOString().slice(0, 10)}`, [
+      cols.map((c) => c.label),
+      ...data,
+    ]);
   };
 
   /* Frozen rows first, then everything else. `getRowModel().rows` still holds

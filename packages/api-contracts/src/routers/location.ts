@@ -2,6 +2,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@optix/db/schema";
+import type { Database, Transaction } from "@optix/db";
 import { EQUIPMENT_CLASSES, LOCATION_TYPES, vehicleStatus, type VehicleStatus } from "@optix/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { visibleProjectScope } from "../scope.js";
@@ -42,7 +43,11 @@ export const containerCustodyInput = z.object({
   already has a foreman).
 */
 export async function applyContainerCustody(opts: {
-  tx: any;
+  /* `Transaction`, not `any`. The custody chokepoint's signatures exist to make
+     a raw `db` handle a COMPILE ERROR — that is the enforcement, and an `any`
+     here quietly opted this function out of it while calling straight into
+     `moveCustody`. See packages/db/src/index.ts:17. */
+  tx: Transaction;
   tid: string;
   actorUserId: string;
   locationId: string;
@@ -354,7 +359,7 @@ export const locationCustodyRouter = {
         }
       }
 
-      const result = await ctx.db.transaction(async (tx: any) => {
+      const result = await ctx.db.transaction(async (tx) => {
         /* The container being handed over, plus anything hitched to it — a
            trailer whose location points at this one. They move as one unit,
            which is what a hitch means. */
@@ -596,7 +601,7 @@ export const locationRouter = router({
   died on the raw FK as a 500 (QA-203 reproduced it). No status predicate on
   either table, deliberately: the FKs have none.
 */
-async function vehicleInCustodyRecord(db: any, tid: string, vehicleId: string): Promise<boolean> {
+async function vehicleInCustodyRecord(db: Database | Transaction, tid: string, vehicleId: string): Promise<boolean> {
   const [assignmentRef] = await db
     .select({ id: schema.assignment.id })
     .from(schema.assignment)
@@ -896,7 +901,7 @@ export const vehicleRouter = router({
       const patch = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
       if (!Object.keys(patch).length && attachedToVehicleId === undefined) return existing;
 
-      const result = await ctx.db.transaction(async (tx: any) => {
+      const result = await ctx.db.transaction(async (tx) => {
         if (Object.keys(patch).length) {
           await tx
             .update(schema.vehicle)
@@ -922,7 +927,10 @@ export const vehicleRouter = router({
           if (existing.vehicleType !== "trailer") {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Only trailers can be attached to a truck." });
           }
-          let truck: (typeof existing) | null = null;
+          /* `undefined`, not `null` — `findFirst` returns undefined when it
+             matches nothing. The `tx: any` above hid the difference until the
+             parameter was properly typed. */
+          let truck: (typeof existing) | null | undefined = null;
           let parentLocId: string | null = null;
           if (attachedToVehicleId) {
             truck = await tx.query.vehicle.findFirst({

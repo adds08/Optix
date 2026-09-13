@@ -38,42 +38,66 @@
   .legend{color:var(--muted);font-size:13px;margin-top:8px}
   .foot{margin-top:40px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
   ul{margin:8px 0 0 18px} li{margin:4px 0}
+  .chart{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;overflow-x:auto}
+  .chart > svg{display:block;width:100%;height:auto;min-width:680px}
+  .row-note{color:var(--muted);font-size:13px;margin-top:8px}
+  details{margin-top:10px;color:var(--muted);font-size:13px}
+  summary{cursor:pointer}
+  pre{background:#0d1016;border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto;font:12px var(--mono);color:#c8d0da}
 
-  /* ---- self-contained flowcharts (no external runtime) ---- */
-  .chart{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:12px}
-
-  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:0}
-  .flow.stack{flex-direction:column;align-items:stretch}
-  .flow.center{justify-content:center}
-
-  .node{
-    background:#151a23;border:1px solid var(--line);border-radius:10px;
-    padding:10px 14px;font-size:13.5px;line-height:1.35;min-width:0;
-  }
-  .node b{font-weight:650}
-  .node .sub{display:block;color:var(--muted);font-size:11.5px;margin-top:3px}
-  .node.term{border-color:#3ecf8e66;background:#12211a}
-  .node.alert{border-color:#ff6b6b66;background:#221316}
-  .node.decision{border-style:dashed;border-color:#5aa9ff66;background:#141d29}
-  .node.bridge{border-color:#c792ea77;background:#1c1726}
-  .node.dim{color:var(--muted)}
-
-  .arrow{display:flex;align-items:center;justify-content:center;color:#7f8a99;font-size:17px;padding:8px 10px;flex:0 0 auto}
-  .flow.stack .arrow{padding:2px 0}
-  .edge-label{font-size:11px;color:var(--muted);margin-right:4px;white-space:nowrap}
-
-  .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:2px 0}
-  .split .col{display:flex;flex-direction:column;align-items:stretch}
-  .split .cond{font-size:11px;color:var(--info);margin-bottom:4px;letter-spacing:.04em}
-  .split .cond.no{color:var(--warn)}
-
-  .row-note{color:var(--muted);font-size:12px;margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
-  .hr{height:1px;background:var(--line);margin:16px 0}
-  .tier-label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 6px}
-  @media (max-width:720px){ .split{grid-template-columns:1fr} }
+  /* figurative roster */
+  .fig{display:flex;flex-direction:column;align-items:center;gap:2px;max-width:220px;text-align:center}
+  .fig svg{width:54px;height:54px}
+  .fig figcaption{font-size:11.5px;color:var(--muted)}
+  .axes{display:flex;flex-wrap:wrap;justify-content:space-around;gap:14px;margin-top:14px}
+  .gallery{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+  .gal-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+  .gal-head{font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px;font-weight:600}
+  .crewgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+  .crew{display:flex;flex-direction:column;align-items:center;gap:3px;background:#151a23;border:1px solid var(--line);border-top:3px solid var(--hc);border-radius:10px;padding:10px 8px}
+  .crew .avatar{width:46px;height:46px}
+  .crew .cname{font-size:12.5px;font-weight:600;color:#e8eaed;text-align:center;word-break:break-word}
+  .crew .cmeta{font-size:10.5px;color:var(--muted);text-align:center}
+  .crew .tag{font-size:9.5px;color:#0f1115;background:var(--hc);border-radius:999px;padding:1px 6px;margin-top:2px}
+  .handoff{display:flex;align-items:flex-end;justify-content:center;gap:18px;margin-top:14px;flex-wrap:wrap}
+  .handoff .tool{width:44px;height:44px;opacity:.9}
+  .swatch{display:inline-flex;align-items:center;gap:6px;margin-right:14px}
+  .swatch i{width:12px;height:12px;border-radius:3px;display:inline-block}
 </style>
 </head>
 <body>
+
+<!-- Figurative icon set. Every figure is inline geometry with presentation
+     attributes; the hard-hat colour comes from `color` via currentColor, so it
+     survives a viewer that ignores <style> or strips <script>. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <symbol id="p-worker" viewBox="0 0 64 64">
+    <path d="M10 62 C10 47 20 40 32 40 C44 40 54 47 54 62 Z" fill="#39404f"/>
+    <path d="M22 41 L32 54 L42 41 L42 45 L32 58 L22 45 Z" fill="#2a303c"/>
+    <circle cx="32" cy="27" r="11" fill="#e8b98a"/>
+    <path d="M17 23 C17 12 24 5 32 5 C40 5 47 12 47 23 Z" fill="currentColor"/>
+    <rect x="13" y="22" width="38" height="5.5" rx="2.75" fill="currentColor"/>
+    <rect x="24" y="5.5" width="3" height="17" rx="1.5" fill="#ffffff33"/>
+    <circle cx="27" cy="28" r="1.6" fill="#3a2a20"/>
+    <circle cx="37" cy="28" r="1.6" fill="#3a2a20"/>
+  </symbol>
+  <symbol id="p-wrench" viewBox="0 0 64 64">
+    <path d="M50 8 a12 12 0 0 0 -14 15 L12 47 a5 5 0 0 0 0 7 l-2 2 5 5 2-2 a5 5 0 0 0 7 0 l24-24 a12 12 0 0 0 15-14 l-8 8 -7-2 -2-7 Z" fill="#9aa4b2"/>
+  </symbol>
+  <symbol id="p-badge" viewBox="0 0 64 64">
+    <rect x="14" y="10" width="36" height="30" rx="5" fill="#1c1726" stroke="#c792ea" stroke-width="2"/>
+    <circle cx="32" cy="24" r="6" fill="#c792ea"/>
+    <rect x="24" y="33" width="16" height="3" rx="1.5" fill="#c792ea"/>
+    <path d="M22 40 l-4 12 6-3 4 3 4-12z" fill="#c792ea"/>
+  </symbol>
+  <symbol id="p-ladder" viewBox="0 0 64 64">
+    <rect x="18" y="6" width="4" height="52" rx="2" fill="#c792ea"/>
+    <rect x="42" y="6" width="4" height="52" rx="2" fill="#c792ea"/>
+    <rect x="18" y="16" width="28" height="4" rx="2" fill="#c792ea"/>
+    <rect x="18" y="30" width="28" height="4" rx="2" fill="#c792ea"/>
+    <rect x="18" y="44" width="28" height="4" rx="2" fill="#c792ea"/>
+  </symbol>
+</defs></svg>
 
 <div class="banner">
   <b>EVALUATION ONLY — NOT AUTHORITATIVE.</b>
@@ -82,20 +106,22 @@
   <b>Verify every claim against the source before acting on it.</b> The code is the only truth.
 </div>
 
+<!-- shared shapes are drawn inline with presentation attributes, so the diagrams
+     render even in a viewer that ignores <style> or strips <script>. -->
 <header>
   <div class="wrap" style="padding-bottom:0">
     <h1>Optix — Current State</h1>
     <p style="color:var(--muted);margin-top:2px">
       Small-tools custody for Urban Infraconstruction LLC · single-tenant today, multi-tenant by design ·
-      branch <code>development-001</code>
+      branch <code>development-001</code> · 19 commits ahead of origin
     </p>
     <div class="tiles">
-      <div class="tile info"><div class="k">Commits ahead of origin</div><div class="v">18</div></div>
-      <div class="tile ok"><div class="k">Working tree</div><div class="v">clean</div></div>
+      <div class="tile ok"><div class="k">Working tree</div><div class="v">2 fixes staged-ish</div></div>
       <div class="tile ok"><div class="k">CI / deploy</div><div class="v">unblocked</div></div>
       <div class="tile ok"><div class="k">Fresh DB bootstrap</div><div class="v">make provision</div></div>
       <div class="tile crit"><div class="k">Row-Level Security</div><div class="v">none</div></div>
       <div class="tile warn"><div class="k">Projects source of truth</div><div class="v">missing</div></div>
+      <div class="tile info"><div class="k">Tests / procedures</div><div class="v">756 / 170</div></div>
     </div>
   </div>
 </header>
@@ -103,136 +129,306 @@
 <div class="wrap">
 
 <h2>1 · System topology</h2>
-<p class="legend">Two clients, one API, a shared contracts package, and a Postgres that is both the register projection and the append-only ledger. Arrows read left → right.</p>
+<p class="legend">Two clients, one API, a shared contracts package, and a Postgres that is both the register projection and the append-only ledger.</p>
 <div class="chart">
-  <div class="flow">
-    <div class="node"><b>apps/web</b><span class="sub">Next.js desk PWA</span></div>
-    <div class="node"><b>apps/mobile</b><span class="sub">Expo field</span></div>
-    <div class="arrow">➜</div>
-    <div class="node"><b>apps/api</b><span class="sub">Hono + tRPC</span></div>
-    <div class="arrow">➜</div>
-    <div class="node"><b>packages/api-contracts</b><span class="sub">routers · custody · scope · apply-action</span></div>
-  </div>
-  <div class="hr"></div>
-  <div class="flow">
-    <div class="node dim"><b>api-contracts</b> uses ↓</div>
-    <div class="node">domain<span class="sub">fold · rules · org-chart</span></div>
-    <div class="node">db<span class="sub">schema · provision · migrate</span></div>
-    <div class="node">auth<span class="sub">sessions · secrets</span></div>
-    <div class="node">intent<span class="sub">LLM parse</span></div>
-    <div class="node">mail</div>
-    <div class="node">types</div>
-  </div>
-  <div class="hr"></div>
-  <div class="flow">
-    <div class="node term"><b>PostgreSQL</b><span class="sub">tbl_ops_transaction = the ledger</span></div>
-    <div class="node"><b>OpenAI-compatible model</b><span class="sub">called by intent</span></div>
-    <div class="node alert"><b>BambooHR</b><span class="sub">GET only · read-only sync</span></div>
-  </div>
+<svg viewBox="0 0 980 232" role="img" aria-label="System topology">
+  <!-- row 1 -->
+  <rect x="0" y="8" width="140" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="70" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">apps/web</text>
+  <text x="70" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">Next.js desk PWA</text>
+
+  <rect x="150" y="8" width="140" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="220" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">apps/mobile</text>
+  <text x="220" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">Expo field</text>
+
+  <path d="M290 32 H332" stroke="#7f8a99" stroke-width="1.5" fill="none"/>
+  <path d="M332 27 L342 32 L332 37 Z" fill="#7f8a99"/>
+
+  <rect x="350" y="8" width="150" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="425" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">apps/api</text>
+  <text x="425" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">Hono + tRPC</text>
+
+  <path d="M500 32 H542" stroke="#7f8a99" stroke-width="1.5" fill="none"/>
+  <path d="M542 27 L552 32 L542 37 Z" fill="#7f8a99"/>
+
+  <rect x="560" y="8" width="400" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="760" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">packages/api-contracts</text>
+  <text x="760" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">routers · custody · scope · apply-action</text>
+
+  <!-- row 2 -->
+  <text x="0" y="120" font-family="ui-sans-serif,system-ui,sans-serif" font-size="11" fill="#9aa4b2">uses ↓</text>
+  <rect x="60" y="92" width="150" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="135" y="114" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">domain</text>
+  <text x="135" y="129" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">fold · rules · org-chart</text>
+
+  <rect x="220" y="92" width="150" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="295" y="114" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">db</text>
+  <text x="295" y="129" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">schema · provision · migrate</text>
+
+  <rect x="380" y="92" width="140" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="450" y="114" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">auth</text>
+  <text x="450" y="129" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">sessions · secrets</text>
+
+  <rect x="530" y="92" width="140" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="600" y="114" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">intent</text>
+  <text x="600" y="129" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">LLM parse</text>
+
+  <rect x="680" y="92" width="90" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="725" y="120" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">mail</text>
+
+  <rect x="780" y="92" width="90" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="825" y="120" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">types</text>
+
+  <!-- row 3 -->
+  <rect x="0" y="176" width="220" height="48" rx="9" fill="#12211a" stroke="#3ecf8e"/>
+  <text x="110" y="198" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">PostgreSQL</text>
+  <text x="110" y="213" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">tbl_ops_transaction = the ledger</text>
+
+  <rect x="240" y="176" width="220" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="350" y="198" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">OpenAI-compatible model</text>
+  <text x="350" y="213" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">called by intent</text>
+
+  <rect x="480" y="176" width="200" height="48" rx="9" fill="#221316" stroke="#ff6b6b"/>
+  <text x="580" y="198" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">BambooHR</text>
+  <text x="580" y="213" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">GET only · read-only sync</text>
+</svg>
 </div>
 
 <h2>2 · Identity &amp; authority: three axes, one bridge</h2>
-<p class="legend">Only the purple bridge is derived. A project tier is never inferred from a title or a login role — the dotted line is a deliberate non-relationship.</p>
-<div class="chart">
-  <div class="flow">
-    <div class="node"><b>HR job title</b><span class="sub">company_role · BambooHR owns it</span></div>
-    <div class="arrow"><span class="edge-label">default_role_id</span>➜</div>
-    <div class="node bridge"><b>Login role</b><span class="sub">role · admin-editable</span></div>
-    <div class="arrow">➜</div>
-    <div class="node"><b>What an account may do</b><span class="sub">role_permission → session</span></div>
-  </div>
-  <div class="hr"></div>
-  <div class="flow">
-    <div class="node dim">HR job title</div>
-    <div class="arrow">⇢ <span class="edge-label">NOT derived</span></div>
-    <div class="node decision"><b>Project tier</b><span class="sub">project_team_member.role · per project, per person</span></div>
-    <div class="arrow">➜</div>
-    <div class="node"><b>Who reports to whom on THIS job</b></div>
-  </div>
-  <div class="row-note">
-    <b>Why it matters.</b> A person can be <code>foreman</code> as a job title, <code>crew</code> as a login role
-    (no account), and <code>superintendent</code> on one job and <code>foreman</code> on another. Collapsing any two of
-    these re-creates bugs this repo has already paid for (<code>docs/assessment/07-custody-eligibility-audit.md</code>).
-  </div>
+<p class="legend">Only the purple bridge is derived. A project tier is never inferred from a title or a login role — the dashed line is a deliberate non-relationship.</p>
+<div class="axes">
+  <figure class="fig">
+    <svg viewBox="0 0 64 64" color="#f5b544" role="img" aria-label="worker in an amber hard hat"><use href="#p-worker"/></svg>
+    <figcaption><b>Job title</b><br/>what HR calls the post — “Foreman II”</figcaption>
+  </figure>
+  <figure class="fig">
+    <svg viewBox="0 0 64 64" role="img" aria-label="identity badge"><use href="#p-badge"/></svg>
+    <figcaption><b>Login role</b><br/>what the account may do — a badge, not a rank</figcaption>
+  </figure>
+  <figure class="fig">
+    <svg viewBox="0 0 64 64" role="img" aria-label="ladder"><use href="#p-ladder"/></svg>
+    <figcaption><b>Project tier</b><br/>what they are on <i>this</i> job — can differ job to job</figcaption>
+  </figure>
 </div>
+<div class="chart">
+<svg viewBox="0 0 980 140" role="img" aria-label="Identity model">
+  <rect x="0" y="8" width="190" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="95" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">HR job title</text>
+  <text x="95" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">company_role · BambooHR owns it</text>
+
+  <text x="217" y="26" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#c792ea">default_role_id</text>
+  <path d="M190 40 H236" stroke="#c792ea" stroke-width="1.5" fill="none"/>
+  <path d="M236 35 L246 40 L236 45 Z" fill="#c792ea"/>
+
+  <rect x="250" y="8" width="200" height="48" rx="9" fill="#1c1726" stroke="#c792ea"/>
+  <text x="350" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">Login role</text>
+  <text x="350" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">role · admin-editable</text>
+
+  <path d="M450 32 H492" stroke="#7f8a99" stroke-width="1.5" fill="none"/>
+  <path d="M492 27 L502 32 L492 37 Z" fill="#7f8a99"/>
+
+  <rect x="510" y="8" width="360" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="690" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">What an account may do</text>
+  <text x="690" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">role_permission → session</text>
+
+  <!-- non-relationship -->
+  <rect x="0" y="80" width="190" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="95" y="108" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#9aa4b2">HR job title</text>
+
+  <text x="217" y="98" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">NOT derived</text>
+  <path d="M190 112 H236" stroke="#7f8a99" stroke-width="1.5" stroke-dasharray="5 4" fill="none"/>
+  <path d="M236 107 L246 112 L236 117 Z" fill="#7f8a99"/>
+
+  <rect x="250" y="80" width="360" height="48" rx="9" fill="#141d29" stroke="#5aa9ff" stroke-dasharray="5 4"/>
+  <text x="430" y="102" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">Project tier</text>
+  <text x="430" y="117" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">project_team_member.role · per project, per person</text>
+
+  <path d="M610 104 H652" stroke="#7f8a99" stroke-width="1.5" fill="none"/>
+  <path d="M652 99 L662 104 L652 109 Z" fill="#7f8a99"/>
+
+  <rect x="670" y="80" width="300" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="820" y="108" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">Who reports to whom on THIS job</text>
+</svg>
+</div>
+<p class="row-note"><b>Why it matters.</b> A person can be <code>foreman</code> as a job title, <code>crew</code> as a login role (no account),
+and <code>superintendent</code> on one job and <code>foreman</code> on another. Collapsing any two of these re-creates bugs this repo has
+already paid for (<code>docs/assessment/07-custody-eligibility-audit.md</code>).</p>
 
 <h2>3 · End-to-end: BambooHR → HR → account → onboarding</h2>
 <div class="chart">
-  <div class="flow">
-    <div class="node"><b>BambooHR</b><span class="sub">GET-only probe</span></div>
-    <div class="arrow">➜</div>
-    <div class="node">adaptBambooEmployee</div>
-    <div class="arrow">➜</div>
-    <div class="node">SyncPlan</div>
-    <div class="arrow">➜</div>
-    <div class="node"><b>applySyncPlan</b><span class="sub">worker</span></div>
-  </div>
-  <div class="hr"></div>
-  <div class="flow">
-    <div class="node">employee row<span class="sub">name · badge · dept · division · reportsTo</span></div>
-    <div class="node">company_role<span class="sub">created on sight</span></div>
-    <div class="arrow">➜</div>
-    <div class="node decision">title mapped?</div>
-    <div class="arrow">➜</div>
-    <div class="node term"><b>FILL employee.role_id</b><span class="sub">only where NULL — never overwrite</span></div>
-  </div>
-  <div class="flow">
-    <div class="node dim">unmapped title</div>
-    <div class="arrow">➜</div>
-    <div class="node">stays NULL<span class="sub">= an open question on /settings/job-titles</span></div>
-    <div class="arrow">➜</div>
-    <div class="node bridge"><b>employee.role_id</b><span class="sub">the login role</span></div>
-  </div>
-  <div class="hr"></div>
-  <div class="flow">
-    <div class="node bridge">login role</div>
-    <div class="arrow">➜</div>
-    <div class="node">user.invite<span class="sub">copies roleId → user_role</span></div>
-    <div class="arrow">➜</div>
-    <div class="node">account<span class="sub">unusable until the invite is redeemed</span></div>
-    <div class="arrow">➜</div>
-    <div class="node term">/welcome onboarding</div>
-  </div>
-  <div class="row-note">
-    <b>Never touched by the sync:</b> projects, project tiers / roster, and accounts. Those come from the
-    importers, the claiming flow and manual rostering — by design.
-  </div>
+<svg viewBox="0 0 980 300" role="img" aria-label="Sync to onboarding pipeline">
+  <!-- row 1 -->
+  <rect x="0" y="8" width="150" height="48" rx="9" fill="#221316" stroke="#ff6b6b"/>
+  <text x="75" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">BambooHR</text>
+  <text x="75" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">GET-only probe</text>
+  <path d="M150 32 H190" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M190 27 L200 32 L190 37 Z" fill="#7f8a99"/>
+  <rect x="205" y="8" width="170" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="290" y="36" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">adaptBambooEmployee</text>
+  <path d="M375 32 H415" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M415 27 L425 32 L415 37 Z" fill="#7f8a99"/>
+  <rect x="430" y="8" width="130" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="495" y="36" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">SyncPlan</text>
+  <path d="M560 32 H600" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M600 27 L610 32 L600 37 Z" fill="#7f8a99"/>
+  <rect x="615" y="8" width="190" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="710" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">applySyncPlan</text>
+  <text x="710" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">worker</text>
+
+  <!-- row 2 -->
+  <rect x="0" y="80" width="220" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="110" y="102" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">employee row</text>
+  <text x="110" y="117" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">name · badge · dept · division · reportsTo</text>
+  <rect x="230" y="80" width="160" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="310" y="102" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">company_role</text>
+  <text x="310" y="117" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">created on sight</text>
+  <path d="M390 104 H430" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M430 99 L440 104 L430 109 Z" fill="#7f8a99"/>
+  <rect x="445" y="80" width="150" height="48" rx="9" fill="#141d29" stroke="#5aa9ff" stroke-dasharray="5 4"/>
+  <text x="520" y="108" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">title mapped?</text>
+  <path d="M595 104 H635" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M635 99 L645 104 L635 109 Z" fill="#7f8a99"/>
+  <rect x="650" y="80" width="240" height="48" rx="9" fill="#12211a" stroke="#3ecf8e"/>
+  <text x="770" y="102" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">FILL employee.role_id</text>
+  <text x="770" y="117" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">only where NULL — never overwrite</text>
+
+  <!-- row 3 -->
+  <rect x="0" y="152" width="150" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="75" y="180" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#9aa4b2">unmapped title</text>
+  <path d="M150 176 H182" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M182 171 L192 176 L182 181 Z" fill="#7f8a99"/>
+  <rect x="197" y="152" width="220" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="307" y="174" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">stays NULL</text>
+  <text x="307" y="189" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">= an open question on /settings/job-titles</text>
+  <path d="M417 176 H457" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M457 171 L467 176 L457 181 Z" fill="#7f8a99"/>
+  <rect x="472" y="152" width="200" height="48" rx="9" fill="#1c1726" stroke="#c792ea"/>
+  <text x="572" y="174" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">employee.role_id</text>
+  <text x="572" y="189" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">the login role</text>
+
+  <!-- row 4 -->
+  <rect x="0" y="224" width="140" height="48" rx="9" fill="#1c1726" stroke="#c792ea"/>
+  <text x="70" y="252" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">login role</text>
+  <path d="M140 248 H174" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M174 243 L184 248 L174 253 Z" fill="#7f8a99"/>
+  <rect x="189" y="224" width="180" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="279" y="246" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">user.invite</text>
+  <text x="279" y="261" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">copies roleId → user_role</text>
+  <path d="M369 248 H403" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M403 243 L413 248 L403 253 Z" fill="#7f8a99"/>
+  <rect x="418" y="224" width="230" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="533" y="246" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">account</text>
+  <text x="533" y="261" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">unusable until the invite is redeemed</text>
+  <path d="M648 248 H682" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M682 243 L692 248 L682 253 Z" fill="#7f8a99"/>
+  <rect x="697" y="224" width="180" height="48" rx="9" fill="#12211a" stroke="#3ecf8e"/>
+  <text x="787" y="252" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">/welcome onboarding</text>
+  <!-- a person now exists on the other side of the pipeline -->
+  <use href="#p-worker" x="892" y="222" width="46" height="46" color="#f5b544"/>
+  <text x="915" y="292" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10" fill="#9aa4b2">a person</text>
+</svg>
 </div>
+<p class="row-note"><b>Never touched by the sync:</b> projects, project tiers / roster, and accounts. Those come from the importers,
+the claiming flow and manual rostering — by design.</p>
 
 <h2>4 · Onboarding decision flow</h2>
 <div class="chart">
-  <div class="flow stack">
-    <div class="node term">Invited person signs in</div>
-    <div class="arrow">▼</div>
-    <div class="node decision">mustChangePassword?</div>
-    <div class="split">
-      <div class="col"><span class="cond">yes →</span><div class="node">/account/password</div></div>
-      <div class="col"><span class="cond no">no →</span><div class="node dim">continue</div></div>
+<svg viewBox="0 0 980 636" role="img" aria-label="Onboarding decision flow">
+  <rect x="340" y="8" width="300" height="40" rx="9" fill="#12211a" stroke="#3ecf8e"/>
+  <text x="490" y="32" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">Invited person signs in</text>
+  <path d="M490 48 V62" stroke="#7f8a99" stroke-width="1.5"/><path d="M485 62 L490 70 L495 62 Z" fill="#7f8a99"/>
+
+  <rect x="340" y="74" width="300" height="40" rx="9" fill="#141d29" stroke="#5aa9ff" stroke-dasharray="5 4"/>
+  <text x="490" y="98" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">mustChangePassword?</text>
+  <text x="270" y="130" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#5aa9ff">yes</text>
+  <text x="670" y="130" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#f5b544">no</text>
+  <rect x="120" y="134" width="300" height="40" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="270" y="158" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">/account/password</text>
+  <rect x="520" y="134" width="300" height="40" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="670" y="158" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#9aa4b2">continue</text>
+
+  <path d="M490 174 V198" stroke="#7f8a99" stroke-width="1.5"/><path d="M485 198 L490 206 L495 198 Z" fill="#7f8a99"/>
+  <rect x="340" y="210" width="300" height="40" rx="9" fill="#141d29" stroke="#5aa9ff" stroke-dasharray="5 4"/>
+  <text x="490" y="234" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">role.onboardingKind</text>
+  <text x="270" y="266" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#f5b544">none</text>
+  <text x="670" y="266" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#5aa9ff">people / office</text>
+  <rect x="120" y="270" width="300" height="40" rx="9" fill="#12211a" stroke="#3ecf8e"/>
+  <text x="270" y="294" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">/home — no wizard</text>
+  <rect x="520" y="270" width="300" height="40" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="670" y="294" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">review only (acknowledge)</text>
+
+  <text x="490" y="330" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#5aa9ff">equipment ↓</text>
+  <rect x="340" y="340" width="300" height="40" rx="9" fill="#141d29" stroke="#5aa9ff" stroke-dasharray="5 4"/>
+  <text x="490" y="364" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">has employee record?</text>
+  <text x="270" y="396" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#f5b544">no</text>
+  <text x="670" y="396" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#5aa9ff">yes</text>
+  <rect x="120" y="400" width="300" height="40" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="270" y="424" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">review only</text>
+  <rect x="520" y="400" width="300" height="40" rx="9" fill="#141d29" stroke="#5aa9ff" stroke-dasharray="5 4"/>
+  <text x="670" y="424" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">onAnyJob OR claimTierNames?</text>
+
+  <text x="270" y="462" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#f5b544">no</text>
+  <text x="670" y="462" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#5aa9ff">yes</text>
+  <rect x="120" y="466" width="300" height="40" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="270" y="490" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">review only</text>
+  <rect x="520" y="466" width="300" height="40" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="670" y="490" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">projects</text>
+
+  <path d="M670 506 V524" stroke="#7f8a99" stroke-width="1.5"/><path d="M665 524 L670 532 L675 524 Z" fill="#7f8a99"/>
+  <rect x="520" y="532" width="300" height="40" rx="9" fill="#141d29" stroke="#5aa9ff" stroke-dasharray="5 4"/>
+  <text x="670" y="556" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">has project.team.read?</text>
+  <text x="270" y="596" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#f5b544">no</text>
+  <text x="670" y="596" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#5aa9ff">yes</text>
+  <rect x="120" y="600" width="300" height="34" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="270" y="621" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#9aa4b2">skip</text>
+  <rect x="520" y="600" width="300" height="34" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="670" y="621" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#e8eaed">crew</text>
+</svg>
+</div>
+<details>
+  <summary>Text version of the branch (if the diagram does not render)</summary>
+  <pre>kind none            -> /home, no wizard
+kind people / office -> review only
+kind equipment       -> needs an employee record
+  no employee        -> review only
+  employee, but no job and not a claimer -> review only
+  employee + (onAnyJob OR claimTierNames)
+      -> projects -> (crew if project.team.read) -> review -> complete</pre>
+</details>
+
+<h3>The roster, figuratively — helmet = onboarding class</h3>
+<div class="gallery">
+  <div class="gal-col">
+    <div>
+      <p class="gal-head" style="color:#3ecf8e">No wizard · onboardingKind none</p>
+      <div class="crewgrid">
+        <div class="crew" style="--hc:#3ecf8e"><svg class="avatar" viewBox="0 0 64 64" color="#3ecf8e"><use href="#p-worker"/></svg><div class="cname">owner</div><div class="cmeta">runs the register</div></div>
+        <div class="crew" style="--hc:#3ecf8e"><svg class="avatar" viewBox="0 0 64 64" color="#3ecf8e"><use href="#p-worker"/></svg><div class="cname">tech_admin</div><div class="cmeta">reaches every tenant</div></div>
+        <div class="crew" style="--hc:#3ecf8e"><svg class="avatar" viewBox="0 0 64 64" color="#3ecf8e"><use href="#p-worker"/></svg><div class="cname">office_admin</div><div class="cmeta">office work only</div></div>
+        <div class="crew" style="--hc:#3ecf8e"><svg class="avatar" viewBox="0 0 64 64" color="#3ecf8e"><use href="#p-worker"/></svg><div class="cname">foreman</div><div class="cmeta">sees crew &amp; tools</div></div>
+        <div class="crew" style="--hc:#3ecf8e"><svg class="avatar" viewBox="0 0 64 64" color="#3ecf8e"><use href="#p-worker"/></svg><div class="cname">procurement</div><div class="cmeta">buying</div></div>
+        <div class="crew" style="--hc:#3ecf8e"><svg class="avatar" viewBox="0 0 64 64" color="#3ecf8e"><use href="#p-worker"/></svg><div class="cname">finance</div><div class="cmeta">read + reports</div></div>
+        <div class="crew" style="--hc:#3ecf8e"><svg class="avatar" viewBox="0 0 64 64" color="#3ecf8e"><use href="#p-worker"/></svg><div class="cname">read_only</div><div class="cmeta">look, don’t touch</div></div>
+        <div class="crew" style="--hc:#3ecf8e"><svg class="avatar" viewBox="0 0 64 64" color="#3ecf8e"><use href="#p-worker"/></svg><div class="cname">crew</div><div class="cmeta">on site, holds tools</div><span class="tag">no account</span></div>
+      </div>
     </div>
-    <div class="arrow">▼</div>
-    <div class="node decision">role.onboardingKind</div>
-    <div class="split">
-      <div class="col"><span class="cond no">none →</span><div class="node term">/home — no wizard</div></div>
-      <div class="col"><span class="cond">people / office →</span><div class="node">review only (acknowledge)</div></div>
+    <div>
+      <p class="gal-head" style="color:#f5b544">Review only · acknowledge and go</p>
+      <div class="crewgrid">
+        <div class="crew" style="--hc:#f5b544"><svg class="avatar" viewBox="0 0 64 64" color="#f5b544"><use href="#p-worker"/></svg><div class="cname">hr</div><div class="cmeta">people records</div></div>
+        <div class="crew" style="--hc:#f5b544"><svg class="avatar" viewBox="0 0 64 64" color="#f5b544"><use href="#p-worker"/></svg><div class="cname">equipment_admin</div><div class="cmeta">tools &amp; equipment</div></div>
+        <div class="crew" style="--hc:#f5b544"><svg class="avatar" viewBox="0 0 64 64" color="#f5b544"><use href="#p-worker"/></svg><div class="cname">warehouse</div><div class="cmeta">yard &amp; store</div></div>
+        <div class="crew" style="--hc:#f5b544"><svg class="avatar" viewBox="0 0 64 64" color="#f5b544"><use href="#p-worker"/></svg><div class="cname">mechanic</div><div class="cmeta">repairs</div></div>
+        <div class="crew" style="--hc:#f5b544"><svg class="avatar" viewBox="0 0 64 64" color="#f5b544"><use href="#p-worker"/></svg><div class="cname">project_manager</div><div class="cmeta">placed on a job</div></div>
+        <div class="crew" style="--hc:#f5b544"><svg class="avatar" viewBox="0 0 64 64" color="#f5b544"><use href="#p-worker"/></svg><div class="cname">engineer</div><div class="cmeta">placed on a job</div></div>
+        <div class="crew" style="--hc:#f5b544"><svg class="avatar" viewBox="0 0 64 64" color="#f5b544"><use href="#p-worker"/></svg><div class="cname">superintendent</div><div class="cmeta">placed on a job</div></div>
+      </div>
     </div>
-    <div class="arrow">▼ <span class="edge-label">equipment</span></div>
-    <div class="node decision">has employee record?</div>
-    <div class="split">
-      <div class="col"><span class="cond no">no →</span><div class="node">review only</div></div>
-      <div class="col"><span class="cond">yes →</span><div class="node decision">onAnyJob OR claimTierNames?</div></div>
+    <div>
+      <p class="gal-head" style="color:#c792ea">Claims jobs · projects → crew → review</p>
+      <div class="crewgrid">
+        <div class="crew" style="--hc:#c792ea"><svg class="avatar" viewBox="0 0 64 64" color="#c792ea"><use href="#p-worker"/></svg><div class="cname">director</div><div class="cmeta">claims a job</div></div>
+        <div class="crew" style="--hc:#c792ea"><svg class="avatar" viewBox="0 0 64 64" color="#c792ea"><use href="#p-worker"/></svg><div class="cname">area_in_charge</div><div class="cmeta">claims a job</div></div>
+        <div class="crew" style="--hc:#c792ea"><svg class="avatar" viewBox="0 0 64 64" color="#c792ea"><use href="#p-worker"/></svg><div class="cname">general_superintendent</div><div class="cmeta">claims a job</div></div>
+      </div>
     </div>
-    <div class="split">
-      <div class="col"><span class="cond no">no →</span><div class="node">review only</div></div>
-      <div class="col"><span class="cond">yes →</span><div class="node">projects</div></div>
-    </div>
-    <div class="flow center"><div class="arrow">▼</div><div class="node decision">has project.team.read?</div></div>
-    <div class="split">
-      <div class="col"><span class="cond">yes →</span><div class="node">crew</div></div>
-      <div class="col"><span class="cond no">no →</span><div class="node dim">skip</div></div>
-    </div>
-    <div class="arrow">▼</div>
-    <div class="node term">review → complete</div>
   </div>
+  <p class="legend" style="margin-top:14px">
+    <span class="swatch"><i style="background:#3ecf8e"></i>no wizard</span>
+    <span class="swatch"><i style="background:#f5b544"></i>review only</span>
+    <span class="swatch"><i style="background:#c792ea"></i>can claim jobs</span>
+    Helmet colour is the product’s onboarding class, not the trade — a real yard would wear one colour.
+  </p>
 </div>
 
 <h3>Onboarding by role (as provisioned)</h3>
@@ -254,54 +450,90 @@
 
 <h2>5 · Custody &amp; ledger invariant</h2>
 <div class="chart">
-  <div class="flow">
-    <div class="node">Assign / Transfer / Return<span class="sub">or a chat action</span></div>
-    <div class="arrow">➜</div>
-    <div class="node">apply-action / routers</div>
-    <div class="arrow">➜</div>
-    <div class="node bridge"><b>moveCustody</b><span class="sub">inside ONE transaction</span></div>
+<svg viewBox="0 0 980 208" role="img" aria-label="Custody and ledger">
+  <rect x="0" y="8" width="250" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="125" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">Assign / Transfer / Return</text>
+  <text x="125" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">or a chat action</text>
+  <path d="M250 32 H286" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M286 27 L296 32 L286 37 Z" fill="#7f8a99"/>
+  <rect x="301" y="8" width="180" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="391" y="36" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">apply-action / routers</text>
+  <path d="M481 32 H517" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M517 27 L527 32 L517 37 Z" fill="#7f8a99"/>
+  <rect x="532" y="8" width="220" height="48" rx="9" fill="#1c1726" stroke="#c792ea"/>
+  <text x="642" y="30" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">moveCustody</text>
+  <text x="642" y="45" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">inside ONE transaction</text>
+
+  <rect x="0" y="80" width="230" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="115" y="102" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">closeActiveCustody</text>
+  <text x="115" y="117" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">lock asset row, close active links</text>
+  <rect x="240" y="80" width="190" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="335" y="108" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">open new assignment</text>
+  <path d="M430 104 H466" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M466 99 L476 104 L466 109 Z" fill="#7f8a99"/>
+  <rect x="481" y="80" width="230" height="48" rx="9" fill="#12211a" stroke="#3ecf8e"/>
+  <text x="596" y="102" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">tbl_ops_transaction</text>
+  <text x="596" y="117" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">APPEND-ONLY (trigger)</text>
+  <rect x="721" y="80" width="200" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="821" y="102" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">asset.current_*</text>
+  <text x="821" y="117" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">projection</text>
+
+  <rect x="0" y="152" width="200" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="100" y="174" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">foldAssetState</text>
+  <text x="100" y="189" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">rebuild from the log</text>
+  <path d="M200 176 H236" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M236 171 L246 176 L236 181 Z" fill="#7f8a99"/>
+  <rect x="251" y="152" width="200" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="351" y="174" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">reconciliation sweep</text>
+  <text x="351" y="189" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">every 6h</text>
+  <path d="M451 176 H487" stroke="#7f8a99" stroke-width="1.5" fill="none"/><path d="M487 171 L497 176 L487 181 Z" fill="#7f8a99"/>
+  <rect x="502" y="152" width="300" height="48" rx="9" fill="#221316" stroke="#ff6b6b"/>
+  <text x="652" y="174" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">custody_discrepancy alert</text>
+  <text x="652" y="189" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">reports divergence, never silently repairs</text>
+</svg>
+  <div class="handoff">
+    <figure class="fig">
+      <svg viewBox="0 0 64 64" color="#3ecf8e" role="img" aria-label="worker in a green hard hat"><use href="#p-worker"/></svg>
+      <figcaption>custodian</figcaption>
+    </figure>
+    <svg class="tool" viewBox="0 0 64 64" role="img" aria-label="a wrench changing hands"><use href="#p-wrench"/></svg>
+    <figure class="fig">
+      <svg viewBox="0 0 64 64" color="#5aa9ff" role="img" aria-label="worker in a blue hard hat"><use href="#p-worker"/></svg>
+      <figcaption>new custodian</figcaption>
+    </figure>
   </div>
-  <div class="hr"></div>
-  <div class="flow">
-    <div class="node">closeActiveCustody<span class="sub">lock asset row, close active links</span></div>
-    <div class="node">open new assignment</div>
-    <div class="arrow">➜</div>
-    <div class="node term"><b>tbl_ops_transaction</b><span class="sub">APPEND-ONLY (trigger)</span></div>
-    <div class="node">asset.current_*<span class="sub">projection</span></div>
-  </div>
-  <div class="hr"></div>
-  <div class="flow">
-    <div class="node">foldAssetState<span class="sub">rebuild from the log</span></div>
-    <div class="arrow">➜</div>
-    <div class="node">reconciliation sweep<span class="sub">every 6h</span></div>
-    <div class="arrow">➜</div>
-    <div class="node alert">custody_discrepancy alert<span class="sub">reports divergence, never silently repairs</span></div>
-  </div>
-  <div class="row-note">
-    <b>One writer.</b> <code>packages/api-contracts/src/custody.ts</code> is the only place a custody link opens or
-    closes; every path is transactional and row-locked, and the projection is rebuildable from the ledger.
-  </div>
+  <p class="row-note" style="text-align:center">One writer, one transaction — the ledger records the handover, and the projection follows it.</p>
 </div>
 
 <h2>6 · Tenant isolation (no RLS)</h2>
 <div class="chart">
-  <div class="flow stack">
-    <div class="node">Request</div>
-    <div class="arrow">▼</div>
-    <div class="node">resolveSession → <b>tenantId</b> + permission set</div>
-    <div class="arrow">▼</div>
-    <div class="node decision">procedure meta.permission?</div>
-    <div class="split">
-      <div class="col"><span class="cond no">missing →</span><div class="node alert">403 before the handler runs</div></div>
-      <div class="col"><span class="cond">ok →</span><div class="node decision">scope.ts view scope</div></div>
-    </div>
-    <div class="split">
-      <div class="col"><span class="cond no">none →</span><div class="node">MATCHES_NOTHING <span class="sub">sql false</span></div></div>
-      <div class="col"><span class="cond">all / project / crew / own →</span><div class="node term">query with eq(tenant_id, …)</div></div>
-    </div>
-    <div class="arrow">▼</div>
-    <div class="node"><b>PostgreSQL</b><span class="sub">No Row-Level Security — the WHERE predicate IS the wall</span></div>
-  </div>
+<svg viewBox="0 0 980 430" role="img" aria-label="Tenant isolation">
+  <rect x="340" y="8" width="300" height="40" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="490" y="32" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">Request</text>
+  <path d="M490 48 V62" stroke="#7f8a99" stroke-width="1.5"/><path d="M485 62 L490 70 L495 62 Z" fill="#7f8a99"/>
+
+  <rect x="320" y="74" width="340" height="48" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="490" y="96" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">resolveSession → tenantId</text>
+  <text x="490" y="111" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#9aa4b2">plus the caller's permission set</text>
+  <path d="M490 122 V136" stroke="#7f8a99" stroke-width="1.5"/><path d="M485 136 L490 144 L495 136 Z" fill="#7f8a99"/>
+
+  <rect x="340" y="148" width="300" height="40" rx="9" fill="#141d29" stroke="#5aa9ff" stroke-dasharray="5 4"/>
+  <text x="490" y="172" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">procedure meta.permission?</text>
+  <text x="270" y="210" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#f5b544">missing</text>
+  <text x="670" y="210" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#5aa9ff">ok</text>
+  <rect x="120" y="216" width="300" height="44" rx="9" fill="#221316" stroke="#ff6b6b"/>
+  <text x="270" y="243" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">403 before the handler runs</text>
+  <rect x="520" y="216" width="300" height="44" rx="9" fill="#141d29" stroke="#5aa9ff" stroke-dasharray="5 4"/>
+  <text x="670" y="243" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">scope.ts view scope</text>
+
+  <text x="270" y="286" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#f5b544">none</text>
+  <text x="670" y="286" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#5aa9ff">all / project / crew / own</text>
+  <rect x="120" y="292" width="300" height="44" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="270" y="319" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">MATCHES_NOTHING (sql false)</text>
+  <rect x="520" y="292" width="300" height="44" rx="9" fill="#12211a" stroke="#3ecf8e"/>
+  <text x="670" y="319" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">query with eq(tenant_id, …)</text>
+
+  <path d="M670 336 V354" stroke="#7f8a99" stroke-width="1.5"/><path d="M665 354 L670 362 L675 354 Z" fill="#7f8a99"/>
+  <rect x="490" y="366" width="360" height="52" rx="9" fill="#151a23" stroke="#2a2f3a"/>
+  <text x="670" y="389" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="#e8eaed">PostgreSQL</text>
+  <text x="670" y="405" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="10.5" fill="#ff9a9a">No RLS — the WHERE predicate IS the wall</text>
+</svg>
 </div>
 
 <h2>7 · Status ledger</h2>
@@ -320,9 +552,12 @@
     <tr><td><code>task.approve</code> had no screen or test</td><td><code>d2b0f8f</code></td><td><span class="pill ok">covered</span></td></tr>
     <tr><td><code>/admin/roles</code> unreachable from its own menu</td><td><code>6347a50</code></td><td><span class="pill ok">moved + 308s</span></td></tr>
     <tr><td>Product still named STInventory in code/infra</td><td><code>e908ccd</code></td><td><span class="pill ok">renamed to Optix</span></td></tr>
-    <tr><td>Secret salt change was "the only free moment"</td><td><code>afdeb77</code></td><td><span class="pill ok">bumped v1→v2</span></td></tr>
+    <tr><td>Salt change was "the only free moment"</td><td><code>afdeb77</code></td><td><span class="pill ok">bumped v1→v2</span></td></tr>
     <tr><td><code>vehicle_type</code> comment contradicted the code</td><td><code>afdeb77</code></td><td><span class="pill ok">23rd CHECK (0073)</span></td></tr>
     <tr><td>DB suites passed green while 345 tests skipped</td><td><code>afdeb77</code></td><td><span class="pill ok">now warns loudly</span></td></tr>
+    <tr><td>Stale facts left across docs / .claude / comments</td><td><code>ccf7eb7</code></td><td><span class="pill ok">swept + verified</span></td></tr>
+    <tr><td>Chat "load older" 500 (bare <code>"message"</code> table)</td><td>working tree</td><td><span class="pill ok">fixed, test added</span></td></tr>
+    <tr><td>CSV export: one page, wrong headers, blank columns</td><td>working tree</td><td><span class="pill ok">fixed</span></td></tr>
   </tbody>
 </table>
 
@@ -344,6 +579,7 @@
 <h2>8 · Recent history (branch commits, newest first)</h2>
 <div class="card">
 <ol style="margin:0 0 0 18px">
+  <li><code>ccf7eb7</code> — Correct the stale facts this session's changes left behind</li>
   <li><code>afdeb77</code> — Close three flagged items (salt, skip warning, vehicle_type)</li>
   <li><code>e908ccd</code> — Rename everything to Optix</li>
   <li><code>fe96fa8</code> — Map a job title to the role its holders sign in as</li>
@@ -363,7 +599,7 @@
 <div class="foot">
   <b>How to regenerate:</b> ask an agent to re-read the tree and update this file; there is no build step.
   <br/><b>Evidence base:</b> direct source read + <code>git log</code> on <code>development-001</code>, 2026-09-14.
-  <br/><b>Diagrams:</b> plain HTML/CSS — no external runtime, renders offline.
+  <br/><b>Diagrams:</b> inline SVG with presentation attributes — no script, no CDN, renders in any HTML viewer.
   <br/><b>Reminder:</b> this is an evaluation, not a specification. Trust the code.
 </div>
 

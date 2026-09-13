@@ -371,7 +371,18 @@ async function insertOne(
   }
 
   if (entity === "project") {
-    const [row] = await tx.insert(schema.project).values({ tenantId, ...values }).returning();
+    /* `externalId` is the CSV's `project_code` and lands in `project.code` —
+       remapped explicitly for the same reason the employee branch below does
+       it, and with the same failure if it is not: Drizzle drops an unknown key
+       SILENTLY. Spreading it here imported every job with NO code at all, so
+       the duplicate check (which reads `project.code`) saw nothing, re-runs
+       duplicated the whole file, and the `project_code_per_tenant_uq` index had
+       no value to enforce. */
+    const { externalId, ...rest } = values;
+    const [row] = await tx
+      .insert(schema.project)
+      .values({ tenantId, ...rest, ...(externalId !== undefined ? { code: externalId as string } : {}) })
+      .returning();
     return row?.id ?? null;
   }
 

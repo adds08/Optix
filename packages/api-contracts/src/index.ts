@@ -67,6 +67,13 @@ export const appRouter = router({
 });
 
 export type AppRouter = typeof appRouter;
+
+/* The local-only demo dataset's shared definition — CSV builders, the project
+   merge contract, the roster split and the test tenant seeder. Exported from
+   the package root because `apps/api/src/demo-data.ts` (a different package)
+   is one of its two callers; the other is the demo test suite, which imports
+   the same module by path. */
+export * from "./demo-fixtures.js";
 export {
   applyChatAction,
   requestChatAction,

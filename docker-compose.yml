@@ -1,6 +1,15 @@
 # Optix — local dev compose. Brings up Postgres + API + Web.
 # `make ENV=local up` then `make provision`.
 
+# Pinned, NOT derived from the directory name. Compose defaults the project to
+# the folder it runs in — which here is `STInventory`, so the volume was
+# `stinventory_postgres_data` even after everything inside it said optix. That
+# bit on 2026-09-14: a `down -v` + rebuild created `optix_optix-postgres`, and a
+# later Docker restart re-mounted the OLD volume, silently serving a database
+# from before the rename. Naming it here makes which volume is in use a fact of
+# this file rather than of whoever's checkout path.
+name: optix
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -104,6 +113,10 @@ services:
       - /workspace/packages/types/node_modules
       - /workspace/packages/config-eslint/node_modules
       - /workspace/packages/config-tsconfig/node_modules
+      # Read-only: `make demo` loads the dummy dataset from docs/import, and the
+      # importer reads those CSVs from inside the container. Nothing writes
+      # here, so the mount cannot put data back into the repository.
+      - ./docs:/workspace/docs:ro
     depends_on:
       postgres:
         condition: service_healthy

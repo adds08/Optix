@@ -553,8 +553,31 @@ export default function JobsitesPage() {
     utils.asset.list.invalidate();
   };
 
-  if (assets.isLoading || projects.isLoading || vehicles.isLoading) return <TableSkeleton cols={4} />;
-  if (assets.isError || projects.isError) return <ErrorNote message="The jobsite view could not be loaded." />;
+  /*
+    ALL FIVE queries, not three.
+
+    `employees` and `team` were missing from this guard while every consumer of
+    them falls back to `[]` (`foremen`, `allCustodians`, the roster lookup and
+    the crew cards). So the page rendered before they landed and drew each
+    jobsite with NO crew — which is not a loading state a person can recognise,
+    it is a factual claim that the job has nobody on it. It then silently
+    repopulated a moment later.
+
+    An empty crew is a real and meaningful state here, which is exactly why it
+    must not be faked while data is in flight.
+  */
+  if (
+    assets.isLoading ||
+    projects.isLoading ||
+    vehicles.isLoading ||
+    employees.isLoading ||
+    team.isLoading
+  )
+    return <TableSkeleton cols={4} />;
+  /* Errors on the same five. A failed employee or team fetch previously fell
+     through to the same empty-crew render with no error shown at all. */
+  if (assets.isError || projects.isError || vehicles.isError || employees.isError || team.isError)
+    return <ErrorNote message="The jobsite view could not be loaded." />;
 
   return (
     <div className="flex flex-col gap-6">

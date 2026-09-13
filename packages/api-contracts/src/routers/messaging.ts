@@ -92,7 +92,27 @@ export const messagingRouter = router({
       const tid = ctx.session.tenantId;
       const conditions = [eq(schema.message.tenantId, tid), eq(schema.message.channelId, input.channelId)];
       if (input.cursor) {
-        conditions.push(lt(schema.message.createdAt, sql`(select created_at from "message" where id = ${input.cursor})`));
+        /*
+          The subquery names the table through `schema.message`, NOT a string.
+
+          It was `from "message"` — a table that has never existed under that
+          name; the physical name is `tbl_ops_message`. Every call carrying a
+          cursor raised `relation "message" does not exist`, so chat history
+          paginated exactly once and then 500'd on "load older". Nothing caught
+          it because the first page passes no cursor, which is the only path
+          any test or screenshot exercises.
+
+          Interpolating the Drizzle table is what stops it recurring: a rename
+          moves this with it, and a wrong name is a compile error rather than a
+          runtime one. The cursor is also scoped to the tenant — without it a
+          uuid from another tenant would set this channel's cutoff.
+        */
+        conditions.push(
+          lt(
+            schema.message.createdAt,
+            sql`(select ${schema.message.createdAt} from ${schema.message} where ${schema.message.id} = ${input.cursor} and ${schema.message.tenantId} = ${tid})`,
+          ),
+        );
       }
       const rows = await ctx.db
         .select({

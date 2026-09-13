@@ -7,6 +7,7 @@
 #   make ENV=local reset     # wipe DB volume, leaves an empty register (destructive)
 #   make ENV=local psql      # psql shell on the DB
 #   make ENV=local test      # run vitest in api container
+#   make ENV=local demo      # load the local-only demo dataset (idempotent)
 #
 # Two droplets, nothing here needs ENV:
 #   make deploy               # ship main to production (urban.optixtec.com)
@@ -47,7 +48,7 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev up down restart build rebuild logs ps provision reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
+.PHONY: help dev up down restart build rebuild logs ps provision demo reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nOptix — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -101,6 +102,13 @@ provision: ## Create the tenant, roles, tiers and the two admin logins (idempote
 		-e ADMIN_PASSWORD="$(ADMIN_PASSWORD)" \
 		-e TECH_ADMIN_EMAIL="$(TECH_ADMIN_EMAIL)" -e OWNER_EMAIL="$(OWNER_EMAIL)" \
 		api sh -c "cd /workspace/packages/db && pnpm provision"
+
+# The local-only dummy dataset, built from the CSVs in docs/import by pushing
+# them through the real importers and the real roster/custody writers. NOT a
+# seed: opt-in, never in CI, never in production, idempotent on re-run.
+demo: ## Load the demo dataset from docs/import (local only, idempotent)
+	$(COMPOSE) exec -T -e DEMO_ALLOWED=1 \
+		api sh -c "cd /workspace/apps/api && pnpm demo"
 
 generate: ## Generate a migration from schema changes (commit the result)
 	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm generate"
@@ -158,6 +166,7 @@ dev: up ## Start web + api + db, then print next steps
 	@echo "           tech@optixtec.com      (tech_admin, cross-tenant)"
 	@echo "           run 'make provision' if they do not exist yet"
 	@echo ""
+	@echo "  Demo:    make demo          (local-only dummy data from docs/import)"
 	@echo "  Mobile:  make mobile        (Expo — separate terminal)"
 	@echo "  Chat:    configure a model at /settings, then use /chat"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
