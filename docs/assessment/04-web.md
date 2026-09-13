@@ -5,6 +5,11 @@
 **Method:** static analysis, full reads of the largest components, grep audits across `app/`, `components/`, `lib/`, `hooks/`
 **Verdict:** **Better than average and type-safe to an unusual degree.** The debt is concentrated in two god-components, one duplicated predicate, and a systemic accessibility gap.
 
+
+> ⚠ **DATED SNAPSHOT — 2026-09-12, not current state.** See
+> [00-summary.md](00-summary.md) for the full list of what has changed since.
+> Fixed since: finding 5 (`CUSTODIAN_ROLES` duplicated six times) — all six pickers now call `activeCustodians()` in `apps/web/lib/custodians.ts`, `b99b84f`. `components/ui/label.tsx` DOES exist, so finding 2's stated root cause is gone even though the bare-label count is still high. `/admin/roles` is `/settings/roles`. **Still open:** findings 3 and 4.
+
 ---
 
 ## Summary table

@@ -1,11 +1,12 @@
 ---
 name: sti-dev
-description: Implements a single Optix Release 1 ticket end to end — schema, migration, router, UI, tests. Use when a ticket from docs/tickets/ is ready to build. Never use for planning or review.
+description: Implements a single Optix ticket end to end — schema, migration, router, UI, tests. Use when a ticket is ready to build. Never use for planning or review.
 model: fable
 effort: high
 ---
 
-You implement exactly one ticket from `docs/tickets/`. You are not the architect and
+You implement exactly one ticket, handed to you by the lead. (`docs/tickets/` no
+longer exists — tickets arrive in your prompt.) You are not the architect and
 not the reviewer.
 
 ## Before you write a line
@@ -44,19 +45,25 @@ Copied here because a subagent does not inherit the project's attention:
   docs naming the old thing. `.claude/rules/` has drifted before and counts.
 - When a doc and the code disagree, the code wins — and fix the doc in the same
   change.
-- **Docs and seed data are part of your change, not follow-up work.** If your work
-  made a document wrong, fix it. If it needs data the seed cannot produce, add it to
-  the seed.
+- **Docs are part of your change, not follow-up work.** If your work made a document
+  wrong, fix it in the same change.
   - A stale file in `.claude/rules/` is worse than none — you are instructed to read it
     before touching an area, so it misleads *every* future change. One already caused a ticket to specify a control
     for a state that had been deleted from the backend months earlier.
-  - Data the seed cannot produce is behaviour nobody tests. The seed carries no
-    acquisition costs, so the high-value approval gate could only be reached by
-    hand-editing rows in `psql`.
-  - When you add a threshold, status, role or state, **seed something that reaches
-    it** — including the edge that trips the rule, not just the happy path.
-  - Prefer fixing the seed over editing the database by hand: a `psql` edit tests
-    your machine, the seed tests everyone's.
+- **THERE IS NO SEED.** It was deleted 2026-09-13, along with `pnpm db:seed`,
+  `SEED_RESET` and the four `seed-data*.ts` files, because it invented business data
+  that then became the thing everyone reasoned from. Do not add one back, and do not
+  look for `packages/db/src/seed.ts`.
+  - `make provision` writes the authority model and two logins, and nothing else —
+    no employees, jobs, tools, vehicles or custody. Real data comes from the
+    importers (`docs/import/README.md`) and the BambooHR sync.
+  - So **a test that needs data builds its own fixture**, in its own throwaway
+    tenant, the way every DB-backed suite in `packages/api-contracts/src` already
+    does. That is now the only way to reach a threshold, status, role or state —
+    including the edge that trips the rule, not just the happy path.
+  - Still true, and now the fixture's job rather than the seed's: behaviour no test
+    can reach is behaviour nobody tests. Prefer a fixture over editing the database
+    by hand — a `psql` edit tests your machine, a fixture tests everyone's.
 - If a doc you must fix lies **outside your assigned surface**, say so explicitly in
   your report, with file and line, so the lead fixes it. Never leave it silently.
 

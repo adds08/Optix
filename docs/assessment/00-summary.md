@@ -6,6 +6,34 @@
 **Scope:** 84,515 lines across 3 apps and 12 packages
 **Assessed by:** direct code read, live database queries, full test-suite execution
 
+> ## ⚠ THIS IS A DATED SNAPSHOT OF 2026-09-12 — NOT CURRENT STATE
+>
+> Read it as a record of what was true on that date. Several defects it lists as
+> open, CONFIRMED or "not started" were **fixed on 2026-09-14**. Check the code
+> before acting on anything here.
+>
+> **Closed since this was written:**
+>
+> | Was reported as | Now |
+> |---|---|
+> | `can_hold_custody` read by nothing; "the settings screen lies" | Fixed, `b99b84f`. All six pickers read the column through `apps/web/lib/custodians.ts`; the constant is a fallback only. Note the fix took the LOGIN ROLE's column, not the tier's — the opposite of what `07-custody-eligibility-audit.md` recommends. |
+> | No CHECK constraints; DB accepts any string | Fixed, `35740a5` + `afdeb77`. 23 constraints across 14 tables. `pgEnum` is still 0, which was always deliberate. |
+> | BambooHR sync sets no login role; "everyone lands as `crew`" | Fixed, `fe96fa8`. `company_role.default_role_id` (migration 0071) plus `/settings/job-titles`. Unmapped means **NULL / no opinion**, not `crew`. |
+> | The overdue-loan setting | Deleted, `a50c46d` (migration 0070), with two sibling SLA columns. |
+> | `task.approve` has no screen | Was never true — the inbox's "Do it" always called the same executor. A "With a note" button was added, `d2b0f8f`. |
+> | Unscoped tenant lookups in `notifications.ts` / `notify.ts`; three non-transactional multi-writes; `resolveByName` N+1 | All fixed, verified 2026-09-14. |
+> | 713 tests / 69 migrations / 24 unique indexes | 756 tests, 73 migrations, 34 unique indexes. |
+>
+> **Still open**, re-verified 2026-09-14: `messaging.ts` `from "message"` (a real
+> 500), `db: any` in `location.ts`, the jobsites loading check, and
+> `data-table.tsx` CSV export reading the post-pagination model.
+>
+> **Files it cites that no longer exist:** `seed.ts`, `seed-data*.ts` (deleted
+> 2026-09-13). Recover with `git show bd98798:<path>`. The local database it
+> queried as `stinventory` is now `optix`.
+
+---
+
 ---
 
 ## Verdict

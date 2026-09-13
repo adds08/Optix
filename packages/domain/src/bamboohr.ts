@@ -154,7 +154,9 @@ function restrictedFieldsOf(record: BambooEmployeeRecord): string[] {
 
 /*
   Bamboo's `status` is "Active" / "Inactive". Ours is
-  `active | terminated | on_leave` (`EMPLOYMENT_STATUSES`).
+  `active | inactive | terminated | on_leave` (`EMPLOYMENT_STATUSES`, four
+  values). This mapper produces three of them — `inactive` is written only by
+  routers/project.ts, never by the sync.
 
   "Inactive" maps to `terminated` and NOT to `on_leave`: Bamboo models leave
   separately, so reading "Inactive" as "on leave" would quietly resurrect
@@ -380,8 +382,8 @@ export const BAMBOO_OPTIONAL_FIELDS = [
     THE RICH EMPLOYMENT STATUS — and the only way to reach `on_leave`.
 
     `status` is Active/Inactive and nothing else, so `normaliseBambooStatus`
-    fed only that can produce `active` and `terminated` and never the third
-    value `EMPLOYMENT_STATUSES` defines. Somebody on a leave of absence is
+    fed only that can produce `active` and `terminated`, and never `on_leave`,
+    one of the four values `EMPLOYMENT_STATUSES` defines. Somebody on a leave of absence is
     still `status: Active` in BambooHR, which is why the distinction has to
     come from HR's own wording rather than from the flag.
 

@@ -102,11 +102,13 @@ to repair what that gap left behind:
 - `0020` — the four `assets.view.*` scopes. Without it every user saw an empty register,
   because `viewTierOf` resolves an actor holding no scope to "none", which is empty and not
   unscoped.
-- `0025` — `user.manage`. Without it `/admin/users` was gated on a permission nobody held,
-  the owner account included.
+- `0025` — `user.manage`. Without it the user-account screen was gated on a permission
+  nobody held, the owner account included. (That screen was `/admin/users`, deleted
+  2026-08-28; account administration now lives on the person's row in `/people`.)
 - `0038` — the four project-team permissions, still ungranted because 0020's own
   owner/equipment_admin backfill covered only the `assets.view.*` scopes; **and** the
-  retired `rental.*` grants, which deadlocked `/admin/roles` outright (`role.list` returned
+  retired `rental.*` grants, which deadlocked the roles screen outright — then
+  `/admin/roles`, now `/settings/roles` (`role.list` returned
   a name `permissionEnum` no longer accepts, so every Save failed with a Zod error the
   formatter renders as a generic message).
 
@@ -117,17 +119,31 @@ exactly the database that was never broken. Write the grant as a
 `SELECT ... FROM tbl_entity_permission` where the source of truth is a spread, so the
 statement says the same thing the code says instead of naming that day's list.
 
-## The database enforces less than you think
+## What the database does and does not enforce
 
-- **One exception — the ledger is append-only by trigger.** `0014_append_only_ledger.sql`
+- **The ledger is append-only by trigger.** `0014_append_only_ledger.sql`
   (STI-104) blocks UPDATE, DELETE and TRUNCATE on `transaction` with SQLSTATE `0A000`.
   Corrections are compensating INSERTs. It is a correctness guard, not a security
   boundary — the owner can `DISABLE TRIGGER`, which is exactly what
   `sql/empty-register.sql` does around its deletes, re-arming it in the same
   transaction.
-- **Enums are not Postgres enums.** Every status/type column is plain `text`; the vocabularies
-  live in `packages/types`. The database will *not* stop you writing a value you forgot to
-  add. Validate at the router edge with Zod, and use `z.enum(...)` rather than `z.string()`.
+- **Enums are not Postgres enums — they are `text` with a CHECK.** Every status/type column
+  is still plain `text` and the vocabularies still live in `packages/types`. Since migrations
+  `0072`/`0073` (2026-09-14), **23 of them carry a CHECK constraint** naming their values, so
+  the database *will* reject a value you forgot to add — as a raw `23514`, not a readable
+  error. Before those two migrations the schema had ZERO check constraints, which is what
+  this bullet used to say.
+
+  Validate at the router edge with Zod anyway — `z.enum(...)`, never `z.string()`. The CHECK
+  is the floor under writers that never pass an edge (an import, a worker, a fixture
+  inserting directly, a hand-run UPDATE), not a replacement for the edge, and only the edge
+  produces an error a person can read.
+
+  Three columns are deliberately NOT constrained, each for a reason spelled out in `0072`'s
+  header: `project_team_member.role` (tenant-created tiers — a CHECK would make adding one
+  need a migration and destroy the feature), `employee.role` (legacy and abandoned; known to
+  hold values outside its own nominal list) and `event_log.source` (a rejected audit insert
+  would abort the business transaction that triggered it).
 - **`assignment.truck_id`/`trailer_id` are type-checked by composite FKs** (STI-202,
   migration `0016`): `(truck_id, truck_kind)` references `UNIQUE vehicle(id, vehicle_type)`
   where `truck_kind` is a generated constant `'truck'` (likewise trailer) — a plain FK cannot

@@ -40,10 +40,15 @@ paragraphs. This is a summary that orients, not a technical spec.
 
 **Destructive or irreversible actions get an extra sentence naming the blast
 radius explicitly** — what data is affected, and whether it is local-only or
-reaches a shared/production system. `SEED_RESET=1` is the worked example: it
-resets `packages/db/src/seed.ts`'s target database, and the sentence that
-matters is "this only touches your local Docker Postgres container, not
-production" plus "it wipes whatever is in that local database right now."
+reaches a shared/production system. `docker compose down -v` is the worked
+example: it destroys the Postgres volume, and the sentences that matter are
+"this only touches your local Docker containers, not production" plus "it wipes
+whatever is in that local database right now — you will need `make migrate` and
+`make provision` to sign in again."
+
+(The example used to be `SEED_RESET=1`. That env var, and the seed it reset,
+were deleted on 2026-09-13 — a reminder that a worked example goes stale like
+any other fact.)
 
 Then ask the actual question.
 

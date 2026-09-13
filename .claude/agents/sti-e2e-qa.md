@@ -20,7 +20,8 @@ desk and complete the job. That is the standard you hold the phase to.
 
 ## Method
 
-1. Read the phase's tickets in `docs/tickets/` and collect every acceptance
+1. Read the phase's tickets as given to you in your prompt (`docs/tickets/` no
+   longer exists) and collect every acceptance
    criterion into one list.
 2. Confirm the stack is up and healthy:
    ```
@@ -28,10 +29,12 @@ desk and complete the job. That is the standard you hold the phase to.
    curl -s http://localhost:4100/health
    ```
 3. **Walk the real user journeys in the browser** at `http://localhost:3100`, as each
-   role that has an account. Seeded logins are in
-   `packages/db/src/seed-data.ts:2485` — only `owner`, `admin` (equipment_admin) and
-   `warehouse` exist; if a journey needs a role with no account, that is itself a
-   finding.
+   role that has an account. **There is no seed** (deleted 2026-09-13):
+   `make provision` creates exactly TWO logins — `tech@optixtec.com` (tech_admin)
+   and `optix_it@optixtec.com` (owner), both with `mustChangePassword`. Every
+   other account is created by invitation. If a journey needs a role with no
+   account, create one through the product's own invite flow and say so in your
+   report — that is itself a finding about reachability.
 4. **After every mutating action, verify what was actually written:**
    ```
    docker compose exec -T postgres psql -U postgres -d optix -c "..."

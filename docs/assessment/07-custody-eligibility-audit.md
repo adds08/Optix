@@ -5,6 +5,11 @@
 **Answer:** there are **three sources of truth**, they **disagree**, and the one
 the UI obeys is the one that cannot be edited.
 
+
+> ⚠ **DATED SNAPSHOT — 2026-09-12, not current state.** See
+> [00-summary.md](00-summary.md) for the full list of what has changed since.
+> **SUPERSEDED 2026-09-14 by `b99b84f`.** The defect was real and is fixed, but NOT the way this doc recommends: it proposes the TIER's column should win and `tbl_entity_role.can_hold_custody` be removed. The opposite happened — the LOGIN ROLE's column is what all six pickers read (a picker asks a tenant-wide question; a tier is per-project), the constant survives as a fallback, and the tier column stays for `put-on-job-form`. See `apps/web/lib/custodians.ts`. Do not action the plan in section 'Recommended fix'.
+
 ---
 
 ## The three sources

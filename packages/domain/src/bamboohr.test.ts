@@ -131,7 +131,7 @@ describe("BambooHR employee adapter", () => {
     });
 
     it("reaches on_leave, which nothing could previously produce", () => {
-      /* `EMPLOYMENT_STATUSES` has three values and `status` carries two, so
+      /* `EMPLOYMENT_STATUSES` has four values and `status` carries two, so
          until `employmentStatusName` was requested this enum member had no
          source at all — dead by construction. */
       expect(normaliseBambooStatus("Active", "Leave of Absence")).toBe("on_leave");

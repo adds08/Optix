@@ -5,6 +5,11 @@
 **Purpose:** record what each entity holds, how complete it is, and what a real
 import must supply — so the wipe destroys data, not knowledge.
 
+
+> ⚠ **DATED SNAPSHOT — 2026-09-12, not current state.** See
+> [00-summary.md](00-summary.md) for the full list of what has changed since.
+> This one is history BY DESIGN — it records the register immediately before the wipe, so its counts describe data that no longer exists. That is the point of it. The only stale detail: the database it names `stinventory` is now `optix`.
+
 ---
 
 ## Row counts at time of audit

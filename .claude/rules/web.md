@@ -16,9 +16,18 @@ the `(app)` route group:
 `/tools` + `/tools/[id]` · `/equipment` + `/equipment/[id]` · `/custody` · `/jobsites` · `/map` ·
 `/reports` + `/reports/[slug]` + `/reports/charts/[slug]` + `/reports/audit-trail` ·
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/org-chart` ·
-`/admin/roles` · `/my-tools` · `/profile` · `/account/password` ·
-`/settings` + `/settings/ai` + `/settings/appearance` + `/settings/modules` +
-`/settings/team-roles` · `/onboarding/progress` · `/design/*`
+`/my-crew` · `/project-teams` · `/claim-a-job` · `/my-tools` · `/profile` · `/account/password` ·
+`/settings` + `/settings/ai` + `/settings/appearance` + `/settings/integrations` +
+`/settings/job-titles` + `/settings/modules` + `/settings/roles` + `/settings/team-roles` ·
+`/onboarding/progress`
+
+Enumerated from `find apps/web/app -name page.tsx` on 2026-09-14, not from memory —
+this list had drifted five routes out of date.
+
+**There is no `/admin` section.** `/admin/roles` became `/settings/roles` on 2026-09-14
+(both old paths 308 to it, `next.config.mjs`), and `/admin/users` was deleted on
+2026-08-28 with account administration moving onto the person's row in `/people`.
+**There is no `/design/*`** — nothing under `apps/web/app` serves it.
 
 **`/job-groups` was DELETED on 2026-09-03**, and job groups are alive and well — those are
 two different statements and the second is the important one.
@@ -426,8 +435,8 @@ buttons — it is an approval queue, and its primary action should not cost a
 click to reach. The Inbox's Recognized rows are the same case: Do it / Decline
 are the row's whole purpose, the queue is short by construction (nothing past
 the first screen of requests), and hiding the action behind a menu would put a
-click between the desk and every settlement. Panel headers (`admin/roles`,
-`job-groups`) keep their buttons too; a primary Save behind an ellipsis is a
+click between the desk and every settlement. Panel headers (`settings/roles`, the
+job-group modal) keep their buttons too; a primary Save behind an ellipsis is a
 regression, not consistency.
 
 ## Nothing moves when you tick a checkbox

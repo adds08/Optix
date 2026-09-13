@@ -16,9 +16,10 @@ import type { Context } from "./trpc.js";
   `inbox.classified` never SELECTED that status and the completed filter never
   counted it — so a dismissed MESSAGE was in none of the three buckets and
   disappeared from the desk entirely, contradicting the header comments on both
-  the router and the page. `processing_status` is plain text with no enum, so
-  nothing at the database level catches a status a query forgets; this test is
-  the only thing that does. Case 4 fails before the fix and passes after.
+  the router and the page. `processing_status` is CHECK-constrained since
+  migration 0072, but a constraint governs what may be WRITTEN, not what a
+  query remembers to READ — nothing at the database level catches a status a
+  query forgets, so this test is still the only thing that does. Case 4 fails before the fix and passes after.
 
   The task half already worked (`status: "cancelled"` is in
   TERMINAL_TASK_STATUSES) — it is here to guard the path that was fine.

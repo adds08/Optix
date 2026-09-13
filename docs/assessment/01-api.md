@@ -6,6 +6,11 @@
 **Method:** mechanical extraction of all 68 query sites lacking a literal tenant predicate, followed by reading every one; router-by-router read; live database verification of the two defects that could be proven.
 **Verdict:** **The strongest layer in the system.** Authorization is build-enforced, input validation is airtight, and tenant isolation is far better than a hand-written-predicate design would suggest. Two real defects, one of them user-facing today.
 
+
+> ⚠ **DATED SNAPSHOT — 2026-09-12, not current state.** See
+> [00-summary.md](00-summary.md) for the full list of what has changed since.
+> Fixed since: unscoped tenant lookups in `notifications.ts`/`notify.ts`, the `role.create` and vehicle/projectGroup multi-writes (now transactional), and the `resolveByName` N+1 (now memoised). Counts have moved: 170 procedures, 34 unique indexes. **Still open:** `messaging.ts` `from "message"` and `db: any` in `location.ts`.
+
 ---
 
 ## Correction: the procedure count was wrong

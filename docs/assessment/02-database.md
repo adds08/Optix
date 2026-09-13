@@ -7,6 +7,11 @@
 
 Every finding below is marked CONFIRMED (verified by query or file read) or NOTED (observation, no defect proven).
 
+
+> ⚠ **DATED SNAPSHOT — 2026-09-12, not current state.** See
+> [00-summary.md](00-summary.md) for the full list of what has changed since.
+> Fixed since: **23 CHECK constraints** now exist (migrations 0072/0073) where this doc counts 0 — `pgEnum` is still 0 and always deliberately so. 73 migrations, not 69. The database it queried as `stinventory` is now `optix`, and the `seed*.ts` files it cites were deleted 2026-09-13 (`git show bd98798:<path>`).
+
 ---
 
 ## Summary table

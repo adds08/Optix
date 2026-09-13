@@ -39,10 +39,24 @@
 --   tbl_entity_vehicle.vehicle_type    NEEDS A PRODUCT DECISION. Two
 --       authoritative sources contradict each other: `types/enums.ts` calls
 --       truck/trailer load-bearing literals (the assignment composite FKs
---       depend on them), while `schema/location.ts:85` documents this column as
+--       depend on them), while `schema/location.ts` documented this column as
 --       holding an arbitrary plant type when equipment_class = 'heavy'.
---       Constraining it would silently close the door on heavy plant. Left open
---       until somebody decides, rather than deciding it here by accident.
+--
+--       *** RESOLVED THE SAME DAY BY MIGRATION 0073 — this column IS
+--       constrained, and the exemption list above is three columns, not four.
+--       The contradiction was settled by enumerating the WRITERS rather than
+--       weighing the two comments: all four (vehicle.create, vehicle.update,
+--       the CSV importer, provisioning) bind to VEHICLE_TYPES, so no plant type
+--       has ever been writable. The `schema/location.ts` comment cited above
+--       was the stale one and has been corrected, so it no longer says what it
+--       is quoted here as saying. The fear below — that constraining it would
+--       close the door on heavy plant — was disproven: heavy plant is
+--       `equipment_class`, which nothing references and stays open. ***
+--
+--       Left open here only because the question was still open when this file
+--       was written. Corrected in place rather than left to mislead: an applied
+--       migration is normally immutable, but this is a comment-only edit to the
+--       file a reader opens to learn which columns are enforced.
 --
 -- NULL passes a CHECK by definition, so nullable columns keep being nullable.
 -- Where null is MEANINGFUL it is noted below.

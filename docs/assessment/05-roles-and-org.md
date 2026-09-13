@@ -4,6 +4,11 @@
 **Status:** analysis complete, implementation not started
 **Source:** live queries against the Urban tenant + a read-only probe of Urban's production BambooHR
 
+
+> ⚠ **DATED SNAPSHOT — 2026-09-12, not current state.** See
+> [00-summary.md](00-summary.md) for the full list of what has changed since.
+> Built since: the jobTitle→role mapping this doc lists as "NOT YET STARTED" — `company_role.default_role_id` (migration 0071), `/settings/job-titles`, and the sync now fills `employee.role_id` from it. One correction: an unmapped title means **NULL / no opinion**, NOT `crew` as planned here. The BambooHR probe numbers are a dated external observation and stand.
+
 ---
 
 ## 1. The role model has FOUR axes

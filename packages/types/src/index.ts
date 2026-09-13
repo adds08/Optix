@@ -480,7 +480,8 @@ export const AUTH_TOKEN_KINDS = ["invite", "reset"] as const;
 export type AuthTokenKind = (typeof AUTH_TOKEN_KINDS)[number];
 
 // ---------------------------------------------------------------------------
-// SLA / tenant config keys (tenant-scoped, not code).
+// Tenant config keys (tenant-scoped, not code). NO SLA cadences — all three
+// were dropped by migration 0070; nothing in this product falls due.
 // ---------------------------------------------------------------------------
 export const DEFAULT_HIGH_VALUE_THRESHOLD = 5000;
 

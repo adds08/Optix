@@ -284,8 +284,9 @@ not asked for one.
 > handing a tool to another foreman — the tool moving immediately while ownership did not, with
 > the desk confirming afterwards. **Urban does not work that way**: tools are moved by the
 > equipment desk, and a foreman does not reassign one. Foremen no longer hold
-> `assignment.create` or `transfer.create` at all (`packages/db/src/seed.ts` — "read-only on
-> custody by design"), so no actor can reach this function without already holding the approve
+> `assignment.create` or `transfer.create` at all (`packages/db/src/role-perms.ts:203-206`,
+> which records that they used to and that it is what made a foreman-to-foreman borrow
+> possible), so no actor can reach this function without already holding the approve
 > permission, and the question had one answer.
 >
 > This stale three-outcome table misled ticket STI-105 into specifying a "borrow vs held"
@@ -294,8 +295,9 @@ not asked for one.
 > `rules.ts` is the real documentation.
 
 `>=` not `>` is pinned (`rules.test.ts`). Null cost counts as 0, not "needs approval" —
-imported rows routinely have no price. Since STI-108 the seed carries an asset priced at
-exactly the threshold, so the boundary is exercisable from a clean database.
+imported rows routinely have no price. The boundary is NO LONGER exercisable from a clean
+database: the seed that carried an asset priced at exactly the threshold was deleted
+2026-09-13, and `make provision` writes no assets at all. `rules.test.ts` still pins it.
 
 Callers currently disagree on two details: which permission means "can approve"
 (`assignment.approve` vs `transfer.approve`) and the threshold fallback (`?? null` in the

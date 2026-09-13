@@ -114,7 +114,10 @@ export const employee = pgTable(
     */
     departmentId: uuid("department_id").references(() => department.id, { onDelete: "set null" }),
     primaryProjectId: uuid("primary_project_id").references(() => project.id, { onDelete: "set null" }),
-    employmentStatus: text("employment_status").notNull().default("active"), // active | terminated | on_leave
+    /* FOUR values, not three — `inactive` IS written, by routers/project.ts.
+       EMPLOYMENT_STATUSES is the authority, and `employee_employment_status_check`
+       (migration 0072) is the floor under it. */
+    employmentStatus: text("employment_status").notNull().default("active"), // active | inactive | terminated | on_leave
     terminatedAt: timestamp("terminated_at", { withTimezone: true }),
     /*
       A SOURCE SYSTEM'S opinion that this person has left, distinct from

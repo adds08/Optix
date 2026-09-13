@@ -5,6 +5,11 @@
 **Method:** full read of `packages/auth/src/*`, auth route read, live session-table queries
 **Verdict:** **Sound, with one architectural trade-off worth stating explicitly** (finding 1). The cryptographic choices are correct and, unusually, each one is justified in a comment.
 
+
+> ⚠ **DATED SNAPSHOT — 2026-09-12, not current state.** See
+> [00-summary.md](00-summary.md) for the full list of what has changed since.
+> Re-check against code before acting: this predates the 2026-09-14 work (the `@optix/*` rename, 23 CHECK constraints, and `packages/auth/src/secrets.ts`'s salt becoming `optix:secret:v2`).
+
 ---
 
 ## Summary table
