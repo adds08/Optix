@@ -2,7 +2,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@stinventory/db/schema";
-import { EQUIPMENT_CLASSES, vehicleStatus, type VehicleStatus } from "@stinventory/types";
+import { EQUIPMENT_CLASSES, LOCATION_TYPES, vehicleStatus, type VehicleStatus } from "@stinventory/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { visibleProjectScope } from "../scope.js";
 import { TRPCError } from "@trpc/server";
@@ -462,7 +462,12 @@ export const locationRouter = router({
   create: requirePermission("location.manage")
     .input(
       z.object({
-        type: z.string(),
+        /* LOCATION_TYPES, not `z.string()`. This accepted any string until
+           2026-09-14 — the constant existed and this router did not import it,
+           so a typo reached the column and every screen that switched on the
+           type fell through to no branch. Migration 0072 is the floor under
+           this; this is the readable error above it. */
+        type: z.enum(LOCATION_TYPES),
         name: z.string().min(1).max(200),
         warehouseId: z.string().uuid().optional(),
         projectId: z.string().uuid().optional(),
@@ -483,7 +488,7 @@ export const locationRouter = router({
       z.object({
         id: z.string().uuid(),
         name: z.string().min(1).max(200).optional(),
-        type: z.string().max(40).optional(),
+        type: z.enum(LOCATION_TYPES).optional(),
         warehouseId: z.string().uuid().nullable().optional(),
         projectId: z.string().uuid().nullable().optional(),
       }),

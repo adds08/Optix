@@ -79,7 +79,12 @@ describe.skipIf(!url)("team-role Set-by (STI-503)", () => {
       employeeId,
       role,
       startedOn: new Date().toISOString().slice(0, 10),
-      source: "manual",
+      /* `manual_entry`, not "manual" — TEAM_SOURCES. This fixture inserts
+         directly, so nothing validated it until the CHECK constraint landed
+         (migration 0072). Two different columns in this schema are called
+         `source` and their vocabularies are disjoint: a task's is
+         chat|manual, a team member's is manual_entry. */
+      source: "manual_entry",
     });
   }
 

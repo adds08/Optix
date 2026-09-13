@@ -8,7 +8,7 @@ import { logEvent } from "../audit.js";
 import { crewEmployeeIds, visibleProjectScope } from "../scope.js";
 import { moveEmployeeToProject } from "../project-assign.js";
 import { userRouter } from "./user.js";
-import { PROJECT_STATUSES } from "@stinventory/types";
+import { EMPLOYMENT_STATUSES, PROJECT_STATUSES } from "@stinventory/types";
 
 /*
   A JOB CODE IS HOW PEOPLE TELL TWO JOBS APART.
@@ -446,7 +446,10 @@ export const employeeRouter = router({
            a spread of a mismatched key is silently dropped by Drizzle, so the
            badge number would stop persisting and nothing would fail. */
         externalId: z.string().optional(),
-        employmentStatus: z.string().optional(),
+        /* EMPLOYMENT_STATUSES, not `z.string()`. Any string reached this
+           column until 2026-09-14, including the `terminated`/`inactive` pair
+           that half the register's filters switch on. */
+        employmentStatus: z.enum(EMPLOYMENT_STATUSES).optional(),
         reportsToEmployeeId: z.string().uuid().optional(),
       }),
     )
@@ -644,7 +647,7 @@ export const employeeRouter = router({
         /* `employee.code` on the wire — see the note on `create`. Remapped
            below before the patch is built, for the same reason. */
         externalId: z.string().max(60).nullable().optional(),
-        employmentStatus: z.string().max(30).optional(),
+        employmentStatus: z.enum(EMPLOYMENT_STATUSES).optional(),
         reportsToEmployeeId: z.string().uuid().nullable().optional(),
       }),
     )
