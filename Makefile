@@ -47,7 +47,7 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev up down restart build rebuild logs ps reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
+.PHONY: help dev up down restart build rebuild logs ps provision reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -92,6 +92,16 @@ reset-bare: ## Empty the register (no employees/tools/jobs), KEEP the logins
 		-v ON_ERROR_STOP=1 -f /dev/stdin < packages/db/sql/empty-register.sql
 
 
+# The authority model and the two logins — NOT a seed. It writes no employees,
+# jobs, tools or vehicles; those come from the importers and the BambooHR sync.
+# Idempotent: safe to re-run, never deletes, never changes an existing password.
+provision: ## Create the tenant, roles, tiers and the two admin logins (idempotent)
+	$(COMPOSE) exec -T \
+		-e TENANT_NAME="$(TENANT)" -e TENANT_SLUG="$(SLUG)" \
+		-e ADMIN_PASSWORD="$(ADMIN_PASSWORD)" \
+		-e TECH_ADMIN_EMAIL="$(TECH_ADMIN_EMAIL)" -e OWNER_EMAIL="$(OWNER_EMAIL)" \
+		api sh -c "cd /workspace/packages/db && pnpm provision"
+
 generate: ## Generate a migration from schema changes (commit the result)
 	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm generate"
 
@@ -118,7 +128,8 @@ reset: ## Wipe DB volume + restart + migrate. Leaves an EMPTY register. (DESTRUC
 	@echo "[reset] waiting for api to start…"
 	@sleep 6
 	$(MAKE) migrate
-	@echo "[reset] empty register. Import real data — see docs/import/README.md"
+	$(MAKE) provision
+	@echo "[reset] empty register, two logins. Import real data — see docs/import/README.md"
 
 test: ## Run vitest inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm test"

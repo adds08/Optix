@@ -16,7 +16,8 @@
     "studio": "drizzle-kit studio",
     "clean": "rm -rf dist .turbo",
     "push:dangerous": "drizzle-kit push",
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "provision": "tsx src/provision.ts"
   },
   "dependencies": {
     "@stinventory/types": "workspace:*",

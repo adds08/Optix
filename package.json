@@ -15,7 +15,8 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "db:migrate": "pnpm --filter @stinventory/db migrate",
     "db:studio": "pnpm --filter @stinventory/db studio",
-    "db:generate": "pnpm --filter @stinventory/db generate"
+    "db:generate": "pnpm --filter @stinventory/db generate",
+    "db:provision": "pnpm --filter @stinventory/db provision"
   },
   "devDependencies": {
     "turbo": "^2.3.0",
