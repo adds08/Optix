@@ -329,3 +329,157 @@ untested pair is visibly untested rather than assumed.
 **Do not fix anything.** If a defect is one character, still do not fix it —
 write it down. And do not report a test you did not run as passing: say which
 of the 64 pairs and 15 ordering cases you actually executed.
+
+---
+
+# PART TWO — battle test
+
+Part One (§1–§8) is the ordered walk: does onboarding do what it says. Part Two
+is adversarial: **where does it break.** Run Part One first — a break you
+cannot attribute to a rule is just noise.
+
+Everything here is localhost. Nothing here touches a remote host.
+
+## 9. What is already proven — do not re-prove it
+
+**107 API-layer tests already cover this area.** Read them before you start, or
+you will spend a day re-discovering passing behaviour:
+
+| File | Tests | Covers |
+|---|---|---|
+| `onboarding-geo-and-crew.test.ts` | 32 | geo capture, crew building |
+| `onboarding.test.ts` | 24 | the wizard's state machine |
+| `onboarding-project-teams.test.ts` | 11 | placing people on teams |
+| `team-role-ladder.test.ts` | 11 | the ladder itself |
+| `tier-claimable.test.ts` | 11 | who may claim what |
+| `team-role-set-by.test.ts` | 7 | the Set-by edges |
+| `project-team-move.test.ts` | 6 | moving between jobs |
+| `tier-ladder-authority.test.ts` | 5 | `canAssignIntoTier` |
+
+**There are ZERO browser tests.** Nobody has ever checked whether the SCREENS
+honour the rules the API enforces. That is the gap, and it is where a real user
+gets hurt: a rule correct in `canAssignIntoTier` and wrong in a dropdown is
+invisible to all 107 of those tests.
+
+So bias your effort: **the API rules are probably right, the screens are
+unproven.** For every refusal in §3, the question is not "does the server
+refuse" (tested) but "does the UI offer it anyway".
+
+## 10. The twelve login roles and what they hold
+
+This is the LOGIN role (`/settings/roles`), not the job tier. Three hold
+everything; the other nine are where the interesting failures live.
+
+| Role | Grants | Notable |
+|---|---|---|
+| `owner`, `tech_admin`, `equipment_admin` | **ALL** (spread) | see the warning below |
+| `office_admin` | 18 | `user.manage`, `employee.manage`, `project.manage`, `assets.view.all` — but NO custody |
+| `warehouse` | 21 | the desk: `asset.manage`, `assignment.create`, `custody.reassign`, `assets.view.all` |
+| `superintendent` | 15 | `assignment.approve`, `transfer.approve`, `assets.view.crew` |
+| `foreman` | 11 | read-only on custody by design, `assets.view.own` |
+| `mechanic` | 10 | `assets.view.own`, no project.team.read |
+| `read_only` | 8 | `assets.view.all` and nothing that writes |
+| `procurement` | 6 | `assets.view.all`, `asset.read` |
+| `hr` | 6 | `employee.manage`, `assets.view.all` — but NO `asset.read` |
+| `finance` | 6 | `audit.read`, `assets.view.all` |
+
+**The spread is evaluated when provisioning RUNS.** `[...PERMISSIONS]` means
+"everything as of the day this database was provisioned", not "always
+everything". A permission added later reaches a fresh database and no existing
+one. Verify the three all-holders actually hold all 35 today:
+
+```sql
+SELECT r.name, count(*) FROM tbl_entity_role r
+JOIN tbl_entity_role_permission rp ON rp.role_id = r.id
+GROUP BY r.name ORDER BY 2 DESC;
+```
+
+### 10.1 The combinations worth attacking
+
+Each is a real question the grants raise. Answer each with evidence.
+
+| # | Role | The question |
+|---|---|---|
+| **P1** | `office_admin` | Holds `user.manage` AND `employee.manage` but no custody. Can they grant themselves a custody role, then act on it? That is privilege escalation in two legal steps. |
+| **P2** | `office_admin`, `warehouse` | **The ladder bypass.** `canAssignIntoTier` short-circuits on `hasAdminPermission`, which is `session.permissions.has("project.team.assign")` (`routers/projectTeam.ts:224`). BOTH these roles hold it — so both bypass every one of §3's 40 refusals, including "nobody can place a Director". Verify that is intended, and that no OTHER role has picked it up. Run §3 as each of them and record which refusals still hold. |
+| **P3** | `hr` | Holds `assets.view.all` but NOT `asset.read`. A scope for a register they cannot open. Does `/tools` 403, render empty, or leak? |
+| **P4** | `finance` | Holds `audit.read` — the full ledger — but sees no custody screens. Can they read the audit trail and reconstruct who holds what? Is that intended? |
+| **P5** | `procurement` | `assets.view.all` + `asset.read` and nothing else. Confirm they cannot write anything, anywhere, by any route. |
+| **P6** | `read_only` | Same, plus more read surface. Every mutating button must be absent or refuse. |
+| **P7** | `superintendent` | `assets.view.crew` — crew is derived from PROJECT ROSTER, not `reportsTo`. On a job with no roster rows, what do they see? |
+| **P8** | `foreman` | `assets.view.own` and no `assignment.create`. Verify they cannot hand a tool to another foreman by ANY route — UI, chat, or a direct tRPC call. |
+| **P9** | `mechanic` | No `project.team.read`. Do crew screens break or hide cleanly? |
+| **P10** | `warehouse` | `custody.reassign` is powerful. Can they reassign across projects they have no tier on? |
+| **P11** | any | Two login roles on one account. `currentRole` throws CONFLICT on >1. Force it in the DB and see what the UI does. |
+| **P12** | any | A user with a login role but NO employee row. `user.create` documents this as legal. What do the scoped reads resolve to? |
+
+## 11. Crew management — where to push
+
+Crew is derived from **project roster membership**, NOT `employee.reportsToEmployeeId`
+(changed 2026-08-23). Anything that still reads `reportsTo` for scoping is a
+finding.
+
+| # | Attack |
+|---|---|
+| **C1** | Build a crew, then remove the superintendent from the project. Who can see that crew now? |
+| **C2** | Put one person on two projects with DIFFERENT tiers. Foreman on A, crew on B. Does each job show the right one? |
+| **C3** | Put one person on ONE project with TWO tiers. No unique index prevents it, and `canAssignIntoTier` takes a Set. Which wins? |
+| **C4** | Remove somebody from a project while they hold tools. Where do the tools go? Do they still appear on the jobsite card? |
+| **C5** | A crew with no foreman. A foreman with no superintendent. A job with nobody. Each is legal — do the screens say so honestly, or show an empty state that reads as an error? |
+| **C6** | Terminate an employee who holds tools and a tier. Do they vanish from pickers? They must remain visible to clearance. |
+| **C7** | Two people editing the same crew at once. Last-write-wins, or a conflict? |
+| **C8** | A crew member whose login role is changed mid-session. Does their session pick it up? (Permissions resolve per request, not cached.) |
+
+## 12. Project assignment — where to push
+
+| # | Attack |
+|---|---|
+| **J1** | Assign somebody to a project they cannot see. Refused, or silently succeeds? |
+| **J2** | Claim a job that is already claimed (`claimProject`). Two people, simultaneously. |
+| **J3** | Claim a CLOSED job. |
+| **J4** | `unclaimProject` on a job where you are the only leader, while others are staffed under you. Are they orphaned? |
+| **J5** | Assign a tier to somebody whose login role has `needsLogin: false` (crew). Legal — verify it does not create a ghost login. |
+| **J6** | Move a person between projects while they hold tools (`project-team-move`). Tools follow the foreman — verify. |
+| **J7** | Delete/close a project with an active roster and live custody. |
+| **J8** | Assign the same person to the same project twice. |
+| **J9** | Give somebody a tier on a project, then remove the TIER itself from `/settings/team-roles`. What happens to the rows pointing at it? |
+| **J10** | Cross-tenant: take a projectId from another tenant and pass it to every assignment procedure. **Every one must refuse.** |
+
+## 13. How to attack, not just test
+
+Part One asks "does it work". Part Two asks "what did nobody think about".
+
+1. **Go around the UI.** The screens may hide a button the server still
+   accepts. Call tRPC directly with a session cookie from a lower-privileged
+   login and try the thing the UI would not offer. That is the real
+   authorisation boundary, and §3's 40 refusals are only proven when the
+   SERVER refuses them.
+2. **Race everything.** Two claims, two approvals, two crew edits, submitted
+   together. The loser must get a clear conflict, never a duplicate.
+3. **Interrupt everything.** Close the tab mid-wizard. Kill the API container
+   mid-request (`docker compose restart api`). Reload during a save.
+4. **Use the back button.** Complete a step, go back, resubmit.
+5. **Feed it the boundary.** Empty strings, 500-character names, emoji, a uuid
+   from another tenant, a uuid that does not exist, `null` where the form
+   expects a choice.
+6. **Check the database after every write.** A green screen is not evidence:
+   `docker compose exec -T postgres psql -U postgres -d optix -c "..."`
+7. **Watch the API log while you click.** `docker compose logs -f api`. A 500
+   that the UI swallows into "something went wrong" is a finding the screen
+   will never show you.
+
+## 14. What counts as a finding
+
+All of these, not just crashes:
+
+- A refusal with **no message** — correct behaviour, unacceptable delivery.
+- A button that **appears to work and does nothing**.
+- An **empty state that reads as an error** ("no crew" when the job genuinely
+  has none).
+- A screen that **offers an action the server then refuses** — the UI and the
+  rule disagreeing is the defect, whichever one is right.
+- A **number that disagrees** between two screens showing the same thing.
+- **Order dependence**: the same steps in a different order reaching a
+  different end state (§4).
+- Anything you had to **read the code to understand** — that is a UX finding
+  even when the behaviour is correct.
