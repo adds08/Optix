@@ -32,7 +32,6 @@ export default function SettingsPage() {
   });
 
   const [threshold, setThreshold] = useState(5000);
-  const [escalateDays, setEscalateDays] = useState(3);
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(false);
 
@@ -51,7 +50,6 @@ export default function SettingsPage() {
 
   useHydrateOnce(s, (v) => {
     setThreshold(Number(v.highValueThreshold ?? 5000));
-    setEscalateDays(Number(v.overdueEscalateAfterDays ?? 3));
     setEmailEnabled(!!v.emailEnabled);
     setSmsEnabled(!!v.smsEnabled);
     setSmtpHost(v.smtpHost ?? "");
@@ -137,26 +135,19 @@ export default function SettingsPage() {
             badged in the register, and handing it over needs a second signature.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">High-value threshold</label>
-            <Input
-              type="number"
-              value={threshold}
-              onChange={(e) => setThreshold(Number(e.target.value))}
-              min={0}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Chase an overdue loan after (days)</label>
-            <Input
-              type="number"
-              value={escalateDays}
-              onChange={(e) => setEscalateDays(Number(e.target.value))}
-              min={0}
-              max={365}
-            />
-          </div>
+        {/* One control, so no grid. This was a two-column row until 2026-09-14,
+            when "Chase an overdue loan after (days)" was removed: it saved a
+            number that drove nothing, because nothing in this product falls due
+            (migration 0070). A half-width box beside empty space reads as a
+            field that failed to load, so the survivor gets its own width. */}
+        <div className="max-w-xs space-y-2">
+          <label className="text-sm font-medium">High-value threshold</label>
+          <Input
+            type="number"
+            value={threshold}
+            onChange={(e) => setThreshold(Number(e.target.value))}
+            min={0}
+          />
         </div>
       </section>
 
@@ -312,7 +303,6 @@ export default function SettingsPage() {
             brandingName: brandingName.trim() || null,
             brandingLayoutMode,
             highValueThreshold: threshold,
-            overdueEscalateAfterDays: escalateDays,
             emailEnabled,
             smsEnabled,
             smtpHost: smtpHost.trim() || null,

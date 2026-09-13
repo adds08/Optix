@@ -117,9 +117,20 @@ export const tenantSettings = pgTable("tbl_entity_tenant_settings", {
   tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
   highValueThreshold: jsonb("high_value_threshold").$type<number>(),
   custodyApproverRole: text("custody_approver_role").default("equipment_admin"),
-  overdueEscalateAfterDays: jsonb("overdue_escalate_after_days").$type<number>(),
-  missingReviewSlaDays: jsonb("missing_review_sla_days").$type<number>(),
-  discrepancyReviewSlaDays: jsonb("discrepancy_review_sla_days").$type<number>(),
+  /*
+    No SLA cadences here, and that is deliberate — see migration 0070.
+
+    `overdue_escalate_after_days`, `missing_review_sla_days` and
+    `discrepancy_review_sla_days` were dropped on 2026-09-14. All three were
+    left over from the borrow/loan model migration 0012 removed: nothing in
+    this product falls due, so nothing goes overdue and no clock needs a
+    deadline to measure against. The first was editable on /settings and read
+    by nothing, which meant the screen accepted a number and promised a chase
+    that could never happen.
+
+    If a real escalation is ever built, it needs a due date to escalate FROM,
+    and that is a custody-model decision — not a column.
+  */
   emailEnabled: boolean("email_enabled").notNull().default(true),
   smsEnabled: boolean("sms_enabled").notNull().default(false),
 

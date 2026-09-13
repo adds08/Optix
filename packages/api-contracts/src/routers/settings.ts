@@ -55,9 +55,6 @@ const TEST_CONTEXT: ParseContext = {
 const PUBLIC_FIELDS = {
   highValueThreshold: schema.tenantSettings.highValueThreshold,
   custodyApproverRole: schema.tenantSettings.custodyApproverRole,
-  overdueEscalateAfterDays: schema.tenantSettings.overdueEscalateAfterDays,
-  missingReviewSlaDays: schema.tenantSettings.missingReviewSlaDays,
-  discrepancyReviewSlaDays: schema.tenantSettings.discrepancyReviewSlaDays,
   emailEnabled: schema.tenantSettings.emailEnabled,
   smsEnabled: schema.tenantSettings.smsEnabled,
   brandingName: schema.tenantSettings.brandingName,
@@ -136,9 +133,6 @@ export const settingsRouter = router({
       z.object({
         highValueThreshold: z.number().min(0).max(10_000_000).optional(),
         custodyApproverRole: z.string().max(40).optional(),
-        overdueEscalateAfterDays: z.number().int().min(0).max(365).optional(),
-        missingReviewSlaDays: z.number().int().min(0).max(365).optional(),
-        discrepancyReviewSlaDays: z.number().int().min(0).max(365).optional(),
         emailEnabled: z.boolean().optional(),
         smsEnabled: z.boolean().optional(),
         /* Null clears back to showing tenant.name as-is. */
