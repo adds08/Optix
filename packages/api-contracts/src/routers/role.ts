@@ -354,31 +354,46 @@ export const roleRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `There is already a role called "${input.name}".` });
       }
 
-      const [created] = await ctx.db
-        .insert(schema.role)
-        .values({ tenantId: tid, name: input.name, description: input.description ?? null })
-        .returning({ id: schema.role.id, name: schema.role.name });
-      if (!created) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create that role" });
-
       /*
-        Copying an existing role is the realistic way a new one gets made — "a
-        superintendent, but without approval" — and starting from blank means
-        an administrator ticking thirty boxes from memory, which is how a role
-        ends up with `config.manage` because it was next to something else.
+        The row and its grants in ONE transaction.
+
+        A role is not usable without its permissions — `rbac-matrix.test.ts`
+        puts it plainly: an account holding a role with no grants "can log in
+        and do nothing". So a failure between the two writes does not half-make
+        a role, it makes a broken one, and nothing on screen distinguishes it
+        from a role somebody deliberately left empty.
+
+        `setPermissions` below has done this since it was written; `create` was
+        the one that had not.
       */
-      if (input.copyFromRoleId) {
-        const source = await requireTenantRole(ctx.db, tid, input.copyFromRoleId);
-        const grants = await ctx.db
-          .select({ name: schema.rolePermission.permissionName })
-          .from(schema.rolePermission)
-          .where(eq(schema.rolePermission.roleId, source.id));
-        if (grants.length) {
-          await ctx.db
-            .insert(schema.rolePermission)
-            .values(grants.map((g) => ({ roleId: created.id, permissionName: g.name })))
-            .onConflictDoNothing();
+      const created = await ctx.db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(schema.role)
+          .values({ tenantId: tid, name: input.name, description: input.description ?? null })
+          .returning({ id: schema.role.id, name: schema.role.name });
+        if (!row) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create that role" });
+
+        /*
+          Copying an existing role is the realistic way a new one gets made — "a
+          superintendent, but without approval" — and starting from blank means
+          an administrator ticking thirty boxes from memory, which is how a role
+          ends up with `config.manage` because it was next to something else.
+        */
+        if (input.copyFromRoleId) {
+          const source = await requireTenantRole(tx, tid, input.copyFromRoleId);
+          const grants = await tx
+            .select({ name: schema.rolePermission.permissionName })
+            .from(schema.rolePermission)
+            .where(eq(schema.rolePermission.roleId, source.id));
+          if (grants.length) {
+            await tx
+              .insert(schema.rolePermission)
+              .values(grants.map((g) => ({ roleId: row.id, permissionName: g.name })))
+              .onConflictDoNothing();
+          }
         }
-      }
+        return row;
+      });
 
       await logEvent(ctx, {
         category: "auth", action: "role.create", entityType: "role",

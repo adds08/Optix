@@ -4,9 +4,11 @@ All notable changes are documented in this file. The product is called **Optix**
 the repository, the package scope and the storage keys still say STInventory, which
 is deliberate.
 
-Per-change detail — what was verified, what was found, what was deliberately not
-done — is in `docs/changelogs/`, indexed at `docs/changelogs/INDEX.md`. This file
-is the release-level summary.
+This file is the release-level summary. The per-change detail that used to sit in
+`docs/changelogs/` was deleted on 2026-09-12 along with the rest of `docs/`; the
+paths below are kept as written because they record what the release claimed at
+the time, not because the files are there. The current technical picture is
+`docs/assessment/`, and the import plan is `docs/import/README.md`.
 
 ## v1.0.0 — 2026-08-29 — "Optix for small tools implemented"
 
@@ -27,8 +29,11 @@ Known and deliberate at this tag:
 - `/home`'s fleet monitor is a wall-board and overlaps its own text on a phone.
   Routing narrow viewports to the `command` tab is the answer; it is a product
   decision, not a media query.
-- CSV export from the register reads the post-pagination row model, so it exports
-  one page.
+- ~~CSV export from the register reads the post-pagination row model, so it
+  exports one page.~~ **Wrong, corrected 2026-09-12.** The register's export is
+  `exportAll` in `apps/web/app/(app)/tools/page.tsx`, which maps the complete
+  unpaginated set. The defect is real but sits in `DataTable`, whose export
+  button the register never renders. See `docs/assessment/04-web.md`.
 - `role.can_hold_custody` and `uses_field_layout` are stored, seeded and editable,
   but the navigation and the custodian pickers still read hard-coded role lists.
 - Invite-only signup is wired end to end but no mailbox has been pointed at it.

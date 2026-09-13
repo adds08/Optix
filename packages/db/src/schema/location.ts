@@ -123,7 +123,7 @@ export const vehicle = pgTable(
       an improbable `1FTEW1KP6RKD` prefix that looks hand-typed. A constraint
       here would abort the whole import over a typo rather than let the row
       land and be corrected. Format is checked at the router edge and reported,
-      never enforced — see `docs/data/import/rejects.json` for what that found.
+      never enforced: refusing a row over a malformed VIN loses the whole vehicle.
     */
     vin: text("vin"),
     makeModel: text("make_model"),

@@ -53,13 +53,16 @@ from an API bug:
 ```bash
 TOK=$(curl -s -X POST http://localhost:4100/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"owner@stinventory.local","password":"stinventory-demo"}' \
+  -d '{"email":"optix_it@optixtec.com","password":"<from make provision>"}' \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["sessionId"])')
 
 curl -s http://localhost:4100/trpc/dashboard.kpis \
   -H "Authorization: Bearer $TOK"
 ```
-Log in as `warehouse@` or a foreman instead when the bug is about permissions —
+The per-role demo accounts went with the seed on 2026-09-13; `optix_it@` (owner)
+and `tech@optixtec.com` (tech_admin) are the only two that exist. When the bug is
+about permissions, create the role and an account for it rather than reaching for
+an address that no longer resolves —
 the outcome differs by role by design (`custodyOutcome`).
 
 **The tests** — 139 of them, all pure functions, all fast:

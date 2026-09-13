@@ -43,7 +43,7 @@ export const asset = pgTable(
       It was called `tag` until then, on the reasoning that a tag is a physical
       label rather than an id — still true, and it is why this stays NULLABLE:
       null means nobody has labelled the tool yet, which is normal for anything
-      imported from the yard's own sheets. See docs/built/17-optional-tags.md.
+      imported from the yard's own sheets.
 
       The other two identifiers on this table are NOT this, and neither replaces
       it: `assetNumber` is the database's own generated sequence, and
@@ -57,18 +57,17 @@ export const asset = pgTable(
       Vestigial. Nothing reads or writes through `asset_model` / `manufacturer` /
       `asset.modelId` — only the seed populates them and no router, intent or UI
       joins back. They look like an obvious duplicate of the flat make/model
-      columns below; leave the normalisation for its own change. See
-      docs/built/12-model-field-split.md.
+      columns below; leave the normalisation for its own change.
     */
     /* What the tool is, in the four columns Urban's own sheets use. Replaces the
-       single `model_name` blob — see docs/built/12-model-field-split.md. */
+       single `model_name` blob. */
     make: text("make"),
     modelNumber: text("model_number"),
     description: text("description"),
     /* The unlabelled trailing column on the trailer sheets: a secondary equipment
        number ("PC-08", "QS-602", "106"). Free text because the yard's numbering is
        not ours to constrain. Note this is NOT the sheets' "OTHER" column, which
-       holds NEW/USED and maps to `condition` — see docs/built/13-excel-round-trip.md. */
+       holds NEW/USED and maps to `condition`. */
     otherRef: text("other_ref"),
     categoryName: text("category_name"), // denormalized
     /* Shown to users as "Code" — the tool's serial number when the manufacturer
@@ -85,7 +84,7 @@ export const asset = pgTable(
     acquisitionDate: date("acquisition_date"),
     owningProjectId: uuid("owning_project_id").references(() => project.id, { onDelete: "set null" }),
     /* Which kind of thing pays for this tool. Set at registration and meant to
-       stay put, like owningProjectId — see docs/built/11-department-cost-targets.md. */
+       stay put, like owningProjectId. */
     costTarget: text("cost_target").notNull().default("project"), // 'project' | 'department'
     owningDepartmentId: uuid("owning_department_id").references(() => department.id, { onDelete: "restrict" }),
     warrantyExpiresOn: date("warranty_expires_on"),

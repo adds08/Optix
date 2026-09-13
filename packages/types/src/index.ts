@@ -435,15 +435,41 @@ export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
 export const CHANNEL_KINDS = ["department", "role_group"] as const;
 export type ChannelKind = (typeof CHANNEL_KINDS)[number];
 
+/*
+  `notification.type`, and every value below has a writer.
+
+  Corrected 2026-09-13. The list had drifted in BOTH directions and nothing
+  caught it, because the column is plain `text` and this type was imported by
+  no writer — the schema names it in a comment and that was the whole of the
+  enforcement.
+
+  What it used to claim: `overdue`, `maintenance_due`, `clearance_required`,
+  `missing`. All four are removed. `overdue` and its rental sibling went with
+  the borrow model on 2026-08-09 — `assignment.expected_end_date` was dropped
+  in migration 0012, nothing falls due, so nothing goes overdue. The other
+  three were aspirational and never had a writer at all.
+
+  What it missed: the five `request_*` and approval values the workers and the
+  approval path have been writing all along.
+
+  Grep before adding one — `grep -rn 'type: "' | grep -i notification` — and
+  add the writer in the same change. A value here with no writer is how the
+  last four got in.
+*/
 export const NOTIFICATION_TYPES = [
-  "overdue",
-  "maintenance_due",
-  "clearance_required",
+  /* A hand-off or assignment waiting for the desk to sign it off.
+     `packages/api-contracts/src/notify.ts`. */
   "approval_pending",
-  "missing",
+  /* The register disagrees with the ledger about who holds a tool. Raised by
+     the six-hourly reconciliation sweep in `apps/api/src/index.ts`, and
+     deliberately not deduped: a divergence that persists should keep nagging. */
   "custody_discrepancy",
-  /* A rented line past its end date and still on rent. Unlike an overdue owned
-     tool, this one is costing money every day it stays open. */
+  /* The conversational request path — `apps/api/src/request-worker.ts` for the
+     first two, `approve.ts` and the messaging/task routers for the rest. */
+  "request_pending",
+  "request_overdue",
+  "request_approved",
+  "request_declined",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

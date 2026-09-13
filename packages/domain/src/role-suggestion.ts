@@ -7,9 +7,8 @@
 
   WHY THIS IS NOT A MAPPING TABLE
 
-  There was one, and it was retired on 2026-09-09
-  (`docs/changelogs/2026-09-09-retire-hr-title-mapping-and-trim-the-people-menu.md`)
-  after the client opened a screen listing 131 job titles waiting to be told
+  There was one, and it was retired on 2026-09-09 after the client opened a
+  screen listing 131 job titles waiting to be told
   what they meant. The reasoning there still holds and is the reason this file
   is a function rather than a table:
 

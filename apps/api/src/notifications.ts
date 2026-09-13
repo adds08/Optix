@@ -9,11 +9,14 @@ import * as schema from "@stinventory/db/schema";
 import type { Database } from "@stinventory/db";
 import { mailConfigFor } from "@stinventory/api-contracts";
 import { esc, sendMail, type MailConfig } from "@stinventory/mail";
+import type { NotificationType } from "@stinventory/types";
 
 type NotificationInput = {
   tenantId: string;
   recipientEmployeeId: string | null;
-  type: string;
+  /* Not `string`: the column is typed, so an invented value is a compile error
+     here rather than a row on a bell nobody can render. */
+  type: NotificationType;
   refType?: string | null;
   refId?: string | null;
   title: string;

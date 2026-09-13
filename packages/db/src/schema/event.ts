@@ -1,3 +1,4 @@
+import type { NotificationType } from "@stinventory/types";
 import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant, user } from "./identity";
 import { asset } from "./asset";
@@ -68,7 +69,11 @@ export const notification = pgTable(
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
     recipientEmployeeId: uuid("recipient_employee_id").references(() => employee.id, { onDelete: "cascade" }),
     recipientUserId: uuid("recipient_user_id").references(() => user.id, { onDelete: "cascade" }),
-    type: text("type").notNull(), // NotificationType
+    /* Typed to `NotificationType` rather than bare `text`, so a writer that
+       invents a value is a compile error rather than a row nobody notices.
+       The column stays `text` in Postgres — there is no CHECK constraint, so
+       this binds the application and not psql. */
+    type: text("type").$type<NotificationType>().notNull(),
     refType: text("ref_type"),
     refId: uuid("ref_id"),
     title: text("title").notNull(),
