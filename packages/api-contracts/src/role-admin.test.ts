@@ -6,7 +6,7 @@ import { roleRouter } from "./routers/role.js";
 import type { Context } from "./trpc.js";
 
 /*
-  `/admin/roles` — editing what a role may do.
+  `/settings/roles` — editing what a role may do.
 
   This screen exists because `PERMISSION_MATRIX.md` was never returned by
   Urban, so Phase 3 shipped on defaults the customer had not seen. Rather than

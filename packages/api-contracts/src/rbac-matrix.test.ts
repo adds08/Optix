@@ -385,7 +385,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       /*
         **This asserts the FACTORY DEFAULT, not the live database.**
 
-        It used to assert the live one, and that was right until `/admin/roles`
+        It used to assert the live one, and that was right until `/settings/roles`
         shipped: an administrator can now tick permissions on and off, so the
         moment Urban adjusts anything the running database is SUPPOSED to
         differ from `role-perms.ts`. A test asserting otherwise would fail on

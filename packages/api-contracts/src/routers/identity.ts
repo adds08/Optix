@@ -55,7 +55,7 @@ export const identityRouter = router({
       client.
 
       `tbl_entity_role.uses_field_layout` has existed, been editable at
-      /admin/roles and been written by `role.update` for some time — and was
+      /settings/roles and been written by `role.update` for some time — and was
       never sent to any client. The web app instead kept its own
       `FIELD_ROLES = new Set(["foreman","superintendent","mechanic"])` and
       branched on the role NAME, so the administrator-facing toggle had no

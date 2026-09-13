@@ -109,7 +109,7 @@ export async function resolveCustodian(
       `role.can_hold_custody` first, the legacy name list second.
 
       The flag is the editable answer — an administrator ticking the box on
-      /admin/roles is how a tenant says a Field Engineer carries tools — and
+      /settings/roles is how a tenant says a Field Engineer carries tools — and
       `CUSTODIAN_ROLES` is kept only for rows with no login role joined, where
       the flag has nothing to say. The web pickers make the same choice in the
       same order (`apps/web/lib/custodians.ts`); if these two ever disagree the

@@ -74,7 +74,7 @@ import { TEAM_SOURCES, DEFAULT_TEAM_SOURCE, type Permission } from "@stinventory
   incomplete. See the comment on `project.team.assign` in
   packages/types.
 
-  NOT the login/permission role (`tbl_entity_role`, `/admin/roles`) and not a
+  NOT the login/permission role (`tbl_entity_role`, `/settings/roles`) and not a
   lookup between them. Confirmed deliberately separate after nearly conflating
   the two on 2026-09-03: the seed carries one person whose LOGIN role is
   `engineer` and whose TEAM role is `pm` — the two vocabularies diverge for the
@@ -878,7 +878,7 @@ export const projectTeamRouter = router({
 
         Surfaced here because the Job Tiers screen is where somebody reasons
         about the ladder, and "who can start one of these" is part of that
-        story. `/admin/roles` keeps its own checkboxes over the same data.
+        story. `/settings/roles` keeps its own checkboxes over the same data.
       */
       const claimRoles = await ctx.db
         .select({ id: schema.role.id, name: schema.role.name, claimTierNames: schema.role.claimTierNames })

@@ -107,7 +107,7 @@ const SETTINGS_GROUP: NavGroup = {
        its people sign in at all — and `/people` shows each person's account
        state in its own column. Inviting, resetting, deactivating and resending
        all live on the person's row menu. Don't add this back. */
-    { id: "roles-permissions", href: "/admin/roles", label: "Access Roles", icon: ShieldCheck, perm: "config.manage", desc: "What a signed-in account may see and do" },
+    { id: "roles-permissions", href: "/settings/roles", label: "Access Roles", icon: ShieldCheck, perm: "config.manage", desc: "What a signed-in account may see and do" },
     /* Distinct from "Roles & Permissions" above: that gates what an ACCOUNT
        may do, this defines the tiers a PERSON can hold on a project team —
        pm/superintendent/foreman today, whatever an organization adds
@@ -272,7 +272,7 @@ export const DESK_NAV: NavGroup[] = [
   as "the LAST role-name branch in the product" and "wrong by construction —
   a set of role names has to be edited every time a role is added". It was
   worse than that comment admitted. `tbl_entity_role.uses_field_layout` already
-  existed, was already editable at /admin/roles and was already written by
+  existed, was already editable at /settings/roles and was already written by
   `role.update` — but never reached any client, so the toggle an administrator
   flipped did NOTHING, and a role a tenant created could never get the field
   layout at all.

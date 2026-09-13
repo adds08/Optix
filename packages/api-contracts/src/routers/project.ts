@@ -372,7 +372,7 @@ export const employeeRouter = router({
 
           Six pickers used to filter on `CUSTODIAN_ROLES`, a compile-time
           constant of three role NAMES. `role.can_hold_custody` was stored,
-          seeded and editable on /admin/roles the whole time, and reading it
+          seeded and editable on /settings/roles the whole time, and reading it
           changed nothing — so an administrator could tick the box and watch
           the pickers ignore it, which is a screen that lies.
 

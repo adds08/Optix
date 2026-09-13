@@ -132,7 +132,7 @@ describe("the two role vocabularies stay separate (STI-301 problem 3)", () => {
 
 describe("the permission catalogue the role editor renders", () => {
   /*
-    `/admin/roles` lets an administrator tick permissions on and off. A
+    `/settings/roles` lets an administrator tick permissions on and off. A
     permission missing from PERMISSION_GROUPS is invisible on that screen —
     which means it can never be granted, and worse, a role that already holds
     it shows as not holding it. Silent, and exactly the kind of drift that

@@ -6,7 +6,7 @@ import { activeCustodians, canHoldCustody } from "./custodians";
 
   Six pickers filtered on `CUSTODIAN_ROLES` — three role names, compiled in —
   while `role.can_hold_custody` sat stored, seeded and editable on
-  /admin/roles with nothing reading it. Ticking the box changed nothing, and
+  /settings/roles with nothing reading it. Ticking the box changed nothing, and
   no test noticed, because every test asserted the CONSTANT against the SEED.
   Both were right about each other and neither was what the UI did.
 

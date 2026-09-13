@@ -227,7 +227,7 @@ export type Permission = (typeof PERMISSIONS)[number];
 /*
   What each permission means, in the words of somebody who runs a tool yard.
 
-  The role editor (`/admin/roles`) renders these. Without them the screen is a
+  The role editor (`/settings/roles`) renders these. Without them the screen is a
   list of dotted identifiers, and an administrator ticking `asset.manage`
   because it sounds harmless is worse than no screen at all — this is the
   surface where a wrong guess hands somebody the register.

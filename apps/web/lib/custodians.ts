@@ -7,7 +7,7 @@ import { CUSTODIAN_ROLES } from "@stinventory/types";
   `CUSTODIAN_ROLES`, a compile-time constant of three role names. Two of them
   ordered the conditions differently, one kept a second unfiltered list beside
   it, and all six ignored `role.can_hold_custody` — which is stored, seeded and
-  editable on /admin/roles, so ticking the box changed nothing anywhere.
+  editable on /settings/roles, so ticking the box changed nothing anywhere.
 
   An audit on 2026-09-12 found three flags answering this question in three
   places and disagreeing: the constant (foreman, superintendent, mechanic), the
