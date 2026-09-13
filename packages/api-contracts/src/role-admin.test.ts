@@ -226,7 +226,7 @@ describe.skipIf(!url)("role administration", () => {
 
     it("refuses to delete a BUILT-IN role", async () => {
       /* Not because the row is special: `role-perms.ts` and the seed both name
-         it, so the next SEED_RESET would recreate it and the RBAC test would
+         it, so the next `make provision` would recreate it and the RBAC test would
          assert against something that is not there. */
       await expect(admin().delete({ id: foremanRoleId })).rejects.toThrow(/built-in/i);
     });

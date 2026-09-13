@@ -122,8 +122,9 @@ statement says the same thing the code says instead of naming that day's list.
 - **One exception — the ledger is append-only by trigger.** `0014_append_only_ledger.sql`
   (STI-104) blocks UPDATE, DELETE and TRUNCATE on `transaction` with SQLSTATE `0A000`.
   Corrections are compensating INSERTs. It is a correctness guard, not a security
-  boundary — the owner can `DISABLE TRIGGER`, which is exactly what the seed's
-  `SEED_RESET` wipe does around its deletes.
+  boundary — the owner can `DISABLE TRIGGER`, which is exactly what
+  `sql/empty-register.sql` does around its deletes, re-arming it in the same
+  transaction.
 - **Enums are not Postgres enums.** Every status/type column is plain `text`; the vocabularies
   live in `packages/types`. The database will *not* stop you writing a value you forgot to
   add. Validate at the router edge with Zod, and use `z.enum(...)` rather than `z.string()`.

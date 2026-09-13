@@ -62,7 +62,7 @@ Recurring shapes worth calling out because they've come up before, and will agai
 - **New enum values, flags or columns not yet built** (`canRunAJob`, a rank field,
   a new `Permission` string) — say plainly that it does not exist yet, this is a
   proposal, and what table/file it would live in.
-- **`SEED_RESET`, `make reset`, `git reset --hard`, any wipe** — always state
+- **`make reset`, `make reset-bare`, `git reset --hard`, any wipe** — always state
   local-vs-shared scope and what is lost.
 - **Migrations** (`make generate`, `make migrate`) — state that it touches the
   real schema and is committed, distinct from a seed reset.

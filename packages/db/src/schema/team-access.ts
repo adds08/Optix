@@ -7,7 +7,7 @@ import { project } from "./project";
 export const projectAccessRestriction = pgTable("tbl_ops_project_access_restriction", {
   id: uuid("id").primaryKey().defaultRandom(),
   /* CASCADE on all three, matching every sibling table. Without it a tenant
-     cannot be deleted while a restriction exists — `SEED_RESET` and every test
+     cannot be deleted while a restriction exists — the register wipe and every test
      teardown failed on this FK, which is how orphan test tenants accumulated
      in the dev database (four before anyone looked, then six more). A
      restriction is meaningless once its tenant, project or person is gone. */

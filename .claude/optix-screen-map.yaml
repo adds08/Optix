@@ -4,10 +4,18 @@
 # nav-config.ts, the actual page/component source, docs/architecture/,
 # docs/changelogs/, and the assistant's persistent memory of this project.
 #
-# NOT derived-from-code-only like docs/architecture/*.md — this file is built
-# FROM memory and changelogs on purpose (see its own skill's rationale). Trust
-# it as a synthesis INDEX pointing back at those sources, not as a replacement
-# for them; `sources` on each entry says where a non-obvious claim came from.
+# NOT derived-from-code-only — this file is built FROM memory and changelogs on
+# purpose (see its own skill's rationale). Trust it as a synthesis INDEX, not as
+# a replacement for the source; `sources` on each entry says where a non-obvious
+# claim came from.
+#
+# STALE PROVENANCE, 2026-09-13. `docs/` was deleted on 2026-09-12, so every
+# `docs/architecture/*` and `docs/changelogs/*` in the `sources` fields below
+# names a file that is gone. They are left as written because they record where
+# a claim CAME FROM, which is still useful history — but do not follow one
+# expecting to find the file. The current technical picture is
+# `docs/assessment/`. A full rebuild through optix-map-evaluate would replace
+# these with live sources.
 #
 # Rebuild in full with the optix-map-evaluate skill. Sync code-derived fields
 # only (fast, no memory/changelog re-read) with optix-map-update.

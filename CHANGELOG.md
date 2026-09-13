@@ -34,8 +34,10 @@ Known and deliberate at this tag:
   `exportAll` in `apps/web/app/(app)/tools/page.tsx`, which maps the complete
   unpaginated set. The defect is real but sits in `DataTable`, whose export
   button the register never renders. See `docs/assessment/04-web.md`.
-- `role.can_hold_custody` and `uses_field_layout` are stored, seeded and editable,
-  but the navigation and the custodian pickers still read hard-coded role lists.
+- `role.can_hold_custody` is stored and editable and the six custodian pickers read a
+  hard-coded list instead — see `docs/assessment/07-custody-eligibility-audit.md`, which
+  found three flags disagreeing across three places. (`uses_field_layout` was named here
+  too and is NOT dead: `app-shell.tsx` reads it to pick the field layout.)
 - Invite-only signup is wired end to end but no mailbox has been pointed at it.
 - Vendors, purchase orders, cost codes and phases are not built.
 
@@ -162,13 +164,14 @@ is last-snapshot-wins, so `{ status: "in_maintenance" }` alone means custodian, 
 location are now null. `packages/types` covers the @ parser; `packages/api-contracts` covers
 the permission map that keeps chat from being a privilege escalation.
 
-**Production containers.** `docker/Dockerfile.{api,web,engine}` — multi-stage, non-root,
+**Production containers.** `docker/Dockerfile.{api,web}` — multi-stage, non-root,
 healthchecked, `NODE_ENV=production`, Next.js standalone output. `docker-compose.prod.yml`
 has restart policies, dependency gating, an unpublished database port, and required-variable
-syntax so it refuses to start without real secrets. The engine is in both compose files now;
-its absence from the dev one is why chat silently degraded to `pending_manual`.
+syntax so it refuses to start without real secrets. (This entry also claimed a third
+`Dockerfile.engine` and an engine service in both compose files. Neither exists — corrected
+2026-09-13.)
 
-**CI** (`.github/workflows/ci.yml`) — typecheck, tests, all three image builds, and a smoke
+**CI** (`.github/workflows/ci.yml`) — typecheck, tests, both image builds, and a smoke
 job that migrates a fresh Postgres and boots the API. The image build step exists precisely
 because a build that is never executed proves nothing.
 

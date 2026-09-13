@@ -88,7 +88,7 @@ export const ROLES = [
     receive, and inviting one produced an account holding nothing.
 
     They exist here because they are the only roles that may put themselves on
-    a job (`role.claimTierNames`, seeded in `seed.ts`). Everybody below them is
+    a job (`role.claimTierNames`, written by `make provision`). Everybody below them is
     placed by somebody above through the "Set by" chain, so nobody else needs a
     self-claim grant and none is given one. That is the whole bootstrap: without
     a role that can claim, an empty tenant has no way to record its first roster

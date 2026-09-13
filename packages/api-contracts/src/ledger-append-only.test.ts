@@ -73,7 +73,7 @@ describe.skipIf(!url)("ledger is append-only at the database (STI-104)", () => {
     if (db && tenantId) {
       /* This tenant owns ledger rows, so the cascade delete custody.test.ts
          uses would itself be blocked. Use the one sanctioned mechanism — the
-         same transactional disable/enable the seed's SEED_RESET wipe uses —
+         same transactional disable/enable the register wipe uses —
          so a shared dev database stays clean and the guard cannot be left off
          by an aborted cleanup. */
       await db.transaction(async (tx) => {

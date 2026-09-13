@@ -10,7 +10,7 @@ import { employee } from "./employee";
 // corrections are compensating INSERTs. Custom migrations are invisible to the
 // drizzle differ, so a later `generate` will never drop them. Two sanctioned
 // exceptions disable the trigger around their deletes, both inside a single
-// transaction so an abort re-arms it: the seed's SEED_RESET wipe (src/seed.ts) and
+// transaction so an abort re-arms it: the register wipe (sql/empty-register.sql) and
 // the append-only test's cleanup (api-contracts/src/ledger-append-only.test.ts).
 // Every projection (assets.current_*, assignments) is a fold over this table.
 export const transaction = pgTable(

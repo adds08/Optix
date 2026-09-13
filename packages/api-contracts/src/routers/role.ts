@@ -412,7 +412,7 @@ export const roleRouter = router({
       /*
         A built-in role is not deletable. Not because the row is special, but
         because `role-perms.ts` and the seed both name it: deleting `foreman`
-        would make the next `SEED_RESET` recreate it and the RBAC test assert
+        would make the next `make provision` recreate it and the RBAC test assert
         against something that is not there. Emptying its permissions is the
         supported way to retire one, and it leaves the accounts holding it
         signed in but unable to do anything — which is visible, unlike a role

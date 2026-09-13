@@ -2,7 +2,7 @@
   THE PERMISSION MATRIX, in code.
 
   This file is the single place the role -> permission mapping is written down
-  (STI-308 acceptance criterion 4). `seed.ts` writes it into `role_permission`;
+  (STI-308 acceptance criterion 4). `provision.ts` writes it into `role_permission`;
   `rbac-matrix.test.ts` asserts the database matches it in BOTH directions. If
   the test kept its own copy the two would drift and the test would start
   asserting history rather than policy — which is exactly how

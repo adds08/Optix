@@ -2,9 +2,12 @@
 -- Empty the register, keep the ability to sign in.
 --
 -- Run by `make reset-bare`. Asked for by the user on 2026-09-07 after a
--- half-finished BambooHR sync left 602 employees where 83 belonged: `make reset`
--- reseeds a full dataset, which is the wrong tool when what you want is to start
--- from nothing and pull the real roster in over the top.
+-- half-finished BambooHR sync left 602 employees where 83 belonged: what you
+-- want there is to start from nothing and pull the real roster in over the top,
+-- without losing the tenant or the ability to sign in.
+--
+-- Distinct from `make reset`, which drops the volume and re-provisions from
+-- scratch. This keeps the database and empties the register inside it.
 --
 -- WHAT SURVIVES, and each for a reason:
 --   tenant, permission, role, role_permission, user, user_role
@@ -19,7 +22,7 @@
 --       Configuration, not data. The high-value threshold and which modules are
 --       on are not things a roster reload should reset.
 --   category, uom_category, unit_of_measure, team_role
---       Static vocabularies shared by every dataset — `seed.ts` says a category
+--       Static vocabularies shared by every tenant — `tenant-config.ts` says a category
 --       and a unit of measure mean the same thing whichever register is loaded.
 --   asset_model, manufacturer
 --       Vestigial; nothing reads or writes them (see schema/asset.ts). Left
@@ -39,7 +42,7 @@ BEGIN;
 
 -- The ledger is append-only, enforced by trigger since 0014_append_only_ledger
 -- (STI-104). Both the direct delete below and the cascade from asset would raise
--- SQLSTATE 0A000 with it armed. `seed.ts`'s own wipe is the other sanctioned
+-- SQLSTATE 0A000 with it armed. This script is the only sanctioned
 -- exception; the guard is dropped for exactly this block and re-armed below.
 -- NEVER weaken the trigger itself.
 ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER "transaction_no_update_delete";

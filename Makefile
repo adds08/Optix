@@ -129,7 +129,9 @@ reset: ## Wipe DB volume + restart + migrate. Leaves an EMPTY register. (DESTRUC
 	@sleep 6
 	$(MAKE) migrate
 	$(MAKE) provision
-	@echo "[reset] empty register, two logins. Import real data — see docs/import/README.md"
+	@echo "[reset] empty register, two logins. The generated password is printed"
+	@echo "        above — set ADMIN_PASSWORD=... to choose it instead."
+	@echo "[reset] Import real data — see docs/import/README.md"
 
 test: ## Run vitest inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm test"
@@ -152,8 +154,9 @@ dev: up ## Start web + api + db, then print next steps
 	@echo "  API:     http://localhost:4100 (health: /health)"
 	@echo "  DB:      postgres://postgres:stinventory@localhost:5433/stinventory"
 	@echo ""
-	@echo "  Login:   admin@stinventory.local / stinventory-demo"
-	@echo "           foreman.miguel@stinventory.local  (field layout)"
+	@echo "  Login:   optix_it@optixtec.com   (owner)"
+	@echo "           tech@optixtec.com      (tech_admin, cross-tenant)"
+	@echo "           run 'make provision' if they do not exist yet"
 	@echo ""
 	@echo "  Mobile:  make mobile        (Expo — separate terminal)"
 	@echo "  Chat:    configure a model at /settings, then use /chat"

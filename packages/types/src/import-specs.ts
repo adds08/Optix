@@ -185,20 +185,11 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     ],
   },
 
-  /*
-    Rented equipment, shaped to match what a vendor actually exports.
-
-    The headers are United Rentals' own, verbatim, because the file Urban can
-    download has these columns and asking a yard clerk to rename them before
-    importing is how an import feature goes unused. One row is one line item,
-    with the contract fields repeated on every row — the importer groups them
-    back into orders by contract number.
-
-    `jobsite` is plain text, not a project ref. The vendor's name for a job
-    ("TXDOT PUMP STATION IMPROVEMENT") will not match Urban's, and a ref column
-    would reject every row of a real file. Linking happens afterwards, once,
-    per jobsite.
-  */
+  /* Trucks and trailers. They are also LOCATIONS — each one creates the
+     location row tools ride in, which is how "in trailer TE-011" is recorded
+     at all. (A rented-equipment spec sat here until 2026-09-13, describing a
+     United Rentals import that was built and then removed with the rental
+     model; it had been left above this entry, describing nothing.) */
   vehicle: {
     entity: "vehicle",
     label: "Vehicles",
