@@ -82,7 +82,28 @@ export const vehicle = pgTable(
     // control that writes it — until then no UI set this column at all, so
     // every row in the register held the default and `heavy` was unreachable.
     equipmentClass: text("equipment_class").notNull().default("vehicle"),
-    vehicleType: text("vehicle_type").notNull(), // truck | trailer (class 'vehicle'); plant type for 'heavy'
+    /*
+      truck | trailer, and ONLY those two — constrained at the database since
+      migration 0073.
+
+      This comment used to end "; plant type for 'heavy'", describing an
+      intention nobody ever built: all four writers (vehicle.create,
+      vehicle.update, the importer spec and the seedless provision) are bound
+      to `VEHICLE_TYPES`, so no plant type has ever been writable here. Read
+      beside `enums.ts`, which calls these load-bearing literals, the two
+      sources contradicted each other and the stale one was this.
+
+      They are load-bearing for a structural reason, not a stylistic one:
+      `assignment.truckId`/`trailerId` reference `vehicle_id_type_uq` on
+      `(id, vehicle_type)` through composite FKs with a generated constant.
+      That is the only way a plain FK can insist a truckId names a truck, so a
+      third value here — or retyping an existing row — breaks every assignment
+      referencing it.
+
+      Heavy plant is `equipment_class`, which is the CATEGORY question, has no
+      FK depending on it, and is free to grow.
+    */
+    vehicleType: text("vehicle_type").notNull(),
     /*
       CAPABILITY, not state. `canAttach` means this thing can tow or carry
       another piece of equipment; `isAttachable` means it can be towed or

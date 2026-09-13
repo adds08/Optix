@@ -1,0 +1,34 @@
+--
+-- The last of the closed vocabularies: `vehicle_type`.
+--
+-- Held back from migration 0072 because two sources contradicted each other.
+-- `types/enums.ts` called truck/trailer "load-bearing literals"; the column
+-- comment in `schema/location.ts` said it held "plant type for 'heavy'". One of
+-- those had to be wrong before a constraint could be written, and guessing
+-- which would either block heavy plant forever or leave the column open on a
+-- false premise.
+--
+-- Resolved by reading the writers rather than the comments. There are four, and
+-- every one of them is bound to `VEHICLE_TYPES` = ['truck','trailer']:
+--
+--   vehicle.create        z.enum(["truck","trailer"])   routers/location.ts:731
+--   vehicle.update        z.enum(["truck","trailer"])   routers/location.ts:849
+--   the CSV importer      values: VEHICLE_TYPES         types/import-specs.ts
+--   provisioning          writes no vehicles at all
+--
+-- So no plant type has ever been writable here, and the schema comment was
+-- describing an intention that was never built. It has been corrected in the
+-- same change as this migration rather than left to contradict the constraint.
+--
+-- Why this one matters more than the other 22: `assignment.truck_id` and
+-- `trailer_id` reference `vehicle_id_type_uq` on `(id, vehicle_type)` through
+-- composite FKs with a generated constant `'truck'`/`'trailer'`. That is the
+-- only way a plain FK can insist a truckId names a truck. A third value here
+-- would not merely be unrecognised — it would silently sit outside the
+-- guarantee those FKs exist to provide.
+--
+-- Heavy plant remains fully supported through `equipment_class`, which is the
+-- CATEGORY question, has nothing referencing it, and is deliberately left open.
+
+ALTER TABLE "tbl_entity_vehicle" ADD CONSTRAINT "vehicle_vehicle_type_check"
+  CHECK ("vehicle_type" IN ('truck','trailer'));

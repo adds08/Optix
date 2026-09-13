@@ -21,14 +21,25 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:
 
 const ALGO = "aes-256-gcm";
 const IV_BYTES = 12; // 96 bits, the size GCM is defined for
-/* DO NOT RENAME THIS STRING. It is a cryptographic input, not a name.
-   The package scope became `@optix/*` on 2026-09-14 and this deliberately did
-   not follow: scrypt derives the key from (SESSION_SECRET, SALT), so changing
-   the salt changes the key and every tenant's stored LLM key decrypts to
-   garbage. `decryptSecret` returns null on that, so the failure would look like
-   "the key needs re-entering" on every tenant at once, with no error naming the
-   cause. The `v1` suffix is the migration path if it ever must change. */
-const SALT = "stinventory:secret:v1";
+/*
+  A CRYPTOGRAPHIC INPUT, not a name — treat it as one.
+
+  scrypt derives the key from (SESSION_SECRET, SALT). Change the salt and the
+  key changes, so every `llm_api_key_enc` and `smtp_pass_enc` already in a
+  database decrypts to garbage. `decryptSecret` returns null on that rather
+  than throwing, so the failure surfaces as "the key needs re-entering" on
+  every tenant at once with nothing naming the cause.
+
+  It says `optix` as of 2026-09-14, and the ONLY reason that was safe is that
+  it was changed on a database holding zero encrypted values — checked, both
+  databases, both columns, immediately before. The `v2` marks the break so a
+  row written under `v1` can never be silently mistaken for one written now.
+
+  To change it again you need a re-encrypt migration: read every secret with
+  the old salt, write it back with the new one, in one transaction. Bump to
+  `v3` when you do. Do not edit this string on its own.
+*/
+const SALT = "optix:secret:v2";
 
 function keyFrom(sessionSecret: string): Buffer {
   if (!sessionSecret || sessionSecret.length < 32) {
