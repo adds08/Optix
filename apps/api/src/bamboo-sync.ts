@@ -512,6 +512,7 @@ export type NameCache = Map<string, string | null>;
 async function resolveByName(
   db: Database,
   table: typeof schema.division | typeof schema.department | typeof schema.companyRole,
+  kind: "division" | "department" | "jobTitle",
   tenantId: string,
   name: string,
   cache?: NameCache,
@@ -519,9 +520,15 @@ async function resolveByName(
   const trimmed = name.trim();
   if (!trimmed) return null;
 
-  /* `getName()` rather than a passed-in label: the key has to distinguish the
-     three tables, and the table object already knows which one it is. */
-  const key = `${(table as unknown as { _: { name: string } })._.name}:${trimmed}`;
+  /* `kind` is passed in rather than read off the table. Reading it from the
+     Drizzle object needed a cast to a private shape, the cast compiled, the
+     property was undefined at runtime, and every person in the sync failed with
+     "Cannot read properties of undefined (reading 'name')" — a silent `failed`
+     count, not a crash. An explicit argument cannot be wrong that way.
+
+     Part of the key because the same string can be both a department and a
+     division. */
+  const key = `${kind}:${trimmed}`;
   if (cache?.has(key)) return cache.get(key) ?? null;
 
   const found = await db
@@ -601,13 +608,13 @@ export async function applySyncPlan(
     if (step.action === "skip" && !step.employeeId) continue;
 
     const divisionId = person.writable.divisionName
-      ? await resolveByName(db, schema.division, tenantId, person.writable.divisionName, nameCache)
+      ? await resolveByName(db, schema.division, "division", tenantId, person.writable.divisionName, nameCache)
       : null;
     const departmentId = person.writable.departmentName
-      ? await resolveByName(db, schema.department, tenantId, person.writable.departmentName, nameCache)
+      ? await resolveByName(db, schema.department, "department", tenantId, person.writable.departmentName, nameCache)
       : null;
     const companyRoleId = person.writable.jobTitleName
-      ? await resolveByName(db, schema.companyRole, tenantId, person.writable.jobTitleName, nameCache)
+      ? await resolveByName(db, schema.companyRole, "jobTitle", tenantId, person.writable.jobTitleName, nameCache)
       : null;
 
     let employeeId = step.employeeId;

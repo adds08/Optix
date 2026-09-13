@@ -88,10 +88,16 @@ jobs:
       # production sat four commits behind main for a day, without the invite
       # migrations, while main looked merged and fine.
       #
-      # Idempotent (skips when the tenant exists), and it refuses to touch a
-      # production database without SEED_ALLOW_PRODUCTION.
-      - name: Seed
-        run: pnpm db:seed
+      # `db:provision` since 2026-09-13, when the seed was deleted. It writes the
+      # authority model and nothing else — tenant, permissions, roles, tiers,
+      # vocabularies, two logins — and no business data at all. Idempotent: every
+      # write is onConflictDoNothing or an existence check.
+      #
+      # rbac-matrix builds its own tenant now and does not need this, but the
+      # step stays: a CI database shaped like a real one is what makes a suite
+      # that quietly depends on provisioning fail HERE rather than on a deploy.
+      - name: Provision
+        run: pnpm db:provision
 
       - name: Test
         run: pnpm test
