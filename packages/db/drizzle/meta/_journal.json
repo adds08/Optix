@@ -540,6 +540,13 @@
       "when": 1789901813927,
       "tag": "0077_drop_equipment_unit",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1789988213927,
+      "tag": "0078_code_unique_per_tenant",
+      "breakpoints": true
     }
   ]
 }

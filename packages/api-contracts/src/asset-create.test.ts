@@ -167,24 +167,61 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
   });
 
   /*
-    Untagged rows are a NORMAL state, not a collision.
+    The guard keys on a code being GIVEN, not on the column.
 
-    `asset.code` is nullable on purpose — the "Needs a Tag" report exists to be
-    the label gun's worklist — so the guard must key on a tag being given, not
-    on the column. A naive `WHERE tag = input.code` with both null would refuse
-    the second untagged tool in the register.
+    It used to have a second reason — untagged rows were a normal state, so a
+    naive `WHERE code = input.code` with both null would have refused the
+    second untagged tool. Since 2026-09-14 `create` generates a code when none
+    is typed, so that case no longer arises through this path. The shape of the
+    guard is still right: `code` stays nullable for rows imported before the
+    generator existed.
   */
-  it("still allows any number of untagged tools", async () => {
-    const ctx = makeCtx(db);
-    await assetRouter.createCaller(ctx).create({ description: "untagged one" });
-    await assetRouter.createCaller(ctx).create({ description: "untagged two" });
+  it("gives every tool a code, generated when none is typed", async () => {
+    /*
+      REPLACES "still allows any number of untagged tools", which asserted the
+      OLD rule. Until 2026-09-14 a tool with no code was a normal state, and
+      `asset_number` existed as the always-present fallback for exactly that
+      case. The client's decision removed the premise: "TOOL-00001, for tools
+      when we create new tools in the system, it should generate."
 
-    const rows = await db
+      So an untagged tool is no longer reachable through `create`, which is
+      what lets `asset_number` be dropped. The column stays NULLABLE — rows
+      imported before the generator existed may still have none, and a partial
+      unique index does not need them to.
+    */
+    const ctx = makeCtx(db);
+    const a = await assetRouter.createCaller(ctx).create({ description: "generated one" });
+    const b = await assetRouter.createCaller(ctx).create({ description: "generated two" });
+
+    expect(a?.code).toMatch(/^TOOL-\d{5}$/);
+    expect(b?.code).toMatch(/^TOOL-\d{5}$/);
+    /* Sequential, and distinct — two creates must never take the same number.
+       They run in separate transactions here, which is the case that would
+       collide if the counter were read outside one. */
+    expect(a?.code).not.toBe(b?.code);
+    expect(Number(b!.code!.slice(5))).toBe(Number(a!.code!.slice(5)) + 1);
+
+    const untagged = await db
       .select({ id: schema.smallTool.id })
       .from(schema.smallTool)
       .where(and(eq(schema.smallTool.tenantId, tenantId), isNull(schema.smallTool.code)));
-    expect(rows.length).toBeGreaterThanOrEqual(2);
+    expect(untagged, "create must not leave a tool without a code").toHaveLength(0);
   });
+
+  it("keeps a code the person typed, and refuses a duplicate of it", async () => {
+    /* The other half of the client's rule: "if not people can insert their own
+       code but needs to unique validation if they add in their own." */
+    const ctx = makeCtx(db);
+    const own = await assetRouter.createCaller(ctx).create({ description: "hand coded", code: "DRILL-7" });
+    expect(own?.code).toBe("DRILL-7");
+
+    /* Case-insensitively, because a code's case is not its identity. */
+    await expect(
+      assetRouter.createCaller(ctx).create({ description: "dup", code: "drill-7" }),
+    ).rejects.toThrow(/already in the register/);
+  });
+
+
 
   /*
     KNOWN-ISSUES 3 — `setStatus` declared `status: z.string()`.

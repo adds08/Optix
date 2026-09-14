@@ -1,10 +1,11 @@
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@optix/db/schema";
 import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { TRPCError } from "@trpc/server";
 import { logEvent } from "../audit.js";
+import { nextToolCode } from "../tool-code.js";
 import { ASSET_STATUSES, COST_TARGETS, formatAssetModel } from "@optix/types";
 import { foldAssetState, hasSnapshotEvidence, reconcileProjections, type EventEnvelope } from "@optix/domain";
 import { assetVisibility, assetScopeWhere } from "../scope.js";
@@ -357,15 +358,52 @@ export const assetRouter = router({
           and the failure is a duplicate label rather than lost custody.
         */
         if (input.code) {
+          /* `lower()`, not an exact match. `tool-00001` and `TOOL-00001` are
+             the same code — a code's case is not its identity, which is why
+             the unique index behind this is on `lower(code)` too. */
           const [clash] = await tx
-            .select({ id: schema.smallTool.id })
+            .select({ id: schema.smallTool.id, code: schema.smallTool.code })
             .from(schema.smallTool)
-            .where(and(eq(schema.smallTool.tenantId, ctx.session.tenantId), eq(schema.smallTool.code, input.code)))
+            .where(
+              and(
+                eq(schema.smallTool.tenantId, ctx.session.tenantId),
+                sql`lower(${schema.smallTool.code}) = lower(${input.code})`,
+              ),
+            )
             .limit(1);
           if (clash) {
-            throw new TRPCError({ code: "CONFLICT", message: `${input.code} is already in the register` });
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: `${clash.code} is already in the register. Codes identify a tool on every screen, so each one has to be unique.`,
+            });
           }
         }
+
+        /*
+          NO CODE GIVEN — generate one. `TOOL-00001`, `TOOL-00002`, …
+
+          GENERATED HERE, INSIDE THE TRANSACTION, and that is the whole design:
+          nothing is reserved until the row is saved. Generating when the form
+          OPENS would burn a code on every cancel, so the register would show
+          gaps nobody can explain — and worse, two people with the form open
+          would both be shown the same number and one would lose it on save.
+          A cancelled form costs nothing.
+
+          The next number is `max + 1` over this tenant's existing codes rather
+          than a database sequence, deliberately: a sequence cannot be reset,
+          reissues nothing after a delete, and is per-DATABASE where codes are
+          per-TENANT. Read inside the same transaction as the insert, so two
+          concurrent creates serialise on the row lock and cannot both take the
+          same number.
+
+          Padded to five, and it WIDENS rather than wraps past 99,999 —
+          `TOOL-100000`. The client's rule: "even if it goes beyond 100,000 we
+          can just add one digit, does not matter total length." Padding is
+          what the generator PRODUCES; it is not a rule about codes. A code
+          somebody types is stored exactly as typed, so `TOOL-7` and
+          `TOOL-00007` remain different codes.
+        */
+        const generatedCode = input.code ? null : await nextToolCode(tx, ctx.session.tenantId);
 
         const [created] = await tx
           .insert(schema.smallTool)
@@ -375,6 +413,9 @@ export const assetRouter = router({
             currentStatus: "available",
             currentLocationId: input.locationId ?? null,
             ...input,
+            /* After the spread: `input.code` is undefined when none was given,
+               and a spread of an absent key would leave the column null. */
+            ...(generatedCode ? { code: generatedCode } : {}),
           })
           .returning();
         if (created) {
