@@ -166,6 +166,15 @@ export default function EquipmentPage() {
           icon={Truck}
           title="No equipment registered yet"
           description="Import the fleet, or register the first truck or trailer."
+          /* An empty register is exactly when Import and New are the actions
+             somebody needs most — reachable ONLY from DataTable's toolbar,
+             which this branch never renders. `/people` had this right first. */
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <ImportButton entity="vehicle" />
+              <CreateAction perm="vehicle.manage" label="New equipment" Form={VehicleForm} />
+            </div>
+          }
         />
       ) : (
         <DataTable<Row>

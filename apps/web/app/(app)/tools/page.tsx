@@ -648,6 +648,15 @@ export default function ToolsPage() {
                 ? "Try a different search, or clear a filter in the sheet."
                 : "Import the existing fleet, or register the first tool to start the custody chain."
             }
+            /* NO `action` here, unlike projects/equipment/people — and the
+               difference is real rather than an oversight. This page's
+               Import/Export/New row is rendered above unconditionally (it is
+               the row the bulk-action bar swaps into), so it is on screen in
+               this branch too. Repeating the buttons inside the empty state
+               put "Import" and "New tool" on the screen twice, inches apart.
+               The other three registers carry those controls only inside
+               DataTable's toolbar, which their empty branch never renders,
+               which is why they need the action and this page does not. */
           />
         ) : (
           <DataTable<Row>
