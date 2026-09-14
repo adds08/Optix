@@ -535,3 +535,169 @@ answer — this is a decision about what a person should see.
 | `name` | text | NOT NULL | — | — | — |
 | `created_at` | timestamptz | NOT NULL | now() | — | — |
 
+
+---
+
+# AGREED PLAN — codes and prefixes
+
+Settled with the client 2026-09-14. **Nothing here is built.** Three of my own
+earlier claims were wrong and are corrected first, because they were about to
+become requirements.
+
+## Corrections — things I asserted that the data disproved
+
+**1. `URB-001` is invented data, not Urban's convention.**
+
+It is in `03-employees-FALLBACK.csv` column 3, so it looks real. It is not: the
+codes run **001 to 081 with zero gaps**. Real badge numbers always have gaps —
+leavers, skipped numbers, contractors. A perfect sequence is the signature of a
+generator, and this one ran at seed time.
+
+The authoritative source is BambooHR's `employeeNumber`, which
+`packages/domain/src/bamboohr.ts:264` describes as *"Urban's OWN badge number
+that BambooHR happens to carry"*. So:
+
+> **Employee codes are never generated and carry no prefix.** Whatever Urban's
+> badges say is the code. `.claude/rules/database.md:235` cites `URB-001` as
+> the example and should not.
+
+**2. `UIC` was a placeholder I promoted to a convention.**
+
+It appears in exactly two kinds of place: the `asset-form.tsx:146` input hint
+(`placeholder="e.g. UIC-2001"`) and four `chat/page.tsx` sample sentences. It
+is in **no data anywhere**. It was a guess at "Urban InfraConstruction".
+
+> **The small-tool prefix is `TOOL`.** It says what the thing is, which is the
+> whole job of a prefix.
+
+**3. There is no digit pad, and codes are not numbers.**
+
+I inferred a 3-digit pad because 86 of 88 equipment codes happened to have one.
+The client's correction: *"codes are numbers but 0001 does not equal 1, it's
+still like code."* The real data agrees — `SUV-001` and `SUV-2` coexist under
+the same prefix.
+
+> **A code is a STRING, stored exactly as entered or generated.** `TOOL-0001`
+> and `TOOL-1` are different codes, not the same one formatted differently.
+> Never normalise, never re-pad, never compare numerically.
+
+## Where prefixes are actually needed — one place
+
+Checked against the real import files, not assumed:
+
+| Entity | Codes in the real data | Prefix |
+|---|---|---|
+| **project** | `22018`, `24002` — bare numbers | **none** |
+| **employee** | BambooHR badge number | **none** — never generated |
+| **small tools** | **all 753 empty** | **one**, table-wide: `TOOL` |
+| **equipment** | `TRK` ×47, `TE` ×39, `SUV` ×2 | **selectable — the only real case** |
+
+So **no `tbl_entity_code_prefix` table.** I proposed one; the data does not
+justify it. Only equipment needs a choice, and that is one column.
+
+### Why equipment cannot derive its prefix from an existing column
+
+`TRK` and `SUV` are **both** `vehicle_type: truck`, and both
+`equipment_class: vehicle`. So the prefix is finer-grained than anything already
+stored — it is the only place that distinguishes a pickup from an SUV, and it is
+what a future `SKT` for skytrack would be.
+
+### The shape
+
+```
+tbl_entity_equipment
+  code_prefix   text   NOT NULL    -- 'TRK' | 'TE' | 'SUV' | 'SKT' ...
+  code          text   NOT NULL    -- stored AS IS: 'TRK-034'
+```
+
+- **A tag, not a table.** The picker offers `SELECT DISTINCT code_prefix` for
+  the tenant: existing values selectable, typing a new one creates it by using
+  it. Exactly how `asset.category_name` already works, and the same UI as
+  `category-select.tsx`.
+- **Disjoint from `vehicle_type`**, which stays NULLABLE. The person answers
+  both; neither derives the other.
+- **Required.** One distinct value → default it. More than one → must choose.
+- `code_prefix` exists to BUILD and FILTER codes. It is never a decomposition
+  of `code`, so every existing reader of `code` keeps working untouched.
+
+Small tools take `TOOL` from one tenant setting rather than a column — there is
+nothing to choose, so there is nothing to store per row.
+
+```
+tbl_entity_tenant_settings
+  small_tool_code_prefix   text   DEFAULT 'TOOL'
+```
+
+## Code uniqueness — every entity, enforced twice
+
+The client: *"code is always unique for entity, any entity. If duplicate it
+should reject insert, and in frontend should warn the users."*
+
+**Only `project` and `uom_category` enforce this today.** `asset.code` and
+`vehicle.code` accept duplicates.
+
+`project` already has the right pattern and it should be copied verbatim rather
+than reinvented:
+
+```sql
+CREATE UNIQUE INDEX <entity>_code_per_tenant_uq
+  ON tbl_entity_<x> (tenant_id, lower(code))
+  WHERE code IS NOT NULL;
+```
+
+Three properties that matter:
+- **`lower(code)`** — `trk-034` and `TRK-034` are the same code. Case is not an
+  identity.
+- **`WHERE code IS NOT NULL`** — partial, so rows without a code are still
+  allowed while the generator does not exist yet.
+- **per tenant**, not global. Two customers may both use `TRK-001`.
+
+And the readable half, mirroring `assertProjectCodeFree`
+(`routers/project.ts:40-56`): a pre-check that **names the row already holding
+the code** —
+
+> "Tool code TOOL-0001 is already used by DeWalt rotary hammer. Codes identify a
+> tool on every screen, so each one has to be unique."
+
+The index is the backstop; the pre-check is what a person reads. Both, because
+the index alone raises a raw `23505`.
+
+## What import does, per entity
+
+| Entity | Code | Prefix |
+|---|---|---|
+| **project** | as-is (`22018`) | — |
+| **employee** | from BambooHR `employeeNumber`; **never generate** | — |
+| **equipment** | as-is (`TRK-034`) | **derived** by splitting at the first `-`. All 88 already carry one, so no human input needed. |
+| **small tools** | **generated** `TOOL-…`; 753 rows have none | `TOOL` from settings |
+
+Serial and code stay independent. Of 753 tools, **345 have a serial and 13 of
+those serials are duplicated** — so a code must never be derived from a serial,
+or it inherits the duplicates the unique index would then reject.
+
+## Build order
+
+| # | Step | Depends on |
+|---|---|---|
+| 1 | Fix the swapped labels on `asset-form.tsx` (:145 "Tag"→"Code", :182 "Code"→"Serial number") | nothing — wrong today |
+| 2 | Replace the `UIC-2001` placeholder and the four chat samples with `TOOL-` | nothing |
+| 3 | Correct `URB-001` in `.claude/rules/database.md` | nothing |
+| 4 | Add `small_tool_code_prefix` to tenant settings | — |
+| 5 | Build the code generator + the duplicate pre-check | 4 |
+| 6 | Add `equipment.code_prefix`, backfill by splitting the 88 codes | — |
+| 7 | The prefix picker on the equipment form | 6 |
+| 8 | Unique indexes on `asset.code` and `vehicle.code` | 5, and **after the first import lands** |
+| 9 | `code` NOT NULL on both | 5, 8 |
+
+**Step 8 is deliberately late.** A unique index aborts an entire import on one
+duplicate. Generated tool codes cannot collide and the 88 equipment codes are
+unique, so it is safe — but adding it after the first real import means a
+surprise duplicate costs a row, not the run.
+
+## Still open
+
+**What does a generated tool code look like?** `TOOL-0001` or `TOOL-1`? Both
+are legal now that a code is a string. The only practical difference is sorting:
+as text, `TOOL-1000` sorts before `TOOL-2`. Zero-padding avoids that; it is not
+a pad rule, just a choice about the generated form. Codes typed by a person are
+stored exactly as typed either way.
