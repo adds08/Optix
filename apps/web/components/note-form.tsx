@@ -34,9 +34,9 @@ export function NoteForm({ open, onClose, assetId, assetCode }: Props) {
     setError("");
     try {
       await submit.mutateAsync({ type: "report", assetIds: [assetId], note: text });
-      utils.asset.get.invalidate({ id: assetId });
+      utils.smallTool.get.invalidate({ id: assetId });
       utils.transaction.list.invalidate({ assetId });
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       setNote("");
       onClose();
     } catch (err) {

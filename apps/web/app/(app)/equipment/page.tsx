@@ -50,15 +50,15 @@ export default function EquipmentPage() {
   const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
   const utils = trpc.useUtils();
 
-  const remove = trpc.vehicle.delete.useMutation({
+  const remove = trpc.equipment.delete.useMutation({
     onSuccess: () => {
       setFailed(null);
-      utils.vehicle.list.invalidate();
+      utils.equipment.list.invalidate();
     },
     onError: (e, vars) => setFailed({ id: vars.id, message: e.message }),
   });
 
-  const vehicles = trpc.vehicle.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
   const rows = vehicles.data ?? [];
 
   type Row = (typeof rows)[number];

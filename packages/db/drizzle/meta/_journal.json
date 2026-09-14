@@ -554,6 +554,13 @@
       "when": 1790074613927,
       "tag": "0079_drop_asset_number",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1790161013927,
+      "tag": "0080_vin_unique_per_tenant",
+      "breakpoints": true
     }
   ]
 }

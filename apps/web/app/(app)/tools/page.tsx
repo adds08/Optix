@@ -90,7 +90,7 @@ export default function ToolsPage() {
   /* One mutation for a bulk return; the form owns the bulk move. */
   const returnBulk = trpc.action.submit.useMutation({
     onSuccess: () => {
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.assignment.list.invalidate();
       utils.transfer.list.invalidate();
       utils.dashboard.kpis.invalidate();
@@ -118,7 +118,7 @@ export default function ToolsPage() {
     }
   };
 
-  const list = trpc.asset.list.useQuery();
+  const list = trpc.smallTool.list.useQuery();
   const all = useMemo(() => list.data ?? [], [list.data]);
 
   /* Job scope first: the register is "everything" or "one project" — and for a

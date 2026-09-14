@@ -31,7 +31,7 @@ const assetRefine = (v: {
   }
 };
 
-export const assetRouter = router({
+export const smallToolRouter = router({
   /* STI-302: `asset.read` gates whether you may see the register at all; the
      visibility ladder below decides how much of it. This was a bare
      `protectedProcedure` — any signed-in account, including one with no role
@@ -491,13 +491,37 @@ export const assetRouter = router({
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such tool in this tenant" });
 
-      /* A tag is how everyone refers to the tool out loud; two rows answering
-         to the same one makes every conversation ambiguous. */
-      if (changes.code && changes.code !== existing.code) {
+      /*
+        A code is how everyone refers to the tool out loud; two rows answering
+        to the same one makes every conversation ambiguous.
+
+        `lower()` on BOTH SIDES, matching `create` and matching the index. This
+        used a plain `eq` until 2026-09-14, and the asymmetry was reachable:
+        nothing normalises case before the write, so renaming a tool to
+        `case-1` when `CASE-1` existed slipped past this check and hit the
+        unique index instead — which raises a raw 23505 the formatter renders
+        as "Something went wrong on our side. Try again." Reproduced against
+        the running stack before fixing it.
+
+        Same `!== existing.code` guard, also case-INSENSITIVE now: re-saving a
+        tool with only the case of its own code changed is a real edit (the
+        register shows what was typed), so it must not be treated as a clash
+        with itself.
+      */
+      if (changes.code && changes.code.toLowerCase() !== (existing.code ?? "").toLowerCase()) {
         const clash = await ctx.db.query.smallTool.findFirst({
-          where: and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.code, changes.code)),
+          where: and(
+            eq(schema.smallTool.tenantId, tid),
+            sql`lower(${schema.smallTool.code}) = lower(${changes.code})`,
+          ),
+          columns: { id: true, code: true },
         });
-        if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.code} is already in the register` });
+        if (clash) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `${clash.code} is already in the register. Codes identify a tool on every screen, so each one has to be unique.`,
+          });
+        }
       }
 
       /* `costTarget` is optional on update, so the refine runs against the

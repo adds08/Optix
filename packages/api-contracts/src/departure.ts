@@ -8,7 +8,7 @@ import { projectForCustodian, moveCustody, vehicleContextFromLedger } from "./cu
 /* The one writer that knows what handing a container over means — custodian
    column, vehicle mirror, and the contents that ride inside it. A departure is
    a container hand-over with a reason attached, not a second kind of one. */
-import { applyContainerCustody } from "./routers/location.js";
+import { applyContainerCustody } from "./routers/equipment.js";
 
 /*
   A departure, moved in one auditable action (STI-306).

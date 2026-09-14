@@ -89,17 +89,17 @@ const NO_UI_BY_DESIGN: Record<string, string> = {
   "dashboard.clearanceQueue": "TODO: parked with the offboarding gate (2026-08-27). Lists tools still on a terminated person's name; nothing enforced it and no screen shows it now.",
 
   // ---- legitimately reachable by nothing a person clicks ----
-  "asset.delete":
+  "smallTool.delete":
     "Exists to REFUSE. It throws a sentence explaining tools are never deleted because the ledger is the audit trail — a procedure whose only job is to say no does not need a button.",
-  "vehicle.updateGps":
+  "equipment.updateGps":
     "Written for a GPS provider to call, not a person. There is no screen where somebody types a latitude.",
   "user.create":
     "Superseded in the UI by `user.invite` (2026-08-24) — the product now has no direct signup, so the only way an account becomes usable is by its owner consuming an emailed link. Offering both a screen for this AND for invite would mean choosing between a credential an admin typed out loud and one nobody but the recipient ever sees, which is the exact split the invite work exists to close. Kept, not deleted: `user-admin.test.ts` uses it as the fast, no-email way to seed a fully active test account, and it is a legitimate escape hatch when SMTP is not configured on this server at all.",
 
   // ---- knowingly unbuilt, ticketed, NOT blessed ----
-  "asset.rebuild":
+  "smallTool.rebuild":
     "TODO: the STI-106 repair half. The boot sweep calls the shared fold directly, so the mechanism runs — but a desk that is told the register diverged has no screen to act on it. Needs an admin reconciliation page.",
-  "asset.verifyProjection":
+  "smallTool.verifyProjection":
     "TODO: the STI-106 report half, same missing page. Invariant 4 is fully built and only observable from a log line.",
   "assignment.return":
     "TODO: returning a tool to the yard IS reachable — through chat, via apply-action's `return` case — but there is no button anywhere. The capability exists; the desk affordance does not.",
@@ -154,7 +154,7 @@ describe("reachability (STI-121)", () => {
     /* If the roots move, every procedure looks unreachable and the exemption
        list looks complete — a silent pass in the shape of a silent failure. */
     expect(clientSource.length).toBeGreaterThan(50_000);
-    expect(clientSource).toContain("trpc.asset.list");
+    expect(clientSource).toContain("trpc.smallTool.list");
   });
 
   it("enumerates the router tree", () => {

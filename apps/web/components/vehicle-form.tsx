@@ -41,7 +41,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
   const utils = trpc.useUtils();
   const projects = trpc.project.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
-  const vehicles = trpc.vehicle.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
   /* STI-307 — DOMAIN DATA. A truck is assigned to whoever drives it to a job;
      `e.role` is the employee register's field, not the caller's. Authority to
      edit a vehicle is `vehicle.manage`.
@@ -83,7 +83,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
     setResult("");
     try {
       if (edit) {
-        await utils.client.vehicle.update.mutate({
+        await utils.client.equipment.update.mutate({
           id: edit.id, vehicleType, equipmentClass, vin: vin || null,
           code,
           description: description || null,
@@ -94,7 +94,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
           attachedToVehicleId: vehicleType === "trailer" ? (attachedToVehicleId || null) : undefined,
         });
       } else {
-        await utils.client.vehicle.create.mutate({
+        await utils.client.equipment.create.mutate({
           vehicleType, equipmentClass, vin: vin || undefined, code,
           description: description || undefined,
           plate: plate || undefined,
@@ -104,7 +104,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
           attachedToVehicleId: vehicleType === "trailer" ? (attachedToVehicleId || undefined) : undefined,
         });
       }
-      utils.vehicle.list.invalidate();
+      utils.equipment.list.invalidate();
       utils.location.list.invalidate();
       onClose();
     } catch (err) {

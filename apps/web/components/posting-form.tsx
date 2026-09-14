@@ -62,8 +62,8 @@ export function PostingForm({
       utils.employee.get.invalidate({ id: employeeId });
       utils.employee.postings.invalidate({ employeeId });
       utils.employee.list.invalidate();
-      utils.asset.list.invalidate();
-      utils.vehicle.list.invalidate();
+      utils.smallTool.list.invalidate();
+      utils.equipment.list.invalidate();
       utils.location.list.invalidate();
       utils.report.byProject.invalidate();
       utils.report.byForeman.invalidate();

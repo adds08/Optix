@@ -169,8 +169,8 @@ export function FleetMapView({
   const statusColors = useVehicleStatusColors();
   const maySeeVehicles = has("vehicle.read");
   const maySeeAssets = has("asset.read");
-  const vehicles = trpc.vehicle.list.useQuery(undefined, { enabled: maySeeVehicles });
-  const assets = trpc.asset.list.useQuery({}, { enabled: maySeeAssets });
+  const vehicles = trpc.equipment.list.useQuery(undefined, { enabled: maySeeVehicles });
+  const assets = trpc.smallTool.list.useQuery({}, { enabled: maySeeAssets });
 
   /* Seeded with the value <MapContainer> opens at, so the first paint groups
      against the zoom actually on screen rather than waiting for a zoomend that

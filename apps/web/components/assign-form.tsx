@@ -15,7 +15,7 @@ type Props = { open: boolean; onClose: () => void; preselectedAssetId?: string }
 export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
   const tier = useViewTier();
   const utils = trpc.useUtils();
-  const assets = trpc.asset.list.useQuery({ status: "available" });
+  const assets = trpc.smallTool.list.useQuery({ status: "available" });
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
   const foremen = trpc.employee.list.useQuery();
@@ -88,7 +88,7 @@ export function AssignForm({ open, onClose, preselectedAssetId }: Props) {
         );
       }
       utils.assignment.list.invalidate();
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.kpis.invalidate();
       utils.dashboard.pendingApprovals.invalidate();
       utils.dashboard.recentActivity.invalidate();

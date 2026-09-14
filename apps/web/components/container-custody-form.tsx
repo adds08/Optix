@@ -63,8 +63,8 @@ export function ContainerCustodyForm({
         note: note || undefined,
       });
       utils.location.list.invalidate();
-      utils.vehicle.list.invalidate();
-      utils.asset.list.invalidate();
+      utils.equipment.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.assignment.list.invalidate();
       utils.report.byForeman.invalidate();
       onClose();

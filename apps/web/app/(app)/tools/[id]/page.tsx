@@ -45,7 +45,7 @@ function names(team: { role: string; name: string }[] | undefined, role: string)
 export default function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const utils = trpc.useUtils();
-  const asset = trpc.asset.get.useQuery({ id });
+  const asset = trpc.smallTool.get.useQuery({ id });
   const events = trpc.transaction.list.useQuery({ assetId: id, limit: 200 });
 
   /* The other half of "tags that are created": an untagged tool can catch up
@@ -55,10 +55,10 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
   const [addTag, setAddTag] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tagError, setTagError] = useState("");
-  const addTagMut = trpc.asset.update.useMutation({
+  const addTagMut = trpc.smallTool.update.useMutation({
     onSuccess: () => {
-      utils.asset.get.invalidate({ id });
-      utils.asset.list.invalidate();
+      utils.smallTool.get.invalidate({ id });
+      utils.smallTool.list.invalidate();
       setAddTag(false);
       setTagDraft("");
     },

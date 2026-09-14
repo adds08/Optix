@@ -629,7 +629,7 @@ async function vehicleInCustodyRecord(db: Database | Transaction, tid: string, v
   return !!transferRef;
 }
 
-export const vehicleRouter = router({
+export const equipmentRouter = router({
   /* Same project axis as `location.list`, same reasoning for the null case:
      an unassigned truck sitting in the yard belongs to no job, and hiding it
      would stop a foreman naming the rig he is actually driving. */
@@ -803,6 +803,63 @@ export const vehicleRouter = router({
         removes a vehicle location and there is no vehicle to delete.
       */
       const row = await ctx.db.transaction(async (tx) => {
+        /*
+          A duplicate code is refused HERE, with a readable message.
+
+          `vehicle.create` had no duplicate check at all: the only thing
+          stopping two trucks both being `TRK-034` was
+          `equipment_code_per_tenant_uq`, and a raw 23505 reaches the user as
+          "Something went wrong on our side. Try again." — which tells them
+          nothing and reads like our fault rather than a code they can change.
+
+          Case-insensitive, matching the index and `asset.create`. Inside the
+          transaction so the check and the insert cannot straddle another
+          writer; it is still check-then-act, and the index is what makes two
+          simultaneous creates of one code fail rather than both land.
+        */
+        const [codeClash] = await tx
+          .select({ code: schema.equipment.code })
+          .from(schema.equipment)
+          .where(
+            and(
+              eq(schema.equipment.tenantId, tid),
+              sql`lower(${schema.equipment.code}) = lower(${input.code})`,
+            ),
+          )
+          .limit(1);
+        if (codeClash) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `${codeClash.code} is already in the equipment register. Codes identify a truck or trailer on every screen, so each one has to be unique.`,
+          });
+        }
+
+        /*
+          A VIN is unique where present (migration 0080). Nullable because
+          Urban's VINs arrive over time, so most rows have none — but two
+          vehicles carrying one VIN means one of them is wrong, and the
+          manufacturer's number is the only permanent identity a truck has.
+          Checked here so the answer is a sentence rather than a raw 23505.
+        */
+        if (input.vin?.trim()) {
+          const [vinClash] = await tx
+            .select({ code: schema.equipment.code, vin: schema.equipment.vin })
+            .from(schema.equipment)
+            .where(
+              and(
+                eq(schema.equipment.tenantId, tid),
+                sql`lower(${schema.equipment.vin}) = lower(${input.vin.trim()})`,
+              ),
+            )
+            .limit(1);
+          if (vinClash) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: `VIN ${vinClash.vin} is already on ${vinClash.code}. A VIN is the manufacturer's permanent identity, so two vehicles cannot share one.`,
+            });
+          }
+        }
+
         // Location first: vehicle.locationId is NOT NULL.
         const [loc] = await tx
           .insert(schema.location)
@@ -899,8 +956,16 @@ export const vehicleRouter = router({
       /* `foremanEmployeeId` is not here: handing a truck over is
          `location.setCustodian`, which takes the tools aboard with it. */
       if (changes.code && changes.code !== existing.code) {
+        /* `lower()` on both sides, matching the unique index
+           (`equipment_code_per_tenant_uq` is on `lower(code)`). A plain `eq`
+           here let `trk-034` past when `TRK-034` existed, and the index then
+           raised a raw 23505 the formatter renders as "Something went wrong on
+           our side" — the same asymmetry `asset.update` had. */
         const clash = await ctx.db.query.equipment.findFirst({
-          where: and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.code, changes.code)),
+          where: and(
+            eq(schema.equipment.tenantId, tid),
+            sql`lower(${schema.equipment.code}) = lower(${changes.code})`,
+          ),
         });
         if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.code} is already in use` });
       }

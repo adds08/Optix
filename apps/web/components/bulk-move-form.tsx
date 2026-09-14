@@ -96,7 +96,7 @@ export function BulkMoveForm({ open, onClose, assetIds, assetLabels, onApplied }
   const invalidate = () => {
     utils.transfer.list.invalidate();
     utils.assignment.list.invalidate();
-    utils.asset.list.invalidate();
+    utils.smallTool.list.invalidate();
     utils.dashboard.kpis.invalidate();
     utils.dashboard.pendingApprovals.invalidate();
     utils.dashboard.recentActivity.invalidate();

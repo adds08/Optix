@@ -29,7 +29,7 @@ export function ConditionForm({ open, onClose, assetId, assetCode, current }: Pr
   const utils = trpc.useUtils();
   const [condition, setCondition] = useState<string>(current ?? "good");
   const [error, setError] = useState("");
-  const update = trpc.asset.update.useMutation();
+  const update = trpc.smallTool.update.useMutation();
   const note = trpc.action.submit.useMutation();
 
   const save = async () => {
@@ -43,9 +43,9 @@ export function ConditionForm({ open, onClose, assetId, assetCode, current }: Pr
       } catch {
         /* Update already applied; the note is not worth failing the save over. */
       }
-      utils.asset.get.invalidate({ id: assetId });
+      utils.smallTool.get.invalidate({ id: assetId });
       utils.transaction.list.invalidate({ assetId });
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save the condition. Try again.");

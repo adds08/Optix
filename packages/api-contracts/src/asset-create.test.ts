@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { createDb, schema, type Database } from "@optix/db";
 import type { Permission } from "@optix/types";
-import { assetRouter } from "./routers/asset.js";
+import { smallToolRouter } from "./routers/smallTool.js";
 import type { Context } from "./trpc.js";
 
 /*
@@ -104,7 +104,7 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
   it("a failing ledger insert rolls the asset row back too — no orphan survives", async () => {
     const ctx = makeCtx(failLedgerWrites(db));
     await expect(
-      assetRouter.createCaller(ctx).create({ description: "STI-115 orphan grinder" }),
+      smallToolRouter.createCaller(ctx).create({ description: "STI-115 orphan grinder" }),
     ).rejects.toThrow("boom: ledger insert failed");
 
     /* The whole point: query with the REAL handle. If the two writes were not
@@ -119,7 +119,7 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
 
   it("the happy path writes both rows, and the tag event carries the complete four-key toState", async () => {
     const ctx = makeCtx(db);
-    const row = await assetRouter.createCaller(ctx).create({
+    const row = await smallToolRouter.createCaller(ctx).create({
       description: "STI-115 demo drill",
       locationId,
     });
@@ -153,10 +153,10 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
   */
   it("refuses a tag already in the register", async () => {
     const ctx = makeCtx(db);
-    await assetRouter.createCaller(ctx).create({ description: "first grinder", code: "DUP-001" });
+    await smallToolRouter.createCaller(ctx).create({ description: "first grinder", code: "DUP-001" });
 
     await expect(
-      assetRouter.createCaller(ctx).create({ description: "second grinder", code: "DUP-001" }),
+      smallToolRouter.createCaller(ctx).create({ description: "second grinder", code: "DUP-001" }),
     ).rejects.toThrow(/already in the register/i);
 
     const rows = await db
@@ -190,8 +190,8 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
       unique index does not need them to.
     */
     const ctx = makeCtx(db);
-    const a = await assetRouter.createCaller(ctx).create({ description: "generated one" });
-    const b = await assetRouter.createCaller(ctx).create({ description: "generated two" });
+    const a = await smallToolRouter.createCaller(ctx).create({ description: "generated one" });
+    const b = await smallToolRouter.createCaller(ctx).create({ description: "generated two" });
 
     expect(a?.code).toMatch(/^TOOL-\d{5}$/);
     expect(b?.code).toMatch(/^TOOL-\d{5}$/);
@@ -212,12 +212,12 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
     /* The other half of the client's rule: "if not people can insert their own
        code but needs to unique validation if they add in their own." */
     const ctx = makeCtx(db);
-    const own = await assetRouter.createCaller(ctx).create({ description: "hand coded", code: "DRILL-7" });
+    const own = await smallToolRouter.createCaller(ctx).create({ description: "hand coded", code: "DRILL-7" });
     expect(own?.code).toBe("DRILL-7");
 
     /* Case-insensitively, because a code's case is not its identity. */
     await expect(
-      assetRouter.createCaller(ctx).create({ description: "dup", code: "drill-7" }),
+      smallToolRouter.createCaller(ctx).create({ description: "dup", code: "drill-7" }),
     ).rejects.toThrow(/already in the register/);
   });
 
@@ -233,13 +233,13 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
   */
   it("refuses a status that is not in the vocabulary", async () => {
     const ctx = makeCtx(db);
-    const row = await assetRouter.createCaller(ctx).create({ description: "status guard drill" });
+    const row = await smallToolRouter.createCaller(ctx).create({ description: "status guard drill" });
 
     await expect(
       /* Cast because the input type now forbids this at compile time as well —
          which is the other half of the fix, and is what caught a caller in
          tool-menu.tsx passing a widened string[]. */
-      assetRouter.createCaller(ctx).setStatus({ id: row!.id, status: "banana" as never }),
+      smallToolRouter.createCaller(ctx).setStatus({ id: row!.id, status: "banana" as never }),
     ).rejects.toThrow();
 
     const [after] = await db
@@ -251,8 +251,8 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
 
   it("still accepts a status that is in the vocabulary", async () => {
     const ctx = makeCtx(db);
-    const row = await assetRouter.createCaller(ctx).create({ description: "status happy drill" });
-    await assetRouter.createCaller(ctx).setStatus({ id: row!.id, status: "in_maintenance" });
+    const row = await smallToolRouter.createCaller(ctx).create({ description: "status happy drill" });
+    await smallToolRouter.createCaller(ctx).setStatus({ id: row!.id, status: "in_maintenance" });
 
     const [after] = await db
       .select({ status: schema.smallTool.currentStatus })
@@ -282,7 +282,7 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
       .values({ tenantId, locationId: loc!.id, vehicleType: "truck", code: "T-SHOPSTATUS" })
       .returning({ id: schema.equipment.id });
 
-    const row = await assetRouter.createCaller(ctx).create({ description: "shop-status drill", locationId });
+    const row = await smallToolRouter.createCaller(ctx).create({ description: "shop-status drill", locationId });
 
     /* Simulate the `repair` action's ledger event (apply-action.ts): custody
        closes (custodianId null) but the tool is recorded as riding the shop's
@@ -308,7 +308,7 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
       .where(eq(schema.smallTool.id, row!.id));
 
     for (const status of ["diagnosing", "waiting_parts", "ready_for_pickup"] as const) {
-      await assetRouter.createCaller(ctx).setStatus({ id: row!.id, status });
+      await smallToolRouter.createCaller(ctx).setStatus({ id: row!.id, status });
 
       const [latest] = await db
         .select({ toState: schema.transaction.toState })

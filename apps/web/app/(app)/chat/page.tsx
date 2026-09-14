@@ -80,7 +80,7 @@ export default function ChatPage() {
     onSuccess: () => {
       setConfirmError(null);
       if (channelId) utils.messaging.messages.invalidate({ channelId, limit: 40 });
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.kpis.invalidate();
     },
     onError: (e, vars) =>

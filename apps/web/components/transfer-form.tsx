@@ -97,7 +97,7 @@ export function TransferForm({ open, onClose, assetId, assetCode }: Props) {
       });
       utils.transfer.list.invalidate();
       utils.assignment.list.invalidate();
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.kpis.invalidate();
       utils.dashboard.pendingApprovals.invalidate();
       utils.dashboard.recentActivity.invalidate();

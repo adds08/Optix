@@ -11,7 +11,7 @@ export default function ToolDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
-  const asset = trpc.asset.get.useQuery({ id: id! }, { enabled: !!id });
+  const asset = trpc.smallTool.get.useQuery({ id: id! }, { enabled: !!id });
   const events = trpc.transaction.list.useQuery({ assetId: id!, limit: 50 }, { enabled: !!id });
 
   const a = asset.data;

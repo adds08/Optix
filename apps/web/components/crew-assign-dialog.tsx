@@ -63,8 +63,8 @@ export function CrewAssignDialog({
 }) {
   const utils = trpc.useUtils();
   const employees = trpc.employee.list.useQuery();
-  const assets = trpc.asset.list.useQuery();
-  const vehicles = trpc.vehicle.list.useQuery();
+  const assets = trpc.smallTool.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
 
   const assign = trpc.assignment.create.useMutation();
   const [q, setQ] = useState("");
@@ -97,8 +97,8 @@ export function CrewAssignDialog({
   }, [assets.data, q]);
 
   const invalidate = () => {
-    utils.asset.list.invalidate();
-    utils.vehicle.list.invalidate();
+    utils.smallTool.list.invalidate();
+    utils.equipment.list.invalidate();
     utils.employee.list.invalidate();
   };
 

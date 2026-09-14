@@ -65,7 +65,7 @@ export default function HandOffScreen() {
   const confirm = trpc.messaging.confirmAction.useMutation({
     onSuccess: () => {
       if (channelId) utils.messaging.messages.invalidate({ channelId, limit: 30 });
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
     },
   });
 

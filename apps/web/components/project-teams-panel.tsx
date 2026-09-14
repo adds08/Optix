@@ -217,7 +217,7 @@ export function ProjectTeamsPanel({ onboarding = false, onlyMine = false }: { on
     and removes the commonest way to get a branch wrong.
   */
   const addUnder = (employeeIdOfManager: string) => { open("person"); setParentId(employeeIdOfManager); };
-  const refresh = async () => { await Promise.all([query.refetch(), utils.projectTeam.invalidate(), utils.onboarding.invalidate(), utils.project.list.invalidate(), utils.asset.list.invalidate()]); };
+  const refresh = async () => { await Promise.all([query.refetch(), utils.projectTeam.invalidate(), utils.onboarding.invalidate(), utils.project.list.invalidate(), utils.smallTool.list.invalidate()]); };
   const submit = async () => {
     if (!project || !mode) return;
     setBusy(true); setError("");

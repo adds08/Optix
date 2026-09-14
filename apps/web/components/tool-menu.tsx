@@ -72,15 +72,15 @@ export function ToolMenu({
   const utils = trpc.useUtils();
 
   const invalidate = () => {
-    utils.asset.get.invalidate({ id: assetId });
+    utils.smallTool.get.invalidate({ id: assetId });
     utils.transaction.list.invalidate({ assetId });
-    utils.asset.list.invalidate();
+    utils.smallTool.list.invalidate();
     utils.assignment.list.invalidate();
     utils.dashboard.pendingApprovals.invalidate();
   };
 
   const submit = trpc.action.submit.useMutation({ onSuccess: invalidate });
-  const setStatus = trpc.asset.setStatus.useMutation({ onSuccess: invalidate });
+  const setStatus = trpc.smallTool.setStatus.useMutation({ onSuccess: invalidate });
 
   const close = () => {
     setOpen(null);

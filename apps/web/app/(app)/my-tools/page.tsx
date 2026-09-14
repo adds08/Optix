@@ -17,7 +17,7 @@ export default function MyToolsPage() {
   const me = trpc.identity.me.useQuery();
   const employeeId = me.data?.employeeId ?? undefined;
 
-  const tools = trpc.asset.list.useQuery({ custodianId: employeeId }, { enabled: !!employeeId });
+  const tools = trpc.smallTool.list.useQuery({ custodianId: employeeId }, { enabled: !!employeeId });
 
   const rows = tools.data ?? [];
 

@@ -25,7 +25,7 @@ export default function DeskScreen() {
   const [status, setStatus] = useState<(typeof STATUS_CHIPS)[number]>("");
   const [q, setQ] = useState("");
 
-  const tools = trpc.asset.list.useQuery();
+  const tools = trpc.smallTool.list.useQuery();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

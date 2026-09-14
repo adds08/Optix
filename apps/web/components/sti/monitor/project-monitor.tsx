@@ -123,7 +123,7 @@ export function ProjectMonitor() {
   const projectsQ = trpc.project.list.useQuery(undefined, { enabled: seesTools });
   /* One list, refetched on a slow beat. A wall display is not a live feed — it
      is a board somebody glances at, and a minute-old count is not a wrong one. */
-  const assetsQ = trpc.asset.list.useQuery(undefined, { enabled: seesTools, refetchInterval: 60_000 });
+  const assetsQ = trpc.smallTool.list.useQuery(undefined, { enabled: seesTools, refetchInterval: 60_000 });
 
   const boards = useMemo<MonitorProject[]>(() => {
     const assets = assetsQ.data ?? [];

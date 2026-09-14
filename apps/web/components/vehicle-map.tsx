@@ -19,7 +19,7 @@ import type { VehicleStatus } from "@optix/types";
   whole problem. A vehicle with no fix is listed here, never dropped silently.
 */
 export function VehicleMap() {
-  const vehicles = trpc.vehicle.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
 
   const rows = vehicles.data ?? [];
   const tracked = rows.filter((v) => v.gpsLat && v.gpsLng);

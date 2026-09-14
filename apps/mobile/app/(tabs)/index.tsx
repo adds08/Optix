@@ -19,7 +19,7 @@ export default function MyToolsScreen() {
 
   /* Scoped to this person. A foreman should never have to filter a company-wide
      list down to their own name. */
-  const tools = trpc.asset.list.useQuery(
+  const tools = trpc.smallTool.list.useQuery(
     { custodianId: employeeId },
     { enabled: !!employeeId },
   );

@@ -69,7 +69,7 @@ export function AiPanel({ open, onClose }: { open: boolean; onClose: () => void 
   const confirm = trpc.messaging.confirmAction.useMutation({
     onSuccess: () => {
       if (channelId) utils.messaging.messages.invalidate({ channelId, limit: 30 });
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.kpis.invalidate();
     },
   });

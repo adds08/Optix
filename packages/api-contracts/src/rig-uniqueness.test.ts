@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
 import { createDb, schema, type Database } from "@optix/db";
 import type { Permission } from "@optix/types";
-import { locationRouter } from "./routers/location.js";
+import { locationRouter, equipmentRouter } from "./routers/equipment.js";
 import type { Context } from "./trpc.js";
 
 /*

@@ -82,7 +82,7 @@ export default function ActionScreen() {
   const [note, setNote] = useState("");
 
   const me = trpc.identity.me.useQuery();
-  const asset = trpc.asset.get.useQuery({ id: assetId! }, { enabled: !!assetId });
+  const asset = trpc.smallTool.get.useQuery({ id: assetId! }, { enabled: !!assetId });
 
   /*
     Stay on the screen and say what happened.
@@ -96,10 +96,10 @@ export default function ActionScreen() {
   const submit = trpc.action.submit.useMutation({
     onSuccess: () => {
       if (assetId) {
-        utils.asset.get.invalidate({ id: assetId });
+        utils.smallTool.get.invalidate({ id: assetId });
         utils.transaction.list.invalidate({ assetId });
       }
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.awaitingDesk.invalidate();
       utils.task.list.invalidate();
     },

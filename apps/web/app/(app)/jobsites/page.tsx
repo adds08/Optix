@@ -70,10 +70,10 @@ const CARD_TINT: Record<string, string> = {
 
 export default function JobsitesPage() {
   const employees = trpc.employee.list.useQuery();
-  const assets = trpc.asset.list.useQuery();
+  const assets = trpc.smallTool.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const yardProjectIds = new Set((projects.data ?? []).filter(p => p.kind === "yard").map(p => p.id));
-  const vehicles = trpc.vehicle.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
   /* The project roster (pm/superintendent/foreman per job), for the team strip
      on each card. Loaded once, keyed by project — see projectTeam.all. */
   const team = trpc.projectTeam.all.useQuery();
@@ -549,8 +549,8 @@ export default function JobsitesPage() {
   const crewsWithoutTruck = cards.reduce((n, c) => n + c.crews.filter((x) => !x.rig.truck).length, 0);
 
   const invalidate = () => {
-    utils.vehicle.list.invalidate();
-    utils.asset.list.invalidate();
+    utils.equipment.list.invalidate();
+    utils.smallTool.list.invalidate();
   };
 
   /*

@@ -6,7 +6,7 @@ import type { Permission } from "@optix/types";
 import { closeActiveCustody, moveCustody } from "./custody.js";
 import { assignmentRouter } from "./routers/assignment.js";
 import { transferRouter } from "./routers/transfer.js";
-import { locationRouter, vehicleRouter } from "./routers/location.js";
+import { locationRouter, equipmentRouter } from "./routers/equipment.js";
 import type { Context } from "./trpc.js";
 
 /*
@@ -953,7 +953,7 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
       requestedBy: userId,
     });
 
-    const caller = vehicleRouter.createCaller(ctx);
+    const caller = equipmentRouter.createCaller(ctx);
     await expect(caller.delete({ id: loneTrailer })).rejects.toThrow(/assignment history or a transfer/);
     await expect(caller.update({ id: loneTrailer, vehicleType: "truck" })).rejects.toThrow(/assignment history or a transfer/);
 
@@ -978,7 +978,7 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
       status: "returned",
     });
 
-    const caller = vehicleRouter.createCaller(ctx);
+    const caller = equipmentRouter.createCaller(ctx);
     await expect(caller.delete({ id: loneTruck })).rejects.toThrow(/assignment history or a transfer/);
     await expect(caller.update({ id: loneTruck, vehicleType: "trailer" })).rejects.toThrow(/assignment history or a transfer/);
   });

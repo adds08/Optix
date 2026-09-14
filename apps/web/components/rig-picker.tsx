@@ -111,7 +111,7 @@ export function RigPicker({
   const [optionOn, setOptionOn] = useState(true);
 
   const setCustodian = trpc.location.setCustodian.useMutation();
-  const updateVehicle = trpc.vehicle.update.useMutation();
+  const updateVehicle = trpc.equipment.update.useMutation();
   const assignForeman = trpc.projectTeam.assign.useMutation();
   /* The tier register, so a person can be posted under the tier they actually
      hold rather than under one of two names this file used to know about. */
@@ -123,8 +123,8 @@ export function RigPicker({
     setError("");
     try {
       await fn();
-      utils.vehicle.list.invalidate();
-      utils.asset.list.invalidate();
+      utils.equipment.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.employee.list.invalidate();
       utils.project.list.invalidate();
       utils.projectTeam.all.invalidate();

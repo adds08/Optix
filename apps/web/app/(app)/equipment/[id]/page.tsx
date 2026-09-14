@@ -26,8 +26,8 @@ const GPS_LABEL: Record<string, string> = { online: "Online", offline: "Offline"
 */
 export default function EquipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const vehicles = trpc.vehicle.list.useQuery();
-  const assets = trpc.asset.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
+  const assets = trpc.smallTool.list.useQuery();
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 

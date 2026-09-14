@@ -88,7 +88,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
       if (edit) {
         /* Nulls rather than undefined: clearing a serial has to persist as
            empty, and `undefined` would leave the old value in place. */
-        await utils.client.asset.update.mutate({
+        await utils.client.smallTool.update.mutate({
           id: edit.id,
           code,
           make: make || null,
@@ -105,9 +105,9 @@ export function AssetForm({ open, onClose, edit }: Props) {
           owningDepartmentId: costTarget === "department" ? owningDepartmentId || null : null,
           condition,
         });
-        utils.asset.get.invalidate({ id: edit.id });
+        utils.smallTool.get.invalidate({ id: edit.id });
       } else {
-        await utils.client.asset.create.mutate({
+        await utils.client.smallTool.create.mutate({
           code: code || undefined,
           make: make || undefined,
           modelNumber: modelNumber || undefined,
@@ -125,7 +125,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
           locationId: locationId || undefined,
         });
       }
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.kpis.invalidate();
       onClose();
     } catch (err) {

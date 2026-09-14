@@ -64,7 +64,7 @@ export default function CustodyPage() {
     utils.dashboard.pendingApprovals.invalidate();
     utils.assignment.list.invalidate();
     utils.transfer.list.invalidate();
-    utils.asset.list.invalidate();
+    utils.smallTool.list.invalidate();
   };
   const failed = (e: { message: string }) => setActionError(e.message);
   const approveAssignment = trpc.assignment.approve.useMutation({ onSuccess: acted, onError: failed });

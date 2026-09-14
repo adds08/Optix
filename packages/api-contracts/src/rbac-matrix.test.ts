@@ -4,7 +4,7 @@ import { createDb, schema, ROLE_PERMS, roleSpecs, type Database } from "@optix/d
 import { CUSTODIAN_ROLES, PERMISSIONS, ROLES, VIEW_SCOPES, type Permission } from "@optix/types";
 import { appRouter } from "./index.js";
 import { assetVisibility, assetScopeWhere, viewTierOf } from "./scope.js";
-import { assetRouter } from "./routers/asset.js";
+import { smallToolRouter } from "./routers/smallTool.js";
 import { reportRouter } from "./routers/report.js";
 import { dashboardRouter } from "./routers/dashboard.js";
 import type { Context } from "./trpc.js";
@@ -435,7 +435,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
        deleted. */
     const countsFor = async (email: string) => {
       const ctx = await sessionForAccount(email);
-      const assets = await assetRouter.createCaller(ctx).list({});
+      const assets = await smallToolRouter.createCaller(ctx).list({});
       const kpis = await dashboardRouter.createCaller(ctx).kpis();
       const register = await reportRouter.createCaller(ctx).assetRegister();
       return { assets: assets.length, assigned: kpis.assigned, register: register.length };
@@ -486,8 +486,8 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       const pmCtx = await sessionForAccount("pm@stinventory.local");
       const supCtx = await sessionForAccount("super@stinventory.local");
 
-      const pmIds = new Set((await assetRouter.createCaller(pmCtx).list({})).map((a) => a.id));
-      const supIds = new Set((await assetRouter.createCaller(supCtx).list({})).map((a) => a.id));
+      const pmIds = new Set((await smallToolRouter.createCaller(pmCtx).list({})).map((a) => a.id));
+      const supIds = new Set((await smallToolRouter.createCaller(supCtx).list({})).map((a) => a.id));
 
       const onlyPm = [...pmIds].filter((id) => !supIds.has(id));
       const onlySup = [...supIds].filter((id) => !pmIds.has(id));
@@ -568,16 +568,16 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       const deskCtx = await sessionForAccount("warehouse@stinventory.local");
       const foremanCtx = await sessionForAccount("foreman@stinventory.local");
 
-      const mine = new Set((await assetRouter.createCaller(foremanCtx).list({})).map((a) => a.id));
-      const somebodyElses = (await assetRouter.createCaller(deskCtx).list({})).find((a) => !mine.has(a.id));
+      const mine = new Set((await smallToolRouter.createCaller(foremanCtx).list({})).map((a) => a.id));
+      const somebodyElses = (await smallToolRouter.createCaller(deskCtx).list({})).find((a) => !mine.has(a.id));
       expect(somebodyElses, "the seed no longer contains a tool outside the foreman's custody").toBeTruthy();
 
       const mineOne = [...mine][0]!;
-      await expect(assetRouter.createCaller(foremanCtx).get({ id: mineOne })).resolves.toBeTruthy();
+      await expect(smallToolRouter.createCaller(foremanCtx).get({ id: mineOne })).resolves.toBeTruthy();
       /* Out of scope reads as "not found", not "forbidden" — a FORBIDDEN would
          confirm the id names a real tool on a job the caller has no business
          knowing about. */
-      await expect(assetRouter.createCaller(foremanCtx).get({ id: somebodyElses!.id })).resolves.toBeNull();
+      await expect(smallToolRouter.createCaller(foremanCtx).get({ id: somebodyElses!.id })).resolves.toBeNull();
     });
 
     it("an account with no tier at all sees nothing, not everything", async () => {
@@ -589,7 +589,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       expect(viewTierOf(ctx.session!)).toBe("none");
       expect(assetScopeWhere(await assetVisibility(db, ctx.session!))).toBeDefined();
 
-      const rows = await assetRouter.createCaller(ctx).list({});
+      const rows = await smallToolRouter.createCaller(ctx).list({});
       expect(rows).toHaveLength(0);
     });
 
@@ -601,7 +601,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
       const ctx = ctxFor(["asset.read", "assets.view.own"], null);
       const scope = await assetVisibility(db, ctx.session!);
       expect(scope.tier).toBe("none");
-      expect(await assetRouter.createCaller(ctx).list({})).toHaveLength(0);
+      expect(await smallToolRouter.createCaller(ctx).list({})).toHaveLength(0);
     });
 
     it("resolves the widest tier when a role holds more than one", () => {
@@ -751,7 +751,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
 
   describe("denial", () => {
     it.each([
-      ["asset.list", (ctx: Context) => assetRouter.createCaller(ctx).list({})],
+      ["asset.list", (ctx: Context) => smallToolRouter.createCaller(ctx).list({})],
       ["dashboard.kpis", (ctx: Context) => dashboardRouter.createCaller(ctx).kpis()],
       ["dashboard.charts", (ctx: Context) => dashboardRouter.createCaller(ctx).charts()],
       ["report.assetRegister", (ctx: Context) => reportRouter.createCaller(ctx).assetRegister()],

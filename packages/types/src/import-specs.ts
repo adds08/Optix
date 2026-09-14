@@ -227,10 +227,18 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     entity: "vehicle",
     label: "Vehicles",
     permission: "vehicle.manage",
-    /* `code`, not `unit` — that column was dropped in migration 0077. Naming
-       a field that no longer exists meant equipment code duplicates were not
-       checked AT ALL: the set was built under a key nothing looked up. */
-    unique: ["code"],
+    /*
+      `code`, not `unit` — that column was dropped in migration 0077. Naming a
+      field that no longer exists meant equipment code duplicates were not
+      checked AT ALL: the set was built under a key nothing looked up.
+
+      `vin` is here too, and is the same "unique but nullable" shape as a
+      tool's serial: `validateRows` skips a blank before the duplicate check,
+      so the 88 rows with no VIN all pass and only a REPEAT is refused. Urban's
+      VINs arrive over time — a NOT NULL would make the import impossible
+      today, and a duplicate means one of the two vehicles is wrong.
+    */
+    unique: ["code", "vin"],
     description:
       "Trucks and trailers, which are locations that move. Each one also creates the location tools ride in.",
     columns: [
@@ -263,7 +271,58 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
 export const IMPORT_ENTITIES = Object.keys(IMPORT_SPECS) as ImportEntity[];
 
 /** Header row plus one example row — the file a user downloads to start from. */
+/*
+  The downloadable template, built so somebody who has never seen this system
+  can fill it in without asking anybody.
+
+  It used to be two rows — headers, then one example — which left four
+  questions unanswerable from the file itself: which columns are REQUIRED,
+  what the legal values of an enum are, which columns hold a NAME that must
+  already exist in the register, and whether a blank cell is allowed.
+  Every one of those is a reason a first import fails.
+
+  So there are now three guide rows above the example, each prefixed `#` in the
+  first cell:
+
+    # REQUIRED?   `required` or blank
+    # TYPE        the type, and for an enum its full list of legal values
+    # NOTES       the column's hint, and for a ref which register it looks in
+
+  A LEADING `#` IS WHY THIS IS SAFE. `parseCsvRows` in the web client drops any
+  row whose first cell starts with `#`, so a data engineer can fill the file in
+  underneath and upload it unchanged — the guide rows are stripped on read.
+  Without that, this would be three garbage rows in every import.
+*/
 export function templateRows(entity: ImportEntity): string[][] {
   const spec = IMPORT_SPECS[entity];
-  return [spec.columns.map((c) => c.header), spec.columns.map((c) => c.example)];
+  const cols = spec.columns;
+  const enumValues = (c: (typeof cols)[number]) =>
+    c.type === "enum" && c.values?.length ? `enum: ${c.values.join(" | ")}` : c.type;
+  const notes = (c: (typeof cols)[number]) => {
+    const bits: string[] = [];
+    if (c.ref) bits.push(`must already exist as a ${c.ref} (matched by name, case-insensitive)`);
+    if (spec.unique.includes(c.key)) bits.push("must be unique where given");
+    if (c.hint) bits.push(c.hint);
+    return bits.join(" — ");
+  };
+  /*
+    The guide rows are PREFIXED, not shifted. A first version put `# REQUIRED?`
+    in the first column's own cell and dropped that column's value — so
+    `required` appeared under `type` while `code`, the one required field on
+    this entity, looked optional. Printing the template is what showed it; the
+    types could not.
+
+    So every guide row is `["#", ...one cell per column]` — one cell wider than
+    the header, with the marker in a leading column of its own. `parseCsvRows`
+    keys the strip on the FIRST cell starting with `#`, and `rowsToObjects`
+    reads by header position, so an extra leading cell on a row that is dropped
+    before parsing costs nothing.
+  */
+  return [
+    cols.map((c) => c.header),
+    ["# REQUIRED?", ...cols.map((c) => (c.required ? "required" : ""))],
+    ["# TYPE", ...cols.map(enumValues)],
+    ["# NOTES", ...cols.map(notes)],
+    cols.map((c) => c.example ?? ""),
+  ];
 }

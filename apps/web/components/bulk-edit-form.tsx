@@ -55,7 +55,7 @@ export function BulkEditForm({ open, onClose, assetIds, onApplied }: Props) {
     }
   }, [open]);
 
-  const bulkUpdate = trpc.asset.bulkUpdate.useMutation();
+  const bulkUpdate = trpc.smallTool.bulkUpdate.useMutation();
 
   const nothingPicked = categoryName === NO_CHANGE && departmentId === NO_CHANGE;
 
@@ -69,7 +69,7 @@ export function BulkEditForm({ open, onClose, assetIds, onApplied }: Props) {
           ? { owningDepartmentId: departmentId === CLEAR_DEPT ? null : departmentId }
           : {}),
       });
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.category.list.invalidate();
       onApplied?.();
       onClose();

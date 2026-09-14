@@ -176,13 +176,27 @@ export function rowsToObjects(
   const headerRow = known ? findHeaderRow(raw, known) : 0;
   const rawHeaders = raw[headerRow]!.map((h) => h.trim());
   const headers = rawHeaders.map(normalizeHeader);
-  const rows = raw.slice(headerRow + 1).map((cells) => {
-    const obj: Record<string, string> = {};
-    headers.forEach((h, i) => {
-      obj[h] = (cells[i] ?? "").trim();
+  const rows = raw
+    .slice(headerRow + 1)
+    /*
+      Drop guide rows. The downloadable template carries three rows under the
+      header — `# REQUIRED?`, `# TYPE`, `# NOTES` — so somebody filling it in
+      can see which columns are mandatory, an enum's legal values, and which
+      cells hold a name that must already exist. They are stripped here so the
+      file uploads unchanged rather than importing three garbage rows.
+
+      Keyed on a leading `#` in the FIRST cell only, and `#` is not a legal
+      start for any real value in these files: a tool code, a project name and
+      a VIN cannot begin with one.
+    */
+    .filter((cells) => !(cells[0] ?? "").trim().startsWith("#"))
+    .map((cells) => {
+      const obj: Record<string, string> = {};
+      headers.forEach((h, i) => {
+        obj[h] = (cells[i] ?? "").trim();
+      });
+      return obj;
     });
-    return obj;
-  });
 
   return { headers, rawHeaders, rows };
 }

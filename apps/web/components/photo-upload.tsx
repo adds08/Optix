@@ -67,8 +67,8 @@ export function PhotoUpload({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "The upload did not go through.");
       onChange(data.photoKey ?? null);
-      utils.asset.list.invalidate();
-      utils.asset.get.invalidate({ id: assetId });
+      utils.smallTool.list.invalidate();
+      utils.smallTool.get.invalidate({ id: assetId });
     } catch (e) {
       setPreview(null);
       setError(e instanceof Error ? e.message : "The upload did not go through.");
@@ -88,8 +88,8 @@ export function PhotoUpload({
       if (!res.ok) throw new Error("Could not remove the photo.");
       setPreview(null);
       onChange(null);
-      utils.asset.list.invalidate();
-      utils.asset.get.invalidate({ id: assetId });
+      utils.smallTool.list.invalidate();
+      utils.smallTool.get.invalidate({ id: assetId });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not remove the photo.");
     }
