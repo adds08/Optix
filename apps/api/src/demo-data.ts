@@ -217,13 +217,13 @@ async function main() {
 
   const heldTruckForemanRows = await db
     .select({ name: schema.employee.name })
-    .from(schema.vehicle)
-    .innerJoin(schema.employee, eq(schema.employee.id, schema.vehicle.foremanEmployeeId))
-    .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.vehicleType, "truck")));
+    .from(schema.equipment)
+    .innerJoin(schema.employee, eq(schema.employee.id, schema.equipment.foremanEmployeeId))
+    .where(and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.vehicleType, "truck")));
   const heldTruckForemen = new Set(heldTruckForemanRows.map((r) => keyName(r.name)));
 
   const existingUnits = new Set(
-    (await db.select({ unit: schema.vehicle.unit }).from(schema.vehicle).where(eq(schema.vehicle.tenantId, tid))).map(
+    (await db.select({ unit: schema.equipment.unit }).from(schema.equipment).where(eq(schema.equipment.tenantId, tid))).map(
       (r) => r.unit.toLowerCase(),
     ),
   );

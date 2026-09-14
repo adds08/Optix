@@ -104,15 +104,15 @@ export const entityRouter = router({
       if (input.kind === "vehicle") {
         const rows = await ctx.db
           .select({
-            id: schema.vehicle.id,
-            label: schema.vehicle.unit,
-            subtitle: schema.vehicle.makeModel,
+            id: schema.equipment.id,
+            label: schema.equipment.unit,
+            subtitle: schema.equipment.makeModel,
           })
-          .from(schema.vehicle)
+          .from(schema.equipment)
           .where(
             and(
-              eq(schema.vehicle.tenantId, tid),
-              or(ilike(schema.vehicle.unit, q), ilike(schema.vehicle.makeModel, q)),
+              eq(schema.equipment.tenantId, tid),
+              or(ilike(schema.equipment.unit, q), ilike(schema.equipment.makeModel, q)),
             ),
           )
           .limit(limit);
@@ -227,17 +227,17 @@ export const entityRouter = router({
 
         ctx.db
           .select({
-            id: schema.vehicle.id,
-            locationId: schema.vehicle.locationId,
-            label: schema.vehicle.unit,
-            subtitle: schema.vehicle.makeModel,
-            vehicleType: schema.vehicle.vehicleType,
+            id: schema.equipment.id,
+            locationId: schema.equipment.locationId,
+            label: schema.equipment.unit,
+            subtitle: schema.equipment.makeModel,
+            vehicleType: schema.equipment.vehicleType,
           })
-          .from(schema.vehicle)
+          .from(schema.equipment)
           .where(
             and(
-              eq(schema.vehicle.tenantId, tid),
-              or(ilike(schema.vehicle.unit, q), ilike(schema.vehicle.makeModel, q), ilike(schema.vehicle.plate, q)),
+              eq(schema.equipment.tenantId, tid),
+              or(ilike(schema.equipment.unit, q), ilike(schema.equipment.makeModel, q), ilike(schema.equipment.plate, q)),
             ),
           )
           .limit(input.limit),

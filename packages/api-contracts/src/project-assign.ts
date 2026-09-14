@@ -345,12 +345,12 @@ export async function moveEmployeeToProject(
        every tool on the old site would stay booked to a job nobody is running. */
     const vehicles = await tx
       .select({
-        id: schema.vehicle.id,
-        vehicleType: schema.vehicle.vehicleType,
-        locationId: schema.vehicle.locationId,
+        id: schema.equipment.id,
+        vehicleType: schema.equipment.vehicleType,
+        locationId: schema.equipment.locationId,
       })
-      .from(schema.vehicle)
-      .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.foremanEmployeeId, employeeId)));
+      .from(schema.equipment)
+      .where(and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.foremanEmployeeId, employeeId)));
 
     /* The rig follows the person: every truck AND every directly-held trailer
        (a trailer assigned to them without a truck) travels with them, plus any
@@ -462,9 +462,9 @@ export async function moveEmployeeToProject(
         .set({ projectId })
         .where(and(eq(schema.location.tenantId, tid), inArray(schema.location.id, [...containerLocIds])));
       await tx
-        .update(schema.vehicle)
+        .update(schema.equipment)
         .set({ projectId, updatedAt: new Date() })
-        .where(and(eq(schema.vehicle.tenantId, tid), inArray(schema.vehicle.locationId, [...containerLocIds])));
+        .where(and(eq(schema.equipment.tenantId, tid), inArray(schema.equipment.locationId, [...containerLocIds])));
       containersMoved = containerLocIds.size;
     }
 

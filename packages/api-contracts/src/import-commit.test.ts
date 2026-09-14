@@ -350,13 +350,13 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
     });
 
     it("vehicle", async () => {
-      const before = await countOf(schema.vehicle);
+      const before = await countOf(schema.equipment);
       const res = await caller().commit({
         entity: "vehicle",
         rows: [{ unit: `IMP-VEH-${suffix}`, type: "trailer" }],
       });
       expect(res.imported).toBe(1);
-      expect(await countOf(schema.vehicle)).toBe(before + 1);
+      expect(await countOf(schema.equipment)).toBe(before + 1);
     });
   });
 });

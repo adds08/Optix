@@ -335,22 +335,22 @@ async function containersHeldBy(db: Database | Transaction, tenantId: string, le
     .select({
       locationId: schema.location.id,
       locationName: schema.location.name,
-      vehicleId: schema.vehicle.id,
-      unit: schema.vehicle.unit,
-      vehicleType: schema.vehicle.vehicleType,
-      ownershipType: schema.vehicle.ownershipType,
+      vehicleId: schema.equipment.id,
+      unit: schema.equipment.unit,
+      vehicleType: schema.equipment.vehicleType,
+      ownershipType: schema.equipment.ownershipType,
     })
     .from(schema.location)
     .leftJoin(
-      schema.vehicle,
-      and(eq(schema.vehicle.locationId, schema.location.id), eq(schema.vehicle.tenantId, tenantId)),
+      schema.equipment,
+      and(eq(schema.equipment.locationId, schema.location.id), eq(schema.equipment.tenantId, tenantId)),
     )
     .where(
       and(
         eq(schema.location.tenantId, tenantId),
         or(
           eq(schema.location.custodianEmployeeId, leaverId),
-          and(isNull(schema.location.custodianEmployeeId), eq(schema.vehicle.foremanEmployeeId, leaverId)),
+          and(isNull(schema.location.custodianEmployeeId), eq(schema.equipment.foremanEmployeeId, leaverId)),
         ),
       ),
     )

@@ -76,8 +76,8 @@ export async function matchEntity(
     });
     if (a) return { type: "asset", id: a.id, label: `${a.code} (${formatAssetModel(a)})` };
 
-    const v = await db.query.vehicle.findFirst({
-      where: and(codeMatch(schema.vehicle.unit), eq(schema.vehicle.tenantId, tid)),
+    const v = await db.query.equipment.findFirst({
+      where: and(codeMatch(schema.equipment.unit), eq(schema.equipment.tenantId, tid)),
     });
     if (v) return { type: "vehicle", id: v.id, label: v.unit };
   }

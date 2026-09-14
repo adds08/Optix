@@ -97,8 +97,8 @@ async function loadExisting(db: any, tenantId: string, spec: ImportSpec): Promis
     for (const r of rows) if (r.externalId) out.externalId?.add(String(r.externalId).toLowerCase());
   }
   if (spec.entity === "vehicle") {
-    const rows = await db.select({ unit: schema.vehicle.unit })
-      .from(schema.vehicle).where(eq(schema.vehicle.tenantId, tenantId));
+    const rows = await db.select({ unit: schema.equipment.unit })
+      .from(schema.equipment).where(eq(schema.equipment.tenantId, tenantId));
     for (const r of rows) if (r.unit) out.unit?.add(String(r.unit).toLowerCase());
   }
   return out;
@@ -406,7 +406,7 @@ async function insertOne(
       .returning();
     if (!loc) return null;
     const [row] = await tx
-      .insert(schema.vehicle)
+      .insert(schema.equipment)
       .values({ tenantId, locationId: loc.id, ...values })
       .returning();
     return row?.id ?? null;

@@ -345,10 +345,10 @@ export const dashboardRouter = router({
        by the proposed custodian would hide from a superintendent the very
        hand-off that moves a tool OUT of their crew. */
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
-    const aTruck = alias(schema.vehicle, "pending_assignment_truck");
-    const aTrailer = alias(schema.vehicle, "pending_assignment_trailer");
-    const tTruck = alias(schema.vehicle, "pending_transfer_truck");
-    const tTrailer = alias(schema.vehicle, "pending_transfer_trailer");
+    const aTruck = alias(schema.equipment, "pending_assignment_truck");
+    const aTrailer = alias(schema.equipment, "pending_assignment_trailer");
+    const tTruck = alias(schema.equipment, "pending_transfer_truck");
+    const tTrailer = alias(schema.equipment, "pending_transfer_trailer");
     const pendingAssignments = await ctx.db
       .select({
         id: schema.assignment.id,

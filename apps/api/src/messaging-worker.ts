@@ -89,8 +89,8 @@ async function mentionSlots(
   const slots = slotsFromMentions(raw as ChatMention[]);
 
   if (!slots.locationId && slots.vehicleIds.length) {
-    const veh = await db.query.vehicle.findFirst({
-      where: and(eq(schema.vehicle.id, slots.vehicleIds[0]!), eq(schema.vehicle.tenantId, tid)),
+    const veh = await db.query.equipment.findFirst({
+      where: and(eq(schema.equipment.id, slots.vehicleIds[0]!), eq(schema.equipment.tenantId, tid)),
     });
     if (veh) slots.locationId = veh.locationId;
   }

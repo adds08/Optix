@@ -519,6 +519,13 @@
       "when": 1789642613927,
       "tag": "0074_narrow_location_types",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1789729013927,
+      "tag": "0075_vehicle_becomes_equipment",
+      "breakpoints": true
     }
   ]
 }

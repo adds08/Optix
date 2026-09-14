@@ -74,9 +74,9 @@ export async function applyContainerCustody(opts: {
      authoritative column, but the vehicle list and import still read
      `vehicle.foremanEmployeeId`. */
   await tx
-    .update(schema.vehicle)
+    .update(schema.equipment)
     .set({ foremanEmployeeId: custodianId, updatedAt: new Date() })
-    .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, locationId)));
+    .where(and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.locationId, locationId)));
 
   if (!moveContents) return 0;
 
@@ -126,9 +126,9 @@ export async function applyContainerCustody(opts: {
     that never did. That one row is the bug, demonstrated.
   */
   const [containerVehicle] = await tx
-    .select({ id: schema.vehicle.id, vehicleType: schema.vehicle.vehicleType })
-    .from(schema.vehicle)
-    .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, locationId)))
+    .select({ id: schema.equipment.id, vehicleType: schema.equipment.vehicleType })
+    .from(schema.equipment)
+    .where(and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.locationId, locationId)))
     .limit(1);
 
   const contentsColumns = {
@@ -326,22 +326,22 @@ export const locationCustodyRouter = {
         */
         const [thisVehicle] = await ctx.db
           .select({
-            id: schema.vehicle.id,
-            vehicleType: schema.vehicle.vehicleType,
+            id: schema.equipment.id,
+            vehicleType: schema.equipment.vehicleType,
           })
-          .from(schema.vehicle)
-          .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, input.locationId)))
+          .from(schema.equipment)
+          .where(and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.locationId, input.locationId)))
           .limit(1);
 
         if (thisVehicle?.vehicleType === "truck") {
           const [heldTruck] = await ctx.db
-            .select({ id: schema.vehicle.id, unit: schema.vehicle.unit })
-            .from(schema.vehicle)
+            .select({ id: schema.equipment.id, unit: schema.equipment.unit })
+            .from(schema.equipment)
             .where(
               and(
-                eq(schema.vehicle.tenantId, tid),
-                eq(schema.vehicle.vehicleType, "truck"),
-                eq(schema.vehicle.foremanEmployeeId, input.custodianEmployeeId),
+                eq(schema.equipment.tenantId, tid),
+                eq(schema.equipment.vehicleType, "truck"),
+                eq(schema.equipment.foremanEmployeeId, input.custodianEmployeeId),
               ),
             )
             .limit(1);
@@ -529,9 +529,9 @@ export const locationRouter = router({
       /* A vehicle location is named after its unit; keep the two in step. */
       if (patch.name && existing.type === "vehicle") {
         await ctx.db
-          .update(schema.vehicle)
+          .update(schema.equipment)
           .set({ unit: patch.name as string, updatedAt: new Date() })
-          .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, id)));
+          .where(and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.locationId, id)));
       }
 
       await logEvent(ctx, {
@@ -566,9 +566,9 @@ export const locationRouter = router({
       /* Deleting the location of a truck would orphan the vehicle row, whose
          `locationId` is NOT NULL. Delete the vehicle from the vehicle side. */
       const [veh] = await ctx.db
-        .select({ id: schema.vehicle.id, unit: schema.vehicle.unit })
-        .from(schema.vehicle)
-        .where(and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.locationId, input.id)))
+        .select({ id: schema.equipment.id, unit: schema.equipment.unit })
+        .from(schema.equipment)
+        .where(and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.locationId, input.id)))
         .limit(1);
       if (veh) {
         throw new TRPCError({
@@ -634,55 +634,55 @@ export const vehicleRouter = router({
     .input(z.object({ projectId: z.string().uuid().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const scope = await visibleProjectScope(ctx.db, ctx.session);
-      const conditions = [eq(schema.vehicle.tenantId, ctx.session.tenantId)];
+      const conditions = [eq(schema.equipment.tenantId, ctx.session.tenantId)];
       if (scope.restrict) {
         conditions.push(
           or(
-            isNull(schema.vehicle.projectId),
-            scope.ids.size ? inArray(schema.vehicle.projectId, [...scope.ids]) : sql`false`,
+            isNull(schema.equipment.projectId),
+            scope.ids.size ? inArray(schema.equipment.projectId, [...scope.ids]) : sql`false`,
           )!,
         );
       }
-      if (input?.projectId) conditions.push(eq(schema.vehicle.projectId, input.projectId));
+      if (input?.projectId) conditions.push(eq(schema.equipment.projectId, input.projectId));
       const payee = alias(schema.employee, "payee");
       const foreman = alias(schema.employee, "foreman");
-      const attached = alias(schema.vehicle, "attached");
+      const attached = alias(schema.equipment, "attached");
       const rows = await ctx.db
         .select({
-          id: schema.vehicle.id,
-          vehicleType: schema.vehicle.vehicleType,
-          equipmentClass: schema.vehicle.equipmentClass,
-          code: schema.vehicle.code,
-          vin: schema.vehicle.vin,
-          description: schema.vehicle.description,
-          unit: schema.vehicle.unit,
-          plate: schema.vehicle.plate,
-          makeModel: schema.vehicle.makeModel,
-          ownershipType: schema.vehicle.ownershipType,
-          payeeEmployeeId: schema.vehicle.payeeEmployeeId,
+          id: schema.equipment.id,
+          vehicleType: schema.equipment.vehicleType,
+          equipmentClass: schema.equipment.equipmentClass,
+          code: schema.equipment.code,
+          vin: schema.equipment.vin,
+          description: schema.equipment.description,
+          unit: schema.equipment.unit,
+          plate: schema.equipment.plate,
+          makeModel: schema.equipment.makeModel,
+          ownershipType: schema.equipment.ownershipType,
+          payeeEmployeeId: schema.equipment.payeeEmployeeId,
           payeeName: payee.name,
-          allowanceRate: schema.vehicle.allowanceRate,
-          allowanceFrequency: schema.vehicle.allowanceFrequency,
-          gpsLat: schema.vehicle.gpsLat,
-          gpsLng: schema.vehicle.gpsLng,
-          gpsAt: schema.vehicle.gpsAt,
-          gpsSource: schema.vehicle.gpsSource,
-          projectId: schema.vehicle.projectId,
+          allowanceRate: schema.equipment.allowanceRate,
+          allowanceFrequency: schema.equipment.allowanceFrequency,
+          gpsLat: schema.equipment.gpsLat,
+          gpsLng: schema.equipment.gpsLng,
+          gpsAt: schema.equipment.gpsAt,
+          gpsSource: schema.equipment.gpsSource,
+          projectId: schema.equipment.projectId,
           projectName: schema.project.name,
-          foremanEmployeeId: schema.vehicle.foremanEmployeeId,
+          foremanEmployeeId: schema.equipment.foremanEmployeeId,
           foremanName: foreman.name,
-          locationId: schema.vehicle.locationId,
+          locationId: schema.equipment.locationId,
           locationName: schema.location.name,
           /* A trailer hitched to a truck: the trailer's location points at the
              truck's location, and this join turns that into "Truck 07". */
           attachedToVehicleId: attached.id,
           attachedToUnit: attached.unit,
         })
-        .from(schema.vehicle)
-        .leftJoin(payee, eq(schema.vehicle.payeeEmployeeId, payee.id))
-        .leftJoin(schema.project, eq(schema.vehicle.projectId, schema.project.id))
-        .leftJoin(foreman, eq(schema.vehicle.foremanEmployeeId, foreman.id))
-        .leftJoin(schema.location, eq(schema.vehicle.locationId, schema.location.id))
+        .from(schema.equipment)
+        .leftJoin(payee, eq(schema.equipment.payeeEmployeeId, payee.id))
+        .leftJoin(schema.project, eq(schema.equipment.projectId, schema.project.id))
+        .leftJoin(foreman, eq(schema.equipment.foremanEmployeeId, foreman.id))
+        .leftJoin(schema.location, eq(schema.equipment.locationId, schema.location.id))
         .leftJoin(attached, eq(schema.location.parentLocationId, attached.locationId))
         .where(and(...conditions))
         /* Matches the newest-first convention `project.list`/`employee.list`
@@ -697,7 +697,7 @@ export const vehicleRouter = router({
            to one truck per foreman of EITHER kind (2026-09-12), that tie can
            no longer occur — a foreman's own truck rows never collide — so a
            plain newest-first order is enough. */
-        .orderBy(desc(schema.vehicle.createdAt));
+        .orderBy(desc(schema.equipment.createdAt));
       return rows.map((r) => ({
         ...r,
         /* Derived once, server-side, so the locations page and the map cannot
@@ -717,7 +717,7 @@ export const vehicleRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const [row] = await ctx.db
-        .update(schema.vehicle)
+        .update(schema.equipment)
         .set({
           gpsLat: input.lat,
           gpsLng: input.lng,
@@ -725,7 +725,7 @@ export const vehicleRouter = router({
           gpsSource: input.source ?? "manual",
           updatedAt: new Date(),
         })
-        .where(and(eq(schema.vehicle.id, input.id), eq(schema.vehicle.tenantId, ctx.session.tenantId)))
+        .where(and(eq(schema.equipment.id, input.id), eq(schema.equipment.tenantId, ctx.session.tenantId)))
         .returning();
       return row;
     }),
@@ -768,10 +768,10 @@ export const vehicleRouter = router({
         if (input.vehicleType !== "trailer") {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Only trailers can be attached to a truck." });
         }
-        const truck = await ctx.db.query.vehicle.findFirst({
+        const truck = await ctx.db.query.equipment.findFirst({
           where: and(
-            eq(schema.vehicle.id, input.attachedToVehicleId),
-            eq(schema.vehicle.tenantId, tid),
+            eq(schema.equipment.id, input.attachedToVehicleId),
+            eq(schema.equipment.tenantId, tid),
           ),
         });
         if (!truck) throw new TRPCError({ code: "NOT_FOUND", message: "No such truck in this tenant" });
@@ -815,7 +815,7 @@ export const vehicleRouter = router({
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create vehicle location" });
 
         const [created] = await tx
-          .insert(schema.vehicle)
+          .insert(schema.equipment)
           .values({
             tenantId: tid,
             locationId: loc.id,
@@ -869,8 +869,8 @@ export const vehicleRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
       const { id, attachedToVehicleId, ...changes } = input;
-      const existing = await ctx.db.query.vehicle.findFirst({
-        where: and(eq(schema.vehicle.id, id), eq(schema.vehicle.tenantId, tid)),
+      const existing = await ctx.db.query.equipment.findFirst({
+        where: and(eq(schema.equipment.id, id), eq(schema.equipment.tenantId, tid)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such vehicle in this tenant" });
 
@@ -892,8 +892,8 @@ export const vehicleRouter = router({
       /* `foremanEmployeeId` is not here: handing a truck over is
          `location.setCustodian`, which takes the tools aboard with it. */
       if (changes.unit && changes.unit !== existing.unit) {
-        const clash = await ctx.db.query.vehicle.findFirst({
-          where: and(eq(schema.vehicle.tenantId, tid), eq(schema.vehicle.unit, changes.unit)),
+        const clash = await ctx.db.query.equipment.findFirst({
+          where: and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.unit, changes.unit)),
         });
         if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.unit} is already in use` });
       }
@@ -904,9 +904,9 @@ export const vehicleRouter = router({
       const result = await ctx.db.transaction(async (tx) => {
         if (Object.keys(patch).length) {
           await tx
-            .update(schema.vehicle)
+            .update(schema.equipment)
             .set({ ...patch, updatedAt: new Date() })
-            .where(and(eq(schema.vehicle.id, id), eq(schema.vehicle.tenantId, tid)));
+            .where(and(eq(schema.equipment.id, id), eq(schema.equipment.tenantId, tid)));
         }
 
         /* The location row is the vehicle under another name — a renamed unit
@@ -933,8 +933,8 @@ export const vehicleRouter = router({
           let truck: (typeof existing) | null | undefined = null;
           let parentLocId: string | null = null;
           if (attachedToVehicleId) {
-            truck = await tx.query.vehicle.findFirst({
-              where: and(eq(schema.vehicle.id, attachedToVehicleId), eq(schema.vehicle.tenantId, tid)),
+            truck = await tx.query.equipment.findFirst({
+              where: and(eq(schema.equipment.id, attachedToVehicleId), eq(schema.equipment.tenantId, tid)),
             });
             if (!truck || truck.vehicleType !== "truck") {
               throw new TRPCError({ code: "BAD_REQUEST", message: "A trailer can only be attached to a truck in this tenant." });
@@ -995,8 +995,8 @@ export const vehicleRouter = router({
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const existing = await ctx.db.query.vehicle.findFirst({
-        where: and(eq(schema.vehicle.id, input.id), eq(schema.vehicle.tenantId, tid)),
+      const existing = await ctx.db.query.equipment.findFirst({
+        where: and(eq(schema.equipment.id, input.id), eq(schema.equipment.tenantId, tid)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such vehicle in this tenant" });
 
@@ -1030,7 +1030,7 @@ export const vehicleRouter = router({
          transaction — a failure between them leaves the location behind as a
          phantom container with no vehicle to delete it (see `create`). */
       await ctx.db.transaction(async (tx) => {
-        await tx.delete(schema.vehicle).where(and(eq(schema.vehicle.id, input.id), eq(schema.vehicle.tenantId, tid)));
+        await tx.delete(schema.equipment).where(and(eq(schema.equipment.id, input.id), eq(schema.equipment.tenantId, tid)));
         await tx.delete(schema.location).where(and(eq(schema.location.id, existing.locationId), eq(schema.location.tenantId, tid)));
       });
 

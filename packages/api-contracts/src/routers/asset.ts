@@ -91,8 +91,8 @@ export const assetRouter = router({
          a per-custody fact, not a column on asset. At most one active row per
          asset (assignment_one_active_uq), so these joins cannot fan out. */
       const activeAssignment = alias(schema.assignment, "active_assignment");
-      const rideTruck = alias(schema.vehicle, "ride_truck");
-      const rideTrailer = alias(schema.vehicle, "ride_trailer");
+      const rideTruck = alias(schema.equipment, "ride_truck");
+      const rideTrailer = alias(schema.equipment, "ride_trailer");
       const rows = await ctx.db
         .select({
           id: schema.asset.id,
@@ -124,7 +124,7 @@ export const assetRouter = router({
           /* A vehicle is a `location` of type vehicle — but the register groups
              tools by truck vs trailer, which only the vehicle row knows. */
           locationType: schema.location.type,
-          vehicleType: schema.vehicle.vehicleType,
+          vehicleType: schema.equipment.vehicleType,
           currentTruckId: activeAssignment.truckId,
           currentTruckUnit: rideTruck.unit,
           /* STI-501's last AC: company vs personal must be visible wherever a
@@ -144,7 +144,7 @@ export const assetRouter = router({
         .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
         .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
         .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
-        .leftJoin(schema.vehicle, eq(schema.vehicle.locationId, schema.location.id))
+        .leftJoin(schema.equipment, eq(schema.equipment.locationId, schema.location.id))
         .leftJoin(
           activeAssignment,
           and(
@@ -183,8 +183,8 @@ export const assetRouter = router({
       const owningDepartment = alias(schema.department, "owning_department");
       /* Same active-assignment rig joins as `list` (STI-203). */
       const activeAssignment = alias(schema.assignment, "active_assignment");
-      const rideTruck = alias(schema.vehicle, "ride_truck");
-      const rideTrailer = alias(schema.vehicle, "ride_trailer");
+      const rideTruck = alias(schema.equipment, "ride_truck");
+      const rideTrailer = alias(schema.equipment, "ride_trailer");
       const [row] = await ctx.db
         .select({
           id: schema.asset.id,

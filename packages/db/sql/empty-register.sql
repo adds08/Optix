@@ -71,7 +71,7 @@ DELETE FROM "tbl_ops_sync_run";
 
 -- Then the entities themselves.
 DELETE FROM "tbl_entity_asset";
-DELETE FROM "tbl_entity_vehicle";
+DELETE FROM "tbl_entity_equipment";
 DELETE FROM "tbl_entity_location";
 DELETE FROM "tbl_entity_warehouse";
 DELETE FROM "tbl_entity_employee_external_ref";

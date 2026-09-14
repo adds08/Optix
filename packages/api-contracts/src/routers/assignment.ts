@@ -19,8 +19,8 @@ export const assignmentRouter = router({
        where the tool sits today would show a foreman a hand-off he was never
        part of and hide one he was. See assignmentScopeWhere. */
     const scoped = assignmentScopeWhere(await assetVisibility(ctx.db, ctx.session));
-    const truckVehicle = alias(schema.vehicle, "assignment_truck");
-    const trailerVehicle = alias(schema.vehicle, "assignment_trailer");
+    const truckVehicle = alias(schema.equipment, "assignment_truck");
+    const trailerVehicle = alias(schema.equipment, "assignment_trailer");
     const rows = await ctx.db
       .select({
         id: schema.assignment.id,

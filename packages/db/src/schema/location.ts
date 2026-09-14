@@ -65,8 +65,26 @@ export const location = pgTable(
   It is also what makes "tools riding on it" expressible without a second
   mechanism.
 */
-export const vehicle = pgTable(
-  "tbl_entity_vehicle",
+/*
+  THE EQUIPMENT REGISTER — trucks, trailers and whatever plant comes later.
+
+  Named `equipment` since 2026-09-14. It was `vehicle`, and the UI had said
+  "Equipment" since 2026-08-27 — so for weeks the table and every screen
+  disagreed about what this is. The client's words: "equipment table not
+  vehicle table."
+
+  `vehicleType` keeps its name deliberately and is NOT renamed with the table.
+  It is load-bearing: `assignment.truck_id`/`trailer_id` and
+  `transfer.to_truck_id`/`to_trailer_id` reference `(id, vehicle_type)` through
+  composite FKs with a generated constant, which is the only way a plain FK can
+  insist that a truckId names a truck. Migration 0073 constrains it to exactly
+  `truck` and `trailer`. Renaming the COLUMN would mean rewriting four
+  constraints for no gain; renaming the TABLE does not, because Postgres
+  updates FK references itself — verified on a throwaway database before this
+  change.
+*/
+export const equipment = pgTable(
+  "tbl_entity_equipment",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),

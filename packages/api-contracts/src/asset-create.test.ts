@@ -241,9 +241,9 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
       .values({ tenantId, type: "vehicle", name: "STI shop-status truck" })
       .returning({ id: schema.location.id });
     const [truck] = await db
-      .insert(schema.vehicle)
+      .insert(schema.equipment)
       .values({ tenantId, locationId: loc!.id, vehicleType: "truck", unit: "T-SHOPSTATUS" })
-      .returning({ id: schema.vehicle.id });
+      .returning({ id: schema.equipment.id });
 
     const row = await assetRouter.createCaller(ctx).create({ description: "shop-status drill", locationId });
 

@@ -35,8 +35,8 @@ export const transferRouter = router({
        `fromCustodianId` hides every tool arriving. The tool is the thing both
        ends have in common. */
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
-    const truckVehicle = alias(schema.vehicle, "transfer_to_truck");
-    const trailerVehicle = alias(schema.vehicle, "transfer_to_trailer");
+    const truckVehicle = alias(schema.equipment, "transfer_to_truck");
+    const trailerVehicle = alias(schema.equipment, "transfer_to_trailer");
     return ctx.db
       .select({
         id: schema.transfer.id,

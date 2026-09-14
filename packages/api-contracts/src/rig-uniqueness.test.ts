@@ -65,14 +65,14 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
       .values({ tenantId, type: "vehicle", name: unit, custodianEmployeeId: custodianId })
       .returning({ id: schema.location.id });
     const [v] = await db
-      .insert(schema.vehicle)
+      .insert(schema.equipment)
       .values({ tenantId, locationId: loc!.id, vehicleType, unit, ownershipType, foremanEmployeeId: custodianId })
-      .returning({ id: schema.vehicle.id });
+      .returning({ id: schema.equipment.id });
     return { vehicleId: v!.id, locationId: loc!.id };
   }
 
   const foremanOfVehicle = async (id: string) =>
-    (await db.select({ f: schema.vehicle.foremanEmployeeId }).from(schema.vehicle).where(eq(schema.vehicle.id, id)))[0]?.f ?? null;
+    (await db.select({ f: schema.equipment.foremanEmployeeId }).from(schema.equipment).where(eq(schema.equipment.id, id)))[0]?.f ?? null;
 
   beforeAll(async () => {
     db = createDb(url!);
@@ -112,9 +112,9 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
        what makes the index a guarantee rather than a convention. */
     await expect(
       db
-        .update(schema.vehicle)
+        .update(schema.equipment)
         .set({ foremanEmployeeId: foremanId })
-        .where(eq(schema.vehicle.id, truckB.vehicleId)),
+        .where(eq(schema.equipment.id, truckB.vehicleId)),
     ).rejects.toThrow(/vehicle_one_truck_per_foreman_uq/);
 
     expect(await foremanOfVehicle(truckB.vehicleId)).toBeNull();
@@ -182,7 +182,7 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
       guarantee the first test in this file proves for two company trucks.
     */
     await expect(
-      db.insert(schema.vehicle).values({
+      db.insert(schema.equipment).values({
         tenantId,
         locationId: (
           await db
@@ -244,7 +244,7 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
         .values({ tenantId: otherTenant, type: "vehicle", name: "THEIR-TRUCK" })
         .returning({ id: schema.location.id });
       const [v] = await db
-        .insert(schema.vehicle)
+        .insert(schema.equipment)
         .values({
           tenantId: otherTenant,
           locationId: loc!.id,
@@ -252,7 +252,7 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
           unit: "THEIR-TRUCK",
           foremanEmployeeId: emp!.id,
         })
-        .returning({ id: schema.vehicle.id });
+        .returning({ id: schema.equipment.id });
       expect(v!.id).toBeTruthy();
     } finally {
       await db.transaction(async (tx) => {

@@ -202,7 +202,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       .values({ tenantId: tid, type: "vehicle", name: opts.unit, custodianEmployeeId: opts.custodianId ?? null })
       .returning({ id: schema.location.id });
     const [v] = await db
-      .insert(schema.vehicle)
+      .insert(schema.equipment)
       .values({
         tenantId: tid,
         locationId: loc!.id,
@@ -211,7 +211,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
         ...(opts.ownershipType ? { ownershipType: opts.ownershipType } : {}),
         foremanEmployeeId: opts.custodianId ?? null,
       })
-      .returning({ id: schema.vehicle.id });
+      .returning({ id: schema.equipment.id });
     return { vehicleId: v!.id, locationId: loc!.id };
   }
 
@@ -398,9 +398,9 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       expect(loc!.custodianEmployeeId).toBe(successorId);
     }
     const [companyVeh] = await db
-      .select({ foremanEmployeeId: schema.vehicle.foremanEmployeeId })
-      .from(schema.vehicle)
-      .where(eq(schema.vehicle.id, companyTruckId));
+      .select({ foremanEmployeeId: schema.equipment.foremanEmployeeId })
+      .from(schema.equipment)
+      .where(eq(schema.equipment.id, companyTruckId));
     expect(companyVeh!.foremanEmployeeId).toBe(successorId);
 
     /* The gang box's contents came with it, through `applyContainerCustody` —
@@ -496,9 +496,9 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       .where(eq(schema.location.id, personal.locationId));
     expect(personalLoc!.custodianEmployeeId).toBe(leaver2Id);
     const [personalVeh] = await db
-      .select({ foremanEmployeeId: schema.vehicle.foremanEmployeeId })
-      .from(schema.vehicle)
-      .where(eq(schema.vehicle.id, personal.vehicleId));
+      .select({ foremanEmployeeId: schema.equipment.foremanEmployeeId })
+      .from(schema.equipment)
+      .where(eq(schema.equipment.id, personal.vehicleId));
     expect(personalVeh!.foremanEmployeeId).toBe(leaver2Id);
 
     expect(await custodianOf(rides)).toBe(successor2Id);

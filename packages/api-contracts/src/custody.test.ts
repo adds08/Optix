@@ -404,9 +404,9 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
       .values({ tenantId: tid, type: "vehicle", name: unit })
       .returning({ id: schema.location.id });
     const [v] = await db
-      .insert(schema.vehicle)
+      .insert(schema.equipment)
       .values({ tenantId: tid, locationId: loc!.id, vehicleType, unit })
-      .returning({ id: schema.vehicle.id });
+      .returning({ id: schema.equipment.id });
     return v!.id;
   }
 
@@ -645,7 +645,7 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
        makes this bug class expensive. The writer carries the newest
        snapshot's vehicle keys forward verbatim instead. */
     const assetId = await newAsset();
-    const trailerLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, trailerId) }))!.locationId;
+    const trailerLoc = (await db.query.equipment.findFirst({ where: eq(schema.equipment.id, trailerId) }))!.locationId;
 
     /* Assigned INTO the trailer, with the trailer's own location row too.
        Since STI-207 the location is no longer what makes it aboard — the
@@ -697,7 +697,7 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
       each other and both wrong about the world.
     */
     const assetId = await newAsset();
-    const trailerLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, trailerId) }))!.locationId;
+    const trailerLoc = (await db.query.equipment.findFirst({ where: eq(schema.equipment.id, trailerId) }))!.locationId;
 
     /* A yard: a real place that is NOT a vehicle. */
     const [yard] = await db
@@ -768,7 +768,7 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
       A hand-over changes WHO holds the tool, not where it is.
     */
     const assetId = await newAsset();
-    const trailerLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, trailerId) }))!.locationId;
+    const trailerLoc = (await db.query.equipment.findFirst({ where: eq(schema.equipment.id, trailerId) }))!.locationId;
     const [yard] = await db
       .insert(schema.location)
       .values({ tenantId, type: "warehouse", name: "STI-207 Divergence Yard" })
@@ -824,7 +824,7 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
       there is.
     */
     const assetId = await newAsset();
-    const trailerLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, trailerId) }))!.locationId;
+    const trailerLoc = (await db.query.equipment.findFirst({ where: eq(schema.equipment.id, trailerId) }))!.locationId;
 
     await assignmentRouter
       .createCaller(ctx)
@@ -861,7 +861,7 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
        path is covered above; without this, a typo swapping truckId for
        trailerId in that ternary would pass every other test in this file. */
     const assetId = await newAsset();
-    const truckLoc = (await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, truckId) }))!.locationId;
+    const truckLoc = (await db.query.equipment.findFirst({ where: eq(schema.equipment.id, truckId) }))!.locationId;
     const [yard] = await db
       .insert(schema.location)
       .values({ tenantId, type: "warehouse", name: "STI-207 Truck Yard" })
@@ -958,7 +958,7 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
     await expect(caller.update({ id: loneTrailer, vehicleType: "truck" })).rejects.toThrow(/assignment history or a transfer/);
 
     /* And the vehicle is still there — the refusal wrote nothing. */
-    const v = await db.query.vehicle.findFirst({ where: eq(schema.vehicle.id, loneTrailer) });
+    const v = await db.query.equipment.findFirst({ where: eq(schema.equipment.id, loneTrailer) });
     expect(v?.vehicleType).toBe("trailer");
   });
 

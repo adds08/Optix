@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { tenant, user } from "./identity";
 import { assetModel } from "./catalog";
 import { project } from "./project";
-import { location, vehicle } from "./location";
+import { location, equipment } from "./location";
 import { employee } from "./employee";
 import { department } from "./department";
 
@@ -231,12 +231,12 @@ export const assignment = pgTable(
     */
     truckFk: foreignKey({
       columns: [t.truckId, t.truckKind],
-      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      foreignColumns: [equipment.id, equipment.vehicleType],
       name: "assignment_truck_fk",
     }),
     trailerFk: foreignKey({
       columns: [t.trailerId, t.trailerKind],
-      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      foreignColumns: [equipment.id, equipment.vehicleType],
       name: "assignment_trailer_fk",
     }),
   }),
@@ -286,12 +286,12 @@ export const transfer = pgTable(
     toTrailerIdx: index("transfer_to_trailer_idx").on(t.toTrailerId),
     toTruckFk: foreignKey({
       columns: [t.toTruckId, t.toTruckKind],
-      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      foreignColumns: [equipment.id, equipment.vehicleType],
       name: "transfer_to_truck_fk",
     }),
     toTrailerFk: foreignKey({
       columns: [t.toTrailerId, t.toTrailerKind],
-      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      foreignColumns: [equipment.id, equipment.vehicleType],
       name: "transfer_to_trailer_fk",
     }),
   }),

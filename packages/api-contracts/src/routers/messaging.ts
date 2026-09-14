@@ -32,7 +32,7 @@ async function verifyMentions(
     employee: schema.employee,
     project: schema.project,
     location: schema.location,
-    vehicle: schema.vehicle,
+    vehicle: schema.equipment,
   } as const;
 
   const out: ChatMention[] = [];
