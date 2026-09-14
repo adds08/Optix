@@ -176,7 +176,33 @@ jobs:
       # (`drizzle-kit check` was evaluated and rejected: it validates
       # migration-history collisions and reports "Everything's fine" with
       # real schema drift in place.)
+      # TEMPORARILY DISABLED 2026-09-14 — see TODO-SNAPSHOT-GAP.md.
+      #
+      # packages/db/drizzle/meta/ has no snapshot past 0069, but 80 migrations
+      # are committed and applied (0070-0080 were hand-verified against the
+      # live DB and each other, not generated through drizzle-kit). That gap
+      # means `drizzle-kit generate` no longer has an accurate "current state"
+      # to diff schema.ts against, so it now fails this check on EVERY run
+      # regardless of real drift — confirmed by reproducing locally.
+      #
+      # Worse than a false positive: attempting the wizard's own fix is
+      # unsafe. Answering its table-identity prompt "renamed from asset" still
+      # produced `DROP TABLE "tbl_entity_asset" CASCADE` in the generated SQL,
+      # because the last snapshot it has (0069) doesn't match the table's
+      # current column shape, so it reconciles by drop-and-recreate rather
+      # than alter-in-place. Applied anywhere, that drops the small tools
+      # table and cascades through tbl_ops_transaction (the append-only
+      # ledger), tbl_ops_transfer, tbl_ops_smalltools_custody and
+      # tbl_ops_task. Not committed, not applied — caught in review before it
+      # reached any database.
+      #
+      # Real drift (an edited schema.ts with no generated migration) is NOT
+      # currently caught by anything else in this job — `db:migrate` below
+      # only proves the committed SQL applies, it does not compare the result
+      # to schema.ts. Re-enable this the moment the snapshot gap is repaired;
+      # don't let it stay off longer than that repair takes.
       - name: Check for uncommitted schema drift
+        if: false
         run: |
           pnpm db:generate < /dev/null 2>&1 | tee /tmp/drizzle-generate.log
           if ! grep -q "No schema changes, nothing to migrate" /tmp/drizzle-generate.log \
