@@ -287,6 +287,7 @@ app.post("/auth/forgot-password", async (c) => {
         recipientFirstName: u.firstName,
         resetUrl: `${env.WEB_ORIGIN}/reset/${token}`,
         expiresHuman: "1 hour",
+        webOrigin: env.WEB_ORIGIN,
       }),
     });
     await db.insert(schema.eventLog).values({
@@ -438,7 +439,7 @@ app.post("/auth/tokens/:token/consume", async (c) => {
     const config = await mailConfigFor(db, row.tenantId, env.SESSION_SECRET, mailFallback);
     await sendMail(config, {
       to: u.email,
-      ...passwordChangedEmail({ tenantName: tenantRow?.name ?? "Optix", recipientFirstName: u.firstName }),
+      ...passwordChangedEmail({ tenantName: tenantRow?.name ?? "Optix", recipientFirstName: u.firstName, webOrigin: env.WEB_ORIGIN }),
     });
   }
 

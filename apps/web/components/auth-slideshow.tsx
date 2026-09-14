@@ -53,7 +53,20 @@ export type AuthSlide = {
   body: string;
 };
 
-export function AuthSlideshow({ slide }: { slide?: AuthSlide } = {}) {
+export function AuthSlideshow({
+  slide,
+  showMark = true,
+  tenantLogo,
+}: {
+  slide?: AuthSlide;
+  /* The Optix plate, top-left. Off where the caller shows the product mark in
+     the form column instead — two Optix logos on one screen is one too many. */
+  showMark?: boolean;
+  /* The tenant's own mark, for the same corner. It belongs on the photograph:
+     the artwork is yellow and green, and both read on the dark scrim where
+     they wash out on a white form. */
+  tenantLogo?: string;
+} = {}) {
   const [index, setIndex] = useState(0);
   /* The first photograph renders on the server; the rest mount after
      hydration, so the sign-in form is never behind three image requests it
@@ -113,9 +126,13 @@ export function AuthSlideshow({ slide }: { slide?: AuthSlide } = {}) {
       />
 
       <div className="relative flex h-full flex-col justify-between p-10">
-        {/* `self-start`, or the flex column stretches the SVG to the panel
-            width and the logo lands in the middle of the sky. */}
-        <OptixPlate className="h-12 self-start" />
+        {/* `self-start`, or the flex column stretches the mark to the panel
+            width and it lands in the middle of the sky. */}
+        {tenantLogo ? (
+          <img src={tenantLogo} alt="Urban Infraconstruction" className="h-14 w-auto self-start" />
+        ) : showMark ? (
+          <OptixPlate className="h-12 self-start" />
+        ) : null}
 
         <div className="flex flex-col gap-5">
           {/* The best copy in the product, carried over from the panel this

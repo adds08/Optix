@@ -9,8 +9,7 @@ import { login, getSession, setSession } from "@/lib/auth";
 import { LAND_ON_PIN } from "@/components/sti/nav-pins";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AuthSlideshow } from "@/components/auth-slideshow";
-import { OptixLockup } from "@/components/optix-mark";
+import { AuthFrame } from "@/components/auth-frame";
 import { DUR, EASE } from "@/lib/motion";
 
 
@@ -103,114 +102,79 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-svh lg:grid-cols-[1.4fr_1fr]">
-      {/* The job, photographed — left. The form is the task; this panel is the
-          reason to bother, and it must never slow the form, which is why it
-          paints with backgrounds a narrow viewport never fetches. */}
-      <aside className="relative hidden overflow-hidden lg:block">
-        <AuthSlideshow />
-      </aside>
+    <AuthFrame>
+      <div className="flex flex-col gap-9">
+        <motion.div className="flex flex-col gap-2" {...rise(0)}>
+          <h1 className="text-[1.75rem] font-semibold leading-tight tracking-tight">
+            Sign in
+          </h1>
+          {/* Names the OPERATION, not one resource. "Tool and equipment
+              custody" described the register this product grew out of and
+              undersold everything the panel beside it claims. */}
+          <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
+            Run the job from one record — the crews, the plant and the tools on it, and
+            every move between them.
+          </p>
+        </motion.div>
 
-      <div className="flex items-center justify-center px-6 py-12">
-        <div className="flex w-full max-w-[364px] flex-col gap-9">
-          <motion.div {...rise(0)} className="flex flex-col gap-5">
-            {/*
-              THE TENANT'S OWN MARK, above the product's.
-
-              Development is against `urban.optixtec.com`, and a customer
-              signing in to their own subdomain should see their company before
-              they see ours — the same `assets/urban_logo.svg` the app shell
-              puts in its top bar, so the two agree.
-
-              HARDCODED, and knowingly so. Optix is a multi-tenant product and
-              this belongs on `tenant_settings` beside the SMTP and LLM
-              configuration, resolved from the subdomain the way `login()`
-              already accepts an optional `tenantSlug`. That is a real change —
-              an upload, a storage key, a fallback for a tenant with no
-              artwork — and inventing half of it here would leave a column
-              nothing writes. One tenant, one file, and a comment saying which
-              part is temporary.
-
-              Not theme-flipped: a logo is not a palette. `alt=""` because the
-              lockup below carries the accessible name.
-            */}
-            <img src="/assets/urban_logo.svg" alt="" className="h-9 w-auto self-start" />
-            <OptixLockup tagline />
-          </motion.div>
-
-          <motion.div className="flex flex-col gap-2" {...rise(1)}>
-            <h1 className="text-[1.75rem] font-semibold leading-tight tracking-tight">
-              Sign in
-            </h1>
-            {/* Names the OPERATION, not one resource. "Tool and equipment
-                custody" described the register this product grew out of and
-                undersold everything the panel beside it claims. */}
-            <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
-              Run the job from one record — the crews, the plant and the tools on it, and
-              every move between them.
-            </p>
-          </motion.div>
-
-          <motion.form onSubmit={submit} className="flex flex-col gap-4" {...rise(2)}>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="email" className="text-sm font-medium">Email</label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="username"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+        <motion.form onSubmit={submit} className="flex flex-col gap-4" {...rise(1)}>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="email" className="text-sm font-medium">Email</label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="username"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="password" className="text-sm font-medium">Password</label>
+              <a href="/forgot-password" className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground">
+                Forgot password?
+              </a>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-sm font-medium">Password</label>
-                <a href="/forgot-password" className="text-xs text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground">
-                  Forgot password?
-                </a>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
 
-            {/* Height-animated so the button does not jump down the page the
-                instant a wrong password comes back — the one moment on this
-                screen where the layout moving is actively unhelpful. */}
-            <AnimatePresence initial={false}>
-              {error ? (
-                <motion.p
-                  key="error"
-                  role="alert"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: DUR.base, ease: EASE.out }}
-                  className="overflow-hidden rounded-md border border-crit/30 bg-crit-bg px-3 py-2 text-sm text-crit"
-                >
-                  {error}
-                </motion.p>
-              ) : null}
-            </AnimatePresence>
+          {/* Height-animated so the button does not jump down the page the
+              instant a wrong password comes back — the one moment on this
+              screen where the layout moving is actively unhelpful. */}
+          <AnimatePresence initial={false}>
+            {error ? (
+              <motion.p
+                key="error"
+                role="alert"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: DUR.base, ease: EASE.out }}
+                className="overflow-hidden rounded-md border border-crit/30 bg-crit-bg px-3 py-2 text-sm text-crit"
+              >
+                {error}
+              </motion.p>
+            ) : null}
+          </AnimatePresence>
 
-            <Button type="submit" disabled={busy} className="group mt-1">
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {busy ? "Signing in…" : "Sign in"}
-              {busy ? null : (
-                <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-              )}
-            </Button>
-          </motion.form>
-
-        </div>
+          <Button type="submit" disabled={busy} className="group mt-1">
+            {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+            {busy ? "Signing in…" : "Sign in"}
+            {busy ? null : (
+              <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            )}
+          </Button>
+        </motion.form>
       </div>
-    </main>
+    </AuthFrame>
   );
 }

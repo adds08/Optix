@@ -533,6 +533,7 @@ export const userRouter = router({
           roleName,
           inviteUrl: `${ctx.webOrigin}/invite/${token}`,
           expiresHuman: "7 days",
+          webOrigin: ctx.webOrigin,
         }),
       });
 
@@ -628,6 +629,7 @@ export const userRouter = router({
           roleName: null,
           inviteUrl: `${ctx.webOrigin}/invite/${token}`,
           expiresHuman: "7 days",
+          webOrigin: ctx.webOrigin,
           /* This procedure issues a SECOND invite and consumes the first, so
              the earlier link is already dead by the time this arrives. Say so:
              a reader holding two invites otherwise picks the older mail and
@@ -670,7 +672,7 @@ export const userRouter = router({
       const config = await mailConfigFor(ctx.db, tid, ctx.sessionSecret, ctx.mailFallback);
       const sent = await sendMail(config, {
         to: target.email,
-        ...passwordResetEmail({ tenantName: tenant?.name ?? "Optix", recipientFirstName: "", resetUrl: `${ctx.webOrigin}/${kind === "invite" ? "invite" : "reset"}/${token}`, expiresHuman: "1 hour" }),
+        ...passwordResetEmail({ tenantName: tenant?.name ?? "Optix", recipientFirstName: "", resetUrl: `${ctx.webOrigin}/${kind === "invite" ? "invite" : "reset"}/${token}`, expiresHuman: "1 hour", webOrigin: ctx.webOrigin }),
       });
       await logEvent(ctx, { category: "auth", action: "user.sendResetEmail", entityType: "user", entityId: input.userId, result: sent.ok ? "success" : "failure", errorMessage: sent.ok ? null : sent.error });
       return { emailSent: !!config && sent.ok, emailError: !config ? "Email is not configured. Set up SMTP or use a temporary password." : sent.ok ? null : sent.error };

@@ -6,7 +6,7 @@ import { ArrowLeft, MailCheck } from "lucide-react";
 import { forgotPassword } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { OptixLockup } from "@/components/optix-mark";
+import { AuthFrame } from "@/components/auth-frame";
 import { cn } from "@/lib/utils";
 import { DUR, EASE } from "@/lib/motion";
 
@@ -30,15 +30,13 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center px-6 py-12">
+    <AuthFrame>
       <motion.div
-        className="flex w-full max-w-[364px] flex-col gap-8"
+        className="flex flex-col gap-8"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: DUR.base, ease: EASE.out }}
       >
-        <OptixLockup tagline />
-
         {/*
           The two states cross-fade in place rather than one replacing the
           other instantly. `mode="wait"` because they are alternatives, not a
@@ -105,7 +103,7 @@ export default function ForgotPasswordPage() {
           )}
         </AnimatePresence>
       </motion.div>
-    </main>
+    </AuthFrame>
   );
 }
 

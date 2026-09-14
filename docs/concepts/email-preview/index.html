@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Optix — email templates</title>
+<style>
+  :root{--navy:#082F49;--yellow:#FFCA00;--ink:#1A1A1A;--muted:#6B7280;--line:#E4E7EB;--paper:#F4F5F6}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{background:var(--navy);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header img{height:28px;width:auto;display:block}
+  header .t{font-size:13px;color:#9FB3C8}
+  header .t b{color:#fff}
+  nav{display:flex;gap:6px;padding:10px 20px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:0;z-index:5}
+  .tab{display:flex;flex-direction:column;gap:1px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;text-decoration:none;color:var(--ink);font-size:12.5px}
+  .tab span{font-size:10.5px;color:var(--muted)}
+  .tab:hover{border-color:var(--yellow)}
+  main{padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(560px,1fr));gap:16px;max-width:1250px;margin:0 auto;align-items:start}
+  .doc{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;scroll-margin-top:70px}
+  .meta{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline}
+  .meta h2{margin:0;font-size:13.5px;display:flex;gap:8px;align-items:baseline}
+  .meta h2 .note{font-size:10.5px;color:var(--muted);font-weight:500}
+  .meta p{margin:0;font-size:11.5px;color:var(--muted);flex:1 1 auto;min-width:180px}
+  .meta span{color:#9AA3AF;text-transform:uppercase;font-size:9.5px;letter-spacing:.1em;margin-right:5px}
+  iframe{display:block;width:100%;border:0;background:#fff}
+  .foot{padding:2px 20px 32px;max-width:1240px;margin:0 auto;color:var(--muted);font-size:11.5px;line-height:1.6}
+  code{background:#fff;border:1px solid var(--line);border-radius:4px;padding:1px 4px;font-size:11px}
+</style>
+</head>
+<body>
+  <header>
+    <img src="assets/optix-logo.png" alt="Optix">
+    <div class="t"><b>Transactional email templates</b> · flat 480px column, hairline rules, one footer line</div>
+  </header>
+  <nav><a class="tab" href="#invite.html"><b>Invite</b><span>3 steps · 7 days</span></a><a class="tab" href="#invite-resend.html"><b>Invite resent</b><span>same link, new framing</span></a><a class="tab" href="#password-reset.html"><b>Password reset</b><span>1 hour</span></a><a class="tab" href="#password-changed.html"><b>Password changed</b><span>notice, no action</span></a></nav>
+  <main><section class="doc" id="invite.html">
+      <div class="meta">
+        <h2>Invite<span class="note">3 steps · 7 days</span></h2>
+        <p><span>Subj</span> You're invited to Urban Infraconstruction on Optix</p>
+        <p><span>Text</span> 387 char plain-text twin</p>
+      </div>
+      <iframe title="Invite" src="invite.html" style="height:516px"></iframe>
+    </section><section class="doc" id="invite-resend.html">
+      <div class="meta">
+        <h2>Invite resent<span class="note">same link, new framing</span></h2>
+        <p><span>Subj</span> Your invite to Urban Infraconstruction on Optix (resent)</p>
+        <p><span>Text</span> 443 char plain-text twin</p>
+      </div>
+      <iframe title="Invite resent" src="invite-resend.html" style="height:539px"></iframe>
+    </section><section class="doc" id="password-reset.html">
+      <div class="meta">
+        <h2>Password reset<span class="note">1 hour</span></h2>
+        <p><span>Subj</span> Reset your Optix password</p>
+        <p><span>Text</span> 331 char plain-text twin</p>
+      </div>
+      <iframe title="Password reset" src="password-reset.html" style="height:479px"></iframe>
+    </section><section class="doc" id="password-changed.html">
+      <div class="meta">
+        <h2>Password changed<span class="note">notice, no action</span></h2>
+        <p><span>Subj</span> Your Optix password was changed</p>
+        <p><span>Text</span> 293 char plain-text twin</p>
+      </div>
+      <iframe title="Password changed" src="password-changed.html" style="height:386px"></iframe>
+    </section></main>
+  <div class="foot">
+    Self-contained preview — the logo is <code>assets/optix-logo.png</code> and the origin is <code>.</code>.
+    Real senders pass the web app's absolute origin, so the header becomes
+    <code>https://&lt;host&gt;/assets/optix-logo.png</code>. With images off, the <code>alt="Optix"</code> text is the fallback.
+  </div>
+</body>
+</html>

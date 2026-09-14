@@ -44,7 +44,11 @@ const YELLOW = "#FFCA00";
 const INK = "#1A1A1A";
 const MUTED = "#6B7280";
 const RULE = "#E4E7EB";
-const PAPER = "#F4F5F6";
+
+/* Where the full logo is served from, relative to the web app's origin. The
+   caller supplies the origin — an email cannot know its own host, and every
+   message already carries an absolute link to that same origin. */
+const LOGO_PATH = "/assets/optix-logo.png";
 
 export const PRODUCT = "Optix";
 export const COMPANY = "Optix Technologies";
@@ -54,67 +58,103 @@ export type EmailContent = { subject: string; html: string; text: string };
 /*
   THE MARK, BUILT OUT OF A BORDER RATHER THAN AN IMAGE.
 
-  The short mark is the wordmark's "O" — a yellow ring on the navy plate. Every
-  obvious way to put that in an email is worse than this one:
+  The short mark is the wordmark's "O" — a ring beside the word — for the case
+  where the caller cannot name an origin to fetch the full logo from. Every
+  obvious way to put the real artwork in an email is worse without a host:
 
   - An <svg> is stripped by Gmail, Outlook and Yahoo outright.
-  - A remote <img> is blocked by default in most clients, so the header would
-    be an empty box until the reader clicks "show images" — for a transactional
-    mail that is the first impression.
+  - A remote <img> needs an origin we do not have here.
   - A data: URI <img> is blocked by Outlook and stripped by Gmail.
 
   A div with equal width, height, border-radius and a thick border is none of
   those: it is a ring, drawn by the layout engine, that renders everywhere with
   images off. The proportions follow the artwork — the stroke is 8% of the
-  height there, and 3px on a 34px ring here is 8.8%, which is as close as whole
+  height there, and 2px on a 26px ring here is 7.7%, which is as close as whole
   pixels allow.
 
+  NAVY, not the artwork's yellow: this sits on the white page every client
+  renders by default, and yellow on white is a mark nobody can read.
   Outlook's Word engine ignores border-radius and will square the ring. That is
-  an accepted, deliberate degradation: a navy plate with a yellow square is
-  still legibly the brand, and the alternative is VML nobody can maintain.
+  an accepted, deliberate degradation.
 */
 function optixMark(): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
-    <td style="width:34px;height:34px;">
-      <div style="width:28px;height:28px;border:3px solid ${YELLOW};border-radius:17px;font-size:0;line-height:0;">&nbsp;</div>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0 auto;"><tr>
+    <td style="width:26px;height:26px;">
+      <div style="width:22px;height:22px;border:2px solid ${NAVY};border-radius:11px;font-size:0;line-height:0;">&nbsp;</div>
     </td>
-    <td style="padding-left:10px;color:#FFFFFF;font-size:17px;font-weight:600;letter-spacing:0.2px;white-space:nowrap;">${PRODUCT}</td>
+    <td style="padding-left:8px;color:${INK};font-size:15px;font-weight:700;letter-spacing:0.2px;white-space:nowrap;">${PRODUCT}</td>
   </tr></table>`;
 }
 
 /*
-  Shared chrome around every message. Inline styles throughout — email clients
-  do not reliably load a `<style>` block, let alone an external sheet. System
-  font stack rather than the product's own (Inter Tight): a web font never
-  loads in an email client, and naming one that silently falls back to
-  `system-ui` everywhere would be worse than asking for `system-ui` outright.
+  THE FULL LOGO — the supplied navy stadium plate with the yellow wordmark.
+
+  This is the artwork itself, served as a PNG by the web app, rather than the
+  drawn-from-a-border short mark above. It is the header whenever the caller
+  can name an origin to fetch it from.
+
+  Remote images are blocked by default in many clients, so the header is built
+  to survive them: the alt text is the single word "Optix" beside the layout,
+  and the width/height attributes reserve the plate's own box so nothing jumps
+  when the image is allowed. `optixMark()` remains the fallback for a caller
+  with no origin, so no message is ever headerless.
+
+  Sized by attribute as well as style: Outlook honours `width`/`height` on an
+  <img> and is unreliable about CSS-only sizing. 100×37 is the artwork's own
+  261×96 ratio, kept small on purpose — the header is a signature, not a
+  poster, and every pixel of it is a pixel of the message the reader scrolls.
+*/
+function optixLogo(webOrigin: string): string {
+  const src = `${webOrigin.replace(/\/+$/, "")}${LOGO_PATH}`;
+  return `<img src="${esc(src)}" width="100" height="37" alt="Optix" style="display:block;margin:0 auto;width:100px;height:37px;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">`;
+}
+
+/*
+  Shared chrome around every message.
+
+  FLAT AND MINIMAL, on purpose. No card, no border, no radius, no colour block:
+  a white page, one 480px column, the centred logo, a hairline, the message, a
+  hairline, one small line. It is the same design language as the sign-in
+  screen, so a reset link does not land somebody on a screen that looks like a
+  different product. A transactional email is read once and mostly on a phone,
+  so every 10px of chrome above the fold is 10px the reader scrolls past — and
+  a framed card spends ~80px of height saying nothing.
+
+  Inline styles throughout — email clients do not reliably load a `<style>`
+  block, let alone an external sheet. System font stack rather than the
+  product's own (Inter Tight): a web font never loads in an email client.
 
   The tenant's name carries the "whose account is this" job in the footer and
   in the body copy. It is deliberately NOT a tenant logo: this package has no
   way to know where a tenant's artwork lives, and a broken <img> in the header
   of a password-reset email is worse than a name set in type.
+
+  `webOrigin` is optional so a caller with no origin (and every test) still
+  renders a complete, branded message using the short mark instead.
 */
-function layout(opts: { preheader: string; bodyHtml: string; tenantName: string }): string {
+function layout(opts: { preheader: string; bodyHtml: string; tenantName: string; webOrigin?: string }): string {
+  const origin = (opts.webOrigin ?? "").trim();
+  const header = origin ? optixLogo(origin) : optixMark();
+
   return `<!doctype html>
 <html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:${PAPER};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${INK};">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light only">
+</head>
+<body style="margin:0;padding:0;background:#FFFFFF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${INK};">
   <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(opts.preheader)}</span>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="padding:32px 16px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FFFFFF;padding:22px 16px 28px;">
     <tr><td align="center">
-      <table role="presentation" width="520" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;width:100%;background:#FFFFFF;border:1px solid ${RULE};border-radius:8px;overflow:hidden;">
-        <tr><td style="background:${NAVY};padding:22px 28px;">
-          ${optixMark()}
-        </td></tr>
-        <tr><td style="padding:30px 28px;">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;width:100%;">
+        <tr><td align="center" style="padding:0 0 12px;border-bottom:1px solid ${RULE};">${header}</td></tr>
+        <tr><td style="padding:18px 0;">
           ${opts.bodyHtml}
         </td></tr>
-        <tr><td style="padding:18px 28px;border-top:1px solid ${RULE};background:#FAFBFC;">
-          <p style="margin:0 0 4px;font-size:12px;line-height:1.5;color:${MUTED};">
-            Sent to you for <strong style="color:${INK};font-weight:600;">${esc(opts.tenantName)}</strong>.
-          </p>
-          <p style="margin:0;font-size:12px;line-height:1.5;color:${MUTED};">
-            ${PRODUCT} by ${COMPANY} — small tools and equipment custody.
+        <tr><td style="padding:12px 0 0;border-top:1px solid ${RULE};">
+          <p style="margin:0;font-size:11.5px;line-height:1.6;color:${MUTED};">
+            Sent to you for <strong style="color:${INK};font-weight:600;">${esc(opts.tenantName)}</strong>. <strong style="color:${INK};font-weight:600;">${PRODUCT}</strong> by ${COMPANY} — small tools and equipment custody. This message is transactional; a reply will not be read.
           </p>
         </td></tr>
       </table>
@@ -132,9 +172,9 @@ function layout(opts: { preheader: string; bodyHtml: string; tenantName: string 
   drops out is navy text on white — invisible as a call to action.
 */
 function button(url: string, label: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0;"><tr>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 4px;"><tr>
     <td bgcolor="${NAVY}" style="background:${NAVY};border-radius:6px;">
-      <a href="${url}" style="display:inline-block;padding:13px 26px;color:#FFFFFF;font-size:15px;font-weight:600;text-decoration:none;">${esc(label)}</a>
+      <a href="${url}" style="display:inline-block;padding:11px 22px;color:#FFFFFF;font-size:14px;font-weight:600;text-decoration:none;">${esc(label)}</a>
     </td>
   </tr></table>`;
 }
@@ -142,21 +182,21 @@ function button(url: string, label: string): string {
 /* Falls back to plain link text when a client strips buttons — never leave
    the plain-text version relying on markup that will not render there. */
 function linkFallback(url: string): string {
-  return `<p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:${MUTED};word-break:break-all;">Or paste this link into your browser:<br><a href="${url}" style="color:${NAVY};">${esc(url)}</a></p>`;
+  return `<p style="margin:12px 0 0;font-size:11.5px;line-height:1.6;color:${MUTED};word-break:break-all;">Or paste this link into your browser:<br><a href="${url}" style="color:${NAVY};">${esc(url)}</a></p>`;
 }
 
 /* The small print under an expiring link. One helper so the four templates
    that carry a token cannot word the same caveat four different ways. */
 function expiryNote(expiresHuman: string, unexpected: string): string {
-  return `<p style="margin:24px 0 0;padding-top:16px;border-top:1px solid ${RULE};font-size:12px;line-height:1.6;color:${MUTED};">This link expires in ${esc(expiresHuman)}. ${esc(unexpected)}</p>`;
+  return `<p style="margin:18px 0 0;padding-top:12px;border-top:1px solid ${RULE};font-size:11.5px;line-height:1.6;color:${MUTED};">This link expires in ${esc(expiresHuman)}. ${esc(unexpected)}</p>`;
 }
 
 function heading(text: string): string {
-  return `<h1 style="margin:0 0 14px;font-size:20px;font-weight:600;line-height:1.3;color:${INK};">${esc(text)}</h1>`;
+  return `<h1 style="margin:0 0 12px;font-size:19px;font-weight:600;line-height:1.35;color:${INK};">${esc(text)}</h1>`;
 }
 
 function para(html: string): string {
-  return `<p style="margin:0 0 10px;font-size:15px;line-height:1.65;color:${INK};">${html}</p>`;
+  return `<p style="margin:0 0 10px;font-size:14px;line-height:1.62;color:${INK};">${html}</p>`;
 }
 
 /* "Hi Dave," — or just "Hi," when we were never given a first name. Several
@@ -179,12 +219,15 @@ export function inviteEmail(input: {
   roleName: string | null;
   inviteUrl: string;
   expiresHuman: string;
+  /* The web app's origin, so the header can fetch the full logo. Optional:
+     without it the short mark is used and the message is still complete. */
+  webOrigin?: string;
   /* A resend is the same invite with the same link — only the framing changes,
      so the reader understands why a second copy has arrived rather than
      wondering whether they were invited twice. */
   resend?: boolean;
 }): EmailContent {
-  const { tenantName, recipientFirstName, inviterLabel, roleName, inviteUrl, expiresHuman, resend } = input;
+  const { tenantName, recipientFirstName, inviterLabel, roleName, inviteUrl, expiresHuman, resend, webOrigin } = input;
   const roleLine = roleName ? ` as ${esc(roleName)}` : "";
   const roleLineText = roleName ? ` as ${roleName}` : "";
   const subject = resend
@@ -193,6 +236,7 @@ export function inviteEmail(input: {
 
   const html = layout({
     tenantName,
+    webOrigin,
     preheader: resend
       ? `Here is your ${tenantName} invite again — the earlier link no longer works.`
       : `${inviterLabel} invited you to ${tenantName} on ${PRODUCT}.`,
@@ -241,12 +285,14 @@ export function passwordResetEmail(input: {
   recipientFirstName: string;
   resetUrl: string;
   expiresHuman: string;
+  webOrigin?: string;
 }): EmailContent {
-  const { tenantName, recipientFirstName, resetUrl, expiresHuman } = input;
+  const { tenantName, recipientFirstName, resetUrl, expiresHuman, webOrigin } = input;
   const subject = `Reset your ${PRODUCT} password`;
 
   const html = layout({
     tenantName,
+    webOrigin,
     preheader: `Reset your ${PRODUCT} password for ${tenantName}.`,
     bodyHtml: `
       ${heading("Reset your password")}
@@ -284,20 +330,22 @@ export function passwordResetEmail(input: {
 export function passwordChangedEmail(input: {
   tenantName: string;
   recipientFirstName: string;
+  webOrigin?: string;
 }): EmailContent {
-  const { tenantName, recipientFirstName } = input;
+  const { tenantName, recipientFirstName, webOrigin } = input;
   const subject = `Your ${PRODUCT} password was changed`;
 
   const html = layout({
     tenantName,
+    webOrigin,
     preheader: `The password on your ${tenantName} account was just changed.`,
     bodyHtml: `
       ${heading("Password changed")}
       ${para(greeting(recipientFirstName))}
       ${para(`The password on your <strong>${esc(tenantName)}</strong> account was just changed. If this was you, there is nothing to do.`)}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:22px 0 0;"><tr>
-        <td style="padding:14px 16px;background:#FFF8E1;border-left:3px solid ${YELLOW};border-radius:4px;">
-          <p style="margin:0;font-size:14px;line-height:1.6;color:${INK};">If you did not do this, contact your administrator right away — someone else may have access to the account.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:16px 0 0;"><tr>
+        <td style="padding:12px 14px;background:#FFF8E1;border-left:3px solid ${YELLOW};border-radius:4px;">
+          <p style="margin:0;font-size:13px;line-height:1.6;color:${INK};">If you did not do this, contact your administrator right away — someone else may have access to the account.</p>
         </td>
       </tr></table>
     `,

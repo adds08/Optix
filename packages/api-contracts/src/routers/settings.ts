@@ -396,13 +396,13 @@ export const settingsRouter = router({
 
       const message =
         input.template === "invite"
-          ? inviteEmail({ tenantName, recipientFirstName: "Dave", inviterLabel: sampleName, roleName: "Foreman", inviteUrl: sampleUrl, expiresHuman: "7 days" })
+          ? inviteEmail({ tenantName, recipientFirstName: "Dave", inviterLabel: sampleName, roleName: "Foreman", inviteUrl: sampleUrl, expiresHuman: "7 days", webOrigin: ctx.webOrigin })
           : input.template === "resend"
-            ? inviteEmail({ tenantName, recipientFirstName: "Dave", inviterLabel: sampleName, roleName: "Foreman", inviteUrl: sampleUrl, expiresHuman: "7 days", resend: true })
+            ? inviteEmail({ tenantName, recipientFirstName: "Dave", inviterLabel: sampleName, roleName: "Foreman", inviteUrl: sampleUrl, expiresHuman: "7 days", resend: true, webOrigin: ctx.webOrigin })
             : input.template === "reset"
-              ? passwordResetEmail({ tenantName, recipientFirstName: "Dave", resetUrl: `${ctx.webOrigin}/reset/example-preview-link`, expiresHuman: "1 hour" })
+              ? passwordResetEmail({ tenantName, recipientFirstName: "Dave", resetUrl: `${ctx.webOrigin}/reset/example-preview-link`, expiresHuman: "1 hour", webOrigin: ctx.webOrigin })
               : input.template === "changed"
-                ? passwordChangedEmail({ tenantName, recipientFirstName: "Dave" })
+                ? passwordChangedEmail({ tenantName, recipientFirstName: "Dave", webOrigin: ctx.webOrigin })
                 : {
                     subject: "Optix test email",
                     html: `<p>This is a test email from the Optix Settings page. If this arrived, the configured SMTP relay works.</p>`,

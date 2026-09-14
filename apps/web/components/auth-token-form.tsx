@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { consumeAuthToken, getAuthToken, setSession, type AuthTokenInfo } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { OptixLockup } from "@/components/optix-mark";
+import { AuthFrame } from "@/components/auth-frame";
 import { Input } from "@/components/ui/input";
 
 /*
@@ -82,16 +82,18 @@ export function AuthTokenForm({
 
   if (info === null) {
     return (
-      <div className="flex min-h-svh items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
-      </div>
+      <AuthFrame>
+        <div className="flex justify-center py-10">
+          <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden />
+        </div>
+      </AuthFrame>
     );
   }
 
   if (!info.ok || info.kind !== expectedKind) {
     return (
-      <div className="flex min-h-svh items-center justify-center px-6">
-        <div className="flex w-full max-w-[380px] flex-col gap-3 rounded-md border bg-card p-6 text-center">
+      <AuthFrame>
+        <div className="flex flex-col gap-3 text-center">
           <h1 className="text-lg font-semibold">{copy.invalidHeading}</h1>
           <p className="text-sm text-muted-foreground">
             {info.ok ? copy.wrongKindMessage : copy.invalidHint}
@@ -100,15 +102,13 @@ export function AuthTokenForm({
             Back to sign in
           </a>
         </div>
-      </div>
+      </AuthFrame>
     );
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center px-6">
-      <div className="flex w-full max-w-[380px] flex-col gap-6 rounded-md border bg-card p-6">
-        <OptixLockup />
-
+    <AuthFrame>
+      <div className="flex flex-col gap-6">
         {done ? (
           <p className="flex items-center gap-2 text-sm text-ok">
             <CheckCircle2 className="size-4" aria-hidden />
@@ -159,6 +159,6 @@ export function AuthTokenForm({
           </>
         )}
       </div>
-    </div>
+    </AuthFrame>
   );
 }
