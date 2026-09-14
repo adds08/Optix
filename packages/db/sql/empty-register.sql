@@ -70,7 +70,7 @@ DELETE FROM "tbl_ops_user_onboarding";
 DELETE FROM "tbl_ops_sync_run";
 
 -- Then the entities themselves.
-DELETE FROM "tbl_entity_asset";
+DELETE FROM "tbl_entity_small_tool";
 DELETE FROM "tbl_entity_equipment";
 DELETE FROM "tbl_entity_location";
 DELETE FROM "tbl_entity_warehouse";
@@ -112,5 +112,5 @@ SELECT
   (SELECT count(*) FROM "tbl_entity_role")       AS roles_kept,
   (SELECT count(*) FROM "tbl_entity_permission") AS permissions_kept,
   (SELECT count(*) FROM "tbl_entity_employee")   AS employees,
-  (SELECT count(*) FROM "tbl_entity_asset")      AS tools,
+  (SELECT count(*) FROM "tbl_entity_small_tool") AS tools,
   (SELECT count(*) FROM "tbl_entity_project")    AS jobs;
