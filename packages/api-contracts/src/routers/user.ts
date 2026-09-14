@@ -242,10 +242,10 @@ export const userRouter = router({
        EMPLOYEE — custody is held by the person, never by the login. Read-only:
        deactivating below does not touch these. */
     const held = await ctx.db
-      .select({ employeeId: schema.asset.currentCustodianId, count: sql<number>`count(*)::int` })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tid), isNotNull(schema.asset.currentCustodianId)))
-      .groupBy(schema.asset.currentCustodianId);
+      .select({ employeeId: schema.smallTool.currentCustodianId, count: sql<number>`count(*)::int` })
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tid), isNotNull(schema.smallTool.currentCustodianId)))
+      .groupBy(schema.smallTool.currentCustodianId);
     const heldBy = new Map(held.map((h) => [h.employeeId, h.count]));
 
     /* An invited-but-not-yet-accepted account and a deactivated one look

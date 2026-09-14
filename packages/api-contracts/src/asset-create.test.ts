@@ -111,9 +111,9 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
        in one transaction, the asset row committed before the ledger insert
        failed, and it is sitting here with zero ledger rows behind it. */
     const orphans = await db
-      .select({ id: schema.asset.id })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.description, "STI-115 orphan grinder")));
+      .select({ id: schema.smallTool.id })
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tenantId), eq(schema.smallTool.description, "STI-115 orphan grinder")));
     expect(orphans).toHaveLength(0);
   });
 
@@ -160,9 +160,9 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
     ).rejects.toThrow(/already in the register/i);
 
     const rows = await db
-      .select({ id: schema.asset.id })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.code, "DUP-001")));
+      .select({ id: schema.smallTool.id })
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tenantId), eq(schema.smallTool.code, "DUP-001")));
     expect(rows).toHaveLength(1);
   });
 
@@ -180,9 +180,9 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
     await assetRouter.createCaller(ctx).create({ description: "untagged two" });
 
     const rows = await db
-      .select({ id: schema.asset.id })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tenantId), isNull(schema.asset.code)));
+      .select({ id: schema.smallTool.id })
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tenantId), isNull(schema.smallTool.code)));
     expect(rows.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -206,9 +206,9 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
     ).rejects.toThrow();
 
     const [after] = await db
-      .select({ status: schema.asset.currentStatus })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, row!.id));
+      .select({ status: schema.smallTool.currentStatus })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, row!.id));
     expect(after!.status).toBe("available");
   });
 
@@ -218,9 +218,9 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
     await assetRouter.createCaller(ctx).setStatus({ id: row!.id, status: "in_maintenance" });
 
     const [after] = await db
-      .select({ status: schema.asset.currentStatus })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, row!.id));
+      .select({ status: schema.smallTool.currentStatus })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, row!.id));
     expect(after!.status).toBe("in_maintenance");
   });
 
@@ -266,9 +266,9 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
       note: "STI shop-status fixture: repair",
     });
     await db
-      .update(schema.asset)
+      .update(schema.smallTool)
       .set({ currentStatus: "in_maintenance", currentCustodianId: null, currentLocationId: loc!.id })
-      .where(eq(schema.asset.id, row!.id));
+      .where(eq(schema.smallTool.id, row!.id));
 
     for (const status of ["diagnosing", "waiting_parts", "ready_for_pickup"] as const) {
       await assetRouter.createCaller(ctx).setStatus({ id: row!.id, status });

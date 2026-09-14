@@ -179,9 +179,9 @@ export const projectRouter = router({
       */
       if (changes.status === "completed" && existing.status !== "completed") {
         const held = await ctx.db
-          .select({ code: schema.asset.code, assetId: schema.assignment.assetId })
+          .select({ code: schema.smallTool.code, assetId: schema.assignment.assetId })
           .from(schema.assignment)
-          .innerJoin(schema.asset, eq(schema.asset.id, schema.assignment.assetId))
+          .innerJoin(schema.smallTool, eq(schema.smallTool.id, schema.assignment.assetId))
           .where(
             and(
               eq(schema.assignment.tenantId, tid),
@@ -240,14 +240,14 @@ export const projectRouter = router({
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such project in this tenant" });
 
       const [owned] = await ctx.db
-        .select({ id: schema.asset.id })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.owningProjectId, input.id)))
+        .select({ id: schema.smallTool.id })
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.owningProjectId, input.id)))
         .limit(1);
       const [working] = await ctx.db
-        .select({ id: schema.asset.id })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentProjectId, input.id)))
+        .select({ id: schema.smallTool.id })
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.currentProjectId, input.id)))
         .limit(1);
       const [posted] = await ctx.db
         .select({ id: schema.employeeProjectAssignment.id })

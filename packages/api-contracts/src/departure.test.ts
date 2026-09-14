@@ -136,7 +136,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
   ): Promise<string> {
     const locationId = opts.locationId ?? null;
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId,
         description,
@@ -144,7 +144,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
         currentCustodianId: custodianId,
         currentLocationId: locationId,
       })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     const assetId = row!.id;
 
     await db.transaction(async (tx) => {
@@ -181,9 +181,9 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
   /** A tool nobody holds, sitting in a container. No custodian, no link. */
   async function newLooseAsset(locationId: string, description: string): Promise<string> {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description, currentStatus: "available", currentLocationId: locationId })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     return row!.id;
   }
 
@@ -245,9 +245,9 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
   const custodianOf = async (assetId: string) =>
     (
       await db
-        .select({ c: schema.asset.currentCustodianId })
-        .from(schema.asset)
-        .where(eq(schema.asset.id, assetId))
+        .select({ c: schema.smallTool.currentCustodianId })
+        .from(schema.smallTool)
+        .where(eq(schema.smallTool.id, assetId))
     )[0]?.c ?? null;
 
   const lastEvent = async (assetId: string) =>
@@ -359,9 +359,9 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
        question. Run the queue's own predicate and compare the counts. */
     const [queueCount] = await db
       .select({ c: sql<number>`count(*)::int` })
-      .from(schema.asset)
+      .from(schema.smallTool)
       .where(
-        sql`${schema.asset.tenantId} = ${tenantId} AND ${schema.asset.currentStatus} != 'available' AND ${schema.asset.currentCustodianId} = ${leaverId}`,
+        sql`${schema.smallTool.tenantId} = ${tenantId} AND ${schema.smallTool.currentStatus} != 'available' AND ${schema.smallTool.currentCustodianId} = ${leaverId}`,
       );
     expect(preview.tools).toHaveLength(queueCount!.c);
     /* This leaver holds no personal vehicle — that half of STI-306 is proven
@@ -520,9 +520,9 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
        every six hours forever. */
     expect((await activeLink(rides))[0]!.locationId).toBeNull();
     const [ridesRow] = await db
-      .select({ loc: schema.asset.currentLocationId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, rides));
+      .select({ loc: schema.smallTool.currentLocationId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, rides));
     expect(ridesRow!.loc).toBeNull();
 
     const ev = await lastEvent(rides);

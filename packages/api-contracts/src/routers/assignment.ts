@@ -25,10 +25,10 @@ export const assignmentRouter = router({
       .select({
         id: schema.assignment.id,
         assetId: schema.assignment.assetId,
-        code: schema.asset.code,
-        make: schema.asset.make,
-        modelNumber: schema.asset.modelNumber,
-        description: schema.asset.description,
+        code: schema.smallTool.code,
+        make: schema.smallTool.make,
+        modelNumber: schema.smallTool.modelNumber,
+        description: schema.smallTool.description,
         custodianId: schema.assignment.custodianId,
         custodianName: schema.employee.name,
         custodianExternalId: schema.employee.code,
@@ -50,7 +50,7 @@ export const assignmentRouter = router({
         trailerUnit: trailerVehicle.unit,
       })
       .from(schema.assignment)
-      .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
+      .innerJoin(schema.smallTool, eq(schema.assignment.assetId, schema.smallTool.id))
       .innerJoin(schema.employee, eq(schema.assignment.custodianId, schema.employee.id))
       .leftJoin(schema.project, eq(schema.assignment.projectId, schema.project.id))
       .leftJoin(schema.location, eq(schema.assignment.locationId, schema.location.id))
@@ -82,8 +82,8 @@ export const assignmentRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const asset = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)),
+      const asset = await ctx.db.query.smallTool.findFirst({
+        where: and(eq(schema.smallTool.id, input.assetId), eq(schema.smallTool.tenantId, tid)),
       });
       if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "That tool is not in the register." });
 
@@ -138,7 +138,7 @@ export const assignmentRouter = router({
         if (created && !needsApproval) {
           // Apply projection immediately: update asset current_* and append transaction.
           await tx
-            .update(schema.asset)
+            .update(schema.smallTool)
             .set({
               currentStatus: "assigned",
               currentCustodianId: input.custodianId,
@@ -146,7 +146,7 @@ export const assignmentRouter = router({
               currentLocationId: input.locationId ?? asset.currentLocationId,
               updatedAt: new Date(),
             })
-            .where(and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)));
+            .where(and(eq(schema.smallTool.id, input.assetId), eq(schema.smallTool.tenantId, tid)));
           await tx.insert(schema.transaction).values({
             tenantId: tid,
             assetId: input.assetId,
@@ -232,9 +232,9 @@ export const assignmentRouter = router({
            all serialise with each other — then re-read the row now that
            whoever held the lock has committed. */
         await tx
-          .select({ id: schema.asset.id })
-          .from(schema.asset)
-          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)))
+          .select({ id: schema.smallTool.id })
+          .from(schema.smallTool)
+          .where(and(eq(schema.smallTool.id, a.assetId), eq(schema.smallTool.tenantId, ctx.session.tenantId)))
           .for("update");
         const [fresh] = await tx
           .select({ status: schema.assignment.status })
@@ -255,7 +255,7 @@ export const assignmentRouter = router({
           .set({ status: "active", approvedBy: ctx.session.userId, updatedAt: new Date() })
           .where(and(eq(schema.assignment.id, input.id), eq(schema.assignment.tenantId, ctx.session.tenantId)));
         await tx
-          .update(schema.asset)
+          .update(schema.smallTool)
           .set({
             currentStatus: "assigned",
             currentCustodianId: a.custodianId,
@@ -263,7 +263,7 @@ export const assignmentRouter = router({
             currentLocationId: a.locationId,
             updatedAt: new Date(),
           })
-          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)));
+          .where(and(eq(schema.smallTool.id, a.assetId), eq(schema.smallTool.tenantId, ctx.session.tenantId)));
         await tx.insert(schema.transaction).values({
           tenantId: ctx.session.tenantId,
           assetId: a.assetId,
@@ -294,8 +294,8 @@ export const assignmentRouter = router({
          the rule's value is having no exceptions to reason about: an unscoped
          lookup here is the template that gets copied into a query where the
          id is attacker-supplied. */
-      const asset = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)),
+      const asset = await ctx.db.query.smallTool.findFirst({
+        where: and(eq(schema.smallTool.id, a.assetId), eq(schema.smallTool.tenantId, ctx.session.tenantId)),
       });
       await notifyCustodyDecision(ctx.db, {
         tenantId: ctx.session.tenantId,
@@ -326,7 +326,7 @@ export const assignmentRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `This assignment is already ${a.status}.` });
       }
 
-      let asset: typeof schema.asset.$inferSelect | undefined;
+      let asset: typeof schema.smallTool.$inferSelect | undefined;
       await ctx.db.transaction(async (tx) => {
         /* Same re-check-under-lock shape as approve (STI-109): the guard above
            ran outside the lock, so two racing declines — or a decline racing an
@@ -337,8 +337,8 @@ export const assignmentRouter = router({
            and a rebuild would apply it. */
         [asset] = await tx
           .select()
-          .from(schema.asset)
-          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, tid)))
+          .from(schema.smallTool)
+          .where(and(eq(schema.smallTool.id, a.assetId), eq(schema.smallTool.tenantId, tid)))
           .for("update");
         const [fresh] = await tx
           .select({ status: schema.assignment.status })
@@ -437,8 +437,8 @@ export const assignmentRouter = router({
            writing a duplicate event. */
         const [asset] = await tx
           .select()
-          .from(schema.asset)
-          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, tid)))
+          .from(schema.smallTool)
+          .where(and(eq(schema.smallTool.id, a.assetId), eq(schema.smallTool.tenantId, tid)))
           .for("update");
         const [fresh] = await tx
           .select({ status: schema.assignment.status })
@@ -479,7 +479,7 @@ export const assignmentRouter = router({
           trailerId: null,
         };
         await tx
-          .update(schema.asset)
+          .update(schema.smallTool)
           .set({
             currentStatus: next.status,
             currentCustodianId: next.custodianId,
@@ -487,7 +487,7 @@ export const assignmentRouter = router({
             currentLocationId: next.locationId,
             updatedAt: new Date(),
           })
-          .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, tid)));
+          .where(and(eq(schema.smallTool.id, a.assetId), eq(schema.smallTool.tenantId, tid)));
         await tx.insert(schema.transaction).values({
           tenantId: tid,
           assetId: a.assetId,

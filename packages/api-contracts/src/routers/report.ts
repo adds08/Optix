@@ -41,30 +41,30 @@ export const reportRouter = router({
     const owningDepartment = alias(schema.department, "owning_department");
     return ctx.db
       .select({
-        id: schema.asset.id,
-        code: schema.asset.code,
-        make: schema.asset.make,
-        modelNumber: schema.asset.modelNumber,
-        description: schema.asset.description,
-        otherRef: schema.asset.otherRef,
-        categoryName: schema.asset.categoryName,
-        serialNumber: schema.asset.serialNumber,
-        status: schema.asset.currentStatus,
-        condition: schema.asset.condition,
-        acquisitionCost: schema.asset.acquisitionCost,
+        id: schema.smallTool.id,
+        code: schema.smallTool.code,
+        make: schema.smallTool.make,
+        modelNumber: schema.smallTool.modelNumber,
+        description: schema.smallTool.description,
+        otherRef: schema.smallTool.otherRef,
+        categoryName: schema.smallTool.categoryName,
+        serialNumber: schema.smallTool.serialNumber,
+        status: schema.smallTool.currentStatus,
+        condition: schema.smallTool.condition,
+        acquisitionCost: schema.smallTool.acquisitionCost,
         custodianName: schema.employee.name,
         currentProjectName: currentProject.name,
         locationName: schema.location.name,
         owningProjectName: owningProject.name,
         owningDepartmentName: owningDepartment.name,
       })
-      .from(schema.asset)
-      .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
-      .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
-      .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
-      .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
-      .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
-      .where(and(eq(schema.asset.tenantId, tid), scoped));
+      .from(schema.smallTool)
+      .leftJoin(schema.employee, eq(schema.smallTool.currentCustodianId, schema.employee.id))
+      .leftJoin(currentProject, eq(schema.smallTool.currentProjectId, currentProject.id))
+      .leftJoin(schema.location, eq(schema.smallTool.currentLocationId, schema.location.id))
+      .leftJoin(owningProject, eq(schema.smallTool.owningProjectId, owningProject.id))
+      .leftJoin(owningDepartment, eq(schema.smallTool.owningDepartmentId, owningDepartment.id))
+      .where(and(eq(schema.smallTool.tenantId, tid), scoped));
   }),
 
   byProject: requirePermission("report.read").query(async ({ ctx }) => {
@@ -74,11 +74,11 @@ export const reportRouter = router({
       .select({
         projectId: schema.project.id,
         projectName: schema.project.name,
-        assetCount: sql<number>`count(${schema.asset.id})`,
-        totalValue: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
+        assetCount: sql<number>`count(${schema.smallTool.id})`,
+        totalValue: sql<string>`coalesce(sum(${schema.smallTool.acquisitionCost}::numeric),0)`,
       })
       .from(schema.project)
-      .leftJoin(schema.asset, and(eq(schema.asset.currentProjectId, schema.project.id), eq(schema.asset.tenantId, tid), scoped))
+      .leftJoin(schema.smallTool, and(eq(schema.smallTool.currentProjectId, schema.project.id), eq(schema.smallTool.tenantId, tid), scoped))
       .where(eq(schema.project.tenantId, tid))
       .groupBy(schema.project.id, schema.project.name);
   }),
@@ -90,12 +90,12 @@ export const reportRouter = router({
       .select({
         employeeId: schema.employee.id,
         foremanName: schema.employee.name,
-        assetCount: sql<number>`count(${schema.asset.id})`,
-        totalValue: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
-        projectCount: sql<number>`count(distinct ${schema.asset.currentProjectId})`,
+        assetCount: sql<number>`count(${schema.smallTool.id})`,
+        totalValue: sql<string>`coalesce(sum(${schema.smallTool.acquisitionCost}::numeric),0)`,
+        projectCount: sql<number>`count(distinct ${schema.smallTool.currentProjectId})`,
       })
       .from(schema.employee)
-      .leftJoin(schema.asset, and(eq(schema.asset.currentCustodianId, schema.employee.id), eq(schema.asset.tenantId, tid), scoped))
+      .leftJoin(schema.smallTool, and(eq(schema.smallTool.currentCustodianId, schema.employee.id), eq(schema.smallTool.tenantId, tid), scoped))
       .where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.role, "foreman")))
       .groupBy(schema.employee.id, schema.employee.name);
   }),
@@ -125,11 +125,11 @@ export const reportRouter = router({
       .select({
         employeeId: schema.employee.id,
         mechanicName: schema.employee.name,
-        assetCount: sql<number>`count(${schema.asset.id})`,
-        totalValue: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
+        assetCount: sql<number>`count(${schema.smallTool.id})`,
+        totalValue: sql<string>`coalesce(sum(${schema.smallTool.acquisitionCost}::numeric),0)`,
       })
       .from(schema.employee)
-      .leftJoin(schema.asset, and(eq(schema.asset.currentCustodianId, schema.employee.id), eq(schema.asset.tenantId, tid), scoped))
+      .leftJoin(schema.smallTool, and(eq(schema.smallTool.currentCustodianId, schema.employee.id), eq(schema.smallTool.tenantId, tid), scoped))
       .where(and(eq(schema.employee.tenantId, tid), eq(schema.employee.role, "mechanic")))
       .groupBy(schema.employee.id, schema.employee.name);
   }),
@@ -138,33 +138,33 @@ export const reportRouter = router({
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
-        code: schema.asset.code,
-        make: schema.asset.make,
-        modelNumber: schema.asset.modelNumber,
-        description: schema.asset.description,
-        categoryName: schema.asset.categoryName,
+        code: schema.smallTool.code,
+        make: schema.smallTool.make,
+        modelNumber: schema.smallTool.modelNumber,
+        description: schema.smallTool.description,
+        categoryName: schema.smallTool.categoryName,
         locationName: schema.location.name,
-        acquisitionCost: schema.asset.acquisitionCost,
+        acquisitionCost: schema.smallTool.acquisitionCost,
       })
-      .from(schema.asset)
-      .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
-      .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.currentStatus, "available"), scoped));
+      .from(schema.smallTool)
+      .leftJoin(schema.location, eq(schema.smallTool.currentLocationId, schema.location.id))
+      .where(and(eq(schema.smallTool.tenantId, ctx.session.tenantId), eq(schema.smallTool.currentStatus, "available"), scoped));
   }),
 
   lost: requirePermission("report.read").query(async ({ ctx }) => {
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
-        code: schema.asset.code,
-        make: schema.asset.make,
-        modelNumber: schema.asset.modelNumber,
-        description: schema.asset.description,
-        acquisitionCost: schema.asset.acquisitionCost,
+        code: schema.smallTool.code,
+        make: schema.smallTool.make,
+        modelNumber: schema.smallTool.modelNumber,
+        description: schema.smallTool.description,
+        acquisitionCost: schema.smallTool.acquisitionCost,
         custodianName: schema.employee.name,
       })
-      .from(schema.asset)
-      .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
-      .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.currentStatus, "lost"), scoped));
+      .from(schema.smallTool)
+      .leftJoin(schema.employee, eq(schema.smallTool.currentCustodianId, schema.employee.id))
+      .where(and(eq(schema.smallTool.tenantId, ctx.session.tenantId), eq(schema.smallTool.currentStatus, "lost"), scoped));
   }),
 
   /* Every tool nobody has labelled yet — the worklist for whoever is holding
@@ -175,21 +175,21 @@ export const reportRouter = router({
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
     return ctx.db
       .select({
-        code: schema.asset.code,
-        make: schema.asset.make,
-        modelNumber: schema.asset.modelNumber,
-        description: schema.asset.description,
-        serialNumber: schema.asset.serialNumber,
-        categoryName: schema.asset.categoryName,
+        code: schema.smallTool.code,
+        make: schema.smallTool.make,
+        modelNumber: schema.smallTool.modelNumber,
+        description: schema.smallTool.description,
+        serialNumber: schema.smallTool.serialNumber,
+        categoryName: schema.smallTool.categoryName,
         locationName: schema.location.name,
-        acquisitionCost: schema.asset.acquisitionCost,
+        acquisitionCost: schema.smallTool.acquisitionCost,
       })
-      .from(schema.asset)
-      .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
+      .from(schema.smallTool)
+      .leftJoin(schema.location, eq(schema.smallTool.currentLocationId, schema.location.id))
       .where(
         and(
-          eq(schema.asset.tenantId, ctx.session.tenantId),
-          isNull(schema.asset.code),
+          eq(schema.smallTool.tenantId, ctx.session.tenantId),
+          isNull(schema.smallTool.code),
           scoped,
         ),
       );
@@ -202,11 +202,11 @@ export const reportRouter = router({
       .select({
         projectId: schema.project.id,
         projectName: schema.project.name,
-        assetCount: sql<number>`count(${schema.asset.id})`,
-        capitalValue: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
+        assetCount: sql<number>`count(${schema.smallTool.id})`,
+        capitalValue: sql<string>`coalesce(sum(${schema.smallTool.acquisitionCost}::numeric),0)`,
       })
       .from(schema.project)
-      .leftJoin(schema.asset, and(eq(schema.asset.owningProjectId, schema.project.id), eq(schema.asset.tenantId, tid), scoped))
+      .leftJoin(schema.smallTool, and(eq(schema.smallTool.owningProjectId, schema.project.id), eq(schema.smallTool.tenantId, tid), scoped))
       .where(eq(schema.project.tenantId, tid))
       .groupBy(schema.project.id, schema.project.name);
   }),
@@ -221,13 +221,13 @@ export const reportRouter = router({
       .select({
         departmentId: schema.department.id,
         departmentName: schema.department.name,
-        assetCount: sql<number>`count(${schema.asset.id})`,
-        capitalValue: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
+        assetCount: sql<number>`count(${schema.smallTool.id})`,
+        capitalValue: sql<string>`coalesce(sum(${schema.smallTool.acquisitionCost}::numeric),0)`,
       })
       .from(schema.department)
-      .leftJoin(schema.asset, and(
-        eq(schema.asset.owningDepartmentId, schema.department.id),
-        eq(schema.asset.tenantId, tid),
+      .leftJoin(schema.smallTool, and(
+        eq(schema.smallTool.owningDepartmentId, schema.department.id),
+        eq(schema.smallTool.tenantId, tid),
         scoped,
       ))
       .where(eq(schema.department.tenantId, tid))
@@ -278,10 +278,10 @@ export const reportRouter = router({
         const q = `%${input.search}%`;
         conditions.push(
           or(
-            ilike(schema.asset.code, q),
-            ilike(schema.asset.make, q),
-            ilike(schema.asset.modelNumber, q),
-            ilike(schema.asset.description, q),
+            ilike(schema.smallTool.code, q),
+            ilike(schema.smallTool.make, q),
+            ilike(schema.smallTool.modelNumber, q),
+            ilike(schema.smallTool.description, q),
             ilike(schema.transaction.note, q),
           )!,
         );
@@ -290,14 +290,14 @@ export const reportRouter = router({
       const [countResult] = await ctx.db
         .select({ c: sql<number>`count(*)` })
         .from(schema.transaction)
-        .leftJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
+        .leftJoin(schema.smallTool, eq(schema.transaction.assetId, schema.smallTool.id))
         .where(and(...conditions));
 
       const sortable: SortableMap = {
         occurredAt: sql`${schema.transaction.occurredAt}`,
         eventType: sql`${schema.transaction.eventType}`,
         note: sql`${schema.transaction.note}`,
-        tag: sql`${schema.asset.code}`,
+        tag: sql`${schema.smallTool.code}`,
       };
       const order = sortSql(input, sortable) ?? desc(schema.transaction.occurredAt);
 
@@ -307,14 +307,14 @@ export const reportRouter = router({
           eventType: schema.transaction.eventType,
           occurredAt: schema.transaction.occurredAt,
           note: schema.transaction.note,
-          code: schema.asset.code,
-          make: schema.asset.make,
-          modelNumber: schema.asset.modelNumber,
-          description: schema.asset.description,
+          code: schema.smallTool.code,
+          make: schema.smallTool.make,
+          modelNumber: schema.smallTool.modelNumber,
+          description: schema.smallTool.description,
           actorName: schema.user.firstName,
         })
         .from(schema.transaction)
-        .leftJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
+        .leftJoin(schema.smallTool, eq(schema.transaction.assetId, schema.smallTool.id))
         .leftJoin(schema.user, eq(schema.transaction.actorId, schema.user.id))
         .where(and(...conditions))
         .orderBy(order)

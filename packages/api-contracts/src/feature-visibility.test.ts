@@ -57,7 +57,7 @@ describe.skipIf(!url)("feature visibility is presentation, not authorisation (AD
       .values({ tenantId, email: `adr13-${crypto.randomUUID().slice(0, 8)}@test.local`, passwordHash: "not-a-real-hash", firstName: "ADR", lastName: "Thirteen" })
       .returning({ id: schema.user.id });
     userId = u!.id;
-    await db.insert(schema.asset).values({
+    await db.insert(schema.smallTool).values({
       tenantId,
       code: "ADR13-A",
       description: "ADR-13 canary asset",

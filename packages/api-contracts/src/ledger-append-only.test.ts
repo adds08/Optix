@@ -50,9 +50,9 @@ describe.skipIf(!url)("ledger is append-only at the database (STI-104)", () => {
       .returning({ id: schema.tenant.id });
     tenantId = t!.id;
     const [a] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description: "STI-104 rotary hammer" })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     assetId = a!.id;
     /* INSERT must remain allowed — the app keeps appending. This write doubles
        as that assertion: if it throws, the trigger overreaches. */
@@ -96,13 +96,13 @@ describe.skipIf(!url)("ledger is append-only at the database (STI-104)", () => {
   });
 
   it("blocks the asset-delete cascade — the ledger cannot be emptied through its parent", async () => {
-    await expectAppendOnlyBlock(db.delete(schema.asset).where(eq(schema.asset.id, assetId)));
+    await expectAppendOnlyBlock(db.delete(schema.smallTool).where(eq(schema.smallTool.id, assetId)));
     /* The blocked cascade must abort the whole statement: the asset row
        survives, custody history intact. */
     const survivors = await db
-      .select({ id: schema.asset.id })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, assetId));
+      .select({ id: schema.smallTool.id })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, assetId));
     expect(survivors).toHaveLength(1);
   });
 });

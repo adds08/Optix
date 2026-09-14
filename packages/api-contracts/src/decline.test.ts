@@ -40,7 +40,7 @@ describe.skipIf(!url)("decline paths: real message, agreed ledger behaviour (STI
      leave every bit of this exactly as it found it. */
   async function assignedAsset(): Promise<string> {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId,
         description: "STI-112 demo grinder",
@@ -49,7 +49,7 @@ describe.skipIf(!url)("decline paths: real message, agreed ledger behaviour (STI
         currentProjectId: projectId,
         currentLocationId: locationId,
       })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     await db.transaction((tx) =>
       moveCustody(tx, { tenantId, assetId: row!.id, toCustodianId: empA, projectId, locationId, actorUserId: userId }),
     );
@@ -76,7 +76,7 @@ describe.skipIf(!url)("decline paths: real message, agreed ledger behaviour (STI
       );
 
   async function expectCustodyUnchanged(assetId: string) {
-    const asset = await db.query.asset.findFirst({ where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)) });
+    const asset = await db.query.smallTool.findFirst({ where: and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, tenantId)) });
     expect(asset?.currentStatus).toBe("assigned");
     expect(asset?.currentCustodianId).toBe(empA);
     expect(asset?.currentProjectId).toBe(projectId);

@@ -1,7 +1,7 @@
 import type { NotificationType } from "@optix/types";
 import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant, user } from "./identity";
-import { asset } from "./asset";
+import { smallTool } from "./asset";
 import { employee } from "./employee";
 
 // The event log — append-only system of record. Nothing is ever updated or deleted:
@@ -18,7 +18,7 @@ export const transaction = pgTable(
   {
     id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    assetId: uuid("asset_id").notNull().references(() => asset.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").notNull().references(() => smallTool.id, { onDelete: "cascade" }),
     eventType: text("event_type").notNull(), // EventType
     actorId: uuid("actor_id").references(() => user.id, { onDelete: "set null" }),
     fromState: jsonb("from_state"),

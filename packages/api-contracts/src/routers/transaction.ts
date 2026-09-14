@@ -31,16 +31,16 @@ export const transactionRouter = router({
       const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
       if (scoped) where.push(scoped);
       if (input?.assetId) where.push(eq(schema.transaction.assetId, input.assetId));
-      if (input?.projectId) where.push(eq(schema.asset.currentProjectId, input.projectId));
+      if (input?.projectId) where.push(eq(schema.smallTool.currentProjectId, input.projectId));
 
       return ctx.db
         .select({
           id: schema.transaction.id,
           assetId: schema.transaction.assetId,
-          code: schema.asset.code,
-          make: schema.asset.make,
-          modelNumber: schema.asset.modelNumber,
-          description: schema.asset.description,
+          code: schema.smallTool.code,
+          make: schema.smallTool.make,
+          modelNumber: schema.smallTool.modelNumber,
+          description: schema.smallTool.description,
           eventType: schema.transaction.eventType,
           occurredAt: schema.transaction.occurredAt,
           note: schema.transaction.note,
@@ -68,7 +68,7 @@ export const transactionRouter = router({
           )`,
         })
         .from(schema.transaction)
-        .innerJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
+        .innerJoin(schema.smallTool, eq(schema.transaction.assetId, schema.smallTool.id))
         .leftJoin(schema.user, eq(schema.transaction.actorId, schema.user.id))
         .where(and(...where))
         .orderBy(sql`${schema.transaction.occurredAt} DESC, ${schema.transaction.id} DESC`)

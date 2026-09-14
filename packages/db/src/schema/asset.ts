@@ -10,8 +10,28 @@ import { department } from "./department";
 // The asset register — small tools are the first-class entity.
 // `current_*` columns are the PROJECTION (denormalized from `transactions`); never the
 // source of truth. `owning_project_id` (financial capital owner) is immutable once set.
-export const asset = pgTable(
-  "tbl_entity_asset",
+/*
+  THE SMALL-TOOLS REGISTER. Named `smallTool` since 2026-09-14.
+
+  It was `asset`, and that was vague in a way that cost real confusion: an
+  "asset" could be a truck, a building or a laptop, and this table holds none
+  of those. It is drills, saws, grinders, generators, survey gear and
+  compaction plant — the things a foreman carries to a job. Trucks and trailers
+  are `equipment`. The client's words: "remove calling small tools asset at
+  table level."
+
+  The header below already said "small tools are the first-class entity", so
+  the name was the last thing disagreeing with the file's own description.
+
+  NOT renamed with it, deliberately: the permission strings (`asset.read`,
+  `asset.manage`, `assets.view.*`) and the tRPC route (`asset.list`). Those six
+  permissions are ROWS in `tbl_entity_permission` granted to roles, so renaming
+  them needs a grants migration — and this repo has already spent three tickets
+  on permission changes reaching fresh databases and not live ones. Nothing a
+  user sees is affected either way.
+*/
+export const smallTool = pgTable(
+  "tbl_entity_small_tool",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -107,12 +127,12 @@ export const asset = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    tenantIdx: index("asset_tenant_idx").on(t.tenantId),
-    assetNumberIdx: index("asset_number_idx").on(t.assetNumber),
-    codeIdx: index("asset_code_idx").on(t.code),
-    custodianIdx: index("asset_custodian_idx").on(t.currentCustodianId),
-    projectIdx: index("asset_project_idx").on(t.currentProjectId),
-    statusIdx: index("asset_status_idx").on(t.currentStatus),
+    tenantIdx: index("small_tool_tenant_idx").on(t.tenantId),
+    assetNumberIdx: index("small_tool_number_idx").on(t.assetNumber),
+    codeIdx: index("small_tool_code_idx").on(t.code),
+    custodianIdx: index("small_tool_custodian_idx").on(t.currentCustodianId),
+    projectIdx: index("small_tool_project_idx").on(t.currentProjectId),
+    statusIdx: index("small_tool_status_idx").on(t.currentStatus),
   }),
 );
 
@@ -130,7 +150,7 @@ export const assignment = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    assetId: uuid("asset_id").notNull().references(() => asset.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").notNull().references(() => smallTool.id, { onDelete: "cascade" }),
     custodianId: uuid("custodian_id").notNull().references(() => employee.id, { onDelete: "restrict" }),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
     /*
@@ -249,7 +269,7 @@ export const transfer = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    assetId: uuid("asset_id").notNull().references(() => asset.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").notNull().references(() => smallTool.id, { onDelete: "cascade" }),
     fromCustodianId: uuid("from_custodian_id").references(() => employee.id, { onDelete: "set null" }),
     toCustodianId: uuid("to_custodian_id").references(() => employee.id, { onDelete: "set null" }),
     fromLocationId: uuid("from_location_id").references(() => location.id, { onDelete: "set null" }),

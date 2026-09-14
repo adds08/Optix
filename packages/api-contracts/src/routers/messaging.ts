@@ -28,7 +28,7 @@ async function verifyMentions(
   mentions: ChatMention[],
 ): Promise<ChatMention[]> {
   const table = {
-    asset: schema.asset,
+    asset: schema.smallTool,
     employee: schema.employee,
     project: schema.project,
     location: schema.location,
@@ -162,17 +162,17 @@ export const messagingRouter = router({
       const assets = assetIds.length
         ? await ctx.db
             .select({
-              id: schema.asset.id,
-              code: schema.asset.code,
-              make: schema.asset.make,
-              modelNumber: schema.asset.modelNumber,
-              description: schema.asset.description,
-              status: schema.asset.currentStatus,
+              id: schema.smallTool.id,
+              code: schema.smallTool.code,
+              make: schema.smallTool.make,
+              modelNumber: schema.smallTool.modelNumber,
+              description: schema.smallTool.description,
+              status: schema.smallTool.currentStatus,
               holderName: schema.employee.name,
             })
-            .from(schema.asset)
-            .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
-            .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, assetIds)))
+            .from(schema.smallTool)
+            .leftJoin(schema.employee, eq(schema.smallTool.currentCustodianId, schema.employee.id))
+            .where(and(eq(schema.smallTool.tenantId, tid), inArray(schema.smallTool.id, assetIds)))
         : [];
       const custodians = custodianIds.length
         ? await ctx.db

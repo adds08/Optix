@@ -41,10 +41,10 @@ export const transferRouter = router({
       .select({
         id: schema.transfer.id,
         assetId: schema.transfer.assetId,
-        code: schema.asset.code,
-        make: schema.asset.make,
-        modelNumber: schema.asset.modelNumber,
-        description: schema.asset.description,
+        code: schema.smallTool.code,
+        make: schema.smallTool.make,
+        modelNumber: schema.smallTool.modelNumber,
+        description: schema.smallTool.description,
         fromCustodianId: schema.transfer.fromCustodianId,
         toCustodianId: schema.transfer.toCustodianId,
         reason: schema.transfer.reason,
@@ -64,7 +64,7 @@ export const transferRouter = router({
         toTrailerUnit: trailerVehicle.unit,
       })
       .from(schema.transfer)
-      .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
+      .innerJoin(schema.smallTool, eq(schema.transfer.assetId, schema.smallTool.id))
       /* Tenant-scoped on the join. The composite FK behind these columns proves
          the vehicle TYPE and nothing about the tenant, so it will not catch a
          mistake here. */
@@ -97,8 +97,8 @@ export const transferRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const asset = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)),
+      const asset = await ctx.db.query.smallTool.findFirst({
+        where: and(eq(schema.smallTool.id, input.assetId), eq(schema.smallTool.tenantId, tid)),
       });
       if (!asset) throw new TRPCError({ code: "NOT_FOUND", message: "That tool is not in the register." });
 
@@ -172,7 +172,7 @@ export const transferRouter = router({
 
         if (created && applyNow) {
           await tx
-            .update(schema.asset)
+            .update(schema.smallTool)
             .set({
               currentStatus: "assigned",
               currentCustodianId: input.toCustodianId,
@@ -180,7 +180,7 @@ export const transferRouter = router({
               currentProjectId: toProjectId ?? asset.currentProjectId,
               updatedAt: new Date(),
             })
-            .where(and(eq(schema.asset.id, input.assetId), eq(schema.asset.tenantId, tid)));
+            .where(and(eq(schema.smallTool.id, input.assetId), eq(schema.smallTool.tenantId, tid)));
           /* Close the link the previous holder had and open the new one. Without
              this the register shows the new holder while the custody screen still
              shows the old — see packages/api-contracts/src/custody.ts. */
@@ -285,7 +285,7 @@ export const transferRouter = router({
          (STI-102). This used to be four bare consecutive writes — a crash
          between any two left a completed transfer whose custody never moved,
          the disagreement the rebuild guarantee exists to detect. */
-      let asset: typeof schema.asset.$inferSelect | undefined;
+      let asset: typeof schema.smallTool.$inferSelect | undefined;
       await ctx.db.transaction(async (tx) => {
         /* Ask again under the lock (STI-109) — identical shape to
            assignment.approve, on purpose. The pending_approval guard above ran
@@ -300,8 +300,8 @@ export const transferRouter = router({
            committed by the time these reads run. */
         [asset] = await tx
           .select()
-          .from(schema.asset)
-          .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)))
+          .from(schema.smallTool)
+          .where(and(eq(schema.smallTool.id, tr.assetId), eq(schema.smallTool.tenantId, ctx.session.tenantId)))
           .for("update");
         const [fresh] = await tx
           .select({ status: schema.transfer.status })
@@ -332,7 +332,7 @@ export const transferRouter = router({
           .set({ status: "completed", approvedBy: ctx.session.userId, completedAt: new Date() })
           .where(and(eq(schema.transfer.id, input.id), eq(schema.transfer.tenantId, ctx.session.tenantId)));
         await tx
-          .update(schema.asset)
+          .update(schema.smallTool)
           .set({
             currentStatus: "assigned",
             currentCustodianId: tr.toCustodianId,
@@ -340,7 +340,7 @@ export const transferRouter = router({
             currentProjectId: toProjectId,
             updatedAt: new Date(),
           })
-          .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, ctx.session.tenantId)));
+          .where(and(eq(schema.smallTool.id, tr.assetId), eq(schema.smallTool.tenantId, ctx.session.tenantId)));
         /* The rig the requester named, parked on the row at create time
            (STI-203 / 0017). NULL stays NULL — "not recorded" — with no
            carry-forward, because the tool has changed hands. Unlike project
@@ -430,7 +430,7 @@ export const transferRouter = router({
 
       /* Refusal + its history entry commit together (STI-102): a crash between
          them left a cancelled transfer the tool's history never mentioned. */
-      let asset: typeof schema.asset.$inferSelect | undefined;
+      let asset: typeof schema.smallTool.$inferSelect | undefined;
       await ctx.db.transaction(async (tx) => {
         /* Same re-check-under-lock shape as the approve paths (STI-109): the
            guard above ran outside the lock, so a decline racing an approve — or
@@ -442,8 +442,8 @@ export const transferRouter = router({
            a rebuild would then apply (STI-112). */
         [asset] = await tx
           .select()
-          .from(schema.asset)
-          .where(and(eq(schema.asset.id, tr.assetId), eq(schema.asset.tenantId, tid)))
+          .from(schema.smallTool)
+          .where(and(eq(schema.smallTool.id, tr.assetId), eq(schema.smallTool.tenantId, tid)))
           .for("update");
         const [fresh] = await tx
           .select({ status: schema.transfer.status })

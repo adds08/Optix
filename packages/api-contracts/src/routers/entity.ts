@@ -22,22 +22,22 @@ export const entityRouter = router({
       if (input.kind === "asset") {
         const rows = await ctx.db
           .select({
-            id: schema.asset.id,
-            label: schema.asset.code,
-            make: schema.asset.make,
-            modelNumber: schema.asset.modelNumber,
-            description: schema.asset.description,
+            id: schema.smallTool.id,
+            label: schema.smallTool.code,
+            make: schema.smallTool.make,
+            modelNumber: schema.smallTool.modelNumber,
+            description: schema.smallTool.description,
           })
-          .from(schema.asset)
+          .from(schema.smallTool)
           .where(
             and(
-              eq(schema.asset.tenantId, tid),
+              eq(schema.smallTool.tenantId, tid),
               or(
-                ilike(schema.asset.code, q),
-                ilike(schema.asset.make, q),
-                ilike(schema.asset.modelNumber, q),
-                ilike(schema.asset.description, q),
-                ilike(schema.asset.serialNumber, q),
+                ilike(schema.smallTool.code, q),
+                ilike(schema.smallTool.make, q),
+                ilike(schema.smallTool.modelNumber, q),
+                ilike(schema.smallTool.description, q),
+                ilike(schema.smallTool.serialNumber, q),
               ),
             ),
           )
@@ -149,25 +149,25 @@ export const entityRouter = router({
       const [assets, employees, projects, locations, vehicles] = await Promise.all([
         ctx.db
           .select({
-            id: schema.asset.id,
-            label: schema.asset.code,
-            make: schema.asset.make,
-            modelNumber: schema.asset.modelNumber,
-            description: schema.asset.description,
-            status: schema.asset.currentStatus,
+            id: schema.smallTool.id,
+            label: schema.smallTool.code,
+            make: schema.smallTool.make,
+            modelNumber: schema.smallTool.modelNumber,
+            description: schema.smallTool.description,
+            status: schema.smallTool.currentStatus,
             custodianName: schema.employee.name,
           })
-          .from(schema.asset)
-          .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
+          .from(schema.smallTool)
+          .leftJoin(schema.employee, eq(schema.smallTool.currentCustodianId, schema.employee.id))
           .where(
             and(
-              eq(schema.asset.tenantId, tid),
+              eq(schema.smallTool.tenantId, tid),
               or(
-                ilike(schema.asset.code, q),
-                ilike(schema.asset.make, q),
-                ilike(schema.asset.modelNumber, q),
-                ilike(schema.asset.description, q),
-                ilike(schema.asset.serialNumber, q),
+                ilike(schema.smallTool.code, q),
+                ilike(schema.smallTool.make, q),
+                ilike(schema.smallTool.modelNumber, q),
+                ilike(schema.smallTool.description, q),
+                ilike(schema.smallTool.serialNumber, q),
               ),
             ),
           )

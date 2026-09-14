@@ -247,13 +247,13 @@ async function main() {
   const existingAssetCounts = new Map<string, number>();
   for (const a of await db
     .select({
-      description: schema.asset.description,
-      make: schema.asset.make,
-      modelNumber: schema.asset.modelNumber,
-      serialNumber: schema.asset.serialNumber,
+      description: schema.smallTool.description,
+      make: schema.smallTool.make,
+      modelNumber: schema.smallTool.modelNumber,
+      serialNumber: schema.smallTool.serialNumber,
     })
-    .from(schema.asset)
-    .where(eq(schema.asset.tenantId, tid))) {
+    .from(schema.smallTool)
+    .where(eq(schema.smallTool.tenantId, tid))) {
     const fp = fingerprint([a.description, a.make, a.modelNumber, a.serialNumber]);
     existingAssetCounts.set(fp, (existingAssetCounts.get(fp) ?? 0) + 1);
   }
@@ -410,10 +410,10 @@ async function main() {
     .filter((id): id is string => !!id);
   const availableAssets = !handedOut && custodianIds.length
     ? await db
-        .select({ id: schema.asset.id })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), isNull(schema.asset.currentCustodianId)))
-        .orderBy(schema.asset.assetNumber)
+        .select({ id: schema.smallTool.id })
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), isNull(schema.smallTool.currentCustodianId)))
+        .orderBy(schema.smallTool.assetNumber)
         .limit(12)
     : [];
   let assigned = 0;

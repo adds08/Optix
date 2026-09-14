@@ -93,7 +93,7 @@ describe.skipIf(!url)("chat retry does not duplicate ledger events (STI-120)", (
     await db.insert(schema.tenantSettings).values({ tenantId, highValueThreshold: 5000 });
 
     const rows = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values([
         { tenantId, code: `STI120-A-${suffix}`, currentStatus: "available", createdBy: userId },
         { tenantId, code: `STI120-B-${suffix}`, currentStatus: "available", createdBy: userId },
@@ -102,7 +102,7 @@ describe.skipIf(!url)("chat retry does not duplicate ledger events (STI-120)", (
            lives in, which writes a `transfer` row and NO ledger row. */
         { tenantId, code: `UI66-${suffix}`, currentStatus: "available", acquisitionCost: "9500.00", createdBy: userId },
       ])
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     assetOne = rows[0]!.id;
     assetTwo = rows[1]!.id;
     assetHighValue = rows[2]!.id;

@@ -50,14 +50,14 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
 
   async function newAsset(description: string, opts: { tid?: string; category?: string | null } = {}) {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId: opts.tid ?? tenantId,
         description,
         currentStatus: "available",
         categoryName: opts.category ?? "Uncategorised",
       })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     return row!.id;
   }
 
@@ -65,13 +65,13 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
     (
       await db
         .select({
-          categoryName: schema.asset.categoryName,
-          costTarget: schema.asset.costTarget,
-          owningDepartmentId: schema.asset.owningDepartmentId,
-          owningProjectId: schema.asset.owningProjectId,
+          categoryName: schema.smallTool.categoryName,
+          costTarget: schema.smallTool.costTarget,
+          owningDepartmentId: schema.smallTool.owningDepartmentId,
+          owningProjectId: schema.smallTool.owningProjectId,
         })
-        .from(schema.asset)
-        .where(eq(schema.asset.id, id))
+        .from(schema.smallTool)
+        .where(eq(schema.smallTool.id, id))
     )[0]!;
 
   beforeAll(async () => {
@@ -135,7 +135,7 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
 
   it("moves costTarget WITH the department, and clears the owning job", async () => {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId,
         description: "STI-104 job-charged level",
@@ -143,7 +143,7 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
         costTarget: "project",
         owningProjectId: projectId,
       })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     const id = row!.id;
 
     await assetRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], owningDepartmentId: deptA });

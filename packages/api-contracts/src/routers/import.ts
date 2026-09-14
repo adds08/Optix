@@ -75,9 +75,9 @@ async function loadExisting(db: any, tenantId: string, spec: ImportSpec): Promis
 
   if (spec.entity === "asset" && spec.unique.length) {
     const rows = await db
-      .select({ code: schema.asset.code, serialNumber: schema.asset.serialNumber })
-      .from(schema.asset)
-      .where(eq(schema.asset.tenantId, tenantId));
+      .select({ code: schema.smallTool.code, serialNumber: schema.smallTool.serialNumber })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.tenantId, tenantId));
     for (const r of rows) {
       if (r.code) out.code?.add(String(r.code).toLowerCase());
       if (r.serialNumber) out.serialNumber?.add(String(r.serialNumber).toLowerCase());
@@ -309,7 +309,7 @@ async function insertOne(
   if (entity === "asset") {
     const label = formatAssetModel(values) || "Untagged tool";
     const [row] = await tx
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId,
         createdBy: actorUserId,

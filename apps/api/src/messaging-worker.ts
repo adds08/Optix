@@ -128,15 +128,15 @@ async function processOne(
 
     const assigns = await db
       .select({
-        code: schema.asset.code,
-        make: schema.asset.make,
-        modelNumber: schema.asset.modelNumber,
-        description: schema.asset.description,
+        code: schema.smallTool.code,
+        make: schema.smallTool.make,
+        modelNumber: schema.smallTool.modelNumber,
+        description: schema.smallTool.description,
         projectName: schema.project.name,
         locationName: schema.location.name,
       })
       .from(schema.assignment)
-      .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
+      .innerJoin(schema.smallTool, eq(schema.assignment.assetId, schema.smallTool.id))
       .leftJoin(schema.project, eq(schema.assignment.projectId, schema.project.id))
       .leftJoin(schema.location, eq(schema.assignment.locationId, schema.location.id))
       .where(

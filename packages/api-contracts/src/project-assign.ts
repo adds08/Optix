@@ -250,18 +250,18 @@ export async function moveEmployeeToProject(
       */
       const holding = await tx
         .select({
-          id: schema.asset.id,
-          currentStatus: schema.asset.currentStatus,
-          currentCustodianId: schema.asset.currentCustodianId,
-          currentProjectId: schema.asset.currentProjectId,
-          currentLocationId: schema.asset.currentLocationId,
+          id: schema.smallTool.id,
+          currentStatus: schema.smallTool.currentStatus,
+          currentCustodianId: schema.smallTool.currentCustodianId,
+          currentProjectId: schema.smallTool.currentProjectId,
+          currentLocationId: schema.smallTool.currentLocationId,
         })
-        .from(schema.asset)
+        .from(schema.smallTool)
         .where(
           and(
-            eq(schema.asset.tenantId, tid),
-            eq(schema.asset.currentCustodianId, employeeId),
-            notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
+            eq(schema.smallTool.tenantId, tid),
+            eq(schema.smallTool.currentCustodianId, employeeId),
+            notInArray(schema.smallTool.currentStatus, ["lost", "disposed"]),
           ),
         );
 
@@ -286,9 +286,9 @@ export async function moveEmployeeToProject(
         });
 
         await tx
-          .update(schema.asset)
+          .update(schema.smallTool)
           .set({ currentCustodianId: null, currentStatus: status, updatedAt: new Date() })
-          .where(and(eq(schema.asset.id, a.id), eq(schema.asset.tenantId, tid)));
+          .where(and(eq(schema.smallTool.id, a.id), eq(schema.smallTool.tenantId, tid)));
 
         await tx.insert(schema.transaction).values({
           tenantId: tid,
@@ -323,19 +323,19 @@ export async function moveEmployeeToProject(
        report has to point. */
     const held = await tx
       .select({
-        id: schema.asset.id,
-        code: schema.asset.code,
-        currentStatus: schema.asset.currentStatus,
-        currentCustodianId: schema.asset.currentCustodianId,
-        currentProjectId: schema.asset.currentProjectId,
-        currentLocationId: schema.asset.currentLocationId,
+        id: schema.smallTool.id,
+        code: schema.smallTool.code,
+        currentStatus: schema.smallTool.currentStatus,
+        currentCustodianId: schema.smallTool.currentCustodianId,
+        currentProjectId: schema.smallTool.currentProjectId,
+        currentLocationId: schema.smallTool.currentLocationId,
       })
-      .from(schema.asset)
+      .from(schema.smallTool)
       .where(
         and(
-          eq(schema.asset.tenantId, tid),
-          eq(schema.asset.currentCustodianId, employeeId),
-          notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
+          eq(schema.smallTool.tenantId, tid),
+          eq(schema.smallTool.currentCustodianId, employeeId),
+          notInArray(schema.smallTool.currentStatus, ["lost", "disposed"]),
         ),
       );
 
@@ -379,19 +379,19 @@ export async function moveEmployeeToProject(
     const aboard = containerLocIds.size
       ? await tx
           .select({
-            id: schema.asset.id,
-            code: schema.asset.code,
-            currentStatus: schema.asset.currentStatus,
-            currentCustodianId: schema.asset.currentCustodianId,
-            currentProjectId: schema.asset.currentProjectId,
-            currentLocationId: schema.asset.currentLocationId,
+            id: schema.smallTool.id,
+            code: schema.smallTool.code,
+            currentStatus: schema.smallTool.currentStatus,
+            currentCustodianId: schema.smallTool.currentCustodianId,
+            currentProjectId: schema.smallTool.currentProjectId,
+            currentLocationId: schema.smallTool.currentLocationId,
           })
-          .from(schema.asset)
+          .from(schema.smallTool)
           .where(
             and(
-              eq(schema.asset.tenantId, tid),
-              inArray(schema.asset.currentLocationId, [...containerLocIds]),
-              notInArray(schema.asset.currentStatus, ["lost", "disposed"]),
+              eq(schema.smallTool.tenantId, tid),
+              inArray(schema.smallTool.currentLocationId, [...containerLocIds]),
+              notInArray(schema.smallTool.currentStatus, ["lost", "disposed"]),
             ),
           )
       : [];
@@ -408,9 +408,9 @@ export async function moveEmployeeToProject(
       const ids = moving.map((a: any) => a.id);
 
       await tx
-        .update(schema.asset)
+        .update(schema.smallTool)
         .set({ currentProjectId: projectId, updatedAt: new Date() })
-        .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)));
+        .where(and(eq(schema.smallTool.tenantId, tid), inArray(schema.smallTool.id, ids)));
 
       /* Open custody links carry the project too, so the custody screen does
          not keep showing the job they just left. */

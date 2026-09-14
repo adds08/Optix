@@ -60,7 +60,7 @@ export const assetRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const conditions = [eq(schema.asset.tenantId, tid)];
+      const conditions = [eq(schema.smallTool.tenantId, tid)];
       /* The ladder, applied to the QUERY — not to the rows afterwards. A
          post-filter would still return an honest-looking count of tools the
          caller may not see (SYSTEM_PLAN §7). `undefined` here means the caller
@@ -68,19 +68,19 @@ export const assetRouter = router({
          all", returns a real predicate. */
       const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
       if (scoped) conditions.push(scoped);
-      if (input?.status && input.status !== "all") conditions.push(eq(schema.asset.currentStatus, input.status));
-      if (input?.projectId === "none") conditions.push(isNull(schema.asset.currentProjectId));
-      else if (input?.projectId) conditions.push(eq(schema.asset.currentProjectId, input.projectId));
-      if (input?.custodianId) conditions.push(eq(schema.asset.currentCustodianId, input.custodianId));
+      if (input?.status && input.status !== "all") conditions.push(eq(schema.smallTool.currentStatus, input.status));
+      if (input?.projectId === "none") conditions.push(isNull(schema.smallTool.currentProjectId));
+      else if (input?.projectId) conditions.push(eq(schema.smallTool.currentProjectId, input.projectId));
+      if (input?.custodianId) conditions.push(eq(schema.smallTool.currentCustodianId, input.custodianId));
       if (input?.search) {
         const q = `%${input.search}%`;
         conditions.push(
           or(
-            ilike(schema.asset.code, q),
-            ilike(schema.asset.make, q),
-            ilike(schema.asset.modelNumber, q),
-            ilike(schema.asset.description, q),
-            ilike(schema.asset.serialNumber, q),
+            ilike(schema.smallTool.code, q),
+            ilike(schema.smallTool.make, q),
+            ilike(schema.smallTool.modelNumber, q),
+            ilike(schema.smallTool.description, q),
+            ilike(schema.smallTool.serialNumber, q),
           )!,
         );
       }
@@ -95,31 +95,31 @@ export const assetRouter = router({
       const rideTrailer = alias(schema.equipment, "ride_trailer");
       const rows = await ctx.db
         .select({
-          id: schema.asset.id,
-          assetNumber: schema.asset.assetNumber,
-          code: schema.asset.code,
-          make: schema.asset.make,
-          modelNumber: schema.asset.modelNumber,
-          description: schema.asset.description,
-          otherRef: schema.asset.otherRef,
-          categoryName: schema.asset.categoryName,
-          serialNumber: schema.asset.serialNumber,
-          isManualCode: schema.asset.isManualCode,
-          isSerialized: schema.asset.isSerialized,
-          quantity: schema.asset.quantity,
-          status: schema.asset.currentStatus,
-          acquisitionCost: schema.asset.acquisitionCost,
-          acquisitionDate: schema.asset.acquisitionDate,
-          warrantyExpiresOn: schema.asset.warrantyExpiresOn,
-          photoKey: schema.asset.photoKey,
-          condition: schema.asset.condition,
-          custodianId: schema.asset.currentCustodianId,
+          id: schema.smallTool.id,
+          assetNumber: schema.smallTool.assetNumber,
+          code: schema.smallTool.code,
+          make: schema.smallTool.make,
+          modelNumber: schema.smallTool.modelNumber,
+          description: schema.smallTool.description,
+          otherRef: schema.smallTool.otherRef,
+          categoryName: schema.smallTool.categoryName,
+          serialNumber: schema.smallTool.serialNumber,
+          isManualCode: schema.smallTool.isManualCode,
+          isSerialized: schema.smallTool.isSerialized,
+          quantity: schema.smallTool.quantity,
+          status: schema.smallTool.currentStatus,
+          acquisitionCost: schema.smallTool.acquisitionCost,
+          acquisitionDate: schema.smallTool.acquisitionDate,
+          warrantyExpiresOn: schema.smallTool.warrantyExpiresOn,
+          photoKey: schema.smallTool.photoKey,
+          condition: schema.smallTool.condition,
+          custodianId: schema.smallTool.currentCustodianId,
           custodianName: schema.employee.name,
           custodianExternalId: schema.employee.code,
-          currentProjectId: schema.asset.currentProjectId,
+          currentProjectId: schema.smallTool.currentProjectId,
           currentProjectName: currentProject.name,
           currentProjectExternalId: currentProject.code,
-          locationId: schema.asset.currentLocationId,
+          locationId: schema.smallTool.currentLocationId,
           locationName: schema.location.name,
           /* A vehicle is a `location` of type vehicle — but the register groups
              tools by truck vs trailer, which only the vehicle row knows. */
@@ -134,29 +134,29 @@ export const assetRouter = router({
           currentTruckOwnership: rideTruck.ownershipType,
           currentTrailerId: activeAssignment.trailerId,
           currentTrailerUnit: rideTrailer.unit,
-          owningProjectId: schema.asset.owningProjectId,
+          owningProjectId: schema.smallTool.owningProjectId,
           owningProjectName: owningProject.name,
-          costTarget: schema.asset.costTarget,
-          owningDepartmentId: schema.asset.owningDepartmentId,
+          costTarget: schema.smallTool.costTarget,
+          owningDepartmentId: schema.smallTool.owningDepartmentId,
           owningDepartmentName: owningDepartment.name,
         })
-        .from(schema.asset)
-        .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
-        .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
-        .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
+        .from(schema.smallTool)
+        .leftJoin(schema.employee, eq(schema.smallTool.currentCustodianId, schema.employee.id))
+        .leftJoin(currentProject, eq(schema.smallTool.currentProjectId, currentProject.id))
+        .leftJoin(schema.location, eq(schema.smallTool.currentLocationId, schema.location.id))
         .leftJoin(schema.equipment, eq(schema.equipment.locationId, schema.location.id))
         .leftJoin(
           activeAssignment,
           and(
-            eq(activeAssignment.assetId, schema.asset.id),
+            eq(activeAssignment.assetId, schema.smallTool.id),
             eq(activeAssignment.tenantId, tid),
             eq(activeAssignment.status, "active"),
           ),
         )
         .leftJoin(rideTruck, eq(activeAssignment.truckId, rideTruck.id))
         .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
-        .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
-        .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
+        .leftJoin(owningProject, eq(schema.smallTool.owningProjectId, owningProject.id))
+        .leftJoin(owningDepartment, eq(schema.smallTool.owningDepartmentId, owningDepartment.id))
         .where(and(...conditions))
         /*
           UI-75. Without an ORDER BY this returned heap order, so a tool created
@@ -167,7 +167,7 @@ export const assetRouter = router({
           answer to it, not a cosmetic default. The column is sortable; this is
           only where the register opens.
         */
-        .orderBy(desc(schema.asset.createdAt));
+        .orderBy(desc(schema.smallTool.createdAt));
       return rows;
     }),
 
@@ -187,30 +187,30 @@ export const assetRouter = router({
       const rideTrailer = alias(schema.equipment, "ride_trailer");
       const [row] = await ctx.db
         .select({
-          id: schema.asset.id,
-          assetNumber: schema.asset.assetNumber,
-          code: schema.asset.code,
-          make: schema.asset.make,
-          modelNumber: schema.asset.modelNumber,
-          description: schema.asset.description,
-          categoryName: schema.asset.categoryName,
-          serialNumber: schema.asset.serialNumber,
-          isManualCode: schema.asset.isManualCode,
-          isSerialized: schema.asset.isSerialized,
-          quantity: schema.asset.quantity,
-          status: schema.asset.currentStatus,
-          acquisitionCost: schema.asset.acquisitionCost,
-          acquisitionDate: schema.asset.acquisitionDate,
-          warrantyExpiresOn: schema.asset.warrantyExpiresOn,
-          photoKey: schema.asset.photoKey,
-          condition: schema.asset.condition,
-          custodianId: schema.asset.currentCustodianId,
+          id: schema.smallTool.id,
+          assetNumber: schema.smallTool.assetNumber,
+          code: schema.smallTool.code,
+          make: schema.smallTool.make,
+          modelNumber: schema.smallTool.modelNumber,
+          description: schema.smallTool.description,
+          categoryName: schema.smallTool.categoryName,
+          serialNumber: schema.smallTool.serialNumber,
+          isManualCode: schema.smallTool.isManualCode,
+          isSerialized: schema.smallTool.isSerialized,
+          quantity: schema.smallTool.quantity,
+          status: schema.smallTool.currentStatus,
+          acquisitionCost: schema.smallTool.acquisitionCost,
+          acquisitionDate: schema.smallTool.acquisitionDate,
+          warrantyExpiresOn: schema.smallTool.warrantyExpiresOn,
+          photoKey: schema.smallTool.photoKey,
+          condition: schema.smallTool.condition,
+          custodianId: schema.smallTool.currentCustodianId,
           custodianName: schema.employee.name,
           custodianExternalId: schema.employee.code,
-          currentProjectId: schema.asset.currentProjectId,
+          currentProjectId: schema.smallTool.currentProjectId,
           currentProjectName: currentProject.name,
           currentProjectExternalId: currentProject.code,
-          locationId: schema.asset.currentLocationId,
+          locationId: schema.smallTool.currentLocationId,
           locationName: schema.location.name,
           currentTruckId: activeAssignment.truckId,
           currentTruckUnit: rideTruck.unit,
@@ -221,29 +221,29 @@ export const assetRouter = router({
           currentTruckOwnership: rideTruck.ownershipType,
           currentTrailerId: activeAssignment.trailerId,
           currentTrailerUnit: rideTrailer.unit,
-          owningProjectId: schema.asset.owningProjectId,
+          owningProjectId: schema.smallTool.owningProjectId,
           owningProjectName: owningProject.name,
-          costTarget: schema.asset.costTarget,
-          owningDepartmentId: schema.asset.owningDepartmentId,
+          costTarget: schema.smallTool.costTarget,
+          owningDepartmentId: schema.smallTool.owningDepartmentId,
           owningDepartmentName: owningDepartment.name,
-          createdAt: schema.asset.createdAt,
+          createdAt: schema.smallTool.createdAt,
         })
-        .from(schema.asset)
-        .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
-        .leftJoin(currentProject, eq(schema.asset.currentProjectId, currentProject.id))
-        .leftJoin(schema.location, eq(schema.asset.currentLocationId, schema.location.id))
+        .from(schema.smallTool)
+        .leftJoin(schema.employee, eq(schema.smallTool.currentCustodianId, schema.employee.id))
+        .leftJoin(currentProject, eq(schema.smallTool.currentProjectId, currentProject.id))
+        .leftJoin(schema.location, eq(schema.smallTool.currentLocationId, schema.location.id))
         .leftJoin(
           activeAssignment,
           and(
-            eq(activeAssignment.assetId, schema.asset.id),
+            eq(activeAssignment.assetId, schema.smallTool.id),
             eq(activeAssignment.tenantId, ctx.session.tenantId),
             eq(activeAssignment.status, "active"),
           ),
         )
         .leftJoin(rideTruck, eq(activeAssignment.truckId, rideTruck.id))
         .leftJoin(rideTrailer, eq(activeAssignment.trailerId, rideTrailer.id))
-        .leftJoin(owningProject, eq(schema.asset.owningProjectId, owningProject.id))
-        .leftJoin(owningDepartment, eq(schema.asset.owningDepartmentId, owningDepartment.id))
+        .leftJoin(owningProject, eq(schema.smallTool.owningProjectId, owningProject.id))
+        .leftJoin(owningDepartment, eq(schema.smallTool.owningDepartmentId, owningDepartment.id))
         /* The ladder applies to the detail screen too. Scoping the list but
            not the row behind it is the classic hole: the tool is missing from
            your register and still readable by pasting its id into the URL, and
@@ -251,7 +251,7 @@ export const assetRouter = router({
            notification link. Out of scope reads as "not found" rather than
            "forbidden", so the response cannot be used to confirm that a tag
            exists on a job the caller has no business knowing about. */
-        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId), ...(scoped ? [scoped] : [])));
+        .where(and(eq(schema.smallTool.id, input.id), eq(schema.smallTool.tenantId, ctx.session.tenantId), ...(scoped ? [scoped] : [])));
       if (!row) return null;
 
       /*
@@ -358,9 +358,9 @@ export const assetRouter = router({
         */
         if (input.code) {
           const [clash] = await tx
-            .select({ id: schema.asset.id })
-            .from(schema.asset)
-            .where(and(eq(schema.asset.tenantId, ctx.session.tenantId), eq(schema.asset.code, input.code)))
+            .select({ id: schema.smallTool.id })
+            .from(schema.smallTool)
+            .where(and(eq(schema.smallTool.tenantId, ctx.session.tenantId), eq(schema.smallTool.code, input.code)))
             .limit(1);
           if (clash) {
             throw new TRPCError({ code: "CONFLICT", message: `${input.code} is already in the register` });
@@ -368,7 +368,7 @@ export const assetRouter = router({
         }
 
         const [created] = await tx
-          .insert(schema.asset)
+          .insert(schema.smallTool)
           .values({
             tenantId: ctx.session.tenantId,
             createdBy: ctx.session.userId,
@@ -447,16 +447,16 @@ export const assetRouter = router({
       const tid = ctx.session.tenantId;
       const { id, ...changes } = input;
 
-      const existing = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, id), eq(schema.asset.tenantId, tid)),
+      const existing = await ctx.db.query.smallTool.findFirst({
+        where: and(eq(schema.smallTool.id, id), eq(schema.smallTool.tenantId, tid)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such tool in this tenant" });
 
       /* A tag is how everyone refers to the tool out loud; two rows answering
          to the same one makes every conversation ambiguous. */
       if (changes.code && changes.code !== existing.code) {
-        const clash = await ctx.db.query.asset.findFirst({
-          where: and(eq(schema.asset.tenantId, tid), eq(schema.asset.code, changes.code)),
+        const clash = await ctx.db.query.smallTool.findFirst({
+          where: and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.code, changes.code)),
         });
         if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.code} is already in the register` });
       }
@@ -489,9 +489,9 @@ export const assetRouter = router({
       if (!Object.keys(patch).length) return existing;
 
       const [row] = await ctx.db
-        .update(schema.asset)
+        .update(schema.smallTool)
         .set({ ...patch, updatedAt: new Date() })
-        .where(and(eq(schema.asset.id, id), eq(schema.asset.tenantId, tid)))
+        .where(and(eq(schema.smallTool.id, id), eq(schema.smallTool.tenantId, tid)))
         .returning();
 
       await logEvent(ctx, {
@@ -571,10 +571,10 @@ export const assetRouter = router({
       }
 
       const rows = await ctx.db
-        .update(schema.asset)
+        .update(schema.smallTool)
         .set(patch)
-        .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)))
-        .returning({ id: schema.asset.id });
+        .where(and(eq(schema.smallTool.tenantId, tid), inArray(schema.smallTool.id, ids)))
+        .returning({ id: schema.smallTool.id });
 
       await logEvent(ctx, {
         category: "asset",
@@ -612,8 +612,8 @@ export const assetRouter = router({
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const tid = ctx.session.tenantId;
-      const existing = await ctx.db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, tid)),
+      const existing = await ctx.db.query.smallTool.findFirst({
+        where: and(eq(schema.smallTool.id, input.id), eq(schema.smallTool.tenantId, tid)),
       });
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such tool in this tenant" });
 
@@ -662,14 +662,14 @@ export const assetRouter = router({
       return ctx.db.transaction(async (tx) => {
       const [before] = await tx
         .select()
-        .from(schema.asset)
-        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)))
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.id, input.id), eq(schema.smallTool.tenantId, ctx.session.tenantId)))
         .for("update");
 
       const [row] = await tx
-        .update(schema.asset)
+        .update(schema.smallTool)
         .set({ currentStatus: input.status, updatedAt: new Date() })
-        .where(and(eq(schema.asset.id, input.id), eq(schema.asset.tenantId, ctx.session.tenantId)))
+        .where(and(eq(schema.smallTool.id, input.id), eq(schema.smallTool.tenantId, ctx.session.tenantId)))
         .returning();
       if (row) {
         /*
@@ -732,16 +732,16 @@ export const assetRouter = router({
     const projected = (
       await ctx.db
         .select({
-          assetId: schema.asset.id,
-          assetNumber: schema.asset.assetNumber,
-          code: schema.asset.code,
-          status: schema.asset.currentStatus,
-          custodianId: schema.asset.currentCustodianId,
-          projectId: schema.asset.currentProjectId,
-          locationId: schema.asset.currentLocationId,
+          assetId: schema.smallTool.id,
+          assetNumber: schema.smallTool.assetNumber,
+          code: schema.smallTool.code,
+          status: schema.smallTool.currentStatus,
+          custodianId: schema.smallTool.currentCustodianId,
+          projectId: schema.smallTool.currentProjectId,
+          locationId: schema.smallTool.currentLocationId,
         })
-        .from(schema.asset)
-        .where(eq(schema.asset.tenantId, tid))
+        .from(schema.smallTool)
+        .where(eq(schema.smallTool.tenantId, tid))
     ).map((a) => ({ ...a, label: a.code ? `#${a.assetNumber} ${a.code}` : `#${a.assetNumber}` }));
     const events = await tenantLedger(ctx.db, tid);
     const divergences = reconcileProjections(projected, events);
@@ -770,9 +770,9 @@ export const assetRouter = router({
        over. Found by QA on 2026-08-18: rebuild reported
        `assetsSkippedNoEvidence: 0` with a no-evidence divergence open. */
     const assetsWithNoEvents = await ctx.db
-      .select({ id: schema.asset.id })
-      .from(schema.asset)
-      .where(eq(schema.asset.tenantId, tid));
+      .select({ id: schema.smallTool.id })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.tenantId, tid));
     skippedNoEvidence += assetsWithNoEvents.filter((a) => !byAsset.has(a.id)).length;
     for (const [assetId, list] of byAsset) {
       /* An asset whose ledger carries no complete snapshot is skipped, not
@@ -795,7 +795,7 @@ export const assetRouter = router({
          the same code. */
       const s = foldAssetState(list);
       await ctx.db
-        .update(schema.asset)
+        .update(schema.smallTool)
         .set({
           currentStatus: s.status ?? "available",
           currentCustodianId: s.custodianId ?? null,
@@ -803,7 +803,7 @@ export const assetRouter = router({
           currentLocationId: s.locationId ?? null,
           updatedAt: new Date(),
         })
-        .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tid)));
+        .where(and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, tid)));
       updated++;
     }
     return { assetsRebuilt: updated, assetsSkippedNoEvidence: skippedNoEvidence, totalEvents: events.length };

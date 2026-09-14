@@ -244,7 +244,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
     ];
     for (const [i, t] of tools.entries()) {
       const [asset] = await db
-        .insert(schema.asset)
+        .insert(schema.smallTool)
         .values({
           tenantId,
           description: `Ladder tool ${i + 1}`,
@@ -252,7 +252,7 @@ describe.skipIf(!url)("RBAC matrix (STI-308)", () => {
           currentProjectId: t.project,
           currentStatus: t.holder ? "assigned" : "available",
         })
-        .returning({ id: schema.asset.id });
+        .returning({ id: schema.smallTool.id });
       if (t.holder) {
         await db.insert(schema.assignment).values({
           tenantId,

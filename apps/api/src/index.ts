@@ -486,8 +486,8 @@ app.post("/assets/:id/photo", async (c) => {
   }
 
   const assetId = c.req.param("id");
-  const asset = await db.query.asset.findFirst({
-    where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, session.tenantId)),
+  const asset = await db.query.smallTool.findFirst({
+    where: and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, session.tenantId)),
   });
   if (!asset) return c.json({ error: "No such tool." }, 404);
 
@@ -514,9 +514,9 @@ app.post("/assets/:id/photo", async (c) => {
 
   const previous = asset.photoKey;
   await db
-    .update(schema.asset)
+    .update(schema.smallTool)
     .set({ photoKey: key, updatedAt: new Date() })
-    .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, session.tenantId)));
+    .where(and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, session.tenantId)));
 
   /* Replacing a photo should not leave the old one paying rent. Done after the
      row is updated, so a failed delete cannot lose the new picture. */
@@ -534,15 +534,15 @@ app.delete("/assets/:id/photo", async (c) => {
   }
 
   const assetId = c.req.param("id");
-  const asset = await db.query.asset.findFirst({
-    where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, session.tenantId)),
+  const asset = await db.query.smallTool.findFirst({
+    where: and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, session.tenantId)),
   });
   if (!asset) return c.json({ error: "No such tool." }, 404);
 
   await db
-    .update(schema.asset)
+    .update(schema.smallTool)
     .set({ photoKey: null, updatedAt: new Date() })
-    .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, session.tenantId)));
+    .where(and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, session.tenantId)));
   if (asset.photoKey) await storageFor(env)?.remove(asset.photoKey);
   return c.json({ ok: true });
 });
@@ -740,16 +740,16 @@ async function sweepProjectionDivergence() {
     const projected = (
       await db
         .select({
-          assetId: schema.asset.id,
-          assetNumber: schema.asset.assetNumber,
-          code: schema.asset.code,
-          status: schema.asset.currentStatus,
-          custodianId: schema.asset.currentCustodianId,
-          projectId: schema.asset.currentProjectId,
-          locationId: schema.asset.currentLocationId,
+          assetId: schema.smallTool.id,
+          assetNumber: schema.smallTool.assetNumber,
+          code: schema.smallTool.code,
+          status: schema.smallTool.currentStatus,
+          custodianId: schema.smallTool.currentCustodianId,
+          projectId: schema.smallTool.currentProjectId,
+          locationId: schema.smallTool.currentLocationId,
         })
-        .from(schema.asset)
-        .where(eq(schema.asset.tenantId, t.id))
+        .from(schema.smallTool)
+        .where(eq(schema.smallTool.tenantId, t.id))
     ).map((a) => ({ ...a, label: a.code ? `#${a.assetNumber} ${a.code}` : `#${a.assetNumber}` }));
     const events = (await db
       .select()

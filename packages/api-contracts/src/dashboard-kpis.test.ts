@@ -55,7 +55,7 @@ describe.skipIf(!url)("dashboard.kpis sums the maintenance-family statuses", () 
 
     /* One asset per maintenance-family status, plus one control asset that
        must NOT be counted. */
-    await db.insert(schema.asset).values([
+    await db.insert(schema.smallTool).values([
       { tenantId, description: "in_maintenance drill", currentStatus: "in_maintenance" },
       { tenantId, description: "diagnosing drill", currentStatus: "diagnosing" },
       { tenantId, description: "waiting_parts drill", currentStatus: "waiting_parts" },

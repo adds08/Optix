@@ -71,8 +71,8 @@ export async function matchEntity(
     const codeMatch = (col: AnyPgColumn) =>
       bare ? ilike(col, `%-%${tag}`) : ilike(col, tag);
 
-    const a = await db.query.asset.findFirst({
-      where: and(codeMatch(schema.asset.code), eq(schema.asset.tenantId, tid)),
+    const a = await db.query.smallTool.findFirst({
+      where: and(codeMatch(schema.smallTool.code), eq(schema.smallTool.tenantId, tid)),
     });
     if (a) return { type: "asset", id: a.id, label: `${a.code} (${formatAssetModel(a)})` };
 
@@ -105,13 +105,13 @@ export async function matchEntity(
 
     /* A token can hit any of the three columns — "the Bosch" should match on
        brand, which a single ilike against the old blob could not. */
-    const asset = await db.query.asset.findFirst({
+    const asset = await db.query.smallTool.findFirst({
       where: and(
-        eq(schema.asset.tenantId, tid),
+        eq(schema.smallTool.tenantId, tid),
         or(
-          ilike(schema.asset.make, `%${token}%`),
-          ilike(schema.asset.modelNumber, `%${token}%`),
-          ilike(schema.asset.description, `%${token}%`),
+          ilike(schema.smallTool.make, `%${token}%`),
+          ilike(schema.smallTool.modelNumber, `%${token}%`),
+          ilike(schema.smallTool.description, `%${token}%`),
         ),
       ),
     });
@@ -130,8 +130,8 @@ export async function resolveEngineAssets(
   for (const h of hints) {
     const m = await matchEntity(db, tid, `${h.label} ${h.raw}`);
     if (m && m.type === "asset") {
-      const a = await db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, m.id), eq(schema.asset.tenantId, tid)),
+      const a = await db.query.smallTool.findFirst({
+        where: and(eq(schema.smallTool.id, m.id), eq(schema.smallTool.tenantId, tid)),
       });
       if (a) results.push({ id: a.id, label: m.label, code: a.code });
     }

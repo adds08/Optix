@@ -24,8 +24,8 @@ export const dashboardRouter = router({
     const byStatus = (status: string) =>
       ctx.db
         .select({ c: count() })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentStatus, status), scoped))
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.currentStatus, status), scoped))
         .then((r) => Number(r[0]?.c ?? 0));
 
     /* The "In maintenance" tile is the whole shop-workflow family, not just the
@@ -36,8 +36,8 @@ export const dashboardRouter = router({
     const byStatusIn = (statuses: string[]) =>
       ctx.db
         .select({ c: count() })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.currentStatus, statuses), scoped))
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), inArray(schema.smallTool.currentStatus, statuses), scoped))
         .then((r) => Number(r[0]?.c ?? 0));
 
     const [available, assigned, inMaintenance, lost, reserved] = await Promise.all([
@@ -61,11 +61,11 @@ export const dashboardRouter = router({
        must not count. */
     const missingSerial = await ctx.db
       .select({ c: count() })
-      .from(schema.asset)
+      .from(schema.smallTool)
       .where(and(
-        eq(schema.asset.tenantId, tid),
-        eq(schema.asset.isSerialized, true),
-        isNull(schema.asset.serialNumber),
+        eq(schema.smallTool.tenantId, tid),
+        eq(schema.smallTool.isSerialized, true),
+        isNull(schema.smallTool.serialNumber),
         scoped,
       ))
       .then((r) => Number(r[0]?.c ?? 0));
@@ -93,13 +93,13 @@ export const dashboardRouter = router({
     */
     const clearanceRows = termIds.length
       ? await ctx.db
-          .select({ custodianId: schema.asset.currentCustodianId })
-          .from(schema.asset)
+          .select({ custodianId: schema.smallTool.currentCustodianId })
+          .from(schema.smallTool)
           .where(
             and(
-              eq(schema.asset.tenantId, tid),
-              ne(schema.asset.currentStatus, "available"),
-              inArray(schema.asset.currentCustodianId, termIds),
+              eq(schema.smallTool.tenantId, tid),
+              ne(schema.smallTool.currentStatus, "available"),
+              inArray(schema.smallTool.currentCustodianId, termIds),
               scoped,
             ),
           )
@@ -144,20 +144,20 @@ export const dashboardRouter = router({
       const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
       const conditions = [eq(schema.transaction.tenantId, tid)];
       if (scoped) conditions.push(scoped);
-      if (input?.employeeId) conditions.push(eq(schema.asset.currentCustodianId, input.employeeId));
+      if (input?.employeeId) conditions.push(eq(schema.smallTool.currentCustodianId, input.employeeId));
       return ctx.db
         .select({
           id: schema.transaction.id,
           eventType: schema.transaction.eventType,
           occurredAt: schema.transaction.occurredAt,
           note: schema.transaction.note,
-          assetCode: schema.asset.code,
-          assetMake: schema.asset.make,
-          assetModelNumber: schema.asset.modelNumber,
-          assetDescription: schema.asset.description,
+          assetCode: schema.smallTool.code,
+          assetMake: schema.smallTool.make,
+          assetModelNumber: schema.smallTool.modelNumber,
+          assetDescription: schema.smallTool.description,
         })
         .from(schema.transaction)
-        .innerJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
+        .innerJoin(schema.smallTool, eq(schema.transaction.assetId, schema.smallTool.id))
         .where(and(...conditions))
         .orderBy(sql`${schema.transaction.occurredAt} DESC`)
         .limit(20);
@@ -174,21 +174,21 @@ export const dashboardRouter = router({
     const termIds = term.map((t) => t.id);
     return ctx.db
       .select({
-        code: schema.asset.code,
-        make: schema.asset.make,
-        modelNumber: schema.asset.modelNumber,
-        description: schema.asset.description,
-        status: schema.asset.currentStatus,
-        cost: schema.asset.acquisitionCost,
+        code: schema.smallTool.code,
+        make: schema.smallTool.make,
+        modelNumber: schema.smallTool.modelNumber,
+        description: schema.smallTool.description,
+        status: schema.smallTool.currentStatus,
+        cost: schema.smallTool.acquisitionCost,
         custodianName: schema.employee.name,
       })
-      .from(schema.asset)
-      .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
+      .from(schema.smallTool)
+      .leftJoin(schema.employee, eq(schema.smallTool.currentCustodianId, schema.employee.id))
       .where(
         and(
-          eq(schema.asset.tenantId, tid),
-          ne(schema.asset.currentStatus, "available"),
-          inArray(schema.asset.currentCustodianId, termIds),
+          eq(schema.smallTool.tenantId, tid),
+          ne(schema.smallTool.currentStatus, "available"),
+          inArray(schema.smallTool.currentCustodianId, termIds),
           scoped,
         ),
       );
@@ -225,16 +225,16 @@ export const dashboardRouter = router({
         .select({
           id: schema.transfer.id,
           assetId: schema.transfer.assetId,
-          code: schema.asset.code,
-          make: schema.asset.make,
-          modelNumber: schema.asset.modelNumber,
-          description: schema.asset.description,
+          code: schema.smallTool.code,
+          make: schema.smallTool.make,
+          modelNumber: schema.smallTool.modelNumber,
+          description: schema.smallTool.description,
           fromCustodianId: schema.transfer.fromCustodianId,
           toCustodianId: schema.transfer.toCustodianId,
           createdAt: schema.transfer.createdAt,
         })
         .from(schema.transfer)
-        .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
+        .innerJoin(schema.smallTool, eq(schema.transfer.assetId, schema.smallTool.id))
         .where(
           and(
             eq(schema.transfer.tenantId, tid),
@@ -250,14 +250,14 @@ export const dashboardRouter = router({
         .select({
           id: schema.assignment.id,
           assetId: schema.assignment.assetId,
-          code: schema.asset.code,
-          make: schema.asset.make,
-          modelNumber: schema.asset.modelNumber,
-          description: schema.asset.description,
+          code: schema.smallTool.code,
+          make: schema.smallTool.make,
+          modelNumber: schema.smallTool.modelNumber,
+          description: schema.smallTool.description,
           createdAt: schema.assignment.createdAt,
         })
         .from(schema.assignment)
-        .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
+        .innerJoin(schema.smallTool, eq(schema.assignment.assetId, schema.smallTool.id))
         .where(
           and(
             eq(schema.assignment.tenantId, tid),
@@ -353,10 +353,10 @@ export const dashboardRouter = router({
       .select({
         id: schema.assignment.id,
         type: sql<string>`'assignment'`,
-        assetCode: schema.asset.code,
-        assetMake: schema.asset.make,
-        assetModelNumber: schema.asset.modelNumber,
-        assetDescription: schema.asset.description,
+        assetCode: schema.smallTool.code,
+        assetMake: schema.smallTool.make,
+        assetModelNumber: schema.smallTool.modelNumber,
+        assetDescription: schema.smallTool.description,
         custodianName: schema.employee.name,
         status: schema.assignment.status,
         fromName: sql<string | null>`null`,
@@ -366,7 +366,7 @@ export const dashboardRouter = router({
         trailerUnit: aTrailer.unit,
       })
       .from(schema.assignment)
-      .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
+      .innerJoin(schema.smallTool, eq(schema.assignment.assetId, schema.smallTool.id))
       .innerJoin(schema.employee, eq(schema.assignment.custodianId, schema.employee.id))
       .leftJoin(aTruck, and(eq(schema.assignment.truckId, aTruck.id), eq(aTruck.tenantId, tid)))
       .leftJoin(aTrailer, and(eq(schema.assignment.trailerId, aTrailer.id), eq(aTrailer.tenantId, tid)))
@@ -375,10 +375,10 @@ export const dashboardRouter = router({
       .select({
         id: schema.transfer.id,
         type: sql<string>`'transfer'`,
-        assetCode: schema.asset.code,
-        assetMake: schema.asset.make,
-        assetModelNumber: schema.asset.modelNumber,
-        assetDescription: schema.asset.description,
+        assetCode: schema.smallTool.code,
+        assetMake: schema.smallTool.make,
+        assetModelNumber: schema.smallTool.modelNumber,
+        assetDescription: schema.smallTool.description,
         custodianName: schema.employee.name,
         status: schema.transfer.status,
         /* The PHYSICAL table name, not the Drizzle export's. This said
@@ -395,7 +395,7 @@ export const dashboardRouter = router({
         trailerUnit: tTrailer.unit,
       })
       .from(schema.transfer)
-      .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
+      .innerJoin(schema.smallTool, eq(schema.transfer.assetId, schema.smallTool.id))
       .innerJoin(schema.employee, eq(schema.transfer.toCustodianId, schema.employee.id))
       .leftJoin(tTruck, and(eq(schema.transfer.toTruckId, tTruck.id), eq(tTruck.tenantId, tid)))
       .leftJoin(tTrailer, and(eq(schema.transfer.toTrailerId, tTrailer.id), eq(tTrailer.tenantId, tid)))
@@ -501,12 +501,12 @@ export const dashboardRouter = router({
           ctx.db
             .select({ c: count() })
             .from(schema.assignment)
-            .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
+            .innerJoin(schema.smallTool, eq(schema.assignment.assetId, schema.smallTool.id))
             .where(and(eq(schema.assignment.tenantId, tid), eq(schema.assignment.status, "pending_approval"), scoped)),
           ctx.db
             .select({ c: count() })
             .from(schema.transfer)
-            .innerJoin(schema.asset, eq(schema.transfer.assetId, schema.asset.id))
+            .innerJoin(schema.smallTool, eq(schema.transfer.assetId, schema.smallTool.id))
             .where(and(eq(schema.transfer.tenantId, tid), eq(schema.transfer.status, "pending_approval"), scoped)),
         ]);
         return Number(a[0]?.c ?? 0) + Number(t[0]?.c ?? 0);
@@ -519,7 +519,7 @@ export const dashboardRouter = router({
       (!mayCountAssets ? Promise.resolve(0) : ctx.db
         .select({ c: count() })
         .from(schema.task)
-        .leftJoin(schema.asset, eq(schema.task.relatedAssetId, schema.asset.id))
+        .leftJoin(schema.smallTool, eq(schema.task.relatedAssetId, schema.smallTool.id))
         .where(
           and(
             eq(schema.task.tenantId, tid),
@@ -548,13 +548,13 @@ export const dashboardRouter = router({
         : Promise.resolve(0)),
       (!mayCountAssets ? Promise.resolve(0) : ctx.db
         .select({ c: count() })
-        .from(schema.asset)
-        .innerJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
+        .from(schema.smallTool)
+        .innerJoin(schema.employee, eq(schema.smallTool.currentCustodianId, schema.employee.id))
         .where(
           and(
-            eq(schema.asset.tenantId, tid),
+            eq(schema.smallTool.tenantId, tid),
             eq(schema.employee.employmentStatus, "terminated"),
-            ne(schema.asset.currentStatus, "available"),
+            ne(schema.smallTool.currentStatus, "available"),
             scoped,
           ),
         )
@@ -609,18 +609,18 @@ export const dashboardRouter = router({
     const scoped = assetScopeWhere(await assetVisibility(ctx.db, ctx.session));
 
     const statuses = await ctx.db
-      .select({ status: schema.asset.currentStatus, count: count() })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tid), scoped))
-      .groupBy(schema.asset.currentStatus);
+      .select({ status: schema.smallTool.currentStatus, count: count() })
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tid), scoped))
+      .groupBy(schema.smallTool.currentStatus);
 
     const capital = await ctx.db
       .select({
-        kind: sql<string>`case when ${schema.asset.costTarget} = 'department' then 'department' else 'project' end`,
-        value: sql<string>`coalesce(sum(${schema.asset.acquisitionCost}::numeric),0)`,
+        kind: sql<string>`case when ${schema.smallTool.costTarget} = 'department' then 'department' else 'project' end`,
+        value: sql<string>`coalesce(sum(${schema.smallTool.acquisitionCost}::numeric),0)`,
       })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tid), scoped))
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tid), scoped))
       .groupBy(sql`1`);
 
     /* The movement rate joins the asset so the ledger can be scoped by the
@@ -633,7 +633,7 @@ export const dashboardRouter = router({
         count: count(),
       })
       .from(schema.transaction)
-      .innerJoin(schema.asset, eq(schema.transaction.assetId, schema.asset.id))
+      .innerJoin(schema.smallTool, eq(schema.transaction.assetId, schema.smallTool.id))
       .where(
         and(
           eq(schema.transaction.tenantId, tid),

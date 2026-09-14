@@ -163,7 +163,7 @@ describe.skipIf(!url)("a notification belongs to its recipient, and the badge co
       .values({ tenantId, name: "Left the company", employmentStatus: "terminated" })
       .returning({ id: schema.employee.id });
     await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, currentCustodianId: gone!.id, currentStatus: "assigned" });
 
     const bell = await dashboardRouter.createCaller(sessionFor(mine)).notifications();

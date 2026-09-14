@@ -215,7 +215,7 @@ describe("applyChatAction typed refusals", () => {
   });
 
   it("reports assets that match nothing in this tenant as NOT_FOUND", async () => {
-    const db = dbWith({ query: { asset: { findFirst: async () => undefined } } });
+    const db = dbWith({ query: { smallTool: { findFirst: async () => undefined } } });
     const err = await thrownBy(
       applyChatAction(db, { ...baseOpts, permissions: perms(), action: { type: "report", assetIds: ["missing"] } }),
     );
@@ -225,7 +225,7 @@ describe("applyChatAction typed refusals", () => {
   it("refuses an assign without a custodian as BAD_REQUEST", async () => {
     const db = dbWith({
       query: {
-        asset: { findFirst: async () => assetRow(null) },
+        smallTool: { findFirst: async () => assetRow(null) },
         tenantSettings: { findFirst: async () => undefined },
       },
       transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({}),
@@ -239,7 +239,7 @@ describe("applyChatAction typed refusals", () => {
   it("refuses a transfer without any destination as BAD_REQUEST", async () => {
     const db = dbWith({
       query: {
-        asset: { findFirst: async () => assetRow(null) },
+        smallTool: { findFirst: async () => assetRow(null) },
         tenantSettings: { findFirst: async () => undefined },
       },
       transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({}),
@@ -255,7 +255,7 @@ describe("applyChatAction typed refusals", () => {
        kind. The message is written for the foreman and must survive. */
     const db = dbWith({
       query: {
-        asset: { findFirst: async () => assetRow(String(DEFAULT_HIGH_VALUE_THRESHOLD)) },
+        smallTool: { findFirst: async () => assetRow(String(DEFAULT_HIGH_VALUE_THRESHOLD)) },
         tenantSettings: { findFirst: async () => undefined },
       },
     });
@@ -272,7 +272,7 @@ describe("applyChatAction typed refusals", () => {
        internal invariant, not user guidance. */
     const db = dbWith({
       query: {
-        asset: { findFirst: async () => assetRow(String(DEFAULT_HIGH_VALUE_THRESHOLD)) },
+        smallTool: { findFirst: async () => assetRow(String(DEFAULT_HIGH_VALUE_THRESHOLD)) },
         tenantSettings: { findFirst: async () => undefined },
       },
     });
@@ -302,7 +302,7 @@ describe("applyIntake typed refusals", () => {
   it("refuses a tag already in the register as CONFLICT", async () => {
     /* Same code asset.update uses for the same clash (routers/asset.ts) — the
        two surfaces must disagree with the user in the same voice. */
-    const db = dbWith({ query: { asset: { findFirst: async () => ({ id: "existing" }) } } });
+    const db = dbWith({ query: { smallTool: { findFirst: async () => ({ id: "existing" }) } } });
     const err = await thrownBy(
       applyChatAction(db, { ...baseOpts, action: { type: "intake", draft: { code: "DEV204-DUP", make: "DeWalt" } } }),
     );
@@ -313,7 +313,7 @@ describe("applyIntake typed refusals", () => {
   it("keeps a row-less insert an INTERNAL_SERVER_ERROR", async () => {
     /* Nothing the user said caused this — the insert itself returned no row. */
     const db = dbWith({
-      query: { asset: { findFirst: async () => undefined } },
+      query: { smallTool: { findFirst: async () => undefined } },
       insert: () => ({ values: () => ({ returning: async () => [] }) }),
     });
     const err = await thrownBy(
@@ -325,7 +325,7 @@ describe("applyIntake typed refusals", () => {
 
 describe("requestChatAction typed refusals", () => {
   it("reports named assets that match nothing in this tenant as NOT_FOUND", async () => {
-    const db = dbWith({ query: { asset: { findMany: async () => [] } } });
+    const db = dbWith({ query: { smallTool: { findMany: async () => [] } } });
     const err = await thrownBy(
       requestChatAction(db, { ...baseOpts, permissions: perms(), action: { type: "lost", assetIds: ["missing"] } }),
     );

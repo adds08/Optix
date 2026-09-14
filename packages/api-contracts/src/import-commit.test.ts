@@ -251,15 +251,15 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
         append-only by trigger, so an event that outlived its asset could never
         be deleted — a permanent row referencing something that does not exist.
       */
-      const beforeAssets = await countOf(schema.asset);
+      const beforeAssets = await countOf(schema.smallTool);
       const beforeEvents = await countOf(schema.transaction);
 
       await expect(
         db.transaction(async (tx) => {
           const [a] = await tx
-            .insert(schema.asset)
+            .insert(schema.smallTool)
             .values({ tenantId, code: `ORPHAN-${suffix}`, currentStatus: "available", createdBy: userId })
-            .returning({ id: schema.asset.id });
+            .returning({ id: schema.smallTool.id });
           await tx.insert(schema.transaction).values({
             tenantId, assetId: a!.id, eventType: "tag", actorId: userId,
             toState: { status: "available", custodianId: null, projectId: null, locationId: null },
@@ -269,7 +269,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
         }),
       ).rejects.toThrow(/later row/);
 
-      expect(await countOf(schema.asset)).toBe(beforeAssets);
+      expect(await countOf(schema.smallTool)).toBe(beforeAssets);
       expect(await countOf(schema.transaction), "a ledger event outlived its asset").toBe(beforeEvents);
     });
   });
@@ -283,7 +283,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
        a single generic test misses. Five specs, five commits. */
 
     it("asset — and writes the genesis ledger event", async () => {
-      const before = await countOf(schema.asset);
+      const before = await countOf(schema.smallTool);
       const res = await caller().commit({
         entity: "asset",
         /* Keyed by the CSV HEADER, which is still `tag` — the header is a
@@ -292,7 +292,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
         rows: [{ tag: `E-ASSET-${suffix}`, description: "Imported hammer drill", quantity: "1" }],
       });
       expect(res.imported).toBe(1);
-      expect(await countOf(schema.asset)).toBe(before + 1);
+      expect(await countOf(schema.smallTool)).toBe(before + 1);
 
       /* Without the event the tool has a projection and no origin, the fold
          has nothing to rebuild from, and the reconciliation sweep reports it
@@ -300,8 +300,8 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
       const [ev] = await db
         .select({ id: schema.transaction.id, eventType: schema.transaction.eventType })
         .from(schema.transaction)
-        .innerJoin(schema.asset, eq(schema.asset.id, schema.transaction.assetId))
-        .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.code, `E-ASSET-${suffix}`)));
+        .innerJoin(schema.smallTool, eq(schema.smallTool.id, schema.transaction.assetId))
+        .where(and(eq(schema.smallTool.tenantId, tenantId), eq(schema.smallTool.code, `E-ASSET-${suffix}`)));
       expect(ev, "an imported tool has no ledger event").toBeTruthy();
       expect(ev!.eventType).toBe("tag");
     });

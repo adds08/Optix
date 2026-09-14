@@ -77,14 +77,14 @@ describe.skipIf(!url)("approving a field request", () => {
      through the chat path so the test is about approval, not about parsing. */
   async function pendingHandoverRequest(): Promise<{ taskId: string; assetId: string }> {
     const [asset] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId,
         description: "Approve-test breaker bar",
         currentStatus: "available",
         currentLocationId: locationId,
       })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
 
     const [task] = await db
       .insert(schema.task)
@@ -115,7 +115,7 @@ describe.skipIf(!url)("approving a field request", () => {
   }
 
   const assetRow = (assetId: string) =>
-    db.query.asset.findFirst({ where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)) });
+    db.query.smallTool.findFirst({ where: and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, tenantId)) });
 
   const taskRow = (taskId: string) =>
     db.query.task.findFirst({ where: and(eq(schema.task.id, taskId), eq(schema.task.tenantId, tenantId)) });

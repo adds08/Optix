@@ -2,7 +2,7 @@ import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-o
 import { tenant } from "./identity";
 import { user } from "./identity";
 import { employee } from "./employee";
-import { asset } from "./asset";
+import { smallTool } from "./asset";
 import { project } from "./project";
 
 export const task = pgTable(
@@ -20,7 +20,7 @@ export const task = pgTable(
     // outliving the account that raised it is fine — the body still says what
     // needs doing.
     createdByUserId: uuid("created_by_user_id").references(() => user.id, { onDelete: "set null" }),
-    relatedAssetId: uuid("related_asset_id").references(() => asset.id, { onDelete: "set null" }),
+    relatedAssetId: uuid("related_asset_id").references(() => smallTool.id, { onDelete: "set null" }),
     relatedProjectId: uuid("related_project_id").references(() => project.id, { onDelete: "set null" }),
     source: text("source").notNull().default("chat"),
     sourceMessageId: uuid("source_message_id"),

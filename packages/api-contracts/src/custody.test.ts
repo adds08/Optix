@@ -40,9 +40,9 @@ describe.skipIf(!url)("custody writes are transactional and row-locked (STI-102)
 
   async function newAsset(): Promise<string> {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description: "STI-102 impact driver" })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     return row!.id;
   }
 
@@ -242,9 +242,9 @@ describe.skipIf(!url)("assignment.return keeps the ledger and the projection in 
       .returning({ id: schema.location.id });
     locationId = l!.id;
     const [a] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description: "STI-113 demo saw" })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     assetId = a!.id;
 
     /* An assigned tool with a project and a location — the state every real
@@ -256,9 +256,9 @@ describe.skipIf(!url)("assignment.return keeps the ledger and the projection in 
     );
     assignmentId = openedId!;
     await db
-      .update(schema.asset)
+      .update(schema.smallTool)
       .set({ currentStatus: "assigned", currentCustodianId: empId, currentProjectId: projectId, currentLocationId: locationId })
-      .where(eq(schema.asset.id, assetId));
+      .where(eq(schema.smallTool.id, assetId));
     await db.insert(schema.transaction).values({
       tenantId,
       assetId,
@@ -304,7 +304,7 @@ describe.skipIf(!url)("assignment.return keeps the ledger and the projection in 
     const caller = assignmentRouter.createCaller(ctx);
     await caller.return({ id: assignmentId });
 
-    const asset = await db.query.asset.findFirst({ where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)) });
+    const asset = await db.query.smallTool.findFirst({ where: and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, tenantId)) });
     expect(asset).toBeDefined();
 
     /* The register's answer: nobody holds it, it is booked to no job, and it
@@ -391,9 +391,9 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
 
   async function newAsset(): Promise<string> {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description: "STI-203 rotary hammer" })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     return row!.id;
   }
 
@@ -588,9 +588,9 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
        about what was asked. The threshold makes this asset park. */
     await db.insert(schema.tenantSettings).values({ tenantId, highValueThreshold: 5000 });
     const [big] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description: "STI-203 big generator", acquisitionCost: "9000.00" })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     const caller = transferRouter.createCaller(ctx);
 
     const res = await caller.create({
@@ -712,9 +712,9 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
     /* Precondition — the two signals genuinely disagree, which is what makes
        this test meaningful rather than a restatement of the one above. */
     const [before] = await db
-      .select({ locationId: schema.asset.currentLocationId, custodianId: schema.asset.currentCustodianId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, assetId));
+      .select({ locationId: schema.smallTool.currentLocationId, custodianId: schema.smallTool.currentCustodianId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, assetId));
     expect(before!.locationId).toBe(yard!.id);
     expect(before!.locationId).not.toBe(trailerLoc);
     expect(before!.custodianId).toBe(empA);
@@ -727,9 +727,9 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
 
     /* It moved — this is the assertion that fails on the old query. */
     const [after] = await db
-      .select({ custodianId: schema.asset.currentCustodianId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, assetId));
+      .select({ custodianId: schema.smallTool.currentCustodianId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, assetId));
     expect(after!.custodianId).toBe(empB);
 
     /* …and it carried its rig, so STI-203's carry-forward still holds on the
@@ -786,9 +786,9 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
 
     /* The projection did not move the tool out of the yard… */
     const [projection] = await db
-      .select({ locationId: schema.asset.currentLocationId, custodianId: schema.asset.currentCustodianId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, assetId));
+      .select({ locationId: schema.smallTool.currentLocationId, custodianId: schema.smallTool.currentCustodianId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, assetId));
     expect(projection!.custodianId).toBe(empB);
     expect(projection!.locationId).toBe(yard!.id);
 
@@ -835,9 +835,9 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
     /* Hand it back: custody closes, nothing reopens. */
     await caller.setCustodian({ locationId: trailerLoc, custodianEmployeeId: null, moveContents: true });
     const [unheld] = await db
-      .select({ custodianId: schema.asset.currentCustodianId, status: schema.asset.currentStatus })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, assetId));
+      .select({ custodianId: schema.smallTool.currentCustodianId, status: schema.smallTool.currentStatus })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, assetId));
     expect(unheld!.custodianId).toBeNull();
     expect(unheld!.status).toBe("available");
     const active = await db
@@ -850,9 +850,9 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
        unheld-by-location leg. */
     await caller.setCustodian({ locationId: trailerLoc, custodianEmployeeId: empB, moveContents: true });
     const [reheld] = await db
-      .select({ custodianId: schema.asset.currentCustodianId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, assetId));
+      .select({ custodianId: schema.smallTool.currentCustodianId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, assetId));
     expect(reheld!.custodianId).toBe(empB);
   });
 
@@ -886,15 +886,15 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
     });
 
     const [moved] = await db
-      .select({ custodianId: schema.asset.currentCustodianId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, assetId));
+      .select({ custodianId: schema.smallTool.currentCustodianId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, assetId));
     expect(moved!.custodianId).toBe(empB);
 
     const [decoy] = await db
-      .select({ custodianId: schema.asset.currentCustodianId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, decoyId));
+      .select({ custodianId: schema.smallTool.currentCustodianId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, decoyId));
     expect(decoy!.custodianId).toBe(empA); // the trailer's tool stayed put
 
     /* The truck is carried forward, and the tool did not get relocated. */
@@ -927,9 +927,9 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
     });
 
     const [after] = await db
-      .select({ custodianId: schema.asset.currentCustodianId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, assetId));
+      .select({ custodianId: schema.smallTool.currentCustodianId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, assetId));
     expect(after!.custodianId).toBe(empB);
   });
 

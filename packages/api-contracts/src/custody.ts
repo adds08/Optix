@@ -69,9 +69,9 @@ export async function closeActiveCustody(
      exists even when no assignment does; the active rows alone cannot
      serialise the case where there is nothing to close yet. */
   await tx
-    .select({ id: schema.asset.id })
-    .from(schema.asset)
-    .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)))
+    .select({ id: schema.smallTool.id })
+    .from(schema.smallTool)
+    .where(and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, tenantId)))
     .for("update");
 
   const activeLinks = and(

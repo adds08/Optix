@@ -132,21 +132,21 @@ export async function applyContainerCustody(opts: {
     .limit(1);
 
   const contentsColumns = {
-    id: schema.asset.id,
-    code: schema.asset.code,
-    currentStatus: schema.asset.currentStatus,
-    currentCustodianId: schema.asset.currentCustodianId,
-    currentProjectId: schema.asset.currentProjectId,
-    currentLocationId: schema.asset.currentLocationId,
+    id: schema.smallTool.id,
+    code: schema.smallTool.code,
+    currentStatus: schema.smallTool.currentStatus,
+    currentCustodianId: schema.smallTool.currentCustodianId,
+    currentProjectId: schema.smallTool.currentProjectId,
+    currentLocationId: schema.smallTool.currentLocationId,
   };
 
   /* Lost and disposed tools stay put either way — the record of where they went
      missing should not follow the trailer to its next foreman. */
-  const aliveInTenant = notInArray(schema.asset.currentStatus, ["lost", "disposed"]);
+  const aliveInTenant = notInArray(schema.smallTool.currentStatus, ["lost", "disposed"]);
 
   const byLocation = await tx
     .select(contentsColumns)
-    .from(schema.asset)
+    .from(schema.smallTool)
     /* An UNHELD tool has no active assignment at all, so it has no
        `trailerId` to be aboard of — for those the location row is not a weaker
        second signal, it is the ONLY record that the tool is in this trailer.
@@ -154,15 +154,15 @@ export async function applyContainerCustody(opts: {
     .leftJoin(
       schema.assignment,
       and(
-        eq(schema.assignment.assetId, schema.asset.id),
+        eq(schema.assignment.assetId, schema.smallTool.id),
         eq(schema.assignment.tenantId, tid),
         eq(schema.assignment.status, "active"),
       ),
     )
     .where(
       and(
-        eq(schema.asset.tenantId, tid),
-        eq(schema.asset.currentLocationId, locationId),
+        eq(schema.smallTool.tenantId, tid),
+        eq(schema.smallTool.currentLocationId, locationId),
         aliveInTenant,
         containerVehicle ? isNull(schema.assignment.id) : undefined,
       ),
@@ -171,7 +171,7 @@ export async function applyContainerCustody(opts: {
   const byAssignment = containerVehicle
     ? await tx
         .select(contentsColumns)
-        .from(schema.asset)
+        .from(schema.smallTool)
         /* Tenant-scoped on the JOIN as well as the WHERE. The composite FK
            behind these columns is tenant-blind — it proves the vehicle's TYPE
            and nothing about whose vehicle it is — so this predicate is the
@@ -179,7 +179,7 @@ export async function applyContainerCustody(opts: {
         .innerJoin(
           schema.assignment,
           and(
-            eq(schema.assignment.assetId, schema.asset.id),
+            eq(schema.assignment.assetId, schema.smallTool.id),
             eq(schema.assignment.tenantId, tid),
             eq(schema.assignment.status, "active"),
             containerVehicle.vehicleType === "truck"
@@ -187,7 +187,7 @@ export async function applyContainerCustody(opts: {
               : eq(schema.assignment.trailerId, containerVehicle.id),
           ),
         )
-        .where(and(eq(schema.asset.tenantId, tid), aliveInTenant))
+        .where(and(eq(schema.smallTool.tenantId, tid), aliveInTenant))
     : [];
 
   /* Deduped by id: the two sets are disjoint by construction for a vehicle
@@ -204,7 +204,7 @@ export async function applyContainerCustody(opts: {
   const ids = moving.map((a: any) => a.id);
 
   await tx
-    .update(schema.asset)
+    .update(schema.smallTool)
     .set({
       currentCustodianId: custodianId,
       /* A container nobody carries holds tools nobody holds — they are back in
@@ -212,7 +212,7 @@ export async function applyContainerCustody(opts: {
       currentStatus: custodianId ? "assigned" : "available",
       updatedAt: new Date(),
     })
-    .where(and(eq(schema.asset.tenantId, tid), inArray(schema.asset.id, ids)));
+    .where(and(eq(schema.smallTool.tenantId, tid), inArray(schema.smallTool.id, ids)));
 
   /* Custody links follow, through the same helper every other custody writer
      uses, so the one-active-link invariant holds here too.
@@ -552,9 +552,9 @@ export const locationRouter = router({
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such location in this tenant" });
 
       const [holding] = await ctx.db
-        .select({ id: schema.asset.id })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentLocationId, input.id)))
+        .select({ id: schema.smallTool.id })
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.currentLocationId, input.id)))
         .limit(1);
       if (holding) {
         throw new TRPCError({
@@ -1001,9 +1001,9 @@ export const vehicleRouter = router({
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such vehicle in this tenant" });
 
       const [aboard] = await ctx.db
-        .select({ id: schema.asset.id })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentLocationId, existing.locationId)))
+        .select({ id: schema.smallTool.id })
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.currentLocationId, existing.locationId)))
         .limit(1);
       if (aboard) {
         throw new TRPCError({
