@@ -80,8 +80,12 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
          the column behind it is what needed to be honest. `serial_number`
          below is the MANUFACTURER's and is a separate field, not a fallback
          for this one. */
-      { key: "code", header: "tag", type: "text", example: "UIC-2001",
-        hint: "Your own asset code, if the tool has one. Leave blank if it is not labelled yet." },
+      /* Header is `code`, not `tag`: the column was renamed on 2026-09-07 and
+         this spec was the last place still asking for the old word. Blank is
+         normal and expected — `asset.create` generates `TOOL-00001` when none
+         is given, and the importer leaves it null for a row to be coded later. */
+      { key: "code", header: "code", type: "text", example: "TOOL-00001",
+        hint: "Your own code for the tool, if it has one. Leave blank to have one generated." },
       /* In the order the trailer sheets use them: description first, then make
          and model number. The sheets have no tag column and the brand can be
          buried in the description, so description is the one required field. */
@@ -101,17 +105,29 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
       { key: "acquisitionDate", header: "purchased_on", type: "date", example: "2026-03-14",
         hint: "YYYY-MM-DD." },
       { key: "warrantyExpiresOn", header: "warranty_expires", type: "date", example: "2028-03-14" },
-      { key: "condition", header: "other", type: "enum", values: ASSET_CONDITIONS,
-        valueAliases: { used: "good" },
-        example: "new",
-        hint: "NEW or USED on the trailer sheets. USED is recorded as good." },
-      { key: "otherRef", header: "column_8", type: "text",
-        example: "PC-08",
-        hint: "The unlabelled ninth sheet column: a secondary equipment number or a note." },
       { key: "locationId", header: "location", type: "ref", ref: "location", example: "Dallas Yard",
         hint: "Name of an existing location." },
       { key: "owningProjectId", header: "owning_project", type: "ref", ref: "project", example: "Legacy West Phase 3",
         hint: "The project whose capital bought it. Does not change when the tool moves." },
+      /*
+        DELIBERATELY NOT IMPORTABLE: `condition` and `other_ref`.
+
+        They were here because Urban's tools spreadsheet had the columns —
+        literally headed `other` and `column_8`, the second being the sheet's
+        unlabelled ninth column. Measured against the real 753-row file, both
+        are 0% POPULATED. Asking a CSV for a field nobody fills makes the
+        template wider and the import easier to get wrong, for nothing.
+
+        THE COLUMNS STILL EXIST on `tbl_entity_small_tool` and are editable in
+        the app, so no data and no capability is lost. If a real source for
+        either appears, adding a line back here is a one-line change with no
+        migration — which is the general rule: the spec is what a CSV may
+        carry, not what the entity can hold.
+
+        `cost` is 0% too and STAYS, because it is load-bearing: the high-value
+        approval gate reads `acquisitionCost`, so it has to be fillable at
+        import even while every row is blank.
+      */
     ],
   },
 

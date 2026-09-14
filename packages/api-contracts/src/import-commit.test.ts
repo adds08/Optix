@@ -289,7 +289,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
         /* Keyed by the CSV HEADER, which is still `tag` — the header is a
            contract with spreadsheets people already have, while the column
            behind it is now `code`. See the note on the asset spec. */
-        rows: [{ tag: `E-ASSET-${suffix}`, description: "Imported hammer drill", quantity: "1" }],
+        rows: [{ code: `E-ASSET-${suffix}`, description: "Imported hammer drill", quantity: "1" }],
       });
       expect(res.imported).toBe(1);
       expect(await countOf(schema.smallTool)).toBe(before + 1);
