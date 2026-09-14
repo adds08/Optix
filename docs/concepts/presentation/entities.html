@@ -310,7 +310,7 @@
     </div>
   </div>
   <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>Small tools</span></div>
-  <aside class="notes">Only 345 of the 753 real tools have a serial, and 13 of those serials are duplicated. That is precisely why a generated code exists: there must be one identifier every single tool has, because the serial is not it.</aside>
+  <aside class="notes">Only 317 of the 753 rows in the real import carry a serial, and the source had 13 duplicated serial values the importer refuses. That is precisely why a generated code exists: there must be one identifier every single tool has, because the serial is not it.</aside>
 </section>
 
 <!-- ====================================================== 5. EQUIPMENT -->
@@ -399,7 +399,7 @@
     <div class="callout">The whole file fails on a collision, so an import can never leave half a register behind — you fix the spreadsheet and run it again.</div>
   </div>
   <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>Uniqueness</span></div>
-  <aside class="notes">The 13 duplicated serials in the real tools file are why the whole-file refusal matters: merging them would silently create one tool where there are two, or two where there is one. The register would then be confidently wrong.</aside>
+  <aside class="notes">The source file carried 13 duplicated serial values, and 15 rows had "N" written in the serial field. The importer refuses a duplicate, so those rows were blanked rather than merged — which is exactly why the whole-file refusal matters.</aside>
 </section>
 
 <!-- ===================================================== 9. TOOL CODES -->
@@ -436,7 +436,7 @@
       <div class="card"><span class="num">1</span><h3>Codes are typed, not normalised</h3><p><span class="mono">SUV-2</span> is real. Padding is what the generator produces; it is not a rule applied to what a person types.</p></div>
       <div class="card"><span class="num">2</span><h3>Project code is optional</h3><p>Without it the name is the only label — and name-matching is how imports resolve projects. Two jobs with one name is a real risk.</p></div>
       <div class="card"><span class="num">3</span><h3>Equipment prefixes are manual</h3><p>TRK, TE and SUV are conventions in the data, not rules enforced by Optix. A mis-prefixed code is still accepted.</p></div>
-      <div class="card"><span class="num">4</span><h3>The serial cannot be the only key</h3><p>Only 345 of 753 have one, and 13 are duplicated. That is why the generated code exists at all.</p></div>
+      <div class="card"><span class="num">4</span><h3>The serial cannot be the only key</h3><p>Only <b>317 of 753</b> carry one, and the source had 13 duplicated values the importer refuses. That is why the generated code exists at all.</p></div>
       <div class="card"><span class="num">5</span><h3>Two people numbers, on purpose</h3><p>Urban's badge number is the code; BambooHR's id is an external reference. The read-only sync can never rewrite the badge.</p></div>
       <div class="card hi"><h3>The short version</h3><p>One code per entity, guaranteed present. A name to read. A prefix only where the kind matters.</p></div>
     </div>
