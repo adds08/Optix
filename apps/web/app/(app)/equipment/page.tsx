@@ -132,7 +132,6 @@ export default function EquipmentPage() {
             onEdit={() =>
               setEditing({
                 id: v.id,
-                unit: v.unit,
                 vehicleType: v.vehicleType,
                 equipmentClass: v.equipmentClass,
                 vin: v.vin,

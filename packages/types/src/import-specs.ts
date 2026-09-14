@@ -198,11 +198,19 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     description:
       "Trucks and trailers, which are locations that move. Each one also creates the location tools ride in.",
     columns: [
-      { key: "unit", header: "unit", type: "text", required: true, example: "TRU-012",
-        hint: "Unit number. Must be unique." },
+      /* ONE code. This spec asked for `unit` AND `code` as separate columns
+         until migration 0077, with a hint insisting they were different
+         things — they were not: all 88 vehicles in Urban's real fleet had them
+         equal. */
+      { key: "code", header: "code", type: "text", required: true, example: "TRK-012",
+        hint: "The unit number painted on it — TRK-012, TE-006. Must be unique." },
       { key: "vehicleType", header: "type", type: "enum", required: true, values: VEHICLE_TYPES, example: "truck" },
-      { key: "code", header: "code", type: "text", example: "EQ-0012",
-        hint: "The equipment register's own code, shown before the name — not the unit number." },
+      /* Added 2026-09-14 at the client's direction: "yes VIN matter but should
+         be isNull". The column has always existed and been nullable; this spec
+         had no way to fill it, so every import dropped the VINs on the floor —
+         88 of them are recoverable from `git show bd98798:…seed-data.urban.ts`. */
+      { key: "vin", header: "vin", type: "text", example: "1FTEW1KP6RKD12345",
+        hint: "The manufacturer's chassis number. Optional, and never validated — a real fleet has a 16-character one." },
       { key: "description", header: "description", type: "text", example: "2023 F-250, GPK crew" },
       { key: "plate", header: "plate", type: "text", example: "TX 8823NM" },
       { key: "makeModel", header: "make_model", type: "text", example: "2023 Ford F-250" },

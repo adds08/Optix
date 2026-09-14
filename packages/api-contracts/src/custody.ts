@@ -125,13 +125,13 @@ export async function assertVehicleContext(
   const check = async (id: string, wanted: "truck" | "trailer") => {
     const v = await db.query.equipment.findFirst({
       where: and(eq(schema.equipment.id, id), eq(schema.equipment.tenantId, tenantId)),
-      columns: { unit: true, vehicleType: true },
+      columns: { code: true, vehicleType: true },
     });
     if (!v) throw new TRPCError({ code: "NOT_FOUND", message: `No such ${wanted} in this tenant.` });
     if (v.vehicleType !== wanted) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: `${v.unit} is a ${v.vehicleType}, not a ${wanted}. Pick it in the ${v.vehicleType} slot instead.`,
+        message: `${v.code} is a ${v.vehicleType}, not a ${wanted}. Pick it in the ${v.vehicleType} slot instead.`,
       });
     }
   };

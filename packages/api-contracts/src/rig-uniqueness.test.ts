@@ -55,18 +55,18 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
   });
 
   async function newVehicle(
-    unit: string,
+    code: string,
     vehicleType: "truck" | "trailer",
     custodianId: string | null = null,
     ownershipType: "company_owned" | "personal_allowance" = "company_owned",
   ) {
     const [loc] = await db
       .insert(schema.location)
-      .values({ tenantId, type: "vehicle", name: unit, custodianEmployeeId: custodianId })
+      .values({ tenantId, type: "vehicle", name: code, custodianEmployeeId: custodianId })
       .returning({ id: schema.location.id });
     const [v] = await db
       .insert(schema.equipment)
-      .values({ tenantId, locationId: loc!.id, vehicleType, unit, ownershipType, foremanEmployeeId: custodianId })
+      .values({ tenantId, locationId: loc!.id, vehicleType, code, ownershipType, foremanEmployeeId: custodianId })
       .returning({ id: schema.equipment.id });
     return { vehicleId: v!.id, locationId: loc!.id };
   }
@@ -191,7 +191,7 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
             .returning({ id: schema.location.id })
         )[0]!.id,
         vehicleType: "truck",
-        unit: "STI502-TRUCK-PERSONAL",
+        code: "STI502-TRUCK-PERSONAL",
         ownershipType: "personal_allowance",
         foremanEmployeeId: foremanId,
       }),
@@ -249,7 +249,7 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
           tenantId: otherTenant,
           locationId: loc!.id,
           vehicleType: "truck",
-          unit: "THEIR-TRUCK",
+          code: "THEIR-TRUCK",
           foremanEmployeeId: emp!.id,
         })
         .returning({ id: schema.equipment.id });

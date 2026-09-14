@@ -141,16 +141,24 @@ export const equipment = pgTable(
     canAttach: boolean("can_attach").notNull().default(false),
     isAttachable: boolean("is_attachable").notNull().default(false),
     /*
-      The equipment register's own identifier, shown before the name — the
-      same "Code" convention `asset.serialNumber`/`isManualCode` established
-      for small tools. Additive: `unit` stays the unique operational number
-      it always was (assignment, the fleet map, the import spec all key off
-      it); `code` is nullable and free to be blank on a row nobody has typed
-      one in for yet.
+      THE EQUIPMENT'S CODE — `TRK-034`, `TE-006`. What the yard paints on the
+      door and says out loud.
+
+      NOT NULL since migration 0077, which also dropped `unit`. `unit` was this
+      column stored twice: all 88 vehicles in Urban's real fleet carried
+      `unit` and `code` set to the identical value, zero of 88 differing. The
+      comment here used to call `unit` "the unique operational number it always
+      was" and `code` an additive second field — a description of how it grew,
+      not of a distinction anybody could use.
+
+      One `code` per entity is the client's rule (2026-09-07, restated
+      2026-09-14). Anything else identifying a row has to be a genuinely
+      different fact, which is why `plate` and `vin` below survive and `unit`
+      did not: a plate is the state's and gets reassigned, a VIN is the
+      manufacturer's and never changes, and `unit` was just this.
     */
-    code: text("code"),
+    code: text("code").notNull(),
     description: text("description"),
-    unit: text("unit").notNull(),
     plate: text("plate"),
     /*
       The manufacturer's VIN, and the only permanent identity a vehicle has —

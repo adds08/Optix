@@ -44,10 +44,10 @@ export const assignmentRouter = router({
            reason. `undefined` means "no vehicle recorded"; render it as
            silence, not as a blank that reads like "no truck". */
         truckId: schema.assignment.truckId,
-        truckUnit: truckVehicle.unit,
+        truckUnit: truckVehicle.code,
         truckOwnership: truckVehicle.ownershipType,
         trailerId: schema.assignment.trailerId,
-        trailerUnit: trailerVehicle.unit,
+        trailerUnit: trailerVehicle.code,
       })
       .from(schema.assignment)
       .innerJoin(schema.smallTool, eq(schema.assignment.assetId, schema.smallTool.id))

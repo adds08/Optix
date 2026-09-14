@@ -105,14 +105,14 @@ export const entityRouter = router({
         const rows = await ctx.db
           .select({
             id: schema.equipment.id,
-            label: schema.equipment.unit,
+            label: schema.equipment.code,
             subtitle: schema.equipment.makeModel,
           })
           .from(schema.equipment)
           .where(
             and(
               eq(schema.equipment.tenantId, tid),
-              or(ilike(schema.equipment.unit, q), ilike(schema.equipment.makeModel, q)),
+              or(ilike(schema.equipment.code, q), ilike(schema.equipment.makeModel, q)),
             ),
           )
           .limit(limit);
@@ -229,7 +229,7 @@ export const entityRouter = router({
           .select({
             id: schema.equipment.id,
             locationId: schema.equipment.locationId,
-            label: schema.equipment.unit,
+            label: schema.equipment.code,
             subtitle: schema.equipment.makeModel,
             vehicleType: schema.equipment.vehicleType,
           })
@@ -237,7 +237,7 @@ export const entityRouter = router({
           .where(
             and(
               eq(schema.equipment.tenantId, tid),
-              or(ilike(schema.equipment.unit, q), ilike(schema.equipment.makeModel, q), ilike(schema.equipment.plate, q)),
+              or(ilike(schema.equipment.code, q), ilike(schema.equipment.makeModel, q), ilike(schema.equipment.plate, q)),
             ),
           )
           .limit(input.limit),

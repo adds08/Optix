@@ -97,9 +97,12 @@ async function loadExisting(db: any, tenantId: string, spec: ImportSpec): Promis
     for (const r of rows) if (r.externalId) out.externalId?.add(String(r.externalId).toLowerCase());
   }
   if (spec.entity === "vehicle") {
-    const rows = await db.select({ unit: schema.equipment.unit })
+    /* Keyed `code`, matching the spec's column key — it was `unit` until
+       migration 0077 dropped that column. The key has to match the SPEC or the
+       duplicate check silently passes for every row. */
+    const rows = await db.select({ code: schema.equipment.code })
       .from(schema.equipment).where(eq(schema.equipment.tenantId, tenantId));
-    for (const r of rows) if (r.unit) out.unit?.add(String(r.unit).toLowerCase());
+    for (const r of rows) if (r.code) out.code?.add(String(r.code).toLowerCase());
   }
   return out;
 }
@@ -399,7 +402,7 @@ async function insertOne(
       .values({
         tenantId,
         type: "vehicle",
-        name: values.unit as string,
+        name: values.code as string,
         projectId: (values.projectId as string) ?? null,
         custodianEmployeeId: (values.foremanEmployeeId as string) ?? null,
       })

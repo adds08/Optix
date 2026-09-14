@@ -398,14 +398,14 @@ describe.skipIf(!url)("truck and trailer ride through custody (STI-203)", () => 
   }
 
   /* A vehicle is 1:1 with a vehicle-type location row; both are needed. */
-  async function newVehicle(tid: string, vehicleType: "truck" | "trailer", unit: string): Promise<string> {
+  async function newVehicle(tid: string, vehicleType: "truck" | "trailer", code: string): Promise<string> {
     const [loc] = await db
       .insert(schema.location)
-      .values({ tenantId: tid, type: "vehicle", name: unit })
+      .values({ tenantId: tid, type: "vehicle", name: code })
       .returning({ id: schema.location.id });
     const [v] = await db
       .insert(schema.equipment)
-      .values({ tenantId: tid, locationId: loc!.id, vehicleType, unit })
+      .values({ tenantId: tid, locationId: loc!.id, vehicleType, code })
       .returning({ id: schema.equipment.id });
     return v!.id;
   }

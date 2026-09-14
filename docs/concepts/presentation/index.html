@@ -155,8 +155,10 @@
   .slide.dark .callout{background:#1B2540;color:#E2E8F0}
 
   /* -------------------------------------------------------------- figures */
-  .figure{margin:0;display:flex;flex-direction:column;gap:8px;min-height:0}
-  /* the image hugs its own aspect ratio — the border never letterboxes */
+  .figure{margin:0;display:flex;flex-direction:column;gap:8px;min-height:0;align-items:flex-start}
+  /* the image hugs its own aspect ratio — the border never letterboxes.
+     align-items:flex-start stops the column from stretching the image to the
+     full width, which is what produced white bands inside the border. */
   .figure img{
     flex:0 1 auto;max-width:100%;max-height:100%;width:auto;height:auto;
     object-fit:contain;display:block;

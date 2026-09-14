@@ -92,7 +92,6 @@ export default function EquipmentDetailPage({ params }: { params: Promise<{ id: 
           edit={
             {
               id: v.id,
-              unit: v.unit,
               vehicleType: v.vehicleType,
               equipmentClass: v.equipmentClass,
               vin: v.vin,

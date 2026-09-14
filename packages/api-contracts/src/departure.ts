@@ -336,7 +336,7 @@ async function containersHeldBy(db: Database | Transaction, tenantId: string, le
       locationId: schema.location.id,
       locationName: schema.location.name,
       vehicleId: schema.equipment.id,
-      unit: schema.equipment.unit,
+      unit: schema.equipment.code,
       vehicleType: schema.equipment.vehicleType,
       ownershipType: schema.equipment.ownershipType,
     })

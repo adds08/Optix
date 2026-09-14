@@ -190,7 +190,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
   /* A vehicle is 1:1 with a vehicle-type location row; the location carries the
      authoritative custodian and the vehicle mirrors it. */
   async function newVehicle(opts: {
-    unit: string;
+    code: string;
     vehicleType: "truck" | "trailer";
     ownershipType?: string;
     custodianId?: string | null;
@@ -199,7 +199,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
     const tid = opts.tid ?? tenantId;
     const [loc] = await db
       .insert(schema.location)
-      .values({ tenantId: tid, type: "vehicle", name: opts.unit, custodianEmployeeId: opts.custodianId ?? null })
+      .values({ tenantId: tid, type: "vehicle", name: opts.code, custodianEmployeeId: opts.custodianId ?? null })
       .returning({ id: schema.location.id });
     const [v] = await db
       .insert(schema.equipment)
@@ -207,7 +207,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
         tenantId: tid,
         locationId: loc!.id,
         vehicleType: opts.vehicleType,
-        unit: opts.unit,
+        code: opts.code,
         ...(opts.ownershipType ? { ownershipType: opts.ownershipType } : {}),
         foremanEmployeeId: opts.custodianId ?? null,
       })
@@ -295,7 +295,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       .where(eq(schema.employee.id, leaverId));
     await newTeamRow(successorId, projectId, "superintendent");
 
-    const company = await newVehicle({ unit: "T-306", vehicleType: "truck", custodianId: leaverId });
+    const company = await newVehicle({ code: "T-306", vehicleType: "truck", custodianId: leaverId });
     companyTruckId = company.vehicleId;
     companyTruckLocationId = company.locationId;
 
@@ -320,7 +320,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       .returning({ id: schema.location.id });
     gangBoxId = box!.id;
 
-    foreignTruckId = (await newVehicle({ unit: "T-FOREIGN-306", vehicleType: "truck", tid: otherTenantId })).vehicleId;
+    foreignTruckId = (await newVehicle({ code: "T-FOREIGN-306", vehicleType: "truck", tid: otherTenantId })).vehicleId;
   });
 
   afterAll(async () => {
@@ -460,7 +460,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
     await newTeamRow(successor2Id, proj2!.id, "superintendent");
 
     const personal = await newVehicle({
-      unit: "P-306-SOLO",
+      code: "P-306-SOLO",
       vehicleType: "truck",
       ownershipType: PERSONAL_VEHICLE,
       custodianId: leaver2Id,

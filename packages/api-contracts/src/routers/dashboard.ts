@@ -361,9 +361,9 @@ export const dashboardRouter = router({
         status: schema.assignment.status,
         fromName: sql<string | null>`null`,
         createdAt: schema.assignment.createdAt,
-        truckUnit: aTruck.unit,
+        truckUnit: aTruck.code,
         truckOwnership: aTruck.ownershipType,
-        trailerUnit: aTrailer.unit,
+        trailerUnit: aTrailer.code,
       })
       .from(schema.assignment)
       .innerJoin(schema.smallTool, eq(schema.assignment.assetId, schema.smallTool.id))
@@ -390,9 +390,9 @@ export const dashboardRouter = router({
            raw subquery; where one is unavoidable, name the real table. */
         fromName: sql<string | null>`(select name from ${schema.employee} where id = ${schema.transfer.fromCustodianId})`,
         createdAt: schema.transfer.createdAt,
-        truckUnit: tTruck.unit,
+        truckUnit: tTruck.code,
         truckOwnership: tTruck.ownershipType,
-        trailerUnit: tTrailer.unit,
+        trailerUnit: tTrailer.code,
       })
       .from(schema.transfer)
       .innerJoin(schema.smallTool, eq(schema.transfer.assetId, schema.smallTool.id))

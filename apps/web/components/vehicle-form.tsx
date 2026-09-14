@@ -11,7 +11,6 @@ import { projectHint } from "@/lib/format";
 
 export type VehicleEditable = {
   id: string;
-  unit: string;
   vehicleType: string;
   /* REQUIRED, unlike the optional fields around them, and that is the whole
      point. Both were optional when they were added, so the two call sites that
@@ -65,7 +64,6 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
     (edit?.equipmentClass as EquipmentClass) ?? (edit?.vehicleType === "trailer" ? "attachment" : "vehicle"),
   );
   const [vin, setVin] = useState(edit?.vin ?? "");
-  const [unit, setUnit] = useState(edit?.unit ?? "");
   const [code, setCode] = useState(edit?.code ?? "");
   const [description, setDescription] = useState(edit?.description ?? "");
   const [plate, setPlate] = useState(edit?.plate ?? "");
@@ -80,14 +78,14 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
   const [result, setResult] = useState("");
 
   const submit = async () => {
-    if (!unit) return;
+    if (!code) return;
     setSubmitting(true);
     setResult("");
     try {
       if (edit) {
         await utils.client.vehicle.update.mutate({
-          id: edit.id, vehicleType, equipmentClass, vin: vin || null, unit,
-          code: code || null,
+          id: edit.id, vehicleType, equipmentClass, vin: vin || null,
+          code,
           description: description || null,
           plate: plate || null,
           makeModel: makeModel || null,
@@ -97,8 +95,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
         });
       } else {
         await utils.client.vehicle.create.mutate({
-          vehicleType, equipmentClass, vin: vin || undefined, unit,
-          code: code || undefined,
+          vehicleType, equipmentClass, vin: vin || undefined, code,
           description: description || undefined,
           plate: plate || undefined,
           makeModel: makeModel || undefined, ownershipType,
@@ -120,16 +117,16 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{edit ? `Edit ${edit.unit}` : "New Vehicle"}</DialogTitle>
+          <DialogTitle>{edit ? `Edit ${edit.code}` : "New Equipment"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* ONE code field. This form had "Unit *" and "Code" as separate
+              inputs until migration 0077 dropped `unit` — which is the
+              duplication at its most visible: two boxes for one value, and all
+              88 real vehicles had them equal. */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Unit *</label>
-            <Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="e.g. TRU-005 / TRA-004" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Code</label>
-            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Equipment register code" />
+            <label className="text-sm font-medium">Code *</label>
+            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. TRK-012 / TE-006" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -241,7 +238,7 @@ export function VehicleForm({ open, onClose, edit, presetProjectId }: Props) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting || !unit}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
+          <Button onClick={submit} disabled={submitting || !code}>{submitting ? "..." : edit ? "Save" : "Create"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -242,7 +242,7 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
       .returning({ id: schema.location.id });
     const [truck] = await db
       .insert(schema.equipment)
-      .values({ tenantId, locationId: loc!.id, vehicleType: "truck", unit: "T-SHOPSTATUS" })
+      .values({ tenantId, locationId: loc!.id, vehicleType: "truck", code: "T-SHOPSTATUS" })
       .returning({ id: schema.equipment.id });
 
     const row = await assetRouter.createCaller(ctx).create({ description: "shop-status drill", locationId });

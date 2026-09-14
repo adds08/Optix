@@ -126,14 +126,14 @@ export const assetRouter = router({
           locationType: schema.location.type,
           vehicleType: schema.equipment.vehicleType,
           currentTruckId: activeAssignment.truckId,
-          currentTruckUnit: rideTruck.unit,
+          currentTruckUnit: rideTruck.code,
           /* STI-501's last AC: company vs personal must be visible wherever a
              truck is shown, because that distinction is what the departure
              path keys off — company property leaving on someone's own truck is
              the case the Equipment department needs to see. */
           currentTruckOwnership: rideTruck.ownershipType,
           currentTrailerId: activeAssignment.trailerId,
-          currentTrailerUnit: rideTrailer.unit,
+          currentTrailerUnit: rideTrailer.code,
           owningProjectId: schema.smallTool.owningProjectId,
           owningProjectName: owningProject.name,
           costTarget: schema.smallTool.costTarget,
@@ -213,14 +213,14 @@ export const assetRouter = router({
           locationId: schema.smallTool.currentLocationId,
           locationName: schema.location.name,
           currentTruckId: activeAssignment.truckId,
-          currentTruckUnit: rideTruck.unit,
+          currentTruckUnit: rideTruck.code,
           /* STI-501's last AC: company vs personal must be visible wherever a
              truck is shown, because that distinction is what the departure
              path keys off — company property leaving on someone's own truck is
              the case the Equipment department needs to see. */
           currentTruckOwnership: rideTruck.ownershipType,
           currentTrailerId: activeAssignment.trailerId,
-          currentTrailerUnit: rideTrailer.unit,
+          currentTrailerUnit: rideTrailer.code,
           owningProjectId: schema.smallTool.owningProjectId,
           owningProjectName: owningProject.name,
           costTarget: schema.smallTool.costTarget,

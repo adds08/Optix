@@ -223,7 +223,7 @@ async function main() {
   const heldTruckForemen = new Set(heldTruckForemanRows.map((r) => keyName(r.name)));
 
   const existingUnits = new Set(
-    (await db.select({ unit: schema.equipment.unit }).from(schema.equipment).where(eq(schema.equipment.tenantId, tid))).map(
+    (await db.select({ unit: schema.equipment.code }).from(schema.equipment).where(eq(schema.equipment.tenantId, tid))).map(
       (r) => r.unit.toLowerCase(),
     ),
   );

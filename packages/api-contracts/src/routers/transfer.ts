@@ -58,10 +58,10 @@ export const transferRouter = router({
            STI-202's three-state rule is a claim, not an absence: render it as
            silence, never as an empty slot that reads like a truck. */
         toTruckId: schema.transfer.toTruckId,
-        toTruckUnit: truckVehicle.unit,
+        toTruckUnit: truckVehicle.code,
         toTruckOwnership: truckVehicle.ownershipType,
         toTrailerId: schema.transfer.toTrailerId,
-        toTrailerUnit: trailerVehicle.unit,
+        toTrailerUnit: trailerVehicle.code,
       })
       .from(schema.transfer)
       .innerJoin(schema.smallTool, eq(schema.transfer.assetId, schema.smallTool.id))

@@ -335,7 +335,7 @@ export const locationCustodyRouter = {
 
         if (thisVehicle?.vehicleType === "truck") {
           const [heldTruck] = await ctx.db
-            .select({ id: schema.equipment.id, unit: schema.equipment.unit })
+            .select({ id: schema.equipment.id, code: schema.equipment.code })
             .from(schema.equipment)
             .where(
               and(
@@ -352,8 +352,8 @@ export const locationCustodyRouter = {
             throw new TRPCError({
               code: "CONFLICT",
               message:
-                `${emp.name} already has truck ${heldTruck.unit}. A foreman drives one truck — ` +
-                `detach ${heldTruck.unit} first, then assign this one.`,
+                `${emp.name} already has truck ${heldTruck.code}. A foreman drives one truck — ` +
+                `detach ${heldTruck.code} first, then assign this one.`,
             });
           }
         }
@@ -526,11 +526,14 @@ export const locationRouter = router({
         .where(and(eq(schema.location.id, id), eq(schema.location.tenantId, tid)))
         .returning();
 
-      /* A vehicle location is named after its unit; keep the two in step. */
+      /* A vehicle location is named after its CODE; keep the two in step.
+         Wrote `unit` until migration 0077 dropped it — `unit` and `code` held
+         the identical value on all 88 real vehicles, so this is the same
+         write, naming the column that survived. */
       if (patch.name && existing.type === "vehicle") {
         await ctx.db
           .update(schema.equipment)
-          .set({ unit: patch.name as string, updatedAt: new Date() })
+          .set({ code: patch.name as string, updatedAt: new Date() })
           .where(and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.locationId, id)));
       }
 
@@ -566,14 +569,14 @@ export const locationRouter = router({
       /* Deleting the location of a truck would orphan the vehicle row, whose
          `locationId` is NOT NULL. Delete the vehicle from the vehicle side. */
       const [veh] = await ctx.db
-        .select({ id: schema.equipment.id, unit: schema.equipment.unit })
+        .select({ id: schema.equipment.id, code: schema.equipment.code })
         .from(schema.equipment)
         .where(and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.locationId, input.id)))
         .limit(1);
       if (veh) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `This is ${veh.unit}'s location. Delete the vehicle instead.`,
+          message: `This is ${veh.code}'s location. Delete the vehicle instead.`,
         });
       }
 
@@ -655,7 +658,7 @@ export const vehicleRouter = router({
           code: schema.equipment.code,
           vin: schema.equipment.vin,
           description: schema.equipment.description,
-          unit: schema.equipment.unit,
+          unit: schema.equipment.code,
           plate: schema.equipment.plate,
           makeModel: schema.equipment.makeModel,
           ownershipType: schema.equipment.ownershipType,
@@ -676,7 +679,7 @@ export const vehicleRouter = router({
           /* A trailer hitched to a truck: the trailer's location points at the
              truck's location, and this join turns that into "Truck 07". */
           attachedToVehicleId: attached.id,
-          attachedToUnit: attached.unit,
+          attachedToUnit: attached.code,
         })
         .from(schema.equipment)
         .leftJoin(payee, eq(schema.equipment.payeeEmployeeId, payee.id))
@@ -738,8 +741,12 @@ export const vehicleRouter = router({
            to be. Optional and defaulted, so registering a machine is never
            blocked on deciding its category. */
         equipmentClass: z.enum(EQUIPMENT_CLASSES).default("vehicle"),
-        unit: z.string().min(1).max(40),
-        code: z.string().max(60).optional(),
+        /* One code, required. This took `unit` AND `code` as separate inputs
+           until migration 0077 — which is the duplication seen from the API
+           side: all 88 real vehicles had them equal. `unit`'s length limit
+           (40) wins over `code`'s (60) because it was the required one and is
+           what the real data fits. */
+        code: z.string().min(1).max(40),
         description: z.string().max(2000).optional(),
         plate: z.string().optional(),
         /* Unconstrained on purpose — see the column comment. A malformed VIN is
@@ -802,7 +809,7 @@ export const vehicleRouter = router({
           .values({
             tenantId: tid,
             type: "vehicle",
-            name: input.unit,
+            name: input.code,
             projectId: input.projectId ?? null,
             parentLocationId: attachedLocId,
             /* The location column is the authoritative one for "who holds this
@@ -820,10 +827,9 @@ export const vehicleRouter = router({
             tenantId: tid,
             locationId: loc.id,
             vehicleType: input.vehicleType,
-            unit: input.unit,
+            code: input.code,
             equipmentClass: input.equipmentClass,
             vin: input.vin ?? null,
-            code: input.code ?? null,
             description: input.description ?? null,
             plate: input.plate ?? null,
             makeModel: input.makeModel ?? null,
@@ -838,15 +844,16 @@ export const vehicleRouter = router({
         return created;
       });
 
-      if (row) await logEvent(ctx, { category: "vehicle", action: "create", entityType: "vehicle", entityId: row.id, entityLabel: row.unit });
+      if (row) await logEvent(ctx, { category: "vehicle", action: "create", entityType: "vehicle", entityId: row.id, entityLabel: row.code });
       return row;
     }),
   update: requirePermission("vehicle.manage")
     .input(
       z.object({
         id: z.string().uuid(),
-        unit: z.string().min(1).max(40).optional(),
-        code: z.string().max(60).nullable().optional(),
+        /* Not nullable: `code` is NOT NULL since 0077, so clearing it is not a
+           legal edit. It was nullable while `unit` carried the identity. */
+        code: z.string().min(1).max(40).optional(),
         description: z.string().max(2000).nullable().optional(),
         plate: z.string().max(40).nullable().optional(),
         vin: z.string().max(40).nullable().optional(),
@@ -884,18 +891,18 @@ export const vehicleRouter = router({
         if (await vehicleInCustodyRecord(ctx.db, tid, id)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `${existing.unit} appears as a ${existing.vehicleType} in the custody record — assignment history or a transfer — so its type cannot change. Register the ${changes.vehicleType} as a new vehicle instead.`,
+            message: `${existing.code} appears as a ${existing.vehicleType} in the custody record — assignment history or a transfer — so its type cannot change. Register the ${changes.vehicleType} as a new vehicle instead.`,
           });
         }
       }
 
       /* `foremanEmployeeId` is not here: handing a truck over is
          `location.setCustodian`, which takes the tools aboard with it. */
-      if (changes.unit && changes.unit !== existing.unit) {
+      if (changes.code && changes.code !== existing.code) {
         const clash = await ctx.db.query.equipment.findFirst({
-          where: and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.unit, changes.unit)),
+          where: and(eq(schema.equipment.tenantId, tid), eq(schema.equipment.code, changes.code)),
         });
-        if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.unit} is already in use` });
+        if (clash) throw new TRPCError({ code: "CONFLICT", message: `${changes.code} is already in use` });
       }
 
       const patch = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
@@ -971,11 +978,11 @@ export const vehicleRouter = router({
               tid,
               actorUserId: ctx.session.userId,
               locationId: existing.locationId,
-              locationName: existing.unit,
+              locationName: existing.code,
               custodianId: truck.foremanEmployeeId,
               custodianName: emp?.name ?? null,
               moveContents: true,
-              note: `Attached to ${truck.unit}`,
+              note: `Attached to ${truck.code}`,
             });
           }
         }
@@ -985,7 +992,7 @@ export const vehicleRouter = router({
 
       await logEvent(ctx, {
         category: "vehicle", action: "update", entityType: "vehicle",
-        entityId: id, entityLabel: existing.unit,
+        entityId: id, entityLabel: existing.code,
         details: { changed: Object.keys(result), attachedToVehicleId: attachedToVehicleId ?? null },
       });
       return existing;
@@ -1022,7 +1029,7 @@ export const vehicleRouter = router({
       if (await vehicleInCustodyRecord(ctx.db, tid, input.id)) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `${existing.unit} is named in the custody record — assignment history or a transfer — so it cannot be deleted. The register keeps it so that history stays answerable.`,
+          message: `${existing.code} is named in the custody record — assignment history or a transfer — so it cannot be deleted. The register keeps it so that history stays answerable.`,
         });
       }
 
@@ -1036,7 +1043,7 @@ export const vehicleRouter = router({
 
       await logEvent(ctx, {
         category: "vehicle", action: "delete", entityType: "vehicle",
-        entityId: input.id, entityLabel: existing.unit,
+        entityId: input.id, entityLabel: existing.code,
       });
       return { ok: true };
     }),
