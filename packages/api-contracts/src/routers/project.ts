@@ -1,14 +1,14 @@
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, requirePermission, router, type Context } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { crewEmployeeIds, visibleProjectScope } from "../scope.js";
 import { moveEmployeeToProject } from "../project-assign.js";
 import { userRouter } from "./user.js";
-import { PROJECT_STATUSES } from "@stinventory/types";
+import { EMPLOYMENT_STATUSES, PROJECT_STATUSES } from "@optix/types";
 
 /*
   A JOB CODE IS HOW PEOPLE TELL TWO JOBS APART.
@@ -179,9 +179,9 @@ export const projectRouter = router({
       */
       if (changes.status === "completed" && existing.status !== "completed") {
         const held = await ctx.db
-          .select({ code: schema.asset.code, assetId: schema.assignment.assetId })
+          .select({ code: schema.smallTool.code, assetId: schema.assignment.assetId })
           .from(schema.assignment)
-          .innerJoin(schema.asset, eq(schema.asset.id, schema.assignment.assetId))
+          .innerJoin(schema.smallTool, eq(schema.smallTool.id, schema.assignment.assetId))
           .where(
             and(
               eq(schema.assignment.tenantId, tid),
@@ -240,14 +240,14 @@ export const projectRouter = router({
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "No such project in this tenant" });
 
       const [owned] = await ctx.db
-        .select({ id: schema.asset.id })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.owningProjectId, input.id)))
+        .select({ id: schema.smallTool.id })
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.owningProjectId, input.id)))
         .limit(1);
       const [working] = await ctx.db
-        .select({ id: schema.asset.id })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.currentProjectId, input.id)))
+        .select({ id: schema.smallTool.id })
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.currentProjectId, input.id)))
         .limit(1);
       const [posted] = await ctx.db
         .select({ id: schema.employeeProjectAssignment.id })
@@ -366,6 +366,27 @@ export const employeeRouter = router({
         roleId: schema.employee.roleId,
         roleName: schema.role.name,
         roleNeedsLogin: schema.role.needsLogin,
+        /*
+          WHETHER THIS PERSON MAY BE HANDED A TOOL, and the answer every
+          custodian picker reads.
+
+          Six pickers used to filter on `CUSTODIAN_ROLES`, a compile-time
+          constant of three role NAMES. `role.can_hold_custody` was stored,
+          seeded and editable on /settings/roles the whole time, and reading it
+          changed nothing — so an administrator could tick the box and watch
+          the pickers ignore it, which is a screen that lies.
+
+          It is the LOGIN role's flag rather than the tier's on purpose: a
+          picker asks a tenant-wide question ("who could hold this?"), while a
+          tier is per-project and answers a different one ("who may be placed
+          into this job at this level?"). `team_role.can_hold_custody` still
+          governs that second question in `put-on-job-form`; the two are not
+          duplicates.
+
+          Nullable: an employee with no login role at all (`role_id` null) has
+          no answer, and the helper reads that as false.
+        */
+        roleCanHoldCustody: schema.role.canHoldCustody,
         /* The HR facts, not the login role above — a different axis entirely.
            `jobTitleName` is what BambooHR calls this same fact; here it is
            `companyRole`, named that way since before the sync existed. All
@@ -425,7 +446,10 @@ export const employeeRouter = router({
            a spread of a mismatched key is silently dropped by Drizzle, so the
            badge number would stop persisting and nothing would fail. */
         externalId: z.string().optional(),
-        employmentStatus: z.string().optional(),
+        /* EMPLOYMENT_STATUSES, not `z.string()`. Any string reached this
+           column until 2026-09-14, including the `terminated`/`inactive` pair
+           that half the register's filters switch on. */
+        employmentStatus: z.enum(EMPLOYMENT_STATUSES).optional(),
         reportsToEmployeeId: z.string().uuid().optional(),
       }),
     )
@@ -623,7 +647,7 @@ export const employeeRouter = router({
         /* `employee.code` on the wire — see the note on `create`. Remapped
            below before the patch is built, for the same reason. */
         externalId: z.string().max(60).nullable().optional(),
-        employmentStatus: z.string().max(30).optional(),
+        employmentStatus: z.enum(EMPLOYMENT_STATUSES).optional(),
         reportsToEmployeeId: z.string().uuid().nullable().optional(),
       }),
     )

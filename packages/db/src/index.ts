@@ -35,5 +35,5 @@ export { ROLE_PERMS, PM_PERMS } from "./role-perms";
    (dev held no tiers at all, production eight extra edges and a fourth claim
    grant), and the dev case shipped a General Superintendent the "ask your
    manager" screen. */
-export { roleSpecs, teamRoleSpecs } from "./seed-data";
+export { roleSpecs, teamRoleSpecs, categorySpecs, departmentSpecs, companyRoleSpecs, uomSpecs, uomCategorySpecs, legacyEmployeeRoleToRole } from "./tenant-config";
 export * from "./schema/index";

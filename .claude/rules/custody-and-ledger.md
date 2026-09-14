@@ -33,15 +33,26 @@ Since STI-203 the writers split three ways — pick the right bucket before addi
   out of one. `assertVehicleContext` (custody.ts) must gate every id before it is written —
   the composite FK behind the columns is **tenant-blind** and raises raw 23503s.
 - **Writers that assert nothing new about vehicles carry the newest snapshot's keys
-  forward VERBATIM** (`vehicleContextFromLedger`, custody.ts) — absent stays absent. Three
+  forward VERBATIM** (`vehicleContextFromLedger`, custody.ts) — absent stays absent. Four
   members: the from=to decline writers, `applyContainerCustody`'s `custodian_change`
   (a container hand-over moves the WHO, not the where-it-rides — the tools stay in the
   same box, and a four-key event here erased "still in TE-006" from the fold for a tool
-  that never left the trailer), and the departure move
-  (`reassignOnDeparture`, `departure.ts`, STI-306). The asset table has no truck columns,
+  that never left the trailer), the departure move
+  (`reassignOnDeparture`, `departure.ts`, STI-306), and `asset.setStatus` (routers/asset.ts,
+  since the shop-workflow statuses). The asset table has no truck columns,
   so the ledger is the only source; a blind null would stamp "affirmatively no truck" over
   a recorded ride and the next rebuild would blank it. The container writer also puts the
   carried context on the link it opens, so row and event tell one story.
+
+  **`asset.setStatus` joined this bucket for vehicle keys only** when
+  `diagnosing`/`waiting_parts`/`ready_for_pickup` were added as status-only hops on a tool
+  already sitting at the shop from the `repair` action. A single status write staying
+  four-key is honest ("unknown"), but these three chain — `in_maintenance` →
+  `diagnosing` → `waiting_parts` → `ready_for_pickup` — and every hop after the first would
+  otherwise re-erase the `truckId`/`trailerId` the `repair` event recorded, because the
+  fold replaces rather than merges. `custodianId`/`projectId`/`locationId` were already
+  restated from the asset row on every write, so only the vehicle keys needed the
+  carry-forward call.
 
   **The departure move is in this bucket despite asserting a new custodian**, which is the
   counter-intuitive one — the reflex is bucket 1, because a new custody does not inherit
@@ -64,9 +75,10 @@ Since STI-203 the writers split three ways — pick the right bucket before addi
   so trailers, trucks and gang boxes — and whatever is inside them — move by exactly one
   set of rules whichever screen started it.
 - **Writers that never asked stay four-key**: `lost`/`report` in apply-action,
-  `requestChatAction`'s annotation, `asset.setStatus`, the `project_change` bulk writer,
+  `requestChatAction`'s annotation, the `project_change` bulk writer,
   and the intake/import/create baseline events. Absent keys are how those snapshots
-  honestly say "unknown".
+  honestly say "unknown". (`asset.setStatus` moved to the carry-forward bucket above,
+  for vehicle keys only — see there.)
 
 This bug has shipped three times. `fold.test.ts:114-135` pins it. Every writer that got it
 wrong carries a scar-tissue comment — grep "Same fallbacks the asset update"
@@ -157,7 +169,7 @@ tool away weeks earlier. Read the header comment at the top of `custody.ts`.
   (STI-203, see the writer buckets above). "Considered, and refused" belongs in the
   tool's history; the reasoning lives on the ledger insert in `assignment.decline`.
 - **Since STI-102, custody writes are transactional and row-locked.** `closeActiveCustody`
-  and `moveCustody` take a `Transaction` (exported by `@stinventory/db`) as their first
+  and `moveCustody` take a `Transaction` (exported by `@optix/db`) as their first
   parameter — a raw `db` handle is a **compile error**, which is the enforcement: the old
   `db: any` signatures are how bare unwrapped writes shipped. The caller owns the
   transaction, because its projection update and ledger insert must commit or vanish with
@@ -272,8 +284,9 @@ not asked for one.
 > handing a tool to another foreman — the tool moving immediately while ownership did not, with
 > the desk confirming afterwards. **Urban does not work that way**: tools are moved by the
 > equipment desk, and a foreman does not reassign one. Foremen no longer hold
-> `assignment.create` or `transfer.create` at all (`packages/db/src/seed.ts` — "read-only on
-> custody by design"), so no actor can reach this function without already holding the approve
+> `assignment.create` or `transfer.create` at all (`packages/db/src/role-perms.ts:203-206`,
+> which records that they used to and that it is what made a foreman-to-foreman borrow
+> possible), so no actor can reach this function without already holding the approve
 > permission, and the question had one answer.
 >
 > This stale three-outcome table misled ticket STI-105 into specifying a "borrow vs held"
@@ -282,8 +295,9 @@ not asked for one.
 > `rules.ts` is the real documentation.
 
 `>=` not `>` is pinned (`rules.test.ts`). Null cost counts as 0, not "needs approval" —
-imported rows routinely have no price. Since STI-108 the seed carries an asset priced at
-exactly the threshold, so the boundary is exercisable from a clean database.
+imported rows routinely have no price. The boundary is NO LONGER exercisable from a clean
+database: the seed that carried an asset priced at exactly the threshold was deleted
+2026-09-13, and `make provision` writes no assets at all. `rules.test.ts` still pins it.
 
 Callers currently disagree on two details: which permission means "can approve"
 (`assignment.approve` vs `transfer.approve`) and the threshold fallback (`?? null` in the

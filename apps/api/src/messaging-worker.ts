@@ -1,8 +1,8 @@
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import type { ServerEnv } from "@stinventory/env";
-import { createLogger } from "@stinventory/logger";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import type { ServerEnv } from "@optix/env";
+import { createLogger } from "@optix/logger";
 import { parseIntent } from "./engine-client.js";
 import type { EngineParseResponse } from "./engine-client.js";
 import {
@@ -11,15 +11,15 @@ import {
   departmentForAction,
   llmConfigFor,
   type ChatAction,
-} from "@stinventory/api-contracts";
-import { NEW_TOOL_INTENTS } from "@stinventory/intent";
+} from "@optix/api-contracts";
+import { NEW_TOOL_INTENTS } from "@optix/intent";
 import {
   formatAssetModel,
   slotsFromMentions,
   type ChatMention,
   type MentionSlots,
   type Permission,
-} from "@stinventory/types";
+} from "@optix/types";
 import {
   resolveEngineAssets,
   resolveCustodian,
@@ -89,8 +89,8 @@ async function mentionSlots(
   const slots = slotsFromMentions(raw as ChatMention[]);
 
   if (!slots.locationId && slots.vehicleIds.length) {
-    const veh = await db.query.vehicle.findFirst({
-      where: and(eq(schema.vehicle.id, slots.vehicleIds[0]!), eq(schema.vehicle.tenantId, tid)),
+    const veh = await db.query.equipment.findFirst({
+      where: and(eq(schema.equipment.id, slots.vehicleIds[0]!), eq(schema.equipment.tenantId, tid)),
     });
     if (veh) slots.locationId = veh.locationId;
   }
@@ -128,15 +128,15 @@ async function processOne(
 
     const assigns = await db
       .select({
-        code: schema.asset.code,
-        make: schema.asset.make,
-        modelNumber: schema.asset.modelNumber,
-        description: schema.asset.description,
+        code: schema.smallTool.code,
+        make: schema.smallTool.make,
+        modelNumber: schema.smallTool.modelNumber,
+        description: schema.smallTool.description,
         projectName: schema.project.name,
         locationName: schema.location.name,
       })
       .from(schema.assignment)
-      .innerJoin(schema.asset, eq(schema.assignment.assetId, schema.asset.id))
+      .innerJoin(schema.smallTool, eq(schema.assignment.assetId, schema.smallTool.id))
       .leftJoin(schema.project, eq(schema.assignment.projectId, schema.project.id))
       .leftJoin(schema.location, eq(schema.assignment.locationId, schema.location.id))
       .where(

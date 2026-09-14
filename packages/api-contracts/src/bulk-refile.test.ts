@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
-import { assetRouter } from "./routers/asset.js";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
+import { smallToolRouter } from "./routers/smallTool.js";
 import type { Context } from "./trpc.js";
 
 /*
@@ -50,14 +50,14 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
 
   async function newAsset(description: string, opts: { tid?: string; category?: string | null } = {}) {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId: opts.tid ?? tenantId,
         description,
         currentStatus: "available",
         categoryName: opts.category ?? "Uncategorised",
       })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     return row!.id;
   }
 
@@ -65,13 +65,13 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
     (
       await db
         .select({
-          categoryName: schema.asset.categoryName,
-          costTarget: schema.asset.costTarget,
-          owningDepartmentId: schema.asset.owningDepartmentId,
-          owningProjectId: schema.asset.owningProjectId,
+          categoryName: schema.smallTool.categoryName,
+          costTarget: schema.smallTool.costTarget,
+          owningDepartmentId: schema.smallTool.owningDepartmentId,
+          owningProjectId: schema.smallTool.owningProjectId,
         })
-        .from(schema.asset)
-        .where(eq(schema.asset.id, id))
+        .from(schema.smallTool)
+        .where(eq(schema.smallTool.id, id))
     )[0]!;
 
   beforeAll(async () => {
@@ -120,7 +120,7 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
     const b = await newAsset("STI-104 saw");
     const untouched = await newAsset("STI-104 bystander");
 
-    const res = await assetRouter.createCaller(makeCtx()).bulkUpdate({
+    const res = await smallToolRouter.createCaller(makeCtx()).bulkUpdate({
       ids: [a, b],
       categoryName: "Power Tools",
     });
@@ -135,7 +135,7 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
 
   it("moves costTarget WITH the department, and clears the owning job", async () => {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId,
         description: "STI-104 job-charged level",
@@ -143,10 +143,10 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
         costTarget: "project",
         owningProjectId: projectId,
       })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     const id = row!.id;
 
-    await assetRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], owningDepartmentId: deptA });
+    await smallToolRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], owningDepartmentId: deptA });
 
     const after = await readAsset(id);
     expect(after.owningDepartmentId).toBe(deptA);
@@ -160,10 +160,10 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
 
   it("clearing the department hands the tool back to project costing", async () => {
     const id = await newAsset("STI-104 dept-charged meter");
-    await assetRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], owningDepartmentId: deptB });
+    await smallToolRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], owningDepartmentId: deptB });
     expect((await readAsset(id)).costTarget).toBe("department");
 
-    await assetRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], owningDepartmentId: null });
+    await smallToolRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], owningDepartmentId: null });
     const after = await readAsset(id);
     expect(after.owningDepartmentId).toBeNull();
     expect(after.costTarget).toBe("project");
@@ -173,7 +173,7 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
     const mine = await newAsset("STI-104 mine");
     const theirs = await newAsset("STI-104 theirs", { tid: otherTenantId });
 
-    const res = await assetRouter.createCaller(makeCtx()).bulkUpdate({
+    const res = await smallToolRouter.createCaller(makeCtx()).bulkUpdate({
       ids: [mine, theirs],
       categoryName: "Cross-tenant probe",
     });
@@ -189,7 +189,7 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
   it("refuses a department belonging to another tenant", async () => {
     const id = await newAsset("STI-104 foreign dept probe");
     await expect(
-      assetRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], owningDepartmentId: foreignDept }),
+      smallToolRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], owningDepartmentId: foreignDept }),
     ).rejects.toThrow(/No such department in this tenant/);
 
     /* And nothing was written on the way to the refusal. */
@@ -202,14 +202,14 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
        is the zod refine, and it has to be, because a client that sends only
        `ids` is exactly what a half-filled form produces. */
     await expect(
-      assetRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id] }),
+      smallToolRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id] }),
     ).rejects.toThrow(/Nothing to change/);
   });
 
   it("requires asset.manage — a reader cannot re-file the register", async () => {
     const id = await newAsset("STI-104 permission probe");
     await expect(
-      assetRouter.createCaller(makeCtx(["asset.read"])).bulkUpdate({ ids: [id], categoryName: "Nope" }),
+      smallToolRouter.createCaller(makeCtx(["asset.read"])).bulkUpdate({ ids: [id], categoryName: "Nope" }),
     ).rejects.toThrow();
     expect((await readAsset(id)).categoryName).toBe("Uncategorised");
   });
@@ -219,7 +219,7 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
     const b = await newAsset("STI-104 audit b");
     const c = await newAsset("STI-104 audit c");
 
-    await assetRouter.createCaller(makeCtx()).bulkUpdate({ ids: [a, b, c], categoryName: "Audited" });
+    await smallToolRouter.createCaller(makeCtx()).bulkUpdate({ ids: [a, b, c], categoryName: "Audited" });
 
     const entries = await db
       .select({ action: schema.eventLog.action, entityLabel: schema.eventLog.entityLabel, details: schema.eventLog.details })
@@ -241,7 +241,7 @@ describe.skipIf(!url)("re-filing a selection (STI-104)", () => {
 
   it("writes NO ledger event — re-filing is book-keeping, not custody", async () => {
     const id = await newAsset("STI-104 ledger probe");
-    await assetRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], categoryName: "Still not custody" });
+    await smallToolRouter.createCaller(makeCtx()).bulkUpdate({ ids: [id], categoryName: "Still not custody" });
 
     const events = await db
       .select({ id: schema.transaction.id })

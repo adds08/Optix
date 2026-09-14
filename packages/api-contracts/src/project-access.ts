@@ -1,8 +1,8 @@
 import { and, eq, isNull } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import { branchEmployeeIds } from "@stinventory/domain";
-import type { Database } from "@stinventory/db";
-import type { ResolvedSession } from "@stinventory/auth";
+import * as schema from "@optix/db/schema";
+import { branchEmployeeIds } from "@optix/domain";
+import type { Database } from "@optix/db";
+import type { ResolvedSession } from "@optix/auth";
 import { TRPCError } from "@trpc/server";
 
 export async function activeProjectRows(db: Database, tenantId: string) {

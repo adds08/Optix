@@ -70,6 +70,23 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     entity: "asset",
     label: "Tools",
     permission: "asset.manage",
+    /*
+      UNIQUE BUT NULLABLE, both of them. `validateRows` skips a blank value
+      before the duplicate check (`!val` -> continue), so the 407 tools with no
+      serial all pass and only a REPEATED serial is refused.
+
+      I briefly removed `serialNumber` from this list when a real import showed
+      28 rows failing on it. That was wrong — the check is right and the DATA is
+      not. Two distinguishable problems in Urban's sheet:
+
+        15 rows have `N` or `n` in the serial column, which is somebody writing
+        "no serial" in a text field. Those should be BLANK.
+        13 values genuinely repeat (10 numeric ×2-3, plus `1161205PR3` ×3),
+        which is transcription error or reuse.
+
+      Weakening the constraint would have imported 28 tools that cannot be told
+      apart by the one identifier a police report needs. Fix the CSV instead.
+    */
     unique: ["code", "serialNumber"],
     description:
       "The tool register. One row per serialized tool; use quantity for bulk lines that are not tracked individually.",
@@ -80,8 +97,12 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
          the column behind it is what needed to be honest. `serial_number`
          below is the MANUFACTURER's and is a separate field, not a fallback
          for this one. */
-      { key: "code", header: "tag", type: "text", example: "UIC-2001",
-        hint: "Your own asset code, if the tool has one. Leave blank if it is not labelled yet." },
+      /* Header is `code`, not `tag`: the column was renamed on 2026-09-07 and
+         this spec was the last place still asking for the old word. Blank is
+         normal and expected — `asset.create` generates `TOOL-00001` when none
+         is given, and the importer leaves it null for a row to be coded later. */
+      { key: "code", header: "code", type: "text", example: "TOOL-00001",
+        hint: "Your own code for the tool, if it has one. Leave blank to have one generated." },
       /* In the order the trailer sheets use them: description first, then make
          and model number. The sheets have no tag column and the brand can be
          buried in the description, so description is the one required field. */
@@ -101,17 +122,29 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
       { key: "acquisitionDate", header: "purchased_on", type: "date", example: "2026-03-14",
         hint: "YYYY-MM-DD." },
       { key: "warrantyExpiresOn", header: "warranty_expires", type: "date", example: "2028-03-14" },
-      { key: "condition", header: "other", type: "enum", values: ASSET_CONDITIONS,
-        valueAliases: { used: "good" },
-        example: "new",
-        hint: "NEW or USED on the trailer sheets. USED is recorded as good." },
-      { key: "otherRef", header: "column_8", type: "text",
-        example: "PC-08",
-        hint: "The unlabelled ninth sheet column: a secondary equipment number or a note." },
       { key: "locationId", header: "location", type: "ref", ref: "location", example: "Dallas Yard",
         hint: "Name of an existing location." },
       { key: "owningProjectId", header: "owning_project", type: "ref", ref: "project", example: "Legacy West Phase 3",
         hint: "The project whose capital bought it. Does not change when the tool moves." },
+      /*
+        DELIBERATELY NOT IMPORTABLE: `condition` and `other_ref`.
+
+        They were here because Urban's tools spreadsheet had the columns —
+        literally headed `other` and `column_8`, the second being the sheet's
+        unlabelled ninth column. Measured against the real 753-row file, both
+        are 0% POPULATED. Asking a CSV for a field nobody fills makes the
+        template wider and the import easier to get wrong, for nothing.
+
+        THE COLUMNS STILL EXIST on `tbl_entity_small_tool` and are editable in
+        the app, so no data and no capability is lost. If a real source for
+        either appears, adding a line back here is a one-line change with no
+        migration — which is the general rule: the spec is what a CSV may
+        carry, not what the entity can hold.
+
+        `cost` is 0% too and STAYS, because it is load-bearing: the high-value
+        approval gate reads `acquisitionCost`, so it has to be fillable at
+        import even while every row is blank.
+      */
     ],
   },
 
@@ -176,7 +209,7 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
         /* `vehicle` is deliberately absent: a vehicle location is created by the
            vehicle importer so the two rows cannot drift apart. */
         values: LOCATION_TYPES.filter((t) => t !== "vehicle"),
-        example: "gang_box",
+        example: "warehouse",
       },
       { key: "projectId", header: "project", type: "ref", ref: "project", example: "Trinity Bridge Rehab" },
       { key: "warehouseId", header: "warehouse", type: "ref", ref: "warehouse", example: "Dallas Yard" },
@@ -185,33 +218,43 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     ],
   },
 
-  /*
-    Rented equipment, shaped to match what a vendor actually exports.
-
-    The headers are United Rentals' own, verbatim, because the file Urban can
-    download has these columns and asking a yard clerk to rename them before
-    importing is how an import feature goes unused. One row is one line item,
-    with the contract fields repeated on every row — the importer groups them
-    back into orders by contract number.
-
-    `jobsite` is plain text, not a project ref. The vendor's name for a job
-    ("TXDOT PUMP STATION IMPROVEMENT") will not match Urban's, and a ref column
-    would reject every row of a real file. Linking happens afterwards, once,
-    per jobsite.
-  */
+  /* Trucks and trailers. They are also LOCATIONS — each one creates the
+     location row tools ride in, which is how "in trailer TE-011" is recorded
+     at all. (A rented-equipment spec sat here until 2026-09-13, describing a
+     United Rentals import that was built and then removed with the rental
+     model; it had been left above this entry, describing nothing.) */
   vehicle: {
     entity: "vehicle",
     label: "Vehicles",
     permission: "vehicle.manage",
-    unique: ["unit"],
+    /*
+      `code`, not `unit` — that column was dropped in migration 0077. Naming a
+      field that no longer exists meant equipment code duplicates were not
+      checked AT ALL: the set was built under a key nothing looked up.
+
+      `vin` is here too, and is the same "unique but nullable" shape as a
+      tool's serial: `validateRows` skips a blank before the duplicate check,
+      so the 88 rows with no VIN all pass and only a REPEAT is refused. Urban's
+      VINs arrive over time — a NOT NULL would make the import impossible
+      today, and a duplicate means one of the two vehicles is wrong.
+    */
+    unique: ["code", "vin"],
     description:
       "Trucks and trailers, which are locations that move. Each one also creates the location tools ride in.",
     columns: [
-      { key: "unit", header: "unit", type: "text", required: true, example: "TRU-012",
-        hint: "Unit number. Must be unique." },
+      /* ONE code. This spec asked for `unit` AND `code` as separate columns
+         until migration 0077, with a hint insisting they were different
+         things — they were not: all 88 vehicles in Urban's real fleet had them
+         equal. */
+      { key: "code", header: "code", type: "text", required: true, example: "TRK-012",
+        hint: "The unit number painted on it — TRK-012, TE-006. Must be unique." },
       { key: "vehicleType", header: "type", type: "enum", required: true, values: VEHICLE_TYPES, example: "truck" },
-      { key: "code", header: "code", type: "text", example: "EQ-0012",
-        hint: "The equipment register's own code, shown before the name — not the unit number." },
+      /* Added 2026-09-14 at the client's direction: "yes VIN matter but should
+         be isNull". The column has always existed and been nullable; this spec
+         had no way to fill it, so every import dropped the VINs on the floor —
+         88 of them are recoverable from `git show bd98798:…seed-data.urban.ts`. */
+      { key: "vin", header: "vin", type: "text", example: "1FTEW1KP6RKD12345",
+        hint: "The manufacturer's chassis number. Optional, and never validated — a real fleet has a 16-character one." },
       { key: "description", header: "description", type: "text", example: "2023 F-250, GPK crew" },
       { key: "plate", header: "plate", type: "text", example: "TX 8823NM" },
       { key: "makeModel", header: "make_model", type: "text", example: "2023 Ford F-250" },
@@ -228,7 +271,58 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
 export const IMPORT_ENTITIES = Object.keys(IMPORT_SPECS) as ImportEntity[];
 
 /** Header row plus one example row — the file a user downloads to start from. */
+/*
+  The downloadable template, built so somebody who has never seen this system
+  can fill it in without asking anybody.
+
+  It used to be two rows — headers, then one example — which left four
+  questions unanswerable from the file itself: which columns are REQUIRED,
+  what the legal values of an enum are, which columns hold a NAME that must
+  already exist in the register, and whether a blank cell is allowed.
+  Every one of those is a reason a first import fails.
+
+  So there are now three guide rows above the example, each prefixed `#` in the
+  first cell:
+
+    # REQUIRED?   `required` or blank
+    # TYPE        the type, and for an enum its full list of legal values
+    # NOTES       the column's hint, and for a ref which register it looks in
+
+  A LEADING `#` IS WHY THIS IS SAFE. `parseCsvRows` in the web client drops any
+  row whose first cell starts with `#`, so a data engineer can fill the file in
+  underneath and upload it unchanged — the guide rows are stripped on read.
+  Without that, this would be three garbage rows in every import.
+*/
 export function templateRows(entity: ImportEntity): string[][] {
   const spec = IMPORT_SPECS[entity];
-  return [spec.columns.map((c) => c.header), spec.columns.map((c) => c.example)];
+  const cols = spec.columns;
+  const enumValues = (c: (typeof cols)[number]) =>
+    c.type === "enum" && c.values?.length ? `enum: ${c.values.join(" | ")}` : c.type;
+  const notes = (c: (typeof cols)[number]) => {
+    const bits: string[] = [];
+    if (c.ref) bits.push(`must already exist as a ${c.ref} (matched by name, case-insensitive)`);
+    if (spec.unique.includes(c.key)) bits.push("must be unique where given");
+    if (c.hint) bits.push(c.hint);
+    return bits.join(" — ");
+  };
+  /*
+    The guide rows are PREFIXED, not shifted. A first version put `# REQUIRED?`
+    in the first column's own cell and dropped that column's value — so
+    `required` appeared under `type` while `code`, the one required field on
+    this entity, looked optional. Printing the template is what showed it; the
+    types could not.
+
+    So every guide row is `["#", ...one cell per column]` — one cell wider than
+    the header, with the marker in a leading column of its own. `parseCsvRows`
+    keys the strip on the FIRST cell starting with `#`, and `rowsToObjects`
+    reads by header position, so an extra leading cell on a row that is dropped
+    before parsing costs nothing.
+  */
+  return [
+    cols.map((c) => c.header),
+    ["# REQUIRED?", ...cols.map((c) => (c.required ? "required" : ""))],
+    ["# TYPE", ...cols.map(enumValues)],
+    ["# NOTES", ...cols.map(notes)],
+    cols.map((c) => c.example ?? ""),
+  ];
 }

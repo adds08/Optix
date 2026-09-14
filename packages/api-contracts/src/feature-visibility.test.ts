@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
 import { featureRouter } from "./routers/feature.js";
-import { assetRouter } from "./routers/asset.js";
+import { smallToolRouter } from "./routers/smallTool.js";
 import type { Context } from "./trpc.js";
 
 /*
@@ -57,7 +57,7 @@ describe.skipIf(!url)("feature visibility is presentation, not authorisation (AD
       .values({ tenantId, email: `adr13-${crypto.randomUUID().slice(0, 8)}@test.local`, passwordHash: "not-a-real-hash", firstName: "ADR", lastName: "Thirteen" })
       .returning({ id: schema.user.id });
     userId = u!.id;
-    await db.insert(schema.asset).values({
+    await db.insert(schema.smallTool).values({
       tenantId,
       code: "ADR13-A",
       description: "ADR-13 canary asset",
@@ -73,12 +73,12 @@ describe.skipIf(!url)("feature visibility is presentation, not authorisation (AD
   });
 
   it("hiding the tool-register nav key does not change what asset.list returns", async () => {
-    const before = await assetRouter.createCaller(ctx()).list();
+    const before = await smallToolRouter.createCaller(ctx()).list();
     expect(before.some((a) => a.code === "ADR13-A")).toBe(true);
 
     await featureRouter.createCaller(ctx()).set({ key: "tool-register", state: "hidden" });
 
-    const after = await assetRouter.createCaller(ctx()).list();
+    const after = await smallToolRouter.createCaller(ctx()).list();
     expect(after.some((a) => a.code === "ADR13-A")).toBe(true);
     expect(after.length).toBe(before.length);
   });

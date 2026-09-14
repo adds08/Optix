@@ -1,16 +1,16 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
-import { decryptSecret, encryptSecret, secretHint } from "@stinventory/auth";
-import { BRANDING_LAYOUT_MODES, DEFAULT_HIGH_VALUE_THRESHOLD } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { decryptSecret, encryptSecret, secretHint } from "@optix/auth";
+import { BRANDING_LAYOUT_MODES, DEFAULT_HIGH_VALUE_THRESHOLD } from "@optix/types";
 import { TRPCError } from "@trpc/server";
 import {
   IntentParseError,
   parseIntent,
   type ParseContext,
   type ParsedIntent,
-} from "@stinventory/intent";
-import { sendMail, inviteEmail, passwordResetEmail, passwordChangedEmail } from "@stinventory/mail";
+} from "@optix/intent";
+import { sendMail, inviteEmail, passwordResetEmail, passwordChangedEmail } from "@optix/mail";
 import { requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { mailConfigFor } from "../mail-config.js";
@@ -55,9 +55,6 @@ const TEST_CONTEXT: ParseContext = {
 const PUBLIC_FIELDS = {
   highValueThreshold: schema.tenantSettings.highValueThreshold,
   custodyApproverRole: schema.tenantSettings.custodyApproverRole,
-  overdueEscalateAfterDays: schema.tenantSettings.overdueEscalateAfterDays,
-  missingReviewSlaDays: schema.tenantSettings.missingReviewSlaDays,
-  discrepancyReviewSlaDays: schema.tenantSettings.discrepancyReviewSlaDays,
   emailEnabled: schema.tenantSettings.emailEnabled,
   smsEnabled: schema.tenantSettings.smsEnabled,
   brandingName: schema.tenantSettings.brandingName,
@@ -136,9 +133,6 @@ export const settingsRouter = router({
       z.object({
         highValueThreshold: z.number().min(0).max(10_000_000).optional(),
         custodyApproverRole: z.string().max(40).optional(),
-        overdueEscalateAfterDays: z.number().int().min(0).max(365).optional(),
-        missingReviewSlaDays: z.number().int().min(0).max(365).optional(),
-        discrepancyReviewSlaDays: z.number().int().min(0).max(365).optional(),
         emailEnabled: z.boolean().optional(),
         smsEnabled: z.boolean().optional(),
         /* Null clears back to showing tenant.name as-is. */

@@ -6,7 +6,7 @@ import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Boxes, HardHat, Truck } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
@@ -32,7 +32,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
   const { id } = use(params);
   const person = trpc.employee.get.useQuery({ id });
   const postings = trpc.employee.postings.useQuery({ employeeId: id });
-  const held = trpc.asset.list.useQuery({ custodianId: id });
+  const held = trpc.smallTool.list.useQuery({ custodianId: id });
   /*
     Trucks and trailers, not small tools — a different table, `vehicle`, and a
     different custody field (`foremanEmployeeId`, mirroring
@@ -42,7 +42,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
     comes down and this page narrows it, exactly the client-side pattern
     `.claude/rules/web.md` already uses for the register's own filters.
   */
-  const vehicles = trpc.vehicle.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
   const [moving, setMoving] = useState(false);
   /* No bulk action reads either of these yet — turned on for consistency
      with the other registers. */

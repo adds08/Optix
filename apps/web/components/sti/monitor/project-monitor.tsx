@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Pause, Play } from "lucide-react";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
 import { useMonitorPrefs } from "@/lib/monitor-prefs";
@@ -123,7 +123,7 @@ export function ProjectMonitor() {
   const projectsQ = trpc.project.list.useQuery(undefined, { enabled: seesTools });
   /* One list, refetched on a slow beat. A wall display is not a live feed — it
      is a board somebody glances at, and a minute-old count is not a wrong one. */
-  const assetsQ = trpc.asset.list.useQuery(undefined, { enabled: seesTools, refetchInterval: 60_000 });
+  const assetsQ = trpc.smallTool.list.useQuery(undefined, { enabled: seesTools, refetchInterval: 60_000 });
 
   const boards = useMemo<MonitorProject[]>(() => {
     const assets = assetsQ.data ?? [];
@@ -176,9 +176,22 @@ export function ProjectMonitor() {
   const portfolio = useMemo(() => {
     const assets = assetsQ.data ?? [];
     return {
-      yard: assets.filter((a) => !a.currentProjectId && a.status === "available").length,
+      // "Shop" and "yard" are the same physical place to Urban's crew — an idle
+      // available tool and one sent for repair are both "at the equipment
+      // department" in how people actually talk about it, so this is one count,
+      // not two tiles that use different words for where a foreman's tool went.
+      // The maintenance half covers the whole shop-workflow family, not just the
+      // entry status: a tool that has moved on to diagnosing/waiting_parts/
+      // ready_for_pickup hasn't left the shop, so it stays in this tile too.
+      shopAndYard: assets.filter(
+        (a) =>
+          (!a.currentProjectId && a.status === "available") ||
+          a.status === "in_maintenance" ||
+          a.status === "diagnosing" ||
+          a.status === "waiting_parts" ||
+          a.status === "ready_for_pickup",
+      ).length,
       onJobs: assets.filter((a) => a.currentProjectId).length,
-      shop: assets.filter((a) => a.status === "in_maintenance").length,
       lost: assets.filter((a) => a.status === "lost").length,
     };
   }, [assetsQ.data]);
@@ -346,9 +359,8 @@ export function ProjectMonitor() {
         </div>
 
         <div className="ml-auto flex items-center gap-6">
-          <Stat label="In the yard" value={portfolio.yard} />
+          <Stat label="Shop and yard" value={portfolio.shopAndYard} />
           <Stat label="On jobs" value={portfolio.onJobs} />
-          <Stat label="In the shop" value={portfolio.shop} />
           <Stat label="Unaccounted" value={portfolio.lost} tone={portfolio.lost ? "crit" : undefined} />
           <Clock />
           <div className="flex items-center gap-1">

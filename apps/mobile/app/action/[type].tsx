@@ -2,8 +2,8 @@ import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import type { Permission } from "@stinventory/types";
-import { formatAssetModel } from "@stinventory/types";
+import type { Permission } from "@optix/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "../../lib/trpc";
 import { ScreenFade } from "../../components/motion";
 import { EntityPicker, type EntityValue } from "../../components/entity-picker";
@@ -82,7 +82,7 @@ export default function ActionScreen() {
   const [note, setNote] = useState("");
 
   const me = trpc.identity.me.useQuery();
-  const asset = trpc.asset.get.useQuery({ id: assetId! }, { enabled: !!assetId });
+  const asset = trpc.smallTool.get.useQuery({ id: assetId! }, { enabled: !!assetId });
 
   /*
     Stay on the screen and say what happened.
@@ -96,10 +96,10 @@ export default function ActionScreen() {
   const submit = trpc.action.submit.useMutation({
     onSuccess: () => {
       if (assetId) {
-        utils.asset.get.invalidate({ id: assetId });
+        utils.smallTool.get.invalidate({ id: assetId });
         utils.transaction.list.invalidate({ assetId });
       }
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.awaitingDesk.invalidate();
       utils.task.list.invalidate();
     },

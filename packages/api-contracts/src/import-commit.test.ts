@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { and, eq, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
 import { importRouter } from "./routers/import.js";
 import type { Context } from "./trpc.js";
 
@@ -251,15 +251,15 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
         append-only by trigger, so an event that outlived its asset could never
         be deleted — a permanent row referencing something that does not exist.
       */
-      const beforeAssets = await countOf(schema.asset);
+      const beforeAssets = await countOf(schema.smallTool);
       const beforeEvents = await countOf(schema.transaction);
 
       await expect(
         db.transaction(async (tx) => {
           const [a] = await tx
-            .insert(schema.asset)
+            .insert(schema.smallTool)
             .values({ tenantId, code: `ORPHAN-${suffix}`, currentStatus: "available", createdBy: userId })
-            .returning({ id: schema.asset.id });
+            .returning({ id: schema.smallTool.id });
           await tx.insert(schema.transaction).values({
             tenantId, assetId: a!.id, eventType: "tag", actorId: userId,
             toState: { status: "available", custodianId: null, projectId: null, locationId: null },
@@ -269,7 +269,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
         }),
       ).rejects.toThrow(/later row/);
 
-      expect(await countOf(schema.asset)).toBe(beforeAssets);
+      expect(await countOf(schema.smallTool)).toBe(beforeAssets);
       expect(await countOf(schema.transaction), "a ledger event outlived its asset").toBe(beforeEvents);
     });
   });
@@ -283,16 +283,16 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
        a single generic test misses. Five specs, five commits. */
 
     it("asset — and writes the genesis ledger event", async () => {
-      const before = await countOf(schema.asset);
+      const before = await countOf(schema.smallTool);
       const res = await caller().commit({
         entity: "asset",
         /* Keyed by the CSV HEADER, which is still `tag` — the header is a
            contract with spreadsheets people already have, while the column
            behind it is now `code`. See the note on the asset spec. */
-        rows: [{ tag: `E-ASSET-${suffix}`, description: "Imported hammer drill", quantity: "1" }],
+        rows: [{ code: `E-ASSET-${suffix}`, description: "Imported hammer drill", quantity: "1" }],
       });
       expect(res.imported).toBe(1);
-      expect(await countOf(schema.asset)).toBe(before + 1);
+      expect(await countOf(schema.smallTool)).toBe(before + 1);
 
       /* Without the event the tool has a projection and no origin, the fold
          has nothing to rebuild from, and the reconciliation sweep reports it
@@ -300,8 +300,8 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
       const [ev] = await db
         .select({ id: schema.transaction.id, eventType: schema.transaction.eventType })
         .from(schema.transaction)
-        .innerJoin(schema.asset, eq(schema.asset.id, schema.transaction.assetId))
-        .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.code, `E-ASSET-${suffix}`)));
+        .innerJoin(schema.smallTool, eq(schema.smallTool.id, schema.transaction.assetId))
+        .where(and(eq(schema.smallTool.tenantId, tenantId), eq(schema.smallTool.code, `E-ASSET-${suffix}`)));
       expect(ev, "an imported tool has no ledger event").toBeTruthy();
       expect(ev!.eventType).toBe("tag");
     });
@@ -335,7 +335,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
       const before = await countOf(schema.location);
       const res = await caller().commit({
         entity: "location",
-        rows: [{ name: `Imported Box ${suffix}`, type: "gang_box", project: projectName }],
+        rows: [{ name: `Imported Box ${suffix}`, type: "warehouse", project: projectName }],
       });
       expect(res.imported).toBe(1);
       expect(await countOf(schema.location)).toBe(before + 1);
@@ -350,13 +350,46 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
     });
 
     it("vehicle", async () => {
-      const before = await countOf(schema.vehicle);
+      const before = await countOf(schema.equipment);
       const res = await caller().commit({
         entity: "vehicle",
-        rows: [{ unit: `IMP-VEH-${suffix}`, type: "trailer" }],
+        rows: [{ code: `IMP-VEH-${suffix}`, type: "trailer" }],
       });
       expect(res.imported).toBe(1);
-      expect(await countOf(schema.vehicle)).toBe(before + 1);
+      expect(await countOf(schema.equipment)).toBe(before + 1);
     });
+  });
+
+  it("generates a code for an imported tool that has none", async () => {
+    /*
+      Urban's tools file has an EMPTY code on all 753 rows — their sheets carry
+      no tool-ID column. So the importer having no generator meant an import
+      produced 753 codeless tools while creating one through the form produced
+      TOOL-00001: two doors into the same register disagreeing about whether a
+      tool gets an identifier. Found by running a real import on 2026-09-14,
+      not by reading the code.
+    */
+    const rows = [
+      { description: "Import-generated grinder", quantity: "1" },
+      { description: "Import-generated saw", quantity: "1" },
+    ];
+    const res = await importRouter.createCaller(ctx()).commit({ entity: "asset", rows });
+    expect(res.imported).toBe(2);
+
+    const made = await db
+      .select({ code: schema.smallTool.code, description: schema.smallTool.description })
+      .from(schema.smallTool)
+      .where(
+        and(
+          eq(schema.smallTool.tenantId, tenantId),
+          inArray(schema.smallTool.description, ["Import-generated grinder", "Import-generated saw"]),
+        ),
+      );
+    expect(made).toHaveLength(2);
+    for (const m of made) expect(m.code, "an imported tool has no code").toMatch(/^TOOL-\d{5}$/);
+    /* Distinct, and sequential within the one import — the counter is read
+       inside the commit's transaction, so two rows cannot take the same
+       number. */
+    expect(new Set(made.map((m) => m.code)).size).toBe(2);
   });
 });

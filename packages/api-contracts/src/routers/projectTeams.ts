@@ -1,8 +1,8 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import * as schema from "@stinventory/db/schema";
-import { branchEmployeeIds, removalBranch, canAssignIntoTier, tiersAbove } from "@stinventory/domain";
+import * as schema from "@optix/db/schema";
+import { branchEmployeeIds, removalBranch, canAssignIntoTier, tiersAbove } from "@optix/domain";
 import { protectedProcedure, router } from "../trpc.js";
 import { activeProjectRows, assertBranchTarget, assertProjectAccess } from "../project-access.js";
 import { visibleProjectScope } from "../scope.js";

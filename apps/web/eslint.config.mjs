@@ -1,2 +1,2 @@
-import next from "@stinventory/config-eslint/next";
+import next from "@optix/config-eslint/next";
 export default next;

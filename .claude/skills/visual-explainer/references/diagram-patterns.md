@@ -38,7 +38,7 @@ silently ship a page that renders blank offline.
 
 ## The ownership board
 
-The highest-value diagram for an STInventory explainer: which package owns which
+The highest-value diagram for an Optix explainer: which package owns which
 piece. CSS grid, one card per package, each listing what it owns for this feature,
 colour coded by the outcome palette in `design-system.md`.
 

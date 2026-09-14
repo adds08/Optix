@@ -16,9 +16,18 @@ the `(app)` route group:
 `/tools` + `/tools/[id]` · `/equipment` + `/equipment/[id]` · `/custody` · `/jobsites` · `/map` ·
 `/reports` + `/reports/[slug]` + `/reports/charts/[slug]` + `/reports/audit-trail` ·
 `/activity` · `/inbox` · `/chat` · `/people` + `/people/[id]` · `/projects` · `/org-chart` ·
-`/admin/roles` · `/my-tools` · `/profile` · `/account/password` ·
-`/settings` + `/settings/ai` + `/settings/appearance` + `/settings/modules` +
-`/settings/team-roles` · `/onboarding/progress` · `/design/*`
+`/my-crew` · `/project-teams` · `/claim-a-job` · `/my-tools` · `/profile` · `/account/password` ·
+`/settings` + `/settings/ai` + `/settings/appearance` + `/settings/integrations` +
+`/settings/job-titles` + `/settings/modules` + `/settings/roles` + `/settings/team-roles` ·
+`/onboarding/progress`
+
+Enumerated from `find apps/web/app -name page.tsx` on 2026-09-14, not from memory —
+this list had drifted five routes out of date.
+
+**There is no `/admin` section.** `/admin/roles` became `/settings/roles` on 2026-09-14
+(both old paths 308 to it, `next.config.mjs`), and `/admin/users` was deleted on
+2026-08-28 with account administration moving onto the person's row in `/people`.
+**There is no `/design/*`** — nothing under `apps/web/app` serves it.
 
 **`/job-groups` was DELETED on 2026-09-03**, and job groups are alive and well — those are
 two different statements and the second is the important one.
@@ -38,9 +47,10 @@ drop; the page had simply been superseded and never deleted.
 **Do not re-add a standalone job-groups screen.** If group management needs more room, it
 belongs in the switcher or its modal, next to the scope selector it exists to serve.
 
-The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory, which
-survives as the repo name, the package scope (`@stinventory/*`), the seeded email domain and
-the `sti-*` localStorage keys. Nothing user-facing says STInventory any more.
+The product is **Optix** (Optix Technologies) as of 2026-08-27 — it was STInventory,
+which survives only as the repo directory name and the `sti-*` localStorage keys. The
+package scope became `@optix/*` on 2026-09-14, along with the container names, the local
+database and the dev image. Nothing user-facing says STInventory any more.
 
 **`components/optix-mark.tsx` is the ONE definition of the mark** and it is the real
 artwork as of 2026-09-01: the supplied `logo.png` measured off its alpha channel and
@@ -425,8 +435,8 @@ buttons — it is an approval queue, and its primary action should not cost a
 click to reach. The Inbox's Recognized rows are the same case: Do it / Decline
 are the row's whole purpose, the queue is short by construction (nothing past
 the first screen of requests), and hiding the action behind a menu would put a
-click between the desk and every settlement. Panel headers (`admin/roles`,
-`job-groups`) keep their buttons too; a primary Save behind an ellipsis is a
+click between the desk and every settlement. Panel headers (`settings/roles`, the
+job-group modal) keep their buttons too; a primary Save behind an ellipsis is a
 regression, not consistency.
 
 ## Nothing moves when you tick a checkbox
@@ -812,7 +822,7 @@ procedure. Moving the filter without moving the counts re-creates the original b
 
 ### The High value badge is the approval gate, wearing a badge
 
-`flags.tsx` imports `DEFAULT_HIGH_VALUE_THRESHOLD` from `@stinventory/types` — the
+`flags.tsx` imports `DEFAULT_HIGH_VALUE_THRESHOLD` from `@optix/types` — the
 same constant `apply-action.ts` uses to decide whether a hand-off needs a second
 signature. So a tool badged **High value** in the register is exactly the tool that
 will demand a signature when somebody tries to hand it over.

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
 import { approveTaskAction, confirmMessageAction } from "./approve.js";
 import { moveCustody } from "./custody.js";
 import { assignmentRouter } from "./routers/assignment.js";
@@ -39,9 +39,9 @@ describe.skipIf(!url)("double decisions write exactly one ledger event (STI-109,
 
   async function newAsset(): Promise<string> {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description: "STI-109 rotary hammer" })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     return row!.id;
   }
 
@@ -445,9 +445,9 @@ describe.skipIf(!url)("double decisions write exactly one ledger event (STI-109,
         moveCustody(tx, { tenantId, assetId, toCustodianId: empA, projectId: null, locationId, actorUserId: userId }),
       );
       await db
-        .update(schema.asset)
+        .update(schema.smallTool)
         .set({ currentStatus: "assigned", currentCustodianId: empA, currentLocationId: locationId })
-        .where(eq(schema.asset.id, assetId));
+        .where(eq(schema.smallTool.id, assetId));
 
       const results = await Promise.allSettled([
         caller.return({ id: openedId! }),
@@ -469,7 +469,7 @@ describe.skipIf(!url)("double decisions write exactly one ledger event (STI-109,
 
       /* Return semantics unchanged (STI-113): nobody holds it, no project,
          last known location stands. */
-      const asset = await db.query.asset.findFirst({ where: eq(schema.asset.id, assetId) });
+      const asset = await db.query.smallTool.findFirst({ where: eq(schema.smallTool.id, assetId) });
       expect(asset?.currentStatus).toBe("available");
       expect(asset?.currentCustodianId).toBeNull();
       expect(asset?.currentProjectId).toBeNull();

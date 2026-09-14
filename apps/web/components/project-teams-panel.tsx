@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { branchEmployeeIds, removalBranch } from "@stinventory/domain/project-branch";
-import { suggestTierName } from "@stinventory/domain/role-suggestion";
+import { branchEmployeeIds, removalBranch } from "@optix/domain/project-branch";
+import { suggestTierName } from "@optix/domain/role-suggestion";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -217,7 +217,7 @@ export function ProjectTeamsPanel({ onboarding = false, onlyMine = false }: { on
     and removes the commonest way to get a branch wrong.
   */
   const addUnder = (employeeIdOfManager: string) => { open("person"); setParentId(employeeIdOfManager); };
-  const refresh = async () => { await Promise.all([query.refetch(), utils.projectTeam.invalidate(), utils.onboarding.invalidate(), utils.project.list.invalidate(), utils.asset.list.invalidate()]); };
+  const refresh = async () => { await Promise.all([query.refetch(), utils.projectTeam.invalidate(), utils.onboarding.invalidate(), utils.project.list.invalidate(), utils.smallTool.list.invalidate()]); };
   const submit = async () => {
     if (!project || !mode) return;
     setBusy(true); setError("");

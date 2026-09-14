@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "re
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "../../lib/trpc";
 import { AnimatedRow, ScreenFade } from "../../components/motion";
 import { Card, Empty, ErrorNote, Loading, ScreenTitle, StatusPill, Tag, humanize, SCREEN_CONTENT } from "../../components/ui";
@@ -25,7 +25,7 @@ export default function DeskScreen() {
   const [status, setStatus] = useState<(typeof STATUS_CHIPS)[number]>("");
   const [q, setQ] = useState("");
 
-  const tools = trpc.asset.list.useQuery();
+  const tools = trpc.smallTool.list.useQuery();
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

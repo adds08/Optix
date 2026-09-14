@@ -1,6 +1,6 @@
 ---
 name: test-on-playwright
-description: Drive the running STInventory stack in a real browser through the Playwright MCP. Use whenever a change has to be SEEN working rather than argued for: "test this in the browser", "click through it", "take a screenshot", "is this screen reachable", "does this work as a foreman", or any UI regression, layout or permission question. Use ESPECIALLY before claiming a feature is delivered — a procedure with no screen that opens it is not delivered.
+description: Drive the running Optix stack in a real browser through the Playwright MCP. Use whenever a change has to be SEEN working rather than argued for: "test this in the browser", "click through it", "take a screenshot", "is this screen reachable", "does this work as a foreman", or any UI regression, layout or permission question. Use ESPECIALLY before claiming a feature is delivered — a procedure with no screen that opens it is not delivered.
 ---
 
 # Test on Playwright
@@ -41,21 +41,28 @@ regression protection.
 
 ```bash
 make ENV=local up            # web :3100, api :4100, postgres
-make ENV=local seed-demo     # the fixture with one account per role
+make ENV=local provision     # tenant, roles, tiers + the two admin logins
 curl -s http://localhost:4100/health
 ```
 
-Use `seed-demo`, not `seed-urban`, when you need a specific role: the demo fixture is
-the one carrying an account per permission tier. `seed-urban` has two logins only.
+**There is no seed.** It was deleted on 2026-09-13 because it invented business
+data — tool codes Urban never had, a project list with jobs called "Job 24002" —
+and `make provision` replaced it. Provision writes the authority model and two
+logins and NO people, jobs, tools or vehicles, so a freshly provisioned register
+is EMPTY. A screen that lists things will be empty, and that is correct rather
+than broken.
 
-**Sign-in is at `/` — there is no `/login` route.** Password `stinventory-demo` for
-every demo account. The accounts are listed in `docs/SETUP.md`; that table is the
-surviving source now that `e2e/roles.ts` is gone.
+**Sign-in is at `/` — there is no `/login` route.** Two accounts exist:
+`tech@optixtec.com` (tech_admin, cross-tenant) and `optix_it@optixtec.com`
+(owner). Both are created with `mustChangePassword`, so the first sign-in
+redirects to a password change — expect that, it is not a bug. The password is
+printed by `make provision`, or set it with `ADMIN_PASSWORD=...`.
 
-Two seeded accounts land on `/welcome` rather than their normal screen, because the
-first-run wizard gate is unfinished for them — `mechanic@` and `super@`. That is the
-gate working, not a bug. Everyone else lands on `/home`, except field roles
-(`foreman@`), which the shell redirects to `/my-tools`.
+**Testing a specific role means creating it.** The per-role demo accounts are
+gone with the seed. Either sign in as `owner` and grant yourself what you need,
+or create an account through `/people` and invite it. There is no shortcut, and
+an assertion that depends on a role nobody has provisioned will fail for that
+reason rather than the one being tested.
 
 ## The rules that were each bought with a failure
 

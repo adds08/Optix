@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Optix — Entity Identifiers (code, label, prefix)</title>
+<!--
+  Optix — Entity identifiers
+  ==========================
+  Projects, small tools, equipment and people: the code that identifies them,
+  the name/description a person reads, and the prefix (when one exists).
+
+  Same design system and shortcuts as ../presentation/index.html:
+    ←/→/Space navigate · O overview · N notes · F fullscreen · ? help
+    Cmd/Ctrl+P → Save as PDF
+-->
+<style>
+  :root{
+    --navy:#0F172A;
+    --navy-2:#151F38;
+    --amber:#F59E0B;
+    --amber-soft:#FEF3C7;
+    --blue:#0480C3;
+    --blue-deep:#1D3E8D;
+    --ink:#1E293B;
+    --muted:#64748B;
+    --line:#E2E8F0;
+    --paper:#FFFFFF;
+    --wash:#F8FAFC;
+    --ok:#15803D;
+    --no:#B91C1C;
+    --radius:14px;
+    --pad:clamp(28px,4.2vw,72px);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{
+    font-family:var(--font);color:var(--ink);background:#0B1220;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  #deck{position:relative;width:100%;height:100dvh;overflow:hidden}
+  .slide{
+    position:absolute;inset:0;display:none;
+    background:var(--paper);
+    padding:var(--pad);
+    padding-top:calc(var(--pad) * 0.85);
+    padding-bottom:calc(var(--pad) + 14px);
+    overflow:hidden;
+    flex-direction:column;
+  }
+  .slide.is-active{display:flex}
+  .slide::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:5px;
+    background:var(--amber);
+  }
+  .slide.dark{background:var(--navy);color:#F1F5F9}
+  .slide.dark::before{background:linear-gradient(90deg,var(--blue-deep),var(--blue),var(--amber))}
+  .slide.accent::before{background:linear-gradient(90deg,var(--blue-deep),var(--blue))}
+
+  .eyebrow{
+    margin:0 0 10px;font-size:clamp(10px,0.95vw,13px);font-weight:700;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--amber);
+  }
+  .slide.dark .eyebrow{color:var(--amber)}
+  h1{margin:0;font-size:clamp(44px,7.2vw,104px);line-height:.98;letter-spacing:-.03em;font-weight:800}
+  h2{margin:0 0 6px;font-size:clamp(26px,3.5vw,50px);line-height:1.05;letter-spacing:-.02em;font-weight:800}
+  h3{margin:0 0 6px;font-size:clamp(15px,1.35vw,20px);font-weight:750;letter-spacing:-.01em}
+  p{margin:0 0 12px;font-size:clamp(14px,1.32vw,19px);line-height:1.5}
+  .lede{font-size:clamp(18px,2.1vw,30px);color:var(--muted);margin:14px 0 0;font-weight:500}
+  .sub{max-width:62ch;color:var(--muted);margin-top:16px}
+  .slide.dark .lede,.slide.dark .sub{color:#94A3B8}
+  .rule{height:1px;background:var(--line);margin:22px 0}
+  .slide.dark .rule{background:#243049}
+
+  .body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:clamp(14px,1.6vw,26px)}
+  .body.top{justify-content:flex-start}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,2vw,34px)}
+  .cols-3{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(14px,1.6vw,26px)}
+  .cols-4{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,1.4vw,22px)}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.5vw,24px)}
+  .card{
+    background:var(--wash);border:1px solid var(--line);border-radius:var(--radius);
+    padding:clamp(14px,1.5vw,24px);
+  }
+  .slide.dark .card{background:var(--navy-2);border-color:#243049}
+  .card h3{color:var(--ink)}
+  .slide.dark .card h3{color:#fff}
+  .card p{margin:0;font-size:clamp(12px,1.12vw,16px);color:var(--muted);line-height:1.45}
+  .slide.dark .card p{color:#94A3B8}
+  .card .num{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:8px;background:var(--amber);color:#111827;
+    font-weight:800;font-size:13px;margin-bottom:10px;
+  }
+  .card.hi{border-color:var(--amber);background:#FFFBEB}
+
+  ul.clean{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  ul.clean li{position:relative;padding-left:22px;font-size:clamp(13px,1.2vw,17px);line-height:1.45}
+  ul.clean li::before{
+    content:"";position:absolute;left:0;top:.52em;width:8px;height:8px;border-radius:50%;
+    background:var(--amber);
+  }
+  ul.clean.dash li::before{width:10px;height:2px;border-radius:0;top:.68em;background:var(--muted)}
+  .slide.dark ul.clean li::before{background:var(--amber)}
+  b,strong{font-weight:700;color:var(--ink)}
+  .slide.dark b,.slide.dark strong{color:#fff}
+  .no{color:var(--no);font-weight:700}
+  .ok{color:var(--ok);font-weight:700}
+  .mono{font-family:var(--mono)}
+
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,1.5vw,24px)}
+  .step{border-top:3px solid var(--amber);padding-top:12px}
+  .step .k{font-size:clamp(10px,.92vw,12px);font-weight:800;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+  .step h3{margin:6px 0 4px}
+  .step p{margin:0;color:var(--muted);font-size:clamp(12px,1.1vw,15px)}
+
+  .flow{display:flex;align-items:stretch;gap:10px;flex-wrap:nowrap}
+  .flow .node{
+    flex:1;background:var(--wash);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;text-align:center;
+  }
+  .slide.dark .flow .node{background:var(--navy-2);border-color:#243049}
+  .flow .node .t{font-weight:750;font-size:clamp(12px,1.1vw,16px)}
+  .flow .node .s{font-size:clamp(10px,.95vw,13px);color:var(--muted);margin-top:4px}
+  .flow .arrow{display:flex;align-items:center;color:var(--amber);font-weight:800;font-size:20px}
+  .callout{
+    border-left:4px solid var(--amber);background:var(--amber-soft);
+    padding:14px 18px;border-radius:0 12px 12px 0;font-size:clamp(12px,1.15vw,16px);
+  }
+  .callout.blue{border-color:var(--blue);background:#EFF6FF}
+  .slide.dark .callout{background:#1B2540;color:#E2E8F0}
+
+  .figure{margin:0;display:flex;flex-direction:column;gap:8px;min-height:0;align-items:flex-start}
+  .figure img{
+    flex:0 1 auto;max-width:100%;max-height:100%;width:auto;height:auto;
+    object-fit:contain;display:block;
+    border:1px solid var(--line);border-radius:var(--radius);background:#fff;
+  }
+  .figure figcaption{flex:0 0 auto;font-size:clamp(11px,1vw,14px);color:var(--muted)}
+  .figure.fill{flex:1;min-height:0}
+
+  .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);min-height:0}
+  table{border-collapse:collapse;width:100%;font-size:clamp(11px,1.02vw,15px)}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{
+    background:var(--wash);font-size:clamp(9.5px,.88vw,12px);letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);font-weight:800;position:sticky;top:0;
+  }
+  tr:last-child td{border-bottom:none}
+  td.mono,th.mono{font-family:var(--mono);font-size:.92em}
+  .tag{
+    display:inline-block;padding:1px 8px;border-radius:999px;font-size:.82em;font-weight:700;
+    background:var(--wash);border:1px solid var(--line);color:var(--muted);
+  }
+  .tag.field{background:#ECFDF5;border-color:#A7F3D0;color:#065F46}
+  .tag.desk{background:#EFF6FF;border-color:#BFDBFE;color:#1E40AF}
+  .tag.all{background:#FEF3C7;border-color:#FDE68A;color:#92400E}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,1.5vw,24px)}
+  .kpi .v{font-size:clamp(30px,4vw,58px);font-weight:800;letter-spacing:-.03em;line-height:1}
+  .kpi .v.amber{color:var(--amber)}
+  .kpi .l{font-size:clamp(11px,1.05vw,15px);color:var(--muted);margin-top:6px}
+
+  .slide-foot{
+    position:absolute;left:var(--pad);right:var(--pad);bottom:calc(var(--pad) * .42);
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:clamp(10px,.92vw,13px);color:var(--muted);letter-spacing:.02em;
+  }
+  .slide.dark .slide-foot{color:#64748B}
+  .brandline{display:flex;align-items:center;gap:8px;font-weight:600}
+  .brandline i{width:9px;height:9px;border-radius:2px;background:var(--amber);display:inline-block}
+
+  #progress{position:fixed;top:0;left:0;height:4px;background:linear-gradient(90deg,var(--blue),var(--amber));width:0;z-index:60;transition:width .25s ease}
+  #hud{position:fixed;right:14px;bottom:12px;z-index:60;display:flex;gap:6px;align-items:center}
+  #hud button{
+    font:inherit;font-size:13px;padding:6px 10px;border-radius:9px;cursor:pointer;
+    background:rgba(15,23,42,.82);color:#E2E8F0;border:1px solid #334155;
+    min-width:38px;text-align:center;
+  }
+  #hud button:hover{background:rgba(15,23,42,.95)}
+  #counter{font-size:12px;color:#94A3B8;background:rgba(15,23,42,.82);border:1px solid #334155;
+    padding:6px 10px;border-radius:9px;font-variant-numeric:tabular-nums}
+
+  .slide .notes{display:none}
+  #notes{
+    position:fixed;left:0;right:0;bottom:0;max-height:38vh;overflow:auto;z-index:70;
+    background:#0B1220;color:#CBD5E1;border-top:3px solid var(--amber);
+    padding:16px 20px 22px;display:none;font-size:14px;line-height:1.55;
+  }
+  #notes.show{display:block}
+  #notes h4{margin:0 0 6px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
+  #notes p{margin:0;font-size:14px;color:#CBD5E1}
+
+  #overview{position:fixed;inset:0;z-index:80;background:#0B1220;overflow:auto;display:none;padding:28px}
+  #overview.show{display:block}
+  #overview h4{color:#94A3B8;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin:0 0 16px}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+  .thumb{
+    background:#141C31;border:1px solid #243049;border-radius:10px;padding:12px;cursor:pointer;
+    color:#CBD5E1;font-size:12.5px;line-height:1.35;min-height:76px;display:flex;flex-direction:column;gap:6px;
+  }
+  .thumb b{color:#fff;font-size:11px}
+  .thumb:hover{border-color:var(--amber)}
+  .thumb.is-current{border-color:var(--amber);background:#1B2540}
+
+  #help{position:fixed;inset:0;z-index:90;background:rgba(11,18,32,.94);display:none;align-items:center;justify-content:center;padding:24px}
+  #help.show{display:flex}
+  #help .panel{background:#141C31;border:1px solid #243049;border-radius:16px;padding:26px 30px;max-width:520px;color:#CBD5E1}
+  #help h4{margin:0 0 14px;color:#fff;font-size:15px;letter-spacing:.02em}
+  #help table{font-size:13.5px;color:#CBD5E1}
+  #help td{padding:5px 10px;border:none}
+  #help td:first-child{font-family:var(--mono);color:var(--amber);white-space:nowrap}
+
+  @page{size:A4 landscape;margin:0}
+  @media print{
+    body{background:#fff}
+    #deck{height:auto;overflow:visible}
+    .slide{
+      position:static;display:flex !important;break-after:page;page-break-after:always;
+      width:297mm;height:209mm;padding:16mm 18mm;overflow:hidden;
+    }
+    .slide::before{height:4mm}
+    .slide-foot{bottom:6mm;left:18mm;right:18mm}
+    #progress,#hud,#notes,#overview,#help{display:none !important}
+    .slide.dark{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+  @media (max-width:900px){
+    .cols,.cols-3,.cols-4,.cards,.steps,.kpis{grid-template-columns:1fr}
+    .flow{flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<main id="deck">
+
+<!-- ============================================================ 1. TITLE -->
+<section class="slide dark">
+  <div class="body">
+    <p class="eyebrow">Optix · The data model</p>
+    <h1>Entity identifiers</h1>
+    <p class="lede">The code, the label, and the prefix</p>
+    <p class="sub">How Optix names the four things it tracks — projects, small tools, equipment and people — and which of them the system makes up for you.</p>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>Title</span></div>
+  <aside class="notes">One line to open: every entity Optix tracks has a code you can read out, and a name a person would use. Where it has sub-kinds, the code carries a prefix; where it does not, it deliberately has none.</aside>
+</section>
+
+<!-- ============================================================= 2. RULE -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">The rule</p>
+    <h2>One rule, three parts</h2>
+    <div class="cols-3" style="margin-top:6px">
+      <div class="card"><h3>The code</h3><p>The stable handle. What the system stores, what the ledger references, and what somebody reads out on the radio. A code is never a name.</p></div>
+      <div class="card"><h3>The name / description</h3><p>The human label. What the tool is, what the job is called, who the person is. This can change; the code does not.</p></div>
+      <div class="card hi"><h3>The prefix</h3><p>The family. Present when the entity has sub-kinds to tell apart; deliberately absent when it does not.</p></div>
+    </div>
+    <div class="callout blue">Renaming a tool, moving it to another job or changing its holder never changes its code. The code is the one thing that follows the entity for life.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>The rule</span></div>
+  <aside class="notes">This is the whole deck in one slide. Everything else is the four entities answering the same three questions: what is the code, what is the label, is there a prefix?</aside>
+</section>
+
+<!-- ========================================================= 3. PROJECTS -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Entity 1 of 4</p>
+    <h2>Projects</h2>
+    <div class="table-wrap" style="margin-top:8px">
+      <table>
+        <thead><tr><th>Part</th><th>Field</th><th>Rule</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td>Prefix</td><td class="mono">—</td><td>None. The code is the job number, not a prefixed string.</td><td>—</td></tr>
+          <tr><td>Code</td><td class="mono">project_code</td><td>Optional, but <b>unique if given</b>. FoundationSoft's job number, and the code the register shows.</td><td class="mono">22017</td></tr>
+          <tr><td>Label</td><td class="mono">name</td><td><b>Required.</b> The job's name in Urban's own words.</td><td>Alamo NEX Seg N-2</td></tr>
+          <tr><td>Also</td><td class="mono">description · status · site_address · start_date · end_date</td><td>Description optional; start date required in the form. The register card reads "JOB 22017" — <b>JOB is a UI label, not part of the code</b>.</td><td>Garland Bottleneck</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">Import resolves other rows to a project <b>by exact name</b>, which is why the real project file is the weakest data set and every code row still needs an owner's confirmation.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>Projects</span></div>
+  <aside class="notes">The project code doubles as the external id (FoundationSoft's key). It is optional, so a job can exist with only a name — and that is exactly why imports match projects by name and why two identically named jobs would be a problem.</aside>
+</section>
+
+<!-- ========================================================= 4. TOOLS -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Entity 2 of 4</p>
+    <h2>Small tools</h2>
+    <div class="cols">
+      <ul class="clean">
+        <li><b>Prefix <span class="mono">TOOL</span></b> — one fixed prefix for the whole register; tools have no sub-kinds to tell apart.</li>
+        <li><b>Code <span class="mono">TOOL-00001</span></b> — <b>generated when blank</b>, padded to five digits, and it widens rather than wraps past 99,999 (<span class="mono">TOOL-100000</span>).</li>
+        <li><b>Label: description</b> — required in the import; in the app, a <b>make or a description</b> is required, model number always optional.</li>
+        <li><b>A second identifier: serial</b> — the manufacturer's number, unique when given. It is what a police report needs, so it must never collide.</li>
+      </ul>
+      <div>
+        <div class="card hi" style="margin-bottom:14px"><h3>Optix mints this one</h3><p style="font-size:clamp(13px,1.15vw,17px)">Urban's sheets carry <b>no tool-ID column at all</b> — all 753 rows arrive blank — so the system generates every code.</p></div>
+        <div class="callout">Codes are compared <b>case-insensitively</b> (<span class="mono">tool-00001</span> and <span class="mono">TOOL-00001</span> are the same tool), but a <b>typed code is stored exactly as typed</b>: <span class="mono">TOOL-7</span> and <span class="mono">TOOL-00007</span> stay different codes.</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>Small tools</span></div>
+  <aside class="notes">Only 317 of the 753 rows in the real import carry a serial, and the source had 13 duplicated serial values the importer refuses. That is precisely why a generated code exists: there must be one identifier every single tool has, because the serial is not it.</aside>
+</section>
+
+<!-- ====================================================== 5. EQUIPMENT -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Entity 3 of 4</p>
+    <h2>Equipment</h2>
+    <div class="table-wrap" style="margin-top:8px">
+      <table>
+        <thead><tr><th>Part</th><th>Field</th><th>Rule</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td>Prefix</td><td class="mono">TRK · TE · SUV</td><td><b>Chosen per row</b>, not assigned by the system — the family is visible in the code. Real fleet: 47 TRK, 39 TE, 2 SUV.</td><td class="mono">TRK-012</td></tr>
+          <tr><td>Code</td><td class="mono">code</td><td><b>Required and unique.</b> The unit number painted on the vehicle — there is no generator, because Urban's sheet already codes every one.</td><td class="mono">TE-006</td></tr>
+          <tr><td>Label</td><td class="mono">description</td><td>Optional. Often the model and crew, e.g. "2023 F-250, GPK crew"; <span class="mono">make_model</span> carries the formal one.</td><td>ROGUE</td></tr>
+          <tr><td>Also</td><td class="mono">type · vin · plate</td><td>Type is <b>required</b> (truck or trailer); VIN and plate are optional and never validated.</td><td class="mono">5TFRM5F10KX143789</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">Nothing here is generated. The code arrives with the fleet, and the prefix is a convention somebody chose — which is why <span class="mono">SUV-2</span> is real and not padded.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>Equipment</span></div>
+  <aside class="notes">Contrast with tools on purpose: tools get a code minted because the source has none; equipment gets its code imported because the source already has it. The prefix tells you the kind — TRK truck, TE trailer, SUV the SUV.</aside>
+</section>
+
+<!-- ========================================================= 6. PEOPLE -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Entity 4 of 4</p>
+    <h2>People</h2>
+    <div class="table-wrap" style="margin-top:8px">
+      <table>
+        <thead><tr><th>Part</th><th>Field</th><th>Rule</th><th>Example</th></tr></thead>
+        <tbody>
+          <tr><td>Prefix</td><td class="mono">—</td><td>None. A person's code is a number, not a namespaced string.</td><td>—</td></tr>
+          <tr><td>Code</td><td class="mono">employee.code</td><td>Optional, <b>unique if given</b>. Urban's own badge / payroll number — the import header is still <span class="mono">employee_id</span> for spreadsheet compatibility.</td><td class="mono">4471</td></tr>
+          <tr><td>Label</td><td class="mono">name</td><td><b>Required.</b> The person's name as the crew knows it.</td><td>Dwayne Miller</td></tr>
+          <tr><td>Also</td><td class="mono">email · phone · status · primary_project</td><td>All optional. HR's own employee id is a <b>different fact</b> and lives in the external reference table, not here.</td><td class="mono">dwayne.miller@…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout blue">Two systems, two numbers, deliberately separate: Urban's <b>badge number</b> is the code a person is known by here; BambooHR's employee id is HR's key, kept in its own place so a re-sync can never rewrite the badge.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>People</span></div>
+  <aside class="notes">That separation is the point worth pressing: the sync is read-only and HR owns its id, so Optix must never store HR's key as the person's code. The badge number is Urban's, and it is optional — many people will have a name and nothing else.</aside>
+</section>
+
+<!-- ==================================================== 7. SIDE BY SIDE -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Side by side</p>
+    <h2>The four, at a glance</h2>
+    <div class="table-wrap" style="margin-top:8px">
+      <table>
+        <thead><tr><th>Entity</th><th>Prefix</th><th>Code</th><th>Code generated?</th><th>Human label</th><th>Other identifiers</th></tr></thead>
+        <tbody>
+          <tr><td><b>Projects</b></td><td class="mono">—</td><td class="mono">project_code</td><td>No — FoundationSoft's job number</td><td>name (required)</td><td>description</td></tr>
+          <tr><td><b>Small tools</b></td><td class="mono">TOOL</td><td class="mono">TOOL-00001…</td><td class="ok">Yes — when the code is blank</td><td>description (or make, in-app)</td><td>serial (unique if given)</td></tr>
+          <tr><td><b>Equipment</b></td><td class="mono">TRK · TE · SUV</td><td class="mono">TRK-012</td><td>No — the unit number, imported</td><td>description</td><td>VIN · plate</td></tr>
+          <tr><td><b>People</b></td><td class="mono">—</td><td class="mono">badge number</td><td>No — Urban's own number</td><td>name (required)</td><td>email · phone · HR external id</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">Only <b>one</b> of the four is generated by Optix. The other three arrive already coded, so Optix treats their codes as facts to preserve rather than fields to invent.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>At a glance</span></div>
+  <aside class="notes">If the room only remembers one row, make it tools: the one place Optix has to manufacture an identifier, because the source data has none. Everything else is inheritance, not invention.</aside>
+</section>
+
+<!-- ======================================================= 8. UNIQUENESS -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">The guard rails</p>
+    <h2>Uniqueness at the door</h2>
+    <p class="sub" style="margin-top:0">A duplicate is refused, never merged. Each entity checks a different pair, and a blank is skipped rather than treated as a value.</p>
+    <div class="table-wrap" style="margin-top:8px">
+      <table>
+        <thead><tr><th>Entity</th><th>Must be unique</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Small tools</td><td class="mono">code + serial</td><td>Compared case-insensitively. A blank serial is skipped — only a <b>repeat</b> is refused.</td></tr>
+          <tr><td>Equipment</td><td class="mono">code + vin</td><td>All 88 real codes pass; the 39 trailers have no VIN, so VIN only refuses a duplicate.</td></tr>
+          <tr><td>Projects</td><td class="mono">project_code</td><td>Unique when given. Name is required but not enforced unique today.</td></tr>
+          <tr><td>People</td><td class="mono">employee.code</td><td>Unique when given, against the tenant.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">The whole file fails on a collision, so an import can never leave half a register behind — you fix the spreadsheet and run it again.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>Uniqueness</span></div>
+  <aside class="notes">The source file carried 13 duplicated serial values, and 15 rows had "N" written in the serial field. The importer refuses a duplicate, so those rows were blanked rather than merged — which is exactly why the whole-file refusal matters.</aside>
+</section>
+
+<!-- ===================================================== 9. TOOL CODES -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Under the hood</p>
+    <h2>How a tool code is minted</h2>
+    <div class="flow" style="margin:8px 0">
+      <div class="node"><div class="t">Code blank?</div><div class="s">On create or on import</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">Read the highest</div><div class="s">Only codes shaped TOOL-#### count</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">Take max + 1</div><div class="s">Inside the insert's transaction</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">TOOL-00042</div><div class="s">Padded to five, stored as the code</div></div>
+    </div>
+    <ul class="clean">
+      <li><b>Inside the transaction.</b> Reading <span class="mono">max + 1</span> outside one lets two concurrent creates take the same number.</li>
+      <li><b>Not a database sequence.</b> A sequence is per-database where codes are per-tenant, cannot be reset, and leaves gaps that read like missing tools.</li>
+      <li><b>Hand-typed codes never push the counter.</b> A typed <span class="mono">TOOL-99999</span> does not send every future generated code to six digits.</li>
+      <li><b>Manual codes are kept verbatim.</b> If somebody types their own code, Optix stores exactly what they typed and flags it as manual.</li>
+    </ul>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>Code generation</span></div>
+  <aside class="notes">This is the only generator in the system, and it is deliberately small and testable: the pure half (what is the highest number, what does the next code look like) is unit-tested without a database.</aside>
+</section>
+
+<!-- ========================================================= 10. WATCH -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Worth remembering</p>
+    <h2>Five things to watch</h2>
+    <div class="cols-3" style="margin-top:6px">
+      <div class="card"><span class="num">1</span><h3>Codes are typed, not normalised</h3><p><span class="mono">SUV-2</span> is real. Padding is what the generator produces; it is not a rule applied to what a person types.</p></div>
+      <div class="card"><span class="num">2</span><h3>Project code is optional</h3><p>Without it the name is the only label — and name-matching is how imports resolve projects. Two jobs with one name is a real risk.</p></div>
+      <div class="card"><span class="num">3</span><h3>Equipment prefixes are manual</h3><p>TRK, TE and SUV are conventions in the data, not rules enforced by Optix. A mis-prefixed code is still accepted.</p></div>
+      <div class="card"><span class="num">4</span><h3>The serial cannot be the only key</h3><p>Only <b>317 of 753</b> carry one, and the source had 13 duplicated values the importer refuses. That is why the generated code exists at all.</p></div>
+      <div class="card"><span class="num">5</span><h3>Two people numbers, on purpose</h3><p>Urban's badge number is the code; BambooHR's id is an external reference. The read-only sync can never rewrite the badge.</p></div>
+      <div class="card hi"><h3>The short version</h3><p>One code per entity, guaranteed present. A name to read. A prefix only where the kind matters.</p></div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Entity Identifiers</span><span>Caveats</span></div>
+  <aside class="notes">Close on the short version. Every caveat here is a real state of Urban's data, not a limitation of the model — the model is honest about what the source files contain.</aside>
+</section>
+
+</main>
+
+<div id="hud">
+  <button id="btn-prev" title="Previous (←)">←</button>
+  <button id="btn-next" title="Next (→)">→</button>
+  <button id="btn-notes" title="Speaker notes (N)">Notes</button>
+  <button id="btn-grid" title="Overview (O)">Overview</button>
+  <button id="btn-full" title="Fullscreen (F)">Full</button>
+</div>
+
+<div id="notes"><h4>Speaker notes</h4><p id="notes-text"></p></div>
+
+<div id="overview"><h4>Overview — click a slide to jump</h4><div id="grid"></div></div>
+
+<div id="help"><div class="panel">
+  <h4>Keyboard shortcuts</h4>
+  <table>
+    <tr><td>← → / Space</td><td>Previous / next slide</td></tr>
+    <tr><td>Home / End</td><td>First / last slide</td></tr>
+    <tr><td>O or Esc</td><td>Overview grid</td></tr>
+    <tr><td>N</td><td>Speaker notes</td></tr>
+    <tr><td>F</td><td>Fullscreen</td></tr>
+    <tr><td>?</td><td>This list</td></tr>
+    <tr><td>Cmd/Ctrl+P</td><td>Print → Save as PDF</td></tr>
+  </table>
+</div></div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var progress = document.getElementById('progress');
+  var notesBox = document.getElementById('notes');
+  var notesText = document.getElementById('notes-text');
+  var overview = document.getElementById('overview');
+  var grid = document.getElementById('grid');
+  var help = document.getElementById('help');
+  var current = 0;
+
+  document.querySelectorAll('.slide-foot').forEach(function(f, i){
+    var brand = f.querySelector('.brandline');
+    if (brand) brand.appendChild(document.createTextNode(' \u00b7 ' + (i + 1)));
+  });
+
+  function clamp(n){ return Math.max(0, Math.min(slides.length - 1, n)); }
+
+  function show(n, push){
+    n = clamp(n);
+    slides[current].classList.remove('is-active');
+    current = n;
+    var s = slides[current];
+    s.classList.add('is-active');
+    progress.style.width = ((current + 1) / slides.length * 100) + '%';
+    var aside = s.querySelector('.notes');
+    notesText.textContent = aside ? aside.textContent.trim() : 'No notes for this slide.';
+    Array.prototype.forEach.call(grid.children, function(c, i){
+      c.classList.toggle('is-current', i === current);
+    });
+    if (push !== false) history.replaceState(null, '', '#' + (current + 1));
+  }
+
+  function next(){ show(current + 1); }
+  function prev(){ show(current - 1); }
+
+  slides.forEach(function(s, i){
+    var t = document.createElement('div');
+    t.className = 'thumb';
+    var eyebrow = s.querySelector('.eyebrow');
+    var h = s.querySelector('h1,h2');
+    t.innerHTML = '<b>' + (i + 1) + '</b>' + (eyebrow ? '<span>' + eyebrow.textContent + '</span>' : '') +
+                  (h ? '<span style="color:#E2E8F0">' + h.textContent + '</span>' : '');
+    t.addEventListener('click', function(){ show(i); toggle(overview, false); });
+    grid.appendChild(t);
+  });
+
+  function toggle(el, force){
+    var on = (typeof force === 'boolean') ? force : !el.classList.contains('show');
+    el.classList.toggle('show', on);
+    return on;
+  }
+
+  function fromHash(){
+    var n = parseInt((location.hash || '').replace('#',''), 10);
+    return isNaN(n) ? 0 : n - 1;
+  }
+
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key){
+      case 'ArrowRight': case 'PageDown': case ' ': next(); e.preventDefault(); break;
+      case 'ArrowLeft': case 'PageUp': prev(); e.preventDefault(); break;
+      case 'Home': show(0); break;
+      case 'End': show(slides.length - 1); break;
+      case 'o': case 'O': toggle(overview); break;
+      case 'Escape': help.classList.remove('show'); overview.classList.remove('show'); break;
+      case 'n': case 'N': toggle(notesBox); break;
+      case 'f': case 'F':
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen();
+        break;
+      case '?': toggle(help); break;
+    }
+  });
+
+  document.getElementById('btn-next').addEventListener('click', next);
+  document.getElementById('btn-prev').addEventListener('click', prev);
+  document.getElementById('btn-notes').addEventListener('click', function(){ toggle(notesBox); });
+  document.getElementById('btn-grid').addEventListener('click', function(){ toggle(overview); });
+  document.getElementById('btn-full').addEventListener('click', function(){
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+  });
+  help.addEventListener('click', function(){ help.classList.remove('show'); });
+  overview.addEventListener('click', function(e){ if (e.target === overview) overview.classList.remove('show'); });
+
+  window.addEventListener('hashchange', function(){ show(fromHash(), false); });
+
+  show(fromHash(), false);
+})();
+</script>
+</body>
+</html>

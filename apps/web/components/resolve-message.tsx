@@ -65,7 +65,7 @@ export function ResolveMessage({
 
   const invalidate = () => {
     utils.messaging.pendingActions.invalidate();
-    utils.asset.list.invalidate();
+    utils.smallTool.list.invalidate();
     utils.assignment.list.invalidate();
     utils.dashboard.kpis.invalidate();
   };

@@ -1,5 +1,5 @@
 {
-  "name": "@stinventory/intent",
+  "name": "@optix/intent",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,9 +11,9 @@
     "test": "vitest run",
     "clean": "rm -rf dist .turbo coverage"
   },
-  "dependencies": { "@stinventory/types": "workspace:*" },
+  "dependencies": { "@optix/types": "workspace:*" },
   "devDependencies": {
-    "@stinventory/config-tsconfig": "workspace:*",
+    "@optix/config-tsconfig": "workspace:*",
     "typescript": "^5.6.3",
     "vitest": "^2.1.5"
   }

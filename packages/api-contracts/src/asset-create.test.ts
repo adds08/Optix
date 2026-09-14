@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, eq, isNull, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
-import { assetRouter } from "./routers/asset.js";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
+import { smallToolRouter } from "./routers/smallTool.js";
 import type { Context } from "./trpc.js";
 
 /*
@@ -104,22 +104,22 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
   it("a failing ledger insert rolls the asset row back too — no orphan survives", async () => {
     const ctx = makeCtx(failLedgerWrites(db));
     await expect(
-      assetRouter.createCaller(ctx).create({ description: "STI-115 orphan grinder" }),
+      smallToolRouter.createCaller(ctx).create({ description: "STI-115 orphan grinder" }),
     ).rejects.toThrow("boom: ledger insert failed");
 
     /* The whole point: query with the REAL handle. If the two writes were not
        in one transaction, the asset row committed before the ledger insert
        failed, and it is sitting here with zero ledger rows behind it. */
     const orphans = await db
-      .select({ id: schema.asset.id })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.description, "STI-115 orphan grinder")));
+      .select({ id: schema.smallTool.id })
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tenantId), eq(schema.smallTool.description, "STI-115 orphan grinder")));
     expect(orphans).toHaveLength(0);
   });
 
   it("the happy path writes both rows, and the tag event carries the complete four-key toState", async () => {
     const ctx = makeCtx(db);
-    const row = await assetRouter.createCaller(ctx).create({
+    const row = await smallToolRouter.createCaller(ctx).create({
       description: "STI-115 demo drill",
       locationId,
     });
@@ -153,38 +153,75 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
   */
   it("refuses a tag already in the register", async () => {
     const ctx = makeCtx(db);
-    await assetRouter.createCaller(ctx).create({ description: "first grinder", code: "DUP-001" });
+    await smallToolRouter.createCaller(ctx).create({ description: "first grinder", code: "DUP-001" });
 
     await expect(
-      assetRouter.createCaller(ctx).create({ description: "second grinder", code: "DUP-001" }),
+      smallToolRouter.createCaller(ctx).create({ description: "second grinder", code: "DUP-001" }),
     ).rejects.toThrow(/already in the register/i);
 
     const rows = await db
-      .select({ id: schema.asset.id })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.code, "DUP-001")));
+      .select({ id: schema.smallTool.id })
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tenantId), eq(schema.smallTool.code, "DUP-001")));
     expect(rows).toHaveLength(1);
   });
 
   /*
-    Untagged rows are a NORMAL state, not a collision.
+    The guard keys on a code being GIVEN, not on the column.
 
-    `asset.code` is nullable on purpose — the "Needs a Tag" report exists to be
-    the label gun's worklist — so the guard must key on a tag being given, not
-    on the column. A naive `WHERE tag = input.code` with both null would refuse
-    the second untagged tool in the register.
+    It used to have a second reason — untagged rows were a normal state, so a
+    naive `WHERE code = input.code` with both null would have refused the
+    second untagged tool. Since 2026-09-14 `create` generates a code when none
+    is typed, so that case no longer arises through this path. The shape of the
+    guard is still right: `code` stays nullable for rows imported before the
+    generator existed.
   */
-  it("still allows any number of untagged tools", async () => {
-    const ctx = makeCtx(db);
-    await assetRouter.createCaller(ctx).create({ description: "untagged one" });
-    await assetRouter.createCaller(ctx).create({ description: "untagged two" });
+  it("gives every tool a code, generated when none is typed", async () => {
+    /*
+      REPLACES "still allows any number of untagged tools", which asserted the
+      OLD rule. Until 2026-09-14 a tool with no code was a normal state, and
+      `asset_number` existed as the always-present fallback for exactly that
+      case. The client's decision removed the premise: "TOOL-00001, for tools
+      when we create new tools in the system, it should generate."
 
-    const rows = await db
-      .select({ id: schema.asset.id })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tenantId), isNull(schema.asset.code)));
-    expect(rows.length).toBeGreaterThanOrEqual(2);
+      So an untagged tool is no longer reachable through `create`, which is
+      what lets `asset_number` be dropped. The column stays NULLABLE — rows
+      imported before the generator existed may still have none, and a partial
+      unique index does not need them to.
+    */
+    const ctx = makeCtx(db);
+    const a = await smallToolRouter.createCaller(ctx).create({ description: "generated one" });
+    const b = await smallToolRouter.createCaller(ctx).create({ description: "generated two" });
+
+    expect(a?.code).toMatch(/^TOOL-\d{5}$/);
+    expect(b?.code).toMatch(/^TOOL-\d{5}$/);
+    /* Sequential, and distinct — two creates must never take the same number.
+       They run in separate transactions here, which is the case that would
+       collide if the counter were read outside one. */
+    expect(a?.code).not.toBe(b?.code);
+    expect(Number(b!.code!.slice(5))).toBe(Number(a!.code!.slice(5)) + 1);
+
+    const untagged = await db
+      .select({ id: schema.smallTool.id })
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tenantId), isNull(schema.smallTool.code)));
+    expect(untagged, "create must not leave a tool without a code").toHaveLength(0);
   });
+
+  it("keeps a code the person typed, and refuses a duplicate of it", async () => {
+    /* The other half of the client's rule: "if not people can insert their own
+       code but needs to unique validation if they add in their own." */
+    const ctx = makeCtx(db);
+    const own = await smallToolRouter.createCaller(ctx).create({ description: "hand coded", code: "DRILL-7" });
+    expect(own?.code).toBe("DRILL-7");
+
+    /* Case-insensitively, because a code's case is not its identity. */
+    await expect(
+      smallToolRouter.createCaller(ctx).create({ description: "dup", code: "drill-7" }),
+    ).rejects.toThrow(/already in the register/);
+  });
+
+
 
   /*
     KNOWN-ISSUES 3 — `setStatus` declared `status: z.string()`.
@@ -196,31 +233,102 @@ describe.skipIf(!url)("asset.create writes the row and its opening event atomica
   */
   it("refuses a status that is not in the vocabulary", async () => {
     const ctx = makeCtx(db);
-    const row = await assetRouter.createCaller(ctx).create({ description: "status guard drill" });
+    const row = await smallToolRouter.createCaller(ctx).create({ description: "status guard drill" });
 
     await expect(
       /* Cast because the input type now forbids this at compile time as well —
          which is the other half of the fix, and is what caught a caller in
          tool-menu.tsx passing a widened string[]. */
-      assetRouter.createCaller(ctx).setStatus({ id: row!.id, status: "banana" as never }),
+      smallToolRouter.createCaller(ctx).setStatus({ id: row!.id, status: "banana" as never }),
     ).rejects.toThrow();
 
     const [after] = await db
-      .select({ status: schema.asset.currentStatus })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, row!.id));
+      .select({ status: schema.smallTool.currentStatus })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, row!.id));
     expect(after!.status).toBe("available");
   });
 
   it("still accepts a status that is in the vocabulary", async () => {
     const ctx = makeCtx(db);
-    const row = await assetRouter.createCaller(ctx).create({ description: "status happy drill" });
-    await assetRouter.createCaller(ctx).setStatus({ id: row!.id, status: "in_maintenance" });
+    const row = await smallToolRouter.createCaller(ctx).create({ description: "status happy drill" });
+    await smallToolRouter.createCaller(ctx).setStatus({ id: row!.id, status: "in_maintenance" });
 
     const [after] = await db
-      .select({ status: schema.asset.currentStatus })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, row!.id));
+      .select({ status: schema.smallTool.currentStatus })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, row!.id));
     expect(after!.status).toBe("in_maintenance");
+  });
+
+  /*
+    The shop-workflow statuses (diagnosing/waiting_parts/ready_for_pickup) chain
+    onto `in_maintenance` as further setStatus hops on the same tool, not a
+    fresh custody event. `vehicleContextFromLedger` (custody.ts) must carry the
+    truck/trailer keys the `repair` event recorded forward through every hop —
+    the fold replaces rather than merges, so a hop that stayed silent on them
+    would erase "still on T-1" from the fold for a tool that never left the
+    truck. custodianId/projectId/locationId are restated from the asset row on
+    every write already; this pins that the vehicle keys survive alongside them.
+  */
+  it("carries custodian/project/location/vehicle keys forward through every shop-status hop", async () => {
+    const ctx = makeCtx(db);
+    const [loc] = await db
+      .insert(schema.location)
+      .values({ tenantId, type: "vehicle", name: "STI shop-status truck" })
+      .returning({ id: schema.location.id });
+    const [truck] = await db
+      .insert(schema.equipment)
+      .values({ tenantId, locationId: loc!.id, vehicleType: "truck", code: "T-SHOPSTATUS" })
+      .returning({ id: schema.equipment.id });
+
+    const row = await smallToolRouter.createCaller(ctx).create({ description: "shop-status drill", locationId });
+
+    /* Simulate the `repair` action's ledger event (apply-action.ts): custody
+       closes (custodianId null) but the tool is recorded as riding the shop's
+       own truck (`truckId` set, not null) — the newest evidence a status-only
+       hop later has to find and carry forward without being asked about it. */
+    await db.insert(schema.transaction).values({
+      tenantId,
+      assetId: row!.id,
+      eventType: "repair_start",
+      toState: {
+        status: "in_maintenance",
+        custodianId: null,
+        projectId: null,
+        locationId,
+        truckId: truck!.id,
+        trailerId: null,
+      },
+      note: "STI shop-status fixture: repair",
+    });
+    await db
+      .update(schema.smallTool)
+      .set({ currentStatus: "in_maintenance", currentCustodianId: null, currentLocationId: loc!.id })
+      .where(eq(schema.smallTool.id, row!.id));
+
+    for (const status of ["diagnosing", "waiting_parts", "ready_for_pickup"] as const) {
+      await smallToolRouter.createCaller(ctx).setStatus({ id: row!.id, status });
+
+      const [latest] = await db
+        .select({ toState: schema.transaction.toState })
+        .from(schema.transaction)
+        .where(and(eq(schema.transaction.assetId, row!.id), eq(schema.transaction.eventType, "status_change")))
+        .orderBy(desc(schema.transaction.occurredAt), desc(schema.transaction.id))
+        .limit(1);
+
+      /* toEqual, not toMatchObject: a missing vehicle key is not "unchanged",
+         it is "blanked on the next rebuild" — the same rule STI-115's create
+         test pins for the four base keys, extended here to the two vehicle
+         keys this writer now also carries forward. */
+      expect(latest!.toState).toEqual({
+        status,
+        custodianId: null,
+        projectId: null,
+        locationId: loc!.id,
+        truckId: truck!.id,
+        trailerId: null,
+      });
+    }
   });
 });

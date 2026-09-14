@@ -18,6 +18,10 @@ __pycache__/
 # tooling scratch
 .playwright-mcp/
 .kilo/
+# Throwaway agent scripts (e.g. Playwright probes) that may carry a local
+# login. Never committed — they are scratch, not a record.
+zz-*.mjs
+zz-*.js
 
 # Playwright / E2E run artefacts. Screenshots, traces and videos are evidence for
 # one run against one database state — they are stale the moment they are written,
@@ -49,3 +53,4 @@ scratch/
 # A conversation, not a record: anything durable belongs in docs/ or
 # .claude/rules/ instead.
 AGENT_HANDOFF.md
+.~lock.*#

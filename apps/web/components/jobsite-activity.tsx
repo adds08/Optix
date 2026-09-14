@@ -13,7 +13,7 @@ import {
   UserPlus,
   Wrench,
 } from "lucide-react";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { Tag } from "@/components/sti/status";
 import { SearchSelect } from "@/components/ui/search-select";

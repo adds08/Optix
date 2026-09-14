@@ -1,6 +1,7 @@
+import type { NotificationType } from "@optix/types";
 import { bigint, boolean, index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { tenant, user } from "./identity";
-import { asset } from "./asset";
+import { smallTool } from "./asset";
 import { employee } from "./employee";
 
 // The event log — append-only system of record. Nothing is ever updated or deleted:
@@ -9,7 +10,7 @@ import { employee } from "./employee";
 // corrections are compensating INSERTs. Custom migrations are invisible to the
 // drizzle differ, so a later `generate` will never drop them. Two sanctioned
 // exceptions disable the trigger around their deletes, both inside a single
-// transaction so an abort re-arms it: the seed's SEED_RESET wipe (src/seed.ts) and
+// transaction so an abort re-arms it: the register wipe (sql/empty-register.sql) and
 // the append-only test's cleanup (api-contracts/src/ledger-append-only.test.ts).
 // Every projection (assets.current_*, assignments) is a fold over this table.
 export const transaction = pgTable(
@@ -17,7 +18,7 @@ export const transaction = pgTable(
   {
     id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    assetId: uuid("asset_id").notNull().references(() => asset.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").notNull().references(() => smallTool.id, { onDelete: "cascade" }),
     eventType: text("event_type").notNull(), // EventType
     actorId: uuid("actor_id").references(() => user.id, { onDelete: "set null" }),
     fromState: jsonb("from_state"),
@@ -68,7 +69,11 @@ export const notification = pgTable(
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
     recipientEmployeeId: uuid("recipient_employee_id").references(() => employee.id, { onDelete: "cascade" }),
     recipientUserId: uuid("recipient_user_id").references(() => user.id, { onDelete: "cascade" }),
-    type: text("type").notNull(), // NotificationType
+    /* Typed to `NotificationType` rather than bare `text`, so a writer that
+       invents a value is a compile error rather than a row nobody notices.
+       The column stays `text` in Postgres — there is no CHECK constraint, so
+       this binds the application and not psql. */
+    type: text("type").$type<NotificationType>().notNull(),
     refType: text("ref_type"),
     refId: uuid("ref_id"),
     title: text("title").notNull(),
@@ -112,9 +117,20 @@ export const tenantSettings = pgTable("tbl_entity_tenant_settings", {
   tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
   highValueThreshold: jsonb("high_value_threshold").$type<number>(),
   custodyApproverRole: text("custody_approver_role").default("equipment_admin"),
-  overdueEscalateAfterDays: jsonb("overdue_escalate_after_days").$type<number>(),
-  missingReviewSlaDays: jsonb("missing_review_sla_days").$type<number>(),
-  discrepancyReviewSlaDays: jsonb("discrepancy_review_sla_days").$type<number>(),
+  /*
+    No SLA cadences here, and that is deliberate — see migration 0070.
+
+    `overdue_escalate_after_days`, `missing_review_sla_days` and
+    `discrepancy_review_sla_days` were dropped on 2026-09-14. All three were
+    left over from the borrow/loan model migration 0012 removed: nothing in
+    this product falls due, so nothing goes overdue and no clock needs a
+    deadline to measure against. The first was editable on /settings and read
+    by nothing, which meant the screen accepted a number and promised a chase
+    that could never happen.
+
+    If a real escalation is ever built, it needs a due date to escalate FROM,
+    and that is a custody-model decision — not a column.
+  */
   emailEnabled: boolean("email_enabled").notNull().default(true),
   smsEnabled: boolean("sms_enabled").notNull().default(false),
 
@@ -135,7 +151,7 @@ export const tenantSettings = pgTable("tbl_entity_tenant_settings", {
     that rule exists here).
   */
   brandingName: text("branding_name"),
-  // icon_and_text | icon_only — see BRANDING_LAYOUT_MODES in @stinventory/types
+  // icon_and_text | icon_only — see BRANDING_LAYOUT_MODES in @optix/types
   brandingLayoutMode: text("branding_layout_mode").notNull().default("icon_and_text"),
 
   /*

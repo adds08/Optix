@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Check, Search } from "lucide-react";
-import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
+import { activeCustodians } from "@/lib/custodians";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -62,8 +63,8 @@ export function CrewAssignDialog({
 }) {
   const utils = trpc.useUtils();
   const employees = trpc.employee.list.useQuery();
-  const assets = trpc.asset.list.useQuery();
-  const vehicles = trpc.vehicle.list.useQuery();
+  const assets = trpc.smallTool.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
 
   const assign = trpc.assignment.create.useMutation();
   const [q, setQ] = useState("");
@@ -71,15 +72,7 @@ export function CrewAssignDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const foremen = useMemo(
-    () =>
-      (employees.data ?? []).filter(
-        (e) =>
-          e.employmentStatus === "active" &&
-          CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]),
-      ),
-    [employees.data],
-  );
+  const foremen = useMemo(() => activeCustodians(employees.data), [employees.data]);
 
   /* Tools nobody is holding — the pool for "give to this foreman". Maintenance
      and lost kit is not hand-over-able (the register says so too), so it is
@@ -91,6 +84,9 @@ export function CrewAssignDialog({
         (t) =>
           !t.custodianId &&
           t.status !== "in_maintenance" &&
+          t.status !== "diagnosing" &&
+          t.status !== "waiting_parts" &&
+          t.status !== "ready_for_pickup" &&
           t.status !== "lost" &&
           (!needle ||
             `${t.code ?? ""} ${t.serialNumber ?? ""} ${t.locationName ?? ""} ${formatAssetModel(t)}`
@@ -101,8 +97,8 @@ export function CrewAssignDialog({
   }, [assets.data, q]);
 
   const invalidate = () => {
-    utils.asset.list.invalidate();
-    utils.vehicle.list.invalidate();
+    utils.smallTool.list.invalidate();
+    utils.equipment.list.invalidate();
     utils.employee.list.invalidate();
   };
 

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
 import { dashboardRouter } from "./routers/dashboard.js";
 import { notificationRouter } from "./routers/notification.js";
 import type { Context } from "./trpc.js";
@@ -163,7 +163,7 @@ describe.skipIf(!url)("a notification belongs to its recipient, and the badge co
       .values({ tenantId, name: "Left the company", employmentStatus: "terminated" })
       .returning({ id: schema.employee.id });
     await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, currentCustodianId: gone!.id, currentStatus: "assigned" });
 
     const bell = await dashboardRouter.createCaller(sessionFor(mine)).notifications();

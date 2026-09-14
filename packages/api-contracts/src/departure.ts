@@ -1,14 +1,14 @@
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
-import type { Database, Transaction } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
-import { formatAssetModel, type VehicleOwnership } from "@stinventory/types";
-import { tiersAbove } from "@stinventory/domain";
+import type { Database, Transaction } from "@optix/db";
+import * as schema from "@optix/db/schema";
+import { formatAssetModel, type VehicleOwnership } from "@optix/types";
+import { tiersAbove } from "@optix/domain";
 import { projectForCustodian, moveCustody, vehicleContextFromLedger } from "./custody.js";
 /* The one writer that knows what handing a container over means — custodian
    column, vehicle mirror, and the contents that ride inside it. A departure is
    a container hand-over with a reason attached, not a second kind of one. */
-import { applyContainerCustody } from "./routers/location.js";
+import { applyContainerCustody } from "./routers/equipment.js";
 
 /*
   A departure, moved in one auditable action (STI-306).
@@ -278,28 +278,28 @@ async function activeTeamMembersOfRole(
 async function toolsHeldBy(db: Database | Transaction, tenantId: string, leaverId: string, lock: boolean) {
   const q = db
     .select({
-      assetId: schema.asset.id,
-      code: schema.asset.code,
-      make: schema.asset.make,
-      modelNumber: schema.asset.modelNumber,
-      description: schema.asset.description,
-      currentStatus: schema.asset.currentStatus,
-      currentProjectId: schema.asset.currentProjectId,
-      currentLocationId: schema.asset.currentLocationId,
-      currentCustodianId: schema.asset.currentCustodianId,
+      assetId: schema.smallTool.id,
+      code: schema.smallTool.code,
+      make: schema.smallTool.make,
+      modelNumber: schema.smallTool.modelNumber,
+      description: schema.smallTool.description,
+      currentStatus: schema.smallTool.currentStatus,
+      currentProjectId: schema.smallTool.currentProjectId,
+      currentLocationId: schema.smallTool.currentLocationId,
+      currentCustodianId: schema.smallTool.currentCustodianId,
     })
-    .from(schema.asset)
+    .from(schema.smallTool)
     .where(
       and(
-        eq(schema.asset.tenantId, tenantId),
-        eq(schema.asset.currentCustodianId, leaverId),
-        notInArray(schema.asset.currentStatus, NOT_HELD),
+        eq(schema.smallTool.tenantId, tenantId),
+        eq(schema.smallTool.currentCustodianId, leaverId),
+        notInArray(schema.smallTool.currentStatus, NOT_HELD),
       ),
     )
     /* Ordered by id so every departure takes its row locks in the same
        sequence. Two departures that share a tool would otherwise be free to
        grab them in opposite orders and deadlock in the database. */
-    .orderBy(asc(schema.asset.id));
+    .orderBy(asc(schema.smallTool.id));
   /* Locked up front, for the whole set, rather than relying on the per-asset
      lock moveCustody takes later: everything below reads these rows to build
      `fromState`, and a snapshot taken before the lock is a snapshot another
@@ -335,22 +335,22 @@ async function containersHeldBy(db: Database | Transaction, tenantId: string, le
     .select({
       locationId: schema.location.id,
       locationName: schema.location.name,
-      vehicleId: schema.vehicle.id,
-      unit: schema.vehicle.unit,
-      vehicleType: schema.vehicle.vehicleType,
-      ownershipType: schema.vehicle.ownershipType,
+      vehicleId: schema.equipment.id,
+      unit: schema.equipment.code,
+      vehicleType: schema.equipment.vehicleType,
+      ownershipType: schema.equipment.ownershipType,
     })
     .from(schema.location)
     .leftJoin(
-      schema.vehicle,
-      and(eq(schema.vehicle.locationId, schema.location.id), eq(schema.vehicle.tenantId, tenantId)),
+      schema.equipment,
+      and(eq(schema.equipment.locationId, schema.location.id), eq(schema.equipment.tenantId, tenantId)),
     )
     .where(
       and(
         eq(schema.location.tenantId, tenantId),
         or(
           eq(schema.location.custodianEmployeeId, leaverId),
-          and(isNull(schema.location.custodianEmployeeId), eq(schema.vehicle.foremanEmployeeId, leaverId)),
+          and(isNull(schema.location.custodianEmployeeId), eq(schema.equipment.foremanEmployeeId, leaverId)),
         ),
       ),
     )
@@ -611,14 +611,14 @@ export async function reassignOnDeparture(
       });
 
       await tx
-        .update(schema.asset)
+        .update(schema.smallTool)
         .set({
           currentCustodianId: successor.id,
           currentProjectId: projectId,
           currentLocationId: locationId,
           updatedAt: new Date(),
         })
-        .where(and(eq(schema.asset.id, a.assetId), eq(schema.asset.tenantId, tid)));
+        .where(and(eq(schema.smallTool.id, a.assetId), eq(schema.smallTool.tenantId, tid)));
 
       await tx.insert(schema.transaction).values({
         tenantId: tid,

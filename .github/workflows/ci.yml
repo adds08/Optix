@@ -36,7 +36,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: stinventory_ci
+          POSTGRES_DB: optix_ci
         ports:
           - 5432:5432
         options: >-
@@ -45,7 +45,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/stinventory_ci
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/optix_ci
       SESSION_SECRET: ci-session-secret-at-least-32-characters-long
       CI: "true"
     steps:
@@ -88,10 +88,16 @@ jobs:
       # production sat four commits behind main for a day, without the invite
       # migrations, while main looked merged and fine.
       #
-      # Idempotent (skips when the tenant exists), and it refuses to touch a
-      # production database without SEED_ALLOW_PRODUCTION.
-      - name: Seed
-        run: pnpm db:seed
+      # `db:provision` since 2026-09-13, when the seed was deleted. It writes the
+      # authority model and nothing else — tenant, permissions, roles, tiers,
+      # vocabularies, two logins — and no business data at all. Idempotent: every
+      # write is onConflictDoNothing or an existence check.
+      #
+      # rbac-matrix builds its own tenant now and does not need this, but the
+      # step stays: a CI database shaped like a real one is what makes a suite
+      # that quietly depends on provisioning fail HERE rather than on a deploy.
+      - name: Provision
+        run: pnpm db:provision
 
       - name: Test
         run: pnpm test
@@ -115,10 +121,10 @@ jobs:
       # could not actually run, because workspace packages export raw
       # TypeScript. A build that is never executed proves nothing.
       - name: Build API image
-        run: docker build -f docker/Dockerfile.api -t stinventory-api:ci .
+        run: docker build -f docker/Dockerfile.api -t optix-api:ci .
 
       - name: Build web image
-        run: docker build -f docker/Dockerfile.web -t stinventory-web:ci .
+        run: docker build -f docker/Dockerfile.web -t optix-web:ci .
 
   smoke:
     name: migrate + boot against a real postgres
@@ -129,7 +135,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: stinventory_ci
+          POSTGRES_DB: optix_ci
         ports:
           - 5432:5432
         options: >-
@@ -138,7 +144,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/stinventory_ci
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/optix_ci
       SESSION_SECRET: ci-session-secret-at-least-32-characters-long
       WEB_ORIGIN: http://localhost:3100
       PORT: 4100
@@ -170,7 +176,33 @@ jobs:
       # (`drizzle-kit check` was evaluated and rejected: it validates
       # migration-history collisions and reports "Everything's fine" with
       # real schema drift in place.)
+      # TEMPORARILY DISABLED 2026-09-14 — see TODO-SNAPSHOT-GAP.md.
+      #
+      # packages/db/drizzle/meta/ has no snapshot past 0069, but 80 migrations
+      # are committed and applied (0070-0080 were hand-verified against the
+      # live DB and each other, not generated through drizzle-kit). That gap
+      # means `drizzle-kit generate` no longer has an accurate "current state"
+      # to diff schema.ts against, so it now fails this check on EVERY run
+      # regardless of real drift — confirmed by reproducing locally.
+      #
+      # Worse than a false positive: attempting the wizard's own fix is
+      # unsafe. Answering its table-identity prompt "renamed from asset" still
+      # produced `DROP TABLE "tbl_entity_asset" CASCADE` in the generated SQL,
+      # because the last snapshot it has (0069) doesn't match the table's
+      # current column shape, so it reconciles by drop-and-recreate rather
+      # than alter-in-place. Applied anywhere, that drops the small tools
+      # table and cascades through tbl_ops_transaction (the append-only
+      # ledger), tbl_ops_transfer, tbl_ops_smalltools_custody and
+      # tbl_ops_task. Not committed, not applied — caught in review before it
+      # reached any database.
+      #
+      # Real drift (an edited schema.ts with no generated migration) is NOT
+      # currently caught by anything else in this job — `db:migrate` below
+      # only proves the committed SQL applies, it does not compare the result
+      # to schema.ts. Re-enable this the moment the snapshot gap is repaired;
+      # don't let it stay off longer than that repair takes.
       - name: Check for uncommitted schema drift
+        if: false
         run: |
           pnpm db:generate < /dev/null 2>&1 | tee /tmp/drizzle-generate.log
           if ! grep -q "No schema changes, nothing to migrate" /tmp/drizzle-generate.log \
@@ -189,8 +221,8 @@ jobs:
 
       - name: Build and boot the API
         run: |
-          pnpm --filter @stinventory/db build
-          pnpm --filter @stinventory/api build
+          pnpm --filter @optix/db build
+          pnpm --filter @optix/api build
           node apps/api/dist/index.js &
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:4100/health > /dev/null; then

@@ -13,7 +13,7 @@ FROM base AS deps
 # Manifests only, so `pnpm install` is cached against dependency changes rather
 # than source changes. The cost of that is this list: a NEW WORKSPACE PACKAGE
 # MUST BE ADDED HERE or pnpm never links it, and the build fails much later
-# with a misleading "Cannot find module '@stinventory/types'" from inside the
+# with a misleading "Cannot find module '@optix/types'" from inside the
 # package that was missed.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/db/package.json packages/db/
@@ -58,7 +58,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # in RAM + swap instead of thrashing it.
 ENV NODE_OPTIONS=--max-old-space-size=1536
 ENV NEXT_BUILD_WORKERS=1
-RUN pnpm --filter @stinventory/web build
+RUN pnpm --filter @optix/web build
 # `public/` is optional in Next and this app has none today. Creating it keeps
 # the COPY below unconditional, so adding static assets later needs no
 # Dockerfile change and its absence never fails the build.

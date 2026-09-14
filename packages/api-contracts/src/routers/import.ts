@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import {
   IMPORT_SPECS,
   formatAssetModel,
@@ -8,10 +8,11 @@ import {
   type ImportEntity,
   type ImportRefTarget,
   type ImportSpec,
-} from "@stinventory/types";
+} from "@optix/types";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
+import { nextToolCode } from "../tool-code.js";
 
 /*
   Bulk CSV import.
@@ -75,9 +76,9 @@ async function loadExisting(db: any, tenantId: string, spec: ImportSpec): Promis
 
   if (spec.entity === "asset" && spec.unique.length) {
     const rows = await db
-      .select({ code: schema.asset.code, serialNumber: schema.asset.serialNumber })
-      .from(schema.asset)
-      .where(eq(schema.asset.tenantId, tenantId));
+      .select({ code: schema.smallTool.code, serialNumber: schema.smallTool.serialNumber })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.tenantId, tenantId));
     for (const r of rows) {
       if (r.code) out.code?.add(String(r.code).toLowerCase());
       if (r.serialNumber) out.serialNumber?.add(String(r.serialNumber).toLowerCase());
@@ -97,9 +98,12 @@ async function loadExisting(db: any, tenantId: string, spec: ImportSpec): Promis
     for (const r of rows) if (r.externalId) out.externalId?.add(String(r.externalId).toLowerCase());
   }
   if (spec.entity === "vehicle") {
-    const rows = await db.select({ unit: schema.vehicle.unit })
-      .from(schema.vehicle).where(eq(schema.vehicle.tenantId, tenantId));
-    for (const r of rows) if (r.unit) out.unit?.add(String(r.unit).toLowerCase());
+    /* Keyed `code`, matching the spec's column key — it was `unit` until
+       migration 0077 dropped that column. The key has to match the SPEC or the
+       duplicate check silently passes for every row. */
+    const rows = await db.select({ code: schema.equipment.code })
+      .from(schema.equipment).where(eq(schema.equipment.tenantId, tenantId));
+    for (const r of rows) if (r.code) out.code?.add(String(r.code).toLowerCase());
   }
   return out;
 }
@@ -308,14 +312,32 @@ async function insertOne(
 ): Promise<string | null> {
   if (entity === "asset") {
     const label = formatAssetModel(values) || "Untagged tool";
+    /*
+      GENERATE A CODE when the row has none, exactly as `asset.create` does.
+
+      This was missing until 2026-09-14 and it mattered at scale rather than in
+      a test: Urban's tools file has an EMPTY code on all 753 rows — the sheets
+      carry no tool-ID column — so an import produced 753 codeless tools while
+      creating one through the form produced `TOOL-00001`. Two doors into the
+      same register disagreeing about whether a tool gets an identifier.
+
+      `nextToolCode` reads `max + 1` for the tenant, and `insertOne` is already
+      called inside the commit's transaction, so a 753-row import numbers
+      sequentially and cannot collide with a code typed in another session.
+    */
+    const code = (values.code as string | undefined)?.trim()
+      ? values.code
+      : await nextToolCode(tx, tenantId);
     const [row] = await tx
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId,
         createdBy: actorUserId,
         currentStatus: "available",
         currentLocationId: (values.locationId as string) ?? null,
         ...values,
+        /* After the spread: an absent `code` key would leave the column null. */
+        code,
       })
       .returning();
     if (!row) return null;
@@ -371,7 +393,18 @@ async function insertOne(
   }
 
   if (entity === "project") {
-    const [row] = await tx.insert(schema.project).values({ tenantId, ...values }).returning();
+    /* `externalId` is the CSV's `project_code` and lands in `project.code` —
+       remapped explicitly for the same reason the employee branch below does
+       it, and with the same failure if it is not: Drizzle drops an unknown key
+       SILENTLY. Spreading it here imported every job with NO code at all, so
+       the duplicate check (which reads `project.code`) saw nothing, re-runs
+       duplicated the whole file, and the `project_code_per_tenant_uq` index had
+       no value to enforce. */
+    const { externalId, ...rest } = values;
+    const [row] = await tx
+      .insert(schema.project)
+      .values({ tenantId, ...rest, ...(externalId !== undefined ? { code: externalId as string } : {}) })
+      .returning();
     return row?.id ?? null;
   }
 
@@ -388,14 +421,14 @@ async function insertOne(
       .values({
         tenantId,
         type: "vehicle",
-        name: values.unit as string,
+        name: values.code as string,
         projectId: (values.projectId as string) ?? null,
         custodianEmployeeId: (values.foremanEmployeeId as string) ?? null,
       })
       .returning();
     if (!loc) return null;
     const [row] = await tx
-      .insert(schema.vehicle)
+      .insert(schema.equipment)
       .values({ tenantId, locationId: loc.id, ...values })
       .returning();
     return row?.id ?? null;

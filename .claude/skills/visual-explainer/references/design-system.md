@@ -1,4 +1,4 @@
-# STInventory Explainer Design System
+# Optix Explainer Design System
 
 Tokens and rules for every explainer this skill produces. These are **the
 product's own tokens**, lifted from the app — not invented. Copy the `:root`

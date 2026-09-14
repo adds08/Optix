@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Building2, ChevronDown, ChevronRight, LayoutGrid, Package, PackageOpen, Plus, Rows3, TriangleAlert, Users, Warehouse, Eye, ArrowDownWideNarrow } from "lucide-react";
-import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
+import { activeCustodians } from "@/lib/custodians";
 import { trpc } from "@/lib/trpc";
 import { useJobScope } from "@/components/job-scope";
 import { usePermissions } from "@/components/use-permissions";
@@ -41,7 +42,11 @@ import { cn } from "@/lib/utils";
   foreman", made legible.
 
   Nothing here is a new concept in the API:
-    crew        = (project, custodian) pair derived from asset.list
+    crew        = (project, custodian) pair derived from asset.list, PLUS a
+                  roster foreman (projectTeam.all) who holds no tools yet —
+                  buildCrews below adds those explicitly, because a foreman
+                  freshly assigned to a job would otherwise not appear on it
+                  until somebody hands them a tool
     truck       = vehicle.list where foremanEmployeeId = the foreman
     trailer     = vehicle.list where attachedToVehicleId = that truck
     hand a rig  = location.setCustodian (tools + hitched trailer follow)
@@ -65,10 +70,10 @@ const CARD_TINT: Record<string, string> = {
 
 export default function JobsitesPage() {
   const employees = trpc.employee.list.useQuery();
-  const assets = trpc.asset.list.useQuery();
+  const assets = trpc.smallTool.list.useQuery();
   const projects = trpc.project.list.useQuery();
   const yardProjectIds = new Set((projects.data ?? []).filter(p => p.kind === "yard").map(p => p.id));
-  const vehicles = trpc.vehicle.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
   /* The project roster (pm/superintendent/foreman per job), for the team strip
      on each card. Loaded once, keyed by project — see projectTeam.all. */
   const team = trpc.projectTeam.all.useQuery();
@@ -236,15 +241,7 @@ export default function JobsitesPage() {
   /* The foreman picker wants active custodians; crew DISPLAY must resolve any
      holder — including terminated staff, who are exactly the people whose
      crews the HR-clearance workflow cares about. */
-  const foremen = useMemo(
-    () =>
-      (employees.data ?? []).filter(
-        (e) =>
-          e.employmentStatus === "active" &&
-          CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]),
-      ),
-    [employees.data],
-  );
+  const foremen = useMemo(() => activeCustodians(employees.data), [employees.data]);
   const allCustodians = employees.data ?? [];
 
   const hit = (text: string) => !q.trim() || text.toLowerCase().includes(q.trim().toLowerCase());
@@ -552,12 +549,35 @@ export default function JobsitesPage() {
   const crewsWithoutTruck = cards.reduce((n, c) => n + c.crews.filter((x) => !x.rig.truck).length, 0);
 
   const invalidate = () => {
-    utils.vehicle.list.invalidate();
-    utils.asset.list.invalidate();
+    utils.equipment.list.invalidate();
+    utils.smallTool.list.invalidate();
   };
 
-  if (assets.isLoading || projects.isLoading || vehicles.isLoading) return <TableSkeleton cols={4} />;
-  if (assets.isError || projects.isError) return <ErrorNote message="The jobsite view could not be loaded." />;
+  /*
+    ALL FIVE queries, not three.
+
+    `employees` and `team` were missing from this guard while every consumer of
+    them falls back to `[]` (`foremen`, `allCustodians`, the roster lookup and
+    the crew cards). So the page rendered before they landed and drew each
+    jobsite with NO crew — which is not a loading state a person can recognise,
+    it is a factual claim that the job has nobody on it. It then silently
+    repopulated a moment later.
+
+    An empty crew is a real and meaningful state here, which is exactly why it
+    must not be faked while data is in flight.
+  */
+  if (
+    assets.isLoading ||
+    projects.isLoading ||
+    vehicles.isLoading ||
+    employees.isLoading ||
+    team.isLoading
+  )
+    return <TableSkeleton cols={4} />;
+  /* Errors on the same five. A failed employee or team fetch previously fell
+     through to the same empty-crew render with no error shown at all. */
+  if (assets.isError || projects.isError || vehicles.isError || employees.isError || team.isError)
+    return <ErrorNote message="The jobsite view could not be loaded." />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -631,7 +651,7 @@ export default function JobsitesPage() {
                     onChange={setStatusFilter}
                     placeholder="Any status"
                     widthClass="w-full"
-                    options={["assigned", "available", "in_maintenance", "lost"].map((s) => ({
+                    options={["assigned", "available", "in_maintenance", "diagnosing", "waiting_parts", "ready_for_pickup", "lost"].map((s) => ({
                       value: s,
                       label: humanize(s),
                     }))}

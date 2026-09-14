@@ -5,15 +5,18 @@
 // `tenantSettings.smsEnabled` in packages/db/src/schema/event.ts.
 
 import { and, eq, isNull, lt } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import { mailConfigFor } from "@stinventory/api-contracts";
-import { esc, sendMail, type MailConfig } from "@stinventory/mail";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import { mailConfigFor } from "@optix/api-contracts";
+import { esc, sendMail, type MailConfig } from "@optix/mail";
+import type { NotificationType } from "@optix/types";
 
 type NotificationInput = {
   tenantId: string;
   recipientEmployeeId: string | null;
-  type: string;
+  /* Not `string`: the column is typed, so an invented value is a compile error
+     here rather than a row on a bell nobody can render. */
+  type: NotificationType;
   refType?: string | null;
   refId?: string | null;
   title: string;
@@ -85,12 +88,16 @@ export async function deliverPendingNotifications(
        the employee has none on file. The in-app row already carries the
        alert, so this is a normal outcome, not a failure — mark it done and
        move on rather than retrying something that can never succeed. */
+    /* Tenant-scoped like every other read. The id comes from a tenant-scoped
+       row today, so this is defence in depth rather than a live fix — but the
+       rule in routers/assignment.ts has no exceptions precisely so that an
+       unscoped lookup never becomes the template somebody copies. */
     const employee = n.recipientEmployeeId
       ? (
           await db
             .select({ email: schema.employee.email })
             .from(schema.employee)
-            .where(eq(schema.employee.id, n.recipientEmployeeId))
+            .where(and(eq(schema.employee.id, n.recipientEmployeeId), eq(schema.employee.tenantId, n.tenantId)))
             .limit(1)
         )[0]
       : null;

@@ -1,9 +1,9 @@
 import bcrypt from "bcryptjs";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import type { Permission } from "@optix/types";
 
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 

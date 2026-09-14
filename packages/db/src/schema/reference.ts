@@ -1,5 +1,5 @@
 import { boolean, index, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import { tenant } from "./identity";
+import { role, tenant } from "./identity";
 
 /*
   Reference data an organisation maintains for itself: the lists that appear in
@@ -102,6 +102,27 @@ export const companyRole = pgTable(
     /* Short code for exports and payroll mapping — "CARP". Optional; the name
        is the identity, mirroring `department.code`. */
     code: text("code"),
+    /*
+      The login role somebody with this job title gets, unless a human has said
+      otherwise about them personally (migration 0071).
+
+      BambooHR sync resolved `jobTitleName` to one of these rows and stopped —
+      it never set `employee.roleId`, so every synced person arrived with no
+      login role at all and somebody set 190 of them by hand. This is the
+      bridge, and only between these two: the HR job title and what an account
+      may do. A person's TIER on a project (`projectTeamMember.role`) is a
+      third thing and is not derived from either.
+
+      A DEFAULT, never an assignment. The sync fills `employee.roleId` only
+      where it is NULL, so an administrator's decision about one person
+      outlives the next sync. The reverse would be a nightly job quietly
+      undoing their work.
+
+      NULL means "no opinion", and the sync leaves those people alone. An
+      unmapped title is a question somebody can answer; a guessed one is a
+      wrong answer nobody can see.
+    */
+    defaultRoleId: uuid("default_role_id").references(() => role.id, { onDelete: "set null" }),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -109,6 +130,7 @@ export const companyRole = pgTable(
   (t) => ({
     tenantIdx: index("company_role_tenant_idx").on(t.tenantId),
     tenantNameUq: uniqueIndex("company_role_tenant_name_uq").on(t.tenantId, t.name),
+    defaultRoleIdx: index("company_role_default_role_idx").on(t.defaultRoleId),
   }),
 );
 

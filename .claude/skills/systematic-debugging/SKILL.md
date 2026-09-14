@@ -1,9 +1,9 @@
 ---
 name: systematic-debugging
-description: Use when encountering any bug, test failure, unexpected behavior, data issue, or infrastructure problem in STInventory, before proposing fixes. Triggers on any debugging scenario -- test failures, wrong register state, unexpected custody, chat messages stuck in a queue, performance problems, build failures, Docker issues, or API errors. Use this ESPECIALLY when under time pressure or when "just one quick fix" seems obvious.
+description: Use when encountering any bug, test failure, unexpected behavior, data issue, or infrastructure problem in Optix, before proposing fixes. Triggers on any debugging scenario -- test failures, wrong register state, unexpected custody, chat messages stuck in a queue, performance problems, build failures, Docker issues, or API errors. Use this ESPECIALLY when under time pressure or when "just one quick fix" seems obvious.
 ---
 
-# Systematic Debugging (STInventory Edition)
+# Systematic Debugging (Optix Edition)
 
 ## Available evidence-gathering tools
 
@@ -21,7 +21,7 @@ make ENV=local seed               # 754 tools, 41 people, 16 projects
 make ENV=local psql
 # or non-interactively:
 docker compose --env-file .env.local exec -T postgres \
-  psql -U postgres -d stinventory -c "SELECT ..."
+  psql -U postgres -d optix -c "SELECT ..."
 ```
 High-value queries when custody looks wrong:
 ```sql
@@ -43,7 +43,7 @@ FROM message ORDER BY created_at DESC LIMIT 20;
 
 **Logs** — all three workers log to the API container:
 ```bash
-docker logs stinventory-api --tail 100
+docker logs optix-api --tail 100
 make ENV=local logs               # follows every service
 ```
 Look for `[messaging-worker]`, `[notifications]`, `[request-worker]`, `[engine]`.
@@ -53,22 +53,25 @@ from an API bug:
 ```bash
 TOK=$(curl -s -X POST http://localhost:4100/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"owner@stinventory.local","password":"stinventory-demo"}' \
+  -d '{"email":"optix_it@optixtec.com","password":"<from make provision>"}' \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["sessionId"])')
 
 curl -s http://localhost:4100/trpc/dashboard.kpis \
   -H "Authorization: Bearer $TOK"
 ```
-Log in as `warehouse@` or a foreman instead when the bug is about permissions —
+The per-role demo accounts went with the seed on 2026-09-13; `optix_it@` (owner)
+and `tech@optixtec.com` (tech_admin) are the only two that exist. When the bug is
+about permissions, create the role and an account for it rather than reaching for
+an address that no longer resolves —
 the outcome differs by role by design (`custodyOutcome`).
 
 **The tests** — 139 of them, all pure functions, all fast:
 ```bash
 pnpm test                          # on the host, after a full pnpm install
-pnpm --filter @stinventory/domain test
+pnpm --filter @optix/domain test
 ```
 If `make ENV=local test` fails with a `TSConfckParseError` about
-`@stinventory/config-tsconfig`, that is the Docker volume defect, not your bug —
+`@optix/config-tsconfig`, that is the Docker volume defect, not your bug —
 check `docker-compose.yml` lists a `node_modules` volume for the package in question.
 
 **The browser** — the Playwright MCP for anything visual. The console is normally
@@ -174,7 +177,7 @@ You MUST complete each phase before proceeding to the next.
    THEN investigate that specific component
    ```
 
-   **STInventory-specific: read the ledger, not the projection.** `asset.current_*`
+   **Optix-specific: read the ledger, not the projection.** `asset.current_*`
    is a cache. When it disagrees with what people saw happen, the `transaction`
    rows tell you which write was wrong and when. A projection that looks wrong is
    evidence about a *writer*, not a thing to patch in place.

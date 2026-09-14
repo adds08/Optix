@@ -1,20 +1,29 @@
-# STInventory — local dev compose. Brings up Postgres + API + Web.
-# `make ENV=local up` then `make seed`.
+# Optix — local dev compose. Brings up Postgres + API + Web.
+# `make ENV=local up` then `make provision`.
+
+# Pinned, NOT derived from the directory name. Compose defaults the project to
+# the folder it runs in — which here is `STInventory`, so the volume was
+# `stinventory_postgres_data` even after everything inside it said optix. That
+# bit on 2026-09-14: a `down -v` + rebuild created `optix_optix-postgres`, and a
+# later Docker restart re-mounted the OLD volume, silently serving a database
+# from before the rename. Naming it here makes which volume is in use a fact of
+# this file rather than of whoever's checkout path.
+name: optix
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: stinventory-postgres
+    container_name: optix-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stinventory}
-      POSTGRES_DB: ${POSTGRES_DB:-stinventory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-optix}
+      POSTGRES_DB: ${POSTGRES_DB:-optix}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d stinventory"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d optix"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -32,7 +41,7 @@ services:
   # addresses at while testing. Never add this to a deployed environment.
   mailpit:
     image: axllent/mailpit:latest
-    container_name: stinventory-mailpit
+    container_name: optix-mailpit
     ports:
       - "${MAILPIT_SMTP_PORT:-1025}:1025"
       - "${MAILPIT_UI_PORT:-8025}:8025"
@@ -45,13 +54,13 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.dev
-    image: stinventory-dev:latest
-    container_name: stinventory-api
+    image: optix-dev:latest
+    container_name: optix-api
     working_dir: /workspace/apps/api
     command: >
       sh -c "
         echo '[api] waiting for postgres' &&
-        until pg_isready -h postgres -U postgres -d stinventory -t 1 >/dev/null 2>&1; do sleep 1; done &&
+        until pg_isready -h postgres -U postgres -d optix -t 1 >/dev/null 2>&1; do sleep 1; done &&
         echo '[api] applying migrations' &&
         cd /workspace/packages/db && pnpm migrate &&
         cd /workspace/apps/api && pnpm dev
@@ -59,8 +68,8 @@ services:
     environment:
       NODE_ENV: development
       PORT: 4100
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-stinventory}@postgres:5432/${POSTGRES_DB:-stinventory}
-      SESSION_SECRET: ${SESSION_SECRET:-stinventory-dev-secret-please-change-to-32-chars-minimum}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-optix}@postgres:5432/${POSTGRES_DB:-optix}
+      SESSION_SECRET: ${SESSION_SECRET:-optix-dev-secret-please-change-to-32-chars-minimum}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3100}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -104,6 +113,10 @@ services:
       - /workspace/packages/types/node_modules
       - /workspace/packages/config-eslint/node_modules
       - /workspace/packages/config-tsconfig/node_modules
+      # Read-only: `make demo` loads the dummy dataset from docs/import, and the
+      # importer reads those CSVs from inside the container. Nothing writes
+      # here, so the mount cannot put data back into the repository.
+      - ./docs:/workspace/docs:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -112,21 +125,13 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.dev
-    image: stinventory-dev:latest
-    container_name: stinventory-web
+    image: optix-dev:latest
+    container_name: optix-web
     working_dir: /workspace/apps/web
     command: sh -c "pnpm dev"
     environment:
       NODE_ENV: development
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4100}
-      # Local only: pre-fills the form and shows the demo account list.
-      #
-      # Those thirteen accounts exist ONLY in the demo fixture (`make seed-demo`).
-      # After `make seed-urban` the database holds Urban's real register and two
-      # administrators, so every button in that panel names an address that is not
-      # there and fails on click. Set this to 0 alongside the real dataset — or
-      # leave it unset in .env.local, which is what the default below is for.
-      NEXT_PUBLIC_SHOW_DEMO_LOGINS: ${NEXT_PUBLIC_SHOW_DEMO_LOGINS:-1}
     ports:
       - "${WEB_PORT:-3100}:3100"
     volumes:

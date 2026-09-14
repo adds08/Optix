@@ -1,4 +1,4 @@
-import type { Permission } from "@stinventory/types";
+import type { Permission } from "@optix/types";
 
 /*
   Every intent the chat parser can produce, declared once.

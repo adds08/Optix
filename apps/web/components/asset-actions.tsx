@@ -33,9 +33,9 @@ export function AssetActions({
   const utils = trpc.useUtils();
 
   const invalidate = () => {
-    utils.asset.get.invalidate({ id: assetId });
+    utils.smallTool.get.invalidate({ id: assetId });
     utils.transaction.list.invalidate({ assetId });
-    utils.asset.list.invalidate();
+    utils.smallTool.list.invalidate();
     utils.assignment.list.invalidate();
   };
 

@@ -2,7 +2,7 @@
    a report that formats currency differently from the dashboard is a report
    people stop trusting. */
 
-import { toDate } from "@stinventory/types";
+import { toDate } from "@optix/types";
 
 const USD = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -49,14 +49,6 @@ export function num(v: string | number | null | undefined): string {
   return Number.isFinite(n) ? n.toLocaleString("en-US") : "—";
 }
 
-/* The register's own reference number (asset.assetNumber) — system-stamped,
-   always present, never a physical label. "A-" plus six digits distinguishes
-   it at a glance from `tag`, which is real yard text like "TOOL-0001" and can
-   be anything a person wrote on a sticker. */
-export function assetNumberDisplay(v: number | null | undefined): string {
-  if (v === null || v === undefined) return "—";
-  return "A-" + String(v).padStart(6, "0");
-}
 
 /* Parses through `toDate`, not `new Date`, because most of what reaches here is
    a `date` column — a calendar day, not an instant. `new Date("2027-10-09")` is
@@ -84,7 +76,7 @@ export function dateTime(v: string | Date | null | undefined): string {
 }
 
 /*
-  `daysFrom` and `relative` moved to `@stinventory/types` so they could get a
+  `daysFrom` and `relative` moved to `@optix/types` so they could get a
   test suite — `apps/web` has none, and `relative`'s handling of FUTURE dates
   (warranty expiry) is exactly the kind of sign-convention detail that needs
   one. Re-exported here so the call sites keep importing from `@/lib/format`
@@ -94,7 +86,7 @@ export function dateTime(v: string | Date | null | undefined): string {
   a second local copy of "a date-only column is a calendar day" is exactly how
   UI-60 would come back.
 */
-export { daysFrom, relative, toDate } from "@stinventory/types";
+export { daysFrom, relative, toDate } from "@optix/types";
 
 /*
   Entity identifiers everywhere read as "<ID> - <Entity name>" — the job ID is

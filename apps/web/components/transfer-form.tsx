@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { CUSTODIAN_ROLES } from "@stinventory/types";
+import { activeCustodians } from "@/lib/custodians";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,7 @@ export function TransferForm({ open, onClose, assetId, assetCode }: Props) {
   const projects = trpc.project.list.useQuery();
   const locations = trpc.location.list.useQuery();
 
-  let custodianOptions =
-    foremen.data?.filter((e) => CUSTODIAN_ROLES.includes(e.role as (typeof CUSTODIAN_ROLES)[number]) && e.employmentStatus === "active") ?? [];
+  let custodianOptions = activeCustodians(foremen.data);
   /* STI-307: the crew tier, not the role name. */
   if (tier === "assets.view.crew") {
     const ids = new Set(myForemen.data?.map((f) => f.id) ?? []);
@@ -98,7 +97,7 @@ export function TransferForm({ open, onClose, assetId, assetCode }: Props) {
       });
       utils.transfer.list.invalidate();
       utils.assignment.list.invalidate();
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.kpis.invalidate();
       utils.dashboard.pendingApprovals.invalidate();
       utils.dashboard.recentActivity.invalidate();

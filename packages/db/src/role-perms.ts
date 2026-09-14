@@ -2,7 +2,7 @@
   THE PERMISSION MATRIX, in code.
 
   This file is the single place the role -> permission mapping is written down
-  (STI-308 acceptance criterion 4). `seed.ts` writes it into `role_permission`;
+  (STI-308 acceptance criterion 4). `provision.ts` writes it into `role_permission`;
   `rbac-matrix.test.ts` asserts the database matches it in BOTH directions. If
   the test kept its own copy the two would drift and the test would start
   asserting history rather than policy — which is exactly how
@@ -12,7 +12,7 @@
   Urban, is docs/workings/PERMISSION_MATRIX.md. When the two disagree, THIS
   file is what the system does.
 */
-import { PERMISSIONS, ROLES } from "@stinventory/types";
+import { PERMISSIONS, ROLES } from "@optix/types";
 
 /* Shared by `project_manager` and `engineer` — see PERMISSION_MATRIX §1. */
 export const PM_PERMS = [

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Download, Sparkles, Upload } from "lucide-react";
 import * as XLSX from "xlsx";
-import { IMPORT_SPECS, templateRows, type ImportEntity } from "@stinventory/types";
+import { IMPORT_SPECS, templateRows, type ImportEntity } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { downloadCsv, parseCsvRows, rowsToObjects } from "@/lib/csv";
 import { Can } from "@/components/can";
@@ -197,19 +197,32 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-3xl">
+      {/*
+        The dialog's own scroll (inherited from DialogContent's
+        `max-h-[calc(100dvh-2rem)] overflow-y-auto`) scrolls the WHOLE thing —
+        header, footer, all of it — as one block. That is right for a short
+        form, but this dialog can grow a 90-row preview table where errored
+        rows render taller (the Problem column wraps), and the header and the
+        Import/Cancel buttons scrolled away with it: "Import 88 rows" was in
+        the DOM, on-screen size, just below the bottom of the window, with
+        nothing to hint a scroll would reach it. `max-h-[85dvh]` + `flex
+        flex-col` pins header and footer; `overflow-y-auto` moves onto the
+        middle content div alone, so only the row table's own already-scrolled
+        region has to share space with anything.
+      */}
+      <DialogContent className="flex max-h-[85dvh] flex-col overflow-hidden sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Import {spec.label.toLowerCase()}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
           <p className="text-sm text-muted-foreground">{spec.description}</p>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => downloadCsv(`stinventory-${entity}-template`, templateRows(entity))}
+              onClick={() => downloadCsv(`optix-${entity}-template`, templateRows(entity))}
             >
               <Download className="size-4" aria-hidden />
               Download template

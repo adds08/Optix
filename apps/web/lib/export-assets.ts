@@ -1,4 +1,4 @@
-import { IMPORT_SPECS } from "@stinventory/types";
+import { IMPORT_SPECS } from "@optix/types";
 
 /*
   The register export that round-trips.

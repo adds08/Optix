@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { CategorySelect } from "@/components/category-select";
 import { PhotoUpload } from "@/components/photo-upload";
 import { EntityField } from "@/components/ui/entity-picker";
@@ -87,7 +88,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
       if (edit) {
         /* Nulls rather than undefined: clearing a serial has to persist as
            empty, and `undefined` would leave the old value in place. */
-        await utils.client.asset.update.mutate({
+        await utils.client.smallTool.update.mutate({
           id: edit.id,
           code,
           make: make || null,
@@ -104,9 +105,9 @@ export function AssetForm({ open, onClose, edit }: Props) {
           owningDepartmentId: costTarget === "department" ? owningDepartmentId || null : null,
           condition,
         });
-        utils.asset.get.invalidate({ id: edit.id });
+        utils.smallTool.get.invalidate({ id: edit.id });
       } else {
-        await utils.client.asset.create.mutate({
+        await utils.client.smallTool.create.mutate({
           code: code || undefined,
           make: make || undefined,
           modelNumber: modelNumber || undefined,
@@ -124,7 +125,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
           locationId: locationId || undefined,
         });
       }
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.kpis.invalidate();
       onClose();
     } catch (err) {
@@ -141,23 +142,28 @@ export function AssetForm({ open, onClose, edit }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Tag</label>
-            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. UIC-2001" />
+            {/* "Code", not "Tag" — `tag` was renamed to `code` on 2026-09-07 and
+                this label was never updated. Worse, the SERIAL field below was
+                labelled "Code", so somebody filling in the box marked Code was
+                writing the manufacturer's serial into it. Two identifiers, two
+                labels, each naming the field it actually writes. */}
+            <Label htmlFor="asset-code">Code</Label>
+            <Input id="asset-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. TOOL-00001" />
             <p className="text-xs text-muted-foreground">
-              The label physically on the tool. Leave blank until it has one — an untagged tool is a normal state.
+              Urban's own identifier for this tool. Leave blank to have one generated — an uncoded tool is a normal state.
             </p>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Make</label>
-            <Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="e.g. Bosch" />
+            <Label htmlFor="asset-make">Make</Label>
+            <Input id="asset-make" value={make} onChange={(e) => setMake(e.target.value)} placeholder="e.g. Bosch" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Model number</label>
-            <Input value={modelNumber} onChange={(e) => setModelNumber(e.target.value)} placeholder="e.g. 11255VSR" />
+            <Label htmlFor="asset-model">Model number</Label>
+            <Input id="asset-model" value={modelNumber} onChange={(e) => setModelNumber(e.target.value)} placeholder="e.g. 11255VSR" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Description *</label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Rotary Hammer" />
+            <Label htmlFor="asset-description">Description *</Label>
+            <Input id="asset-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Rotary Hammer" />
             <p className="text-xs text-muted-foreground">
               What the tool is. A make or a description is required — the model number is always optional.
             </p>
@@ -167,19 +173,19 @@ export function AssetForm({ open, onClose, edit }: Props) {
               if the form is abandoned. */}
           {edit?.id ? (
             <div className="space-y-2">
-              <label className="text-sm font-medium">Photo</label>
+              <Label>Photo</Label>
               <PhotoUpload assetId={edit.id} photoKey={photoKey} onChange={setPhotoKey} />
             </div>
           ) : null}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Category</label>
+            <Label>Category</Label>
             <CategorySelect value={categoryName} onChange={setCategoryName} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Code</label>
-              <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
-              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Label htmlFor="asset-serial">Serial number</Label>
+              <Input id="asset-serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="the manufacturer's" />
+              <Label className="gap-1.5 text-xs font-normal text-muted-foreground">
                 <input
                   type="checkbox"
                   checked={isManualCode}
@@ -187,25 +193,25 @@ export function AssetForm({ open, onClose, edit }: Props) {
                   className="size-3.5"
                 />
                 Entered by hand, not a scanned serial
-              </label>
+              </Label>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Quantity</label>
-              <Input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} min={1} />
+              <Label htmlFor="asset-quantity">Quantity</Label>
+              <Input id="asset-quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} min={1} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Acquisition cost</label>
-              <Input value={acquisitionCost} onChange={(e) => setAcquisitionCost(e.target.value)} placeholder="0.00" />
+              <Label htmlFor="asset-cost">Acquisition cost</Label>
+              <Input id="asset-cost" value={acquisitionCost} onChange={(e) => setAcquisitionCost(e.target.value)} placeholder="0.00" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Acquisition date</label>
-              <Input type="date" value={acquisitionDate} onChange={(e) => setAcquisitionDate(e.target.value)} />
+              <Label htmlFor="asset-acq-date">Acquisition date</Label>
+              <Input id="asset-acq-date" type="date" value={acquisitionDate} onChange={(e) => setAcquisitionDate(e.target.value)} />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Charged to</label>
+            <Label>Charged to</Label>
             {/* A form field: whichever target is selected decides which
                 EntityField renders below AND which id reaches submit — the
                 same state drives both, and ToggleGroup type=single writes it
@@ -245,7 +251,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
             )}
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Condition</label>
+            <Label>Condition</Label>
             <EntityField
               value={condition}
               onChange={setCondition}
@@ -263,7 +269,7 @@ export function AssetForm({ open, onClose, edit }: Props) {
               the ledger — use Assign, Transfer or Return to move it. */}
           {edit ? null : (
             <div className="space-y-2">
-              <label className="text-sm font-medium">Location</label>
+              <Label>Location</Label>
               <EntityField
                 value={locationId}
                 onChange={setLocationId}

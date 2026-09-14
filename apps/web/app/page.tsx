@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowRight, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { login, getSession, setSession } from "@/lib/auth";
 import { LAND_ON_PIN } from "@/components/sti/nav-pins";
 import { Button } from "@/components/ui/button";
@@ -13,54 +13,6 @@ import { AuthSlideshow } from "@/components/auth-slideshow";
 import { OptixLockup } from "@/components/optix-mark";
 import { DUR, EASE } from "@/lib/motion";
 
-/*
-  The demo affordances are opt-in, and off unless a build says otherwise.
-
-  This page used to pre-fill a working account and print the shared password
-  underneath the form. That is exactly right on a laptop and indefensible on a
-  public host: it advertises every valid address and their shared password to anyone
-  who loads the page, and it breaks the moment those accounts are disabled —
-  which is the first thing a real deployment does.
-
-  Local development sets NEXT_PUBLIC_SHOW_DEMO_LOGINS=1 and loses nothing.
-
-  IT IS ALSO DATASET-SPECIFIC, which the flag's name does not say. The accounts
-  below exist only in the demo FIXTURE (`make seed-demo`). Load Urban's real
-  register (`make seed-urban`) and the database holds two administrators and no
-  `*.local` address at all — so every button here names an account that is not
-  there and fails on click. `.env.local` therefore ships it OFF, and the two
-  make targets set it to match the dataset they load.
-
-  Everyone else joins through an invite from a person's row on /people, which
-  sets their role as it sends and lands in Mailpit locally. That is the real
-  path onto this screen; this list is a fixture convenience.
-*/
-const SHOW_DEMO = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGINS === "1";
-
-/*
-  One entry per role since STI-304. It was three — all of which see everything —
-  which is why every journey this product was ever demonstrated on was driven by
-  an account that could not be refused anything.
-
-  Ordered widest-visibility first, so the three that differ from each other are
-  adjacent: signing in as `pm` and then `super` is the fastest way to see the
-  visibility ladder actually do something.
-*/
-const DEMO = [
-  { email: "owner@stinventory.local", who: "System Administrator — everything" },
-  { email: "admin@stinventory.local", who: "Karen Osei — Equipment Administrator" },
-  { email: "office@stinventory.local", who: "Lena Boyd — Office Admin, no custody" },
-  { email: "warehouse@stinventory.local", who: "Yard Desk — Warehouse" },
-  { email: "pm@stinventory.local", who: "Dana Whitmore — PM, Lone Star only" },
-  { email: "engineer@stinventory.local", who: "Priya Raman — Engineer, DART only" },
-  { email: "super@stinventory.local", who: "Marcus Whitfield — Super, his crew" },
-  { email: "foreman@stinventory.local", who: "Alejandro Capuchino — his own tools" },
-  { email: "mechanic@stinventory.local", who: "Ruben Ortiz — Mechanic, the shop" },
-  { email: "hr@stinventory.local", who: "Tomas Reyes — HR, people not tools" },
-  { email: "finance@stinventory.local", who: "Grace Lin — Finance" },
-  { email: "procurement@stinventory.local", who: "Nadia Kerr — Procurement" },
-  { email: "readonly@stinventory.local", who: "Read-only" },
-];
 
 /*
   One rise, staggered by position down the column.
@@ -100,8 +52,8 @@ function armPinLanding() {
 export default function LoginPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [email, setEmail] = useState(SHOW_DEMO ? "admin@stinventory.local" : "");
-  const [password, setPassword] = useState(SHOW_DEMO ? "stinventory-demo" : "");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -257,36 +209,6 @@ export default function LoginPage() {
             </Button>
           </motion.form>
 
-          {SHOW_DEMO ? (
-            /* Collapsed by default. Thirteen accounts is the right number to
-               have and the wrong number to look at — open it once, sign in,
-               and the sign-in screen goes back to being a sign-in screen. */
-            <motion.details className="group rounded-md border bg-muted/40 px-3 py-2.5" {...rise(3)}>
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-                <span className="label-xs">Demo accounts</span>
-                <ChevronRight
-                  aria-hidden
-                  className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-90"
-                />
-              </summary>
-              <p className="mt-1.5 text-[0.7rem] text-muted-foreground">
-                Every one of them: <span className="font-mono">stinventory-demo</span>
-              </p>
-              <div className="mt-2 flex flex-col gap-0.5">
-                {DEMO.map((d) => (
-                  <button
-                    key={d.email}
-                    type="button"
-                    onClick={() => { setEmail(d.email); setPassword("stinventory-demo"); }}
-                    className="rounded-sm px-1.5 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <span className="font-mono">{d.email}</span>
-                    <span className="block text-[0.7rem] opacity-80">{d.who}</span>
-                  </button>
-                ))}
-              </div>
-            </motion.details>
-          ) : null}
         </div>
       </div>
     </main>

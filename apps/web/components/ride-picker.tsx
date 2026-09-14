@@ -37,7 +37,7 @@ export function RidePicker({
   onTruck: (id: string) => void;
   onTrailer: (id: string) => void;
 }) {
-  const vehicles = trpc.vehicle.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
   const trucks = vehicles.data?.filter((v) => v.vehicleType === "truck") ?? [];
   const trailers = vehicles.data?.filter((v) => v.vehicleType === "trailer") ?? [];
 

@@ -5,7 +5,7 @@ import { equipmentIcon } from "@/lib/equipment-icon";
 import Link from "next/link";
 import { ArrowLeft, Truck, Wrench } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { Tag, humanize } from "@/components/sti/status";
@@ -26,8 +26,8 @@ const GPS_LABEL: Record<string, string> = { online: "Online", offline: "Offline"
 */
 export default function EquipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const vehicles = trpc.vehicle.list.useQuery();
-  const assets = trpc.asset.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
+  const assets = trpc.smallTool.list.useQuery();
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
 
@@ -92,7 +92,6 @@ export default function EquipmentDetailPage({ params }: { params: Promise<{ id: 
           edit={
             {
               id: v.id,
-              unit: v.unit,
               vehicleType: v.vehicleType,
               equipmentClass: v.equipmentClass,
               vin: v.vin,

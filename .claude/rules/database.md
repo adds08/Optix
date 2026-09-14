@@ -102,11 +102,13 @@ to repair what that gap left behind:
 - `0020` — the four `assets.view.*` scopes. Without it every user saw an empty register,
   because `viewTierOf` resolves an actor holding no scope to "none", which is empty and not
   unscoped.
-- `0025` — `user.manage`. Without it `/admin/users` was gated on a permission nobody held,
-  the owner account included.
+- `0025` — `user.manage`. Without it the user-account screen was gated on a permission
+  nobody held, the owner account included. (That screen was `/admin/users`, deleted
+  2026-08-28; account administration now lives on the person's row in `/people`.)
 - `0038` — the four project-team permissions, still ungranted because 0020's own
   owner/equipment_admin backfill covered only the `assets.view.*` scopes; **and** the
-  retired `rental.*` grants, which deadlocked `/admin/roles` outright (`role.list` returned
+  retired `rental.*` grants, which deadlocked the roles screen outright — then
+  `/admin/roles`, now `/settings/roles` (`role.list` returned
   a name `permissionEnum` no longer accepts, so every Save failed with a Zod error the
   formatter renders as a generic message).
 
@@ -117,16 +119,31 @@ exactly the database that was never broken. Write the grant as a
 `SELECT ... FROM tbl_entity_permission` where the source of truth is a spread, so the
 statement says the same thing the code says instead of naming that day's list.
 
-## The database enforces less than you think
+## What the database does and does not enforce
 
-- **One exception — the ledger is append-only by trigger.** `0014_append_only_ledger.sql`
+- **The ledger is append-only by trigger.** `0014_append_only_ledger.sql`
   (STI-104) blocks UPDATE, DELETE and TRUNCATE on `transaction` with SQLSTATE `0A000`.
   Corrections are compensating INSERTs. It is a correctness guard, not a security
-  boundary — the owner can `DISABLE TRIGGER`, which is exactly what the seed's
-  `SEED_RESET` wipe does around its deletes.
-- **Enums are not Postgres enums.** Every status/type column is plain `text`; the vocabularies
-  live in `packages/types`. The database will *not* stop you writing a value you forgot to
-  add. Validate at the router edge with Zod, and use `z.enum(...)` rather than `z.string()`.
+  boundary — the owner can `DISABLE TRIGGER`, which is exactly what
+  `sql/empty-register.sql` does around its deletes, re-arming it in the same
+  transaction.
+- **Enums are not Postgres enums — they are `text` with a CHECK.** Every status/type column
+  is still plain `text` and the vocabularies still live in `packages/types`. Since migrations
+  `0072`/`0073` (2026-09-14), **23 of them carry a CHECK constraint** naming their values, so
+  the database *will* reject a value you forgot to add — as a raw `23514`, not a readable
+  error. Before those two migrations the schema had ZERO check constraints, which is what
+  this bullet used to say.
+
+  Validate at the router edge with Zod anyway — `z.enum(...)`, never `z.string()`. The CHECK
+  is the floor under writers that never pass an edge (an import, a worker, a fixture
+  inserting directly, a hand-run UPDATE), not a replacement for the edge, and only the edge
+  produces an error a person can read.
+
+  Three columns are deliberately NOT constrained, each for a reason spelled out in `0072`'s
+  header: `project_team_member.role` (tenant-created tiers — a CHECK would make adding one
+  need a migration and destroy the feature), `employee.role` (legacy and abandoned; known to
+  hold values outside its own nominal list) and `event_log.source` (a rejected audit insert
+  would abort the business transaction that triggered it).
 - **`assignment.truck_id`/`trailer_id` are type-checked by composite FKs** (STI-202,
   migration `0016`): `(truck_id, truck_kind)` references `UNIQUE vehicle(id, vehicle_type)`
   where `truck_kind` is a generated constant `'truck'` (likewise trailer) — a plain FK cannot
@@ -152,114 +169,72 @@ statement says the same thing the code says instead of naming that day's list.
   `asset.serial_number`, `channel.slug`, `vehicle.location_id`,
   `tenant_settings.tenant_id`.
 
-## The seed
+## Provisioning (there is no seed)
 
-`SEED_RESET=1` wipes first. The seed refuses to run with `NODE_ENV=production` unless
-`SEED_ALLOW_PRODUCTION=1` — and the reason is no longer only the demo passwords: a reset
-deletes every tenant, employee, vehicle, asset and ledger row, and **disables the ledger's
-append-only trigger to do it**.
+The seed was **deleted on 2026-09-13**. It invented business data and that data
+became the thing everyone reasoned from: tool codes Urban never had (their
+sheets carry no tool-ID column, so every `TOOL-0001` was minted at seed time),
+31 of 88 vehicles loaded with the other 57 dropped silently, and a project list
+with eight jobs called "Job 24002". Data that is approximately right is worse
+than an empty register, because nothing on screen says which rows to trust.
 
-### There are THREE datasets, and one of them is a test fixture
+**`make provision` replaces it, and is not the same kind of thing.** It writes
+the authority model and nothing else:
 
-`seed.ts` chooses on `SEED_DATASET`, and which one you are looking at changes what a
-"wrong" number means:
+| Writes | From |
+|---|---|
+| tenant | `TENANT_NAME` / `TENANT_SLUG`, defaulting to Urban |
+| permissions | `PERMISSIONS` (`packages/types`) |
+| roles + grants | `roleSpecs` + `ROLE_PERMS` |
+| job tiers + "Set by" edges | `teamRoleSpecs` |
+| categories, UoM, departments | `tenant-config.ts` |
+| two logins | `tech@optixtec.com` (tech_admin), `optix_it@optixtec.com` (owner) |
 
-| Dataset | File | What it is |
-|---|---|---|
-| default | `seed-data.ts` | The **test fixture**. Synthetic people and tools engineered so every permission tier, status and UI state is reachable from a clean database. Keeps the shared `stinventory-demo` password. |
-| `SEED_DATASET=urban` | `seed-data.urban.ts` | Urban Infraconstruction's **real register**, generated from `docs/data/import/*.csv`. One owner account, password from `SEED_OWNER_PASSWORD` or printed once. |
-| `SEED_DATASET=bare` | `seed-data.bare.ts` | An **empty tenant** (2026-09-10): the vocabularies, the permission matrix and ONE owner login. No people, tools, jobs or vehicles at all. For a deployment where **BambooHR is the source of the roster** — a seeded person there is an invented row standing between a real sync and an honest answer about what it did. Takes a real credential, same rule as urban. `make seed-bare`. |
+No employees, jobs, tools, vehicles or custody. Those come from the importers
+(`docs/import/README.md`) and the BambooHR sync.
 
-**Do not "fix" the fixture by replacing it with real data.** That was tried on 2026-09-01
-and turned CI red in a way that is easy to miss: `rbac-matrix.test.ts` proves the
-visibility ladder narrows by signing in as one account per role and asserting a PM and a
-superintendent see *deliberately different* tool sets. Real staff are whoever the
-spreadsheets say, so five of its tests stopped being runnable — and a security test that
-cannot run is worse than one that fails, because nothing measures the permission system
-while it is gone. The fixture's synthetic accounts and relationships ARE the test's
-apparatus.
+Idempotent: every write is `onConflictDoNothing` or an existence check, it never
+deletes, and it never changes an existing account's password. `make reset` runs
+it after migrating, so a wiped database is immediately usable.
 
-Two consequences worth knowing before editing `seed.ts`:
+`packages/db/src/tenant-config.ts` is the input — the vocabularies and the
+authority model, which is configuration rather than data. The Urban tier ladder
+in it came from the client on 2026-09-09; **the 18 roles did not** — they were
+assumed by the seed's author and are a candidate for redefinition with the
+client.
 
-- **The fixture's password is load-bearing.** The login page offers one-click demo
-  accounts using `stinventory-demo`, and browser checking signs in with it. Only the
-  urban dataset takes a real credential. (`e2e/roles.ts` also declared it until the
-  browser suite was deleted on 2026-09-10; `docs/SETUP.md` is the account list now.)
-- **Fixtures inside `seed.ts` have been silently required.** The personal-allowance truck,
-  the company truck, the desk approval queue and the whole messages-and-tasks block all used
-  non-null assertions on demo-only lookups, so any dataset without them killed the whole
-  seed; all are now guarded and skip. If you add a fixture, guard it, or the next real
-  dataset dies on it.
-- **`db.insert(x).values([])` THROWS** — "values() must be called with at least one value" —
-  it is not the no-op the call site reads as. Every dataset-driven insert is therefore a
-  landmine the moment a dataset is legitimately empty, which the bare one is. Use the
-  `insertRows` helper at the top of `seed.ts` (returns `[]` so downstream `.map` and
-  `Object.fromEntries` lookups keep working), or an `if (specs.length)` guard for a
-  fire-and-forget insert. Found only by RUNNING the bare seed; nothing in the types says it.
-- **A seed log line must count what it wrote, not what it expected to write.** One said
-  "+ 2 synthetic trucks" unconditionally, on a dataset that seeded no vehicles at all. Same
-  class of problem as the `created: 0` scar in the Bamboo sync: a report that misinforms
-  the person who ran it is worse than a crash.
+### Permission changes still need a migration
 
-**Run `make seed-demo` before the test suite.** The datasets are not
-interchangeable at test time: against `SEED_DATASET=urban`, `rbac-matrix.test.ts`
-fails with `seeded account missing: hr@stinventory.local` and takes four other
-tests with it. That is the test being RIGHT about the database it was handed —
-its apparatus is the fixture's synthetic accounts. `make seed-urban` and
-`make seed-demo` exist so switching is one command and the choice is explicit.
+Unchanged by any of the above, and it has cost three tickets. `permission`,
+`role` and `role_permission` are written by provisioning, which only fills gaps —
+so an edit to `PERMISSIONS` or `role-perms.ts` reaches a fresh database and **no
+live one**. `role-perms.ts` grants `owner` and `equipment_admin`
+`[...PERMISSIONS]`, and a spread is evaluated when it runs: it does not mean
+"always everything", it means "everything as of the day this database was
+provisioned".
 
-(Both targets forward `SEED_RESET`/`SEED_DATASET` explicitly. `docker compose
-exec` does not inherit the caller's environment, so `SEED_RESET=1 make seed`
-silently seeded NOTHING before 2026-09-07 — the seed saw no variable, found a
-tenant, and skipped, while printing enough output to look like it had run.)
+Migrations `0020`, `0025` and `0038` exist only to repair that gap on Urban's
+production database. **Adding a permission means a migration granting it;
+retiring one means a migration deleting its rows.** The tests will not catch
+you — `rbac-matrix.test.ts` builds its own tenant from the current constants,
+which is exactly the database that was never broken. Write the grant as a
+`SELECT ... FROM tbl_entity_permission` so the statement says what the code says
+rather than naming that day's list.
 
-**`build_seed_data.py` is NOT a safe re-run — it DELETES roster rows.** Running it
-on 2026-09-07 cut `teamSpecs` from 48 rows to 26, silently: the generator emits only
-what it can derive from `docs/data/import/*.csv`, and the other 22 foreman-to-project
-rows (with their `reportsTo` chain) were added afterwards and exist nowhere in the
-CSVs. Its own summary line says `team 26` and looks like success. It also drops any
-account hand-added to `userSpecs`.
+### The ledger trigger
 
-So: do NOT regenerate to pick up a schema rename or to "refresh" the data. Edit
-`seed-data.urban.ts` directly for anything the CSVs do not carry, and only run the
-generator when the CSVs themselves have genuinely changed — then diff the result and
-re-add what it dropped. `git diff --stat` on that file is the check: a one-line
-change is an edit, an 88-line change is data loss.
-
-The generated file is regenerated by `docs/data/build_seed_data.py`, which rewrites only
-the data blocks. `generate_app_seed.py` is **stale in shape** — it emits a `costCenter`
-field `ProjectSeed` no longer has and omits four exports `seed.ts` imports. Don't run it.
-
-Since STI-108 the seed emits a **complete `to_state`** (the four core keys, plus explicit
-`truckId`/`trailerId` since STI-202 — `truckId` null on every source row because the sheets
-carry no trucks; **two** clearly-synthetic seed trucks exist solely so the truck path is
-reachable — one `company_owned`, one `personal_allowance` so the company-vs-personal
-marker is reachable too; see their `vehSpecs` comments) on every ledger event,
-derived from the same `assetSpecs` entry that sets `asset.current_*` — so a fresh database
-folds to its own projection by construction, `asset.rebuild` actually rebuilds, and
-`asset.verifyProjection` reports zero divergences. (Before STI-108 every seeded row carried
-`to_state: null`, the fold was a no-op, and the boot sweep raised one `custody_discrepancy`
-per asset. Migration 0013 repaired that once, but its `NOT EXISTS` guard never re-runs — the
-seed is what keeps it fixed across resets.) If you add seeded events, snapshot every key
-with explicit nulls — the four core keys plus `truckId`/`trailerId`; a missing core key is
-not "unchanged", it is blanked on the next rebuild, and a missing truck/trailer key folds to
-"not recorded" rather than "none" (see the shape-boundary rule in
-`packages/domain/src/fold.ts`) — and never emit `projection_baseline`, which exists only to
-compensate for pre-snapshot history.
-
-The seed also has to **reach the rules it gates** (CLAUDE.md behaviour rule 8): some assets
-carry an `acquisition_cost` at, just below, and above the tenant's `highValueThreshold`
-(including one at exactly the threshold, because the rule is `>=`), most stay null (imported
-rows routinely have no price; null counts as 0), and one pending assignment plus one pending
-transfer keep the desk approval queue non-empty on a clean reset. See `SEED_COSTS` and the
-desk-queue block in `src/seed.ts`.
+`0014_append_only_ledger.sql` blocks UPDATE/DELETE/TRUNCATE on `transaction`
+with SQLSTATE `0A000`. `packages/db/sql/empty-register.sql` disables it around
+its deletes and re-arms it — that is the one sanctioned exception, and the
+script is the only thing that does it now the seed's wipe is gone.
 
 ## Conventions
 
 - **`code` vs `external_id` — one word for one idea.** A **`code`** is the
   COMPANY's own identifier: Urban assigns it, and the same value means the same
-  thing in every system they run (`employee.code` = `URB-001`,
-  `project.code` = `22018`, `asset.code` = `TOOL-0001`, `vehicle.code`). An
+  thing in every system they run (`employee.code` — whatever Urban's badge says,
+  never generated and carrying no prefix; `project.code` = `22018`;
+  `asset.code` = `TOOL-00001`; `vehicle.code` = `TRK-034`). An
   **`external_id`** is a FOREIGN system's primary key — BambooHR's `4471` — and
   it never lives on the entity: it goes in an external-ref child table
   (`tbl_entity_employee_external_ref`), because one column holds exactly one far

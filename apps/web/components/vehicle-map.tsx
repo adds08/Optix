@@ -7,7 +7,7 @@ import {
   VEHICLE_STATUS_VAR,
   VEHICLE_STATUS_LABEL,
 } from "@/components/fleet-map-view";
-import type { VehicleStatus } from "@stinventory/types";
+import type { VehicleStatus } from "@optix/types";
 
 /*
   Where the fleet is, right now.
@@ -19,7 +19,7 @@ import type { VehicleStatus } from "@stinventory/types";
   whole problem. A vehicle with no fix is listed here, never dropped silently.
 */
 export function VehicleMap() {
-  const vehicles = trpc.vehicle.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
 
   const rows = vehicles.data ?? [];
   const tracked = rows.filter((v) => v.gpsLat && v.gpsLng);

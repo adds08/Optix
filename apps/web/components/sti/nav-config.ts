@@ -1,5 +1,5 @@
-import type { Permission } from "@stinventory/types";
-import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, UserCheck, Users, UsersRound, Wrench, PlugZap } from "lucide-react";
+import type { Permission } from "@optix/types";
+import { Activity, BarChart3, Boxes, Building2, Cpu, HardHat, IdCard, Inbox, LayoutDashboard, LayoutGrid, MessageSquare, Network, Palette, Radio, Settings, ShieldCheck, SlidersHorizontal, Truck, UserCheck, Users, UsersRound, Wrench, PlugZap } from "lucide-react";
 
 export type NavItem = {
   /*
@@ -107,7 +107,7 @@ const SETTINGS_GROUP: NavGroup = {
        its people sign in at all — and `/people` shows each person's account
        state in its own column. Inviting, resetting, deactivating and resending
        all live on the person's row menu. Don't add this back. */
-    { id: "roles-permissions", href: "/admin/roles", label: "Access Roles", icon: ShieldCheck, perm: "config.manage", desc: "What a signed-in account may see and do" },
+    { id: "roles-permissions", href: "/settings/roles", label: "Access Roles", icon: ShieldCheck, perm: "config.manage", desc: "What a signed-in account may see and do" },
     /* Distinct from "Roles & Permissions" above: that gates what an ACCOUNT
        may do, this defines the tiers a PERSON can hold on a project team —
        pm/superintendent/foreman today, whatever an organization adds
@@ -121,6 +121,15 @@ const SETTINGS_GROUP: NavGroup = {
        config a tenant sets up once, not daily work; what changed is that the
        labels now say which is which. */
     { id: "team-roles", href: "/settings/team-roles", label: "Job Tiers", icon: HardHat, perm: "project.team.manage", desc: "The tiers a person can hold on a job — foreman, PM, superintendent" },
+    /* The third of the trio, and the bridge between the other two: HR's job
+       title decides which "Access Role" a synced person arrives with. Added
+       2026-09-14 with `company_role.default_role_id` — before it the sync
+       recorded a person's title and never set their role, so everybody it
+       created arrived able to do nothing and was fixed by hand.
+
+       `employee.manage`, not `config.manage`: deciding what a Carpenter may do
+       is a roster call, made by whoever runs the people register. */
+    { id: "job-titles", href: "/settings/job-titles", label: "Job Titles", icon: IdCard, perm: "employee.manage", desc: "Which role somebody gets when HR gives them a title" },
   ],
 };
 
@@ -272,7 +281,7 @@ export const DESK_NAV: NavGroup[] = [
   as "the LAST role-name branch in the product" and "wrong by construction —
   a set of role names has to be edited every time a role is added". It was
   worse than that comment admitted. `tbl_entity_role.uses_field_layout` already
-  existed, was already editable at /admin/roles and was already written by
+  existed, was already editable at /settings/roles and was already written by
   `role.update` — but never reached any client, so the toggle an administrator
   flipped did NOTHING, and a role a tenant created could never get the field
   layout at all.

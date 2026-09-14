@@ -1,13 +1,13 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { and, eq, isNull } from "drizzle-orm";
-import { createDb, schema, roleSpecs, ROLE_PERMS, teamRoleSpecs } from "@stinventory/db";
-import { generateAuthToken, hashAuthToken, resolveSession } from "@stinventory/auth";
-import { PERMISSIONS, type Permission } from "@stinventory/types";
+import { createDb, schema, roleSpecs, ROLE_PERMS, teamRoleSpecs } from "@optix/db";
+import { generateAuthToken, hashAuthToken, resolveSession } from "@optix/auth";
+import { PERMISSIONS, type Permission } from "@optix/types";
 import { appRouter } from "./index";
 import type { Context } from "./trpc";
 
 // Exercise the real routers and database, with no external mail delivery.
-vi.mock("@stinventory/mail", async (original) => ({ ...await original<any>(), sendMail: vi.fn(async () => ({ ok: true })) }));
+vi.mock("@optix/mail", async (original) => ({ ...await original<any>(), sendMail: vi.fn(async () => ({ ok: true })) }));
 
 describe.skipIf(!process.env.DATABASE_URL)("invited people retain identity, crew and access boundaries", () => {
   let db: ReturnType<typeof createDb>, tenantId: string, adminId: string;
@@ -77,19 +77,19 @@ describe.skipIf(!process.env.DATABASE_URL)("invited people retain identity, crew
     const p = await person();
     const [project] = await db.insert(schema.project).values({ tenantId, name: "Retained job", status: "in_progress", startDate: "2026-09-11" }).returning();
     await admin().projectTeam.assign({ projectId: project!.id, employeeId: p.employee.id, role: "superintendent" });
-    const [asset] = await db.insert(schema.asset).values({ tenantId }).returning();
+    const [asset] = await db.insert(schema.smallTool).values({ tenantId }).returning();
     await admin().assignment.create({ assetId: asset!.id, custodianId: p.employee.id, projectId: project!.id });
     const before = await db.select().from(schema.projectTeamMember).where(eq(schema.projectTeamMember.employeeId, p.employee.id));
     const custody = await db.select().from(schema.assignment).where(eq(schema.assignment.assetId, asset!.id));
     const ledger = await db.select().from(schema.transaction).where(eq(schema.transaction.assetId, asset!.id));
-    const projection = await db.query.asset.findFirst({ where: eq(schema.asset.id, asset!.id) });
+    const projection = await db.query.smallTool.findFirst({ where: eq(schema.smallTool.id, asset!.id) });
     await admin().employee.delete({ id: p.employee.id });
     expect(await db.query.employee.findFirst({ where: eq(schema.employee.id, p.employee.id) })).toMatchObject({ id: p.employee.id, employmentStatus: "inactive" });
     expect(await db.query.user.findFirst({ where: eq(schema.user.id, p.user.id) })).toMatchObject({ employeeId: p.employee.id, isActive: false });
     expect(await db.select().from(schema.projectTeamMember).where(eq(schema.projectTeamMember.employeeId, p.employee.id))).toEqual(before);
     expect(await db.select().from(schema.assignment).where(eq(schema.assignment.assetId, asset!.id))).toEqual(custody);
     expect(await db.select().from(schema.transaction).where(eq(schema.transaction.assetId, asset!.id))).toEqual(ledger);
-    expect(await db.query.asset.findFirst({ where: eq(schema.asset.id, asset!.id) })).toEqual(projection);
+    expect(await db.query.smallTool.findFirst({ where: eq(schema.smallTool.id, asset!.id) })).toEqual(projection);
     await admin().employee.update({ id: p.employee.id, employmentStatus: "active" });
     await admin().user.setActive({ userId: p.user.id, isActive: true });
     expect(await db.query.employee.findFirst({ where: eq(schema.employee.id, p.employee.id) })).toMatchObject({ id: p.employee.id, employmentStatus: "active" });

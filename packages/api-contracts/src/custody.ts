@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
-import type { Database, Transaction } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
+import type { Database, Transaction } from "@optix/db";
+import * as schema from "@optix/db/schema";
 
 /*
   The one place a custody link opens or closes.
@@ -69,9 +69,9 @@ export async function closeActiveCustody(
      exists even when no assignment does; the active rows alone cannot
      serialise the case where there is nothing to close yet. */
   await tx
-    .select({ id: schema.asset.id })
-    .from(schema.asset)
-    .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)))
+    .select({ id: schema.smallTool.id })
+    .from(schema.smallTool)
+    .where(and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, tenantId)))
     .for("update");
 
   const activeLinks = and(
@@ -123,15 +123,15 @@ export async function assertVehicleContext(
   trailerId: string | null | undefined,
 ): Promise<void> {
   const check = async (id: string, wanted: "truck" | "trailer") => {
-    const v = await db.query.vehicle.findFirst({
-      where: and(eq(schema.vehicle.id, id), eq(schema.vehicle.tenantId, tenantId)),
-      columns: { unit: true, vehicleType: true },
+    const v = await db.query.equipment.findFirst({
+      where: and(eq(schema.equipment.id, id), eq(schema.equipment.tenantId, tenantId)),
+      columns: { code: true, vehicleType: true },
     });
     if (!v) throw new TRPCError({ code: "NOT_FOUND", message: `No such ${wanted} in this tenant.` });
     if (v.vehicleType !== wanted) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: `${v.unit} is a ${v.vehicleType}, not a ${wanted}. Pick it in the ${v.vehicleType} slot instead.`,
+        message: `${v.code} is a ${v.vehicleType}, not a ${wanted}. Pick it in the ${v.vehicleType} slot instead.`,
       });
     }
   };

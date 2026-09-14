@@ -1,7 +1,7 @@
 import { and, eq, ilike, ne, or } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
-import { formatAssetModel, type MentionKind } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { formatAssetModel, type MentionKind } from "@optix/types";
 import { protectedProcedure, router } from "../trpc.js";
 
 export const entityRouter = router({
@@ -22,22 +22,22 @@ export const entityRouter = router({
       if (input.kind === "asset") {
         const rows = await ctx.db
           .select({
-            id: schema.asset.id,
-            label: schema.asset.code,
-            make: schema.asset.make,
-            modelNumber: schema.asset.modelNumber,
-            description: schema.asset.description,
+            id: schema.smallTool.id,
+            label: schema.smallTool.code,
+            make: schema.smallTool.make,
+            modelNumber: schema.smallTool.modelNumber,
+            description: schema.smallTool.description,
           })
-          .from(schema.asset)
+          .from(schema.smallTool)
           .where(
             and(
-              eq(schema.asset.tenantId, tid),
+              eq(schema.smallTool.tenantId, tid),
               or(
-                ilike(schema.asset.code, q),
-                ilike(schema.asset.make, q),
-                ilike(schema.asset.modelNumber, q),
-                ilike(schema.asset.description, q),
-                ilike(schema.asset.serialNumber, q),
+                ilike(schema.smallTool.code, q),
+                ilike(schema.smallTool.make, q),
+                ilike(schema.smallTool.modelNumber, q),
+                ilike(schema.smallTool.description, q),
+                ilike(schema.smallTool.serialNumber, q),
               ),
             ),
           )
@@ -104,15 +104,15 @@ export const entityRouter = router({
       if (input.kind === "vehicle") {
         const rows = await ctx.db
           .select({
-            id: schema.vehicle.id,
-            label: schema.vehicle.unit,
-            subtitle: schema.vehicle.makeModel,
+            id: schema.equipment.id,
+            label: schema.equipment.code,
+            subtitle: schema.equipment.makeModel,
           })
-          .from(schema.vehicle)
+          .from(schema.equipment)
           .where(
             and(
-              eq(schema.vehicle.tenantId, tid),
-              or(ilike(schema.vehicle.unit, q), ilike(schema.vehicle.makeModel, q)),
+              eq(schema.equipment.tenantId, tid),
+              or(ilike(schema.equipment.code, q), ilike(schema.equipment.makeModel, q)),
             ),
           )
           .limit(limit);
@@ -149,25 +149,25 @@ export const entityRouter = router({
       const [assets, employees, projects, locations, vehicles] = await Promise.all([
         ctx.db
           .select({
-            id: schema.asset.id,
-            label: schema.asset.code,
-            make: schema.asset.make,
-            modelNumber: schema.asset.modelNumber,
-            description: schema.asset.description,
-            status: schema.asset.currentStatus,
+            id: schema.smallTool.id,
+            label: schema.smallTool.code,
+            make: schema.smallTool.make,
+            modelNumber: schema.smallTool.modelNumber,
+            description: schema.smallTool.description,
+            status: schema.smallTool.currentStatus,
             custodianName: schema.employee.name,
           })
-          .from(schema.asset)
-          .leftJoin(schema.employee, eq(schema.asset.currentCustodianId, schema.employee.id))
+          .from(schema.smallTool)
+          .leftJoin(schema.employee, eq(schema.smallTool.currentCustodianId, schema.employee.id))
           .where(
             and(
-              eq(schema.asset.tenantId, tid),
+              eq(schema.smallTool.tenantId, tid),
               or(
-                ilike(schema.asset.code, q),
-                ilike(schema.asset.make, q),
-                ilike(schema.asset.modelNumber, q),
-                ilike(schema.asset.description, q),
-                ilike(schema.asset.serialNumber, q),
+                ilike(schema.smallTool.code, q),
+                ilike(schema.smallTool.make, q),
+                ilike(schema.smallTool.modelNumber, q),
+                ilike(schema.smallTool.description, q),
+                ilike(schema.smallTool.serialNumber, q),
               ),
             ),
           )
@@ -227,17 +227,17 @@ export const entityRouter = router({
 
         ctx.db
           .select({
-            id: schema.vehicle.id,
-            locationId: schema.vehicle.locationId,
-            label: schema.vehicle.unit,
-            subtitle: schema.vehicle.makeModel,
-            vehicleType: schema.vehicle.vehicleType,
+            id: schema.equipment.id,
+            locationId: schema.equipment.locationId,
+            label: schema.equipment.code,
+            subtitle: schema.equipment.makeModel,
+            vehicleType: schema.equipment.vehicleType,
           })
-          .from(schema.vehicle)
+          .from(schema.equipment)
           .where(
             and(
-              eq(schema.vehicle.tenantId, tid),
-              or(ilike(schema.vehicle.unit, q), ilike(schema.vehicle.makeModel, q), ilike(schema.vehicle.plate, q)),
+              eq(schema.equipment.tenantId, tid),
+              or(ilike(schema.equipment.code, q), ilike(schema.equipment.makeModel, q), ilike(schema.equipment.plate, q)),
             ),
           )
           .limit(input.limit),

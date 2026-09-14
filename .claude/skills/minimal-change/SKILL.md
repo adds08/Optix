@@ -1,12 +1,12 @@
 ---
 name: minimal-change
-description: Use before writing or approving any code change in STInventory -- during planning, implementation, and code review. Enforces blast-radius-first analysis and the smallest change that actually solves the problem. Triggers on "implement", "add", "build", "fix", "refactor", "review this PR", "plan this", or any request that will produce a diff. Use ESPECIALLY when the obvious move is a new package, a new abstraction, or a new dependency.
+description: Use before writing or approving any code change in Optix -- during planning, implementation, and code review. Enforces blast-radius-first analysis and the smallest change that actually solves the problem. Triggers on "implement", "add", "build", "fix", "refactor", "review this PR", "plan this", or any request that will produce a diff. Use ESPECIALLY when the obvious move is a new package, a new abstraction, or a new dependency.
 ---
 
 # Minimal Change
 
 Adapted from the ponytail plugin (https://github.com/dietrichgebert/ponytail,
-MIT), reworked for STInventory's monorepo and its event-sourced core.
+MIT), reworked for Optix's monorepo and its event-sourced core.
 
 ## The point
 
@@ -58,7 +58,7 @@ Write the answers down. If you cannot answer 1 or 3, you are not ready.
 
 Walk down. Stop at the first rung that solves the whole problem.
 
-| Rung | Ask | STInventory-specific |
+| Rung | Ask | Optix-specific |
 |---|---|---|
 | 0 | **Does this need to exist?** | The request may describe a symptom whose cause is upstream. A wrong dashboard number is usually a bad ledger write, not a bad query. |
 | 1 | **Already in this package?** | Check for the near-identical helper first. This repo has shipped real duplicates — see below. |
@@ -76,7 +76,7 @@ A rung you skipped is a decision you owe the reviewer an explanation for.
 Use these as the argument when someone says "I'll just write a new one":
 
 - ~~**`asset.rebuild` reimplements the fold inline**~~ — **fixed.** `routers/asset.ts`
-  imports `foldAssetState` from `@stinventory/domain` (line 9). Kept here as the
+  imports `foldAssetState` from `@optix/domain` (line 9). Kept here as the
   worked example it was: a tested implementation and a production one that merely
   agreed, until they would not have. Verified 2026-08-24.
 - **`packages/frontend-shared` and `packages/design-system` are dead** — imported

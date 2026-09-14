@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Building2, ChevronLeft, ChevronRight, Maximize, Minus, Plus, Search, TriangleAlert, Users, X } from "lucide-react";
-import { buildOrgForest, type OrgNode } from "@stinventory/domain/org-chart";
+import { buildOrgForest, type OrgNode } from "@optix/domain/org-chart";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, EmptyState, ErrorNote, TableSkeleton } from "@/components/sti/page";
 import { TreeNode, type NodeState } from "@/components/org-chart/tree";

@@ -1,10 +1,10 @@
 import { restrictedProjects, assertProjectAccess, activeProjectRows } from "../project-access.js";
 import { and, eq, isNull, inArray, desc } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { TRPCError } from "@trpc/server";
-import { adjacentTiers, canAssignIntoTier, descendantsOf, removalBranch, tiersAbove, tiersAtOrBelow } from "@stinventory/domain";
-import type { Permission } from "@stinventory/types";
+import { adjacentTiers, canAssignIntoTier, descendantsOf, removalBranch, tiersAbove, tiersAtOrBelow } from "@optix/domain";
+import type { Permission } from "@optix/types";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { viewTierOf } from "../scope.js";

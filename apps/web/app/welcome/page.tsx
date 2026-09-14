@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import type { OnboardingStep } from "@stinventory/api-contracts";
+import type { OnboardingStep } from "@optix/api-contracts";
 import { StepRail } from "@/components/onboarding/step-rail";
 import { StepShell } from "@/components/onboarding/step-shell";
 import { JobsStep } from "@/components/onboarding/jobs-step";

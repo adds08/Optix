@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { MessageSquare, Wrench } from "lucide-react";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { EmptyState, TableSkeleton, ErrorNote, PageHeader } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
@@ -17,7 +17,7 @@ export default function MyToolsPage() {
   const me = trpc.identity.me.useQuery();
   const employeeId = me.data?.employeeId ?? undefined;
 
-  const tools = trpc.asset.list.useQuery({ custodianId: employeeId }, { enabled: !!employeeId });
+  const tools = trpc.smallTool.list.useQuery({ custodianId: employeeId }, { enabled: !!employeeId });
 
   const rows = tools.data ?? [];
 

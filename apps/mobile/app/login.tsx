@@ -3,7 +3,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -14,14 +13,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../lib/auth";
 import { Button, SCREEN_CONTENT } from "../components/ui";
 
-const DEMO = [
-  { email: "foreman.miguel@stinventory.local", who: "Miguel Torres — Foreman" },
-  { email: "admin@stinventory.local", who: "Karen Osei — Equipment Admin" },
-];
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState("foreman.miguel@stinventory.local");
-  const [password, setPassword] = useState("stinventory-demo");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const { signIn } = useAuth();
@@ -115,24 +110,6 @@ export default function LoginScreen() {
             <Button label={busy ? "Signing in…" : "Sign in"} onPress={submit} busy={busy} />
           </View>
 
-          <View className="gap-2 rounded-md border border-border bg-muted p-4">
-            <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Demo accounts · password stinventory-demo
-            </Text>
-            {DEMO.map((d) => (
-              <Pressable
-                key={d.email}
-                onPress={() => {
-                  setEmail(d.email);
-                  setPassword("stinventory-demo");
-                }}
-                className="min-h-[44px] justify-center rounded-sm py-1"
-              >
-                <Text className="font-mono text-[12px] text-foreground">{d.email}</Text>
-                <Text className="text-[12px] text-muted-foreground">{d.who}</Text>
-              </Pressable>
-            ))}
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

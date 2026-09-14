@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
 import { roleRouter } from "./routers/role.js";
 import type { Context } from "./trpc.js";
 
 /*
-  `/admin/roles` — editing what a role may do.
+  `/settings/roles` — editing what a role may do.
 
   This screen exists because `PERMISSION_MATRIX.md` was never returned by
   Urban, so Phase 3 shipped on defaults the customer had not seen. Rather than
@@ -226,7 +226,7 @@ describe.skipIf(!url)("role administration", () => {
 
     it("refuses to delete a BUILT-IN role", async () => {
       /* Not because the row is special: `role-perms.ts` and the seed both name
-         it, so the next SEED_RESET would recreate it and the RBAC test would
+         it, so the next `make provision` would recreate it and the RBAC test would
          assert against something that is not there. */
       await expect(admin().delete({ id: foremanRoleId })).rejects.toThrow(/built-in/i);
     });

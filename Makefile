@@ -1,13 +1,13 @@
-# STInventory — top-level Makefile.
+# Optix — top-level Makefile.
 # Usage:
 #   make dev                # run everything (docker + print mobile cmd)
 #   make ENV=local up        # build + start postgres + api + web
-#   make ENV=local seed      # populate sample data
 #   make ENV=local logs      # tail logs
 #   make ENV=local down      # stop and remove containers
-#   make ENV=local reset     # wipe DB volume and reseed (destructive)
+#   make ENV=local reset     # wipe DB volume, leaves an empty register (destructive)
 #   make ENV=local psql      # psql shell on the DB
 #   make ENV=local test      # run vitest in api container
+#   make ENV=local demo      # load the local-only demo dataset (idempotent)
 #
 # Two droplets, nothing here needs ENV:
 #   make deploy               # ship main to production (urban.optixtec.com)
@@ -24,7 +24,7 @@ PROD_USER ?= root
 PROD_KEY  ?= $(HOME)/.ssh/do@it_urban
 PROD_URL  ?= https://urban.optixtec.com
 PROD_SSH  := ssh -o ConnectTimeout=20 -i $(PROD_KEY) $(PROD_USER)@$(PROD_HOST)
-PROD_DIR  := /opt/stinventory
+PROD_DIR  := /opt/optix
 PROD_COMPOSE := cd $(PROD_DIR) && docker compose -f docker-compose.prod.yml --env-file .env.production
 
 # --- dev/test droplet (optix-dev-app-01, urban.bodhitechlabs.com) ------------
@@ -33,7 +33,7 @@ DEV_USER ?= root
 DEV_KEY  ?= $(HOME)/.ssh/do@it_urban
 DEV_URL  ?= https://urban.bodhitechlabs.com
 DEV_SSH  := ssh -o ConnectTimeout=20 -i $(DEV_KEY) $(DEV_USER)@$(DEV_HOST)
-DEV_DIR  := /opt/stinventory
+DEV_DIR  := /opt/optix
 DEV_COMPOSE := cd $(DEV_DIR) && docker compose -f docker-compose.prod.yml --env-file .env.production
 
 ENV ?= local
@@ -48,26 +48,19 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev up down restart build rebuild logs ps seed reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
+.PHONY: help dev up down restart build rebuild logs ps provision demo reset prod-backup prod-backups generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
 
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*## "; printf "\nSTInventory — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "; printf "\nOptix — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 
-up: ## Build + start postgres, api, web, mailpit (detached); seeds on first boot
+up: ## Build + start postgres, api, web, mailpit (detached)
 	$(COMPOSE) up -d --build
-# Honours SEED_DATASET, from the environment or .env.local — without it this
-# line always loaded the DEMO FIXTURE, so a machine deliberately running the
-# bare or urban dataset got forty-six invented people back the next time
-# somebody brought the stack up on a fresh volume. Idempotent either way: the
-# seed skips when a tenant already exists, so this never overwrites real data.
-	@$(COMPOSE) exec -T -e SEED_DATASET="$(SEED_DATASET)" api sh -c "cd /workspace/packages/db && pnpm seed" >/dev/null 2>&1 || true
 	@echo ""
 	@echo "  api      → http://localhost:4100  (health: /health)"
 	@echo "  web      → http://localhost:3100  (Next.js - shadcn new-york)"
-	@echo "  db       → postgres://postgres:stinventory@localhost:5433/stinventory"
+	@echo "  db       → postgres://postgres:optix@localhost:5433/optix"
 	@echo ""
-	@echo "  seeded sample data (idempotent — skips if the tenant already exists)."
 
 build: ## Build images without starting
 	$(COMPOSE) build
@@ -86,55 +79,36 @@ logs: ## Tail logs from all services
 ps: ## Show running containers
 	$(COMPOSE) ps
 
-# SEED_RESET / SEED_DATASET / SEED_OWNER_PASSWORD are forwarded EXPLICITLY.
-# `docker compose exec` does not inherit the caller's environment, so
-# `SEED_RESET=1 make seed` silently seeded nothing before this — the seed saw no
-# variable, found a tenant already there, and skipped.
-SEED_ENV = -e SEED_RESET="$(SEED_RESET)" -e SEED_DATASET="$(SEED_DATASET)" -e SEED_OWNER_PASSWORD="$(SEED_OWNER_PASSWORD)"
 
-seed: ## Populate sample data (SEED_RESET=1 to wipe first; SEED_DATASET=urban for the real register)
-	$(COMPOSE) exec $(SEED_ENV) api sh -c "cd /workspace/packages/db && pnpm seed"
 
-seed-urban: ## Wipe and load Urban's REAL register (83 people, 753 tools). Local only.
-	@echo "This WIPES the local database and loads Urban's real data."
-	@echo "Note: the sign-in page's demo-account list names accounts this dataset"
-	@echo "      does NOT have. Keep NEXT_PUBLIC_SHOW_DEMO_LOGINS=0 in .env.local."
-	$(COMPOSE) exec -e SEED_RESET=1 -e SEED_DATASET=urban \
-		-e SEED_OWNER_PASSWORD="$(or $(SEED_OWNER_PASSWORD),stinventory-demo)" \
-		api sh -c "cd /workspace/packages/db && pnpm seed"
 
-seed-bare: ## Wipe and seed an EMPTY tenant — one owner, no people. For a real BambooHR sync.
-	@echo "This WIPES the local database and seeds a tenant with NO people,"
-	@echo "tools or jobs — just the vocabularies, the permission matrix and one"
-	@echo "owner login. The People register then fills from BambooHR and from"
-	@echo "nothing else, which is the point."
-	@echo ""
-	@echo "The owner password is SEED_OWNER_PASSWORD, or generated and printed"
-	@echo "ONCE below. Save it — it is not stored anywhere."
-	@echo ""
-	$(COMPOSE) exec -e SEED_RESET=1 -e SEED_DATASET=bare \
-		-e SEED_OWNER_PASSWORD="$(SEED_OWNER_PASSWORD)" \
-		api sh -c "cd /workspace/packages/db && pnpm seed"
-
-# Distinct from `seed-bare` above, and the difference matters: this one EMPTIES
-# an existing database with SQL and re-seeds nothing, keeping whatever logins
-# are already there. `seed-bare` rebuilds a tenant from scratch. Reach for this
-# when you want to keep the accounts you have; reach for that when you want a
-# clean tenant.
 reset-bare: ## Empty the register (no employees/tools/jobs), KEEP the logins
 	@echo "This DELETES every employee, tool, job, vehicle, custody and ledger row."
 	@echo "It KEEPS the tenant, permissions, roles, settings and both logins:"
 	@echo "  optix_it@optixtec.com / tech@optixtec.com"
-	@echo "Nothing is re-seeded. Run 'make seed-urban' or 'make seed-demo' after"
-	@echo "if you want a dataset back."
+	@echo "Nothing is re-seeded — there is no seed. Import real data:"
+	@echo "  docs/import/README.md"
 	@echo ""
-	$(COMPOSE) exec -T postgres psql -U postgres -d $(or $(POSTGRES_DB),stinventory) \
+	$(COMPOSE) exec -T postgres psql -U postgres -d $(or $(POSTGRES_DB),optix) \
 		-v ON_ERROR_STOP=1 -f /dev/stdin < packages/db/sql/empty-register.sql
 
-seed-demo: ## Wipe and load the demo FIXTURE — what rbac-matrix.test.ts needs. Run before the test suite.
-	@echo "Tip: set NEXT_PUBLIC_SHOW_DEMO_LOGINS=1 in .env.local to get the"
-	@echo "     one-click account list back; those accounts exist in THIS dataset."
-	$(COMPOSE) exec -e SEED_RESET=1 api sh -c "cd /workspace/packages/db && pnpm seed"
+
+# The authority model and the two logins — NOT a seed. It writes no employees,
+# jobs, tools or vehicles; those come from the importers and the BambooHR sync.
+# Idempotent: safe to re-run, never deletes, never changes an existing password.
+provision: ## Create the tenant, roles, tiers and the two admin logins (idempotent)
+	$(COMPOSE) exec -T \
+		-e TENANT_NAME="$(TENANT)" -e TENANT_SLUG="$(SLUG)" \
+		-e ADMIN_PASSWORD="$(ADMIN_PASSWORD)" \
+		-e TECH_ADMIN_EMAIL="$(TECH_ADMIN_EMAIL)" -e OWNER_EMAIL="$(OWNER_EMAIL)" \
+		api sh -c "cd /workspace/packages/db && pnpm provision"
+
+# The local-only dummy dataset, built from the CSVs in docs/import by pushing
+# them through the real importers and the real roster/custody writers. NOT a
+# seed: opt-in, never in CI, never in production, idempotent on re-run.
+demo: ## Load the demo dataset from docs/import (local only, idempotent)
+	$(COMPOSE) exec -T -e DEMO_ALLOWED=1 \
+		api sh -c "cd /workspace/apps/api && pnpm demo"
 
 generate: ## Generate a migration from schema changes (commit the result)
 	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm generate"
@@ -152,12 +126,20 @@ push-dangerous: ## Escape hatch. Never point this at a real database.
 studio: ## Open Drizzle Studio
 	$(COMPOSE) exec api sh -c "cd /workspace/packages/db && pnpm studio"
 
-reset: ## Wipe DB volume + restart + reseed (DESTRUCTIVE)
+# Leaves an EMPTY register on purpose. There is no seed to re-run: the fixtures
+# were deleted on 2026-09-13 because they invented tool codes, dropped vehicles
+# and named jobs "Job 24002". Real data comes from the importers and the
+# BambooHR sync — see docs/import.
+reset: ## Wipe DB volume + restart + migrate. Leaves an EMPTY register. (DESTRUCTIVE)
 	$(COMPOSE) down -v
 	$(MAKE) up
 	@echo "[reset] waiting for api to start…"
 	@sleep 6
-	$(MAKE) seed
+	$(MAKE) migrate
+	$(MAKE) provision
+	@echo "[reset] empty register, two logins. The generated password is printed"
+	@echo "        above — set ADMIN_PASSWORD=... to choose it instead."
+	@echo "[reset] Import real data — see docs/import/README.md"
 
 test: ## Run vitest inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm test"
@@ -169,7 +151,7 @@ lint: ## Run lint inside the api container
 	$(COMPOSE) exec api sh -c "cd /workspace && pnpm lint"
 
 psql: ## Open psql against the DB
-	$(COMPOSE) exec postgres psql -U postgres -d stinventory
+	$(COMPOSE) exec postgres psql -U postgres -d optix
 
 dev: up ## Start web + api + db, then print next steps
 	@echo ""
@@ -178,11 +160,13 @@ dev: up ## Start web + api + db, then print next steps
 	@echo ""
 	@echo "  Web:     http://localhost:3100"
 	@echo "  API:     http://localhost:4100 (health: /health)"
-	@echo "  DB:      postgres://postgres:stinventory@localhost:5433/stinventory"
+	@echo "  DB:      postgres://postgres:optix@localhost:5433/optix"
 	@echo ""
-	@echo "  Login:   admin@stinventory.local / stinventory-demo"
-	@echo "           foreman.miguel@stinventory.local  (field layout)"
+	@echo "  Login:   optix_it@optixtec.com   (owner)"
+	@echo "           tech@optixtec.com      (tech_admin, cross-tenant)"
+	@echo "           run 'make provision' if they do not exist yet"
 	@echo ""
+	@echo "  Demo:    make demo          (local-only dummy data from docs/import)"
 	@echo "  Mobile:  make mobile        (Expo — separate terminal)"
 	@echo "  Chat:    configure a model at /settings, then use /chat"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -209,7 +193,7 @@ tunnel: ## Expose localhost:3100 through a cloudflared quick tunnel
 		exit 1; \
 	fi
 	@echo "  Tunneling http://localhost:3100 — the printed URL is your public address."
-	@echo "  Web dev must be listening on 0.0.0.0:  pnpm --filter @stinventory/web dev -- -H 0.0.0.0"
+	@echo "  Web dev must be listening on 0.0.0.0:  pnpm --filter @optix/web dev -- -H 0.0.0.0"
 	@cloudflared tunnel --url http://localhost:3100
 
 # --- production ---------------------------------------------------------------
@@ -229,6 +213,15 @@ deploy: ## Ship main to the production droplet (CI does this on push; this is th
 	@$(PROD_SSH) bash $(PROD_DIR)/docker/deploy.sh
 	@echo ""
 	@printf "  %s -> " "$(PROD_URL)"; curl -s -o /dev/null -w "%{http_code}\n" --max-time 20 $(PROD_URL)
+
+prod-backup: ## Dump the production database off-box, and verify the archive
+	# Runs the same script cron runs, so a manual backup and a nightly one
+	# cannot drift. Verifies the archive is readable and contains the ledger
+	# before reporting success — a dump that will not restore is not a backup.
+	$(PROD_SSH) "cd $(PROD_DIR) && ./docker/backup.sh"
+
+prod-backups: ## List the backups on the production droplet, newest first
+	$(PROD_SSH) "ls -lht /var/backups/optix/ 2>/dev/null | head -20 || echo 'no backups yet — run make prod-backup'"
 
 prod-status: ## What is running on the droplet, and at which commit
 	@$(PROD_SSH) "cd $(PROD_DIR) && echo 'commit:' \$$(git rev-parse --short HEAD) \"\$$(git log -1 --format=%s)\" && $(PROD_COMPOSE) ps --format '{{.Name}}\t{{.Status}}'"

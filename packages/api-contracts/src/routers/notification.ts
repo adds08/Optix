@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 
 export const notificationRouter = router({

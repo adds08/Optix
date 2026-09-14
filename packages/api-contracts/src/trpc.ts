@@ -1,9 +1,9 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { ZodError } from "zod";
 import superjson from "superjson";
-import type { Database } from "@stinventory/db";
-import type { ResolvedSession } from "@stinventory/auth";
-import type { Permission } from "@stinventory/types";
+import type { Database } from "@optix/db";
+import type { ResolvedSession } from "@optix/auth";
+import type { Permission } from "@optix/types";
 
 export type Context = {
   db: Database;
@@ -16,7 +16,7 @@ export type Context = {
      the env module itself, so this package stays env-free. `mailConfigFor`
      (mail-config.ts) uses this as the fallback when a tenant has configured no
      SMTP of its own. */
-  mailFallback: import("@stinventory/mail").MailConfig | null;
+  mailFallback: import("@optix/mail").MailConfig | null;
   /* `WEB_ORIGIN`, for building an invite/reset link the email can point at.
      Same reasoning as the above two — a value, not the env. */
   webOrigin: string;

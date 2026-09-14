@@ -161,6 +161,19 @@ export default function ProjectsPage() {
             icon={HardHat}
             title="No projects yet"
             description="Add the projects you run, or bring them across from a spreadsheet."
+            /* An empty register is exactly when Import and New are the
+               actions somebody needs most — and they were reachable ONLY from
+               inside DataTable's toolbar, which this branch never renders. So
+               a brand new tenant, which is every tenant on its first day, was
+               told to "bring them across from a spreadsheet" on a screen with
+               no way to do it. `/people` already had this right; this is the
+               same fix, the same shape. */
+            action={
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <ImportButton entity="project" />
+                <CreateAction perm="project.manage" label="New project" Form={ProjectForm} />
+              </div>
+            }
           />
         )
       ) : (

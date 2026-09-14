@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
 import { moveCustody } from "./custody.js";
 import { projectTeamRouter } from "./routers/projectTeam.js";
 import type { Context } from "./trpc.js";
@@ -70,9 +70,9 @@ describe.skipIf(!url)("moving a crew between jobs", () => {
      application never would. */
   async function giveTool(custodianId: string, projectId: string, description: string) {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description, currentStatus: "assigned", currentCustodianId: custodianId, currentProjectId: projectId })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     const assetId = row!.id;
     await db.transaction(async (tx) => {
       await moveCustody(tx, {
@@ -90,7 +90,7 @@ describe.skipIf(!url)("moving a crew between jobs", () => {
   }
 
   const assetRow = (id: string) =>
-    db.query.asset.findFirst({ where: and(eq(schema.asset.id, id), eq(schema.asset.tenantId, tenantId)) });
+    db.query.smallTool.findFirst({ where: and(eq(schema.smallTool.id, id), eq(schema.smallTool.tenantId, tenantId)) });
 
   const activeLinks = async (assetId: string) =>
     db

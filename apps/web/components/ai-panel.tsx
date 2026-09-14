@@ -69,7 +69,7 @@ export function AiPanel({ open, onClose }: { open: boolean; onClose: () => void 
   const confirm = trpc.messaging.confirmAction.useMutation({
     onSuccess: () => {
       if (channelId) utils.messaging.messages.invalidate({ channelId, limit: 30 });
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.dashboard.kpis.invalidate();
     },
   });
@@ -198,7 +198,7 @@ export function AiPanel({ open, onClose }: { open: boolean; onClose: () => void 
             ) : !messages.length ? (
               <p className="text-[13px] leading-relaxed text-muted-foreground">
                 Say what happened the way you would in a group chat — &ldquo;gave the rotary hammer
-                UIC-1012 to Dwayne for Trinity Bridge&rdquo;. Nothing is recorded until you confirm it.
+                TOOL-01012 to Dwayne for Trinity Bridge&rdquo;. Nothing is recorded until you confirm it.
               </p>
             ) : (
               messages.map((m) => <PanelMessage key={m.id} m={m} onConfirm={() => confirm.mutate({ messageId: m.id })} confirming={confirm.isPending} />)

@@ -7,10 +7,23 @@
   leave them in the temporal dead zone and crash on boot.
 */
 
+/*
+  Where a tool can sit.
+
+  `gang_box` and `site_container` were removed on 2026-09-14 at the client's
+  direction: *"project is being done in a location, and small tools are
+  contained within a trailer assigned to a foreman and attached to a truck,
+  foreman works in a project, that's all... if it is in with equipment
+  department it goes to yard project."*
+
+  Neither had ever been used — the recovered data was one warehouse plus
+  vehicle mirrors, and both databases held zero location rows when this
+  changed. Nothing in the custody logic branched on them either: only
+  `vehicle` is special-cased (routers/location.ts), so the rest are
+  interchangeable labels to every code path.
+*/
 export const LOCATION_TYPES = [
   "warehouse",
-  "site_container",
-  "gang_box",
   "vehicle",
   "project_site",
 ] as const;

@@ -1,15 +1,48 @@
-import type { Database } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
-import { and, eq, ilike, inArray, or } from "drizzle-orm";
-import { CUSTODIAN_ROLES, formatAssetModel } from "@stinventory/types";
+import type { Database } from "@optix/db";
+import * as schema from "@optix/db/schema";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { and, eq, ilike, inArray, isNull, or } from "drizzle-orm";
+import { CUSTODIAN_ROLES, formatAssetModel } from "@optix/types";
 
 export type EntityMatch = { type: "asset" | "employee" | "project" | "vehicle" | "location"; id: string; label: string };
 
-function extractTag(text: string): string | null {
-  const m = text.match(/\b(?:UIC[- ])?(\d{3,4})\b/i);
-  if (m) return m[0].toUpperCase().includes("UIC") ? m[0].toUpperCase() : `UIC-${m[1]!}`;
-  const veh = text.match(/\b(TR[AU]-\d{3})\b/i);
-  return veh ? veh[1]!.toUpperCase() : null;
+/*
+  Pull a CODE out of a sentence a foreman typed.
+
+  This used to hardcode `UIC-`: a bare number became `UIC-1012`, and vehicles
+  only matched `TRA-`/`TRU-`. Both were wrong about the real data. `UIC` was a
+  placeholder that appeared in no row anywhere (it was a guess at "Urban
+  InfraConstruction"), and Urban's actual fleet is `TRK-` ×47, `TE-` ×39 and
+  `SUV-` ×2 — so "where is TRK-034" resolved to nothing while "where is
+  TRA-034" resolved to a truck that does not exist.
+
+  Now prefix-agnostic: it takes any `LETTERS-DIGITS` code as written, whatever
+  the prefix, which is what makes a new one (`SKT-` for skytrack) work without
+  a deploy. A BARE number is returned bare and matched against the code column
+  by suffix rather than being decorated with a prefix nobody chose.
+*/
+export function extractTag(text: string): string | null {
+  /*
+    A written code: TRK-034, TE-006, TOOL-00012, SKT-1.
+
+    The DASH IS REQUIRED, and that is not cosmetic. Allowing an optional space
+    instead matched "need 2 grinders" as `NEED-2` — a test caught it. Any
+    sentence ending in a word then a number would have become a code, which is
+    most sentences a foreman types.
+
+    A space-separated form ("TRK 034") is accepted only where the letters are
+    ALL CAPS, because that is somebody writing a code loosely rather than
+    writing prose. Two or more letters so "a-1" does not qualify.
+  */
+  const dashed = text.match(/\b([A-Za-z]{2,}-\d{1,6})\b/);
+  if (dashed) return dashed[1]!.toUpperCase();
+  const spaced = text.match(/\b([A-Z]{2,}) (\d{1,6})\b/);
+  if (spaced) return `${spaced[1]!}-${spaced[2]!}`;
+  /* A bare number — "where is 1012". Returned as digits: the caller matches it
+     against the end of a code, so it finds TOOL-01012 without inventing a
+     prefix. */
+  const bare = text.match(/\b(\d{3,6})\b/);
+  return bare ? bare[1]! : null;
 }
 
 function searchTokens(text: string): string[] {
@@ -25,15 +58,28 @@ export async function matchEntity(
 ): Promise<EntityMatch | null> {
   const tag = extractTag(text);
   if (tag) {
-    const a = await db.query.asset.findFirst({
-      where: and(eq(schema.asset.code, tag), eq(schema.asset.tenantId, tid)),
+    /*
+      A written code matches exactly; a BARE number matches the end of a code.
+
+      `extractTag` returns digits alone for "where is 1012" rather than
+      decorating them with a prefix — so the match has to be a suffix one, and
+      `-` is included so `1012` finds `TOOL-01012` without also finding
+      `TOOL-41012`. Case-insensitive because a code's case is not its identity
+      (the unique index is on `lower(code)`).
+    */
+    const bare = /^\d+$/.test(tag);
+    const codeMatch = (col: AnyPgColumn) =>
+      bare ? ilike(col, `%-%${tag}`) : ilike(col, tag);
+
+    const a = await db.query.smallTool.findFirst({
+      where: and(codeMatch(schema.smallTool.code), eq(schema.smallTool.tenantId, tid)),
     });
     if (a) return { type: "asset", id: a.id, label: `${a.code} (${formatAssetModel(a)})` };
 
-    const v = await db.query.vehicle.findFirst({
-      where: and(eq(schema.vehicle.unit, tag), eq(schema.vehicle.tenantId, tid)),
+    const v = await db.query.equipment.findFirst({
+      where: and(codeMatch(schema.equipment.code), eq(schema.equipment.tenantId, tid)),
     });
-    if (v) return { type: "vehicle", id: v.id, label: v.unit };
+    if (v) return { type: "vehicle", id: v.id, label: v.code };
   }
 
   const tokens = searchTokens(text);
@@ -59,13 +105,13 @@ export async function matchEntity(
 
     /* A token can hit any of the three columns — "the Bosch" should match on
        brand, which a single ilike against the old blob could not. */
-    const asset = await db.query.asset.findFirst({
+    const asset = await db.query.smallTool.findFirst({
       where: and(
-        eq(schema.asset.tenantId, tid),
+        eq(schema.smallTool.tenantId, tid),
         or(
-          ilike(schema.asset.make, `%${token}%`),
-          ilike(schema.asset.modelNumber, `%${token}%`),
-          ilike(schema.asset.description, `%${token}%`),
+          ilike(schema.smallTool.make, `%${token}%`),
+          ilike(schema.smallTool.modelNumber, `%${token}%`),
+          ilike(schema.smallTool.description, `%${token}%`),
         ),
       ),
     });
@@ -84,8 +130,8 @@ export async function resolveEngineAssets(
   for (const h of hints) {
     const m = await matchEntity(db, tid, `${h.label} ${h.raw}`);
     if (m && m.type === "asset") {
-      const a = await db.query.asset.findFirst({
-        where: and(eq(schema.asset.id, m.id), eq(schema.asset.tenantId, tid)),
+      const a = await db.query.smallTool.findFirst({
+        where: and(eq(schema.smallTool.id, m.id), eq(schema.smallTool.tenantId, tid)),
       });
       if (a) results.push({ id: a.id, label: m.label, code: a.code });
     }
@@ -105,14 +151,33 @@ export async function resolveCustodian(
   const tokens = searchTokens(text);
   for (const token of tokens) {
     if (token.length < 2) continue;
-    const emp = await db.query.employee.findFirst({
-      where: and(
-        eq(schema.employee.tenantId, tid),
-        inArray(schema.employee.role, [...CUSTODIAN_ROLES]),
-        eq(schema.employee.employmentStatus, "active"),
-        or(ilike(schema.employee.name, `%${token}%`), ilike(schema.employee.code, token)),
-      ),
-    });
+    /*
+      `role.can_hold_custody` first, the legacy name list second.
+
+      The flag is the editable answer — an administrator ticking the box on
+      /settings/roles is how a tenant says a Field Engineer carries tools — and
+      `CUSTODIAN_ROLES` is kept only for rows with no login role joined, where
+      the flag has nothing to say. The web pickers make the same choice in the
+      same order (`apps/web/lib/custodians.ts`); if these two ever disagree the
+      assistant and the screens resolve different people for one sentence,
+      which is the bug class this whole change exists to close.
+    */
+    const [emp] = await db
+      .select({ id: schema.employee.id, name: schema.employee.name })
+      .from(schema.employee)
+      .leftJoin(schema.role, eq(schema.role.id, schema.employee.roleId))
+      .where(
+        and(
+          eq(schema.employee.tenantId, tid),
+          or(
+            eq(schema.role.canHoldCustody, true),
+            and(isNull(schema.employee.roleId), inArray(schema.employee.role, [...CUSTODIAN_ROLES])),
+          ),
+          eq(schema.employee.employmentStatus, "active"),
+          or(ilike(schema.employee.name, `%${token}%`), ilike(schema.employee.code, token)),
+        ),
+      )
+      .limit(1);
     if (emp) return { id: emp.id, name: emp.name };
   }
   return null;

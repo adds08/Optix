@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import * as schema from "@stinventory/db/schema";
-import { PERMISSIONS, PERMISSION_GROUPS, ROLES, VIEW_SCOPES, type Permission } from "@stinventory/types";
+import * as schema from "@optix/db/schema";
+import { PERMISSIONS, PERMISSION_GROUPS, ROLES, VIEW_SCOPES, type Permission } from "@optix/types";
 import { requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 
@@ -214,6 +214,131 @@ export const roleRouter = router({
   }),
 
   /*
+    The job titles BambooHR reports, and the login role each one grants.
+
+    THE PROBLEM THIS SOLVES. Sync resolves a person's `jobTitleName` to a
+    `company_role` row and stops. It never set `employee.roleId`, so every
+    synced person arrived with no login role — no permissions, no custody
+    eligibility — and somebody assigned 190 of them by hand, again after every
+    nightly run that added a starter.
+
+    Ordered by HEADCOUNT, not alphabetically. The title held by sixty people is
+    the one worth deciding first, and an alphabetical list buries it under
+    whatever begins with A. Unmapped titles sort above mapped ones at equal
+    headcount, so the open questions stay at the top as the list gets answered.
+
+    `employee.manage` rather than `config.manage`: this is a roster decision —
+    "what does a Carpenter get to do" — made by whoever runs the people
+    register, not a platform setting.
+  */
+  jobTitles: requirePermission("employee.manage").query(async ({ ctx }) => {
+    const tid = ctx.session.tenantId;
+    const rows = await ctx.db
+      .select({
+        id: schema.companyRole.id,
+        name: schema.companyRole.name,
+        code: schema.companyRole.code,
+        isActive: schema.companyRole.isActive,
+        defaultRoleId: schema.companyRole.defaultRoleId,
+        defaultRoleName: schema.role.name,
+        /* Only people still here: a title whose holders have all left is not a
+           decision anybody needs to make today. */
+        headcount: count(schema.employee.id),
+      })
+      .from(schema.companyRole)
+      .leftJoin(schema.role, eq(schema.role.id, schema.companyRole.defaultRoleId))
+      .leftJoin(
+        schema.employee,
+        and(
+          eq(schema.employee.companyRoleId, schema.companyRole.id),
+          eq(schema.employee.employmentStatus, "active"),
+        ),
+      )
+      .where(eq(schema.companyRole.tenantId, tid))
+      .groupBy(
+        schema.companyRole.id,
+        schema.companyRole.name,
+        schema.companyRole.code,
+        schema.companyRole.isActive,
+        schema.companyRole.defaultRoleId,
+        schema.role.name,
+      );
+
+    return rows.sort(
+      (a, b) =>
+        b.headcount - a.headcount ||
+        Number(!!a.defaultRoleId) - Number(!!b.defaultRoleId) ||
+        a.name.localeCompare(b.name),
+    );
+  }),
+
+  /*
+    Point a job title at the login role its holders should get.
+
+    A DEFAULT, not an assignment, and the distinction is the whole design.
+    Setting it does NOT re-role the people who already hold the title — their
+    `roleId` may have been set deliberately by somebody who knew something this
+    mapping does not. It governs who arrives WITHOUT one: the sync fills
+    `employee.roleId` only where it is null.
+
+    `null` clears the mapping back to "no opinion", which is not the same as
+    mapping to a do-nothing role. An unmapped title is a question the screen
+    keeps asking; a title mapped to `read_only` is an answer, and the two must
+    not look alike.
+  */
+  setJobTitleRole: requirePermission("employee.manage")
+    .input(
+      z.object({
+        companyRoleId: z.string().uuid(),
+        roleId: z.string().uuid().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+
+      const [title] = await ctx.db
+        .select({ id: schema.companyRole.id, name: schema.companyRole.name })
+        .from(schema.companyRole)
+        .where(and(eq(schema.companyRole.id, input.companyRoleId), eq(schema.companyRole.tenantId, tid)));
+      if (!title) throw new TRPCError({ code: "NOT_FOUND", message: "That job title is not in this register." });
+
+      /* The role must belong to this tenant or be one of the shared ones
+         (tenantId null) — the same predicate `options` uses. Without this a
+         uuid from another tenant would be accepted by the FK and silently
+         grant its permissions here. */
+      if (input.roleId) {
+        const [target] = await ctx.db
+          .select({ id: schema.role.id })
+          .from(schema.role)
+          .where(
+            and(
+              eq(schema.role.id, input.roleId),
+              or(eq(schema.role.tenantId, tid), isNull(schema.role.tenantId)),
+            ),
+          );
+        if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "That role is not available to this organisation." });
+      }
+
+      await ctx.db
+        .update(schema.companyRole)
+        .set({ defaultRoleId: input.roleId, updatedAt: new Date() })
+        .where(and(eq(schema.companyRole.id, input.companyRoleId), eq(schema.companyRole.tenantId, tid)));
+
+      await logEvent(ctx, {
+        /* `auth`, like every other write in this router — a job title's
+           default role decides what an account may do. */
+        category: "auth",
+        action: "role.mapJobTitle",
+        entityType: "company_role",
+        entityId: input.companyRoleId,
+        entityLabel: title.name,
+        details: { roleId: input.roleId },
+      });
+
+      return { ok: true };
+    }),
+
+  /*
     The three behaviour flags, which are NOT permissions and are edited apart
     from them on purpose.
 
@@ -354,31 +479,46 @@ export const roleRouter = router({
         throw new TRPCError({ code: "CONFLICT", message: `There is already a role called "${input.name}".` });
       }
 
-      const [created] = await ctx.db
-        .insert(schema.role)
-        .values({ tenantId: tid, name: input.name, description: input.description ?? null })
-        .returning({ id: schema.role.id, name: schema.role.name });
-      if (!created) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create that role" });
-
       /*
-        Copying an existing role is the realistic way a new one gets made — "a
-        superintendent, but without approval" — and starting from blank means
-        an administrator ticking thirty boxes from memory, which is how a role
-        ends up with `config.manage` because it was next to something else.
+        The row and its grants in ONE transaction.
+
+        A role is not usable without its permissions — `rbac-matrix.test.ts`
+        puts it plainly: an account holding a role with no grants "can log in
+        and do nothing". So a failure between the two writes does not half-make
+        a role, it makes a broken one, and nothing on screen distinguishes it
+        from a role somebody deliberately left empty.
+
+        `setPermissions` below has done this since it was written; `create` was
+        the one that had not.
       */
-      if (input.copyFromRoleId) {
-        const source = await requireTenantRole(ctx.db, tid, input.copyFromRoleId);
-        const grants = await ctx.db
-          .select({ name: schema.rolePermission.permissionName })
-          .from(schema.rolePermission)
-          .where(eq(schema.rolePermission.roleId, source.id));
-        if (grants.length) {
-          await ctx.db
-            .insert(schema.rolePermission)
-            .values(grants.map((g) => ({ roleId: created.id, permissionName: g.name })))
-            .onConflictDoNothing();
+      const created = await ctx.db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(schema.role)
+          .values({ tenantId: tid, name: input.name, description: input.description ?? null })
+          .returning({ id: schema.role.id, name: schema.role.name });
+        if (!row) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not create that role" });
+
+        /*
+          Copying an existing role is the realistic way a new one gets made — "a
+          superintendent, but without approval" — and starting from blank means
+          an administrator ticking thirty boxes from memory, which is how a role
+          ends up with `config.manage` because it was next to something else.
+        */
+        if (input.copyFromRoleId) {
+          const source = await requireTenantRole(tx, tid, input.copyFromRoleId);
+          const grants = await tx
+            .select({ name: schema.rolePermission.permissionName })
+            .from(schema.rolePermission)
+            .where(eq(schema.rolePermission.roleId, source.id));
+          if (grants.length) {
+            await tx
+              .insert(schema.rolePermission)
+              .values(grants.map((g) => ({ roleId: row.id, permissionName: g.name })))
+              .onConflictDoNothing();
+          }
         }
-      }
+        return row;
+      });
 
       await logEvent(ctx, {
         category: "auth", action: "role.create", entityType: "role",
@@ -397,7 +537,7 @@ export const roleRouter = router({
       /*
         A built-in role is not deletable. Not because the row is special, but
         because `role-perms.ts` and the seed both name it: deleting `foreman`
-        would make the next `SEED_RESET` recreate it and the RBAC test assert
+        would make the next `make provision` recreate it and the RBAC test assert
         against something that is not there. Emptying its permissions is the
         supported way to retire one, and it leaves the accounts holding it
         signed in but unable to do anything — which is visible, unlike a role

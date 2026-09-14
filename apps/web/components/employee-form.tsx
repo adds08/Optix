@@ -1,4 +1,5 @@
 "use client";
+import type { EmploymentStatus } from "@optix/types";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -66,7 +67,11 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
   const [phone, setPhone] = useState(edit?.phone ?? "");
   const [primaryProjectId, setPrimaryProjectId] = useState("");
   const [reportsToEmployeeId, setReportsToEmployeeId] = useState(edit?.reportsToEmployeeId ?? "");
-  const [employmentStatus, setEmploymentStatus] = useState(edit?.employmentStatus ?? "active");
+  /* Typed for the same reason as location-form's `type`: the procedure now
+     takes `z.enum(EMPLOYMENT_STATUSES)`. */
+  const [employmentStatus, setEmploymentStatus] = useState<EmploymentStatus>(
+    (edit?.employmentStatus as EmploymentStatus) ?? "active",
+  );
   const chosen = (roleOptions.data ?? []).find((r) => r.id === roleId);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
@@ -133,7 +138,11 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
                   people. It reads `role.options` — gated on `employee.manage`
                   rather than `config.manage`, because choosing somebody's role
                   is not the same authority as changing what a role may do. */}
-              <label className="text-sm font-medium">Role</label>
+              {/* "Access Role", not bare "Role" — matches the People table
+                  column and the Access Roles settings screen this list comes
+                  from, and distinguishes it from Job Title below on the
+                  person's own detail page. */}
+              <label className="text-sm font-medium">Access Role</label>
               <EntityField
                 value={roleId}
                 onChange={setRoleId}
@@ -168,7 +177,7 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
               <label className="text-sm font-medium">Status</label>
               <EntityField
                 value={employmentStatus}
-                onChange={setEmploymentStatus}
+                onChange={(v) => setEmploymentStatus(v as EmploymentStatus)}
                 placeholder="Employment status"
                 options={[
                   { value: "active", label: "Active" },

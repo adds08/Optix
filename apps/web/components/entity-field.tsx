@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
-import { MENTION_MIN_QUERY, type MentionKind } from "@stinventory/types";
+import { MENTION_MIN_QUERY, type MentionKind } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";

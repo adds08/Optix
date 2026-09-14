@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { Briefcase, ClipboardCheck, Plus, Search, TriangleAlert, type LucideIcon } from "lucide-react";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { ToolTable, type ToolRow } from "@/components/jobsite-tool-table";
 import { CrewCard, type Crew } from "@/components/jobsite-crew-card";
 import { JobsiteTeamStrip } from "@/components/jobsite-team-strip";

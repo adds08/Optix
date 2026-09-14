@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import { decryptSecret } from "@stinventory/auth";
-import type { MailConfig } from "@stinventory/mail";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import { decryptSecret } from "@optix/auth";
+import type { MailConfig } from "@optix/mail";
 
 /*
   Which SMTP config a tenant's mail actually goes out through.

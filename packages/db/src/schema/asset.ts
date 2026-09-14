@@ -3,32 +3,51 @@ import { sql } from "drizzle-orm";
 import { tenant, user } from "./identity";
 import { assetModel } from "./catalog";
 import { project } from "./project";
-import { location, vehicle } from "./location";
+import { location, equipment } from "./location";
 import { employee } from "./employee";
 import { department } from "./department";
 
 // The asset register — small tools are the first-class entity.
 // `current_*` columns are the PROJECTION (denormalized from `transactions`); never the
 // source of truth. `owning_project_id` (financial capital owner) is immutable once set.
-export const asset = pgTable(
-  "tbl_entity_asset",
+/*
+  THE SMALL-TOOLS REGISTER. Named `smallTool` since 2026-09-14.
+
+  It was `asset`, and that was vague in a way that cost real confusion: an
+  "asset" could be a truck, a building or a laptop, and this table holds none
+  of those. It is drills, saws, grinders, generators, survey gear and
+  compaction plant — the things a foreman carries to a job. Trucks and trailers
+  are `equipment`. The client's words: "remove calling small tools asset at
+  table level."
+
+  The header below already said "small tools are the first-class entity", so
+  the name was the last thing disagreeing with the file's own description.
+
+  NOT renamed with it, deliberately: the permission strings (`asset.read`,
+  `asset.manage`, `assets.view.*`) and the tRPC route (`asset.list`). Those six
+  permissions are ROWS in `tbl_entity_permission` granted to roles, so renaming
+  them needs a grants migration — and this repo has already spent three tickets
+  on permission changes reaching fresh databases and not live ones. Nothing a
+  user sees is affected either way.
+*/
+export const smallTool = pgTable(
+  "tbl_entity_small_tool",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
     /*
-      The register's own reference number — every asset gets one, stamped by
-      the database at insert time (mirrors how `transaction`/`event_log` mint
-      their ids), never entered or editable. This exists because `id` is a
-      uuid nobody reads off a screen, and `tag` is deliberately the opposite of
-      reliable: a physical label that may never have been stuck on the tool at
-      all. Reverifying the real source data (docs/data, 2026-08) confirmed
-      Urban's own sheets carry no tool-ID column anywhere — every "TOOL-0001"
-      style value that predates this column was invented at seed time, not a
-      real label. `assetNumber` is what a report or a screen can always point
-      to; `tag` and `serialNumber` stay exactly what they were — optional,
-      physical, never generated.
+      NO `asset_number` HERE, and that is deliberate — see migration 0079.
+
+      It was a database-stamped counter rendered as `A-000001`, so a tool
+      displayed TWO numbers: that one and its `code`. It existed because
+      Urban's sheets carry no tool-ID column, so nothing was guaranteed to be
+      present — "what a report or a screen can always point to".
+
+      The code generator (`tool-code.ts`) removed that premise on 2026-09-14:
+      every tool created through `asset.create` gets a `code`, generated when
+      none is typed. The client's rule is one code per entity and no reference
+      number, so the fallback went with the reason for it.
     */
-    assetNumber: bigint("asset_number", { mode: "number" }).notNull().generatedAlwaysAsIdentity(),
     /*
       THE TOOL'S CODE — how Urban identifies this tool, the value a person reads
       off the screen and says out loud.
@@ -43,7 +62,7 @@ export const asset = pgTable(
       It was called `tag` until then, on the reasoning that a tag is a physical
       label rather than an id — still true, and it is why this stays NULLABLE:
       null means nobody has labelled the tool yet, which is normal for anything
-      imported from the yard's own sheets. See docs/built/17-optional-tags.md.
+      imported from the yard's own sheets.
 
       The other two identifiers on this table are NOT this, and neither replaces
       it: `assetNumber` is the database's own generated sequence, and
@@ -57,18 +76,17 @@ export const asset = pgTable(
       Vestigial. Nothing reads or writes through `asset_model` / `manufacturer` /
       `asset.modelId` — only the seed populates them and no router, intent or UI
       joins back. They look like an obvious duplicate of the flat make/model
-      columns below; leave the normalisation for its own change. See
-      docs/built/12-model-field-split.md.
+      columns below; leave the normalisation for its own change.
     */
     /* What the tool is, in the four columns Urban's own sheets use. Replaces the
-       single `model_name` blob — see docs/built/12-model-field-split.md. */
+       single `model_name` blob. */
     make: text("make"),
     modelNumber: text("model_number"),
     description: text("description"),
     /* The unlabelled trailing column on the trailer sheets: a secondary equipment
        number ("PC-08", "QS-602", "106"). Free text because the yard's numbering is
        not ours to constrain. Note this is NOT the sheets' "OTHER" column, which
-       holds NEW/USED and maps to `condition` — see docs/built/13-excel-round-trip.md. */
+       holds NEW/USED and maps to `condition`. */
     otherRef: text("other_ref"),
     categoryName: text("category_name"), // denormalized
     /* Shown to users as "Code" — the tool's serial number when the manufacturer
@@ -85,7 +103,7 @@ export const asset = pgTable(
     acquisitionDate: date("acquisition_date"),
     owningProjectId: uuid("owning_project_id").references(() => project.id, { onDelete: "set null" }),
     /* Which kind of thing pays for this tool. Set at registration and meant to
-       stay put, like owningProjectId — see docs/built/11-department-cost-targets.md. */
+       stay put, like owningProjectId. */
     costTarget: text("cost_target").notNull().default("project"), // 'project' | 'department'
     owningDepartmentId: uuid("owning_department_id").references(() => department.id, { onDelete: "restrict" }),
     warrantyExpiresOn: date("warranty_expires_on"),
@@ -108,12 +126,11 @@ export const asset = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    tenantIdx: index("asset_tenant_idx").on(t.tenantId),
-    assetNumberIdx: index("asset_number_idx").on(t.assetNumber),
-    codeIdx: index("asset_code_idx").on(t.code),
-    custodianIdx: index("asset_custodian_idx").on(t.currentCustodianId),
-    projectIdx: index("asset_project_idx").on(t.currentProjectId),
-    statusIdx: index("asset_status_idx").on(t.currentStatus),
+    tenantIdx: index("small_tool_tenant_idx").on(t.tenantId),
+    codeIdx: index("small_tool_code_idx").on(t.code),
+    custodianIdx: index("small_tool_custodian_idx").on(t.currentCustodianId),
+    projectIdx: index("small_tool_project_idx").on(t.currentProjectId),
+    statusIdx: index("small_tool_status_idx").on(t.currentStatus),
   }),
 );
 
@@ -131,7 +148,7 @@ export const assignment = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    assetId: uuid("asset_id").notNull().references(() => asset.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").notNull().references(() => smallTool.id, { onDelete: "cascade" }),
     custodianId: uuid("custodian_id").notNull().references(() => employee.id, { onDelete: "restrict" }),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
     /*
@@ -232,12 +249,12 @@ export const assignment = pgTable(
     */
     truckFk: foreignKey({
       columns: [t.truckId, t.truckKind],
-      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      foreignColumns: [equipment.id, equipment.vehicleType],
       name: "assignment_truck_fk",
     }),
     trailerFk: foreignKey({
       columns: [t.trailerId, t.trailerKind],
-      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      foreignColumns: [equipment.id, equipment.vehicleType],
       name: "assignment_trailer_fk",
     }),
   }),
@@ -250,7 +267,7 @@ export const transfer = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    assetId: uuid("asset_id").notNull().references(() => asset.id, { onDelete: "cascade" }),
+    assetId: uuid("asset_id").notNull().references(() => smallTool.id, { onDelete: "cascade" }),
     fromCustodianId: uuid("from_custodian_id").references(() => employee.id, { onDelete: "set null" }),
     toCustodianId: uuid("to_custodian_id").references(() => employee.id, { onDelete: "set null" }),
     fromLocationId: uuid("from_location_id").references(() => location.id, { onDelete: "set null" }),
@@ -287,12 +304,12 @@ export const transfer = pgTable(
     toTrailerIdx: index("transfer_to_trailer_idx").on(t.toTrailerId),
     toTruckFk: foreignKey({
       columns: [t.toTruckId, t.toTruckKind],
-      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      foreignColumns: [equipment.id, equipment.vehicleType],
       name: "transfer_to_truck_fk",
     }),
     toTrailerFk: foreignKey({
       columns: [t.toTrailerId, t.toTrailerKind],
-      foreignColumns: [vehicle.id, vehicle.vehicleType],
+      foreignColumns: [equipment.id, equipment.vehicleType],
       name: "transfer_to_trailer_fk",
     }),
   }),

@@ -26,7 +26,7 @@ import { useArmedConfirm } from "@/components/use-armed-confirm";
   on a Tools by Jobsite card and visible in the Organization Chart, with no
   code change and no deploy.
 
-  Deliberately NOT the Roles & Permissions screen (`/admin/roles`). That table
+  Deliberately NOT the Roles & Permissions screen (`/settings/roles`). That table
   is the LOGIN role — what an account may DO — and this one is the JOB
   FUNCTION a person holds on a project. The seed carries one person whose login
   role is `engineer` and whose team role is `pm`; the two are allowed to

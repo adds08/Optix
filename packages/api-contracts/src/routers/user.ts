@@ -2,10 +2,10 @@ import { randomBytes } from "node:crypto";
 import { and, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import { generateAuthToken, hashAuthToken, hashPassword, verifyPassword } from "@stinventory/auth";
-import { inviteEmail, passwordResetEmail, sendMail } from "@stinventory/mail";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import { generateAuthToken, hashAuthToken, hashPassword, verifyPassword } from "@optix/auth";
+import { inviteEmail, passwordResetEmail, sendMail } from "@optix/mail";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
 import { mailConfigFor } from "../mail-config.js";
@@ -242,10 +242,10 @@ export const userRouter = router({
        EMPLOYEE — custody is held by the person, never by the login. Read-only:
        deactivating below does not touch these. */
     const held = await ctx.db
-      .select({ employeeId: schema.asset.currentCustodianId, count: sql<number>`count(*)::int` })
-      .from(schema.asset)
-      .where(and(eq(schema.asset.tenantId, tid), isNotNull(schema.asset.currentCustodianId)))
-      .groupBy(schema.asset.currentCustodianId);
+      .select({ employeeId: schema.smallTool.currentCustodianId, count: sql<number>`count(*)::int` })
+      .from(schema.smallTool)
+      .where(and(eq(schema.smallTool.tenantId, tid), isNotNull(schema.smallTool.currentCustodianId)))
+      .groupBy(schema.smallTool.currentCustodianId);
     const heldBy = new Map(held.map((h) => [h.employeeId, h.count]));
 
     /* An invited-but-not-yet-accepted account and a deactivated one look

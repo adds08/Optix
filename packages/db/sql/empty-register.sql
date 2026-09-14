@@ -2,19 +2,27 @@
 -- Empty the register, keep the ability to sign in.
 --
 -- Run by `make reset-bare`. Asked for by the user on 2026-09-07 after a
--- half-finished BambooHR sync left 602 employees where 83 belonged: `make reset`
--- reseeds a full dataset, which is the wrong tool when what you want is to start
--- from nothing and pull the real roster in over the top.
+-- half-finished BambooHR sync left 602 employees where 83 belonged: what you
+-- want there is to start from nothing and pull the real roster in over the top,
+-- without losing the tenant or the ability to sign in.
+--
+-- Distinct from `make reset`, which drops the volume and re-provisions from
+-- scratch. This keeps the database and empties the register inside it.
 --
 -- WHAT SURVIVES, and each for a reason:
 --   tenant, permission, role, role_permission, user, user_role
 --       Without these nobody can sign in and nothing can be authorised. The
 --       point of this script is an empty register you can still USE.
+--       Since 2026-09-13 that means exactly two accounts, and the thirteen
+--       demo logins it used to preserve are gone: `tech@optixtec.com`
+--       (tech_admin — Optix's own operator, reaches every tenant) and
+--       `optix_it@optixtec.com` (owner — the customer's administrator, their
+--       IT team or ours acting for them). Everybody else joins by invitation.
 --   tenant_settings, tenant_feature
 --       Configuration, not data. The high-value threshold and which modules are
 --       on are not things a roster reload should reset.
 --   category, uom_category, unit_of_measure, team_role
---       Static vocabularies shared by every dataset — `seed.ts` says a category
+--       Static vocabularies shared by every tenant — `tenant-config.ts` says a category
 --       and a unit of measure mean the same thing whichever register is loaded.
 --   asset_model, manufacturer
 --       Vestigial; nothing reads or writes them (see schema/asset.ts). Left
@@ -34,7 +42,7 @@ BEGIN;
 
 -- The ledger is append-only, enforced by trigger since 0014_append_only_ledger
 -- (STI-104). Both the direct delete below and the cascade from asset would raise
--- SQLSTATE 0A000 with it armed. `seed.ts`'s own wipe is the other sanctioned
+-- SQLSTATE 0A000 with it armed. This script is the only sanctioned
 -- exception; the guard is dropped for exactly this block and re-armed below.
 -- NEVER weaken the trigger itself.
 ALTER TABLE "tbl_ops_transaction" DISABLE TRIGGER "transaction_no_update_delete";
@@ -62,13 +70,26 @@ DELETE FROM "tbl_ops_user_onboarding";
 DELETE FROM "tbl_ops_sync_run";
 
 -- Then the entities themselves.
-DELETE FROM "tbl_entity_asset";
-DELETE FROM "tbl_entity_vehicle";
+DELETE FROM "tbl_entity_small_tool";
+DELETE FROM "tbl_entity_equipment";
 DELETE FROM "tbl_entity_location";
 DELETE FROM "tbl_entity_warehouse";
 DELETE FROM "tbl_entity_employee_external_ref";
 DELETE FROM "tbl_entity_employee_contact";
 DELETE FROM "tbl_entity_employee";
+
+-- `user.employee_id` is a plain uuid with NO foreign key — deliberately, to keep
+-- the schema import-graph acyclic (see schema/identity.ts:18). So nothing clears
+-- it when the employee it names is deleted, and the retained logins are left
+-- pointing at people who no longer exist. `resolveSession` hands that id straight
+-- into every session, where the scoped reads (`assets.view.own`, `.crew`) resolve
+-- their custodian set against a ghost.
+--
+-- Found on 2026-09-12: this script left 8 of 15 logins dangling that way. The
+-- register is empty at this point, so a surviving link cannot be correct — the
+-- person will be re-linked when the real roster is imported.
+UPDATE "tbl_entity_user" SET "employee_id" = NULL WHERE "employee_id" IS NOT NULL;
+
 DELETE FROM "tbl_entity_project_group_project";
 DELETE FROM "tbl_entity_project_group_user";
 DELETE FROM "tbl_entity_project_group";
@@ -91,5 +112,5 @@ SELECT
   (SELECT count(*) FROM "tbl_entity_role")       AS roles_kept,
   (SELECT count(*) FROM "tbl_entity_permission") AS permissions_kept,
   (SELECT count(*) FROM "tbl_entity_employee")   AS employees,
-  (SELECT count(*) FROM "tbl_entity_asset")      AS tools,
+  (SELECT count(*) FROM "tbl_entity_small_tool") AS tools,
   (SELECT count(*) FROM "tbl_entity_project")    AS jobs;

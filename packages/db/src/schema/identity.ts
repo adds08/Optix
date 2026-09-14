@@ -107,6 +107,30 @@ export const role = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     /*
+      The operational kind this role is, for the reports and lookups that still
+      read the deprecated `employee.role`. This column is the replacement they
+      move to; `employee.role` is NOT gone yet — report.ts, notify.ts,
+      project-assign.ts, projectTeam.ts, entity.ts, project.ts, request-worker.ts,
+      entity-resolve.ts and apps/api/src/index.ts all still read it as of this
+      commit, and the column is only dropped once every one of them has moved.
+
+      NOT the same axis as `name`: several roles can share a category (there is
+      exactly one today — `foreman`/`crew` do not, deliberately, see below) and
+      several roles have none at all. Null is not a gap to fill in: `crew`,
+      `director`, `area_in_charge`, `general_superintendent`, `engineer` and
+      `read_only` carry no legacy operational meaning and are left null on
+      purpose, the same way `companyRoleId` is null for most of the register.
+
+      `crew` is the one that matters. Urban's real register has 37 people whose
+      OLD `employee.role` read "foreman" while their `roleId` already pointed at
+      `crew` — a foreman-shaped job with no login, which is exactly what `crew`
+      means. Giving `crew` a `foreman` category to make the old report output
+      match would re-hide that distinction this table exists to keep visible;
+      the product owner confirmed those 37 move to their own bucket and that is
+      the point, not a bug to route around.
+    */
+    category: text("category"),
+    /*
       Whether people in this role are expected to sign in.
 
       False is the normal case for most of a yard: a labourer or an operator

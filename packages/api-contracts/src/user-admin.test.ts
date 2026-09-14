@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import { hashPassword, login } from "@stinventory/auth";
-import type { Permission } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import { hashPassword, login } from "@optix/auth";
+import type { Permission } from "@optix/types";
 import { userRouter } from "./routers/user.js";
 import type { Context } from "./trpc.js";
 
@@ -201,9 +201,9 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
     /* The register's answer to "who is holding this" — the projection the
        deactivate test asserts is untouched. */
     const [a] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description: "STI-303 held grinder", currentCustodianId: employeeId })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     assetId = a!.id;
   });
 
@@ -440,9 +440,9 @@ describe.skipIf(!url)("user administration (STI-303)", () => {
     await admin().setActive({ userId: user!.id, isActive: false });
 
     const [asset] = await db
-      .select({ custodianId: schema.asset.currentCustodianId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, assetId));
+      .select({ custodianId: schema.smallTool.currentCustodianId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, assetId));
     /* If deactivation ever grows a "return their tools" step, this is the line
        that fails — and it should, because the tool would have moved with no
        ledger event and no custody link explaining it. */

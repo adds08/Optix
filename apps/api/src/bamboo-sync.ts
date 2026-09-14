@@ -1,12 +1,12 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
 import {
   adaptBambooPage,
   BAMBOO_OPTIONAL_FIELDS,
   type AdaptedBambooPerson,
   type BambooEmployeeRecord,
-} from "@stinventory/domain";
+} from "@optix/domain";
 
 /*
   The BambooHR people sync: fetch, diff, then either report or write.
@@ -435,6 +435,10 @@ export async function loadExisting(db: Database, tenantId: string) {
       code: schema.employee.code,
       email: schema.employee.email,
       hrFlaggedInactiveAt: schema.employee.hrFlaggedInactiveAt,
+      /* So `applySyncPlan` can tell "has no role yet" from "a human chose one",
+         and fill only the first. Read here rather than per person: this map is
+         already the snapshot of what the tenant held before the run. */
+      roleId: schema.employee.roleId,
     })
     .from(schema.employee)
     .where(eq(schema.employee.tenantId, tenantId));
@@ -491,27 +495,67 @@ export async function loadExisting(db: Database, tenantId: string) {
   two people in the same new division inside one run, both race the unique
   index on (tenant_id, name).
 */
+/*
+  Division / department / job-title ids, resolved once per NAME rather than
+  once per person.
+
+  These three sets are tiny and hugely repeated: Urban's live roster is 1,859
+  people across ~10 divisions, ~20 departments and 123 job titles, and 247 of
+  those people are "Carpenter". Without the cache the apply loop resolved the
+  same handful of names thousands of times — up to three calls per person, each
+  of them a select, a conditional insert and a re-select, so 2,000-4,000
+  sequential round-trips for one sync.
+
+  The cache is per-CALL, not module-level: it is created by `applySyncPlan` and
+  dies with the run, so a name created by one sync is still looked up fresh by
+  the next. Keyed by table name and value, because the same string can be both
+  a department and a division.
+*/
+export type NameCache = Map<string, string | null>;
+
 async function resolveByName(
   db: Database,
   table: typeof schema.division | typeof schema.department | typeof schema.companyRole,
+  kind: "division" | "department" | "jobTitle",
   tenantId: string,
   name: string,
+  cache?: NameCache,
 ): Promise<string | null> {
   const trimmed = name.trim();
   if (!trimmed) return null;
+
+  /* `kind` is passed in rather than read off the table. Reading it from the
+     Drizzle object needed a cast to a private shape, the cast compiled, the
+     property was undefined at runtime, and every person in the sync failed with
+     "Cannot read properties of undefined (reading 'name')" — a silent `failed`
+     count, not a crash. An explicit argument cannot be wrong that way.
+
+     Part of the key because the same string can be both a department and a
+     division. */
+  const key = `${kind}:${trimmed}`;
+  if (cache?.has(key)) return cache.get(key) ?? null;
+
   const found = await db
     .select({ id: table.id })
     .from(table)
     .where(and(eq(table.tenantId, tenantId), eq(table.name, trimmed)))
     .limit(1);
-  if (found[0]) return found[0].id;
+  if (found[0]) {
+    cache?.set(key, found[0].id);
+    return found[0].id;
+  }
   await db.insert(table).values({ tenantId, name: trimmed }).onConflictDoNothing();
   const again = await db
     .select({ id: table.id })
     .from(table)
     .where(and(eq(table.tenantId, tenantId), eq(table.name, trimmed)))
     .limit(1);
-  return again[0]?.id ?? null;
+  const id = again[0]?.id ?? null;
+  /* Cached even when null — a name that could not be resolved will not resolve
+     on the next person either, and re-trying it 246 more times is the cost
+     this cache exists to remove. */
+  cache?.set(key, id);
+  return id;
 }
 
 /*
@@ -524,12 +568,27 @@ async function resolveByName(
   the people already written correct and the run reports what it managed. The
   operation is safe to re-run because matching is by `(system, external_id)`.
 */
+/*
+  What role this person holds right now.
+
+  Only reached when the pre-run snapshot does not mention them — a caller that
+  passed a partial map, or a person created earlier in this same run. One row
+  by primary key, and never on the common path.
+*/
+async function currentRoleId(db: Database, tenantId: string, employeeId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ roleId: schema.employee.roleId })
+    .from(schema.employee)
+    .where(and(eq(schema.employee.id, employeeId), eq(schema.employee.tenantId, tenantId)));
+  return row?.roleId ?? null;
+}
+
 export async function applySyncPlan(
   db: Database,
   tenantId: string,
   plan: SyncPlan,
   incoming: AdaptedBambooPerson[],
-  existingById: Map<string, { hrFlaggedInactiveAt: Date | null }> = new Map(),
+  existingById: Map<string, { hrFlaggedInactiveAt: Date | null; roleId?: string | null }> = new Map(),
 ): Promise<{ created: number; updated: number; failed: number; firstError: string | null }> {
   const byExternalId = new Map(incoming.map((p) => [p.externalId, p]));
   /* Bamboo id -> our employee id, filled as we go and used by the second pass
@@ -557,6 +616,9 @@ export async function applySyncPlan(
   let firstError: string | null = null;
   let updated = 0;
 
+  /* One cache for the whole run — see the note on `resolveByName`. */
+  const nameCache: NameCache = new Map();
+
   for (const step of plan.people) {
    try {
     const person = byExternalId.get(step.externalId);
@@ -565,13 +627,36 @@ export async function applySyncPlan(
     if (step.action === "skip" && !step.employeeId) continue;
 
     const divisionId = person.writable.divisionName
-      ? await resolveByName(db, schema.division, tenantId, person.writable.divisionName)
+      ? await resolveByName(db, schema.division, "division", tenantId, person.writable.divisionName, nameCache)
       : null;
     const departmentId = person.writable.departmentName
-      ? await resolveByName(db, schema.department, tenantId, person.writable.departmentName)
+      ? await resolveByName(db, schema.department, "department", tenantId, person.writable.departmentName, nameCache)
       : null;
     const companyRoleId = person.writable.jobTitleName
-      ? await resolveByName(db, schema.companyRole, tenantId, person.writable.jobTitleName)
+      ? await resolveByName(db, schema.companyRole, "jobTitle", tenantId, person.writable.jobTitleName, nameCache)
+      : null;
+
+    /*
+      The login role this job title grants, if an administrator has said
+      (migration 0071, `/settings/job-titles`).
+
+      Until this existed the sync set no `roleId` at all, so every person it
+      created arrived with no permissions and no custody eligibility, and
+      somebody assigned 190 of them by hand — again after each nightly run that
+      added a starter.
+
+      `null` where the title is unmapped, or where `resolveByName` has just
+      CREATED the title because BambooHR reported one we had never seen. A brand
+      new title cannot have a mapping yet, and guessing one would be the worst
+      possible moment to guess: nobody has looked at it.
+    */
+    const defaultRoleId = companyRoleId
+      ? (
+          await db
+            .select({ id: schema.companyRole.defaultRoleId })
+            .from(schema.companyRole)
+            .where(and(eq(schema.companyRole.id, companyRoleId), eq(schema.companyRole.tenantId, tenantId)))
+        )[0]?.id ?? null
       : null;
 
     let employeeId = step.employeeId;
@@ -602,6 +687,9 @@ export async function applySyncPlan(
           ...(divisionId ? { divisionId } : {}),
           ...(departmentId ? { departmentId } : {}),
           ...(companyRoleId ? { companyRoleId } : {}),
+          /* The mapped role, where the title has one. Absent leaves `roleId`
+             null, which is the honest state: nobody has decided yet. */
+          ...(defaultRoleId ? { roleId: defaultRoleId } : {}),
           ...(step.flaggedInactive ? { hrFlaggedInactiveAt: new Date() } : {}),
         })
         .returning({ id: schema.employee.id });
@@ -626,6 +714,30 @@ export async function applySyncPlan(
       if (divisionId) patch.divisionId = divisionId;
       if (departmentId) patch.departmentId = departmentId;
       if (companyRoleId) patch.companyRoleId = companyRoleId;
+      /*
+        FILL, NEVER OVERWRITE. An existing person keeps whatever role a human
+        gave them, even if their job title later changes — a nightly job that
+        quietly undid an administrator's decision is how people stop trusting a
+        sync, and re-roling somebody is a security change, not a tidy-up.
+
+        So this only reaches people who have no role at all: the ones created
+        before the mapping existed, and anyone whose title was mapped after they
+        arrived. Checked against what they hold NOW, from the same snapshot the
+        flag comparison below uses, so it costs no extra query.
+      */
+      if (defaultRoleId) {
+        /*
+          `has()` first, deliberately. `?.roleId == null` is true both for
+          "this person has no role" and for "this person is not in the
+          snapshot", and those must not be treated alike: the second is how a
+          caller passing an empty map (the contacts test does) would have every
+          person's role overwritten by their job title's default. Absent from
+          the snapshot means unknown, and unknown is not a licence to write.
+        */
+        const known = existingById.get(employeeId);
+        const held = known ? known.roleId ?? null : await currentRoleId(db, tenantId, employeeId);
+        if (held == null) patch.roleId = defaultRoleId;
+      }
       /* Only written on an actual STATE CHANGE, checked against what this
          person held before this run — never unconditionally, or `updated`
          would count every synced person as changed the moment this column

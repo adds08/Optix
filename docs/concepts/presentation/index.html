@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Optix — Small Tools Inventory (Urban Infraconstruction)</title>
+<!--
+  Optix / Urban Infraconstruction — presentation deck
+  ===================================================
+  HOW TO EDIT
+  -----------
+  * Every slide is one <section class="slide">. Add, delete or reorder them
+    freely; the page counter and progress bar follow the DOM.
+  * Text lives in plain HTML. Headings are <h2>, the small amber label above
+    a heading is <p class="eyebrow">.
+  * Speaker notes go in <aside class="notes">…</aside> inside the slide.
+  * Screenshots live in ./assets and are referenced by relative path.
+  * Colours and sizes are the CSS variables at the top of <style>.
+
+  SHORTCUTS
+  ---------
+  Left / Right / Space / PgUp / PgDn  navigate
+  Home / End                          first / last slide
+  O or Esc                            overview (click a slide to jump)
+  N                                   speaker notes
+  F                                   fullscreen
+  ?                                   this shortcut list
+  Cmd/Ctrl+P                          print → Save as PDF (landscape)
+-->
+<style>
+  :root{
+    --navy:#0F172A;
+    --navy-2:#151F38;
+    --amber:#F59E0B;
+    --amber-soft:#FEF3C7;
+    --blue:#0480C3;
+    --blue-deep:#1D3E8D;
+    --ink:#1E293B;
+    --muted:#64748B;
+    --line:#E2E8F0;
+    --paper:#FFFFFF;
+    --wash:#F8FAFC;
+    --ok:#15803D;
+    --no:#B91C1C;
+    --radius:14px;
+    --pad:clamp(28px,4.2vw,72px);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{
+    font-family:var(--font);color:var(--ink);background:#0B1220;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------------------------------------------------------------- deck */
+  #deck{position:relative;width:100%;height:100dvh;overflow:hidden}
+  .slide{
+    position:absolute;inset:0;display:none;
+    background:var(--paper);
+    padding:var(--pad);
+    padding-top:calc(var(--pad) * 0.85);
+    padding-bottom:calc(var(--pad) + 14px);   /* keeps content clear of the footer */
+    overflow:hidden;
+    flex-direction:column;
+  }
+  .slide.is-active{display:flex}
+  .slide::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:5px;
+    background:var(--amber);
+  }
+  .slide.dark{background:var(--navy);color:#F1F5F9}
+  .slide.dark::before{background:linear-gradient(90deg,var(--blue-deep),var(--blue),var(--amber))}
+  .slide.accent::before{background:linear-gradient(90deg,var(--blue-deep),var(--blue))}
+
+  /* ------------------------------------------------------------- headings */
+  .eyebrow{
+    margin:0 0 10px;font-size:clamp(10px,0.95vw,13px);font-weight:700;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--amber);
+  }
+  .slide.dark .eyebrow{color:var(--amber)}
+  h1{margin:0;font-size:clamp(44px,7.2vw,104px);line-height:.98;letter-spacing:-.03em;font-weight:800}
+  h2{margin:0 0 6px;font-size:clamp(26px,3.5vw,50px);line-height:1.05;letter-spacing:-.02em;font-weight:800}
+  h3{margin:0 0 6px;font-size:clamp(15px,1.35vw,20px);font-weight:750;letter-spacing:-.01em}
+  p{margin:0 0 12px;font-size:clamp(14px,1.32vw,19px);line-height:1.5}
+  .lede{font-size:clamp(18px,2.1vw,30px);color:var(--muted);margin:14px 0 0;font-weight:500}
+  .sub{max-width:62ch;color:var(--muted);margin-top:16px}
+  .slide.dark .lede,.slide.dark .sub{color:#94A3B8}
+  .rule{height:1px;background:var(--line);margin:22px 0}
+  .slide.dark .rule{background:#243049}
+
+  /* --------------------------------------------------------------- layout */
+  .body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:clamp(14px,1.6vw,26px)}
+  .body.top{justify-content:flex-start}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,2vw,34px)}
+  .cols-3{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(14px,1.6vw,26px)}
+  .cols-4{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,1.4vw,22px)}
+  .cols.tight{gap:clamp(12px,1.4vw,22px)}
+
+  /* ---------------------------------------------------------------- cards */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.5vw,24px)}
+  .card{
+    background:var(--wash);border:1px solid var(--line);border-radius:var(--radius);
+    padding:clamp(14px,1.5vw,24px);
+  }
+  .slide.dark .card{background:var(--navy-2);border-color:#243049}
+  .card h3{color:var(--ink)}
+  .slide.dark .card h3{color:#fff}
+  .card p{margin:0;font-size:clamp(12px,1.12vw,16px);color:var(--muted);line-height:1.45}
+  .slide.dark .card p{color:#94A3B8}
+  .card .num{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:8px;background:var(--amber);color:#111827;
+    font-weight:800;font-size:13px;margin-bottom:10px;
+  }
+  .card.hi{border-color:var(--amber);background:#FFFBEB}
+
+  /* --------------------------------------------------------------- bullets */
+  ul.clean{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  ul.clean li{position:relative;padding-left:22px;font-size:clamp(13px,1.2vw,17px);line-height:1.45}
+  ul.clean li::before{
+    content:"";position:absolute;left:0;top:.52em;width:8px;height:8px;border-radius:50%;
+    background:var(--amber);
+  }
+  ul.clean.dash li::before{width:10px;height:2px;border-radius:0;top:.68em;background:var(--muted)}
+  .slide.dark ul.clean li::before{background:var(--amber)}
+  b,strong{font-weight:700;color:var(--ink)}
+  .slide.dark b,.slide.dark strong{color:#fff}
+  .no{color:var(--no);font-weight:700}
+  .ok{color:var(--ok);font-weight:700}
+
+  /* ---------------------------------------------------------------- steps */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,1.5vw,24px)}
+  .step{border-top:3px solid var(--amber);padding-top:12px}
+  .step .k{font-size:clamp(10px,.92vw,12px);font-weight:800;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+  .step h3{margin:6px 0 4px}
+  .step p{margin:0;color:var(--muted);font-size:clamp(12px,1.1vw,15px)}
+
+  /* ---------------------------------------------------------------- flow */
+  .flow{display:flex;align-items:stretch;gap:10px;flex-wrap:nowrap}
+  .flow .node{
+    flex:1;background:var(--wash);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;text-align:center;
+  }
+  .slide.dark .flow .node{background:var(--navy-2);border-color:#243049}
+  .flow .node .t{font-weight:750;font-size:clamp(12px,1.1vw,16px)}
+  .flow .node .s{font-size:clamp(10px,.95vw,13px);color:var(--muted);margin-top:4px}
+  .flow .arrow{display:flex;align-items:center;color:var(--amber);font-weight:800;font-size:20px}
+  .callout{
+    border-left:4px solid var(--amber);background:var(--amber-soft);
+    padding:14px 18px;border-radius:0 12px 12px 0;font-size:clamp(12px,1.15vw,16px);
+  }
+  .callout.blue{border-color:var(--blue);background:#EFF6FF}
+  .slide.dark .callout{background:#1B2540;color:#E2E8F0}
+
+  /* -------------------------------------------------------------- figures */
+  .figure{margin:0;display:flex;flex-direction:column;gap:8px;min-height:0;align-items:flex-start}
+  /* the image hugs its own aspect ratio — the border never letterboxes.
+     align-items:flex-start stops the column from stretching the image to the
+     full width, which is what produced white bands inside the border. */
+  .figure img{
+    flex:0 1 auto;max-width:100%;max-height:100%;width:auto;height:auto;
+    object-fit:contain;display:block;
+    border:1px solid var(--line);border-radius:var(--radius);background:#fff;
+  }
+  .figure.fill{flex:1 1 auto;min-height:0}
+  .figure.fill img{max-height:100%}
+  .figure figcaption{flex:0 0 auto;font-size:clamp(11px,1vw,14px);color:var(--muted)}
+  .figure.fill{flex:1;min-height:0}
+
+  /* --------------------------------------------------------------- tables */
+  .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);min-height:0}
+  table{border-collapse:collapse;width:100%;font-size:clamp(11px,1.02vw,15px)}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{
+    background:var(--wash);font-size:clamp(9.5px,.88vw,12px);letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);font-weight:800;position:sticky;top:0;
+  }
+  tr:last-child td{border-bottom:none}
+  td.mono,th.mono{font-family:var(--mono);font-size:.92em}
+  .tag{
+    display:inline-block;padding:1px 8px;border-radius:999px;font-size:.82em;font-weight:700;
+    background:var(--wash);border:1px solid var(--line);color:var(--muted);
+  }
+  .tag.field{background:#ECFDF5;border-color:#A7F3D0;color:#065F46}
+  .tag.desk{background:#EFF6FF;border-color:#BFDBFE;color:#1E40AF}
+  .tag.all{background:#FEF3C7;border-color:#FDE68A;color:#92400E}
+
+  /* ----------------------------------------------------------------- kpi */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(12px,1.5vw,24px)}
+  .kpi .v{font-size:clamp(30px,4vw,58px);font-weight:800;letter-spacing:-.03em;line-height:1}
+  .kpi .v.amber{color:var(--amber)}
+  .kpi .l{font-size:clamp(11px,1.05vw,15px);color:var(--muted);margin-top:6px}
+
+  /* -------------------------------------------------------------- chrome */
+  .slide-foot{
+    position:absolute;left:var(--pad);right:var(--pad);bottom:calc(var(--pad) * .42);
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:clamp(10px,.92vw,13px);color:var(--muted);letter-spacing:.02em;
+  }
+  .slide.dark .slide-foot{color:#64748B}
+  .brandline{display:flex;align-items:center;gap:8px;font-weight:600}
+  .brandline i{width:9px;height:9px;border-radius:2px;background:var(--amber);display:inline-block}
+
+  #progress{position:fixed;top:0;left:0;height:4px;background:linear-gradient(90deg,var(--blue),var(--amber));width:0;z-index:60;transition:width .25s ease}
+  #hud{
+    position:fixed;right:14px;bottom:12px;z-index:60;display:flex;gap:6px;align-items:center;
+  }
+  #hud button{
+    font:inherit;font-size:13px;padding:6px 10px;border-radius:9px;cursor:pointer;
+    background:rgba(15,23,42,.82);color:#E2E8F0;border:1px solid #334155;
+    min-width:38px;text-align:center;
+  }
+  #hud button:hover{background:rgba(15,23,42,.95)}
+  #counter{font-size:12px;color:#94A3B8;background:rgba(15,23,42,.82);border:1px solid #334155;
+    padding:6px 10px;border-radius:9px;font-variant-numeric:tabular-nums}
+
+  /* --------------------------------------------------------------- notes */
+  /* speaker notes never render on the slide itself — only in the drawer */
+  .slide .notes{display:none}
+  #notes{
+    position:fixed;left:0;right:0;bottom:0;max-height:38vh;overflow:auto;z-index:70;
+    background:#0B1220;color:#CBD5E1;border-top:3px solid var(--amber);
+    padding:16px 20px 22px;display:none;font-size:14px;line-height:1.55;
+  }
+  #notes.show{display:block}
+  #notes h4{margin:0 0 6px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
+  #notes p{margin:0;font-size:14px;color:#CBD5E1}
+
+  /* ------------------------------------------------------------ overview */
+  #overview{
+    position:fixed;inset:0;z-index:80;background:#0B1220;overflow:auto;display:none;padding:28px;
+  }
+  #overview.show{display:block}
+  #overview h4{color:#94A3B8;font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin:0 0 16px}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+  .thumb{
+    background:#141C31;border:1px solid #243049;border-radius:10px;padding:12px;cursor:pointer;
+    color:#CBD5E1;font-size:12.5px;line-height:1.35;min-height:76px;display:flex;flex-direction:column;gap:6px;
+  }
+  .thumb b{color:#fff;font-size:11px}
+  .thumb:hover{border-color:var(--amber)}
+  .thumb.is-current{border-color:var(--amber);background:#1B2540}
+
+  /* ---------------------------------------------------------------- help */
+  #help{
+    position:fixed;inset:0;z-index:90;background:rgba(11,18,32,.94);display:none;
+    align-items:center;justify-content:center;padding:24px;
+  }
+  #help.show{display:flex}
+  #help .panel{background:#141C31;border:1px solid #243049;border-radius:16px;padding:26px 30px;max-width:520px;color:#CBD5E1}
+  #help h4{margin:0 0 14px;color:#fff;font-size:15px;letter-spacing:.02em}
+  #help table{font-size:13.5px;color:#CBD5E1}
+  #help td{padding:5px 10px;border:none}
+  #help td:first-child{font-family:var(--mono);color:var(--amber);white-space:nowrap}
+
+  /* --------------------------------------------------------------- print */
+  @page{size:A4 landscape;margin:0}
+  @media print{
+    body{background:#fff}
+    #deck{height:auto;overflow:visible}
+    .slide{
+      position:static;display:flex !important;break-after:page;page-break-after:always;
+      width:297mm;height:209mm;padding:16mm 18mm;overflow:hidden;
+    }
+    .slide::before{height:4mm}
+    .slide-foot{bottom:6mm;left:18mm;right:18mm}
+    #progress,#hud,#notes,#overview,#help{display:none !important}
+    .slide.dark{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+  @media (max-width:900px){
+    .cols,.cols-3,.cols-4,.cards,.steps,.kpis{grid-template-columns:1fr}
+    .flow{flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<main id="deck">
+
+<!-- ============================================================ 1. TITLE -->
+<section class="slide dark">
+  <div class="body">
+    <p class="eyebrow">Awakening what's possible</p>
+    <h1>Optix</h1>
+    <p class="lede">Small Tools Inventory Management</p>
+    <p class="sub">Built for Urban Infraconstruction LLC — one trustworthy answer to where every small tool is, and who is holding it.</p>
+    <div class="rule"></div>
+    <div class="cols-3" style="max-width:900px">
+      <div><div class="kpi"><div class="l" style="letter-spacing:.16em;text-transform:uppercase;font-size:11px">Prepared for</div><div style="font-weight:700;color:#e2e8f0;margin-top:4px">Urban Infraconstruction LLC</div></div></div>
+      <div><div class="kpi"><div class="l" style="letter-spacing:.16em;text-transform:uppercase;font-size:11px">Presented by</div><div style="font-weight:700;color:#e2e8f0;margin-top:4px">Bodhi Labs</div></div></div>
+      <div><div class="kpi"><div class="l" style="letter-spacing:.16em;text-transform:uppercase;font-size:11px">Date</div><div style="font-weight:700;color:#e2e8f0;margin-top:4px">September 2026</div></div></div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Title</span></div>
+  <aside class="notes">Open with the promise, not the software: Urban should be able to answer "where is it, and who has it?" without a phone call. Everything in this deck serves that one sentence.</aside>
+</section>
+
+<!-- =========================================================== 2. AGENDA -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Agenda</p>
+    <h2>From the problem to the work</h2>
+    <div class="cards" style="margin-top:10px">
+      <div class="card"><span class="num">1</span><h3>The problem</h3><p>753 small tools, none of them with an ID, and a different spreadsheet for every crew.</p></div>
+      <div class="card"><span class="num">2</span><h3>Getting data in</h3><p>Projects, equipment and tools by file; people by a read-only BambooHR sync.</p></div>
+      <div class="card"><span class="num">3</span><h3>Setting up</h3><p>The three-question wizard — your jobs, your crew, review — and who gets which.</p></div>
+      <div class="card"><span class="num">4</span><h3>Daily work</h3><p>Create a tool, create equipment, build a rig, attach tools, and repair them.</p></div>
+      <div class="card"><span class="num">5</span><h3>Roles &amp; access</h3><p>Who sees what, and the three axes that decide it.</p></div>
+      <div class="card"><span class="num">6</span><h3>What's next</h3><p>What is live today, and the handful of things still to come.</p></div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Agenda</span></div>
+</section>
+
+<!-- ========================================================== 3. PROBLEM -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">The problem</p>
+    <h2>What we're up against</h2>
+    <p class="sub" style="margin-top:0">Urban owns a lot of small tools, and the records for them are spread across whoever happens to be using them.</p>
+    <div class="cols" style="margin-top:6px">
+      <ul class="clean">
+        <li><b>753 small tools</b> live on trailer sheets and personal Excel files — and <b>0 of 753 carry a tool ID.</b></li>
+        <li>Every crew keeps its own list; the yard keeps another. When they disagree, nobody can say which one is right.</li>
+        <li>A tool nobody can locate gets bought again — the same drill, twice.</li>
+        <li>People change jobs and tools walk; offboarding has no checklist.</li>
+      </ul>
+      <div class="kpis" style="grid-template-columns:1fr 1fr">
+        <div class="kpi"><div class="v amber">753</div><div class="l">small tools to account for</div></div>
+        <div class="kpi"><div class="v">0</div><div class="l">carry a tool ID today</div></div>
+        <div class="kpi"><div class="v">88</div><div class="l">trucks &amp; trailers on file</div></div>
+        <div class="kpi"><div class="v">28</div><div class="l">jobs in the register</div></div>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:14px">None of this is a tooling problem. It is a <b>records</b> problem: there is no single list anyone can trust.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>The problem</span></div>
+  <aside class="notes">Keep this short — the room lives this problem. The four symptoms have one root cause: no register of record. The three numbers to land are 753 tools, 0 with an ID, 28 jobs.</aside>
+</section>
+
+<!-- ================================================== 4. DUPLICATE TAX -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">The problem</p>
+    <h2>The duplicate-data tax</h2>
+    <p class="sub" style="margin-top:0">The cost is not the tool you cannot find. It is the second tool you buy because nobody can prove the first one exists.</p>
+    <div class="cols-4" style="margin-top:8px">
+      <div class="card"><h3>Three files, three spellings</h3><p>The same tool written three different ways, on three lists that never reconcile.</p></div>
+      <div class="card"><h3>A re-purchase with no serial</h3><p>A tool bought twice, and no serial to tie the two purchases together.</p></div>
+      <div class="card"><h3>"Which file is current?"</h3><p>A daily question with no authoritative answer to give.</p></div>
+      <div class="card"><h3>Nothing for the auditor</h3><p>No trail to hand an auditor, or to attach to an insurance claim.</p></div>
+    </div>
+    <div class="callout" style="margin-top:14px">Every one of those is the same failure: no register of record, so every answer is a best guess.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>The problem</span></div>
+  <aside class="notes">Frame the tax in money and time, not tidiness. The re-purchase is the headline: the same drill paid for twice, and nobody can prove the first exists because there is no serial against a single record.</aside>
+</section>
+
+<!-- ========================================================== 5. MISSION -->
+<section class="slide dark">
+  <div class="body">
+    <p class="eyebrow">Mission</p>
+    <h2 style="font-size:clamp(28px,4.2vw,62px);max-width:22ch">Know where every small tool is, and who is holding it — at all times, without a phone call to the yard.</h2>
+    <div class="rule"></div>
+    <p class="lede" style="font-size:clamp(15px,1.5vw,21px);margin:0">Six goals follow from that one sentence. They are the test every screen is held to.</p>
+    <div class="cards" style="margin-top:18px">
+      <div class="card"><h3>One register of record</h3><p>Every tool Urban owns, in one list — not a spreadsheet per department.</p></div>
+      <div class="card"><h3>Live custody</h3><p>Who is holding what, right now, folded from a ledger rather than typed in.</p></div>
+      <div class="card"><h3>Field-first by phone</h3><p>A foreman works from a phone, in the yard, in one sentence.</p></div>
+      <div class="card"><h3>Tools follow the foreman</h3><p>When a person moves job, the tools in their hands move with them — on the record.</p></div>
+      <div class="card"><h3>Real data from real sources</h3><p>Populated from HR and Urban's own files. Nothing invented.</p></div>
+      <div class="card"><h3>Access that matches the job</h3><p>People see what their job needs — and cannot act beyond it.</p></div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Mission</span></div>
+  <aside class="notes">The last card matters as much as the first: "access that matches the job" is why a foreman cannot reassign tools, and why a director cannot see every job at once.</aside>
+</section>
+
+<!-- ====================================================== 6. BEFORE/AFTER -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">The problem</p>
+    <h2>Before → after</h2>
+    <p class="sub" style="margin-top:0">Four people ask the same question four different ways. After Optix, they all read the same list.</p>
+    <div class="table-wrap" style="margin-top:10px">
+      <table>
+        <thead><tr><th>Who</th><th>Before</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td><b>Foreman</b></td><td>A phone call to the yard</td><td>The app in his hand</td></tr>
+          <tr><td><b>Equipment desk</b></td><td>Three spreadsheets</td><td>One board</td></tr>
+          <tr><td><b>Project manager</b></td><td>"Ask the yard"</td><td>Filtered to his own jobs</td></tr>
+          <tr><td><b>Finance</b></td><td>No record at all</td><td>Capital by project, with who holds it</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout blue" style="margin-top:14px">The same four questions get the same answer from everyone — because there is one register, and it is the only one.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>The problem</span></div>
+  <aside class="notes">This is the slide that makes the value concrete for four different listeners at once. Point at each row and name the person it belongs to in the room.</aside>
+</section>
+
+<!-- ============================================================ 7. SCOPE -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Scope</p>
+    <h2>Deliberately not built</h2>
+    <p class="sub" style="margin-top:0">A register that guesses is worse than one that admits what it does not know. Each of these was removed or never built, on purpose:</p>
+    <div class="cols-3" style="margin-top:8px">
+      <div class="card"><h3>Rentals &amp; loans</h3><p>No rented-tool tracking, and no loan model with due dates. Neither is a custody fact Urban asked to manage.</p></div>
+      <div class="card"><h3>Overdue &amp; reminders</h3><p>The borrow model and expected-return dates were deleted. Nothing goes "overdue" because nothing is borrowed.</p></div>
+      <div class="card"><h3>Foreman-to-foreman hand-offs</h3><p>A foreman cannot pass a tool to another foreman. Tools move through the equipment desk, or not at all.</p></div>
+      <div class="card"><h3>Vendors, POs, cost codes</h3><p>Purchasing documents and job-cost accounting are not this system's job.</p></div>
+      <div class="card"><h3>Money on the field screen</h3><p>Capital figures are desk reports. A foreman's screen does not carry dollars.</p></div>
+      <div class="card hi"><h3>What is in scope</h3><p>One register of small tools, custody of them, who holds what on which job — and the history of every move.</p></div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Scope</span></div>
+  <aside class="notes">If asked "why can't a foreman just hand a tool to the next foreman?", the answer is the ledger: an unrecorded move is indistinguishable from a lost tool. Routing every move through the desk is what makes "who holds what" true.</aside>
+</section>
+
+<!-- ================================================== 8. TWO DOORS -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Getting data in</p>
+    <h2>Two doors, nothing invented</h2>
+    <p class="sub" style="margin-top:0">Things and people arrive by different doors — and neither door lets Optix make anything up.</p>
+    <div class="cols" style="margin-top:6px">
+      <div class="card"><h3>Files carry things</h3><p>Projects, equipment and small tools are imported from Urban's own files through the <b>Import</b> button on each register. What is missing stays missing; blank cells stay blank.</p></div>
+      <div class="card"><h3>BambooHR carries people</h3><p>People arrive from the live HR sync. Every one lands as <b>crew with no login</b>. Access is granted by hand, later, as a separate decision.</p></div>
+    </div>
+    <div class="callout" style="margin-top:14px"><b>Nothing is seeded.</b> An empty register is the correct starting state — approximate data is worse than none, because nothing on screen would say which rows to trust.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Data in</span></div>
+  <aside class="notes">The point of this slide is trust: the register is only useful if every row came from a named source. Two sources, two doors, no invented rows.</aside>
+</section>
+
+<!-- ================================================= 9. IMPORT ORDER -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Getting data in</p>
+    <h2>The import, in order</h2>
+    <p class="sub" style="margin-top:0">Projects first, then equipment, then small tools. Each file previews with the same code that commits it, and one bad row refuses the whole file.</p>
+    <div class="cols-3" style="margin-top:8px">
+      <div class="card"><span class="num">1</span><h3>projects.csv</h3><p style="font-family:var(--mono);font-size:clamp(10px,.9vw,13px);word-break:break-word;color:var(--muted)">name · project_code · description · status · site_address · start_date · end_date</p></div>
+      <div class="card"><span class="num">2</span><h3>equipment.csv</h3><p style="font-family:var(--mono);font-size:clamp(10px,.9vw,13px);word-break:break-word;color:var(--muted)">code · type · vin · description · plate · make_model</p></div>
+      <div class="card"><span class="num">3</span><h3>small-tools.csv</h3><p style="font-family:var(--mono);font-size:clamp(10px,.9vw,13px);word-break:break-word;color:var(--muted)">code · description · make · model · category · serial · quantity</p></div>
+    </div>
+    <div class="callout" style="margin-top:14px"><b>Preview first, all-or-nothing.</b> The preview is computed by the same code as the commit, so it cannot lie about what will happen — and a duplicate refuses the file rather than importing half a register.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Data in</span></div>
+  <aside class="notes">Show the real headers, not a mock-up. The order matters because equipment and tools can resolve a project by name; load projects first and those references have something to land on. The preview/commit sharing one code path is the honest-import guarantee.</aside>
+</section>
+
+<!-- ==================================================== 10. BAMBOOHR -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Getting data in</p>
+    <h2>BambooHR is read-only</h2>
+    <div class="cards" style="margin-top:6px">
+      <div class="card"><h3>GET only</h3><p>The sync takes no verb parameter at all, so no argument can make it write back to HR.</p></div>
+      <div class="card"><h3>No logins created</h3><p>Everyone lands as <b>crew with no login</b>. The people who need access are invited by hand, one at a time.</p></div>
+      <div class="card hi"><h3>Departure is a flag</h3><p>A termination reported by the sync is a flag for an administrator — never a write Optix performs on its own.</p></div>
+      <div class="card"><h3>Title → role is manual</h3><p>HR's job titles map to login roles in <b>Settings → Job Titles</b>. The sync never guesses which role somebody gets.</p></div>
+      <div class="card"><h3>The source of truth stays HR</h3><p>Optix reads people; it does not own them. Correcting a person means correcting BambooHR.</p></div>
+      <div class="card"><h3>People carry no tools</h3><p>Custody is a record about a tool, not a field on a person — so the sync and the register never fight.</p></div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Data in</span></div>
+  <aside class="notes">The read-only claim is structural, not a promise: the client cannot construct a write. If somebody asks whether Optix could ever overwrite HR, the answer is that there is no verb to do it with.</aside>
+</section>
+
+<!-- ============================================== 11. DUPLICATES REFUSED -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Getting data in</p>
+    <h2>Duplicates refused at the door</h2>
+    <p class="sub" style="margin-top:0">Three things must be unique before a row is allowed into the register.</p>
+    <div class="cols-3" style="margin-top:8px">
+      <div class="card"><h3>Code</h3><p>Unique per tenant, case-insensitive. <span style="font-family:var(--mono)">TOOL-00001</span> and <span style="font-family:var(--mono)">tool-00001</span> are the same tool.</p></div>
+      <div class="card"><h3>Serial</h3><p>Unique. A repeated serial refuses the whole file rather than merging two tools into one guess.</p></div>
+      <div class="card"><h3>VIN</h3><p>Unique on equipment. The same truck cannot enter twice under two codes.</p></div>
+    </div>
+    <div class="callout" style="margin-top:14px">A duplicate is <b>refused, not reconciled</b>. That is deliberate: a merge is a guess, and a guess in the register is worse than a failed import.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Data in</span></div>
+  <aside class="notes">This is the answer to "what if the same tool is in two files?" It is refused, and the importer says which row collided. Nothing gets silently merged, so the register never contains two half-tools.</aside>
+</section>
+
+<!-- ============================================= 12. THREE QUESTIONS -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Setting up</p>
+    <h2>Onboarding: three questions</h2>
+    <p class="sub" style="margin-top:0">The wizard asks at most three things. Nothing else is required before somebody can work.</p>
+    <div class="steps" style="margin:8px 0">
+      <div class="step"><div class="k">Question 1</div><h3>Your jobs</h3><p>What the company already has you on — or take a job on, if your role can claim.</p></div>
+      <div class="step"><div class="k">Question 2</div><h3>Your crew</h3><p>Confirm or fill your reporting branch — the same surface the desk uses as Project Teams.</p></div>
+      <div class="step"><div class="k">Question 3</div><h3>Review and finish</h3><p>See what was written, and what your manager will maintain after setup.</p></div>
+      <div class="step"><div class="k">Then</div><h3>Straight to work</h3><p>Setup is resumable — leave and come back; nothing is locked in.</p></div>
+    </div>
+    <div class="callout blue">Only roles that hold equipment get the jobs and crew steps. HR reviews people; foremen skip the wizard entirely.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Setting up</span></div>
+  <aside class="notes">The code declares more onboarding steps (details, location, invite), but the state only ever emits projects, crew and review — so the wizard asks three questions. Present three; flag the extra declared steps to the team as either stale copy or consolidated work.</aside>
+</section>
+
+<!-- ================================================= 13. CLAIMING -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Setting up</p>
+    <h2>Your jobs — claiming</h2>
+    <p class="sub" style="margin-top:0">A job can arrive two ways: somebody above you places you on it, or — if your role can — you claim it yourself.</p>
+    <div class="table-wrap" style="margin-top:8px">
+      <table>
+        <thead><tr><th>Role</th><th>May claim</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">director</td><td>a job</td><td>Nothing can place a director, so the chain has to start somewhere.</td></tr>
+          <tr><td class="mono">area_in_charge</td><td>a job</td><td>The top of a branch claims its own work.</td></tr>
+          <tr><td class="mono">general_superintendent</td><td>a job</td><td>The third and last role that starts a job by taking it on.</td></tr>
+          <tr><td>everyone else</td><td class="no">no</td><td>PMs, engineers, superintendents and foremen are <b>placed</b>, never self-assigned.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">Claiming is the base of the tier ladder: only those three roles can start a job, and everyone below them is placed by somebody above.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Setting up</span></div>
+  <aside class="notes">Only three of the eighteen roles can claim: director, area_in_charge and general_superintendent. A PM with no job assigned is not offered a project picker; they appear on a job only once somebody above them places them.</aside>
+</section>
+
+<!-- ================================================== 14. CREW LADDER -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Setting up</p>
+    <h2>Your crew — the ladder</h2>
+    <div class="cols">
+      <div>
+        <p class="sub" style="margin-top:0">The crew step shows what the system already believes about your reporting branch, and asks you to confirm or correct it.</p>
+        <ul class="clean">
+          <li>Each person carries a <b>code</b> and a <b>job tier</b> — foreman, superintendent, PM.</li>
+          <li><b>Reports-to</b> links are written here; the org chart and crew scope read them later.</li>
+          <li>It is the same surface the desk uses as <b>Project Teams</b> — one roster, two doors.</li>
+          <li>For a foreman it is a <b>confirmation</b>, not a form: there is nobody below him to place.</li>
+        </ul>
+      </div>
+      <figure class="figure">
+        <img src="assets/onboarding-crew.png" alt="An Optix setup step showing a job with three people on it, each with a code such as URB-007 and a tier tag such as FOREMAN, plus 'Add person' and 'Add existing branch' buttons." />
+        <figcaption>Crew setup — codes, tiers and reporting links in one place.</figcaption>
+      </figure>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Setting up</span></div>
+  <aside class="notes">This screen quietly does the heaviest lifting in the product. "Superintendent sees his foremen's tools" is not read from an org chart imported once — it is derived from the roster rows written here.</aside>
+</section>
+
+<!-- ============================================= 15. WHO GETS WHICH -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Setting up</p>
+    <h2>Who gets which wizard</h2>
+    <div class="table-wrap" style="margin-top:8px">
+      <table>
+        <thead><tr><th>Who</th><th>Wizard</th><th>What they answer</th></tr></thead>
+        <tbody>
+          <tr><td>Equipment roles — director, PM, superintendent, mechanic, warehouse, …</td><td><span class="tag field">3 steps</span></td><td>Your jobs → Your crew → Review and finish</td></tr>
+          <tr><td>HR</td><td><span class="tag desk">People only</span></td><td>Review — no jobs, no crew, no tools</td></tr>
+          <tr><td>Foreman · finance · procurement · read-only · owner / tech / office admin</td><td><span class="tag">No wizard</span></td><td>Nothing — straight to the screen their role opens on</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">The wizard is scoped to the role that receives it. A foreman is never asked to staff a job; HR is never asked to touch a tool.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Setting up</span></div>
+  <aside class="notes">This maps the onboarding kind flag on the role: equipment gets the full three steps, HR gets the people review, and everyone else skips setup. It is a property of the role, not a per-person choice.</aside>
+</section>
+
+<!-- ================================================== 16. AFTER SETUP -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Setting up</p>
+    <h2>After setup</h2>
+    <p class="sub" style="margin-top:0">The wizard writes once. Three screens maintain those answers afterwards.</p>
+    <div class="cols-3">
+      <div class="card"><h3>Project Teams</h3><p>The roster per job: who is on it, at which tier, reporting to whom. The org chart and crew scope both read this.</p></div>
+      <div class="card"><h3>People</h3><p>Add a person, move them to another job, fix a code or a reports-to link as the crew changes.</p></div>
+      <div class="card"><h3>Job Titles</h3><p>Map an HR job title to the login role a synced person arrives with — the one place HR and access meet.</p></div>
+    </div>
+    <div class="callout blue">Nothing in setup is frozen. Every answer the wizard takes can be corrected later on the screen that owns it.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Setting up</span></div>
+  <aside class="notes">Onboarding is not a one-time form; it seeds three living screens. Project Teams is the roster, People is the person record, Job Titles is the bridge from HR to access.</aside>
+</section>
+
+<!-- ============================================= 17. CREATE A TOOL -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Daily work</p>
+    <h2>Create a small tool</h2>
+    <div class="cols">
+      <ul class="clean">
+        <li><b>Small Tools → New tool.</b> Make or description is required; everything else can be filled in later.</li>
+        <li><b>Leave Code blank</b> and the system mints one: <span style="font-family:var(--mono)">TOOL-00001</span>, then <span style="font-family:var(--mono)">TOOL-00002</span>, and so on.</li>
+        <li><b>A duplicate code is refused:</b> "… is already in the register." Nothing is merged, nothing is guessed.</li>
+        <li>The same code is generated on import, so all 753 rows arrive with IDs without anyone typing one.</li>
+      </ul>
+      <div class="card hi"><h3>Today</h3><p style="font-size:clamp(13px,1.15vw,17px)"><b>753</b> small tools are waiting to be imported, and <b>0 of 753</b> carry a code. The import mints all 753.</p></div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Daily work</span></div>
+  <aside class="notes">The code is the one identifier now. It is per tenant and case-insensitive, generated on create and on import. If somebody asks why not type codes by hand: 753 tools, zero labels, and a duplicate is refused rather than silently merged.</aside>
+</section>
+
+<!-- ========================================= 18. CREATE EQUIPMENT -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Daily work</p>
+    <h2>Create equipment</h2>
+    <div class="cols">
+      <ul class="clean">
+        <li><b>Equipment → New.</b> Code is required — <span style="font-family:var(--mono)">TRK-034</span>.</li>
+        <li>Type is <b>truck</b> or <b>trailer</b>. Ownership is <b>company</b> or a <b>personal allowance</b>.</li>
+        <li><b>VIN is optional</b>, and it is never format-checked — a partial VIN beats a made-up one.</li>
+        <li>A truck can be tied to a foreman, which is what makes a rig a rig.</li>
+      </ul>
+      <div class="kpis" style="grid-template-columns:1fr 1fr;align-content:center">
+        <div class="kpi"><div class="v amber">88</div><div class="l">equipment on file</div></div>
+        <div class="kpi"><div class="v">49</div><div class="l">trucks</div></div>
+        <div class="kpi"><div class="v">39</div><div class="l">trailers</div></div>
+        <div class="kpi"><div class="v">49</div><div class="l">VINs · 49 plates</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Daily work</span></div>
+  <aside class="notes">Equipment is trucks and trailers, nothing more exotic. Code is mandatory; VIN is optional and not validated, because a real fleet has missing and partial VINs and inventing one would be worse than leaving it blank.</aside>
+</section>
+
+<!-- =================================================== 19. BUILD A RIG -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Daily work</p>
+    <h2>Build a rig</h2>
+    <div class="flow" style="margin:10px 0">
+      <div class="node"><div class="t">Trailer</div><div class="s">A trailer with tools aboard</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">Hitch it</div><div class="s">Connect the trailer to the truck</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">Hand it over</div><div class="s">Give the rig to a foreman</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">It moves as one</div><div class="s">Tools and trailer follow the person</div></div>
+    </div>
+    <div class="callout">A rig follows the <b>person</b>, not the site. When the foreman moves job, the truck, the hitched trailer and the tools aboard move with him — on the record, in one action.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Daily work</span></div>
+  <aside class="notes">The rig is the unit that actually drives away. Handing the rig to a foreman moves the truck, the trailer hitched to it and the tools aboard together, which is why a trailer's contents are never a guess the moment it leaves the yard.</aside>
+</section>
+
+<!-- ============================================ 20. ATTACH BY JOBSITE -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Daily work</p>
+    <h2>Attach tools by jobsite</h2>
+    <p class="sub" style="margin-top:0">Tools by Jobsite is the control hub: one card per job, with its crews and the tools working it.</p>
+    <div class="cols">
+      <figure class="figure">
+        <img src="assets/jobsites.png" alt="The Optix Tools by Jobsite screen, one card per job with its crew and tools." />
+        <figcaption>Crews on a job, and the tools they are working with.</figcaption>
+      </figure>
+      <div>
+        <ul class="clean">
+          <li><b>Tick the loose tools</b> on a job's card, then assign them to that crew in one action.</li>
+          <li><b>Drill down</b> from job, to crew, to an individual tool's serial.</li>
+          <li><b>Gaps the desk chases:</b> no crew · a crew with no truck · a crew with no trailer.</li>
+          <li><b>The field can just say it:</b> a foreman describes the move in one sentence in chat — no syntax, no codes. The desk acts, and the ledger records it.</li>
+        </ul>
+        <div class="callout blue" style="margin-top:14px">Attaching is how a tool stops being "somewhere" and becomes "with this crew, on this job".</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Daily work</span></div>
+  <aside class="notes">The three gaps are the desk's actual daily queue: a job with no crew, a crew with no truck, a crew with no trailer. The screen surfaces them so they get chased rather than discovered at month end.</aside>
+</section>
+
+<!-- =========================================== 21. EQUIPMENT STATE -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Daily work</p>
+    <h2>Equipment state, honestly</h2>
+    <div class="cards" style="margin-top:6px">
+      <div class="card"><h3>No status field</h3><p>Equipment has no status of its own. There is no "in service" to set and no "offline" to forget.</p></div>
+      <div class="card"><h3>"Sent to site" means something</h3><p>It means the unit is on a rig with a foreman, on a project — a fact, not a label somebody typed.</p></div>
+      <div class="card hi"><h3>What moves is custody</h3><p>Custody is recorded in the ledger. A unit's place is a projection of those records, not a field on the unit.</p></div>
+    </div>
+    <div class="callout" style="margin-top:14px"><b>Two honest caveats.</b> Import links equipment to jobs by exact project name, and today <b>0 of 88</b> rows carry a project link — so no slide here claims a count of "rigs on site". And every project date is a placeholder, so every job reads as permanently active; there is no timeline claim to make.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Daily work</span></div>
+  <aside class="notes">Say the caveats out loud rather than hiding them: equipment has no status by design, and the equipment-to-project link is not populated yet, so any "rigs on site" number would be fiction. Project dates are placeholders, so don't draw a timeline.</aside>
+</section>
+
+<!-- ============================================ 22. TOOL STATUS & REPAIR -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Daily work</p>
+    <h2>Tool status &amp; repair</h2>
+    <div class="flow" style="margin:8px 0">
+      <div class="node"><div class="t">available</div><div class="s">In the register, in nobody's hands</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">assigned</div><div class="s">Held by a custodian on a job</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">in_transit</div><div class="s">Between jobs, or back to the yard</div></div>
+    </div>
+    <p class="sub" style="margin-top:0">Repair is its own family, and it feeds a single dashboard KPI:</p>
+    <div class="flow" style="margin:0">
+      <div class="node"><div class="t">in_maintenance</div><div class="s">Down for repair</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">diagnosing</div><div class="s">Being looked at</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">waiting_parts</div><div class="s">Blocked on a part</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">ready_for_pickup</div><div class="s">Fixed, back in the pool</div></div>
+    </div>
+    <div class="callout" style="margin-top:12px"><b>Sending a tool for repair clears its custodian and its truck or trailer.</b> The tool stops being "held" the moment it is broken — so nobody is on the hook for a tool sitting in the shop.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Daily work</span></div>
+  <aside class="notes">Status is a small state machine, and the maintenance family narrows to one dashboard KPI rather than six. The important behaviour is that going into maintenance releases custody: a broken tool is nobody's custody problem.</aside>
+</section>
+
+<!-- ============================================== 23. CUSTODY LIFECYCLE -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">How Optix works</p>
+    <h2>The custody lifecycle</h2>
+    <div class="steps" style="margin:8px 0">
+      <div class="step"><div class="k">Stage 1</div><h3>Tag &amp; register</h3><p>A tool enters the register and gets a tool ID. A tag is optional until somebody labels it.</p></div>
+      <div class="step"><div class="k">Stage 2</div><h3>Assign to a custodian</h3><p>Issued by the equipment desk and charged to a project. Custody is now on a person.</p></div>
+      <div class="step"><div class="k">Stage 3</div><h3>Reassign</h3><p>The desk moves custody to another custodian or job. High-value tools need a second approver.</p></div>
+      <div class="step"><div class="k">Stage 4</div><h3>Yard return</h3><p>Cleared back to the desk, or reassigned straight to the next job. The tool is available again.</p></div>
+    </div>
+    <div class="callout"><b>Control:</b> only the equipment desk moves tools — a foreman reports, never reassigns. A move above the high-value threshold parks for a second administrator's approval before it lands.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Custody</span></div>
+  <aside class="notes">Earlier versions of this story promised a 24-hour confirmation window and one-tap receiver sign-off. That was removed with the loan model. The current control is approval-by-value, not a timer.</aside>
+</section>
+
+<!-- ================================================= 24. ONE LEDGER -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">How Optix works</p>
+    <h2>One ledger, one writer</h2>
+    <p class="sub" style="margin-top:0">Custody is event-sourced. The transaction ledger is the system of record; what a tool "currently" is, is only a projection of that ledger.</p>
+    <div class="flow" style="margin:10px 0">
+      <div class="node"><div class="t">Ledger</div><div class="s">Every move, append-only</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">Projection</div><div class="s">Current holder &amp; location on the tool</div></div>
+      <div class="arrow">→</div>
+      <div class="node"><div class="t">Screens</div><div class="s">Register, custody, jobsites, reports</div></div>
+    </div>
+    <ul class="clean">
+      <li><b>One writer.</b> A single custody module is the only thing that may write custody — no screen writes a holder directly.</li>
+      <li><b>Corrections are events.</b> Fixing a mistake logs a correction; history is never deleted.</li>
+      <li><b>Every screen is a projection.</b> If a screen and the ledger disagree, the ledger is right and the screen is a bug.</li>
+    </ul>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>How it works</span></div>
+  <aside class="notes">This is the single most important architectural slide. The projector concept is what lets the product answer "who held this on the 3rd?" and still drive a live register.</aside>
+</section>
+
+<!-- ==================================================== 25. CUSTODY -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Feature</p>
+    <h2>Custody — who is holding what</h2>
+    <div class="cols">
+      <div>
+        <ul class="clean">
+          <li><b>Ownership vs custody:</b> who paid for a tool and who is holding it are tracked separately.</li>
+          <li><b>Held:</b> in the hands of a named foreman, superintendent or the shop.</li>
+          <li><b>In transit:</b> between jobs, or on its way back to the yard.</li>
+          <li><b>Awaiting approval:</b> a high-value move parked for a second sign-off.</li>
+        </ul>
+        <div class="callout blue" style="margin-top:14px">Where a tool is located is never typed manually — it is derived from an unbroken chain of custody records.</div>
+      </div>
+      <figure class="figure">
+        <img src="assets/custody.png" alt="The Optix Custody screen showing tools grouped by who holds them." />
+        <figcaption>Custody, read from the ledger.</figcaption>
+      </figure>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Custody</span></div>
+</section>
+
+<!-- ==================================================== 26. REGISTER -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Feature</p>
+    <h2>Small Tools register</h2>
+    <div class="cols">
+      <ul class="clean">
+        <li><b>One list</b> for every small tool Urban owns — make, model, serial and current holder.</li>
+        <li><b>One identifier, not two:</b> the code. <b>753</b> tools today, <b>0</b> of them carry a code — the system mints <span style="font-family:var(--mono)">TOOL-00001…</span> on create and on import.</li>
+        <li><b>Unique at the door:</b> codes are unique per tenant, case-insensitive; serials are unique too.</li>
+        <li><b>Categories that match the yard:</b> Hand Tools, Saws, Drills, Grinders, Compaction, Power &amp; Yard, Survey.</li>
+        <li><b>Current holder:</b> read from custody, never typed in.</li>
+      </ul>
+      <div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Old register</th><th>Now</th></tr></thead>
+            <tbody>
+              <tr><td>Code <span style="font-family:var(--mono)">TOOL-0506</span><br />+ a second number <span style="font-family:var(--mono)">A-000506</span></td><td>Code <span style="font-family:var(--mono)">TOOL-0506</span></td></tr>
+              <tr><td>Two numbers, one tool</td><td>One number, one tool</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" style="margin-top:14px">The secondary number is gone. It was the same tool stored twice, and two identifiers is how one tool ends up on two lists.</div>
+      </div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Register</span></div>
+  <aside class="notes">Search by make, serial, code, category or jobsite. The one-identifier change is what makes "is this the same tool?" answerable — two numbers for one tool is exactly how duplicates got started.</aside>
+</section>
+
+<!-- ==================================================== 27. REPORTS -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Reports &amp; logs</p>
+    <h2>Thirteen reports, one hub</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Report</th><th>Group</th><th>Answers</th></tr></thead>
+        <tbody>
+          <tr><td>Asset Register</td><td>Inventory</td><td>Every tool owned, who holds it, where it is, which project paid</td></tr>
+          <tr><td>Assets by Project</td><td>Operations</td><td>What each job is holding right now — operational custody</td></tr>
+          <tr><td>Assets by Foreman</td><td>Operations</td><td>Custody per person. The offboarding conversation starts here</td></tr>
+          <tr><td>Assets by Mechanic</td><td>Operations</td><td>Shop custody, charged to a department rather than a job</td></tr>
+          <tr><td>Idle Assets</td><td>Utilization</td><td>Available and sitting — check before approving a purchase</td></tr>
+          <tr><td>Lost Assets</td><td>Exceptions</td><td>Missing, not yet found or written off, with last custodian</td></tr>
+          <tr><td>Needs a Tag</td><td>Exceptions</td><td>Tools nobody has labelled yet — the label-gun worklist</td></tr>
+          <tr><td>Capital by Project</td><td>Finance</td><td>What each project actually paid for, wherever it sits today</td></tr>
+          <tr><td>Capital by Department</td><td>Finance</td><td>Tools charged to a department rather than to a job</td></tr>
+          <tr><td>Capital Split</td><td>Charts</td><td>Projects versus departments, by acquisition cost</td></tr>
+          <tr><td>Fleet by Status</td><td>Charts</td><td>The fleet's current distribution across statuses</td></tr>
+          <tr><td>Movement Rate</td><td>Charts</td><td>Ledger writes per week — the register's heartbeat</td></tr>
+          <tr><td>Audit Trail</td><td>Logs</td><td>Every ledger write, searchable and paged</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Reports</span></div>
+  <aside class="notes">Every report is gated on report.read AND narrowed by the viewer's visibility scope. Reports were once the widest hole in the product — a report you can export is a control you cannot skip.</aside>
+</section>
+
+<!-- ====================================================== 28. AUDIT -->
+<section class="slide accent">
+  <div class="body">
+    <p class="eyebrow">Reports &amp; logs</p>
+    <h2>The immutable audit trail</h2>
+    <p class="sub" style="margin-top:0">Every movement is a timestamped event with its actor, asset and context. History is appended, never edited.</p>
+    <div class="callout" style="font-family:var(--mono);font-size:clamp(11px,.98vw,14px)">
+      [2026-09-11 14:22:05] <b>transfer</b> | Small tool: TOOL-00042 | From: Equipment Yard | To: Foreman J. Miller | Job: 22017 NEX | Actor: Equipment Desk
+    </div>
+    <div class="cols-3" style="margin-top:8px">
+      <div class="card"><h3>Timestamped</h3><p>Date, time and actor captured for every custody change.</p></div>
+      <div class="card"><h3>Correctable, not erasable</h3><p>A mistake is fixed by a correction event. Nothing is deleted, so nothing is hidden.</p></div>
+      <div class="card"><h3>Built for loss claims</h3><p>Previous holder, new holder, job and time — enough for an internal audit or an insurance claim.</p></div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Audit</span></div>
+</section>
+
+<!-- ================================================= 29. ACCESS MODEL -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Roles &amp; access</p>
+    <h2>How access actually works</h2>
+    <p class="sub" style="margin-top:0">Three separate axes describe a person. Only one of them belongs on screen.</p>
+    <div class="cols-3">
+      <div class="card"><h3>1 · HR job title</h3><p>What payroll calls the post. Decides which login role a synced person arrives with.</p></div>
+      <div class="card"><h3>2 · Login role</h3><p>What an account may see and do. Set in Settings → Access Roles.</p></div>
+      <div class="card hi"><h3>3 · Job tier</h3><p>Where somebody sits on <b>one</b> project — foreman, superintendent, PM. Per project, never derived from a title.</p></div>
+    </div>
+    <div class="callout blue">The same person can be a Carpenter, hold no account at all, and be a Foreman on this job — all three at once, and all three are true. On screen they get one word: the one they would use for themselves.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Access model</span></div>
+  <aside class="notes">Tier must stay per-project. Urban's own data has a superintendent on one job and a foreman on another; if tier were a property of the role, their crew scope on the second job would leak the first job's foremen. This was already fixed once — do not collapse them.</aside>
+</section>
+
+<!-- ================================================== 30. LAYOUT BY ROLE -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Roles &amp; screens</p>
+    <h2>Who gets which layout</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Role</th><th>Layout</th><th>What that means in practice</th></tr></thead>
+        <tbody>
+          <tr><td>foreman</td><td><span class="tag field">Field</span></td><td>My Tools · Hand Off · Alerts · Settings → Appearance</td></tr>
+          <tr><td>superintendent</td><td><span class="tag field">Field</span></td><td>The field set, plus My Crew's Setup</td></tr>
+          <tr><td>mechanic</td><td><span class="tag field">Field</span></td><td>My Tools · Hand Off · Alerts (no crew screens)</td></tr>
+          <tr><td>warehouse</td><td><span class="tag desk">Desk</span></td><td>Tools by Jobsite · Custody · Small Tools · Equipment</td></tr>
+          <tr><td>equipment_admin</td><td><span class="tag desk">Desk</span></td><td>Every register and custody screen</td></tr>
+          <tr><td>project_manager · engineer</td><td><span class="tag desk">Desk</span></td><td>Registers and custody, scoped to their own jobs</td></tr>
+          <tr><td>director · area_in_charge · general_superintendent</td><td><span class="tag desk">Desk</span></td><td>Registers, People, Crews, Take on a job</td></tr>
+          <tr><td>office_admin</td><td><span class="tag desk">Desk</span></td><td>People · Projects · Settings (no custody)</td></tr>
+          <tr><td>hr</td><td><span class="tag desk">Desk</span></td><td>People · Job Titles — no register access (no asset.read)</td></tr>
+          <tr><td>finance · procurement · read_only</td><td><span class="tag desk">Desk</span></td><td>Reports, and register reads within their scope</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sub" style="margin:0;font-size:clamp(11px,1vw,14px)">Layout is a per-role flag, editable in Settings → Access Roles. It decides which menu you get — never which data you may see.</p>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Layouts</span></div>
+  <aside class="notes">Important distinction for the audience: layout is presentation, permission is authority. A role could be switched to the desk layout tomorrow and would still see exactly the same data.</aside>
+</section>
+
+<!-- =================================================== 31. VIEW LADDER -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Roles &amp; screens</p>
+    <h2>How far a role can see</h2>
+    <p class="sub" style="margin-top:0">The visibility ladder: <b>all &gt; project &gt; crew &gt; own</b>. The first match wins, it is resolved on the server, and it is applied to the query — never as a filter after the fact.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Scope</th><th>Roles</th><th>Sees</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">assets.view.all</td><td>owner · tech_admin · equipment_admin · warehouse · office_admin · finance · hr · procurement · read_only</td><td>Every tool in the tenant</td></tr>
+          <tr><td class="mono">assets.view.project</td><td>project_manager · engineer · director · area_in_charge · general_superintendent</td><td>Tools on the jobs they are on</td></tr>
+          <tr><td class="mono">assets.view.crew</td><td>superintendent</td><td>Their foremen's tools, plus their own</td></tr>
+          <tr><td class="mono">assets.view.own</td><td>foreman · mechanic</td><td>Only what is in their hands</td></tr>
+          <tr><td class="mono">— none —</td><td>crew (no login)</td><td>Nothing; they never sign in</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">Holding none of the four scopes returns <b>empty, never unscoped</b>. A missing grant can never quietly become "see everything".</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Visibility</span></div>
+  <aside class="notes">Worth saying aloud: crew scope is derived from the project roster, not from a reports-to field. On a job with no roster rows a superintendent sees only their own tools — with no error explaining why. That is a known sharp edge.</aside>
+</section>
+
+<!-- ================================================= 32. WHAT ROLES DO -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Roles &amp; screens</p>
+    <h2>What each role can do</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Role</th><th>Grants</th><th>Can</th><th>Cannot</th></tr></thead>
+        <tbody>
+          <tr><td>owner · tech_admin · equipment_admin</td><td class="mono">all 32</td><td>Everything, including configuration and custody</td><td>—</td></tr>
+          <tr><td>warehouse</td><td class="mono">21</td><td>The desk: issue, receive, reassign custody, assign tools</td><td>Platform configuration</td></tr>
+          <tr><td>office_admin</td><td class="mono">18</td><td>Manage users, people and projects</td><td class="no">Any custody at all</td></tr>
+          <tr><td>superintendent</td><td class="mono">15</td><td>Approve assignments and transfers; assign and hand over on a job</td><td>Manage rig; place PMs or superintendents</td></tr>
+          <tr><td>foreman</td><td class="mono">11</td><td>See and report what he holds; read custody</td><td class="no">Assign or transfer — by any route</td></tr>
+          <tr><td>mechanic</td><td class="mono">10</td><td>Hold and report shop tools</td><td>Crew screens (no project.team.read)</td></tr>
+          <tr><td>read_only</td><td class="mono">8</td><td>See every tool and its reports</td><td class="no">Any write, anywhere</td></tr>
+          <tr><td>procurement</td><td class="mono">6</td><td>Read the register</td><td>Any write</td></tr>
+          <tr><td>hr</td><td class="mono">6</td><td>Manage people and the title → role mapping</td><td class="no">Open the register (no asset.read)</td></tr>
+          <tr><td>finance</td><td class="mono">6</td><td>Read the full audit trail and reports</td><td>Move custody; see custody screens</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sub" style="margin:0;font-size:clamp(11px,1vw,14px)">Grant counts are the seeded starting point for a fresh tenant; the three all-holders receive every permission as of provisioning day.</p>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Roles</span></div>
+  <aside class="notes">The two rows that matter most to governance: office_admin cannot touch custody even though it manages people, and hr can see every tool's scope but cannot open the register at all. Both are deliberate.</aside>
+</section>
+
+<!-- ================================================ 33. SCREEN / PERM -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Roles &amp; screens</p>
+    <h2>The working surface — every screen, and what it needs</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Screen</th><th>Requires</th><th>What it is for</th></tr></thead>
+        <tbody>
+          <tr><td>Dashboard</td><td class="mono">—</td><td>The jobsite board, cycling one job at a time</td></tr>
+          <tr><td>Tools by Jobsite</td><td class="mono">asset.read</td><td>Every tool, grouped by job and crew</td></tr>
+          <tr><td>Custody</td><td class="mono">assignment.read</td><td>Who is holding what, right now</td></tr>
+          <tr><td>Small Tools</td><td class="mono">asset.read</td><td>The master asset list and serials</td></tr>
+          <tr><td>Equipment</td><td class="mono">vehicle.read</td><td>Trucks, trailers and heavy plant</td></tr>
+          <tr><td>People</td><td class="mono">employee.read</td><td>Your crew and the roles they hold</td></tr>
+          <tr><td>Org Chart</td><td class="mono">project.team.read</td><td>Who answers to whom, on each job</td></tr>
+          <tr><td>Crews</td><td class="mono">project.team.read</td><td>Who answers to you, job by job</td></tr>
+          <tr><td>Take on a job</td><td class="mono">project.team.read</td><td>Record the jobs you run, so you can staff them</td></tr>
+          <tr><td>Onboarding</td><td class="mono">project.team.read</td><td>Who below you has set up their jobs and crew</td></tr>
+          <tr><td>Projects</td><td class="mono">project.read</td><td>Every job and job group on record</td></tr>
+          <tr><td>Reports &amp; Logs</td><td class="mono">report.read</td><td>Every register and report in one place</td></tr>
+          <tr><td>Activity</td><td class="mono">asset.read</td><td>The live tool-movement feed</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Screens</span></div>
+  <aside class="notes">The sidebar is built from this list: each row is dropped when the viewer lacks its permission, and the group disappears when it has no rows left. That is why a foreman's menu is not the desk menu with items greyed out.</aside>
+</section>
+
+<!-- ================================================ 34. SETTINGS PERM -->
+<section class="slide">
+  <div class="body top">
+    <p class="eyebrow">Roles &amp; screens</p>
+    <h2>Settings — one page per concern</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Page</th><th>Requires</th><th>What it is for</th></tr></thead>
+        <tbody>
+          <tr><td>Appearance</td><td class="mono">—</td><td>Your own theme, type and density — no permission at all, by design</td></tr>
+          <tr><td>General</td><td class="mono">config.manage</td><td>Branding, approvals and mail</td></tr>
+          <tr><td>Modules</td><td class="mono">config.manage</td><td>Which parts of the product this organisation uses</td></tr>
+          <tr><td>AI &amp; API</td><td class="mono">config.manage</td><td>The chat parser's model and key</td></tr>
+          <tr><td>Access Roles</td><td class="mono">config.manage</td><td>What a signed-in account may see and do</td></tr>
+          <tr><td>Job Tiers</td><td class="mono">project.team.manage</td><td>The tiers a person can hold on a job — foreman, PM, superintendent</td></tr>
+          <tr><td>Job Titles</td><td class="mono">employee.manage</td><td>Which role somebody gets when HR gives them a title</td></tr>
+          <tr><td>Integrations</td><td class="mono">employee.manage</td><td>BambooHR and the other systems Optix reads</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">Two deliberate choices: <b>Appearance</b> needs no permission, so a foreman's font size is never behind an administrator grant; and <b>Integrations</b> is gated on <span class="mono">employee.manage</span>, not <span class="mono">config.manage</span>, because that page can create and edit people.</div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Settings</span></div>
+</section>
+
+<!-- =================================================== 35. WHAT'S NEXT -->
+<section class="slide">
+  <div class="body">
+    <p class="eyebrow">Where we are</p>
+    <h2>What's next</h2>
+    <div class="cols">
+      <div>
+        <h3>Done and live</h3>
+        <ul class="clean">
+          <li>Register, custody ledger and audit trail</li>
+          <li>Tools by Jobsite, crew scoping and rigs</li>
+          <li>Field messaging and the desk approval queue</li>
+          <li>Thirteen reports, gated by role and scope</li>
+          <li>The three-axis access model and the tier ladder</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Next up</h3>
+        <ul class="clean dash">
+          <li>Title → role mapping screen for synced people</li>
+          <li>Crew assignment and crew-to-job linking</li>
+          <li>Tools by Jobsite to full functionality</li>
+          <li>Live rollout against Urban's real tenant</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Status</span></div>
+  <aside class="notes">Be honest about the edge cases here rather than burying them: crew scope depends on roster rows existing, the equipment-to-project link is not populated, and several role lines still read a legacy column. Those are known and tracked, not surprises.</aside>
+</section>
+
+<!-- ======================================================== 36. THANKS -->
+<section class="slide dark">
+  <div class="body" style="align-items:flex-start">
+    <h1 style="font-size:clamp(38px,5.6vw,84px)">Thank you</h1>
+    <p class="lede">Questions &amp; discussion</p>
+    <div class="rule"></div>
+    <p class="sub" style="margin:0">
+      Bodhi Labs Pvt. Ltd.<br />
+      urban.bodhitechlabs.com<br />
+      Sankhamul, Kathmandu, Nepal
+    </p>
+  </div>
+  <div class="slide-foot"><span class="brandline"><i></i>Bodhi Labs · Optix Small Tools Inventory</span><span>Q&amp;A</span></div>
+</section>
+
+</main>
+
+<!-- ============================================================== CHROME -->
+<div id="hud">
+  <button id="btn-prev" title="Previous (←)">←</button>
+  <button id="btn-next" title="Next (→)">→</button>
+  <button id="btn-notes" title="Speaker notes (N)">Notes</button>
+  <button id="btn-grid" title="Overview (O)">Overview</button>
+  <button id="btn-full" title="Fullscreen (F)">Full</button>
+</div>
+
+<div id="notes"><h4>Speaker notes</h4><p id="notes-text"></p></div>
+
+<div id="overview"><h4>Overview — click a slide to jump</h4><div id="grid"></div></div>
+
+<div id="help"><div class="panel">
+  <h4>Keyboard shortcuts</h4>
+  <table>
+    <tr><td>← → / Space</td><td>Previous / next slide</td></tr>
+    <tr><td>PgUp / PgDn</td><td>Previous / next slide</td></tr>
+    <tr><td>Home / End</td><td>First / last slide</td></tr>
+    <tr><td>O or Esc</td><td>Overview grid</td></tr>
+    <tr><td>N</td><td>Speaker notes</td></tr>
+    <tr><td>F</td><td>Fullscreen</td></tr>
+    <tr><td>? </td><td>This list</td></tr>
+    <tr><td>Cmd/Ctrl+P</td><td>Print → Save as PDF</td></tr>
+  </table>
+</div></div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var progress = document.getElementById('progress');
+  var notesBox = document.getElementById('notes');
+  var notesText = document.getElementById('notes-text');
+  var overview = document.getElementById('overview');
+  var grid = document.getElementById('grid');
+  var help = document.getElementById('help');
+  var current = 0;
+  var notesOn = false;
+
+  /* page number lives with the brand on the left, so it never collides with
+     the controls in the bottom-right corner — and it survives printing */
+  document.querySelectorAll('.slide-foot').forEach(function(f, i){
+    var brand = f.querySelector('.brandline');
+    if (brand) brand.appendChild(document.createTextNode(' \u00b7 ' + (i + 1)));
+  });
+
+  function clamp(n){ return Math.max(0, Math.min(slides.length - 1, n)); }
+
+  function show(n, push){
+    n = clamp(n);
+    slides[current].classList.remove('is-active');
+    current = n;
+    var s = slides[current];
+    s.classList.add('is-active');
+    progress.style.width = ((current + 1) / slides.length * 100) + '%';
+    var aside = s.querySelector('.notes');
+    notesText.textContent = aside ? aside.textContent.trim() : 'No notes for this slide.';
+    Array.prototype.forEach.call(grid.children, function(c, i){
+      c.classList.toggle('is-current', i === current);
+    });
+    if (push !== false) history.replaceState(null, '', '#' + (current + 1));
+  }
+
+  function next(){ show(current + 1); }
+  function prev(){ show(current - 1); }
+
+  /* overview grid */
+  slides.forEach(function(s, i){
+    var t = document.createElement('div');
+    t.className = 'thumb';
+    var eyebrow = s.querySelector('.eyebrow');
+    var h = s.querySelector('h1,h2');
+    t.innerHTML = '<b>' + (i + 1) + '</b>' + (eyebrow ? '<span>' + eyebrow.textContent + '</span>' : '') +
+                  (h ? '<span style="color:#E2E8F0">' + h.textContent + '</span>' : '');
+    t.addEventListener('click', function(){ show(i); toggle(overview, false); });
+    grid.appendChild(t);
+  });
+
+  function toggle(el, force){
+    var on = (typeof force === 'boolean') ? force : !el.classList.contains('show');
+    el.classList.toggle('show', on);
+    return on;
+  }
+
+  /* hash routing */
+  function fromHash(){
+    var n = parseInt((location.hash || '').replace('#',''), 10);
+    return isNaN(n) ? 0 : n - 1;
+  }
+
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    switch (e.key){
+      case 'ArrowRight': case 'PageDown': case ' ': next(); e.preventDefault(); break;
+      case 'ArrowLeft': case 'PageUp': prev(); e.preventDefault(); break;
+      case 'Home': show(0); break;
+      case 'End': show(slides.length - 1); break;
+      case 'o': case 'O': toggle(overview); break;
+      case 'Escape': help.classList.remove('show'); overview.classList.remove('show'); break;
+      case 'n': case 'N': notesOn = toggle(notesBox); break;
+      case 'f': case 'F':
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen();
+        break;
+      case '?': toggle(help); break;
+    }
+  });
+
+  document.getElementById('btn-next').addEventListener('click', next);
+  document.getElementById('btn-prev').addEventListener('click', prev);
+  document.getElementById('btn-notes').addEventListener('click', function(){ notesOn = toggle(notesBox); });
+  document.getElementById('btn-grid').addEventListener('click', function(){ toggle(overview); });
+  document.getElementById('btn-full').addEventListener('click', function(){
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen();
+  });
+  help.addEventListener('click', function(){ help.classList.remove('show'); });
+  overview.addEventListener('click', function(e){ if (e.target === overview) overview.classList.remove('show'); });
+
+  window.addEventListener('hashchange', function(){ show(fromHash(), false); });
+
+  show(fromHash(), false);
+})();
+</script>
+</body>
+</html>

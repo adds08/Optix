@@ -50,15 +50,15 @@ export default function EquipmentPage() {
   const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
   const utils = trpc.useUtils();
 
-  const remove = trpc.vehicle.delete.useMutation({
+  const remove = trpc.equipment.delete.useMutation({
     onSuccess: () => {
       setFailed(null);
-      utils.vehicle.list.invalidate();
+      utils.equipment.list.invalidate();
     },
     onError: (e, vars) => setFailed({ id: vars.id, message: e.message }),
   });
 
-  const vehicles = trpc.vehicle.list.useQuery();
+  const vehicles = trpc.equipment.list.useQuery();
   const rows = vehicles.data ?? [];
 
   type Row = (typeof rows)[number];
@@ -132,7 +132,6 @@ export default function EquipmentPage() {
             onEdit={() =>
               setEditing({
                 id: v.id,
-                unit: v.unit,
                 vehicleType: v.vehicleType,
                 equipmentClass: v.equipmentClass,
                 vin: v.vin,
@@ -167,6 +166,15 @@ export default function EquipmentPage() {
           icon={Truck}
           title="No equipment registered yet"
           description="Import the fleet, or register the first truck or trailer."
+          /* An empty register is exactly when Import and New are the actions
+             somebody needs most — reachable ONLY from DataTable's toolbar,
+             which this branch never renders. `/people` had this right first. */
+          action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <ImportButton entity="vehicle" />
+              <CreateAction perm="vehicle.manage" label="New equipment" Form={VehicleForm} />
+            </div>
+          }
         />
       ) : (
         <DataTable<Row>

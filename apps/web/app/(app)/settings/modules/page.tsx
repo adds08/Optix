@@ -2,7 +2,7 @@
 
 import { trpc } from "@/lib/trpc";
 import { ErrorNote, TableSkeleton, PageHeader } from "@/components/sti/page";
-import { FEATURE_STATES, type FeatureState } from "@stinventory/types";
+import { FEATURE_STATES, type FeatureState } from "@optix/types";
 import { DESK_NAV, FIELD_NAV, isSettingsItemId, type NavItem } from "@/components/sti/nav-config";
 import { EntityField } from "@/components/ui/entity-picker";
 

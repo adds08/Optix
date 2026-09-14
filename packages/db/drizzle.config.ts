@@ -5,7 +5,7 @@ export default {
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "postgres://postgres:stinventory@localhost:5433/stinventory",
+    url: process.env.DATABASE_URL ?? "postgres://postgres:optix@localhost:5433/optix",
   },
   strict: true,
   verbose: true,

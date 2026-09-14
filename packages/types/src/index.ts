@@ -88,7 +88,7 @@ export const ROLES = [
     receive, and inviting one produced an account holding nothing.
 
     They exist here because they are the only roles that may put themselves on
-    a job (`role.claimTierNames`, seeded in `seed.ts`). Everybody below them is
+    a job (`role.claimTierNames`, written by `make provision`). Everybody below them is
     placed by somebody above through the "Set by" chain, so nobody else needs a
     self-claim grant and none is given one. That is the whole bootstrap: without
     a role that can claim, an empty tenant has no way to record its first roster
@@ -227,7 +227,7 @@ export type Permission = (typeof PERMISSIONS)[number];
 /*
   What each permission means, in the words of somebody who runs a tool yard.
 
-  The role editor (`/admin/roles`) renders these. Without them the screen is a
+  The role editor (`/settings/roles`) renders these. Without them the screen is a
   list of dotted identifiers, and an administrator ticking `asset.manage`
   because it sounds harmless is worse than no screen at all — this is the
   surface where a wrong guess hands somebody the register.
@@ -356,6 +356,9 @@ export const ASSET_STATUSES = [
   "assigned",
   "in_transit",
   "in_maintenance",
+  "diagnosing",
+  "waiting_parts",
+  "ready_for_pickup",
   "lost",
   "disposed",
 ] as const;
@@ -432,15 +435,41 @@ export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
 export const CHANNEL_KINDS = ["department", "role_group"] as const;
 export type ChannelKind = (typeof CHANNEL_KINDS)[number];
 
+/*
+  `notification.type`, and every value below has a writer.
+
+  Corrected 2026-09-13. The list had drifted in BOTH directions and nothing
+  caught it, because the column is plain `text` and this type was imported by
+  no writer — the schema names it in a comment and that was the whole of the
+  enforcement.
+
+  What it used to claim: `overdue`, `maintenance_due`, `clearance_required`,
+  `missing`. All four are removed. `overdue` and its rental sibling went with
+  the borrow model on 2026-08-09 — `assignment.expected_end_date` was dropped
+  in migration 0012, nothing falls due, so nothing goes overdue. The other
+  three were aspirational and never had a writer at all.
+
+  What it missed: the five `request_*` and approval values the workers and the
+  approval path have been writing all along.
+
+  Grep before adding one — `grep -rn 'type: "' | grep -i notification` — and
+  add the writer in the same change. A value here with no writer is how the
+  last four got in.
+*/
 export const NOTIFICATION_TYPES = [
-  "overdue",
-  "maintenance_due",
-  "clearance_required",
+  /* A hand-off or assignment waiting for the desk to sign it off.
+     `packages/api-contracts/src/notify.ts`. */
   "approval_pending",
-  "missing",
+  /* The register disagrees with the ledger about who holds a tool. Raised by
+     the six-hourly reconciliation sweep in `apps/api/src/index.ts`, and
+     deliberately not deduped: a divergence that persists should keep nagging. */
   "custody_discrepancy",
-  /* A rented line past its end date and still on rent. Unlike an overdue owned
-     tool, this one is costing money every day it stays open. */
+  /* The conversational request path — `apps/api/src/request-worker.ts` for the
+     first two, `approve.ts` and the messaging/task routers for the rest. */
+  "request_pending",
+  "request_overdue",
+  "request_approved",
+  "request_declined",
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
@@ -451,7 +480,8 @@ export const AUTH_TOKEN_KINDS = ["invite", "reset"] as const;
 export type AuthTokenKind = (typeof AUTH_TOKEN_KINDS)[number];
 
 // ---------------------------------------------------------------------------
-// SLA / tenant config keys (tenant-scoped, not code).
+// Tenant config keys (tenant-scoped, not code). NO SLA cadences — all three
+// were dropped by migration 0070; nothing in this product falls due.
 // ---------------------------------------------------------------------------
 export const DEFAULT_HIGH_VALUE_THRESHOLD = 5000;
 
@@ -473,7 +503,7 @@ export const PROCESSING_STATUSES = [
 export type ProcessingStatus = (typeof PROCESSING_STATUSES)[number];
 
 /*
-  The intent list lives in @stinventory/intent, not here.
+  The intent list lives in @optix/intent, not here.
 
   There was a `MESSAGE_INTENTS` const at this spot with nothing importing it, and
   it had already drifted — no `intake`, which shipped months ago. That is the

@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag } from "@/components/sti/status";
@@ -13,7 +13,7 @@ import { AssetActions } from "@/components/asset-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { assetNumberDisplay, dateTime, daysFrom, money, relative, shortDate } from "@/lib/format";
+import { dateTime, daysFrom, money, relative, shortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /* Which events deserve visual weight in the chain. */
@@ -45,7 +45,7 @@ function names(team: { role: string; name: string }[] | undefined, role: string)
 export default function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const utils = trpc.useUtils();
-  const asset = trpc.asset.get.useQuery({ id });
+  const asset = trpc.smallTool.get.useQuery({ id });
   const events = trpc.transaction.list.useQuery({ assetId: id, limit: 200 });
 
   /* The other half of "tags that are created": an untagged tool can catch up
@@ -55,10 +55,10 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
   const [addTag, setAddTag] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tagError, setTagError] = useState("");
-  const addTagMut = trpc.asset.update.useMutation({
+  const addTagMut = trpc.smallTool.update.useMutation({
     onSuccess: () => {
-      utils.asset.get.invalidate({ id });
-      utils.asset.list.invalidate();
+      utils.smallTool.get.invalidate({ id });
+      utils.smallTool.list.invalidate();
       setAddTag(false);
       setTagDraft("");
     },
@@ -105,16 +105,12 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
             icon={toolCategoryIcon(a.categoryName)}
             eyebrow={a.categoryName ?? "Uncategorised"}
             title={formatAssetModel(a) || "Untagged tool"}
-            description={a.serialNumber ? `Code ${a.serialNumber}` : undefined}
+            /* "Serial", not "Code" — this printed `Code <serialNumber>`, the
+               same swapped label the create form had. The code is shown in the
+               plate below; this is the manufacturer's number. */
+            description={a.serialNumber ? `Serial ${a.serialNumber}` : undefined}
             actions={
               <div className="flex flex-wrap items-center gap-3">
-                {/* The register's own number, unconditional — unlike the tag
-                    below, every tool has one. Muted rather than plated: this
-                    is the reliable id, not the physical label, and the two
-                    should never look like the same kind of fact. */}
-                <span className="tag-num text-sm text-muted-foreground" title="Register reference number">
-                  {assetNumberDisplay(a.assetNumber)}
-                </span>
                 {/* The tag is the subject here, not one field in a grid of
                     eight — struck into a plate, not printed in a table
                     cell. Untagged tools get the "add tag" panel below

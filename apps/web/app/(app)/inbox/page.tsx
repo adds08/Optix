@@ -44,6 +44,11 @@ export default function InboxPage() {
   const dismiss = trpc.inbox.dismiss.useMutation({ onSuccess: invalidate });
   const retry = trpc.inbox.retryClassify.useMutation({ onSuccess: invalidate });
   const decline = trpc.task.decline.useMutation({ onSuccess: invalidate });
+  /* "Do it, with a note" — `task.approve` rather than `inbox.resolve`, because
+     it is the only approval surface that carries the approver's words. Both
+     run the same `approveTaskAction`, so the two buttons cannot settle a
+     request differently; the note is the whole difference between them. */
+  const approve = trpc.task.approve.useMutation({ onSuccess: invalidate });
 
   const c = classified.data;
   const unread = [...(alerts.data ?? [])].filter((n) => !n.readAt);
@@ -76,6 +81,19 @@ export default function InboxPage() {
     const reason = window.prompt(`Why decline "${title}"?`);
     if (reason === null) return;
     decline.mutate({ id, reason: reason || "Declined from the inbox" });
+  };
+
+  /* Approving with a condition attached — "ok, but it comes back Friday". The
+     note rides into the ledger event with the action, so the reason a hand-off
+     was allowed is recorded beside the hand-off itself rather than living in
+     somebody's memory. Empty is fine: the server falls back to naming the
+     request, which is what plain "Do it" does. */
+  const askApprove = (id: string, title: string) => {
+    const note = window.prompt(
+      `Approve "${title}" with a note?\n\nThe note is recorded with the action. Leave it empty to approve as-is; Cancel keeps it in the inbox.`,
+    );
+    if (note === null) return;
+    approve.mutate({ id, ...(note ? { note } : {}) });
   };
 
   /* UI-72: this asked "Why is nothing being recorded?" — copy that belongs to
@@ -142,10 +160,23 @@ export default function InboxPage() {
                         {resolve.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
                         Do it
                       </Button>
+                      {/* Tasks only: a chat proposal settles through
+                          `messaging.confirmAction`, which has no note and no
+                          decline of its own. */}
                       {item.kind === "task" && item.actionType ? (
-                        <Button size="sm" variant="outline" onClick={() => askDecline(item.id, item.title)}>
-                          Decline
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={approve.isPending}
+                            onClick={() => askApprove(item.id, item.title)}
+                          >
+                            With a note
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => askDecline(item.id, item.title)}>
+                            Decline
+                          </Button>
+                        </>
                       ) : null}
                     </div>
                   </li>

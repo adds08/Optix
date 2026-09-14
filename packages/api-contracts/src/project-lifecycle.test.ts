@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import { PROJECT_STATUSES, type Permission } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import { PROJECT_STATUSES, type Permission } from "@optix/types";
 import { projectRouter } from "./routers/project.js";
 import { moveCustody } from "./custody.js";
 import type { Context } from "./trpc.js";
@@ -58,7 +58,7 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
   /** A tool held by the foreman AND booked to the job, via a real custody link. */
   async function holdToolOn(projectId: string, code: string) {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId,
         code,
@@ -67,7 +67,7 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
         currentCustodianId: foremanId,
         currentProjectId: projectId,
       })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     const assetId = row!.id;
 
     await db.transaction(async (tx) => {
@@ -178,7 +178,7 @@ describe.skipIf(!url)("completing a job (STI-105)", () => {
     /* A tool whose projection says it is on the job but which has no active
        custody link. Nobody is holding it, so completing is not blocked — and
        a guard written against `asset.current_project_id` would wrongly refuse. */
-    await db.insert(schema.asset).values({
+    await db.insert(schema.smallTool).values({
       tenantId,
       code: "STI105-D",
       description: "STI-105 unheld but booked",

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import { VEHICLE_OWNERSHIP } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import { VEHICLE_OWNERSHIP } from "@optix/types";
 import { moveCustody } from "./custody.js";
 import {
   PERSONAL_VEHICLE,
@@ -79,8 +79,6 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
   let successorId: string;
   let companyTruckId: string;
   let companyTruckLocationId: string;
-  let personalTruckId: string;
-  let personalTruckLocationId: string;
   let gangBoxId: string;
   let foreignTruckId: string;
 
@@ -138,7 +136,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
   ): Promise<string> {
     const locationId = opts.locationId ?? null;
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({
         tenantId,
         description,
@@ -146,7 +144,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
         currentCustodianId: custodianId,
         currentLocationId: locationId,
       })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     const assetId = row!.id;
 
     await db.transaction(async (tx) => {
@@ -183,16 +181,16 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
   /** A tool nobody holds, sitting in a container. No custodian, no link. */
   async function newLooseAsset(locationId: string, description: string): Promise<string> {
     const [row] = await db
-      .insert(schema.asset)
+      .insert(schema.smallTool)
       .values({ tenantId, description, currentStatus: "available", currentLocationId: locationId })
-      .returning({ id: schema.asset.id });
+      .returning({ id: schema.smallTool.id });
     return row!.id;
   }
 
   /* A vehicle is 1:1 with a vehicle-type location row; the location carries the
      authoritative custodian and the vehicle mirrors it. */
   async function newVehicle(opts: {
-    unit: string;
+    code: string;
     vehicleType: "truck" | "trailer";
     ownershipType?: string;
     custodianId?: string | null;
@@ -201,19 +199,19 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
     const tid = opts.tid ?? tenantId;
     const [loc] = await db
       .insert(schema.location)
-      .values({ tenantId: tid, type: "vehicle", name: opts.unit, custodianEmployeeId: opts.custodianId ?? null })
+      .values({ tenantId: tid, type: "vehicle", name: opts.code, custodianEmployeeId: opts.custodianId ?? null })
       .returning({ id: schema.location.id });
     const [v] = await db
-      .insert(schema.vehicle)
+      .insert(schema.equipment)
       .values({
         tenantId: tid,
         locationId: loc!.id,
         vehicleType: opts.vehicleType,
-        unit: opts.unit,
+        code: opts.code,
         ...(opts.ownershipType ? { ownershipType: opts.ownershipType } : {}),
         foremanEmployeeId: opts.custodianId ?? null,
       })
-      .returning({ id: schema.vehicle.id });
+      .returning({ id: schema.equipment.id });
     return { vehicleId: v!.id, locationId: loc!.id };
   }
 
@@ -247,9 +245,9 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
   const custodianOf = async (assetId: string) =>
     (
       await db
-        .select({ c: schema.asset.currentCustodianId })
-        .from(schema.asset)
-        .where(eq(schema.asset.id, assetId))
+        .select({ c: schema.smallTool.currentCustodianId })
+        .from(schema.smallTool)
+        .where(eq(schema.smallTool.id, assetId))
     )[0]?.c ?? null;
 
   const lastEvent = async (assetId: string) =>
@@ -297,28 +295,32 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       .where(eq(schema.employee.id, leaverId));
     await newTeamRow(successorId, projectId, "superintendent");
 
-    const company = await newVehicle({ unit: "T-306", vehicleType: "truck", custodianId: leaverId });
+    const company = await newVehicle({ code: "T-306", vehicleType: "truck", custodianId: leaverId });
     companyTruckId = company.vehicleId;
     companyTruckLocationId = company.locationId;
 
-    const personal = await newVehicle({
-      unit: "P-306",
-      vehicleType: "truck",
-      ownershipType: PERSONAL_VEHICLE,
-      custodianId: leaverId,
-    });
-    personalTruckId = personal.vehicleId;
-    personalTruckLocationId = personal.locationId;
+    /* NOT a second, personal-allowance truck for this same leaver. Until
+       2026-09-12 this fixture built exactly that — a foreman holding a
+       company truck and a personal one at once — because that pair was
+       believed to be the premise this whole feature needed. It was not:
+       `reassignOnDeparture` just processes whatever containers a leaver
+       holds, however many that is. The database now refuses a foreman two
+       trucks of any kind (`vehicle_one_truck_per_foreman_uq`, widened), so
+       this insert would fail here if it were still written. The
+       personal-truck-stays half of STI-306 is proven on its own leaver
+       below ("a personal truck ... leaves with the person untouched"),
+       who holds nothing else.
+    */
 
     /* A gang box has no vehicle row at all — there is no such thing as a
        personal one, so it must move like any other container. */
     const [box] = await db
       .insert(schema.location)
-      .values({ tenantId, type: "gang_box", name: "GB-306", custodianEmployeeId: leaverId })
+      .values({ tenantId, type: "warehouse", name: "GB-306", custodianEmployeeId: leaverId })
       .returning({ id: schema.location.id });
     gangBoxId = box!.id;
 
-    foreignTruckId = (await newVehicle({ unit: "T-FOREIGN-306", vehicleType: "truck", tid: otherTenantId })).vehicleId;
+    foreignTruckId = (await newVehicle({ code: "T-FOREIGN-306", vehicleType: "truck", tid: otherTenantId })).vehicleId;
   });
 
   afterAll(async () => {
@@ -335,13 +337,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
     await db?.$client.end();
   });
 
-  it("skips the personal truck, moves the company truck and the gang box", async () => {
-    /* Recorded riding — and SITTING IN — the truck the leaver keeps. Both
-       halves have to be answered, not just the truck key. */
-    const rides = await newHeldAsset(leaverId, "STI-306 hammer drill riding the personal truck", {
-      locationId: personalTruckLocationId,
-      ride: { truckId: personalTruckId },
-    });
+  it("moves the company truck and the gang box", async () => {
     const inBox = await newHeldAsset(leaverId, "STI-306 grinder in the gang box", { locationId: gangBoxId });
     /* A LOST tool on the leaver's name. `dashboard.clearanceQueue` counts it
        (`current_status != 'available'` is its whole predicate), so a preview
@@ -357,22 +353,20 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
 
     const preview = await previewDeparture(db, { tenantId, leaverEmployeeId: leaverId });
     expect(preview.successor?.id).toBe(successorId);
-    expect(preview.tools.map((t) => t.assetId).sort()).toEqual([rides, inBox, lost].sort());
+    expect(preview.tools.map((t) => t.assetId).sort()).toEqual([inBox, lost].sort());
 
     /* The preview and the queue it is opened from must answer the same
        question. Run the queue's own predicate and compare the counts. */
     const [queueCount] = await db
       .select({ c: sql<number>`count(*)::int` })
-      .from(schema.asset)
+      .from(schema.smallTool)
       .where(
-        sql`${schema.asset.tenantId} = ${tenantId} AND ${schema.asset.currentStatus} != 'available' AND ${schema.asset.currentCustodianId} = ${leaverId}`,
+        sql`${schema.smallTool.tenantId} = ${tenantId} AND ${schema.smallTool.currentStatus} != 'available' AND ${schema.smallTool.currentCustodianId} = ${leaverId}`,
       );
     expect(preview.tools).toHaveLength(queueCount!.c);
-    /* The operator must be told WHY the truck is not in the list, on the
-       screen — not by reading the source. */
-    expect(preview.skipped).toHaveLength(1);
-    expect(preview.skipped[0]!.unit).toBe("P-306");
-    expect(preview.skipped[0]!.reason).toMatch(/personal/i);
+    /* This leaver holds no personal vehicle — that half of STI-306 is proven
+       on its own leaver below — so nothing here is skipped. */
+    expect(preview.skipped).toHaveLength(0);
     expect(preview.containers.map((c) => c.locationId).sort()).toEqual(
       [companyTruckLocationId, gangBoxId].sort(),
     );
@@ -380,7 +374,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
     /* The links as they stand BEFORE the move, so the assertions below can name
        the exact rows that must end up closed. */
     const priorLinkIds = new Map<string, string>();
-    for (const assetId of [rides, inBox, lost]) {
+    for (const assetId of [inBox, lost]) {
       const links = await linksFor(assetId);
       expect(links).toHaveLength(1);
       expect(links[0]!.status).toBe("active");
@@ -393,20 +387,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       leaverEmployeeId: leaverId,
       actorUserId: userId,
     });
-    expect(result.tools).toHaveLength(3);
-
-    /* The personal truck is not Urban property: it stays on the leaver's name
-       and drives off site with them. */
-    const [personalLoc] = await db
-      .select({ custodianEmployeeId: schema.location.custodianEmployeeId })
-      .from(schema.location)
-      .where(eq(schema.location.id, personalTruckLocationId));
-    expect(personalLoc!.custodianEmployeeId).toBe(leaverId);
-    const [personalVeh] = await db
-      .select({ foremanEmployeeId: schema.vehicle.foremanEmployeeId })
-      .from(schema.vehicle)
-      .where(eq(schema.vehicle.id, personalTruckId));
-    expect(personalVeh!.foremanEmployeeId).toBe(leaverId);
+    expect(result.tools).toHaveLength(2);
 
     // The company truck and the gang box did move, mirror column included.
     for (const locId of [companyTruckLocationId, gangBoxId]) {
@@ -417,9 +398,9 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       expect(loc!.custodianEmployeeId).toBe(successorId);
     }
     const [companyVeh] = await db
-      .select({ foremanEmployeeId: schema.vehicle.foremanEmployeeId })
-      .from(schema.vehicle)
-      .where(eq(schema.vehicle.id, companyTruckId));
+      .select({ foremanEmployeeId: schema.equipment.foremanEmployeeId })
+      .from(schema.equipment)
+      .where(eq(schema.equipment.id, companyTruckId));
     expect(companyVeh!.foremanEmployeeId).toBe(successorId);
 
     /* The gang box's contents came with it, through `applyContainerCustody` —
@@ -436,7 +417,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       with none — which is what these fixtures used to do, and why this
       assertion was previously vacuous.
     */
-    for (const assetId of [rides, inBox, lost]) {
+    for (const assetId of [inBox, lost]) {
       expect(await custodianOf(assetId)).toBe(successorId);
       const links = await linksFor(assetId);
       expect(links).toHaveLength(2);
@@ -447,6 +428,84 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
       expect(active).toHaveLength(1);
       expect(active[0]!.custodianId).toBe(successorId);
     }
+
+    /* The tool in the gang box did NOT lose its place — only a container that
+       drives away with the person can do that. */
+    const inBoxEvent = await lastEvent(inBox);
+    expect((inBoxEvent!.toState as Record<string, unknown>).locationId).toBe(gangBoxId);
+
+    /* A lost tool moves like everything else, and keeps its status: a departure
+       moves the WHO, and asserting `assigned` here would quietly un-lose it. */
+    const lostEvent = await lastEvent(lost);
+    expect((lostEvent!.toState as Record<string, unknown>).status).toBe("lost");
+  });
+
+  it("a personal truck (and anything recorded riding it) leaves with the person, untouched", async () => {
+    /*
+      The other half of the scenario above, on its OWN leaver — until
+      2026-09-12 this and the previous test were one leaver holding a company
+      truck AND a personal one at once. The database no longer allows that
+      (a foreman is linked to exactly one truck row, of either kind), so this
+      leaver holds nothing else: just the personal truck, and a tool recorded
+      riding it.
+    */
+    const successor2Id = await newEmployee("Superintendent Reyes (personal-truck job)", { role: "superintendent" });
+    const leaver2Id = await newEmployee("Departing Foreman (personal truck only)", { status: "terminated" });
+
+    const [proj2] = await db
+      .insert(schema.project)
+      .values({ tenantId, name: "STI-306 personal-truck job", startDate: "2025-01-06" })
+      .returning({ id: schema.project.id });
+    await db.update(schema.employee).set({ primaryProjectId: proj2!.id }).where(eq(schema.employee.id, leaver2Id));
+    await newTeamRow(successor2Id, proj2!.id, "superintendent");
+
+    const personal = await newVehicle({
+      code: "P-306-SOLO",
+      vehicleType: "truck",
+      ownershipType: PERSONAL_VEHICLE,
+      custodianId: leaver2Id,
+    });
+
+    /* Recorded riding — and SITTING IN — the truck the leaver keeps. Both
+       halves have to be answered, not just the truck key. */
+    const rides = await newHeldAsset(leaver2Id, "STI-306 hammer drill riding the solo personal truck", {
+      locationId: personal.locationId,
+      ride: { truckId: personal.vehicleId },
+    });
+
+    const preview = await previewDeparture(db, { tenantId, leaverEmployeeId: leaver2Id });
+    expect(preview.successor?.id).toBe(successor2Id);
+    expect(preview.containers).toHaveLength(0);
+    /* The operator must be told WHY the truck is not in the list, on the
+       screen — not by reading the source. */
+    expect(preview.skipped).toHaveLength(1);
+    expect(preview.skipped[0]!.unit).toBe("P-306-SOLO");
+    expect(preview.skipped[0]!.reason).toMatch(/personal/i);
+
+    const priorLink = (await linksFor(rides))[0]!;
+    expect(priorLink.status).toBe("active");
+    expect(priorLink.custodianId).toBe(leaver2Id);
+
+    await reassignOnDeparture(db, { tenantId, leaverEmployeeId: leaver2Id, actorUserId: userId });
+
+    /* The personal truck is not Urban property: it stays on the leaver's name
+       and drives off site with them. */
+    const [personalLoc] = await db
+      .select({ custodianEmployeeId: schema.location.custodianEmployeeId })
+      .from(schema.location)
+      .where(eq(schema.location.id, personal.locationId));
+    expect(personalLoc!.custodianEmployeeId).toBe(leaver2Id);
+    const [personalVeh] = await db
+      .select({ foremanEmployeeId: schema.equipment.foremanEmployeeId })
+      .from(schema.equipment)
+      .where(eq(schema.equipment.id, personal.vehicleId));
+    expect(personalVeh!.foremanEmployeeId).toBe(leaver2Id);
+
+    expect(await custodianOf(rides)).toBe(successor2Id);
+    const links = await linksFor(rides);
+    expect(links).toHaveLength(2);
+    const prior = links.find((l) => l.id === priorLink.id)!;
+    expect(prior.status).toBe("transferred");
 
     /* The tool that was riding the truck the leaver keeps is affirmatively out
        of it — an absent key would read "not recorded" and a stale uuid would
@@ -461,32 +520,22 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
        every six hours forever. */
     expect((await activeLink(rides))[0]!.locationId).toBeNull();
     const [ridesRow] = await db
-      .select({ loc: schema.asset.currentLocationId })
-      .from(schema.asset)
-      .where(eq(schema.asset.id, rides));
+      .select({ loc: schema.smallTool.currentLocationId })
+      .from(schema.smallTool)
+      .where(eq(schema.smallTool.id, rides));
     expect(ridesRow!.loc).toBeNull();
 
     const ev = await lastEvent(rides);
     expect(ev!.eventType).toBe("custodian_change");
-    expect(ev!.note).toMatch(/Departure: Departing Foreman/);
+    expect(ev!.note).toMatch(/Departure: Departing Foreman \(personal truck only\)/);
     const to = ev!.toState as Record<string, unknown>;
     /* A COMPLETE snapshot: the fold replaces, so a missing base key here blanks
        custodian, project or location on the next rebuild. */
     expect(Object.keys(to).sort()).toEqual(["custodianId", "locationId", "projectId", "status", "truckId"].sort());
-    expect(to.custodianId).toBe(successorId);
+    expect(to.custodianId).toBe(successor2Id);
     expect(to.status).toBe("assigned");
     expect(to.truckId).toBeNull();
     expect(to.locationId).toBeNull();
-
-    /* The tool in the gang box did NOT lose its place — only a container that
-       drives away with the person can do that. */
-    const inBoxEvent = await lastEvent(inBox);
-    expect((inBoxEvent!.toState as Record<string, unknown>).locationId).toBe(gangBoxId);
-
-    /* A lost tool moves like everything else, and keeps its status: a departure
-       moves the WHO, and asserting `assigned` here would quietly un-lose it. */
-    const lostEvent = await lastEvent(lost);
-    expect((lostEvent!.toState as Record<string, unknown>).status).toBe("lost");
   });
 
   it("refuses a leaver who has not actually left, and names the status it found", async () => {

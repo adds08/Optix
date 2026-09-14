@@ -1,5 +1,5 @@
-import { createLogger } from "@stinventory/logger";
-import type { ServerEnv } from "@stinventory/env";
+import { createLogger } from "@optix/logger";
+import type { ServerEnv } from "@optix/env";
 import {
   FALLBACK,
   IntentParseError,
@@ -7,14 +7,14 @@ import {
   type LlmConfig,
   type ParseContext,
   type ParsedIntent,
-} from "@stinventory/intent";
+} from "@optix/intent";
 
 const log = createLogger("engine-client");
 
 /*
   Where the parser gets its configuration, and what a failure means here.
 
-  The parsing itself moved to @stinventory/intent — it is shared with the
+  The parsing itself moved to @optix/intent — it is shared with the
   settings page, which needs to run a real message through the real prompt to
   prove a saved key actually works. What is left in this file is the two
   decisions that belong to the API process rather than to the parser:

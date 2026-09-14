@@ -470,6 +470,97 @@
       "when": 1789128000000,
       "tag": "0067_foremen_skip_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1789207067876,
+      "tag": "0068_low_vance_astro",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1789210613927,
+      "tag": "0069_powerful_bug",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1789297013927,
+      "tag": "0070_drop_the_settings_that_drive_nothing",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1789383413927,
+      "tag": "0071_job_title_default_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1789469813927,
+      "tag": "0072_status_check_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1789556213927,
+      "tag": "0073_vehicle_type_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1789642613927,
+      "tag": "0074_narrow_location_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1789729013927,
+      "tag": "0075_vehicle_becomes_equipment",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1789815413927,
+      "tag": "0076_asset_becomes_small_tool",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1789901813927,
+      "tag": "0077_drop_equipment_unit",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1789988213927,
+      "tag": "0078_code_unique_per_tenant",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1790074613927,
+      "tag": "0079_drop_asset_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1790161013927,
+      "tag": "0080_vin_unique_per_tenant",
+      "breakpoints": true
     }
   ]
 }

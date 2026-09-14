@@ -8,7 +8,7 @@ import {
   applyMention,
   type ChatMention,
   type MentionKind,
-} from "@stinventory/types";
+} from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
   pressing `@` works exactly as it did before.
 
   What the picker buys is that the noun stops being a guess. "@10" finds
-  UIC-1012 and TRU-010 and job 10021 together, they tap the one they meant, and
+  TOOL-01012 and TRU-010 and job 10021 together, they tap the one they meant, and
   the message carries that row's id. The parser then only has to work out the
   verb, which is the part it is actually good at.
 */

@@ -38,7 +38,7 @@ export function AppearanceSettings() {
 
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_PREFS.themeName);
   const [radius, setRadius] = useState<RadiusName>(DEFAULT_PREFS.radius);
-  const [fontFamily, setFontFamily] = useState<FontFamilyName>("system");
+  const [fontFamily, setFontFamily] = useState<FontFamilyName>(DEFAULT_PREFS.fontFamily);
   const [fontScale, setFontScale] = useState("1.0");
   const [iconScale, setIconScale] = useState("1.0");
   const [density, setDensity] = useState<Density>("comfortable");

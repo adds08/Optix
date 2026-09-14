@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
 import { onboardingRouter } from "./routers/onboarding.js";
 import { projectTeamRouter } from "./routers/projectTeam.js";
 import type { Context } from "./trpc.js";

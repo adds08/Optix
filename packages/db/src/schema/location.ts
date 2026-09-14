@@ -25,7 +25,10 @@ export const location = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    type: text("type").notNull(), // warehouse | site_container | gang_box | vehicle | project_site
+    /* LOCATION_TYPES: warehouse | vehicle | project_site. `gang_box` and
+       `site_container` were removed 2026-09-14 — see the comment on the
+       constant. CHECK-constrained since migration 0074. */
+    type: text("type").notNull(),
     name: text("name").notNull(),
     warehouseId: uuid("warehouse_id").references(() => warehouse.id, { onDelete: "set null" }),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
@@ -62,8 +65,26 @@ export const location = pgTable(
   It is also what makes "tools riding on it" expressible without a second
   mechanism.
 */
-export const vehicle = pgTable(
-  "tbl_entity_vehicle",
+/*
+  THE EQUIPMENT REGISTER — trucks, trailers and whatever plant comes later.
+
+  Named `equipment` since 2026-09-14. It was `vehicle`, and the UI had said
+  "Equipment" since 2026-08-27 — so for weeks the table and every screen
+  disagreed about what this is. The client's words: "equipment table not
+  vehicle table."
+
+  `vehicleType` keeps its name deliberately and is NOT renamed with the table.
+  It is load-bearing: `assignment.truck_id`/`trailer_id` and
+  `transfer.to_truck_id`/`to_trailer_id` reference `(id, vehicle_type)` through
+  composite FKs with a generated constant, which is the only way a plain FK can
+  insist that a truckId names a truck. Migration 0073 constrains it to exactly
+  `truck` and `trailer`. Renaming the COLUMN would mean rewriting four
+  constraints for no gain; renaming the TABLE does not, because Postgres
+  updates FK references itself — verified on a throwaway database before this
+  change.
+*/
+export const equipment = pgTable(
+  "tbl_entity_equipment",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
@@ -82,7 +103,28 @@ export const vehicle = pgTable(
     // control that writes it — until then no UI set this column at all, so
     // every row in the register held the default and `heavy` was unreachable.
     equipmentClass: text("equipment_class").notNull().default("vehicle"),
-    vehicleType: text("vehicle_type").notNull(), // truck | trailer (class 'vehicle'); plant type for 'heavy'
+    /*
+      truck | trailer, and ONLY those two — constrained at the database since
+      migration 0073.
+
+      This comment used to end "; plant type for 'heavy'", describing an
+      intention nobody ever built: all four writers (vehicle.create,
+      vehicle.update, the importer spec and the seedless provision) are bound
+      to `VEHICLE_TYPES`, so no plant type has ever been writable here. Read
+      beside `enums.ts`, which calls these load-bearing literals, the two
+      sources contradicted each other and the stale one was this.
+
+      They are load-bearing for a structural reason, not a stylistic one:
+      `assignment.truckId`/`trailerId` reference `vehicle_id_type_uq` on
+      `(id, vehicle_type)` through composite FKs with a generated constant.
+      That is the only way a plain FK can insist a truckId names a truck, so a
+      third value here — or retyping an existing row — breaks every assignment
+      referencing it.
+
+      Heavy plant is `equipment_class`, which is the CATEGORY question, has no
+      FK depending on it, and is free to grow.
+    */
+    vehicleType: text("vehicle_type").notNull(),
     /*
       CAPABILITY, not state. `canAttach` means this thing can tow or carry
       another piece of equipment; `isAttachable` means it can be towed or
@@ -99,16 +141,24 @@ export const vehicle = pgTable(
     canAttach: boolean("can_attach").notNull().default(false),
     isAttachable: boolean("is_attachable").notNull().default(false),
     /*
-      The equipment register's own identifier, shown before the name — the
-      same "Code" convention `asset.serialNumber`/`isManualCode` established
-      for small tools. Additive: `unit` stays the unique operational number
-      it always was (assignment, the fleet map, the import spec all key off
-      it); `code` is nullable and free to be blank on a row nobody has typed
-      one in for yet.
+      THE EQUIPMENT'S CODE — `TRK-034`, `TE-006`. What the yard paints on the
+      door and says out loud.
+
+      NOT NULL since migration 0077, which also dropped `unit`. `unit` was this
+      column stored twice: all 88 vehicles in Urban's real fleet carried
+      `unit` and `code` set to the identical value, zero of 88 differing. The
+      comment here used to call `unit` "the unique operational number it always
+      was" and `code` an additive second field — a description of how it grew,
+      not of a distinction anybody could use.
+
+      One `code` per entity is the client's rule (2026-09-07, restated
+      2026-09-14). Anything else identifying a row has to be a genuinely
+      different fact, which is why `plate` and `vin` below survive and `unit`
+      did not: a plate is the state's and gets reassigned, a VIN is the
+      manufacturer's and never changes, and `unit` was just this.
     */
-    code: text("code"),
+    code: text("code").notNull(),
     description: text("description"),
-    unit: text("unit").notNull(),
     plate: text("plate"),
     /*
       The manufacturer's VIN, and the only permanent identity a vehicle has —
@@ -123,16 +173,12 @@ export const vehicle = pgTable(
       an improbable `1FTEW1KP6RKD` prefix that looks hand-typed. A constraint
       here would abort the whole import over a typo rather than let the row
       land and be corrected. Format is checked at the router edge and reported,
-      never enforced — see `docs/data/import/rejects.json` for what that found.
+      never enforced: refusing a row over a malformed VIN loses the whole vehicle.
     */
     vin: text("vin"),
     makeModel: text("make_model"),
     ownershipType: text("ownership_type").notNull().default("company_owned"), // company_owned | personal_allowance
     payeeEmployeeId: uuid("payee_employee_id").references(() => employee.id, { onDelete: "set null" }),
-    // NOTE: mirrors location.custodianEmployeeId on this vehicle's location row.
-    // The location column is authoritative; this one is kept in sync because the
-    // locations page, vehicle form and import spec already read it. Collapse the
-    // two once those move over.
     allowanceRate: decimal("allowance_rate", { precision: 10, scale: 2 }),
     allowanceFrequency: text("allowance_frequency"), // weekly | monthly
     gpsLat: decimal("gps_lat", { precision: 10, scale: 6 }),
@@ -140,6 +186,13 @@ export const vehicle = pgTable(
     gpsAt: timestamp("gps_at", { withTimezone: true }),
     gpsSource: text("gps_source"),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
+    // NOTE: mirrors location.custodianEmployeeId on this vehicle's location row.
+    // The location column is authoritative; this one is kept in sync because the
+    // locations page, vehicle form and import spec already read it. Collapse the
+    // two once those move over. (Moved down to this field 2026-09-12 — it was
+    // sitting under payeeEmployeeId above, which is who is PAID an allowance,
+    // not who HOLDS the vehicle; routers/location.ts's own mirror comment
+    // already named foremanEmployeeId as the field it keeps in sync.)
     foremanEmployeeId: uuid("foreman_employee_id").references(() => employee.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -156,27 +209,34 @@ export const vehicle = pgTable(
     */
     idTypeUq: unique("vehicle_id_type_uq").on(t.id, t.vehicleType),
     /*
-      One COMPANY truck per foreman, enforced at the database (STI-502).
+      One truck per foreman, of EITHER ownership type, enforced at the
+      database (STI-502, widened 2026-09-12).
 
-      A rig is one truck, one trailer, one foreman. The rule was stated in the
+      A rig is one truck, one trailer, one foreman — a truck row is either
+      `company_owned` or `personal_allowance`, but a foreman is linked to
+      exactly one truck ROW, whichever kind it is. The rule was stated in the
       plan and in three documents and enforced nowhere, so nothing stopped a
       second truck being stamped onto the same person — at which point
       `rigOf()` picks whichever row the query happens to return first and two
       screens can disagree about what a crew drives.
 
-      Three deliberate narrowings, each one a case that would otherwise be
-      broken by this index:
+      This index originally covered company-owned trucks only, on the belief
+      that a foreman may hold a personal-allowance truck AND drive a company
+      one at the same time — that pair was thought to be the premise STI-306's
+      departure logic needed. Revisited 2026-09-12 at the client's explicit
+      direction: the register should hold ONE truck per foreman, full stop,
+      never two of any kind at once. Checked before narrowing further:
+      `reassignOnDeparture` (departure.ts) does not actually need a leaver to
+      hold both at once — it just processes whatever containers they hold when
+      they go, however many that is — and no foreman in Urban's real data held
+      two trucks of any kind at the time of this change. `departure.test.ts`
+      now proves the personal-truck-stays and company-truck-moves halves
+      separately, on two leavers, rather than on one holding both.
+
+      Two remaining narrowings:
 
       PARTIAL on `foreman_employee_id IS NOT NULL` — a yard full of unheld
       trucks is the normal resting state, and NULLs must not collide.
-
-      COMPANY-OWNED ONLY. A foreman may draw a personal-allowance truck AND
-      drive a company one; that pair is the entire premise of STI-306, where a
-      departure reassigns the company vehicle and the personal one leaves with
-      the person. Constraining across both would forbid the arrangement the
-      departure logic exists to handle — caught by departure.test.ts, whose
-      fixture builds exactly that foreman. A vehicle somebody owns is also
-      simply not the rig, and not this system's to ration.
 
       TRUCKS ONLY. The same index for trailers would be wrong on Urban's real
       data: FELIPE PORTILLO holds TE-017 (22 tools) and TE-027 (30 tools),
@@ -188,7 +248,7 @@ export const vehicle = pgTable(
     oneTruckPerForemanUq: uniqueIndex("vehicle_one_truck_per_foreman_uq")
       .on(t.tenantId, t.foremanEmployeeId)
       .where(
-        sql`${t.vehicleType} = 'truck' AND ${t.foremanEmployeeId} IS NOT NULL AND ${t.ownershipType} = 'company_owned'`,
+        sql`${t.vehicleType} = 'truck' AND ${t.foremanEmployeeId} IS NOT NULL`,
       ),
   }),
 );

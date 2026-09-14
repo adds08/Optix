@@ -1,4 +1,4 @@
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import type { Context } from "./trpc.js";
 
 export type AuditCategory =

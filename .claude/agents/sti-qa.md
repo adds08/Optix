@@ -1,6 +1,6 @@
 ---
 name: sti-qa
-description: Adversarially verifies one completed STInventory ticket against its acceptance criteria. Use immediately after sti-dev reports a ticket done, before the ticket is marked accepted. Read-only — never fixes what it finds.
+description: Adversarially verifies one completed Optix ticket against its acceptance criteria. Use immediately after sti-dev reports a ticket done, before the ticket is marked accepted. Read-only — never fixes what it finds.
 model: fable
 effort: high
 tools: Read, Grep, Glob, Bash, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_type, mcp__playwright__browser_fill_form, mcp__playwright__browser_evaluate, mcp__playwright__browser_console_messages, mcp__playwright__browser_wait_for, mcp__playwright__browser_take_screenshot
@@ -28,7 +28,7 @@ patches its own findings has destroyed the evidence.
 4. For anything user-facing, drive it in the browser against `http://localhost:3100`
    with the Playwright tools. Query the database directly to confirm what was
    actually written:
-   `docker compose exec -T postgres psql -U postgres -d stinventory -c "..."`
+   `docker compose exec -T postgres psql -U postgres -d optix -c "..."`
 
 ## What to hunt for in this codebase specifically
 

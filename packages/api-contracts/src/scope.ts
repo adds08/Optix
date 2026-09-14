@@ -1,10 +1,10 @@
 import { activeProjectRows, restrictedProjects } from "./project-access.js";
 import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
-import * as schema from "@stinventory/db/schema";
-import type { Database } from "@stinventory/db";
-import type { ResolvedSession } from "@stinventory/auth";
-import { VIEW_SCOPES, type ViewScope } from "@stinventory/types";
-import { branchEmployeeIds, tiersAtOrBelow } from "@stinventory/domain";
+import * as schema from "@optix/db/schema";
+import type { Database } from "@optix/db";
+import type { ResolvedSession } from "@optix/auth";
+import { VIEW_SCOPES, type ViewScope } from "@optix/types";
+import { branchEmployeeIds, tiersAtOrBelow } from "@optix/domain";
 
 /*
   The visibility ladder (STI-302) — the one gate every scoped read goes
@@ -237,13 +237,13 @@ function assetScopePredicate(scope: AssetScope) {
          they are excluded rather than shown to everyone. This is why the
          predicate is a plain inArray and not an `or(isNull(...))`. */
       return scope.projectIds.length
-        ? inArray(schema.asset.currentProjectId, scope.projectIds)
+        ? inArray(schema.smallTool.currentProjectId, scope.projectIds)
         : MATCHES_NOTHING;
     case "assets.view.crew":
-      if (scope.branches && scope.ownEmployeeId) return or(eq(schema.asset.currentCustodianId, scope.ownEmployeeId), ...scope.branches.map(b => and(eq(schema.asset.currentProjectId, b.projectId), inArray(schema.asset.currentCustodianId, b.custodianIds))));
+      if (scope.branches && scope.ownEmployeeId) return or(eq(schema.smallTool.currentCustodianId, scope.ownEmployeeId), ...scope.branches.map(b => and(eq(schema.smallTool.currentProjectId, b.projectId), inArray(schema.smallTool.currentCustodianId, b.custodianIds))));
     case "assets.view.own":
       return scope.custodianIds.length
-        ? inArray(schema.asset.currentCustodianId, scope.custodianIds)
+        ? inArray(schema.smallTool.currentCustodianId, scope.custodianIds)
         : MATCHES_NOTHING;
     case "none":
       return MATCHES_NOTHING;
@@ -280,7 +280,7 @@ function assignmentScopePredicate(scope: AssetScope) {
 
 export function assetScopeWhere(scope: AssetScope) {
   const excluded = scope.excludedProjectIds ?? [];
-  return and(assetScopePredicate(scope), excluded.length ? or(isNull(schema.asset.currentProjectId), notInArray(schema.asset.currentProjectId, excluded)) : undefined);
+  return and(assetScopePredicate(scope), excluded.length ? or(isNull(schema.smallTool.currentProjectId), notInArray(schema.smallTool.currentProjectId, excluded)) : undefined);
 }
 export function assignmentScopeWhere(scope: AssetScope) {
   const excluded = scope.excludedProjectIds ?? [];

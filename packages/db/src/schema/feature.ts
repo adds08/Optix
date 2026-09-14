@@ -32,7 +32,7 @@ export const tenantFeature = pgTable(
        consumed, the same way every other status column in this schema does
        (see .claude/rules/database.md). */
     key: text("key").notNull(),
-    // enabled | beta | upcoming | hidden — see FEATURE_STATES in @stinventory/types
+    // enabled | beta | upcoming | hidden — see FEATURE_STATES in @optix/types
     state: text("state").notNull().default("enabled"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

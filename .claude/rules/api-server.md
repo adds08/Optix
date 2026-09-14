@@ -86,7 +86,7 @@ boot production with the example secret, a low-variety secret, or a plain-http n
 into a `MailConfig | null` (`mailFallback` in `src/index.ts`) and passed into the tRPC
 context and the auth endpoints the same way `sessionSecret` is. `mailConfigFor`
 (`packages/api-contracts/src/mail-config.ts`) prefers a tenant's own `tenant_settings` SMTP
-row over this fallback, outright — no per-field merge. `sendMail` (`@stinventory/mail`)
+row over this fallback, outright — no per-field merge. `sendMail` (`@optix/mail`)
 still logs to console rather than sending when the resolved config is `null`, which is now
 the "nobody has configured mail yet" case rather than the only case. `TWILIO_*` is still
 read by nothing — SMS stays a placeholder toggle, deliberately, until it is actually built.

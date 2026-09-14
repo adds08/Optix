@@ -4,9 +4,11 @@ All notable changes are documented in this file. The product is called **Optix**
 the repository, the package scope and the storage keys still say STInventory, which
 is deliberate.
 
-Per-change detail — what was verified, what was found, what was deliberately not
-done — is in `docs/changelogs/`, indexed at `docs/changelogs/INDEX.md`. This file
-is the release-level summary.
+This file is the release-level summary. The per-change detail that used to sit in
+`docs/changelogs/` was deleted on 2026-09-12 along with the rest of `docs/`; the
+paths below are kept as written because they record what the release claimed at
+the time, not because the files are there. The current technical picture is
+`docs/assessment/`, and the import plan is `docs/import/README.md`.
 
 ## v1.0.0 — 2026-08-29 — "Optix for small tools implemented"
 
@@ -27,10 +29,15 @@ Known and deliberate at this tag:
 - `/home`'s fleet monitor is a wall-board and overlaps its own text on a phone.
   Routing narrow viewports to the `command` tab is the answer; it is a product
   decision, not a media query.
-- CSV export from the register reads the post-pagination row model, so it exports
-  one page.
-- `role.can_hold_custody` and `uses_field_layout` are stored, seeded and editable,
-  but the navigation and the custodian pickers still read hard-coded role lists.
+- ~~CSV export from the register reads the post-pagination row model, so it
+  exports one page.~~ **Wrong, corrected 2026-09-12.** The register's export is
+  `exportAll` in `apps/web/app/(app)/tools/page.tsx`, which maps the complete
+  unpaginated set. The defect is real but sits in `DataTable`, whose export
+  button the register never renders. See `docs/assessment/04-web.md`.
+- `role.can_hold_custody` is stored and editable and the six custodian pickers read a
+  hard-coded list instead — see `docs/assessment/07-custody-eligibility-audit.md`, which
+  found three flags disagreeing across three places. (`uses_field_layout` was named here
+  too and is NOT dead: `app-shell.tsx` reads it to pick the field layout.)
 - Invite-only signup is wired end to end but no mailbox has been pointed at it.
 - Vendors, purchase orders, cost codes and phases are not built.
 
@@ -157,13 +164,14 @@ is last-snapshot-wins, so `{ status: "in_maintenance" }` alone means custodian, 
 location are now null. `packages/types` covers the @ parser; `packages/api-contracts` covers
 the permission map that keeps chat from being a privilege escalation.
 
-**Production containers.** `docker/Dockerfile.{api,web,engine}` — multi-stage, non-root,
+**Production containers.** `docker/Dockerfile.{api,web}` — multi-stage, non-root,
 healthchecked, `NODE_ENV=production`, Next.js standalone output. `docker-compose.prod.yml`
 has restart policies, dependency gating, an unpublished database port, and required-variable
-syntax so it refuses to start without real secrets. The engine is in both compose files now;
-its absence from the dev one is why chat silently degraded to `pending_manual`.
+syntax so it refuses to start without real secrets. (This entry also claimed a third
+`Dockerfile.engine` and an engine service in both compose files. Neither exists — corrected
+2026-09-13.)
 
-**CI** (`.github/workflows/ci.yml`) — typecheck, tests, all three image builds, and a smoke
+**CI** (`.github/workflows/ci.yml`) — typecheck, tests, both image builds, and a smoke
 job that migrates a fresh Postgres and boots the API. The image build step exists precisely
 because a build that is never executed proves nothing.
 

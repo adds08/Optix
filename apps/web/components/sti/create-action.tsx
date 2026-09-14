@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import type { Permission } from "@stinventory/types";
+import type { Permission } from "@optix/types";
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
 

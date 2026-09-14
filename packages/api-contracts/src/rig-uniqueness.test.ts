@@ -1,12 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq, sql } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
-import type { Permission } from "@stinventory/types";
-import { locationRouter } from "./routers/location.js";
+import { createDb, schema, type Database } from "@optix/db";
+import type { Permission } from "@optix/types";
+import { locationRouter, equipmentRouter } from "./routers/equipment.js";
 import type { Context } from "./trpc.js";
 
 /*
-  STI-502 — one truck per foreman, enforced at the database.
+  STI-502 — one truck per foreman, of EITHER ownership type, enforced at the
+  database (widened 2026-09-12 — see the schema comment on
+  `oneTruckPerForemanUq` for why this used to stop at company-owned trucks).
 
   Two layers, and both are tested here because they fail differently:
 
@@ -53,24 +55,24 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
   });
 
   async function newVehicle(
-    unit: string,
+    code: string,
     vehicleType: "truck" | "trailer",
     custodianId: string | null = null,
     ownershipType: "company_owned" | "personal_allowance" = "company_owned",
   ) {
     const [loc] = await db
       .insert(schema.location)
-      .values({ tenantId, type: "vehicle", name: unit, custodianEmployeeId: custodianId })
+      .values({ tenantId, type: "vehicle", name: code, custodianEmployeeId: custodianId })
       .returning({ id: schema.location.id });
     const [v] = await db
-      .insert(schema.vehicle)
-      .values({ tenantId, locationId: loc!.id, vehicleType, unit, ownershipType, foremanEmployeeId: custodianId })
-      .returning({ id: schema.vehicle.id });
+      .insert(schema.equipment)
+      .values({ tenantId, locationId: loc!.id, vehicleType, code, ownershipType, foremanEmployeeId: custodianId })
+      .returning({ id: schema.equipment.id });
     return { vehicleId: v!.id, locationId: loc!.id };
   }
 
   const foremanOfVehicle = async (id: string) =>
-    (await db.select({ f: schema.vehicle.foremanEmployeeId }).from(schema.vehicle).where(eq(schema.vehicle.id, id)))[0]?.f ?? null;
+    (await db.select({ f: schema.equipment.foremanEmployeeId }).from(schema.equipment).where(eq(schema.equipment.id, id)))[0]?.f ?? null;
 
   beforeAll(async () => {
     db = createDb(url!);
@@ -110,9 +112,9 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
        what makes the index a guarantee rather than a convention. */
     await expect(
       db
-        .update(schema.vehicle)
+        .update(schema.equipment)
         .set({ foremanEmployeeId: foremanId })
-        .where(eq(schema.vehicle.id, truckB.vehicleId)),
+        .where(eq(schema.equipment.id, truckB.vehicleId)),
     ).rejects.toThrow(/vehicle_one_truck_per_foreman_uq/);
 
     expect(await foremanOfVehicle(truckB.vehicleId)).toBeNull();
@@ -163,30 +165,54 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
     expect(await foremanOfVehicle(spare2.vehicleId)).toBeNull();
   });
 
-  it("a foreman may draw a PERSONAL truck AND drive a company one", async () => {
+  it("the DATABASE refuses a second truck of ANY ownership type for the same foreman", async () => {
     /*
-      The case that caught the first cut of this index. departure.test.ts
-      builds exactly this foreman, because it is the entire premise of
-      STI-306: on departure the company truck is reassigned and the personal
-      one leaves with the person. An index across both ownership types
-      forbids the arrangement the departure logic exists to handle — it broke
-      that suite, which is how the narrowing was found rather than shipped.
+      Widened 2026-09-12 at the client's explicit direction: a foreman is
+      linked to exactly one truck ROW, whichever ownership type it is. This
+      index used to stop here — company-owned only — on the belief that a
+      foreman holding a personal-allowance truck AND a company one was the
+      premise STI-306's departure logic needed. It is not: `reassignOnDeparture`
+      just processes whatever containers a leaver holds when they go, however
+      many that is. `departure.test.ts` now proves the personal-stays and
+      company-moves halves on two separate leavers instead of one holding both.
+
+      foremanId already holds `truckA` (company_owned) from `beforeAll` — a
+      raw insert of a SECOND, personal_allowance truck for the same foreman
+      must be refused by the index itself, the same "whatever writes it"
+      guarantee the first test in this file proves for two company trucks.
     */
-    const personal = await newVehicle("STI502-TRUCK-PERSONAL", "truck", foremanId, "personal_allowance");
-    expect(await foremanOfVehicle(personal.vehicleId)).toBe(foremanId);
-    /* And they still hold their company truck. */
+    await expect(
+      db.insert(schema.equipment).values({
+        tenantId,
+        locationId: (
+          await db
+            .insert(schema.location)
+            .values({ tenantId, type: "vehicle", name: "STI502-TRUCK-PERSONAL", custodianEmployeeId: foremanId })
+            .returning({ id: schema.location.id })
+        )[0]!.id,
+        vehicleType: "truck",
+        code: "STI502-TRUCK-PERSONAL",
+        ownershipType: "personal_allowance",
+        foremanEmployeeId: foremanId,
+      }),
+    ).rejects.toThrow(/vehicle_one_truck_per_foreman_uq/);
+
+    /* Refused at the database, so they still hold only the company truck. */
     expect(await foremanOfVehicle(truckA.vehicleId)).toBe(foremanId);
   });
 
-  it("setCustodian does not block a personal truck for someone who has a company one", async () => {
+  it("setCustodian refuses a personal truck for someone who already has a company one, naming it", async () => {
     const personal2 = await newVehicle("STI502-TRUCK-PERSONAL-2", "truck", null, "personal_allowance");
     /* The application check is narrowed the same way as the index; if the two
        ever drift, this is the test that says so. */
-    await locationRouter
+    const err = await locationRouter
       .createCaller(ctx())
-      .setCustodian({ locationId: personal2.locationId, custodianEmployeeId: foremanId, moveContents: false });
+      .setCustodian({ locationId: personal2.locationId, custodianEmployeeId: foremanId, moveContents: false })
+      .catch((e: Error) => e.message);
 
-    expect(await foremanOfVehicle(personal2.vehicleId)).toBe(foremanId);
+    expect(err).toContain("STI502-TRUCK-A");
+    expect(err).toMatch(/already has truck/i);
+    expect(await foremanOfVehicle(personal2.vehicleId)).toBeNull();
   });
 
   it("TRAILERS are deliberately unconstrained — Urban really does run two per foreman", async () => {
@@ -218,15 +244,15 @@ describe.skipIf(!url)("a foreman drives one truck (STI-502)", () => {
         .values({ tenantId: otherTenant, type: "vehicle", name: "THEIR-TRUCK" })
         .returning({ id: schema.location.id });
       const [v] = await db
-        .insert(schema.vehicle)
+        .insert(schema.equipment)
         .values({
           tenantId: otherTenant,
           locationId: loc!.id,
           vehicleType: "truck",
-          unit: "THEIR-TRUCK",
+          code: "THEIR-TRUCK",
           foremanEmployeeId: emp!.id,
         })
-        .returning({ id: schema.vehicle.id });
+        .returning({ id: schema.equipment.id });
       expect(v!.id).toBeTruthy();
     } finally {
       await db.transaction(async (tx) => {

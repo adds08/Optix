@@ -1,5 +1,5 @@
 {
-  "name": "@stinventory/db",
+  "name": "@optix/db",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,19 +14,20 @@
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/migrate.ts",
     "studio": "drizzle-kit studio",
-    "seed": "tsx src/seed.ts",
     "clean": "rm -rf dist .turbo",
     "push:dangerous": "drizzle-kit push",
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "provision": "tsx src/provision.ts"
   },
   "dependencies": {
-    "@stinventory/types": "workspace:*",
+    "@optix/types": "workspace:*",
     "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.36.4",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
-    "@stinventory/config-tsconfig": "workspace:*",
+    "@optix/config-tsconfig": "workspace:*",
     "@types/bcryptjs": "^2.4.6",
     "drizzle-kit": "^0.28.1",
     "tsx": "^4.19.2",

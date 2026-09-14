@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { createDb, schema, type Database } from "@stinventory/db";
+import { createDb, schema, type Database } from "@optix/db";
 import { sweepRequests } from "./request-worker.js";
 
 /*

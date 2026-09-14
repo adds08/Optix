@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { roleSpecs, teamRoleSpecs } from "@stinventory/db";
+import { roleSpecs, teamRoleSpecs } from "@optix/db";
 
 /*
   THE ONBOARDING CHAIN, PINNED AS A BASELINE.

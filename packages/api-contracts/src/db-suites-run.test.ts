@@ -62,4 +62,37 @@ describe("the database suites run where they are supposed to", () => {
         "knows what it is watching. Update GUARD here in the same change.",
     ).toBeGreaterThan(0);
   });
+
+  /*
+    Say it out loud when the suites are skipping.
+
+    The two checks above only fire under CI, which is correct — a laptop with
+    no stack up SHOULD skip rather than fail. But the consequence went
+    unnoticed for a long time: `pnpm test` with no DATABASE_URL prints a green
+    "755 passed" while 345 of those never ran, because vitest counts a skipped
+    test in the file total and reports the run as successful.
+
+    Nobody reads a `↓ 29 skipped` line in the middle of nine packages of
+    output. A visible warning naming the NUMBER and the command is the
+    difference between "my tests pass" and "my tests pass, and I know which
+    ones I did not run".
+
+    Deliberately a warning and not a failure. Making it fail would mean nobody
+    can run the pure suites without Postgres up, which is the thing the skip
+    exists to allow.
+  */
+  it("says so, loudly, when it is skipping the database suites", () => {
+    if (process.env.DATABASE_URL) return;
+
+    const n = dbBackedSuites().length;
+    console.warn(
+      `\n  ⚠  ${n} database-backed suites in @optix/api-contracts were SKIPPED.\n` +
+        `     No DATABASE_URL, so they did not run — and vitest still reports\n` +
+        `     this package as passing.\n\n` +
+        `     To run them:  make up  &&  DATABASE_URL=postgres://postgres:optix@localhost:5433/optix_ci pnpm test\n`,
+    );
+    /* The assertion is that we found suites to warn about — if this ever hits
+       zero, the warning is lying and the check above will have failed too. */
+    expect(n).toBeGreaterThan(0);
+  });
 });

@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { formatAssetModel } from "@stinventory/types";
+import { formatAssetModel } from "@optix/types";
 import { trpc } from "../../lib/trpc";
 import { AnimatedRow, ScreenFade } from "../../components/motion";
 import { useAuth } from "../../lib/auth";
@@ -19,7 +19,7 @@ export default function MyToolsScreen() {
 
   /* Scoped to this person. A foreman should never have to filter a company-wide
      list down to their own name. */
-  const tools = trpc.asset.list.useQuery(
+  const tools = trpc.smallTool.list.useQuery(
     { custodianId: employeeId },
     { enabled: !!employeeId },
   );

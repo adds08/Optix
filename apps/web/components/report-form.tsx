@@ -37,8 +37,8 @@ export function ReportForm({ open, onClose, assetId, assetCode }: Props) {
         assetIds: [assetId],
         note: note || undefined,
       });
-      utils.asset.list.invalidate();
-      utils.asset.get.invalidate({ id: assetId });
+      utils.smallTool.list.invalidate();
+      utils.smallTool.get.invalidate({ id: assetId });
       utils.transaction.list.invalidate({ assetId });
       utils.dashboard.kpis.invalidate();
       utils.dashboard.recentActivity.invalidate();

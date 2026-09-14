@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Boxes, Download, Pencil, Search } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@stinventory/types";
+import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel } from "@optix/types";
 import { trpc } from "@/lib/trpc";
 import { PageHeader, TableSkeleton, ErrorNote, EmptyState } from "@/components/sti/page";
 import { StatusPill, Tag, humanize } from "@/components/sti/status";
@@ -28,9 +28,18 @@ import { col } from "@/components/sti/data-table/columns";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { downloadCsv } from "@/lib/csv";
 import { exportAssetsToSpec } from "@/lib/export-assets";
-import { money, idName, assetNumberDisplay } from "@/lib/format";
+import { money, idName } from "@/lib/format";
 
-const STATUSES = ["available", "assigned", "in_maintenance", "reserved", "lost"] as const;
+const STATUSES = [
+  "available",
+  "assigned",
+  "in_maintenance",
+  "diagnosing",
+  "waiting_parts",
+  "ready_for_pickup",
+  "reserved",
+  "lost",
+] as const;
 type FlagKey = "high_value" | "warranty" | "no_project";
 
 const FLAG_LABELS: Record<FlagKey, string> = {
@@ -81,7 +90,7 @@ export default function ToolsPage() {
   /* One mutation for a bulk return; the form owns the bulk move. */
   const returnBulk = trpc.action.submit.useMutation({
     onSuccess: () => {
-      utils.asset.list.invalidate();
+      utils.smallTool.list.invalidate();
       utils.assignment.list.invalidate();
       utils.transfer.list.invalidate();
       utils.dashboard.kpis.invalidate();
@@ -109,7 +118,7 @@ export default function ToolsPage() {
     }
   };
 
-  const list = trpc.asset.list.useQuery();
+  const list = trpc.smallTool.list.useQuery();
   const all = useMemo(() => list.data ?? [], [list.data]);
 
   /* Job scope first: the register is "everything" or "one project" — and for a
@@ -182,20 +191,6 @@ export default function ToolsPage() {
         cell: (r) => (
           <Link href={`/tools/${r.id}`} className="hover:underline">
             {r.code ? <Tag>{r.code}</Tag> : <span className="text-muted-foreground">—</span>}
-          </Link>
-        ),
-      }),
-      col<Row>({
-        /* The register's own number — every row has one, unlike Code, which
-           can be blank or collide on a hand-typed stand-in. Secondary now
-           that Code leads, but kept close by: it is still the one column
-           guaranteed never to read "no tag". */
-        header: "Ref #",
-        accessorFn: (r) => r.assetNumber,
-        width: "6rem",
-        cell: (r) => (
-          <Link href={`/tools/${r.id}`} className="tag-num hover:underline text-muted-foreground">
-            {assetNumberDisplay(r.assetNumber)}
           </Link>
         ),
       }),
@@ -410,7 +405,7 @@ export default function ToolsPage() {
       locationName: r.locationName,
       owningProjectName: r.owningProjectName,
     }));
-    downloadCsv(`stinventory-assets-export-${new Date().toISOString().slice(0, 10)}`, exportAssetsToSpec(rows));
+    downloadCsv(`optix-assets-export-${new Date().toISOString().slice(0, 10)}`, exportAssetsToSpec(rows));
   };
 
   const filtering = category !== "all" || status !== "all" || flags.size > 0;
@@ -653,6 +648,15 @@ export default function ToolsPage() {
                 ? "Try a different search, or clear a filter in the sheet."
                 : "Import the existing fleet, or register the first tool to start the custody chain."
             }
+            /* NO `action` here, unlike projects/equipment/people — and the
+               difference is real rather than an oversight. This page's
+               Import/Export/New row is rendered above unconditionally (it is
+               the row the bulk-action bar swaps into), so it is on screen in
+               this branch too. Repeating the buttons inside the empty state
+               put "Import" and "New tool" on the screen twice, inches apart.
+               The other three registers carry those controls only inside
+               DataTable's toolbar, which their empty branch never renders,
+               which is why they need the action and this page does not. */
           />
         ) : (
           <DataTable<Row>

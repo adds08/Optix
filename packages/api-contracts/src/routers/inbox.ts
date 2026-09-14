@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { approveTaskAction, confirmMessageAction } from "../approve.js";
 import { TRPCError } from "@trpc/server";
@@ -86,9 +86,11 @@ export const inboxRouter = router({
                  but this SELECT never fetched it and the completed filter below
                  never counted it, so a dismissed MESSAGE fell out of all three
                  buckets and vanished from the desk — the header comment above
-                 has always promised it in `completed`. `processing_status` is
-                 plain text with no enum, so nothing at the DB level catches a
-                 status this list forgets. */
+                 has always promised it in `completed`. `processing_status` has been
+                 CHECK-constrained since migration 0072, but a constraint
+                 governs what may be WRITTEN, not what this list remembers to
+                 READ — a status omitted here still vanishes from the desk, and
+                 nothing at the DB level can catch that. */
               inArray(schema.message.processingStatus, [
                 "action_proposed",
                 "action_executed",

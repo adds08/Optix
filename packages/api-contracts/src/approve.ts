@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import {
   applyChatAction,
   canApplyAction,

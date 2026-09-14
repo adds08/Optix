@@ -1,16 +1,16 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import type { Database } from "@stinventory/db";
-import * as schema from "@stinventory/db/schema";
-import { custodyOutcome, type AssetStateSnapshot, type CustodyOutcome } from "@stinventory/domain";
-import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel, type Permission } from "@stinventory/types";
+import type { Database } from "@optix/db";
+import * as schema from "@optix/db/schema";
+import { custodyOutcome, type AssetStateSnapshot, type CustodyOutcome } from "@optix/domain";
+import { DEFAULT_HIGH_VALUE_THRESHOLD, formatAssetModel, type Permission } from "@optix/types";
 import {
   ACTION_DEPARTMENTS,
   ACTION_PERMISSIONS,
   AUTO_SAFE_INTENTS,
   CUSTODY_INTENTS,
   REQUEST_TITLES,
-} from "@stinventory/intent";
+} from "@optix/intent";
 import { assertVehicleContext, closeActiveCustody, moveCustody, projectForCustodian } from "./custody.js";
 
 /*
@@ -32,7 +32,7 @@ import { assertVehicleContext, closeActiveCustody, moveCustody, projectForCustod
    says out loud, and the rest is filled in on the confirm card or left blank.
    The tag is optional — a tool is only tagged once a label is physically on
    it — but the tool has to be describable, so at least one of make or
-   description is required (see docs/built/12-model-field-split.md). */
+   description is required. */
 export type AssetDraft = {
   code?: string;
   make?: string;
@@ -60,7 +60,7 @@ export type ChatAction = {
 
 /*
   Which intents need a human, which are safe to run unattended, and what each
-  one costs — all re-exported from the catalog in @stinventory/intent rather
+  one costs — all re-exported from the catalog in @optix/intent rather
   than declared here.
 
   These were three hand-maintained maps sitting next to a fourth copy of the
@@ -171,8 +171,8 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
   let awaitingApproval = 0;
 
   for (const assetId of assetIds) {
-    const asset = await db.query.asset.findFirst({
-      where: and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)),
+    const asset = await db.query.smallTool.findFirst({
+      where: and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, tenantId)),
     });
     if (!asset) continue;
 
@@ -523,7 +523,7 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
       }
 
       await tx
-        .update(schema.asset)
+        .update(schema.smallTool)
         .set({
           currentStatus: after.status,
           currentCustodianId: after.custodianId,
@@ -531,7 +531,7 @@ export async function applyChatAction(db: Database, opts: ApplyOptions): Promise
           currentLocationId: after.locationId,
           updatedAt: new Date(),
         })
-        .where(and(eq(schema.asset.id, assetId), eq(schema.asset.tenantId, tenantId)));
+        .where(and(eq(schema.smallTool.id, assetId), eq(schema.smallTool.tenantId, tenantId)));
 
       const [ledgerRow] = await tx
         .insert(schema.transaction)
@@ -608,8 +608,8 @@ async function applyIntake(
   }
 
   if (tag) {
-    const clash = await db.query.asset.findFirst({
-      where: and(eq(schema.asset.tenantId, tenantId), eq(schema.asset.code, tag)),
+    const clash = await db.query.smallTool.findFirst({
+      where: and(eq(schema.smallTool.tenantId, tenantId), eq(schema.smallTool.code, tag)),
     });
     /* CONFLICT, matching the same clash in asset.update — the two surfaces
        must disagree with the user in the same voice. */
@@ -641,7 +641,7 @@ async function applyIntake(
   */
   const { row, tx } = await db.transaction(async (trx: any) => {
   const [row] = await trx
-    .insert(schema.asset)
+    .insert(schema.smallTool)
     .values({
       tenantId,
       tag: tag || null,
@@ -727,8 +727,8 @@ export async function requestChatAction(db: any, opts: ApplyOptions): Promise<Re
      exist yet — there is nothing to look up and nothing to annotate, so an
      empty asset list is correct rather than an error. */
   const named: any[] = assetIds.length
-    ? await db.query.asset.findMany({
-        where: and(eq(schema.asset.tenantId, tenantId), inArray(schema.asset.id, assetIds)),
+    ? await db.query.smallTool.findMany({
+        where: and(eq(schema.smallTool.tenantId, tenantId), inArray(schema.smallTool.id, assetIds)),
       })
     : [];
 

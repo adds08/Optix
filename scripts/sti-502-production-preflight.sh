@@ -56,7 +56,7 @@
 #                 ./scripts/sti-502-production-preflight.sh
 #
 #   Override how psql is reached if your compose service differs:
-#                 PSQL="docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d stinventory" \
+#                 PSQL="docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -d optix" \
 #                   ./scripts/sti-502-production-preflight.sh
 #
 # EXIT CODES
@@ -66,7 +66,7 @@
 
 set -euo pipefail
 
-PSQL="${PSQL:-docker compose exec -T postgres psql -U postgres -d stinventory}"
+PSQL="${PSQL:-docker compose exec -T postgres psql -U postgres -d optix}"
 
 echo "STI-502 preflight — foremen holding more than one COMPANY truck"
 echo "  using: $PSQL"

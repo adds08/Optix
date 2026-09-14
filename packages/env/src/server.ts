@@ -56,7 +56,7 @@ const serverSchema = z.object({
   */
   S3_ENDPOINT: z.string().url().optional(),
   S3_REGION: z.string().default("us-east-1"),
-  S3_BUCKET: z.string().default("stinventory"),
+  S3_BUCKET: z.string().default("optix"),
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
   /* Public base for reading objects back. Separate from the endpoint because a
@@ -114,7 +114,7 @@ export function serverEnv(): ServerEnv {
   if (cached) return cached;
   const parsed = serverSchema.safeParse(process.env);
   if (!parsed.success) {
-    console.error("[@stinventory/env/server] invalid env:", parsed.error.flatten().fieldErrors);
+    console.error("[@optix/env/server] invalid env:", parsed.error.flatten().fieldErrors);
     throw new Error("Invalid server env");
   }
   /* Checked before caching, so a misconfigured production process fails on

@@ -1,4 +1,4 @@
-# STInventory dev image — Node 22 + pnpm. Used by api + web services.
+# Optix dev image — Node 22 + pnpm. Used by api + web services.
 FROM node:22-alpine
 
 RUN apk add --no-cache postgresql-client
@@ -9,7 +9,7 @@ WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json turbo.json .npmrc ./
 # One package.json per workspace member the dev image needs before install, so
 # pnpm can link the workspace. If a new workspace package is added, its
-# package.json must be listed here too — @stinventory/intent was once missing,
+# package.json must be listed here too — @optix/intent was once missing,
 # and the API crashed at boot with ERR_MODULE_NOT_FOUND.
 # NOTE: docker-compose.yml mounts anonymous node_modules volumes that persist
 # across rebuilds. After changing this list (or any dependency), refresh them

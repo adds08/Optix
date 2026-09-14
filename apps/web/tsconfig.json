@@ -1,5 +1,5 @@
 {
-  "extends": "@stinventory/config-tsconfig/next.json",
+  "extends": "@optix/config-tsconfig/next.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {

@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import * as schema from "@stinventory/db/schema";
+import * as schema from "@optix/db/schema";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, requirePermission, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
@@ -29,12 +29,12 @@ import { logEvent } from "../audit.js";
 async function inUse(db: any, tenantId: string) {
   return db
     .select({
-      name: schema.asset.categoryName,
+      name: schema.smallTool.categoryName,
       count: sql<number>`count(*)::int`,
     })
-    .from(schema.asset)
-    .where(and(eq(schema.asset.tenantId, tenantId), sql`${schema.asset.categoryName} is not null`))
-    .groupBy(schema.asset.categoryName);
+    .from(schema.smallTool)
+    .where(and(eq(schema.smallTool.tenantId, tenantId), sql`${schema.smallTool.categoryName} is not null`))
+    .groupBy(schema.smallTool.categoryName);
 }
 
 export const categoryRouter = router({
@@ -142,9 +142,9 @@ export const categoryRouter = router({
           .set({ name })
           .where(and(eq(schema.category.id, input.id), eq(schema.category.tenantId, tid)));
         await tx
-          .update(schema.asset)
+          .update(schema.smallTool)
           .set({ categoryName: name, updatedAt: new Date() })
-          .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.categoryName, existing.name)));
+          .where(and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.categoryName, existing.name)));
       });
 
       await logEvent(ctx, {
@@ -176,8 +176,8 @@ export const categoryRouter = router({
 
       const [{ count } = { count: 0 }] = await ctx.db
         .select({ count: sql<number>`count(*)::int` })
-        .from(schema.asset)
-        .where(and(eq(schema.asset.tenantId, tid), eq(schema.asset.categoryName, existing.name)));
+        .from(schema.smallTool)
+        .where(and(eq(schema.smallTool.tenantId, tid), eq(schema.smallTool.categoryName, existing.name)));
 
       if (Number(count) > 0) {
         throw new TRPCError({
