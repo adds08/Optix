@@ -335,7 +335,7 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
       const before = await countOf(schema.location);
       const res = await caller().commit({
         entity: "location",
-        rows: [{ name: `Imported Box ${suffix}`, type: "gang_box", project: projectName }],
+        rows: [{ name: `Imported Box ${suffix}`, type: "warehouse", project: projectName }],
       });
       expect(res.imported).toBe(1);
       expect(await countOf(schema.location)).toBe(before + 1);

@@ -25,7 +25,10 @@ export const location = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
-    type: text("type").notNull(), // warehouse | site_container | gang_box | vehicle | project_site
+    /* LOCATION_TYPES: warehouse | vehicle | project_site. `gang_box` and
+       `site_container` were removed 2026-09-14 — see the comment on the
+       constant. CHECK-constrained since migration 0074. */
+    type: text("type").notNull(),
     name: text("name").notNull(),
     warehouseId: uuid("warehouse_id").references(() => warehouse.id, { onDelete: "set null" }),
     projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),

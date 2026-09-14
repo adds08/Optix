@@ -512,6 +512,13 @@
       "when": 1789556213927,
       "tag": "0073_vehicle_type_check",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1789642613927,
+      "tag": "0074_narrow_location_types",
+      "breakpoints": true
     }
   ]
 }

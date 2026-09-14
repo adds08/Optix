@@ -176,7 +176,7 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
         /* `vehicle` is deliberately absent: a vehicle location is created by the
            vehicle importer so the two rows cannot drift apart. */
         values: LOCATION_TYPES.filter((t) => t !== "vehicle"),
-        example: "gang_box",
+        example: "warehouse",
       },
       { key: "projectId", header: "project", type: "ref", ref: "project", example: "Trinity Bridge Rehab" },
       { key: "warehouseId", header: "warehouse", type: "ref", ref: "warehouse", example: "Dallas Yard" },

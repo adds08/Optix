@@ -316,7 +316,7 @@ describe.skipIf(!url)("a departure moves everything at once, or nothing (STI-306
        personal one, so it must move like any other container. */
     const [box] = await db
       .insert(schema.location)
-      .values({ tenantId, type: "gang_box", name: "GB-306", custodianEmployeeId: leaverId })
+      .values({ tenantId, type: "warehouse", name: "GB-306", custodianEmployeeId: leaverId })
       .returning({ id: schema.location.id });
     gangBoxId = box!.id;
 

@@ -232,8 +232,9 @@ script is the only thing that does it now the seed's wipe is gone.
 
 - **`code` vs `external_id` — one word for one idea.** A **`code`** is the
   COMPANY's own identifier: Urban assigns it, and the same value means the same
-  thing in every system they run (`employee.code` = `URB-001`,
-  `project.code` = `22018`, `asset.code` = `TOOL-0001`, `vehicle.code`). An
+  thing in every system they run (`employee.code` — whatever Urban's badge says,
+  never generated and carrying no prefix; `project.code` = `22018`;
+  `asset.code` = `TOOL-00001`; `vehicle.code` = `TRK-034`). An
   **`external_id`** is a FOREIGN system's primary key — BambooHR's `4471` — and
   it never lives on the entity: it goes in an external-ref child table
   (`tbl_entity_employee_external_ref`), because one column holds exactly one far

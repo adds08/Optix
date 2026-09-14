@@ -30,7 +30,9 @@ export function LocationForm({ open, onClose, edit }: Props) {
   /* Typed, not `string`: `location.create` takes `z.enum(LOCATION_TYPES)`
      since 2026-09-14, so a widened state here is a build error rather than a
      value the database rejects at runtime. */
-  const [type, setType] = useState<LocationType>((edit?.type as LocationType) ?? "site_container");
+  /* `warehouse` is the default now that gang boxes and site containers are
+     gone — a place a tool sits that is not a vehicle is the yard. */
+  const [type, setType] = useState<LocationType>((edit?.type as LocationType) ?? "warehouse");
   const [name, setName] = useState(edit?.name ?? "");
   const [warehouseId, setWarehouseId] = useState(edit?.warehouseId ?? "");
   const [projectId, setProjectId] = useState(edit?.projectId ?? "");
@@ -85,8 +87,6 @@ export function LocationForm({ open, onClose, edit }: Props) {
               placeholder="What kind of place"
               options={[
                 { value: "warehouse", label: "Warehouse" },
-                { value: "site_container", label: "Site container" },
-                { value: "gang_box", label: "Gang box" },
                 { value: "project_site", label: "Project site" },
               ]}
             />
