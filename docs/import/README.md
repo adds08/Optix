@@ -4,6 +4,16 @@
 **State:** local register is EMPTY. Logins, roles, permissions, tiers and
 categories survive; every employee, tool, job, vehicle and custody row is gone.
 
+**The actual importable files are in [`generated/`](generated/), not here.**
+This document is the working notes and open questions behind them (still
+accurate as history); `generated/README.md` has what got produced, the
+per-column population counts, and what deviated from the plan below and why —
+notably: equipment carries no `project` column at all (flat, per-table import
+only, no relational links yet), and the vehicle spec gained a `vin` column
+(2026-09-14) recovered from the seed commit, not left out as this doc still
+worries about below. Employees and custody are still not done — see the open
+questions (#3, #6) below, unchanged.
+
 This folder holds the working files for rebuilding it from real sources. The
 files here are **starting points recovered from `seed-data.urban.ts`**, not
 finished data — every one needs a pass from somebody who knows the yard.
