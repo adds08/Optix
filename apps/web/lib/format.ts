@@ -49,14 +49,6 @@ export function num(v: string | number | null | undefined): string {
   return Number.isFinite(n) ? n.toLocaleString("en-US") : "—";
 }
 
-/* The register's own reference number (asset.assetNumber) — system-stamped,
-   always present, never a physical label. "A-" plus six digits distinguishes
-   it at a glance from `tag`, which is real yard text like "TOOL-0001" and can
-   be anything a person wrote on a sticker. */
-export function assetNumberDisplay(v: number | null | undefined): string {
-  if (v === null || v === undefined) return "—";
-  return "A-" + String(v).padStart(6, "0");
-}
 
 /* Parses through `toDate`, not `new Date`, because most of what reaches here is
    a `date` column — a calendar day, not an instant. `new Date("2027-10-09")` is

@@ -413,7 +413,7 @@ async function main() {
         .select({ id: schema.smallTool.id })
         .from(schema.smallTool)
         .where(and(eq(schema.smallTool.tenantId, tid), isNull(schema.smallTool.currentCustodianId)))
-        .orderBy(schema.smallTool.assetNumber)
+        .orderBy(schema.smallTool.code)
         .limit(12)
     : [];
   let assigned = 0;

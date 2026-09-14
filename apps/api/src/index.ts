@@ -741,7 +741,6 @@ async function sweepProjectionDivergence() {
       await db
         .select({
           assetId: schema.smallTool.id,
-          assetNumber: schema.smallTool.assetNumber,
           code: schema.smallTool.code,
           status: schema.smallTool.currentStatus,
           custodianId: schema.smallTool.currentCustodianId,
@@ -750,7 +749,14 @@ async function sweepProjectionDivergence() {
         })
         .from(schema.smallTool)
         .where(eq(schema.smallTool.tenantId, t.id))
-    ).map((a) => ({ ...a, label: a.code ? `#${a.assetNumber} ${a.code}` : `#${a.assetNumber}` }));
+    /* `label` is this report's own display string — what a divergence line
+       shows so a person reads a tool, not a uuid. It is NOT an identifier.
+
+       It used to be `#42 TOOL-00007`: the `asset_number` counter first,
+       because `code` could be null and something had to be printable. Since
+       the generator every tool has a code, so the code is the whole string.
+       `?? ""` covers a row imported before the generator existed. */
+    ).map((a) => ({ ...a, label: a.code ?? "" }));
     const events = (await db
       .select()
       .from(schema.transaction)

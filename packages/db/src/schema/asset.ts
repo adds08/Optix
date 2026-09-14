@@ -36,19 +36,18 @@ export const smallTool = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id").notNull().references(() => tenant.id, { onDelete: "cascade" }),
     /*
-      The register's own reference number — every asset gets one, stamped by
-      the database at insert time (mirrors how `transaction`/`event_log` mint
-      their ids), never entered or editable. This exists because `id` is a
-      uuid nobody reads off a screen, and `tag` is deliberately the opposite of
-      reliable: a physical label that may never have been stuck on the tool at
-      all. Reverifying the real source data (docs/data, 2026-08) confirmed
-      Urban's own sheets carry no tool-ID column anywhere — every "TOOL-0001"
-      style value that predates this column was invented at seed time, not a
-      real label. `assetNumber` is what a report or a screen can always point
-      to; `tag` and `serialNumber` stay exactly what they were — optional,
-      physical, never generated.
+      NO `asset_number` HERE, and that is deliberate — see migration 0079.
+
+      It was a database-stamped counter rendered as `A-000001`, so a tool
+      displayed TWO numbers: that one and its `code`. It existed because
+      Urban's sheets carry no tool-ID column, so nothing was guaranteed to be
+      present — "what a report or a screen can always point to".
+
+      The code generator (`tool-code.ts`) removed that premise on 2026-09-14:
+      every tool created through `asset.create` gets a `code`, generated when
+      none is typed. The client's rule is one code per entity and no reference
+      number, so the fallback went with the reason for it.
     */
-    assetNumber: bigint("asset_number", { mode: "number" }).notNull().generatedAlwaysAsIdentity(),
     /*
       THE TOOL'S CODE — how Urban identifies this tool, the value a person reads
       off the screen and says out loud.
@@ -128,7 +127,6 @@ export const smallTool = pgTable(
   },
   (t) => ({
     tenantIdx: index("small_tool_tenant_idx").on(t.tenantId),
-    assetNumberIdx: index("small_tool_number_idx").on(t.assetNumber),
     codeIdx: index("small_tool_code_idx").on(t.code),
     custodianIdx: index("small_tool_custodian_idx").on(t.currentCustodianId),
     projectIdx: index("small_tool_project_idx").on(t.currentProjectId),

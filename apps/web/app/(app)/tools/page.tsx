@@ -28,7 +28,7 @@ import { col } from "@/components/sti/data-table/columns";
 import { FilterSheet } from "@/components/sti/data-table/filter-sheet";
 import { downloadCsv } from "@/lib/csv";
 import { exportAssetsToSpec } from "@/lib/export-assets";
-import { money, idName, assetNumberDisplay } from "@/lib/format";
+import { money, idName } from "@/lib/format";
 
 const STATUSES = [
   "available",
@@ -191,20 +191,6 @@ export default function ToolsPage() {
         cell: (r) => (
           <Link href={`/tools/${r.id}`} className="hover:underline">
             {r.code ? <Tag>{r.code}</Tag> : <span className="text-muted-foreground">—</span>}
-          </Link>
-        ),
-      }),
-      col<Row>({
-        /* The register's own number — every row has one, unlike Code, which
-           can be blank or collide on a hand-typed stand-in. Secondary now
-           that Code leads, but kept close by: it is still the one column
-           guaranteed never to read "no tag". */
-        header: "Ref #",
-        accessorFn: (r) => r.assetNumber,
-        width: "6rem",
-        cell: (r) => (
-          <Link href={`/tools/${r.id}`} className="tag-num hover:underline text-muted-foreground">
-            {assetNumberDisplay(r.assetNumber)}
           </Link>
         ),
       }),

@@ -547,6 +547,13 @@
       "when": 1789988213927,
       "tag": "0078_code_unique_per_tenant",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1790074613927,
+      "tag": "0079_drop_asset_number",
+      "breakpoints": true
     }
   ]
 }

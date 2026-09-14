@@ -97,7 +97,6 @@ export const assetRouter = router({
       const rows = await ctx.db
         .select({
           id: schema.smallTool.id,
-          assetNumber: schema.smallTool.assetNumber,
           code: schema.smallTool.code,
           make: schema.smallTool.make,
           modelNumber: schema.smallTool.modelNumber,
@@ -189,7 +188,6 @@ export const assetRouter = router({
       const [row] = await ctx.db
         .select({
           id: schema.smallTool.id,
-          assetNumber: schema.smallTool.assetNumber,
           code: schema.smallTool.code,
           make: schema.smallTool.make,
           modelNumber: schema.smallTool.modelNumber,
@@ -774,7 +772,6 @@ export const assetRouter = router({
       await ctx.db
         .select({
           assetId: schema.smallTool.id,
-          assetNumber: schema.smallTool.assetNumber,
           code: schema.smallTool.code,
           status: schema.smallTool.currentStatus,
           custodianId: schema.smallTool.currentCustodianId,
@@ -783,7 +780,14 @@ export const assetRouter = router({
         })
         .from(schema.smallTool)
         .where(eq(schema.smallTool.tenantId, tid))
-    ).map((a) => ({ ...a, label: a.code ? `#${a.assetNumber} ${a.code}` : `#${a.assetNumber}` }));
+    /* `label` is this report's own display string — what a divergence line
+       shows so a person reads a tool, not a uuid. It is NOT an identifier.
+
+       It used to be `#42 TOOL-00007`: the `asset_number` counter first,
+       because `code` could be null and something had to be printable. Since
+       the generator every tool has a code, so the code is the whole string.
+       `?? ""` covers a row imported before the generator existed. */
+    ).map((a) => ({ ...a, label: a.code ?? "" }));
     const events = await tenantLedger(ctx.db, tid);
     const divergences = reconcileProjections(projected, events);
     return { assetsChecked: projected.length, totalEvents: events.length, divergences };
