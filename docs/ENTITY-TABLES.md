@@ -675,24 +675,39 @@ Serial and code stay independent. Of 753 tools, **345 have a serial and 13 of
 those serials are duplicated** — so a code must never be derived from a serial,
 or it inherits the duplicates the unique index would then reject.
 
-## Build order
+## Build order — the complete list
 
-| # | Step | Depends on |
-|---|---|---|
-| 1 | Fix the swapped labels on `asset-form.tsx` (:145 "Tag"→"Code", :182 "Code"→"Serial number") | nothing — wrong today |
-| 2 | Replace the `UIC-2001` placeholder and the four chat samples with `TOOL-` | nothing |
-| 3 | Correct `URB-001` in `.claude/rules/database.md` | nothing |
-| 4 | Add `small_tool_code_prefix` to tenant settings | — |
-| 5 | Build the code generator + the duplicate pre-check | 4 |
-| 6 | Add `equipment.code_prefix`, backfill by splitting the 88 codes | — |
-| 7 | The prefix picker on the equipment form | 6 |
-| 8 | Unique indexes on `asset.code` and `vehicle.code` | 5, and **after the first import lands** |
-| 9 | `code` NOT NULL on both | 5, 8 |
+Every agreed change, in dependency order. **Nothing here is built.**
 
-**Step 8 is deliberately late.** A unique index aborts an entire import on one
-duplicate. Generated tool codes cannot collide and the 88 equipment codes are
-unique, so it is safe — but adding it after the first real import means a
-surprise duplicate costs a row, not the run.
+| # | Step | Scope | Depends on |
+|---|---|---|---|
+| 1 | Fix the swapped labels on `asset-form.tsx` (:145 "Tag"→"Code", :182 "Code"→"Serial number") | 2 lines | nothing — **wrong today** |
+| 2 | Replace the `UIC-2001` placeholder and four chat samples with `TOOL-` | ~5 lines | nothing |
+| 3 | Correct the `URB-001` example in `.claude/rules/database.md` | 1 line | nothing |
+| 4 | Add `small_tool_code_prefix` (default `TOOL`) to tenant settings | migration | — |
+| 5 | **Build the code generator** + the duplicate pre-check | new code | 4 |
+| 6 | Add `equipment.code_prefix`, backfill by splitting the 88 codes at the first `-` | migration | — |
+| 7 | The prefix picker on the equipment form (tag-style, `SELECT DISTINCT`) | one form | 6 |
+| 8 | **Drop `asset.asset_number`** and its ~19 readers, incl. the `/tools` column and `assetNumberDisplay()` | ~19 sites | **5** |
+| 9 | **Drop `vehicle.unit`** — backfill `code` from it first | 136 refs / 26 files | — |
+| 10 | Unique indexes on `asset.code` and `vehicle.code` | migration | 5, 9, and **after the first import** |
+| 11 | `code` NOT NULL on both | migration | 5, 9, 10 |
+| 12 | Remove `gang_box` and `site_container` from `LOCATION_TYPES` | 6 sites | — |
+| 13 | Rename `tbl_entity_asset` → `tbl_entity_small_tool` | 619 refs / 50 files | 8 |
+| 14 | Rename `tbl_entity_vehicle` → `tbl_entity_equipment` | + custody FKs | 9 |
+
+**Two steps are deliberately late, for the same reason in reverse.**
+
+Step 8 cannot come before step 5: dropping the fallback before the code
+generator exists leaves untagged tools with nothing to display at all.
+
+Step 10 cannot come before the first import: a unique index aborts the ENTIRE
+import on one duplicate. Generated tool codes cannot collide and the 88
+equipment codes are unique, so it is safe — but landing it afterwards means a
+surprise duplicate costs one row, not the whole run.
+
+**Steps 1–3 are free and independent.** They fix things that are wrong or
+misleading today and depend on nothing else in this list.
 
 ## DECIDED — one `code` per entity, nothing else
 
@@ -745,30 +760,32 @@ not matter total length."*
 Padding is what the GENERATOR produces. It is not a rule about codes, and
 nothing re-pads or normalises an existing one.
 
-## `quantity` — each tool is unique
+## `quantity` — LEAVE AS IS
 
-The client: *"each tool is unique... quantity is mostly always 1."*
+The client, 2026-09-14: *"no leave quantity as is, does not mean anything, not 4
+physical tools, nothing — just a signifier for some that do not need tracking,
+just leave it as is."*
 
-The code agrees more strongly than that. **Custody ignores `quantity`
-entirely** — no reference in `custody.ts` or `routers/assignment.ts`. One row
-moves as one thing.
+**No change. Do not explode it on import, do not drop it, do not build on it.**
 
-So a row with `quantity: 4` means four physical tools, ONE custody record, ONE
-code: hand them over and all four move together with no way to split them. The
-number shows on the register and changes nothing.
+I had this wrong and proposed exploding the 155 rows with `quantity > 1` into
+one row each. That was built on reading `quantity: 4` as "four physical tools".
+It is not. It is a loose signifier on rows nobody needs to track individually —
+consumables and oddments — and it carries no meaning the system should act on.
 
-Measured: **598 of 753 rows are quantity 1**; 155 are higher (largest 10).
+Two things that make leaving it correct rather than merely convenient:
 
-**Recommendation — explode on import.** 753 rows becomes ~1,104, and every tool
-gets its own code and moves independently, which is what "each tool is unique"
-means. It is free while the register is empty and painful once custody is
-attached.
+- **Custody already ignores it.** No reference in `custody.ts` or
+  `routers/assignment.ts` — one row moves as one thing regardless of the
+  number. So the column cannot mislead custody, because custody never reads it.
+- **Exploding it would INVENT rows.** 155 rows would become ~500, each with a
+  generated code, each claiming to be a tool somebody can hand over. That is
+  the seed's exact failure: data that looks precise and is made up.
 
-The exception the client named — tools that "move together" — is a genuine
-BUNDLE, like a socket set. A bundle is one tool with one code, so it is
-`quantity: 1` and needs nothing special.
+Measured, for the record: 598 of 753 rows are `quantity: 1`, 155 are higher,
+the largest is 10.
 
-**NEEDS CONFIRMING:** explode the 155 rows, or leave them as counts?
+It stays `integer NOT NULL DEFAULT 1`, displayed where it already is.
 
 ## Still open
 
