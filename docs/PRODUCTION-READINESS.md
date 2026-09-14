@@ -231,3 +231,152 @@ This is a better-engineered system than the failed launch implies.
 - Do DigitalOcean backups exist on it, and has a restore ever been tested?
 
 Both change the severity of B1, and neither can be answered from the code.
+
+---
+
+# Decisions recorded 2026-09-14
+
+The four blocker questions in B3/B4 were answered by the client. Recorded here
+with what each one changes, and what was VERIFIED against the code rather than
+taken on trust. **No code was changed** — this is still a report.
+
+## D1 — Custody: import once, then maintained by hand
+
+> "First import will have the latest data for custody of small tools, later it
+> will be updated by concerned people."
+
+So day one DOES need all 753 tools in the right hands. That settles B3 in favour
+of the bulk loader rather than "let custody build up naturally".
+
+**What it needs:** point the existing loader at the real CSV.
+`apps/api/src/demo-data.ts:391-423` already walks tools and calls the real
+`assignment.create`, so custody lands through `moveCustody` and writes proper
+ledger events — it just hands out a hardcoded 12 tools to 3 demo people today.
+`docs/import/05-custody-MANUAL.csv` has 753 rows, 673 with a named custodian.
+
+Roughly half a day, and it is the ONLY remaining code work among these four.
+
+**One thing to decide with it:** verified 753 rows, **673 with a named
+custodian and exactly 80 blank**. Those 80 should land in the yard rather than
+be skipped, or they vanish from the register entirely — and per D2, "if it is
+in with equipment department it goes to yard project" already answers where:
+the yard.
+
+## D2 — Remove gang boxes and site containers
+
+> "Project is being done in a location, and small tools are contained within a
+> trailer assigned to a foreman and attached to truck, foreman works in a
+> project, that's all... if it is in with equipment department it goes to yard
+> project, simple as that!"
+
+This is a genuine simplification and the model already supports it — the two
+values being removed were never used by anything.
+
+**VERIFIED before recording it.** `LOCATION_TYPES` has five values; only
+`vehicle` is special-cased anywhere in the custody logic
+(`routers/location.ts:513,530`). `warehouse`, `site_container`, `gang_box` and
+`project_site` are interchangeable labels to every other code path, so dropping
+two changes no behaviour. The blast radius is small:
+
+| Site | What changes |
+|---|---|
+| `packages/types/src/enums.ts:12-13` | remove the two values |
+| `apps/web/components/location-form.tsx:33,88-89` | remove two options; the default `site_container` must change — `warehouse` is the sensible one |
+| `packages/types/src/import-specs.ts:179` | the `gang_box` example |
+| `packages/db/drizzle/0072` | a new migration narrowing the CHECK (do not edit 0072) |
+| `departure.test.ts:319`, `import-commit.test.ts:338` | two fixtures use `gang_box` |
+
+**The one risk, and it is small today:** a CHECK narrowing fails if any row
+holds a removed value. The local register has zero locations, and Urban's
+recovered data was "1 warehouse + 31 vehicle mirrors" — so nothing to migrate.
+**Verify against production before running it**, and if rows exist, map them to
+`warehouse` in the same migration.
+
+This also closes B4-2 and unblocks the locations step: the import file becomes
+one warehouse row, because vehicle locations are created by the vehicle
+importer itself.
+
+## D3 — VINs matter, nullable, and they belong to equipment
+
+> "Yes VIN matter but should be isNull, VIN numbers are for equipment table"
+
+**Already true at the database.** `vehicle.vin` is `text("vin")` — nullable —
+with no unique index (verified by querying `pg_indexes`). The schema comment
+already records why that is deliberate: Urban's real fleet has a
+sixteen-character VIN and five trucks sharing an improbable prefix, and a
+constraint would abort a whole import over one typo.
+
+`tbl_entity_vehicle` IS the equipment table, so "VINs are for equipment" is
+already how it is modelled. Small tools (`tbl_entity_asset`) have
+`serial_number` instead, which is the manufacturer's — a different thing, and
+correctly separate.
+
+**The gap is in TWO places, and the second one matters more.**
+
+1. `packages/types/src/import-specs.ts` vehicle entity has no `vin` key. One
+   optional field, no migration.
+2. **`docs/import/02-vehicles.csv` has no `vin` COLUMN either** — verified, its
+   header is `unit,type,code,description,plate,make_model,ownership,project,foreman`.
+   So adding the spec field alone would import nothing. The README's "49 real
+   VINs" refers to the DELETED SEED, not to the CSV.
+
+**The data is recoverable, and it is better than the README claims.** The
+deleted seed carries **88 VINs, not 49** — one per vehicle, real 17-character
+numbers:
+
+```
+git show bd98798:packages/db/src/seed-data.urban.ts | grep "vin:"
+```
+
+So the work is: add the column to the spec, regenerate the CSV with the VIN
+column populated from that git object, then import. Still small, but it is a
+data-recovery step and not just a one-field change — and it has to happen
+BEFORE the vehicle import, because re-importing 88 vehicles after custody is
+attached to them is the expensive path.
+
+## D4 — Project names: you were right, and it is 3 not 8
+
+> "I feel like every project in screenshots are named... but please verify."
+
+**Verified. You are right.** `docs/import/project-extraction/projects.csv` has
+28 rows and **zero** placeholder names — it carries real names plus cost,
+location, directors and crew, which is consistent with it coming from the
+directors' crew spreadsheets rather than the screenshot.
+
+The "8 unnamed jobs" figure comes from the OLD `01-projects.csv`, which has 9
+`Job NNNNN` rows. Cross-referencing the two files:
+
+- **6 of the 9 are resolved** by the extraction (24002, 24014, 25008, 25011,
+  26002, 26007)
+- **3 codes appear ONLY in the old file and are absent from the extraction
+  entirely**: **24015, 25001, 25015**. Each has no name, no site address and
+  placeholder dates.
+
+So the remaining question is not "what are these called" but **"do these three
+jobs still exist?"** If they are closed or were never awarded, the answer is to
+drop them and import 28 rows. That is a question for whoever owns the crew
+spreadsheets.
+
+**B4-4 (project dates) stays open** — every row in both files carries
+`2025-01-06` → `2030-12-31`, so every project will render as permanently
+active. The extraction does not carry dates, so this cannot be resolved from
+the files that exist. It is cosmetic on day one and worth fixing before anybody
+trusts a date on screen.
+
+---
+
+## Blocker list after these decisions
+
+| | Was | Now |
+|---|---|---|
+| B1 backups | BLOCKER | **BLOCKER — unchanged.** Still the most serious item. |
+| B2 monitoring | BLOCKER | **BLOCKER — unchanged.** |
+| B3 custody import | BLOCKER (decision) | **half a day of code**, decision made |
+| B4-1 VIN | BLOCKER (decision) | decision made; needs an import field **and** a CSV regenerated from git — 88 VINs recoverable, not 49 |
+| B4-2 locations | BLOCKER (decision) | **resolved** — removing two enum values simplifies it |
+| B4-3 project names | BLOCKER (decision) | **resolved to 3 codes**: do 24015, 25001, 25015 still exist? |
+| B4-4 project dates | — | **open**, cosmetic, not in any source file |
+
+**The two real blockers are both operational, and neither needs the
+application touched.** Everything the client answered turned out to be either
+already-correct modelling or a small, contained change.
