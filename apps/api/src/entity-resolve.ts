@@ -1,15 +1,48 @@
 import type { Database } from "@optix/db";
 import * as schema from "@optix/db/schema";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { and, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 import { CUSTODIAN_ROLES, formatAssetModel } from "@optix/types";
 
 export type EntityMatch = { type: "asset" | "employee" | "project" | "vehicle" | "location"; id: string; label: string };
 
-function extractTag(text: string): string | null {
-  const m = text.match(/\b(?:UIC[- ])?(\d{3,4})\b/i);
-  if (m) return m[0].toUpperCase().includes("UIC") ? m[0].toUpperCase() : `UIC-${m[1]!}`;
-  const veh = text.match(/\b(TR[AU]-\d{3})\b/i);
-  return veh ? veh[1]!.toUpperCase() : null;
+/*
+  Pull a CODE out of a sentence a foreman typed.
+
+  This used to hardcode `UIC-`: a bare number became `UIC-1012`, and vehicles
+  only matched `TRA-`/`TRU-`. Both were wrong about the real data. `UIC` was a
+  placeholder that appeared in no row anywhere (it was a guess at "Urban
+  InfraConstruction"), and Urban's actual fleet is `TRK-` ×47, `TE-` ×39 and
+  `SUV-` ×2 — so "where is TRK-034" resolved to nothing while "where is
+  TRA-034" resolved to a truck that does not exist.
+
+  Now prefix-agnostic: it takes any `LETTERS-DIGITS` code as written, whatever
+  the prefix, which is what makes a new one (`SKT-` for skytrack) work without
+  a deploy. A BARE number is returned bare and matched against the code column
+  by suffix rather than being decorated with a prefix nobody chose.
+*/
+export function extractTag(text: string): string | null {
+  /*
+    A written code: TRK-034, TE-006, TOOL-00012, SKT-1.
+
+    The DASH IS REQUIRED, and that is not cosmetic. Allowing an optional space
+    instead matched "need 2 grinders" as `NEED-2` — a test caught it. Any
+    sentence ending in a word then a number would have become a code, which is
+    most sentences a foreman types.
+
+    A space-separated form ("TRK 034") is accepted only where the letters are
+    ALL CAPS, because that is somebody writing a code loosely rather than
+    writing prose. Two or more letters so "a-1" does not qualify.
+  */
+  const dashed = text.match(/\b([A-Za-z]{2,}-\d{1,6})\b/);
+  if (dashed) return dashed[1]!.toUpperCase();
+  const spaced = text.match(/\b([A-Z]{2,}) (\d{1,6})\b/);
+  if (spaced) return `${spaced[1]!}-${spaced[2]!}`;
+  /* A bare number — "where is 1012". Returned as digits: the caller matches it
+     against the end of a code, so it finds TOOL-01012 without inventing a
+     prefix. */
+  const bare = text.match(/\b(\d{3,6})\b/);
+  return bare ? bare[1]! : null;
 }
 
 function searchTokens(text: string): string[] {
@@ -25,13 +58,26 @@ export async function matchEntity(
 ): Promise<EntityMatch | null> {
   const tag = extractTag(text);
   if (tag) {
+    /*
+      A written code matches exactly; a BARE number matches the end of a code.
+
+      `extractTag` returns digits alone for "where is 1012" rather than
+      decorating them with a prefix — so the match has to be a suffix one, and
+      `-` is included so `1012` finds `TOOL-01012` without also finding
+      `TOOL-41012`. Case-insensitive because a code's case is not its identity
+      (the unique index is on `lower(code)`).
+    */
+    const bare = /^\d+$/.test(tag);
+    const codeMatch = (col: AnyPgColumn) =>
+      bare ? ilike(col, `%-%${tag}`) : ilike(col, tag);
+
     const a = await db.query.asset.findFirst({
-      where: and(eq(schema.asset.code, tag), eq(schema.asset.tenantId, tid)),
+      where: and(codeMatch(schema.asset.code), eq(schema.asset.tenantId, tid)),
     });
     if (a) return { type: "asset", id: a.id, label: `${a.code} (${formatAssetModel(a)})` };
 
     const v = await db.query.vehicle.findFirst({
-      where: and(eq(schema.vehicle.unit, tag), eq(schema.vehicle.tenantId, tid)),
+      where: and(codeMatch(schema.vehicle.unit), eq(schema.vehicle.tenantId, tid)),
     });
     if (v) return { type: "vehicle", id: v.id, label: v.unit };
   }

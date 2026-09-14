@@ -48,7 +48,7 @@ SVC ?= api
 
 .DEFAULT_GOAL := help
 
-.PHONY: help dev up down restart build rebuild logs ps provision demo reset generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
+.PHONY: help dev up down restart build rebuild logs ps provision demo reset prod-backup prod-backups generate migrate push-dangerous studio psql shell test typecheck lint mobile deploy prod-status prod-logs prod-shell dev-deploy dev-status dev-logs dev-shell
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "; printf "\nOptix — make targets (ENV=$(ENV)):\n\n"} /^[a-zA-Z0-9_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -213,6 +213,15 @@ deploy: ## Ship main to the production droplet (CI does this on push; this is th
 	@$(PROD_SSH) bash $(PROD_DIR)/docker/deploy.sh
 	@echo ""
 	@printf "  %s -> " "$(PROD_URL)"; curl -s -o /dev/null -w "%{http_code}\n" --max-time 20 $(PROD_URL)
+
+prod-backup: ## Dump the production database off-box, and verify the archive
+	# Runs the same script cron runs, so a manual backup and a nightly one
+	# cannot drift. Verifies the archive is readable and contains the ledger
+	# before reporting success — a dump that will not restore is not a backup.
+	$(PROD_SSH) "cd $(PROD_DIR) && ./docker/backup.sh"
+
+prod-backups: ## List the backups on the production droplet, newest first
+	$(PROD_SSH) "ls -lht /var/backups/optix/ 2>/dev/null | head -20 || echo 'no backups yet — run make prod-backup'"
 
 prod-status: ## What is running on the droplet, and at which commit
 	@$(PROD_SSH) "cd $(PROD_DIR) && echo 'commit:' \$$(git rev-parse --short HEAD) \"\$$(git log -1 --format=%s)\" && $(PROD_COMPOSE) ps --format '{{.Name}}\t{{.Status}}'"

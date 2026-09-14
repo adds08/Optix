@@ -13,10 +13,10 @@ import { dateTime, relative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const EXAMPLES = [
-  "gave the rotary hammer UIC-1012 to Dwayne for Trinity Bridge",
-  "returning UIC-1002 to the yard",
-  "UIC-1008 is broken, needs repair",
-  "register a DeWalt DCH273 rotary hammer, tag UIC-1099, serial 4471X",
+  "gave the rotary hammer TOOL-01012 to Dwayne for Trinity Bridge",
+  "returning TOOL-01002 to the yard",
+  "TOOL-01008 is broken, needs repair",
+  "register a DeWalt DCH273 rotary hammer, code TOOL-01099, serial 4471X",
   "check the generator on Friday",
 ];
 

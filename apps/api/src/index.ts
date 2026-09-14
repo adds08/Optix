@@ -18,7 +18,7 @@ import { isAllowedImage, MAX_PHOTO_BYTES, storageFor } from "./storage.js";
 import { sweepRequests } from "./request-worker.js";
 import { bambooCredentialsFrom, processQueuedSyncRuns } from "./bamboo-sync.js";
 import * as schema from "@optix/db/schema";
-import { isNull, gt, and, eq } from "drizzle-orm";
+import { isNull, gt, and, eq, sql } from "drizzle-orm";
 import { sendMail, passwordResetEmail, passwordChangedEmail, type MailConfig } from "@optix/mail";
 
 function detectSource(userAgent: string | undefined): "web" | "mobile" | "api" {
@@ -55,7 +55,84 @@ app.use("*", honoLogger());
 /* The allow-list and the reason it is a list live in ./cors.ts (STI-1601). */
 app.use("*", cors(corsOptions(env)));
 
-app.get("/health", (c) => c.json({ ok: true, ts: new Date().toISOString() }));
+/*
+  Health, and what it is allowed to claim.
+
+  This returned `{ok:true}` unconditionally until 2026-09-14 — no database
+  check, no worker check. So a container whose connection pool was dead still
+  reported healthy, and `docker/deploy.sh` waited for exactly this endpoint
+  before declaring a deploy successful. It could and did pass while the process
+  could serve nothing.
+
+  Two things it now proves, and they are the two that fail silently:
+
+    THE DATABASE. `SELECT 1`, with a short timeout. If the pool is exhausted or
+    the VPC route to the database droplet is down, that is the whole product
+    being unavailable, and it is invisible from outside otherwise.
+
+    THE WORKERS. All five loops (notifications, messaging, request sweep,
+    bamboo sync, reconciliation) catch their own errors and log — deliberately,
+    so one bad tick cannot kill the process. The cost is that a worker throwing
+    on EVERY tick writes to a stream nobody reads while the API stays healthy.
+    If the messaging worker stops, foremen's chat requests queue forever with
+    no signal at all. Each loop stamps `workerHeartbeat` on completion, and a
+    stamp older than three intervals is reported stale.
+
+  Returns 503 when the database is down, so an uptime monitor sees a failure
+  rather than a 200 carrying bad news. Stale workers report 200 with
+  `degraded: true` — the API is serving, and paging somebody at 3am because a
+  6-hourly reconciliation sweep is late is how alerts get ignored.
+*/
+export const workerHeartbeat: Record<string, number> = {};
+
+const WORKER_INTERVALS_MS: Record<string, number> = {
+  notifications: 60_000,
+  messaging: 4_000,
+  requestSweep: 60_000,
+  reconciliation: 6 * 60 * 60_000,
+};
+
+app.get("/health", async (c) => {
+  const now = Date.now();
+
+  let db_ok = false;
+  let db_error: string | undefined;
+  try {
+    /* Not `db.query...`: a trivial round trip is the point, and it must not
+       depend on any table existing or on a migration having run. */
+    await db.execute(sql`select 1`);
+    db_ok = true;
+  } catch (err) {
+    db_error = String(err instanceof Error ? err.message : err);
+  }
+
+  /* A worker that has never run is not yet stale — the process may have
+     started seconds ago. Only a stamp that EXISTS and is old is a fault. */
+  const stale = Object.entries(WORKER_INTERVALS_MS)
+    .filter(([name, every]) => {
+      const last = workerHeartbeat[name];
+      return last !== undefined && now - last > every * 3;
+    })
+    .map(([name]) => name);
+
+  const body = {
+    ok: db_ok,
+    ts: new Date(now).toISOString(),
+    db: db_ok ? "ok" : "down",
+    ...(db_error ? { db_error } : {}),
+    workers: Object.fromEntries(
+      Object.keys(WORKER_INTERVALS_MS).map((n) => [
+        n,
+        workerHeartbeat[n] === undefined
+          ? "not yet run"
+          : `${Math.round((now - workerHeartbeat[n]!) / 1000)}s ago`,
+      ]),
+    ),
+    ...(stale.length ? { degraded: true, stale } : {}),
+  };
+
+  return c.json(body, db_ok ? 200 : 503);
+});
 
 /*
   Login is the one endpoint an unauthenticated stranger can hammer, and bcrypt
@@ -570,6 +647,7 @@ const SCAN_INTERVAL_MS = 60_000;
 setInterval(async () => {
   try {
     await deliverPendingNotifications(db, env.SESSION_SECRET, mailFallback);
+    workerHeartbeat.notifications = Date.now();
   } catch (err) {
     log.error("[notifications] delivery failed", { err: String(err) });
   }
@@ -581,6 +659,7 @@ const MSG_POLL_INTERVAL_MS = 4_000;
 setInterval(async () => {
   try {
     const n = await processQueuedMessages(db, env);
+    workerHeartbeat.messaging = Date.now();
     if (n > 0) log.info(`[messaging-worker] processed ${n} queued messages`);
   } catch (err) {
     log.error("[messaging-worker] poll failed", { err: String(err) });
@@ -631,6 +710,7 @@ const REQUEST_SWEEP_INTERVAL_MS = 60_000;
 setInterval(async () => {
   try {
     const r = await sweepRequests(db);
+    workerHeartbeat.requestSweep = Date.now();
     if (r.requeued || r.unstuck || r.announced || r.escalated) {
       log.info("[request-worker] sweep", r);
     }
@@ -778,6 +858,7 @@ sweepProjectionDivergence().catch((err) =>
 setInterval(async () => {
   try {
     await sweepProjectionDivergence();
+    workerHeartbeat.reconciliation = Date.now();
   } catch (err) {
     log.error("[reconciliation] sweep failed", { err: String(err) });
   }

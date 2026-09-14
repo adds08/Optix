@@ -105,13 +105,51 @@ async function main() {
     if (!roleId) {
       const [row] = await db
         .insert(schema.role)
+        /*
+          EVERY field `RoleSeed` carries. Listed exhaustively and deliberately.
+
+          This insert wrote three of eight until 2026-09-14 and silently
+          dropped the rest — `category`, `needsLogin`, `onboardingKind`,
+          `claimTierNames` and `isSystem`. Drizzle discards an unknown key
+          without erroring and `tsc` cannot see an ABSENT one, so nothing
+          failed: the roles were created, three columns were right, and five
+          took their database defaults.
+
+          Two of those defaults broke a fresh tenant outright:
+
+            claim_tier_names  defaults to []. `onboarding.claimProject` gates
+                              on `role.claimTierNames.includes(tier)`, so
+                              EVERY claim was refused for everybody. And
+                              claiming is the only way onto a job for a
+                              director — nobody can be placed into that tier
+                              (`setBy: []`) — so no job could be staffed at
+                              all. The bootstrap this field exists to provide
+                              was never written.
+            onboarding_kind   defaults to 'equipment'. So HR got the equipment
+                              wizard and foremen got a wizard they are meant
+                              to skip.
+
+          Found by QA on 2026-09-14, on a freshly provisioned tenant. It never
+          showed up locally because this database was fixed by hand afterwards
+          through /settings/roles, which DOES write these fields — the same
+          shape as the seed-vs-live gap `.claude/rules/database.md` warns
+          about, in the opposite direction.
+
+          If you add a field to `RoleSeed`, add it here in the same change. A
+          missing one is not a type error.
+        */
         .values({
           tenantId: tid,
           name: spec.name,
           description: spec.description,
+          category: spec.category ?? null,
+          needsLogin: spec.needsLogin,
           canHoldCustody: spec.canHoldCustody,
           usesFieldLayout: spec.usesFieldLayout,
+          onboardingKind: spec.onboardingKind,
+          claimTierNames: spec.claimTierNames ?? [],
           isCrossTenant: spec.isCrossTenant ?? false,
+          isSystem: spec.isSystem,
         })
         .returning({ id: schema.role.id });
       roleId = row!.id;

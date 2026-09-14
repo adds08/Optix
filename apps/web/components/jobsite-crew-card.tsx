@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
   The header reads left to right the way the yard works —
 
-      [hard hat] Dwayne Ellis   →  UIC-T12  →  UIC-TR04 · 4 aboard   2 tools $1,470
+      [hard hat] Dwayne Ellis   →  TRK-012  →  TE-004 · 4 aboard   2 tools $1,470
 
   — because that is the chain custody actually follows: hand the truck over and
   the trailer and everything in it goes with it (location.setCustodian does

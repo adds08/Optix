@@ -142,10 +142,15 @@ export function AssetForm({ open, onClose, edit }: Props) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="asset-code">Tag</Label>
-            <Input id="asset-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. UIC-2001" />
+            {/* "Code", not "Tag" — `tag` was renamed to `code` on 2026-09-07 and
+                this label was never updated. Worse, the SERIAL field below was
+                labelled "Code", so somebody filling in the box marked Code was
+                writing the manufacturer's serial into it. Two identifiers, two
+                labels, each naming the field it actually writes. */}
+            <Label htmlFor="asset-code">Code</Label>
+            <Input id="asset-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. TOOL-00001" />
             <p className="text-xs text-muted-foreground">
-              The label physically on the tool. Leave blank until it has one — an untagged tool is a normal state.
+              Urban's own identifier for this tool. Leave blank to have one generated — an uncoded tool is a normal state.
             </p>
           </div>
           <div className="space-y-2">
@@ -178,8 +183,8 @@ export function AssetForm({ open, onClose, edit }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="asset-serial">Code</Label>
-              <Input id="asset-serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
+              <Label htmlFor="asset-serial">Serial number</Label>
+              <Input id="asset-serial" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="the manufacturer's" />
               <Label className="gap-1.5 text-xs font-normal text-muted-foreground">
                 <input
                   type="checkbox"
