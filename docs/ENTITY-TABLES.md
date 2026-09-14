@@ -694,6 +694,82 @@ duplicate. Generated tool codes cannot collide and the 88 equipment codes are
 unique, so it is safe — but adding it after the first real import means a
 surprise duplicate costs a row, not the run.
 
+## DECIDED — one `code` per entity, nothing else
+
+The client, 2026-09-14: *"remove asset number, it should just be `code` for
+like all tables of entity."*
+
+Audited every entity table for spare identifiers. **Only two carry one:**
+
+| Entity | Identifier columns today | After |
+|---|---|---|
+| `tbl_entity_asset` | `code`, `serial_number`, `model_number`, **`asset_number`** | 🔴 drop `asset_number` |
+| `tbl_entity_vehicle` | `code`, `plate`, `vin`, **`unit`** | 🔴 drop `unit` |
+| `project`, `employee`, `company_role`, `department`, `division`, `uom_category` | `code` only | ✅ already right |
+
+So the rule already holds everywhere except the two tables we are changing.
+
+**What survives alongside `code`, and why each is a different FACT:**
+
+| Column | Whose | Why it is not a second code |
+|---|---|---|
+| `asset.serial_number` | manufacturer | identifies the INSTANCE, but only 345 of 753 have one and 13 are duplicated |
+| `asset.model_number` | manufacturer | identifies the KIND — `GWS10-450P` repeats across tools |
+| `vehicle.vin` | manufacturer | the only permanent identity; `code` and `plate` both get reassigned |
+| `vehicle.plate` | the state | registration, reassigned |
+| `tenant.slug` | us | a URL segment, not an identifier a person reads off a tool |
+| `employee_external_ref.external_id` | BambooHR | a foreign key, deliberately in a child table |
+
+**`asset_number` does not survive.** It was a database counter rendered as
+`A-000001` on `/tools` and the tool detail page, so a tool showed TWO numbers.
+Its justification was that all 753 codes are empty and something had to be
+guaranteed present — the code generator removes that premise.
+
+It also encoded the OPPOSITE of the client's rule. `asset.ts:77` reads:
+
+> *"`assetNumber` remains the one value guaranteed unique and always present —
+> Code can collide (two typed stand-ins, or a mis-copied serial) and is not a
+> key."*
+
+Code IS the key. That comment goes with the column.
+
+## Padding — settled, and no ceiling to design around
+
+The client: *"even if it goes beyond 100,000 we can just add one digit, does
+not matter total length."*
+
+> The generator zero-pads to **5** — `TOOL-00001`. Past 99,999 it **widens** to
+> six. Codes remain strings stored exactly as generated or typed, so
+> `TOOL-00007` and `TOOL-7` stay different codes.
+
+Padding is what the GENERATOR produces. It is not a rule about codes, and
+nothing re-pads or normalises an existing one.
+
+## `quantity` — each tool is unique
+
+The client: *"each tool is unique... quantity is mostly always 1."*
+
+The code agrees more strongly than that. **Custody ignores `quantity`
+entirely** — no reference in `custody.ts` or `routers/assignment.ts`. One row
+moves as one thing.
+
+So a row with `quantity: 4` means four physical tools, ONE custody record, ONE
+code: hand them over and all four move together with no way to split them. The
+number shows on the register and changes nothing.
+
+Measured: **598 of 753 rows are quantity 1**; 155 are higher (largest 10).
+
+**Recommendation — explode on import.** 753 rows becomes ~1,104, and every tool
+gets its own code and moves independently, which is what "each tool is unique"
+means. It is free while the register is empty and painful once custody is
+attached.
+
+The exception the client named — tools that "move together" — is a genuine
+BUNDLE, like a socket set. A bundle is one tool with one code, so it is
+`quantity: 1` and needs nothing special.
+
+**NEEDS CONFIRMING:** explode the 155 rows, or leave them as counts?
+
 ## Still open
 
 **What does a generated tool code look like?** `TOOL-0001` or `TOOL-1`? Both
