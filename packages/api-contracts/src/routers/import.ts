@@ -12,6 +12,7 @@ import {
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, router } from "../trpc.js";
 import { logEvent } from "../audit.js";
+import { nextToolCode } from "../tool-code.js";
 
 /*
   Bulk CSV import.
@@ -311,6 +312,22 @@ async function insertOne(
 ): Promise<string | null> {
   if (entity === "asset") {
     const label = formatAssetModel(values) || "Untagged tool";
+    /*
+      GENERATE A CODE when the row has none, exactly as `asset.create` does.
+
+      This was missing until 2026-09-14 and it mattered at scale rather than in
+      a test: Urban's tools file has an EMPTY code on all 753 rows — the sheets
+      carry no tool-ID column — so an import produced 753 codeless tools while
+      creating one through the form produced `TOOL-00001`. Two doors into the
+      same register disagreeing about whether a tool gets an identifier.
+
+      `nextToolCode` reads `max + 1` for the tenant, and `insertOne` is already
+      called inside the commit's transaction, so a 753-row import numbers
+      sequentially and cannot collide with a code typed in another session.
+    */
+    const code = (values.code as string | undefined)?.trim()
+      ? values.code
+      : await nextToolCode(tx, tenantId);
     const [row] = await tx
       .insert(schema.smallTool)
       .values({
@@ -319,6 +336,8 @@ async function insertOne(
         currentStatus: "available",
         currentLocationId: (values.locationId as string) ?? null,
         ...values,
+        /* After the spread: an absent `code` key would leave the column null. */
+        code,
       })
       .returning();
     if (!row) return null;

@@ -70,6 +70,23 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     entity: "asset",
     label: "Tools",
     permission: "asset.manage",
+    /*
+      UNIQUE BUT NULLABLE, both of them. `validateRows` skips a blank value
+      before the duplicate check (`!val` -> continue), so the 407 tools with no
+      serial all pass and only a REPEATED serial is refused.
+
+      I briefly removed `serialNumber` from this list when a real import showed
+      28 rows failing on it. That was wrong — the check is right and the DATA is
+      not. Two distinguishable problems in Urban's sheet:
+
+        15 rows have `N` or `n` in the serial column, which is somebody writing
+        "no serial" in a text field. Those should be BLANK.
+        13 values genuinely repeat (10 numeric ×2-3, plus `1161205PR3` ×3),
+        which is transcription error or reuse.
+
+      Weakening the constraint would have imported 28 tools that cannot be told
+      apart by the one identifier a police report needs. Fix the CSV instead.
+    */
     unique: ["code", "serialNumber"],
     description:
       "The tool register. One row per serialized tool; use quantity for bulk lines that are not tracked individually.",
@@ -210,7 +227,10 @@ export const IMPORT_SPECS: Record<ImportEntity, ImportSpec> = {
     entity: "vehicle",
     label: "Vehicles",
     permission: "vehicle.manage",
-    unique: ["unit"],
+    /* `code`, not `unit` — that column was dropped in migration 0077. Naming
+       a field that no longer exists meant equipment code duplicates were not
+       checked AT ALL: the set was built under a key nothing looked up. */
+    unique: ["code"],
     description:
       "Trucks and trailers, which are locations that move. Each one also creates the location tools ride in.",
     columns: [

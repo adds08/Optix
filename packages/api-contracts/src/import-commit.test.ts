@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { createDb, schema, type Database } from "@optix/db";
 import type { Permission } from "@optix/types";
 import { importRouter } from "./routers/import.js";
@@ -358,5 +358,38 @@ describe.skipIf(!url)("spreadsheet import: the commit path (STI-405)", () => {
       expect(res.imported).toBe(1);
       expect(await countOf(schema.equipment)).toBe(before + 1);
     });
+  });
+
+  it("generates a code for an imported tool that has none", async () => {
+    /*
+      Urban's tools file has an EMPTY code on all 753 rows — their sheets carry
+      no tool-ID column. So the importer having no generator meant an import
+      produced 753 codeless tools while creating one through the form produced
+      TOOL-00001: two doors into the same register disagreeing about whether a
+      tool gets an identifier. Found by running a real import on 2026-09-14,
+      not by reading the code.
+    */
+    const rows = [
+      { description: "Import-generated grinder", quantity: "1" },
+      { description: "Import-generated saw", quantity: "1" },
+    ];
+    const res = await importRouter.createCaller(ctx()).commit({ entity: "asset", rows });
+    expect(res.imported).toBe(2);
+
+    const made = await db
+      .select({ code: schema.smallTool.code, description: schema.smallTool.description })
+      .from(schema.smallTool)
+      .where(
+        and(
+          eq(schema.smallTool.tenantId, tenantId),
+          inArray(schema.smallTool.description, ["Import-generated grinder", "Import-generated saw"]),
+        ),
+      );
+    expect(made).toHaveLength(2);
+    for (const m of made) expect(m.code, "an imported tool has no code").toMatch(/^TOOL-\d{5}$/);
+    /* Distinct, and sequential within the one import — the counter is read
+       inside the commit's transaction, so two rows cannot take the same
+       number. */
+    expect(new Set(made.map((m) => m.code)).size).toBe(2);
   });
 });
