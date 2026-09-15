@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { EntityFieldWithCreate } from "@/components/ui/entity-field-with-create";
 import { humanizeRole, projectHint } from "@/lib/format";
 
 export type EmployeeEditable = {
@@ -72,6 +73,19 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
   const [employmentStatus, setEmploymentStatus] = useState<EmploymentStatus>(
     (edit?.employmentStatus as EmploymentStatus) ?? "active",
   );
+  const jobTitles = trpc.role.jobTitles.useQuery();
+  const [companyRoleId, setCompanyRoleId] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newTitleRoleId, setNewTitleRoleId] = useState("");
+  const crewRoleId = (roleOptions.data ?? []).find((r) => r.name === "crew")?.id ?? "";
+  /* What the chosen title grants, shown read-only. Not state: it is a lookup,
+     and holding it separately is how a field ends up displaying one value and
+     saving another. */
+  const derivedRole = (() => {
+    const title = (jobTitles.data ?? []).find((t) => t.id === companyRoleId);
+    if (!title?.defaultRoleId) return null;
+    return (roleOptions.data ?? []).find((r) => r.id === title.defaultRoleId) ?? null;
+  })();
   const chosen = (roleOptions.data ?? []).find((r) => r.id === roleId);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState("");
@@ -94,7 +108,8 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
       } else {
         await utils.client.employee.create.mutate({
           name, externalId: externalId || undefined,
-          roleId: roleId || undefined, role: legacyRoleFor(chosen?.name, "foreman"),
+          companyRoleId: companyRoleId || undefined,
+          role: legacyRoleFor(derivedRole?.name, "foreman"),
           email: email || undefined, phone: phone || undefined,
           primaryProjectId: primaryProjectId || undefined,
           reportsToEmployeeId: reportsToEmployeeId || undefined,
@@ -142,24 +157,64 @@ export function EmployeeForm({ open, onClose, edit }: Props) {
                   column and the Access Roles settings screen this list comes
                   from, and distinguishes it from Job Title below on the
                   person's own detail page. */}
-              <label className="text-sm font-medium">Access Role</label>
-              <EntityField
-                value={roleId}
-                onChange={setRoleId}
-                placeholder="Choose a role…"
-                searchPlaceholder="Search roles…"
-                emptyLabel="No role matches."
-                options={(roleOptions.data ?? []).map((r) => ({ value: r.id, label: humanizeRole(r.name) }))}
-              />
-              {chosen ? (
-                <p className="text-xs text-muted-foreground">
-                  {chosen.description}
-                  {/* Said here rather than left to be discovered: this is what
-                      decides whether the register expects this person to have a
-                      login at all. */}
-                  {chosen.needsLogin ? " Signs in." : " Does not sign in."}
-                </p>
-              ) : null}
+              <label className="text-sm font-medium">Job Title</label>
+              <EntityFieldWithCreate
+                value={companyRoleId}
+                onChange={setCompanyRoleId}
+                placeholder="Choose a job title…"
+                searchPlaceholder="Search job titles…"
+                emptyLabel="No job title matches."
+                createLabel="+ Create a new job title…"
+                dialogTitle="New job title"
+                dialogDescription="Everybody given this title gets the access role you choose here."
+                onOpenCreate={() => { setNewTitle(""); setNewTitleRoleId(""); }}
+                canSave={!!newTitle.trim()}
+                onCreate={async () => {
+                  const made = await utils.client.role.createJobTitle.mutate({
+                    name: newTitle.trim(),
+                    roleId: newTitleRoleId || crewRoleId || null,
+                  });
+                  await utils.role.jobTitles.invalidate();
+                  return made.id;
+                }}
+                options={(jobTitles.data ?? []).map((t) => ({
+                  value: t.id,
+                  label: t.name,
+                  hint: t.defaultRoleName ? humanizeRole(t.defaultRoleName) : "Crew",
+                }))}
+              >
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Title</label>
+                  <Input autoFocus value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g. Pipe Foreman" />
+                </div>
+                <div className="space-y-2">
+                  {/* The ONE moment a role is chosen. A title that already
+                      exists carries its own answer; a new one has none until
+                      somebody gives it one, and everybody who holds the title
+                      afterwards inherits it. Roles are picked from the
+                      register, never invented here. */}
+                  <label className="text-sm font-medium">Access Role</label>
+                  <EntityField
+                    value={newTitleRoleId || crewRoleId}
+                    onChange={setNewTitleRoleId}
+                    placeholder="Choose a role…"
+                    searchPlaceholder="Search roles…"
+                    emptyLabel="No role matches."
+                    options={(roleOptions.data ?? []).map((r) => ({ value: r.id, label: humanizeRole(r.name) }))}
+                  />
+                  <p className="text-xs text-muted-foreground">Defaults to Crew, which grants nothing.</p>
+                </div>
+              </EntityFieldWithCreate>
+              {/* Read-only: the title decides. Changing what a title grants is
+                  Settings → Job Titles, not a per-person override. */}
+              <div className="flex h-9 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+                {derivedRole ? humanizeRole(derivedRole.name) : "Crew"}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {companyRoleId
+                  ? "Access role, set by this job title. Change it on Settings → Job Titles."
+                  : "No job title yet, so they get Crew — no permissions."}
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

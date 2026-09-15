@@ -1,0 +1,112 @@
+{
+  "flow": "forgot-password",
+  "title": "Reset a forgotten password",
+  "startBase": "http://localhost:3100",
+  "duration": 30.25,
+  "videoTrim": 1.55,
+  "cueShift": -1.606,
+  "cues": [
+    {
+      "t": 0,
+      "text": "Signing in starts here. If the password is gone, choose Forgot password?",
+      "badge": "Step 1",
+      "bbox": {
+        "x": 1357,
+        "y": 533,
+        "w": 92,
+        "h": 16
+      },
+      "still": "stills/01-signing-in-starts-here-if-the-password-is-gone-c.png",
+      "end": 2.964333333333334
+    },
+    {
+      "t": 2.964333333333334,
+      "text": "Enter the address you sign in with — the email already on your record.",
+      "badge": "Step 2",
+      "bbox": {
+        "x": 1085,
+        "y": 490,
+        "w": 364,
+        "h": 34
+      },
+      "still": "stills/02-enter-the-address-you-sign-in-with-the-email-alr.png",
+      "end": 6.303333333333334
+    },
+    {
+      "t": 6.303333333333334,
+      "text": "Choose Send reset link.",
+      "badge": "Step 3",
+      "bbox": {
+        "x": 1085,
+        "y": 532,
+        "w": 364,
+        "h": 34
+      },
+      "still": "stills/03-choose-send-reset-link.png",
+      "end": 9.240333333333334
+    },
+    {
+      "t": 9.240333333333334,
+      "text": "It answers the same way for everyone — nobody can use this page to find out who works here.",
+      "badge": "Step 4",
+      "bbox": null,
+      "still": "stills/04-it-answers-the-same-way-for-everyone-nobody-can-.png",
+      "end": 12.836333333333334
+    },
+    {
+      "t": 12.836333333333334,
+      "text": "The email lands in a minute: one single-use link that expires in an hour.",
+      "badge": "Step 5",
+      "bbox": null,
+      "still": "stills/05-the-email-lands-in-a-minute-one-single-use-link-.png",
+      "end": 16.955333333333332
+    },
+    {
+      "t": 16.955333333333332,
+      "text": "The link opens a page to choose a new password — ten characters or more.",
+      "badge": "Step 6",
+      "bbox": {
+        "x": 1085,
+        "y": 458,
+        "w": 364,
+        "h": 34
+      },
+      "still": "stills/06-the-link-opens-a-page-to-choose-a-new-password-t.png",
+      "end": 19.747333333333334
+    },
+    {
+      "t": 19.747333333333334,
+      "text": "Type it a second time so a mistyped password cannot lock the account.",
+      "badge": "Step 7",
+      "bbox": {
+        "x": 1085,
+        "y": 556,
+        "w": 364,
+        "h": 34
+      },
+      "still": "stills/07-type-it-a-second-time-so-a-mistyped-password-can.png",
+      "end": 22.197333333333333
+    },
+    {
+      "t": 22.197333333333333,
+      "text": "Choose Reset password.",
+      "badge": "Step 8",
+      "bbox": {
+        "x": 1085,
+        "y": 606,
+        "w": 364,
+        "h": 34
+      },
+      "still": "stills/08-choose-reset-password.png",
+      "end": 26.70433333333333
+    },
+    {
+      "t": 26.70433333333333,
+      "text": "Done — the reset signs you straight in. No second sign-in, and the old password is already dead.",
+      "badge": "Step 9",
+      "bbox": null,
+      "still": "stills/09-done-the-reset-signs-you-straight-in-no-second-s.png",
+      "end": 29.70433333333333
+    }
+  ]
+}

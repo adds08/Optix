@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronsUpDown, Download, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { downloadCsv } from "@/lib/csv";
 import { EmptyState, TableWrap } from "./page";
+import { TableToolbar } from "./table-toolbar";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export type Col<T> = {
   key: keyof T & string;
@@ -95,28 +96,25 @@ export function ReportTable<T extends Record<string, unknown>>({
         table the box must stay, or there is no way left to clear it.
       */}
       {rows.length ? (
-        <div className="flex flex-wrap items-center gap-2">
-          {searchable ? (
-            <div className="relative min-w-[220px] flex-1 max-w-sm">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Filter rows…"
-                className="pl-8"
-                aria-label="Filter rows"
-              />
-            </div>
-          ) : null}
+        <TableToolbar
+          /* `null` renders no search at all (a report with `searchable={false}`);
+             `undefined` would fall back to the default field, which is why the
+             distinction is made here rather than by a boolean prop. */
+          search={searchable ? undefined : null}
+          searchValue={q}
+          onSearchChange={setQ}
+          placeholder="Filter rows…"
+          ariaLabel="Filter rows"
+        >
           <span className="tnum text-sm text-muted-foreground">
             {sorted.length}
             {sorted.length !== rows.length ? ` of ${rows.length}` : ""} row{sorted.length === 1 ? "" : "s"}
           </span>
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={!sorted.length} className="ml-auto">
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={!sorted.length}>
             <Download className="size-4" />
             Export CSV
           </Button>
-        </div>
+        </TableToolbar>
       ) : null}
 
       {!sorted.length ? (
@@ -126,14 +124,14 @@ export function ReportTable<T extends Record<string, unknown>>({
         />
       ) : (
         <TableWrap>
-          <div className="sti-table-scroll overflow-x-auto"><table className="sti-grid w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
+          <Table stickyHeader>
+            <TableHeader>
+              <TableRow>
                 {cols.map((c) => {
                   const active = sort?.key === c.key;
                   const Icon = !active ? ChevronsUpDown : sort!.dir === "asc" ? ArrowUp : ArrowDown;
                   return (
-                    <th
+                    <TableHead
                       key={c.key}
                       style={c.width ? { width: c.width } : undefined}
                       className={cn("p-0", c.numeric && "text-right")}
@@ -150,26 +148,26 @@ export function ReportTable<T extends Record<string, unknown>>({
                         {c.header}
                         <Icon className={cn("size-3 shrink-0", active ? "opacity-100" : "opacity-35")} />
                       </button>
-                    </th>
+                    </TableHead>
                   );
                 })}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {sorted.map((r, i) => (
-                <tr key={i} className="border-b last:border-0 hover:bg-muted/40">
+                <TableRow key={i} className="hover:bg-muted/40">
                   {cols.map((c) => (
-                    <td
+                    <TableCell
                       key={c.key}
                       className={cn("px-4 py-2.5 align-middle", c.numeric && "text-right tnum")}
                     >
                       {c.cell ? c.cell(r) : ((raw(r, c) ?? "—") as React.ReactNode)}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table></div>
+            </TableBody>
+          </Table>
         </TableWrap>
       )}
     </div>

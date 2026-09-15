@@ -6,12 +6,6 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EntityField } from "@/components/ui/entity-picker";
-/* The SUBPATH, not the barrel: `@optix/domain` re-exports
-   bamboohr.ts and friends, which Next cannot resolve from the web bundle.
-   Every other web consumer of this package imports a subpath for the same
-   reason — see org-chart/page.tsx and project-teams-panel.tsx. */
-import { suggestRoleId } from "@optix/domain/role-suggestion";
 import { humanizeRole } from "@/lib/format";
 import { ErrorNote } from "@/components/sti/page";
 
@@ -38,8 +32,9 @@ type Person = {
   email?: string | null;
   roleId?: string | null;
   userId?: string | null;
-  /* HR's job title, used ONLY to pre-select the role below. */
+  /* HR's job title. It DECIDES the access role — see the invite dialog. */
   jobTitle?: string | null;
+  roleName?: string | null;
 };
 
 /* "Dwayne Miller" -> first "Dwayne", last "Miller". A single-word name gets the
@@ -62,30 +57,25 @@ export function InviteDialog({ person, open, onClose }: { person: Person; open: 
   const [sending, setSending] = useState(false);
 
   /*
-    THE ROLE THIS ACCOUNT WILL HOLD.
+    THE ROLE THIS ACCOUNT WILL HOLD — shown, not chosen.
 
-    This dialog used to send `person.roleId` with no control at all, on the
-    reasoning that the role lives on the PERSON and the account inherits it.
-    That is still true and the person's role still wins when it is set — but on
-    a register synced from BambooHR nobody has one: 1,851 people carry a job
-    title and none carries a login role, so inviting anybody produced an account
-    holding no permissions, which is a support ticket rather than an invitation.
+    A job title is mapped to an access role once, on /settings/job-titles, and
+    everybody holding that title gets that role. This dialog briefly offered an
+    override, which meant two people with the same title could leave here with
+    different permissions and nothing recorded why. Giving somebody different
+    access now means giving them a different job title.
 
-    So the control is here, pre-filled and always overridable. The suggestion
-    comes from the HR job title (`suggestRoleId`, packages/domain) and is
-    exactly that — a suggestion. An unrecognised title (`Carpenter`, `Curb Man`,
-    and the ~50 titles held by one person each) simply leaves it unset, which is
-    the honest answer and the state this dialog was already in.
+    A person with no title, or a title nobody has mapped, gets `crew`: no
+    permissions, which is the safe answer for an account created in a hurry.
   */
   const roleOptions = trpc.role.options.useQuery();
-  const [roleId, setRoleId] = useState<string>("");
-  const [roleTouched, setRoleTouched] = useState(false);
-  const suggestedRoleId = suggestRoleId(person.jobTitle, roleOptions.data ?? []);
-  /* Applied while the person has not chosen: `role.options` resolves after
-     first paint, so seeding state once on mount would always seed it empty.
-     `roleTouched` is what stops a late-arriving suggestion overwriting a
-     deliberate choice. */
-  const effectiveRoleId = roleTouched ? roleId : (roleId || person.roleId || suggestedRoleId || "");
+  /* Derived, never chosen. `person.roleId` already comes from the job-title
+     mapping (employee.list resolves it through company_role.default_role_id),
+     so there is nothing left for this dialog to decide — it only shows the
+     answer and sends it back unchanged. */
+  const effectiveRoleId = person.roleId ?? "";
+  const effectiveRoleName =
+    (roleOptions.data ?? []).find((r) => r.id === effectiveRoleId)?.name ?? person.roleName ?? null;
 
   const submit = async () => {
     setSending(true);
@@ -160,24 +150,19 @@ export function InviteDialog({ person, open, onClose }: { person: Person; open: 
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Access role</label>
-            <EntityField
-              value={effectiveRoleId}
-              onChange={(v) => { setRoleTouched(true); setRoleId(v); }}
-              options={(roleOptions.data ?? []).map((r) => ({ value: r.id, label: humanizeRole(r.name) }))}
-              placeholder="Choose a role"
-              searchPlaceholder="Search roles"
-              emptyLabel="No roles"
-            />
-            {/* Naming the title the suggestion came FROM, rather than just
-                pre-selecting silently: an inviter who can see "suggested from
-                Project Director" can tell a good guess from a wrong one, and
-                the wrong ones are the whole reason this stays overridable. */}
+            {/* READ-ONLY, and not a picker at all. The access role follows the
+                job title — one title is mapped to one role on
+                /settings/job-titles, and everybody holding that title reads
+                that role. Letting an invite override it here is how the same
+                title ends up meaning two different things. Giving somebody
+                different access means giving them a different title. */}
+            <div className="flex h-9 items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground">
+              {effectiveRoleName ? humanizeRole(effectiveRoleName) : "Crew"}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {person.jobTitle && !roleTouched && !person.roleId && suggestedRoleId
-                ? `Suggested from their job title, ${person.jobTitle}. Change it if that is not right.`
-                : person.jobTitle
-                  ? `What this account may see and do. Their job title is ${person.jobTitle}.`
-                  : "What this account may see and do."}
+              {person.jobTitle
+                ? `Set by their job title, ${person.jobTitle}. Change it on Settings → Job Titles.`
+                : "They have no job title, so they get Crew. Set a job title to give them more."}
             </p>
           </div>
           {error ? <ErrorNote message={error} /> : null}

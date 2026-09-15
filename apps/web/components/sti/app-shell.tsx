@@ -116,9 +116,9 @@ export function AppShell({
   const storePrefs = useThemeStore((s) => s.prefs);
 
   useEffect(() => {
-    /* Dark unless explicitly turned off — matches the boot script in
+    /* Light unless explicitly turned on — matches the boot script in
        layout.tsx, which must agree with this or the first paint flips. */
-    setDark(localStorage.getItem("sti-theme") !== "light");
+    setDark(localStorage.getItem("sti-theme") === "dark");
     setDarkKnown(true);
   }, [setDark]);
 

@@ -245,13 +245,30 @@
   --popover: oklch(0.216 0.016 257);            /* #151A21 */
   --popover-foreground: oklch(0.944 0.004 236);
 
-  --primary: oklch(0.742 0.092 251);            /* #7FB0E4 */
-  --primary-foreground: oklch(0.149 0.007 258);
+  /*
+    A FILLED button, not a pastel wash. At 0.742 the primary was lighter than
+    most page text, so "Add person" sat on the page as the brightest thing on
+    it — louder than the heading — while reading as washed out next to the
+    neutral buttons beside it. 0.598 keeps AA against white text and lets a
+    filled button look filled.
+  */
+  --primary: oklch(0.598 0.128 251);
+  --primary-foreground: oklch(0.985 0.002 250);
 
-  --secondary: oklch(0.199 0.014 258);          /* #12161C */
+  /*
+    SURFACES STEP UP, never down. background 0.149 < card 0.194 < secondary
+    0.221 < muted 0.234 — each one lighter than what it sits on.
+
+    `--muted` shipped at 0.181, BELOW the 0.194 card it is drawn on top of, so
+    every muted surface (table stripes, the read-only role box, secondary
+    buttons, badge fills) read as a hole punched in the card rather than a
+    raised area. That inversion is why the dark theme looked muddy while every
+    individual colour was defensible on its own.
+  */
+  --secondary: oklch(0.221 0.014 258);
   --secondary-foreground: oklch(0.944 0.004 236);
-  --muted: oklch(0.181 0.014 258);              /* #0E1218 */
-  --muted-foreground: oklch(0.659 0.017 248);   /* #8A939C */
+  --muted: oklch(0.234 0.014 258);
+  --muted-foreground: oklch(0.686 0.017 248);
   --accent: oklch(0.250 0.037 257);             /* #162233 */
   --accent-foreground: oklch(0.895 0.045 252);  /* #C8DFFA */
 
@@ -260,6 +277,8 @@
      shipped at 0.156, only 0.051 above a card that was itself too dark. */
   --border: oklch(0.282 0.018 252);
   --input: oklch(0.297 0.020 252);              /* #262E37 */
+  /* Deliberately LIGHTER than `--primary`: a focus ring is drawn against dark
+     surfaces and has to be seen, not to match the button it outlines. */
   --ring: oklch(0.742 0.092 251);
 
   --ok: oklch(0.735 0.105 168);
@@ -610,6 +629,30 @@
    sit directly on top of it and read as a double rule. */
 .sti-grid tbody tr:last-child > td {
   border-bottom: 0;
+}
+
+/* THE HEADER STRIP, DEFINED ONCE.
+
+   `TableHead` in the primitive sets no background, so every table that wanted
+   one invented its own and every table that did not got none. By 2026-09-14
+   seven tables carried four different treatments — `bg-muted`,
+   `bg-muted/50`, `bg-muted/40` and nothing at all — which is exactly why the
+   Job Tiers table looked like it had lost its header and the Job Titles one
+   had not. Same primitive, different afternoon.
+
+   `--muted` rather than a new token because it is already what
+   `thead .sti-freeze` paints a frozen header cell: a header is now one colour
+   whether or not it has a frozen column in it. OPAQUE, deliberately — two of
+   these headers are `sticky`, and a translucent tint lets the rows scroll
+   through them.
+
+   It lives here, beside the cell rules, for the reason the primitive's own
+   comment gives: a new table is ruled AND headed the day it is written,
+   without anyone remembering to ask for it. Callers that painted their own
+   header — `DataTable`, the import dialog, the project monitor — no longer
+   need to, and no longer should. */
+.sti-grid thead th {
+  background: var(--muted);
 }
 
 /* Scrollbars you can actually see.

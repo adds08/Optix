@@ -224,7 +224,7 @@ export function CrewCard({
                   <DropdownMenuItem onSelect={() => { window.location.href = `/project-teams?projectId=${projectId}`; }}>
                     Manage project team
                   </DropdownMenuItem>
-                  {onAddTools ? <DropdownMenuItem onSelect={onAddTools}>Add tools to this crew</DropdownMenuItem> : null}
+                  {onAddTools ? <DropdownMenuItem onSelect={onAddTools}>Add tools to this team</DropdownMenuItem> : null}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
@@ -247,7 +247,7 @@ export function CrewCard({
             {crew.tools.length ? (
               <ToolTable rows={crew.tools} highlight={highlight} actions={canAct} compact />
             ) : (
-              <p className="px-3 py-2.5 text-sm text-muted-foreground">This crew is holding nothing yet.</p>
+              <p className="px-3 py-2.5 text-sm text-muted-foreground">This team is holding nothing yet.</p>
             )}
           </div>
         ) : null}
@@ -361,7 +361,7 @@ export function CrewCard({
                 Manage project team
               </DropdownMenuItem>
               {onAddTools ? (
-                <DropdownMenuItem onSelect={onAddTools}>Add tools to this crew</DropdownMenuItem>
+                <DropdownMenuItem onSelect={onAddTools}>Add tools to this team</DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -373,7 +373,7 @@ export function CrewCard({
           {crew.tools.length ? (
             <ToolTable rows={crew.tools} highlight={highlight} actions={canAct} />
           ) : (
-            <p className="px-3 py-2.5 text-sm text-muted-foreground">This crew is holding nothing yet.</p>
+            <p className="px-3 py-2.5 text-sm text-muted-foreground">This team is holding nothing yet.</p>
           )}
         </div>
       ) : null}

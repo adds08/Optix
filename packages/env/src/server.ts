@@ -78,6 +78,7 @@ export type ServerEnv = z.infer<typeof serverSchema>;
 */
 const FORBIDDEN_IN_PRODUCTION = [
   "stinventory-dev-secret-please-change-to-32-chars-minimum",
+  "optix-dev-secret-please-change-to-32-chars-minimum",
   "changeme",
   "secret",
 ];

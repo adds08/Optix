@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Create a small tool, from sign-in to the register — walkthrough</title>
+<style>
+  :root{--amber:#F59E0B;--navy:#0F172A;--ink:#1E293B;--muted:#64748B;--line:#E2E8F0}
+  *{box-sizing:border-box}
+  body{margin:0;height:100dvh;display:grid;grid-template-columns:1fr 400px;background:#EEF2F7;
+       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--ink)}
+  .stage{position:relative;display:flex;align-items:center;justify-content:center;padding:22px;min-width:0}
+  .frame{position:relative;width:100%;max-width:1180px;aspect-ratio:1600/900;
+         background:#0F172A;border-radius:12px;overflow:hidden;border:1px solid #CBD5E1;
+         box-shadow:0 18px 50px rgba(15,23,42,.28)}
+  .frame img{width:100%;display:block}
+  /* Ring only — deliberately no dimming shadow.
+     The giant box-shadow this used to carry (0 0 0 9999px) darkened the whole
+     frame, but the still is a RECORDING of the annotated screen and already has
+     the spotlight burned into it. Dimming it twice made an already-dark app
+     read as a black rectangle. The ring marks the target; the still does the
+     rest. */
+  .hot{position:absolute;border:3px solid var(--amber);border-radius:10px;
+       box-shadow:0 0 0 4px rgba(245,158,11,.35),0 0 20px rgba(245,158,11,.5);
+       animation:pulse 1.7s ease-in-out infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(245,158,11,.35),0 0 20px rgba(245,158,11,.5)}
+                   50%{box-shadow:0 0 0 9px rgba(245,158,11,.18),0 0 30px rgba(245,158,11,.75)}}
+  aside{background:#fff;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  aside header{padding:22px 24px 12px}
+  .eyebrow{margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--amber)}
+  h1{margin:0;font-size:20px;letter-spacing:-.01em}
+  .body{flex:1;overflow:auto;padding:8px 24px 24px}
+  .body p{font-size:16px;line-height:1.5;margin:0 0 14px}
+  .dots{display:flex;gap:6px;padding:0 24px 12px;flex-wrap:wrap}
+  .dot{width:9px;height:9px;border-radius:50%;background:#CBD5E1;cursor:pointer;border:0;padding:0}
+  .dot.on{background:var(--amber)}
+  footer{display:flex;gap:8px;align-items:center;padding:14px 24px;border-top:1px solid var(--line)}
+  footer button{font:inherit;font-size:14px;padding:8px 14px;border-radius:9px;cursor:pointer;
+                border:1px solid var(--line);background:#F8FAFC}
+  footer button.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+  footer button:disabled{opacity:.4;cursor:not-allowed}
+  .count{margin-left:auto;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+</style></head>
+<body>
+<div class="stage"><div class="frame" id="frame"><img id="img" alt="" /><div class="hot" id="hot" hidden></div></div></div>
+<aside>
+  <header>
+    <p class="eyebrow">Walkthrough</p>
+    <h1>Create a small tool, from sign-in to the register</h1>
+  </header>
+  <div class="body"><p id="text"></p></div>
+  <div class="dots" id="dots"></div>
+  <footer>
+    <button id="prev">Back</button>
+    <button id="next" class="primary">Next</button>
+    <span class="count" id="count"></span>
+  </footer>
+</aside>
+<script>
+const STEPS = [{"text":"Sign in with the account you use at the yard desk.","still":"stills/01-sign-in-with-the-account-you-use-at-the-yard-des.png","box":{"x":1085,"y":481,"w":364,"h":34}},{"text":"And its password — accounts are personal, nobody borrows one.","still":"stills/02-and-its-password-accounts-are-personal-nobody-bo.png","box":{"x":1085,"y":557,"w":364,"h":34}},{"text":"Sign in.","still":"stills/03-sign-in.png","box":{"x":1085,"y":611,"w":364,"h":34}},{"text":"Small tools lives under Equipment — one register for every tool the company owns.","still":"stills/04-small-tools-lives-under-equipment-one-register-f.png","box":{"x":8,"y":155,"w":255,"h":32}},{"text":"New tool. What you add here is in the register immediately — no import, no waiting.","still":"stills/05-new-tool-what-you-add-here-is-in-the-register-im.png","box":{"x":1357,"y":97,"w":104,"h":34}},{"text":"A description is the one thing the form insists on — make or description, either is enough.","still":"stills/06-a-description-is-the-one-thing-the-form-insists-.png","box":{"x":569,"y":353,"w":462,"h":34}},{"text":"The make, so the register reads like the shelf it came off.","still":"stills/07-the-make-so-the-register-reads-like-the-shelf-it.png","box":{"x":569,"y":209,"w":462,"h":34}},{"text":"And the model number — this is what the register shows beside the code, so the desk can tell two Bosch tools apart.","still":"stills/08-and-the-model-number-this-is-what-the-register-s.png","box":{"x":569,"y":281,"w":462,"h":34}},{"text":"Leave the code blank and Optix mints the next one. Nobody has to invent an identifier, and no two tools can share one.","still":"stills/09-leave-the-code-blank-and-optix-mints-the-next-on.png","box":{"x":569,"y":97,"w":462,"h":34}},{"text":"Create.","still":"stills/10-create.png","box":{"x":955,"y":947,"w":76,"h":34}},{"text":"There it is: TOOL-00758. Available, held by nobody, and no job paying for it — the three things that add up to \"in the yard\".","still":"stills/11-there-it-is-tool-00758-available-held-by-nobody-.png","box":{"x":305,"y":235,"w":1548,"h":40}},{"text":"Tools by Jobsite splits into Projects, Yard and Unassigned. The Yard counts tools recorded at a warehouse location.","still":"stills/12-tools-by-jobsite-splits-into-projects-yard-and-u.png","box":{"x":1116,"y":188,"w":72,"h":34}},{"text":"And it is empty — no warehouse location has been recorded yet, so nothing is counted here. \"In the yard\" on the register means nobody holds it; it does not mean a place has been set.","still":"stills/13-and-it-is-empty-no-warehouse-location-has-been-r.png","box":{"x":398,"y":295,"w":90,"h":26}}];
+const VW = 1600, VH = 900;
+let i = 0;
+const img = document.getElementById('img');
+const hot = document.getElementById('hot');
+const text = document.getElementById('text');
+const dots = document.getElementById('dots');
+const count = document.getElementById('count');
+STEPS.forEach((_, n) => {
+  const b = document.createElement('button');
+  b.className = 'dot'; b.title = 'Step ' + (n + 1);
+  b.onclick = () => { i = n; render(); };
+  dots.appendChild(b);
+});
+function render(){
+  const s = STEPS[i];
+  img.src = s.still || '';
+  img.alt = s.text;
+  text.textContent = s.text;
+  if (s.box){
+    const w = document.getElementById('frame').clientWidth;
+    const k = w / VW;
+    hot.hidden = false;
+    hot.style.left = (s.box.x * k) + 'px';
+    hot.style.top = (s.box.y * k) + 'px';
+    hot.style.width = (s.box.w * k) + 'px';
+    hot.style.height = (s.box.h * k) + 'px';
+  } else hot.hidden = true;
+  document.getElementById('prev').disabled = i === 0;
+  document.getElementById('next').disabled = i === STEPS.length - 1;
+  count.textContent = (i + 1) + ' / ' + STEPS.length;
+  [...dots.children].forEach((d, n) => d.classList.toggle('on', n === i));
+}
+document.getElementById('prev').onclick = () => { if (i) { i--; render(); } };
+document.getElementById('next').onclick = () => { if (i < STEPS.length - 1) { i++; render(); } };
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' && i < STEPS.length - 1) { i++; render(); }
+  if (e.key === 'ArrowLeft' && i) { i--; render(); }
+});
+render();
+</script>
+</body></html>

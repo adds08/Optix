@@ -339,6 +339,66 @@ export const roleRouter = router({
     }),
 
   /*
+    Create a job title AND the role it grants, in one write.
+
+    The employee form needs this: a title that does not exist yet is the one
+    moment somebody may choose a role, because from then on the title decides
+    it for everybody who holds it. Creating the title first and mapping it
+    afterwards would leave a window where holders of a brand-new title resolve
+    to nothing.
+
+    Idempotent on name — `(tenant_id, name)` is unique, and a second call with
+    the same name returns the existing row rather than failing. It does NOT
+    re-map an existing title: changing what a title grants is `setJobTitleRole`,
+    a deliberate act on its own screen.
+  */
+  createJobTitle: requirePermission("employee.manage")
+    .input(
+      z.object({
+        name: z.string().trim().min(1).max(200),
+        roleId: z.string().uuid().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tid = ctx.session.tenantId;
+
+      if (input.roleId) {
+        const [target] = await ctx.db
+          .select({ id: schema.role.id })
+          .from(schema.role)
+          .where(
+            and(
+              eq(schema.role.id, input.roleId),
+              or(eq(schema.role.tenantId, tid), isNull(schema.role.tenantId)),
+            ),
+          );
+        if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "That role is not available to this organisation." });
+      }
+
+      const [existing] = await ctx.db
+        .select({ id: schema.companyRole.id })
+        .from(schema.companyRole)
+        .where(and(eq(schema.companyRole.tenantId, tid), eq(schema.companyRole.name, input.name)));
+      if (existing) return { id: existing.id, created: false };
+
+      const [row] = await ctx.db
+        .insert(schema.companyRole)
+        .values({ tenantId: tid, name: input.name, defaultRoleId: input.roleId })
+        .returning({ id: schema.companyRole.id });
+
+      await logEvent(ctx, {
+        category: "auth",
+        action: "role.createJobTitle",
+        entityType: "company_role",
+        entityId: row!.id,
+        entityLabel: input.name,
+        details: { roleId: input.roleId },
+      });
+
+      return { id: row!.id, created: true };
+    }),
+
+  /*
     The three behaviour flags, which are NOT permissions and are edited apart
     from them on purpose.
 

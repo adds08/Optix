@@ -81,8 +81,31 @@ function DialogContent({
           A dialog that already fits is unaffected: a max-height only engages
           once the content exceeds it.
         */
+        /*
+          A BOTTOM SHEET ON A PHONE, the centred dialog above `sm`.
+
+          Done in CSS rather than by branching on `useIsMobile`, so every one of
+          the ~30 dialogs in this app gets it without being touched and without
+          a hydration flash: the hook returns false on the server and again on
+          the first client render, which would open every form centred and snap
+          it to the bottom a frame later.
+
+          What a phone gets: full width, pinned to the bottom, square corners
+          except the top pair, up to 90% of the viewport, and it slides up
+          rather than zooming from the middle. Thumbs reach the bottom of a
+          phone; the middle of a small screen is where a dialog's buttons end up
+          under the keyboard.
+        */
         className={cn(
-          "fixed top-[50%] left-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:max-w-lg",
+          "fixed z-50 grid gap-4 overflow-y-auto border bg-background shadow-lg duration-200 outline-none",
+          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
+          /* Phone: bottom sheet. */
+          "inset-x-0 bottom-0 max-h-[90dvh] w-full rounded-t-xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+          "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+          /* sm and up: the centred dialog, unchanged. */
+          "sm:inset-x-auto sm:bottom-auto sm:top-[50%] sm:left-[50%] sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:p-6",
+          "sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=open]:slide-in-from-bottom-0",
+          "sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",
           className
         )}
         {...props}

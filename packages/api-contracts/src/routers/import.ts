@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "@optix/db/schema";
 import {
@@ -370,9 +370,30 @@ async function insertOne(
        drops an unknown key SILENTLY, so a spread here would import every person
        with a blank badge number and raise nothing. */
     const { externalId, ...rest } = values;
+
+    /* A CSV that says nothing about the role lands the person on `crew`, which
+       grants no permissions — the same default BambooHR sync applies. Without
+       this the row keeps `roleId` null and falls back to the legacy column's
+       `foreman`, which does grant permissions nobody chose to hand out. */
+    let roleId = rest.roleId as string | undefined;
+    if (!roleId) {
+      const [crew] = await tx
+        .select({ id: schema.role.id })
+        .from(schema.role)
+        .where(
+          and(
+            eq(schema.role.name, "crew"),
+            or(eq(schema.role.tenantId, tenantId), isNull(schema.role.tenantId)),
+          ),
+        )
+        .orderBy(desc(schema.role.tenantId))
+        .limit(1);
+      roleId = crew?.id;
+    }
+
     const [row] = await tx
       .insert(schema.employee)
-      .values({ tenantId, ...rest, ...(externalId !== undefined ? { code: externalId as string } : {}) })
+      .values({ tenantId, ...rest, ...(roleId ? { roleId } : {}), ...(externalId !== undefined ? { code: externalId as string } : {}) })
       .returning();
     if (!row) return null;
 

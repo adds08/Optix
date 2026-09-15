@@ -307,6 +307,28 @@ async function assertRoleInTenant(db: Context["db"], tid: string, roleId: string
   if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "No such role in this tenant" });
 }
 
+/*
+  The role a person gets when nobody chose one. `crew` grants no permissions, so
+  a create that forgot to say anything lands on the least-privileged row rather
+  than on the `foreman` the legacy column defaults to. Matches what BambooHR
+  sync already does. Returns null when the tenant has no `crew` row, which
+  leaves `roleId` null — the same honest "nobody has decided yet" state.
+*/
+export async function defaultCrewRoleId(db: Context["db"], tid: string) {
+  const [row] = await db
+    .select({ id: schema.role.id })
+    .from(schema.role)
+    .where(
+      and(
+        eq(schema.role.name, "crew"),
+        or(eq(schema.role.tenantId, tid), isNull(schema.role.tenantId)),
+      ),
+    )
+    .orderBy(desc(schema.role.tenantId))
+    .limit(1);
+  return row?.id ?? null;
+}
+
 export const employeeRouter = router({
   hrDetails: protectedProcedure.input(z.object({ employeeId: z.string().uuid() })).query(async ({ ctx, input }) => {
     if (!ctx.session.permissions.has("employee.read") && !ctx.session.permissions.has("employee.manage") && ctx.session.employeeId !== input.employeeId) throw new TRPCError({ code: "FORBIDDEN" });
@@ -363,9 +385,15 @@ export const employeeRouter = router({
            with it. `roleNeedsLogin` is what lets the register tell "nobody has
            invited them yet" apart from "they will never sign in" — without it
            every labourer reads as an outstanding task forever. */
-        roleId: schema.employee.roleId,
-        roleName: schema.role.name,
-        roleNeedsLogin: schema.role.needsLogin,
+        roleId: schema.companyRole.defaultRoleId,
+        /* No title, or a title nobody has mapped yet, reads as `crew` — the
+           role that grants nothing. The column never shows a blank, because a
+           blank looks like a question when the answer is "the default one". */
+        roleName: sql<string>`coalesce(${schema.role.name}, 'crew')`,
+        /* Falls back with the name above: an untitled person reads as `crew`,
+           and `crew` does not sign in. Left null, they read as "No account" —
+           an outstanding invitation nobody is waiting on. */
+        roleNeedsLogin: sql<boolean>`coalesce(${schema.role.needsLogin}, false)`,
         /*
           WHETHER THIS PERSON MAY BE HANDED A TOOL, and the answer every
           custodian picker reads.
@@ -412,8 +440,12 @@ export const employeeRouter = router({
       .from(schema.employee)
       .leftJoin(schema.project, eq(schema.employee.primaryProjectId, schema.project.id))
       .leftJoin(reportsTo, eq(schema.employee.reportsToEmployeeId, reportsTo.id))
-      .leftJoin(schema.role, eq(schema.employee.roleId, schema.role.id))
       .leftJoin(schema.companyRole, eq(schema.employee.companyRoleId, schema.companyRole.id))
+      /* The access role is DERIVED from the job title, never stored on the
+         person: a title is mapped to a role once, on /settings/job-titles, and
+         everyone holding that title reads that role. Giving somebody different
+         access means giving them a different title. */
+      .leftJoin(schema.role, eq(schema.companyRole.defaultRoleId, schema.role.id))
       .leftJoin(schema.division, eq(schema.employee.divisionId, schema.division.id))
       .leftJoin(schema.department, eq(schema.employee.departmentId, schema.department.id))
       /* One account per person by construction — `user.employeeId` is how an
@@ -436,6 +468,9 @@ export const employeeRouter = router({
            moved over keep working. `roleId` is the one that means something. */
         role: z.string().default("foreman"),
         roleId: z.string().uuid().optional(),
+        /* The job title, which DECIDES the access role — `roleId` above is
+           derived from it below rather than taken from the caller. */
+        companyRoleId: z.string().uuid().optional(),
         email: z.string().email().optional(),
         phone: z.string().optional(),
         primaryProjectId: z.string().uuid().optional(),
@@ -456,10 +491,22 @@ export const employeeRouter = router({
     .mutation(async ({ ctx, input }) => {
       if (input.roleId) await assertRoleInTenant(ctx.db, ctx.session.tenantId, input.roleId);
       const { externalId, ...rest } = input;
+      /* The JOB TITLE decides the access role. A title's mapping wins over
+         anything the caller sent; only a person with no title at all falls
+         back to `crew`, which grants nothing. */
+      const [titleRole] = input.companyRoleId
+        ? await ctx.db
+            .select({ roleId: schema.companyRole.defaultRoleId })
+            .from(schema.companyRole)
+            .where(and(eq(schema.companyRole.id, input.companyRoleId), eq(schema.companyRole.tenantId, ctx.session.tenantId)))
+            .limit(1)
+        : [];
+      const roleId =
+        titleRole?.roleId ?? (await defaultCrewRoleId(ctx.db, ctx.session.tenantId)) ?? undefined;
       const [row] = await ctx.db
         .insert(schema.employee)
         .values({ tenantId: ctx.session.tenantId,
-          creationSource: "manual", createdByUserId: ctx.session.userId, ...rest, code: externalId })
+          creationSource: "manual", createdByUserId: ctx.session.userId, ...rest, roleId, code: externalId })
         .returning();
 
       /* Opening the posting here rather than leaving it to the first move means

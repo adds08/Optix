@@ -113,6 +113,12 @@ export function ProjectTeamsPanel({ onboarding = false, onlyMine = false }: { on
     const allowed = (query.data?.tiers ?? []).filter(t => project?.assignable.includes(t.name));
     return suggestTierName(person?.jobTitle, allowed);
   }, [employeeId, query.data?.people, query.data?.tiers, project?.assignable]);
+  /* What the tier field SHOWS is what it SAVES. Held apart, the dropdown
+     displayed the suggestion while `tier` stayed empty: Save stayed disabled
+     until you re-picked the value already on screen, and a person added
+     without touching it was written at whatever `tier` happened to hold
+     rather than at the tier the box was showing. */
+  const effectiveTier = tier || suggestedTier || "";
   useEffect(() => { if (!projectId && projects.length) { const requested = new URLSearchParams(window.location.search).get("projectId"); setProjectId(projects.some(p => p.id === requested) ? requested! : projects[0]!.id); } }, [query.data, projectId]);
   /*
     Branches the reader has folded away, by employee id.
@@ -222,7 +228,7 @@ export function ProjectTeamsPanel({ onboarding = false, onlyMine = false }: { on
     if (!project || !mode) return;
     setBusy(true); setError("");
     try {
-      if (mode === "person") await utils.client.projectTeam.assign.mutate({ projectId, employeeId, role: tier, reportsToEmployeeId: parentId || null, moveTools, source: "manual_entry" });
+      if (mode === "person") await utils.client.projectTeam.assign.mutate({ projectId, employeeId, role: effectiveTier, reportsToEmployeeId: parentId || null, moveTools, source: "manual_entry" });
       if (mode === "branch") await utils.client.projectTeams.assignBranch.mutate({ projectId, sourceProjectId: sourceId, employeeId, reportsToEmployeeId: parentId || null, moveTools });
       if (mode === "reporting") await utils.client.projectTeam.setReportsTo.mutate({ id: memberId, reportsToEmployeeId: parentId || null });
       if (mode === "remove") await utils.client.projectTeams.removeBranch.mutate({ projectId, employeeId, reason });
@@ -233,7 +239,7 @@ export function ProjectTeamsPanel({ onboarding = false, onlyMine = false }: { on
   if (query.isLoading) return <TableSkeleton />;
   if (query.error) return <ErrorNote message={query.error.message} />;
   return <div className="space-y-5">
-    {!onboarding && <div><h1 className="text-2xl font-semibold">{onlyMine ? "My Crew" : "Project Teams"}</h1><p className="mt-1 text-sm text-muted-foreground">The full reporting branch, from project leadership to the people doing the work. Changes here also appear in onboarding.</p></div>}
+    {!onboarding && <div><h1 className="text-2xl font-semibold">{onlyMine ? "My Team" : "Project Teams"}</h1><p className="mt-1 text-sm text-muted-foreground">The full reporting branch, from project leadership to the people doing the work. Changes here also appear in onboarding.</p></div>}
     {!projects.length ? <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">No project team is assigned yet. Your administrator or manager can connect your team. You can finish your personal setup while they arrange it.</p> : <>
       {/*
         NOT a 50/50 grid. The two controls answer different-sized questions —
@@ -531,15 +537,15 @@ export function ProjectTeamsPanel({ onboarding = false, onlyMine = false }: { on
         )}
       </section>}
     </>}
-    <Dialog open={!!mode} onOpenChange={open => { if (!open && !busy) setMode(null); }}><DialogContent className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{mode === "person" ? "Add a person" : mode === "branch" ? "Add an existing branch" : mode === "reporting" ? "Change reporting manager" : "Remove branch access"}</DialogTitle></DialogHeader>
+    <Dialog open={!!mode} onOpenChange={open => { if (!open && !busy) setMode(null); }}><DialogContent className="sm:max-h-[90dvh]"><DialogHeader><DialogTitle>{mode === "person" ? "Add a person" : mode === "branch" ? "Add an existing branch" : mode === "reporting" ? "Change reporting manager" : "Remove branch access"}</DialogTitle></DialogHeader>
       {mode === "branch" && <label className="space-y-2 text-sm">From project<EntityField value={sourceId} onChange={id => { setSourceId(id); setEmployeeId(""); }} options={projects.filter(p => p.id !== projectId).map(p => ({ value: p.id, label: p.name, hint: projectHint(p) }))} placeholder="Choose source project" searchPlaceholder="Find project" emptyLabel="No other projects" /></label>}
-      {(mode === "person" || mode === "branch") && <label className="space-y-2 text-sm">{mode === "branch" ? "Top of the branch" : "Person"}<EntityField value={employeeId} onChange={setEmployeeId} options={mode === "branch" ? (source?.members ?? []).filter(m => m.canManage).map(m => ({ value: m.employeeId, label: `${m.name} · ${m.label}` })) : personOptions} placeholder="Select person" searchPlaceholder="Search people" emptyLabel="No eligible people" /></label>}
-      {mode === "person" && <label className="space-y-2 text-sm">Tier on this project<EntityField value={tier || suggestedTier || ""} onChange={setTier} options={tierOptions} placeholder="Choose tier" searchPlaceholder="Search tiers" emptyLabel="No assignment grants" /></label>}
+      {(mode === "person" || mode === "branch") && <label className="space-y-2 text-sm">{mode === "branch" ? "Top of the branch" : "Person"}<EntityField value={employeeId} onChange={id => { setEmployeeId(id); setTier(""); }} options={mode === "branch" ? (source?.members ?? []).filter(m => m.canManage).map(m => ({ value: m.employeeId, label: `${m.name} · ${m.label}` })) : personOptions} placeholder="Select person" searchPlaceholder="Search people" emptyLabel="No eligible people" /></label>}
+      {mode === "person" && <label className="space-y-2 text-sm">Tier on this project<EntityField value={effectiveTier} onChange={setTier} options={tierOptions} placeholder="Choose tier" searchPlaceholder="Search tiers" emptyLabel="No assignment grants" /></label>}
       {mode !== "remove" && <label className="space-y-2 text-sm">Reports to<EntityField value={parentId} onChange={setParentId} options={[...(query.data?.isDesk ? [{ value: "", label: "Not recorded yet" }] : []), ...personOptions.filter(o => o.value !== employeeId && (query.data?.isDesk || o.value === viewerId || project?.members.some(m => m.employeeId === o.value && m.canManage)))]} placeholder="Choose reporting manager" searchPlaceholder="Search managers" emptyLabel="No manager found" /></label>}
       {mode === "branch" && selectedBranch.length > 0 && <div className="rounded-md bg-muted p-3 text-sm"><strong>Branch to add</strong><ul className="mt-2 space-y-1">{selectedBranch.map(m => <li key={m.id}>{m.name} · {m.label}</li>)}</ul></div>}
       {(mode === "branch" || mode === "person") && <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={moveTools} onChange={e => setMoveTools(e.target.checked)} /><span>Move held tools with custody-holding members.<span className="block text-xs text-muted-foreground">When unchecked, directly held tools are released on their previous job. Custody-holding members move from their previous posting; other members can work on multiple projects.</span></span></label>}
       {mode === "remove" && <><p className="text-sm">Remove project access for this branch. Other projects and historical records remain. Outstanding tools must be returned or transferred first.</p><ul className="rounded-md bg-muted p-3 text-sm">{removal.map(m => <li key={m.id}>{m.name} · {m.label}</li>)}</ul><label className="space-y-2 text-sm">Reason<Input value={reason} onChange={e => setReason(e.target.value)} /></label></>}
-      {error && <ErrorNote message={error} />}<DialogFooter><Button variant="outline" disabled={busy} onClick={() => setMode(null)}>Cancel</Button><Button disabled={busy || (mode === "remove" ? !reason.trim() : mode === "person" ? !employeeId || !tier : mode === "branch" ? !selectedBranch.length : !memberId)} onClick={submit}>{busy ? "Saving…" : mode === "remove" ? "Remove access" : "Save team"}</Button></DialogFooter>
+      {error && <ErrorNote message={error} />}<DialogFooter><Button variant="outline" disabled={busy} onClick={() => setMode(null)}>Cancel</Button><Button disabled={busy || (mode === "remove" ? !reason.trim() : mode === "person" ? !employeeId || !effectiveTier : mode === "branch" ? !selectedBranch.length : !memberId)} onClick={submit}>{busy ? "Saving…" : mode === "remove" ? "Remove access" : "Save team"}</Button></DialogFooter>
     </DialogContent></Dialog>
   </div>;
 }

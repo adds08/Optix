@@ -226,7 +226,7 @@ export const DESK_NAV: NavGroup[] = [
          Jobsite and the projects register both deep-link it with `?projectId=`
          — but it no longer sits in the sidebar beside this one, where the pair
          read as two different features and neither name said which. */
-      { id: "my-crew", href: "/my-crew", label: "Crews", icon: UsersRound, perm: "project.team.read", desc: "Who answers to you, job by job", alsoMatches: ["/project-teams"] },
+      { id: "my-team", href: "/my-team", label: "Teams", icon: UsersRound, perm: "project.team.read", desc: "Who answers to you, job by job", alsoMatches: ["/project-teams"] },
       /* Taking on a job, after setup is over.
          Deliberately gated on `project.team.read` — the permission every role
          that could POSSIBLY claim already holds — and NOT on

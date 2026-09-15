@@ -15,7 +15,6 @@ import { ProjectTeamsPanel } from "@/components/project-teams-panel";
 import { clearSession } from "@/lib/auth";
 import { InviteStep } from "@/components/onboarding/invite-step";
 import { DoneStep } from "@/components/onboarding/done-step";
-import { AuthSlideshow } from "@/components/auth-slideshow";
 import { OptixLockup } from "@/components/optix-mark";
 import { Button } from "@/components/ui/button";
 import { ErrorNote } from "@/components/sti/page";
@@ -69,45 +68,6 @@ const STEP_BLURB: Record<string, string> = {
   invite: "Everyone you named who doesn't have an account yet.",
 };
 
-/*
-  What the photograph beside each step says.
-
-  The panel used to carry the sign-in headline on all five steps — a half-screen
-  photograph making the same point about transactions while the person filled in
-  a map pin. Each line here is about the step it sits beside, and the photo
-  index moves with it so the picture changes at the same moment as the words.
-
-  Copy rule: this is the panel talking about the work, NOT a second set of
-  instructions. The step already says what to do, above the form; repeating it
-  here in bigger type would make the person read the same sentence twice.
-*/
-const STEP_SLIDES: Record<string, { photo: number; title: string; body: string }> = {
-  projects: {
-    photo: 0,
-    title: "Start with the jobs you're actually on.",
-    body: "Everything Optix knows about your tools, your crew and your costs hangs off a job. These are the ones your company has you on.",
-  },
-  details: {
-    photo: 1,
-    title: "A job with gaps costs somebody a phone call.",
-    body: "An address and a number nobody recorded is the thing a driver rings the office about at seven in the morning.",
-  },
-  location: {
-    photo: 2,
-    title: "The yard needs to know where to send it.",
-    body: "A pin turns every hand-off on this job into a place on a map — which truck went where, and how far a tool has drifted from it.",
-  },
-  crew: {
-    photo: 3,
-    title: "Tools follow the person, not the site.",
-    body: "That only works if Optix knows who is on the job. Confirm the names already recorded and add the ones missing.",
-  },
-  invite: {
-    photo: 0,
-    title: "Nobody holds a tool the system can't see.",
-    body: "The people you named need accounts before anything can be signed out to them. This is the last step.",
-  },
-};
 
 /*
   How wide the step is allowed to be, and it is NOT one number.
@@ -124,10 +84,14 @@ const STEP_SLIDES: Record<string, { photo: number; title: string; body: string }
   to read, not easier.
 */
 const STEP_WIDTH: Record<string, string> = {
-  projects: "max-w-3xl",
+  /* The two ROW-shaped steps were still being squeezed: a team row carries an
+     avatar, a code, a name, a job title, a tier pill, a report count and a
+     row of actions, and at 3xl the title and tier were the first things to
+     truncate — on the one screen whose whole job is checking they are right. */
+  projects: "max-w-5xl",
   details: "max-w-2xl",
-  location: "max-w-5xl",
-  crew: "max-w-3xl",
+  location: "max-w-6xl",
+  crew: "max-w-5xl",
   invite: "max-w-2xl",
 };
 
@@ -197,22 +161,16 @@ export default function WelcomePage() {
      Continue) are fixed furniture, and the STEP is the only thing that moves —
      a thirteen-job list otherwise pushes Continue below the fold, which is
      exactly what the first version of this screen did. */
+  /*
+    ONE COLUMN, the whole window. This was a two-pane layout with a
+    photographic panel on the left, borrowed from the sign-in page — but
+    signing in is a five-second act with two fields, and onboarding is a
+    working screen with lists of jobs, a map and a reporting tree. Giving 43%
+    of the window to a photograph squeezed the half doing the work, and the
+    steps that are really tables were the ones that paid for it.
+  */
   return (
-    <main className="grid h-svh overflow-hidden lg:grid-cols-[1fr_1.35fr]">
-      {/* The job, photographed. Narrower than the sign-in page's panel and on
-          the LEFT for the same reason it is there: this screen's content is
-          taller and more interactive, so the photograph is the anchor rather
-          than the headline. `hidden lg:block` keeps a phone from fetching
-          backgrounds it can never see. */}
-      <aside className="relative hidden overflow-hidden lg:block">
-        {/* Driven by the step, so the half of the screen that isn't a form
-            still responds when the person moves. The completion screen drops
-            back to the sign-in copy: at that point there is no step to talk
-            about, and the panel returning to what it says at the front door
-            closes the sequence where it started. */}
-        <AuthSlideshow slide={done ? undefined : STEP_SLIDES[stepKey]} />
-      </aside>
-
+    <main className="flex h-svh flex-col overflow-hidden">
       {/* `min-h-0` is what lets the middle section actually scroll: without it a
           flex child's implicit `min-height: auto` refuses to shrink below its
           content, the column grows past the grid cell, and the footer leaves

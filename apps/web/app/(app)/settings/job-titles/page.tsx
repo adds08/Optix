@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import { Info, Users } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { EmptyState, ErrorNote, TableSkeleton, PageHeader } from "@/components/sti/page";
+import { EmptyState, ErrorNote, PageHeader, TableSkeleton, TableWrap } from "@/components/sti/page";
+import { TableToolbar } from "@/components/sti/table-toolbar";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { EntityField } from "@/components/ui/entity-picker";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /*
   Job Titles — what somebody with this title can do when they sign in.
@@ -128,35 +129,44 @@ export default function JobTitlesPage() {
             </div>
           ) : null}
 
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+          {/* The shared toolbar, not a bare `<Input className="max-w-xs">` — that
+              was the only search field in the app with no icon, no card and a
+              different width. */}
+          <TableToolbar
+            searchValue={q}
+            onSearchChange={setQ}
             placeholder="Search job titles…"
-            className="max-w-xs"
+            ariaLabel="Search job titles"
           />
 
           {error ? <ErrorNote message={error} /> : null}
 
-          <div className="overflow-hidden rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40 text-left">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">Job title</th>
-                  <th className="px-4 py-2.5 font-medium">People</th>
-                  <th className="px-4 py-2.5 font-medium">Signs in as</th>
-                </tr>
-              </thead>
-              <tbody>
+          {/* Built on the primitive and `TableWrap`, like every other table in
+              the app. This one used to hand-roll its `<table>` and name its own
+              header colour, which is how it ended up a shade off the registers
+              and sitting on the page paper instead of the card the others use —
+              same primitive, different afternoon. Now the ruling, the header and
+              the surface all come from one place. */}
+          <TableWrap>
+            <Table stickyHeader>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-4 py-2.5">Job title</TableHead>
+                  <TableHead className="px-4 py-2.5">People</TableHead>
+                  <TableHead className="px-4 py-2.5">Signs in as</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {!rows.length ? (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-6 text-muted-foreground">
+                  <TableRow>
+                    <TableCell colSpan={3} className="px-4 py-6 text-muted-foreground">
                       Nothing matches “{q}”.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   rows.map((t) => (
-                    <tr key={t.id} className="border-b last:border-0">
-                      <td className="px-4 py-2.5">
+                    <TableRow key={t.id}>
+                      <TableCell className="px-4 py-2.5">
                         <span className="font-medium">{t.name}</span>
                         {t.code ? (
                           <span className="ml-2 text-xs text-muted-foreground">{t.code}</span>
@@ -166,9 +176,9 @@ export default function JobTitlesPage() {
                             Retired
                           </Badge>
                         ) : null}
-                      </td>
-                      <td className="tnum px-4 py-2.5 text-muted-foreground">{t.headcount}</td>
-                      <td className="px-4 py-2.5">
+                      </TableCell>
+                      <TableCell className="tnum px-4 py-2.5 text-muted-foreground">{t.headcount}</TableCell>
+                      <TableCell className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
                           <EntityField
                             value={t.defaultRoleId ?? ""}
@@ -186,13 +196,13 @@ export default function JobTitlesPage() {
                             <span className="text-xs text-muted-foreground">Saving…</span>
                           ) : null}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableWrap>
         </>
       )}
     </div>

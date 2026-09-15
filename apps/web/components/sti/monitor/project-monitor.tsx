@@ -411,7 +411,7 @@ export function ProjectMonitor() {
       <div className="relative flex min-h-0 flex-1">
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-hidden">
           <table className="sti-grid w-full table-fixed">
-            <thead className="sticky top-0 z-10 bg-card">
+            <thead className="sticky top-0 z-10">
               <tr className="border-b">
                 <Th className="w-[9rem]">Tag</Th>
                 <Th>Tool</Th>

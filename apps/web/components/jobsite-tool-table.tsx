@@ -229,7 +229,7 @@ export function ToolTable({
           muted surface and a stronger bottom rule, which is the same treatment
           in both modes because both tokens move together.
         */}
-        <thead className="bg-muted">
+        <thead>
           {/* On the cells, not on the row: the table is `border-collapse:
               separate` (see `.sti-grid`), under which a border declared on a
               `<tr>` does not paint at all. This is the header's deliberate

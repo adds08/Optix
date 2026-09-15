@@ -624,10 +624,10 @@ export function DataTable<T>({
     <div className="flex flex-col gap-3">
       {/* toolbar */}
       {showToolbar ? (
-      /* DataTable owns the card here (the toolbar row itself is a bare
-         TableToolbar — see its comment). The filters / columns / export and any
-         page `toolbarExtra` all land inside one strip, right-aligned. */
-      <div className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-2">
+      /* The card strip belongs to `TableToolbar` now (see its comment). This
+         used to draw its own and re-type the same class string as three other
+         pages. The filters / columns / export and any page `toolbarExtra` all
+         land inside that one strip, right-aligned. */
       <TableToolbar searchValue={searchText} onSearchChange={changeSearch} placeholder={searchPlaceholder} className="w-full">
         {filterControls ? (
           <FilterSheet
@@ -672,7 +672,6 @@ export function DataTable<T>({
           </Button>
         ) : null}
       </TableToolbar>
-      </div>
       ) : null}
 
       {/* One bordered box: the pager strip, then the table under it.
@@ -721,7 +720,7 @@ export function DataTable<T>({
         <Table className="w-full table-fixed" style={{ minWidth }}>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
-              <TableRow ref={headRowRef} key={hg.id} className="bg-muted/50 hover:bg-muted/50">
+              <TableRow ref={headRowRef} key={hg.id}>
                 {hg.headers.map((h, i) => {
                   const meta = (h.column.columnDef.meta as { numeric?: boolean; width?: string; stickyRight?: boolean } | undefined) ?? {};
                   const numeric = meta.numeric;

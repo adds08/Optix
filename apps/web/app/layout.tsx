@@ -55,12 +55,16 @@ export const metadata: Metadata = {
 const BOOT_THEME = `
 try {
   var r = document.documentElement;
-  /* Dark is the product's mode, not the OS's. The design is dark-first — light
-     is a supported second theme, not the baseline — so an unset preference means
-     dark, and only an explicit 'light' turns it off. Reading prefers-color-scheme
-     here meant a laptop on the default light OS setting opened the app in the
-     secondary theme and made it look like the wrong product. */
-  if (localStorage.getItem('sti-theme') !== 'light') {
+  /* LIGHT is the baseline, dark is the supported second theme: an unset
+     preference means light, and only an explicit 'dark' turns it on.
+
+     Deliberately NOT reading prefers-color-scheme. Following the OS would mean
+     two people on the same job open the same screen in two different palettes
+     and describe it to each other in colours that do not match — and it would
+     make the first frame depend on a setting the product never chose. One
+     default, changed in Settings, is the version that can be supported over
+     a phone. */
+  if (localStorage.getItem('sti-theme') === 'dark') {
     r.classList.add('dark');
   }
   var a = JSON.parse(localStorage.getItem('sti-appearance') || 'null');

@@ -357,7 +357,18 @@ export const userRouter = router({
         if (employee?.hrFlaggedInactiveAt || employee?.employmentStatus !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Review this person's inactive status before inviting them." });
         const linked = await ctx.db.query.user.findFirst({ where: and(eq(schema.user.employeeId, input.employeeId), eq(schema.user.tenantId, tid)), columns: { id: true } });
         if (linked) throw new TRPCError({ code: "CONFLICT", message: "This employee already has an account. Resend their invitation or reset their password." });
-        input.roleId = employee?.roleId ?? input.roleId;
+        /* The JOB TITLE decides, not the caller. `employee.roleId` where an
+           admin set one, otherwise the title's mapping, otherwise nothing. A
+           client-supplied `roleId` is never trusted here: that is how two
+           holders of the same title end up with different permissions. */
+        const [titleRole] = employee?.companyRoleId
+          ? await ctx.db
+              .select({ roleId: schema.companyRole.defaultRoleId })
+              .from(schema.companyRole)
+              .where(and(eq(schema.companyRole.id, employee.companyRoleId), eq(schema.companyRole.tenantId, tid)))
+              .limit(1)
+          : [];
+        input.roleId = employee?.roleId ?? titleRole?.roleId ?? undefined;
       }
 
       if (input.roleId) await requireTenantRole(ctx.db, tid, input.roleId);
@@ -465,7 +476,18 @@ export const userRouter = router({
         if (employee?.hrFlaggedInactiveAt || employee?.employmentStatus !== "active") throw new TRPCError({ code: "BAD_REQUEST", message: "Review this person's inactive status before inviting them." });
         const linked = await ctx.db.query.user.findFirst({ where: and(eq(schema.user.employeeId, input.employeeId), eq(schema.user.tenantId, tid)), columns: { id: true } });
         if (linked) throw new TRPCError({ code: "CONFLICT", message: "This employee already has an account. Resend their invitation or reset their password." });
-        input.roleId = employee?.roleId ?? input.roleId;
+        /* The JOB TITLE decides, not the caller. `employee.roleId` where an
+           admin set one, otherwise the title's mapping, otherwise nothing. A
+           client-supplied `roleId` is never trusted here: that is how two
+           holders of the same title end up with different permissions. */
+        const [titleRole] = employee?.companyRoleId
+          ? await ctx.db
+              .select({ roleId: schema.companyRole.defaultRoleId })
+              .from(schema.companyRole)
+              .where(and(eq(schema.companyRole.id, employee.companyRoleId), eq(schema.companyRole.tenantId, tid)))
+              .limit(1)
+          : [];
+        input.roleId = employee?.roleId ?? titleRole?.roleId ?? undefined;
       }
 
       /* Fetches the name in the same query `requireTenantRole` elsewhere uses

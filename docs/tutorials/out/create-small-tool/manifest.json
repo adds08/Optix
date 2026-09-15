@@ -1,0 +1,179 @@
+{
+  "flow": "create-small-tool",
+  "title": "Create a small tool, from sign-in to the register",
+  "startBase": "http://localhost:3100",
+  "duration": 47.73,
+  "videoTrim": 1.283,
+  "cueShift": -1.379,
+  "cues": [
+    {
+      "t": 0,
+      "text": "Sign in with the account you use at the yard desk.",
+      "badge": "Step 1",
+      "bbox": {
+        "x": 1085,
+        "y": 481,
+        "w": 364,
+        "h": 34
+      },
+      "still": "stills/01-sign-in-with-the-account-you-use-at-the-yard-des.png",
+      "end": 3.2586666666666666
+    },
+    {
+      "t": 3.2586666666666666,
+      "text": "And its password — accounts are personal, nobody borrows one.",
+      "badge": "Step 2",
+      "bbox": {
+        "x": 1085,
+        "y": 557,
+        "w": 364,
+        "h": 34
+      },
+      "still": "stills/02-and-its-password-accounts-are-personal-nobody-bo.png",
+      "end": 6.1386666666666665
+    },
+    {
+      "t": 6.1386666666666665,
+      "text": "Sign in.",
+      "badge": "Step 3",
+      "bbox": {
+        "x": 1085,
+        "y": 611,
+        "w": 364,
+        "h": 34
+      },
+      "still": "stills/03-sign-in.png",
+      "end": 11.773666666666667
+    },
+    {
+      "t": 11.773666666666667,
+      "text": "Small tools lives under Equipment — one register for every tool the company owns.",
+      "badge": "Step 4",
+      "bbox": {
+        "x": 8,
+        "y": 155,
+        "w": 255,
+        "h": 32
+      },
+      "still": "stills/04-small-tools-lives-under-equipment-one-register-f.png",
+      "end": 14.165666666666667
+    },
+    {
+      "t": 14.165666666666667,
+      "text": "New tool. What you add here is in the register immediately — no import, no waiting.",
+      "badge": "Step 5",
+      "bbox": {
+        "x": 1357,
+        "y": 97,
+        "w": 104,
+        "h": 34
+      },
+      "still": "stills/05-new-tool-what-you-add-here-is-in-the-register-im.png",
+      "end": 17.32266666666667
+    },
+    {
+      "t": 17.32266666666667,
+      "text": "A description is the one thing the form insists on — make or description, either is enough.",
+      "badge": "Step 6",
+      "bbox": {
+        "x": 569,
+        "y": 353,
+        "w": 462,
+        "h": 34
+      },
+      "still": "stills/06-a-description-is-the-one-thing-the-form-insists-.png",
+      "end": 20.29266666666667
+    },
+    {
+      "t": 20.29266666666667,
+      "text": "The make, so the register reads like the shelf it came off.",
+      "badge": "Step 7",
+      "bbox": {
+        "x": 569,
+        "y": 209,
+        "w": 462,
+        "h": 34
+      },
+      "still": "stills/07-the-make-so-the-register-reads-like-the-shelf-it.png",
+      "end": 22.608666666666664
+    },
+    {
+      "t": 22.608666666666664,
+      "text": "And the model number — this is what the register shows beside the code, so the desk can tell two Bosch tools apart.",
+      "badge": "Step 8",
+      "bbox": {
+        "x": 569,
+        "y": 281,
+        "w": 462,
+        "h": 34
+      },
+      "still": "stills/08-and-the-model-number-this-is-what-the-register-s.png",
+      "end": 25.491666666666667
+    },
+    {
+      "t": 25.491666666666667,
+      "text": "Leave the code blank and Optix mints the next one. Nobody has to invent an identifier, and no two tools can share one.",
+      "badge": "Step 9",
+      "bbox": {
+        "x": 569,
+        "y": 97,
+        "w": 462,
+        "h": 34
+      },
+      "still": "stills/09-leave-the-code-blank-and-optix-mints-the-next-on.png",
+      "end": 28.17066666666667
+    },
+    {
+      "t": 28.17066666666667,
+      "text": "Create.",
+      "badge": "Step 10",
+      "bbox": {
+        "x": 955,
+        "y": 947,
+        "w": 76,
+        "h": 34
+      },
+      "still": "stills/10-create.png",
+      "end": 34.333666666666666
+    },
+    {
+      "t": 34.333666666666666,
+      "text": "There it is: TOOL-00758. Available, held by nobody, and no job paying for it — the three things that add up to \"in the yard\".",
+      "badge": "Step 11",
+      "bbox": {
+        "x": 305,
+        "y": 235,
+        "w": 1548,
+        "h": 40
+      },
+      "still": "stills/11-there-it-is-tool-00758-available-held-by-nobody-.png",
+      "end": 39.074666666666666
+    },
+    {
+      "t": 39.074666666666666,
+      "text": "Tools by Jobsite splits into Projects, Yard and Unassigned. The Yard counts tools recorded at a warehouse location.",
+      "badge": "Step 12",
+      "bbox": {
+        "x": 1116,
+        "y": 188,
+        "w": 72,
+        "h": 34
+      },
+      "still": "stills/12-tools-by-jobsite-splits-into-projects-yard-and-u.png",
+      "end": 43.279666666666664
+    },
+    {
+      "t": 43.279666666666664,
+      "text": "And it is empty — no warehouse location has been recorded yet, so nothing is counted here. \"In the yard\" on the register means nobody holds it; it does not mean a place has been set.",
+      "badge": "Step 13",
+      "bbox": {
+        "x": 398,
+        "y": 295,
+        "w": 90,
+        "h": 26
+      },
+      "still": "stills/13-and-it-is-empty-no-warehouse-location-has-been-r.png",
+      "end": 46.279666666666664
+    }
+  ]
+}

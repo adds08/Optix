@@ -201,12 +201,17 @@ export function TableSkeleton({ rows = 6, cols = 5 }: { rows?: number; cols?: nu
   );
 }
 
-/* Wide content scrolls horizontally inside its own container — the page body
-   never scrolls sideways. Tables flow with the page (bounded by pagination),
-   never in their own vertical scrollbox. */
+/* The surface a table sits on — and NOTHING ELSE.
+   Horizontal scrolling is the `Table` primitive's job (`sti-table-scroll` on its
+   own container, unless `stickyHeader` opts out of it). This wrapper used to
+   carry `sti-table-scroll overflow-x-auto` as well, which made it a second scroll
+   container stacked inside the primitive's — and the nearest scroll container is
+   what a `position: sticky` header binds to, so every sticky header written into
+   a `TableWrap` sat inert instead of following the page. One owner for the scroll
+   decision; this is not it. */
 export function TableWrap({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("sti-table-scroll w-full overflow-x-auto rounded-md border bg-card", className)}>{children}</div>
+    <div className={cn("w-full rounded-md border bg-card", className)}>{children}</div>
   );
 }
 

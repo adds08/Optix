@@ -208,6 +208,7 @@ export default function PeoplePage() {
         header: "Access Role",
         accessorFn: (e) => e.roleName ?? "",
         width: "9rem",
+        formatValue: humanize,
         cell: (e) => (e.roleName ? humanize(e.roleName) : <span className="text-muted-foreground">—</span>),
       }),
       /* The HR fact, not the login role above. This is `jobTitleName` as
@@ -253,7 +254,7 @@ export default function PeoplePage() {
           return <span className={a.muted ? "text-muted-foreground" : undefined}>{a.label}</span>;
         },
       }),
-      col<EmployeeRow>({ header: "Status", accessorFn: (e) => e.employmentStatus, width: "7rem", cell: (e) => <StatusPill status={e.employmentStatus} /> }),
+      col<EmployeeRow>({ header: "Status", accessorFn: (e) => e.employmentStatus, width: "7rem", formatValue: humanize, cell: (e) => <StatusPill status={e.employmentStatus} /> }),
       /* A SOURCE SYSTEM's opinion, not Optix's own — deliberately a separate
          column from Status above rather than folded into it. BambooHR can say
          somebody is gone while Optix's own Status stays whatever an admin last

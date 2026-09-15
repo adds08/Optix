@@ -606,6 +606,10 @@ export default function JobsitesPage() {
                 this row now sit on their own summary line below, the same way
                 the register toolbars keep numbers out of the button row. */}
             <TableToolbar
+              /* This board already owns its container — a `flex-col` card holding
+                 the toolbar row AND the summary line under it — so it opts out of
+                 the strip `TableToolbar` now draws by default. */
+              card={false}
               searchValue={q}
               onSearchChange={setQ}
               placeholder="Search everything — job, foreman, truck, trailer, serial or tool…"
@@ -673,9 +677,9 @@ export default function JobsitesPage() {
                     placeholder="Any"
                     widthClass="w-full"
                     options={[
-                      { value: "no_crew", label: "Job with no crew" },
-                      { value: "no_truck", label: "Crew without a truck" },
-                      { value: "no_trailer", label: "Crew without a trailer" },
+                      { value: "no_crew", label: "Job with no team" },
+                      { value: "no_truck", label: "Team without a truck" },
+                      { value: "no_trailer", label: "Team without a trailer" },
                     ]}
                   />
                 </FilterField>
@@ -1102,7 +1106,7 @@ export default function JobsitesPage() {
                             onClick={() => setPicker({ kind: "crew", projectId: card.id })}
                             className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-muted-foreground/40 px-4 py-4 text-left text-sm font-medium text-primary hover:border-primary/50"
                           >
-                            <Plus className="size-4" aria-hidden /> No crew on this job yet — add a foreman with a truck or trailer.
+                            <Plus className="size-4" aria-hidden /> No team on this job yet — add a foreman with a truck or trailer.
                           </button>
                         </div>
                       ) : card.id === NOJOB && !card.crews.length ? (

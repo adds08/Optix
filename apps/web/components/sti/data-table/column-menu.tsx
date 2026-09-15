@@ -121,6 +121,7 @@ function MenuBody<T>({
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
+  const formatValue = (column.columnDef.meta as { formatValue?: (v: string) => string } | undefined)?.formatValue;
   const sorted = column.getIsSorted();
   const selected = (column.getFilterValue() as string[] | undefined) ?? [];
   const selectedSet = new Set(selected);
@@ -145,8 +146,13 @@ function MenuBody<T>({
      the empty selection — otherwise the click reads as "show only this", which
      is the opposite of what the box says. */
   const none = selected.length === 0;
+  /* Searches what the list SHOWS, not what it filters on: somebody typing
+     "office admin" into a list reading "Office Admin" should find it. */
   const shown = q.trim()
-    ? values.filter((v) => (v.value || BLANK_LABEL).toLowerCase().includes(q.trim().toLowerCase()))
+    ? values.filter((v) => {
+        const label = v.value ? (formatValue ? formatValue(v.value) : v.value) : BLANK_LABEL;
+        return label.toLowerCase().includes(q.trim().toLowerCase());
+      })
     : values;
 
   const commit = (next: string[]) => {
@@ -257,7 +263,7 @@ function MenuBody<T>({
                     onChange={() => toggle(v.value)}
                   />
                   <span className={cn("min-w-0 flex-1 truncate", !v.value && "text-muted-foreground")}>
-                    {v.value || BLANK_LABEL}
+                    {v.value ? (formatValue ? formatValue(v.value) : v.value) : BLANK_LABEL}
                   </span>
                   <span className="tnum shrink-0 text-xs text-muted-foreground">{v.count}</span>
                 </label>

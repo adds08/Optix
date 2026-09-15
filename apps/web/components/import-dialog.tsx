@@ -22,6 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { TableWrap } from "@/components/sti/page";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /*
   Bulk import for one entity: template → file → preview → commit.
@@ -283,44 +285,44 @@ function ImportDialog({ entity, onClose }: { entity: ImportEntity; onClose: () =
           ) : null}
 
           {rows.length ? (
-            <div className="sti-table-scroll max-h-80 overflow-auto rounded-md border">
-              <table className="sti-grid w-full text-sm">
-                <thead className="sticky top-0 bg-card">
-                  <tr className="border-b text-left">
-                    <th className="px-3 py-2 font-medium">Row</th>
+            <div className="max-h-80 overflow-auto rounded-md border bg-card">
+              <Table stickyHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="px-3 py-2">Row</TableHead>
                     {spec.columns.map((c) => (
-                      <th key={c.header} className="px-3 py-2 font-medium whitespace-nowrap">
+                      <TableHead key={c.header} className="px-3 py-2 whitespace-nowrap">
                         {c.header}
-                      </th>
+                      </TableHead>
                     ))}
-                    <th className="px-3 py-2 font-medium">Problem</th>
-                  </tr>
-                </thead>
-                <tbody>
+                    <TableHead className="px-3 py-2">Problem</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {rows.map((r) => (
-                    <tr
+                    <TableRow
                       key={r.index}
-                      className={cn("border-b last:border-0", r.errors.length && "bg-destructive/5")}
+                      className={cn(r.errors.length && "bg-destructive/5")}
                     >
-                      <td className="px-3 py-2 text-muted-foreground">{r.index + 2}</td>
+                      <TableCell className="px-3 py-2 text-muted-foreground">{r.index + 2}</TableCell>
                       {spec.columns.map((c) => {
                         const bad = r.errors.some((e) => e.column === c.header);
                         return (
-                          <td
+                          <TableCell
                             key={c.header}
                             className={cn("px-3 py-2 whitespace-nowrap", bad && "text-destructive")}
                           >
                             {r.values[c.header] || <span className="text-muted-foreground">—</span>}
-                          </td>
+                          </TableCell>
                         );
                       })}
-                      <td className="px-3 py-2 text-destructive">
+                      <TableCell className="px-3 py-2 text-destructive">
                         {r.errors.map((e) => `${e.column}: ${e.message}`).join("; ")}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           ) : null}
 
@@ -362,32 +364,33 @@ async function sheetToMatrix(file: File): Promise<string[][]> {
 
 /* Shown before a file is chosen: what the template expects, so nobody has to
    open the CSV to find out which columns are mandatory. */
-function ColumnGuide({ entity }: { entity: ImportEntity }) {  const spec = IMPORT_SPECS[entity];
+function ColumnGuide({ entity }: { entity: ImportEntity }) {
+  const spec = IMPORT_SPECS[entity];
   return (
-    <div className="rounded-md border">
-      <table className="sti-grid w-full text-sm">
-        <thead>
-          <tr className="border-b text-left">
-            <th className="px-3 py-2 font-medium">Column</th>
-            <th className="px-3 py-2 font-medium">Needs</th>
-            <th className="px-3 py-2 font-medium">Example</th>
-          </tr>
-        </thead>
-        <tbody>
+    <TableWrap>
+      <Table stickyHeader>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="px-3 py-2">Column</TableHead>
+            <TableHead className="px-3 py-2">Needs</TableHead>
+            <TableHead className="px-3 py-2">Example</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {spec.columns.map((c) => (
-            <tr key={c.header} className="border-b last:border-0">
-              <td className="px-3 py-2 font-mono text-xs">
+            <TableRow key={c.header}>
+              <TableCell className="px-3 py-2 font-mono text-xs">
                 {c.header}
                 {c.required ? <span className="text-destructive"> *</span> : null}
-              </td>
-              <td className="px-3 py-2 text-muted-foreground">
+              </TableCell>
+              <TableCell className="px-3 py-2 text-muted-foreground">
                 {c.hint ?? (c.values ? c.values.join(" / ") : c.type)}
-              </td>
-              <td className="px-3 py-2 text-muted-foreground">{c.example}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="px-3 py-2 text-muted-foreground">{c.example}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </TableWrap>
   );
 }

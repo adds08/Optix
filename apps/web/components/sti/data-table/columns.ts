@@ -23,6 +23,12 @@ export function col<T>(
        actions menu — not a general "freeze from the right" feature; see the
        comment on `stickyRightProps` in data-table.tsx. */
     stickyRight?: boolean;
+    /* How a raw value reads in the column menu's tick list. The list is built
+       from `accessorFn` output because that is what the filter matches on, so
+       a column storing `office_admin` offers `office_admin` unless it says
+       here how to spell it. Display only — filtering still uses the raw
+       value. */
+    formatValue?: (value: string) => string;
   },
 ): ColumnDef<T> {
   const id = opts.id ?? (opts.header || `col_${Math.random().toString(36).slice(2, 8)}`);
@@ -37,6 +43,7 @@ export function col<T>(
       numeric: opts.numeric,
       width: opts.width,
       stickyRight: opts.stickyRight,
+      formatValue: opts.formatValue,
     } as never,
   };
 }

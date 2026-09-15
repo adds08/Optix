@@ -119,7 +119,7 @@ export function CrewStep() {
                           ? "your in-charge"
                           : tier.hops > 1
                             ? `${tier.hops} below you`
-                            : "your crew"}
+                            : "your team"}
                       </span>
                     </span>
 

@@ -193,7 +193,7 @@ function SyncResultDialog({
 
   return (
     <Dialog open onOpenChange={(v) => (!v ? onClose() : undefined)}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
             {run?.mode === "apply" ? "Sync from BambooHR" : "Preview — BambooHR"}
